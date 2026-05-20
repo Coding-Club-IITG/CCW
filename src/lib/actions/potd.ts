@@ -416,7 +416,23 @@ export async function getPotdLeaderboard(
         totalSolved: { $sum: 1 },
       },
     },
-    { $sort: { totalPoints: -1, totalSolved: -1 } },
+    // Join cfusers BEFORE sorting so we can use currentStreak as tiebreaker
+    {
+      $lookup: {
+        from: "cfusers",
+        localField: "_id",
+        foreignField: "userId",
+        as: "cfUser",
+      },
+    },
+    { $unwind: { path: "$cfUser", preserveNullAndEmptyArrays: true } },
+    {
+      $addFields: {
+        currentStreak: { $ifNull: ["$cfUser.potdCurrentStreak", 0] },
+      },
+    },
+    // Primary: points DESC. Tiebreaker: streak DESC (no time/skill bias)
+    { $sort: { totalPoints: -1, currentStreak: -1 } },
     { $limit: 50 },
     {
       $lookup: {
@@ -428,15 +444,6 @@ export async function getPotdLeaderboard(
     },
     { $unwind: "$user" },
     {
-      $lookup: {
-        from: "cfusers",
-        localField: "_id",
-        foreignField: "userId",
-        as: "cfUser",
-      },
-    },
-    { $unwind: { path: "$cfUser", preserveNullAndEmptyArrays: true } },
-    {
       $project: {
         _id: 0,
         userId: { $toString: "$_id" },
@@ -444,7 +451,7 @@ export async function getPotdLeaderboard(
         codeforcesId: "$user.codeforcesId",
         totalPoints: 1,
         totalSolved: 1,
-        currentStreak: { $ifNull: ["$cfUser.potdCurrentStreak", 0] },
+        currentStreak: 1,
       },
     },
   ]);
@@ -461,6 +468,7 @@ export type StreakEntry = {
   currentStreak: number;
   longestStreak: number;
   totalSolved: number;
+  totalPoints: number;
 };
 
 export async function getStreakLeaderboard(): Promise<{
@@ -480,9 +488,11 @@ export async function getStreakLeaderboard(): Promise<{
       potdCurrentStreak: 1,
       potdLongestStreak: 1,
       potdTotalSolved: 1,
+      potdTotalPoints: 1,
     },
   )
-    .sort({ potdCurrentStreak: -1, potdLongestStreak: -1 })
+    // Primary: streak DESC. Tiebreaker: totalPoints DESC (no time/skill bias)
+    .sort({ potdCurrentStreak: -1, potdTotalPoints: -1, potdLongestStreak: -1 })
     .limit(50)
     .populate("userId", "name codeforcesId");
 
@@ -495,6 +505,7 @@ export async function getStreakLeaderboard(): Promise<{
       currentStreak: cu.potdCurrentStreak ?? 0,
       longestStreak: cu.potdLongestStreak ?? 0,
       totalSolved: cu.potdTotalSolved ?? 0,
+      totalPoints: cu.potdTotalPoints ?? 0,
     };
   });
 

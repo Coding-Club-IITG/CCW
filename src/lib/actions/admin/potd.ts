@@ -99,7 +99,12 @@ export async function setDailyProblem(
     }
   }
 
-  // Fetch CF problem metadata (cached 24h)
+  // Fetch CF problem metadata.
+  // We use `problemset.problems` (not `contest.standings`) because `contest.standings`
+  // returns HTTP 400 for old Div 2 rounds (e.g. #158) and all Educational rounds —
+  // making it impossible to set problems from those contests. `problemset.problems`
+  // covers all ~10k public CF problems. The full response is cached in Redis for 24h
+  // under `cf:problemset:problems:v1` to avoid hitting CF on every admin action.
   let problemName: string;
   let problemRating: number;
   let problemTags: string[];

@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import dbConnect from "@/lib/mongodb";
 import { getClient } from "@/lib/mongodb";
 import User from "@/models/User";
+import CFUser from "@/models/CFUser";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/utils";
 import { isAdmin, cleanUserRoles } from "@/lib/roles";
@@ -210,11 +211,18 @@ export async function updateProfile(data: {
     if (!session) return { success: false as const, error: "Unauthorized" };
 
     await dbConnect();
+
+    // Check if the CF handle is being changed — if so, reset verification
+    const currentUser = await User.findById(session.user.id).select("codeforcesId").lean() as any;
+    const newHandle = data.codeforcesId?.trim() || "";
+    const oldHandle = currentUser?.codeforcesId?.trim() || "";
+    const handleChanged = newHandle !== oldHandle;
+
     const updatedUser = await User.findByIdAndUpdate(
       session.user.id,
       {
         name: data.name,
-        codeforcesId: data.codeforcesId || "",
+        codeforcesId: newHandle,
         githubId: data.githubId || "",
         bio: data.bio || "",
         phoneNumber: data.phoneNumber || "",
@@ -222,11 +230,21 @@ export async function updateProfile(data: {
       { new: true },
     );
 
+    // If the handle changed, revoke the old verification so the new handle must be re-verified
+    if (handleChanged) {
+      await CFUser.findOneAndUpdate(
+        { userId: session.user.id },
+        { $set: { cfVerified: false, cfVerificationToken: "", handle: newHandle } },
+      );
+      logger.info(`User ${session.user.email} changed CF handle from "${oldHandle}" to "${newHandle}" — verification reset`);
+    }
+
     logger.info(`User ${session.user.email} updated their profile`);
     revalidatePath("/internal/dashboard");
     return {
       success: true as const,
       user: JSON.parse(JSON.stringify(updatedUser)),
+      handleChanged,
     };
   } catch (err) {
     logger.error("[user.ts] updateProfile error:", err);

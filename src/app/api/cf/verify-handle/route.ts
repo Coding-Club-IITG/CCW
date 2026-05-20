@@ -18,14 +18,6 @@ export async function POST(req: Request) {
 
     await dbConnect();
 
-    const userDoc = await User.findById(session.user.id);
-    if (!userDoc || !userDoc.codeforcesId) {
-      return NextResponse.json(
-        { error: "Codeforces ID not set on profile." },
-        { status: 400 },
-      );
-    }
-
     const cfUserDoc = await CFUser.findOne({ userId: session.user.id });
     if (!cfUserDoc?.cfVerificationToken || cfUserDoc.cfVerified) {
       return NextResponse.json(
@@ -34,10 +26,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const handle = userDoc.codeforcesId;
+    // Use the handle stored in CFUser — this is always the handle the token
+    // was generated for, regardless of what is currently saved in User.codeforcesId
+    const handle = cfUserDoc.handle;
+    if (!handle) {
+      return NextResponse.json(
+        { error: "No handle pending verification." },
+        { status: 400 },
+      );
+    }
 
     // Rate limit: maximum 1 verify attempt per 60 seconds per user
-    const redisKey = `cf:verify:lock:${userDoc._id.toString()}`;
+    const redisKey = `cf:verify:lock:${session.user.id}`;
     const isLocked = await redis.get(redisKey);
     if (isLocked) {
       const ttl = await redis.ttl(redisKey);
@@ -89,6 +89,11 @@ export async function POST(req: Request) {
       cfUserDoc.cfVerificationToken = "";
       cfUserDoc.cfVerificationRequestedAt = null;
       await cfUserDoc.save();
+
+      // Commit the verified handle to User.codeforcesId — this is the only
+      // place a handle change is persisted without an explicit "Save Profile"
+      await User.findByIdAndUpdate(session.user.id, { codeforcesId: handle });
+
       return NextResponse.json({
         success: true,
         message: "Handle verified successfully.",

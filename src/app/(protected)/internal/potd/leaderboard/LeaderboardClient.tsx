@@ -58,50 +58,61 @@ export default function LeaderboardClient({
               </tr>
             </thead>
             <tbody>
-              {data.map((user, index) => {
-                const rank = index + 1;
-                let rankClass = "";
-                if (rank === 1) rankClass = styles.top1;
-                if (rank === 2) rankClass = styles.top2;
-                if (rank === 3) rankClass = styles.top3;
+              {(() => {
+                // Dense ranking: same rank if tied on both points AND streak
+                const ranks: number[] = [];
+                data.forEach((user, i) => {
+                  if (i === 0) { ranks.push(1); return; }
+                  const prev = data[i - 1];
+                  const tied = prev.totalPoints === user.totalPoints &&
+                    prev.currentStreak === user.currentStreak;
+                  ranks.push(tied ? ranks[i - 1] : i + 1);
+                });
+                return data.map((user, index) => {
+                  const rank = ranks[index];
+                  let rankClass = "";
+                  if (rank === 1) rankClass = styles.top1;
+                  if (rank === 2) rankClass = styles.top2;
+                  if (rank === 3) rankClass = styles.top3;
 
-                return (
-                  <tr key={user.userId}>
-                    <td>
-                      <span
-                        className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
-                      >
-                        {rank}
-                      </span>
-                    </td>
-                    <td>
-                      <div className={styles.userInfo}>
-                        <span className={styles.userName}>{user.name}</span>
-                        {user.codeforcesId && (
-                          <span className={styles.userHandle}>
-                            @{user.codeforcesId}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={styles.points}>
-                        {user.totalPoints.toLocaleString()}
-                      </span>
-                    </td>
-                    <td>
-                      {user.currentStreak > 0 ? (
-                        <span className={styles.streak}>
-                          🔥 {user.currentStreak}
+                  return (
+                    <tr key={user.userId}>
+                      <td>
+                        <span
+                          className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
+                        >
+                          {rank}
                         </span>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className={styles.subText}>{user.totalSolved}</td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td>
+                        <div className={styles.userInfo}>
+                          <span className={styles.userName}>{user.name}</span>
+                          {user.codeforcesId && (
+                            <span className={styles.userHandle}>
+                              @{user.codeforcesId}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={styles.points}>
+                          {user.totalPoints.toLocaleString()}
+                        </span>
+                      </td>
+                      <td>
+                        {user.currentStreak > 0 ? (
+                          <span className={styles.streak}>
+                            🔥 {user.currentStreak}
+                          </span>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className={styles.subText}>{user.totalSolved}</td>
+                    </tr>
+                  );
+                });
+              })()}
             </tbody>
           </table>
         )}

@@ -16,7 +16,9 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
   const sortedData = [...initialData].sort((a, b) => {
     const valA = sortParam === "current" ? a.currentStreak : a.longestStreak;
     const valB = sortParam === "current" ? b.currentStreak : b.longestStreak;
-    return valB - valA;
+    if (valB !== valA) return valB - valA;
+    // Tiebreaker: total POTD points DESC
+    return b.totalPoints - a.totalPoints;
   });
 
   return (
@@ -78,14 +80,25 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
               </tr>
             </thead>
             <tbody>
-              {sortedData.map((user, index) => {
-                const rank = index + 1;
-                let rankClass = "";
-                if (rank === 1) rankClass = styles.top1;
-                if (rank === 2) rankClass = styles.top2;
-                if (rank === 3) rankClass = styles.top3;
+              {(() => {
+                // Dense ranking: same rank if tied on both the active sort key AND totalPoints
+                const ranks: number[] = [];
+                sortedData.forEach((user, i) => {
+                  if (i === 0) { ranks.push(1); return; }
+                  const prev = sortedData[i - 1];
+                  const prevVal = sortParam === "current" ? prev.currentStreak : prev.longestStreak;
+                  const currVal = sortParam === "current" ? user.currentStreak : user.longestStreak;
+                  const tied = prevVal === currVal && prev.totalPoints === user.totalPoints;
+                  ranks.push(tied ? ranks[i - 1] : i + 1);
+                });
+                return sortedData.map((user, index) => {
+                  const rank = ranks[index];
+                  let rankClass = "";
+                  if (rank === 1) rankClass = styles.top1;
+                  if (rank === 2) rankClass = styles.top2;
+                  if (rank === 3) rankClass = styles.top3;
 
-                return (
+                  return (
                   <tr key={user.userId}>
                     <td>
                       <span
@@ -120,8 +133,9 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
                       </span>
                     </td>
                   </tr>
-                );
-              })}
+                  );
+                });
+              })()}
             </tbody>
           </table>
         </div>
