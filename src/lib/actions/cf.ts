@@ -2,7 +2,6 @@
 
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import User from "@/models/User";
 import CFUser from "@/models/CFUser";
 import { dbConnect } from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
@@ -28,10 +27,9 @@ export async function requestHandleVerification(
     await dbConnect();
     const token = generateToken();
 
-    await User.findByIdAndUpdate(session.user.id, {
-      codeforcesId: handle,
-    });
-
+    // Only update CFUser — do NOT save to User.codeforcesId here.
+    // The handle is committed to User either on explicit "Save Profile" or after
+    // successful verification, keeping both paths consistent.
     // Upsert a CFUser record to hold the pending verification state
     await CFUser.findOneAndUpdate(
       { userId: session.user.id },

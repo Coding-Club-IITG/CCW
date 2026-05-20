@@ -28,6 +28,8 @@ export default function ProfileForm() {
   const [cfVerified, setCfVerified] = useState(false);
   // Tracks the last-saved handle so we can detect unsaved edits
   const [savedCodeforcesId, setSavedCodeforcesId] = useState("");
+  // Tracks which handle the current pending token was generated for
+  const [tokenHandle, setTokenHandle] = useState("");
 
   useEffect(() => {
     if (!session?.user) return;
@@ -46,6 +48,8 @@ export default function ProfileForm() {
       if (res.ok) {
         setCfVerified(res.cfVerified ?? false);
         setCfVerificationToken(res.cfVerificationToken ?? "");
+        // tokenHandle = the handle the pending token belongs to
+        setTokenHandle(res.cfHandle ?? "");
       }
     });
   }, [session]);
@@ -65,6 +69,10 @@ export default function ProfileForm() {
       }
       setCfVerified(true);
       setCfVerificationToken("");
+      setTokenHandle("");
+      // Verification saved the handle to User.codeforcesId on the backend —
+      // advance savedCodeforcesId so the verified badge appears immediately
+      setSavedCodeforcesId(formData.codeforcesId);
       setMessage({ type: "success", text: "Codeforces handle verified!" });
     } catch {
       setMessage({ type: "error", text: "Network error. Please try again." });
@@ -85,6 +93,11 @@ export default function ProfileForm() {
       });
     } else {
       setCfVerificationToken(result.token!);
+      // Record which handle this token was generated for;
+      // the token display + verify button only appear when input matches this
+      setTokenHandle(formData.codeforcesId);
+      // Backend reset cfVerified on the CFUser record
+      setCfVerified(false);
       setMessage({
         type: "success",
         text: "Token generated. Please update your CF profile.",
@@ -196,9 +209,11 @@ export default function ProfileForm() {
               >
                 <span style={{ fontSize: "0.95rem" }}>
                   <strong>Unverified Handle.</strong>
-                  {!cfVerificationToken && " Generate a secure token to begin."}
+                  {(!cfVerificationToken || formData.codeforcesId !== tokenHandle) &&
+                    " Generate a secure token to begin."}
                 </span>
-                {!cfVerificationToken && (
+                {/* Show Get Token when: no token yet, or input drifted from the handle the token is for */}
+                {(!cfVerificationToken || formData.codeforcesId !== tokenHandle) && (
                   <button
                     type="button"
                     onClick={handleRequestToken}
@@ -218,7 +233,9 @@ export default function ProfileForm() {
                 )}
               </div>
 
-              {cfVerificationToken && (
+              {/* Only show the token steps + verify button when the input matches the handle
+                  the token was generated for — prevents verifying the wrong handle */}
+              {cfVerificationToken && formData.codeforcesId === tokenHandle && (
                 <div
                   style={{
                     background: "rgba(255,255,255,0.6)",
