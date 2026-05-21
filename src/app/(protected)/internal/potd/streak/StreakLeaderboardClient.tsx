@@ -84,11 +84,22 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
                 // Dense ranking: same rank if tied on both the active sort key AND totalPoints
                 const ranks: number[] = [];
                 sortedData.forEach((user, i) => {
-                  if (i === 0) { ranks.push(1); return; }
+                  if (i === 0) {
+                    ranks.push(1);
+                    return;
+                  }
                   const prev = sortedData[i - 1];
-                  const prevVal = sortParam === "current" ? prev.currentStreak : prev.longestStreak;
-                  const currVal = sortParam === "current" ? user.currentStreak : user.longestStreak;
-                  const tied = prevVal === currVal && prev.totalPoints === user.totalPoints;
+                  const prevVal =
+                    sortParam === "current"
+                      ? prev.currentStreak
+                      : prev.longestStreak;
+                  const currVal =
+                    sortParam === "current"
+                      ? user.currentStreak
+                      : user.longestStreak;
+                  const tied =
+                    prevVal === currVal &&
+                    prev.totalPoints === user.totalPoints;
                   ranks.push(tied ? ranks[i - 1] : i + 1);
                 });
                 return sortedData.map((user, index) => {
@@ -99,40 +110,40 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
                   if (rank === 3) rankClass = styles.top3;
 
                   return (
-                  <tr key={user.userId}>
-                    <td>
-                      <span
-                        className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
-                      >
-                        {rank}
-                      </span>
-                    </td>
-                    <td>
-                      <div className={styles.userInfo}>
-                        <span className={styles.userName}>{user.name}</span>
-                        {user.codeforcesId && (
-                          <span className={styles.userHandle}>
-                            @{user.codeforcesId}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      {user.currentStreak > 0 ? (
-                        <span className={styles.streak}>
-                          🔥 {user.currentStreak}
+                    <tr key={user.userId}>
+                      <td>
+                        <span
+                          className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
+                        >
+                          {rank}
                         </span>
-                      ) : (
-                        <span className={styles.subText}>-</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={styles.maxStreakWrapper}>
-                        <span className={styles.maxStreakIcon}>⚡</span>{" "}
-                        {user.longestStreak}
-                      </span>
-                    </td>
-                  </tr>
+                      </td>
+                      <td>
+                        <div className={styles.userInfo}>
+                          <span className={styles.userName}>{user.name}</span>
+                          {user.codeforcesId && (
+                            <span className={styles.userHandle}>
+                              @{user.codeforcesId}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        {user.currentStreak > 0 ? (
+                          <span className={styles.streak}>
+                            🔥 {user.currentStreak}
+                          </span>
+                        ) : (
+                          <span className={styles.subText}>-</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={styles.maxStreakWrapper}>
+                          <span className={styles.maxStreakIcon}>⚡</span>{" "}
+                          {user.longestStreak}
+                        </span>
+                      </td>
+                    </tr>
                   );
                 });
               })()}

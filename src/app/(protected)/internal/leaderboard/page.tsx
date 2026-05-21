@@ -5,9 +5,12 @@ import User from "@/models/User";
 export default async function LeaderboardPage() {
   await dbConnect();
 
-  // Fetch all CF users and join with User data for names
-  // We sort by rating descending
-  const leaderboardData = await CFUser.find()
+  // Fetch only verified CF users with an actual rating
+  // Sort by rating descending
+  const leaderboardData = await CFUser.find({
+    cfVerified: true,
+    rating: { $gt: 0 },
+  })
     .sort({ rating: -1 })
     .populate({
       path: "userId",
@@ -87,7 +90,7 @@ export default async function LeaderboardPage() {
                     color: "#666",
                   }}
                 >
-                  No data available yet. Ratings sync every 24 hours.
+                  No data available yet. Ratings sync every 6 hours.
                 </td>
               </tr>
             )}

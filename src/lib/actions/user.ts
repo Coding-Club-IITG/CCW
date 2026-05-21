@@ -213,7 +213,9 @@ export async function updateProfile(data: {
     await dbConnect();
 
     // Check if the CF handle is being changed — if so, reset verification
-    const currentUser = await User.findById(session.user.id).select("codeforcesId").lean() as any;
+    const currentUser = (await User.findById(session.user.id)
+      .select("codeforcesId")
+      .lean()) as any;
     const newHandle = data.codeforcesId?.trim() || "";
     const oldHandle = currentUser?.codeforcesId?.trim() || "";
     const handleChanged = newHandle !== oldHandle;
@@ -234,9 +236,17 @@ export async function updateProfile(data: {
     if (handleChanged) {
       await CFUser.findOneAndUpdate(
         { userId: session.user.id },
-        { $set: { cfVerified: false, cfVerificationToken: "", handle: newHandle } },
+        {
+          $set: {
+            cfVerified: false,
+            cfVerificationToken: "",
+            handle: newHandle,
+          },
+        },
       );
-      logger.info(`User ${session.user.email} changed CF handle from "${oldHandle}" to "${newHandle}" — verification reset`);
+      logger.info(
+        `User ${session.user.email} changed CF handle from "${oldHandle}" to "${newHandle}" — verification reset`,
+      );
     }
 
     logger.info(`User ${session.user.email} updated their profile`);

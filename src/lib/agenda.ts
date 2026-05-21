@@ -14,7 +14,10 @@ const redisNotificationChannel = new RedisNotificationChannel({
   connectionString: redisUrl,
 });
 redisNotificationChannel.on("error", (err: Error) => {
-  logger.error("[Agenda] Redis notification channel error (worker will keep running via MongoDB polling):", err.message);
+  logger.error(
+    "[Agenda] Redis notification channel error (worker will keep running via MongoDB polling):",
+    err.message,
+  );
 });
 
 const agenda = new Agenda({

@@ -62,9 +62,13 @@ export default function LeaderboardClient({
                 // Dense ranking: same rank if tied on both points AND streak
                 const ranks: number[] = [];
                 data.forEach((user, i) => {
-                  if (i === 0) { ranks.push(1); return; }
+                  if (i === 0) {
+                    ranks.push(1);
+                    return;
+                  }
                   const prev = data[i - 1];
-                  const tied = prev.totalPoints === user.totalPoints &&
+                  const tied =
+                    prev.totalPoints === user.totalPoints &&
                     prev.currentStreak === user.currentStreak;
                   ranks.push(tied ? ranks[i - 1] : i + 1);
                 });

@@ -23,8 +23,8 @@ async function run() {
   // Start agenda
   await agenda.start();
 
-  // Schedule the CF ratings sync every 24 hours
-  await agenda.every("24 hours", "sync-cf-ratings");
+  // Schedule the CF ratings sync every 6 hours
+  await agenda.every("6 hours", "sync-cf-ratings");
 
   // Schedule POTD sync at 2:00 AM IST, after grace window close
   await agenda.every("0 30 20 * * *", "sync-potd-submissions");
