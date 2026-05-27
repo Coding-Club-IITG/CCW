@@ -1,0 +1,146 @@
+.container {
+  max-width: 1000px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.header {
+  margin-bottom: 0.5rem;
+
+  h1 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #111;
+  }
+
+  p {
+    margin: 0;
+    color: #666;
+    font-size: 0.95rem;
+  }
+}
+
+.tableContainer {
+  background: #fff;
+  border: 1px solid #eaeaea;
+  border-radius: 12px;
+  overflow: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+
+  th,
+  td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #eaeaea;
+    white-space: nowrap;
+  }
+
+  th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr {
+    transition: background 0.15s ease;
+    &:hover {
+      background: #fcfcfc;
+    }
+  }
+}
+
+.rank {
+  font-weight: 700;
+  color: #111;
+  font-size: 1.1rem;
+}
+
+.rankBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.9rem;
+}
+
+.top1 {
+  background: #fef08a;
+  color: #92400e;
+}
+
+.top2 {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.top3 {
+  background: #fed7aa;
+  color: #9a3412;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.userName {
+  font-weight: 600;
+  color: #111;
+  font-size: 0.95rem;
+}
+
+.userHandle {
+  font-size: 0.8rem;
+  color: #666;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.handleLink {
+  color: #0070f3;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.ratingBadge {
+  font-weight: 700;
+  color: #111;
+  font-size: 1.05rem;
+}
+
+.cfRank {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: #f4f4f5;
+  color: #52525b;
+  border: 1px solid #e4e4e7;
+}
+
+.emptyState {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+}

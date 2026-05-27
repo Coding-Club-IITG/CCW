@@ -8,8 +8,8 @@ import { logger } from "@/lib/utils";
 
 function generateToken() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let token = "POTD-";
-  for (let i = 0; i < 4; i++) {
+  let token = "CF-";
+  for (let i = 0; i < 6; i++) {
     token += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return token;

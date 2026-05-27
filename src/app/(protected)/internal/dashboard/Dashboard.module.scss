@@ -1,0 +1,45 @@
+.container {
+  padding: 2rem;
+
+  h1 {
+    margin: 0 0 0.5rem 0;
+  }
+}
+
+.welcome {
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  padding: 1.5rem;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+
+  h3 {
+    margin: 0 0 1rem 0;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 1.5rem;
+  }
+
+  li {
+    margin-bottom: 0.5rem;
+  }
+
+  a {
+    color: #0070f3;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}

@@ -1,88 +1,87 @@
 import axios from "axios";
-import User from "@/models/User";
 import CFUser from "@/models/CFUser";
 import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
 
 const CODEFORCES_API_URL = "https://codeforces.com/api/user.info";
+// CF API has URL length limits, batch handles to stay safe
+const BATCH_SIZE = 50;
 
 export async function syncCodeforcesRatings() {
   logger.info("[CF-Sync] Starting Codeforces rating sync...");
   await dbConnect();
 
   try {
-    // 1. Get all users who have set a codeforcesId
-    const usersWithCF = await User.find({
-      codeforcesId: { $exists: true, $ne: "" },
-    }).select("_id codeforcesId");
+    // Only sync verified CF users
+    const verifiedUsers = await CFUser.find({
+      cfVerified: true,
+      handle: { $exists: true, $ne: "" },
+    }).select("_id handle userId");
 
-    if (usersWithCF.length === 0) {
-      logger.info("[CF-Sync] No users with Codeforces IDs found.");
+    if (verifiedUsers.length === 0) {
+      logger.info("[CF-Sync] No verified CF users found.");
       return;
     }
 
-    // 2. Build handle -> userId[] map (handles are case-insensitive on CF)
-    const handleToUserIds: Record<string, string[]> = {};
-    usersWithCF.forEach((u) => {
-      const h = u.codeforcesId.trim();
-      if (!handleToUserIds[h.toLowerCase()]) {
-        handleToUserIds[h.toLowerCase()] = [];
-      }
-      handleToUserIds[h.toLowerCase()].push(u._id.toString());
+    // Build handle -> CFUser ID map
+    const handleToDocId: Record<string, string> = {};
+    verifiedUsers.forEach((doc) => {
+      handleToDocId[doc.handle.toLowerCase()] = doc._id.toString();
     });
 
-    const handles = Object.keys(handleToUserIds).join(";");
-
-    // 3. Fetch from Codeforces API
+    const handles = Object.keys(handleToDocId);
     logger.info(
-      `[CF-Sync] Fetching data for ${Object.keys(handleToUserIds).length} unique handles...`,
-    );
-    const response = await axios.get(
-      `${CODEFORCES_API_URL}?handles=${handles}`,
+      `[CF-Sync] Fetching data for ${handles.length} verified handles...`,
     );
 
-    if (response.data.status !== "OK") {
-      throw new Error(`Codeforces API error: ${response.data.comment}`);
-    }
+    // Process in batches
+    const bulkOps: any[] = [];
 
-    const cfResults = response.data.result;
+    for (let i = 0; i < handles.length; i += BATCH_SIZE) {
+      const batch = handles.slice(i, i + BATCH_SIZE);
+      const handlesParam = batch.join(";");
 
-    // 4. Upsert CFUser entries — only update CF profile fields
-    const bulkOps = cfResults
-      .map((cfData: any) => {
-        const lowerHandle = cfData.handle.toLowerCase();
-        const userIds = handleToUserIds[lowerHandle];
+      try {
+        const response = await axios.get(
+          `${CODEFORCES_API_URL}?handles=${handlesParam}`,
+        );
 
-        if (!userIds) return null;
+        if (response.data.status !== "OK") {
+          logger.error(
+            `[CF-Sync] API error for batch ${i / BATCH_SIZE + 1}: ${response.data.comment}`,
+          );
+          continue;
+        }
 
-        return {
-          updateOne: {
-            filter: { userId: userIds[0] },
-            update: {
-              $set: {
-                handle: cfData.handle,
-                rating: cfData.rating || 0,
-                rank: cfData.rank || "Unrated",
-                maxRating: cfData.maxRating || 0,
-                maxRank: cfData.maxRank || "Unrated",
-                avatar: cfData.avatar || "",
-                lastUpdated: new Date(),
-              },
-              $setOnInsert: {
-                cfVerified: false,
-                cfVerificationToken: "",
-                cfVerificationRequestedAt: null,
-                potdTotalPoints: 0,
-                potdCurrentStreak: 0,
-                potdLongestStreak: 0,
-                potdTotalSolved: 0,
+        for (const cfData of response.data.result) {
+          const lowerHandle = cfData.handle.toLowerCase();
+          const docId = handleToDocId[lowerHandle];
+
+          if (!docId) continue;
+
+          bulkOps.push({
+            updateOne: {
+              filter: { _id: docId },
+              update: {
+                $set: {
+                  handle: cfData.handle,
+                  rating: cfData.rating || 0,
+                  rank: cfData.rank || "Unrated",
+                  maxRating: cfData.maxRating || 0,
+                  maxRank: cfData.maxRank || "Unrated",
+                  avatar: cfData.avatar || "",
+                  lastUpdated: new Date(),
+                },
               },
             },
-            upsert: true,
-          },
-        };
-      })
-      .filter(Boolean);
+          });
+        }
+      } catch (batchErr: any) {
+        logger.error(
+          `[CF-Sync] Error fetching batch ${i / BATCH_SIZE + 1}: ${batchErr.message}`,
+        );
+      }
+    }
 
     if (bulkOps.length > 0) {
       await CFUser.bulkWrite(bulkOps);

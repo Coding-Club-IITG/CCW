@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { isAdmin } from "@/lib/roles";
+import styles from "./Dashboard.module.scss";
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({
@@ -12,18 +13,12 @@ export default async function DashboardPage() {
   const moduleRoles = user.moduleRoles || [];
 
   return (
-    <div style={{ padding: "2rem" }}>
+    <div className={styles.container}>
       <h1>Member Dashboard</h1>
-      <p>Welcome back, {user.name}!</p>
+      <p className={styles.welcome}>Welcome back, {user.name}!</p>
 
-      <div style={{ marginTop: "2rem", display: "grid", gap: "1rem" }}>
-        <div
-          style={{
-            padding: "1.5rem",
-            border: "1px solid #eaeaea",
-            borderRadius: "8px",
-          }}
-        >
+      <div className={styles.grid}>
+        <div className={styles.card}>
           <h3>Your Roles</h3>
           <ul>
             <li>Global Role: {user.role}</li>
@@ -36,13 +31,7 @@ export default async function DashboardPage() {
           </ul>
         </div>
 
-        <div
-          style={{
-            padding: "1.5rem",
-            border: "1px solid #eaeaea",
-            borderRadius: "8px",
-          }}
-        >
+        <div className={styles.card}>
           <h3>Quick Links</h3>
           <ul>
             <li>

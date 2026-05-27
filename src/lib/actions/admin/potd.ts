@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import axios from "axios";
 import dbConnect from "@/lib/mongodb";
-import redis from "@/lib/redis";
+import { getRedis } from "@/lib/redis";
 import User from "@/models/User";
 import CFUser from "@/models/CFUser";
 import Problem from "@/models/POTDProblem";
@@ -30,7 +30,12 @@ async function checkAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
   const user = session.user as any;
-  if (!canSetPOTD(user.role)) return null;
+  if (!canSetPOTD(user.role)) {
+    logger.warn(
+      `[POTD-Admin] Unauthorized access attempt by: ${user.email || "Unknown"}`,
+    );
+    return null;
+  }
   return session;
 }
 
@@ -55,6 +60,13 @@ export async function setDailyProblem(
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr))
     return { ok: false, error: "Invalid date format (YYYY-MM-DD)" };
+
+  const parsedDate = new Date(dateStr + "T00:00:00Z");
+  if (
+    isNaN(parsedDate.getTime()) ||
+    parsedDate.toISOString().slice(0, 10) !== dateStr
+  )
+    return { ok: false, error: "Invalid date value" };
 
   const todayIST = getTodayISTDateStr();
   if (dateStr < todayIST)
@@ -112,6 +124,7 @@ export async function setDailyProblem(
   try {
     const indexUpper = cfIndex.toUpperCase();
     const CACHE_KEY = "cf:problemset:problems:v1";
+    const redis = await getRedis();
 
     let allProblems: any[];
     const cached = await redis.get(CACHE_KEY);

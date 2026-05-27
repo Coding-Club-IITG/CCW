@@ -1,0 +1,72 @@
+.container {
+  padding: 2rem;
+
+  h1 {
+    margin: 0 0 0.5rem 0;
+  }
+}
+
+.subtitle {
+  margin-bottom: 2rem;
+  color: #666;
+}
+
+.errorText {
+  color: #842029;
+  background: #fff3f3;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #f5c6cb;
+}
+
+.emptyState {
+  padding: 3rem;
+  text-align: center;
+  border: 1px dashed #ccc;
+  border-radius: 8px;
+}
+
+.grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.card {
+  border: 1px solid #eaeaea;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.moduleBadge {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  background: #0070f310;
+  color: #0070f3;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.projectTitle {
+  margin: 0.5rem 0;
+  font-size: 1.25rem;
+}
+
+.description {
+  font-size: 0.9rem;
+  color: #444;
+  margin-bottom: 1rem;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.status {
+  font-weight: 600;
+}

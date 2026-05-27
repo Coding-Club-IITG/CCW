@@ -254,3 +254,41 @@
     }
   }
 }
+
+.noChallenge {
+  color: #666;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.problemHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.difficultyBadge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border-width: 1px;
+  border-style: solid;
+}
+
+.syncError {
+  color: #e11d48;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.openProblemLink {
+  text-align: center;
+  text-decoration: none;
+}
+
+.syncDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

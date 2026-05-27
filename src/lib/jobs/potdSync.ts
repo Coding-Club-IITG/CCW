@@ -1,6 +1,6 @@
 import axios from "axios";
 import dbConnect from "@/lib/mongodb";
-import redis from "@/lib/redis";
+import { getRedis } from "@/lib/redis";
 import CFUser from "@/models/CFUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
@@ -165,6 +165,8 @@ export async function syncPOTDSubmissions(): Promise<void> {
     logger.info("[potd-sync] No challenges to sync.");
     return;
   }
+
+  const redis = await getRedis();
 
   for (const challenge of challenges) {
     const cronKey = `potd:cron:lock:${challenge._id}`;

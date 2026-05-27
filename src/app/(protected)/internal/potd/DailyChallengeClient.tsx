@@ -156,7 +156,7 @@ export default function DailyChallengeClient({
     return (
       <div className={styles.container}>
         <div className={styles.card}>
-          <p style={{ color: "#666", textAlign: "center", padding: "2rem 0" }}>
+          <p className={styles.noChallenge}>
             No challenge scheduled for today. Check back later!
           </p>
         </div>
@@ -270,25 +270,15 @@ function ProblemCard({
     <div className={styles.card}>
       <div className={styles.header}>
         <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginBottom: "0.25rem",
-            }}
-          >
+          <div className={styles.problemHeaderRow}>
             <span className={styles.problemId}>
               Codeforces {problem.cfContestId}-{problem.cfIndex}
             </span>
             <span
+              className={styles.difficultyBadge}
               style={{
-                fontSize: "0.75rem",
-                fontWeight: 700,
                 color: DIFFICULTY_COLORS[difficulty],
-                padding: "1px 8px",
-                borderRadius: "999px",
-                border: `1px solid ${DIFFICULTY_COLORS[difficulty]}`,
+                borderColor: DIFFICULTY_COLORS[difficulty],
               }}
             >
               {difficulty}
@@ -332,13 +322,7 @@ function ProblemCard({
         </div>
       </div>
 
-      {syncError && (
-        <p
-          style={{ color: "#e11d48", marginBottom: "1rem", fontSize: "0.9rem" }}
-        >
-          {syncError}
-        </p>
-      )}
+      {syncError && <p className={styles.syncError}>{syncError}</p>}
 
       <div className={styles.actionArea}>
         {cfVerified ? (
@@ -347,21 +331,15 @@ function ProblemCard({
               href={`https://codeforces.com/problemset/problem/${problem.cfContestId}/${problem.cfIndex}`}
               target="_blank"
               rel="noreferrer"
-              className={styles.syncBtn}
-              style={{ textAlign: "center", textDecoration: "none" }}
+              className={`${styles.syncBtn} ${styles.openProblemLink}`}
             >
               Open Problem
             </a>
             {!alreadySolved && (
               <button
-                className={styles.syncBtn}
+                className={`${styles.syncBtn} ${cooldown > 0 ? styles.syncDisabled : ""}`}
                 onClick={onSync}
                 disabled={isSyncing || cooldown > 0}
-                style={
-                  cooldown > 0
-                    ? { opacity: 0.5, cursor: "not-allowed" }
-                    : undefined
-                }
               >
                 {isSyncing
                   ? "Syncing..."

@@ -5,6 +5,10 @@ import { getClient } from "@/lib/mongodb";
 const client = await getClient();
 const db = client.db();
 
+if (!process.env.AUTH_SECRET) {
+  throw new Error("AUTH_SECRET environment variable is required");
+}
+
 if (!db) {
   throw new Error("MongoDB connection failed");
 }

@@ -107,6 +107,11 @@
   color: #0070f3;
   cursor: pointer;
   text-decoration: underline;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
 }
 
 .deleteButton {
@@ -188,5 +193,8 @@
     background: #0070f3;
     color: white;
     border: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
 }

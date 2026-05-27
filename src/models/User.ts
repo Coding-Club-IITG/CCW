@@ -4,7 +4,7 @@ import { GLOBAL_ROLES, MODULES, MODULE_ROLES } from "@/lib/constants";
 const UserSchema = new mongoose.Schema(
   {
     name: String,
-    email: { type: String, unique: true },
+    email: { type: String, unique: true, sparse: true },
     emailVerified: { type: Boolean, default: false },
     image: String,
     role: {

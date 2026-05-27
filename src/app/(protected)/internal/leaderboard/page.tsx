@@ -1,12 +1,22 @@
 import CFUser from "@/models/CFUser";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
+import LeaderboardTable, {
+  type Column,
+  leaderboardStyles as styles,
+} from "@/components/leaderboard/LeaderboardTable";
+
+type CFLeaderboardEntry = {
+  id: string;
+  name: string;
+  handle: string;
+  rating: number;
+  rank: string;
+};
 
 export default async function LeaderboardPage() {
   await dbConnect();
 
-  // Fetch only verified CF users with an actual rating
-  // Sort by rating descending
   const leaderboardData = await CFUser.find({
     cfVerified: true,
     rating: { $gt: 0 },
@@ -19,84 +29,79 @@ export default async function LeaderboardPage() {
     })
     .lean();
 
-  return (
-    <div style={{ padding: "2rem" }}>
-      <h1>Codeforces Leaderboard</h1>
-      <p>Current standings of coding club members.</p>
+  const entries: CFLeaderboardEntry[] = leaderboardData.map((entry: any) => ({
+    id: entry._id.toString(),
+    name: entry.userId?.name || "Unknown",
+    handle: entry.handle,
+    rating: entry.rating,
+    rank: entry.rank,
+  }));
 
-      <div style={{ marginTop: "2rem", overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            minWidth: "600px",
-          }}
+  const columns: Column<CFLeaderboardEntry>[] = [
+    {
+      key: "rank",
+      header: "Rank",
+      render: (_item, index) => {
+        const rank = index + 1;
+        let rankClass = "";
+        if (rank === 1) rankClass = styles.top1;
+        else if (rank === 2) rankClass = styles.top2;
+        else if (rank === 3) rankClass = styles.top3;
+
+        return (
+          <span
+            className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
+          >
+            {rank}
+          </span>
+        );
+      },
+    },
+    {
+      key: "member",
+      header: "Member",
+      render: (item) => (
+        <div className={styles.userInfo}>
+          <span className={styles.userName}>{item.name}</span>
+        </div>
+      ),
+    },
+    {
+      key: "handle",
+      header: "Handle",
+      render: (item) => (
+        <a
+          href={`https://codeforces.com/profile/${item.handle}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.handleLink}
         >
-          <thead>
-            <tr
-              style={{ textAlign: "left", borderBottom: "2px solid #eaeaea" }}
-            >
-              <th style={{ padding: "1rem" }}>Rank</th>
-              <th style={{ padding: "1rem" }}>Member</th>
-              <th style={{ padding: "1rem" }}>Handle</th>
-              <th style={{ padding: "1rem" }}>Rating</th>
-              <th style={{ padding: "1rem" }}>CF Rank</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboardData.map((entry: any, index: number) => (
-              <tr
-                key={entry._id.toString()}
-                style={{ borderBottom: "1px solid #f9f9f9" }}
-              >
-                <td style={{ padding: "1rem" }}>{index + 1}</td>
-                <td style={{ padding: "1rem" }}>
-                  {entry.userId?.name || "Unknown"}
-                </td>
-                <td style={{ padding: "1rem" }}>
-                  <a
-                    href={`https://codeforces.com/profile/${entry.handle}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "#0070f3", textDecoration: "none" }}
-                  >
-                    {entry.handle}
-                  </a>
-                </td>
-                <td style={{ padding: "1rem", fontWeight: "bold" }}>
-                  {entry.rating}
-                </td>
-                <td style={{ padding: "1rem" }}>
-                  <span
-                    style={{
-                      padding: "0.25rem 0.5rem",
-                      borderRadius: "4px",
-                      fontSize: "0.85rem",
-                      backgroundColor: "#f0f0f0",
-                    }}
-                  >
-                    {entry.rank}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {leaderboardData.length === 0 && (
-              <tr>
-                <td
-                  colSpan={5}
-                  style={{
-                    padding: "2rem",
-                    textAlign: "center",
-                    color: "#666",
-                  }}
-                >
-                  No data available yet. Ratings sync every 6 hours.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          {item.handle}
+        </a>
+      ),
+    },
+    {
+      key: "rating",
+      header: "Rating",
+      render: (item) => (
+        <span className={styles.ratingBadge}>{item.rating}</span>
+      ),
+    },
+    {
+      key: "cfRank",
+      header: "CF Rank",
+      render: (item) => <span className={styles.cfRank}>{item.rank}</span>,
+    },
+  ];
+
+  return (
+    <LeaderboardTable
+      title="Codeforces Leaderboard"
+      description="Current standings of coding club members."
+      columns={columns}
+      data={entries}
+      getKey={(item) => item.id}
+      emptyMessage="No data available yet. Ratings sync every 6 hours."
+    />
   );
 }

@@ -54,6 +54,132 @@
   }
 }
 
+.disabledInput {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.cfRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.verifiedBadge {
+  color: green;
+  font-weight: bold;
+}
+
+.verificationBox {
+  margin-top: 12px;
+  padding: 1rem;
+  background: #fef3c7;
+  border: 1px solid #ffeeba;
+  border-radius: 8px;
+  color: #856404;
+}
+
+.verificationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.verificationHeaderWithMargin {
+  composes: verificationHeader;
+  margin-bottom: 12px;
+}
+
+.verificationText {
+  font-size: 0.95rem;
+}
+
+.tokenButton {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #856404;
+  background: transparent;
+  color: #856404;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.tokenSteps {
+  background: rgba(255, 255, 255, 0.6);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.tokenStepsList {
+  margin: 0 0 12px 0;
+  padding-left: 1.2rem;
+}
+
+.tokenStepItem {
+  margin-top: 6px;
+}
+
+.tokenCode {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #b45309;
+}
+
+.verifyButton {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  background: #856404;
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.messageSuccess {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 0.9rem;
+}
+
+.messageError {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+.saveButton {
+  padding: 0.75rem;
+  background: #0070f3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #005bb5;
+  }
+
+  &:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+}
+
 .submitButton {
   padding: 0.75rem;
   background: #0070f3;

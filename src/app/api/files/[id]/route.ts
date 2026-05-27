@@ -39,169 +39,260 @@ async function resolveSession(request: NextRequest) {
 // GET /api/files/[id]
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const { id } = await context.params;
+  try {
+    const { id } = await context.params;
 
-  const auth_ = await resolveSession(request);
-  if (!auth_) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    const auth_ = await resolveSession(request);
+    if (!auth_) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return NextResponse.json({ error: "Invalid file ID." }, { status: 400 });
-  }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid file ID." }, { status: 400 });
+    }
 
-  await dbConnect();
-  const file = await FileEntry.findById(id).lean();
-  if (!file) {
-    return NextResponse.json({ error: "File not found." }, { status: 404 });
-  }
+    await dbConnect();
+    const file = await FileEntry.findById(id).lean();
+    if (!file) {
+      return NextResponse.json({ error: "File not found." }, { status: 404 });
+    }
 
-  const { user, moduleRoles } = auth_;
-  if (!canAccessFile(user.id, user.role, moduleRoles, file as any)) {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
-  }
+    const { user, moduleRoles } = auth_;
+    if (!canAccessFile(user.id, user.role, moduleRoles, file as any)) {
+      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    }
 
-  const filePath = path.join(UPLOAD_DIR, file.storedName);
-  if (!existsSync(filePath)) {
-    logger.warn(`[Files] File missing on disk: ${file.storedName} (id: ${id})`);
+    const filePath = path.join(UPLOAD_DIR, file.storedName);
+    if (!existsSync(filePath)) {
+      logger.warn(
+        `[Files] File missing on disk: ${file.storedName} (id: ${id})`,
+      );
+      return NextResponse.json(
+        { error: "File data not found on server. Contact an admin." },
+        { status: 410 },
+      );
+    }
+
+    // Stream the file using the Web Streams API (Node ≥ 18 / Next.js ≥ 13)
+    const nodeStream = createReadStream(filePath);
+    const webStream = Readable.toWeb(nodeStream) as ReadableStream;
+
+    // For downloadable files: Content-Disposition attachment (triggers save dialog)
+    // For view-only files: Content-Disposition inline (renders in browser / iframe)
+    // The filename is intentionally omitted from inline responses
+    const safeFilename = encodeURIComponent(file.originalName);
+    const disposition = file.isDownloadable
+      ? `attachment; filename="${safeFilename}"; filename*=UTF-8''${safeFilename}`
+      : "inline";
+
+    const headers: Record<string, string> = {
+      "Content-Type": file.mimeType,
+      "Content-Disposition": disposition,
+      "Content-Length": String(file.size),
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    };
+
+    if (!file.isDownloadable) {
+      // Allow iframing only from the same origin (for in-app viewer)
+      // This also blocks embedding on external sites
+      headers["X-Frame-Options"] = "SAMEORIGIN";
+      headers["Content-Security-Policy"] =
+        "sandbox allow-scripts allow-same-origin; frame-ancestors 'self'";
+      // Prevent browser "Save As" from saving a usable file and
+      // block programmatic caching / service-worker interception
+      headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+      headers["Cross-Origin-Resource-Policy"] = "same-origin";
+    }
+
+    return new NextResponse(webStream, { headers });
+  } catch (err) {
+    logger.error("[Files] GET /api/files/[id] error:", err);
     return NextResponse.json(
-      { error: "File data not found on server. Contact an admin." },
-      { status: 410 },
+      { error: "Internal server error." },
+      { status: 500 },
     );
   }
-
-  // Stream the file using the Web Streams API (Node ≥ 18 / Next.js ≥ 13)
-  const nodeStream = createReadStream(filePath);
-  const webStream = Readable.toWeb(nodeStream) as ReadableStream;
-
-  // For downloadable files: Content-Disposition attachment (triggers save dialog)
-  // For view-only files: Content-Disposition inline (renders in browser / iframe)
-  // The filename is intentionally omitted from inline responses
-  const safeFilename = encodeURIComponent(file.originalName);
-  const disposition = file.isDownloadable
-    ? `attachment; filename="${safeFilename}"; filename*=UTF-8''${safeFilename}`
-    : "inline";
-
-  const headers: Record<string, string> = {
-    "Content-Type": file.mimeType,
-    "Content-Disposition": disposition,
-    "Content-Length": String(file.size),
-    "Cache-Control": "private, no-store",
-    "X-Content-Type-Options": "nosniff",
-  };
-
-  if (!file.isDownloadable) {
-    // Allow iframing only from the same origin (for in-app viewer)
-    // This also blocks embedding on external sites
-    headers["X-Frame-Options"] = "SAMEORIGIN";
-    headers["Content-Security-Policy"] = "frame-ancestors 'self'";
-  }
-
-  return new NextResponse(webStream, { headers });
 }
 
 // PATCH /api/files/[id]
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const { id } = await context.params;
-
-  const auth_ = await resolveSession(request);
-  if (!auth_) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return NextResponse.json({ error: "Invalid file ID." }, { status: 400 });
-  }
-
-  await dbConnect();
-  const file = await FileEntry.findById(id);
-  if (!file) {
-    return NextResponse.json({ error: "File not found." }, { status: 404 });
-  }
-
-  const { user, moduleRoles } = auth_;
-  if (!canManageFile(user.id, user.role, moduleRoles, file as any)) {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
-  }
-
-  let body: Record<string, any>;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+    const { id } = await context.params;
 
-  // Whitelist of editable fields (are immutable)
-  const EDITABLE = [
-    "title",
-    "description",
-    "folder",
-    "isDownloadable",
-    "accessControl",
-  ] as const;
+    const auth_ = await resolveSession(request);
+    if (!auth_) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const update: Record<string, any> = {};
-  for (const key of EDITABLE) {
-    if (key in body) update[key] = body[key];
-  }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid file ID." }, { status: 400 });
+    }
 
-  if (update.title !== undefined) {
-    update.title = String(update.title).trim();
-    if (!update.title) {
+    await dbConnect();
+    const file = await FileEntry.findById(id);
+    if (!file) {
+      return NextResponse.json({ error: "File not found." }, { status: 404 });
+    }
+
+    const { user, moduleRoles } = auth_;
+    if (!canManageFile(user.id, user.role, moduleRoles, file as any)) {
+      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    }
+
+    let body: Record<string, any>;
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
-        { error: "Title cannot be empty." },
+        { error: "Invalid JSON body." },
         { status: 400 },
       );
     }
+
+    // Whitelist of editable fields (are immutable)
+    const EDITABLE = [
+      "title",
+      "description",
+      "folder",
+      "isDownloadable",
+      "accessControl",
+    ] as const;
+
+    const update: Record<string, any> = {};
+    for (const key of EDITABLE) {
+      if (key in body) update[key] = body[key];
+    }
+
+    // Validate title
+    if (update.title !== undefined) {
+      update.title = String(update.title).trim();
+      if (!update.title) {
+        return NextResponse.json(
+          { error: "Title cannot be empty." },
+          { status: 400 },
+        );
+      }
+      if (update.title.length > 200) {
+        return NextResponse.json(
+          { error: "Title must be 200 characters or fewer." },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Validate description
+    if (update.description !== undefined) {
+      update.description = String(update.description).trim();
+      if (update.description.length > 1000) {
+        return NextResponse.json(
+          { error: "Description must be 1000 characters or fewer." },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Validate folder
+    if (update.folder !== undefined) {
+      update.folder = String(update.folder).trim();
+      if (!update.folder) {
+        return NextResponse.json(
+          { error: "Folder cannot be empty." },
+          { status: 400 },
+        );
+      }
+      if (update.folder.length > 100) {
+        return NextResponse.json(
+          { error: "Folder name must be 100 characters or fewer." },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Validate isDownloadable
+    if (
+      update.isDownloadable !== undefined &&
+      typeof update.isDownloadable !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "isDownloadable must be a boolean." },
+        { status: 400 },
+      );
+    }
+
+    // Validate accessControl structure
+    if (update.accessControl !== undefined) {
+      const acl = update.accessControl;
+      if (typeof acl !== "object" || acl === null || Array.isArray(acl)) {
+        return NextResponse.json(
+          { error: "accessControl must be an object." },
+          { status: 400 },
+        );
+      }
+    }
+
+    const updated = await FileEntry.findByIdAndUpdate(id, update, { new: true })
+      .select("-storedName")
+      .lean();
+
+    logger.info(
+      `[Files] ${user.email} updated metadata for "${file.title}" (id: ${id})`,
+    );
+    return NextResponse.json({ file: updated });
+  } catch (err) {
+    logger.error("[Files] PATCH /api/files/[id] error:", err);
+    return NextResponse.json(
+      { error: "Internal server error." },
+      { status: 500 },
+    );
   }
-
-  const updated = await FileEntry.findByIdAndUpdate(id, update, { new: true })
-    .select("-storedName")
-    .lean();
-
-  logger.info(
-    `[Files] ${user.email} updated metadata for "${file.title}" (id: ${id})`,
-  );
-  return NextResponse.json({ file: updated });
 }
 
 // DELETE /api/files/[id]
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const { id } = await context.params;
-
-  const auth_ = await resolveSession(request);
-  if (!auth_) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return NextResponse.json({ error: "Invalid file ID." }, { status: 400 });
-  }
-
-  await dbConnect();
-  const file = await FileEntry.findById(id);
-  if (!file) {
-    return NextResponse.json({ error: "File not found." }, { status: 404 });
-  }
-
-  const { user, moduleRoles } = auth_;
-  if (!canManageFile(user.id, user.role, moduleRoles, file as any)) {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
-  }
-
-  // Remove from disk first, if it fails we log but still remove the DB entry
-  // to avoid orphaned metadata pointing at ghost files
-  const filePath = path.join(UPLOAD_DIR, file.storedName);
   try {
-    await unlink(filePath);
+    const { id } = await context.params;
+
+    const auth_ = await resolveSession(request);
+    if (!auth_) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid file ID." }, { status: 400 });
+    }
+
+    await dbConnect();
+    const file = await FileEntry.findById(id);
+    if (!file) {
+      return NextResponse.json({ error: "File not found." }, { status: 404 });
+    }
+
+    const { user, moduleRoles } = auth_;
+    if (!canManageFile(user.id, user.role, moduleRoles, file as any)) {
+      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    }
+
+    // Remove from disk first, if it fails we log but still remove the DB entry
+    // to avoid orphaned metadata pointing at ghost files
+    const filePath = path.join(UPLOAD_DIR, file.storedName);
+    try {
+      await unlink(filePath);
+    } catch (err) {
+      logger.warn(`[Files] Could not delete disk file: ${filePath}`, err);
+    }
+
+    await FileEntry.findByIdAndDelete(id);
+
+    logger.info(`[Files] ${user.email} deleted "${file.title}" (id: ${id})`);
+    return NextResponse.json({ success: true });
   } catch (err) {
-    logger.warn(`[Files] Could not delete disk file: ${filePath}`, err);
+    logger.error("[Files] DELETE /api/files/[id] error:", err);
+    return NextResponse.json(
+      { error: "Internal server error." },
+      { status: 500 },
+    );
   }
-
-  await FileEntry.findByIdAndDelete(id);
-
-  logger.info(`[Files] ${user.email} deleted "${file.title}" (id: ${id})`);
-  return NextResponse.json({ success: true });
 }

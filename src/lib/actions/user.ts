@@ -6,6 +6,7 @@ import dbConnect from "@/lib/mongodb";
 import { getClient } from "@/lib/mongodb";
 import User from "@/models/User";
 import CFUser from "@/models/CFUser";
+import POTDSubmission from "@/models/POTDSubmission";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/utils";
 import { isAdmin, cleanUserRoles } from "@/lib/roles";
@@ -25,7 +26,7 @@ async function checkAdmin() {
     }
     return session;
   } catch (err) {
-    logger.error("[user.ts] checkAdmin error:", err);
+    logger.error("checkAdmin error:", err);
     return null;
   }
 }
@@ -38,7 +39,7 @@ export async function getUsers() {
     const users = await User.find({}).sort({ createdAt: -1 }).lean();
     return { success: true as const, users: JSON.parse(JSON.stringify(users)) };
   } catch (err) {
-    logger.error("[user.ts] getUsers error:", err);
+    logger.error("getUsers error:", err);
     return { success: false as const, error: "Failed to fetch users." };
   }
 }
@@ -70,7 +71,7 @@ export async function addUser(email: string, name?: string) {
       user: JSON.parse(JSON.stringify(newUser)),
     };
   } catch (err) {
-    logger.error("[user.ts] addUser error:", err);
+    logger.error("addUser error:", err);
     return { success: false as const, error: "Failed to add user." };
   }
 }
@@ -102,7 +103,7 @@ export async function updateUserRole(userId: string, role: string) {
       user: JSON.parse(JSON.stringify(updatedUser)),
     };
   } catch (err) {
-    logger.error("[user.ts] updateUserRole error:", err);
+    logger.error("updateUserRole error:", err);
     return { success: false as const, error: "Failed to update user role." };
   }
 }
@@ -137,7 +138,7 @@ export async function updateUserModuleRoles(
       user: JSON.parse(JSON.stringify(updatedUser)),
     };
   } catch (err) {
-    logger.error("[user.ts] updateUserModuleRoles error:", err);
+    logger.error("updateUserModuleRoles error:", err);
     return { success: false as const, error: "Failed to update module roles." };
   }
 }
@@ -160,6 +161,15 @@ export async function deleteUser(userId: string) {
     );
 
     await User.findByIdAndDelete(userId);
+
+    // Cascade delete related documents
+    const [cfResult, potdResult] = await Promise.all([
+      CFUser.deleteMany({ userId }),
+      POTDSubmission.deleteMany({ userId }),
+    ]);
+    logger.info(
+      `Admin deleted ${cfResult.deletedCount} CFUser and ${potdResult.deletedCount} POTDSubmission records: ${userToDelete.email}`,
+    );
 
     // Purge all sessions and linked accounts
     try {
@@ -192,7 +202,7 @@ export async function deleteUser(userId: string) {
     revalidatePath("/admin");
     return { success: true as const };
   } catch (err) {
-    logger.error("[user.ts] deleteUser error:", err);
+    logger.error("deleteUser error:", err);
     return { success: false as const, error: "Failed to delete user." };
   }
 }
@@ -210,24 +220,67 @@ export async function updateProfile(data: {
     });
     if (!session) return { success: false as const, error: "Unauthorized" };
 
+    // Input validation
+    const name = data.name?.trim();
+    if (!name || name.length > 100) {
+      return {
+        success: false as const,
+        error: "Name is required and must be 100 characters or fewer.",
+      };
+    }
+
+    const codeforcesId = data.codeforcesId?.trim() || "";
+    if (codeforcesId.length > 50 || !/^[\w-]*$/.test(codeforcesId)) {
+      return {
+        success: false as const,
+        error:
+          "Codeforces ID must be 50 characters or fewer and contain only letters, numbers, underscores, or hyphens.",
+      };
+    }
+
+    const githubId = data.githubId?.trim() || "";
+    if (githubId.length > 50 || !/^[\w-]*$/.test(githubId)) {
+      return {
+        success: false as const,
+        error:
+          "GitHub ID must be 50 characters or fewer and contain only letters, numbers, underscores, or hyphens.",
+      };
+    }
+
+    const bio = data.bio?.trim() || "";
+    if (bio.length > 500) {
+      return {
+        success: false as const,
+        error: "Bio must be 500 characters or fewer.",
+      };
+    }
+
+    const phoneNumber = data.phoneNumber?.trim() || "";
+    if (phoneNumber.length > 20 || !/^[\d\s+()-]*$/.test(phoneNumber)) {
+      return {
+        success: false as const,
+        error:
+          "Phone number must be 20 characters or fewer and contain only digits, spaces, +, (, ), or -.",
+      };
+    }
+
     await dbConnect();
 
     // Check if the CF handle is being changed — if so, reset verification
     const currentUser = (await User.findById(session.user.id)
       .select("codeforcesId")
       .lean()) as any;
-    const newHandle = data.codeforcesId?.trim() || "";
     const oldHandle = currentUser?.codeforcesId?.trim() || "";
-    const handleChanged = newHandle !== oldHandle;
+    const handleChanged = codeforcesId !== oldHandle;
 
     const updatedUser = await User.findByIdAndUpdate(
       session.user.id,
       {
-        name: data.name,
-        codeforcesId: newHandle,
-        githubId: data.githubId || "",
-        bio: data.bio || "",
-        phoneNumber: data.phoneNumber || "",
+        name,
+        codeforcesId,
+        githubId,
+        bio,
+        phoneNumber,
       },
       { new: true },
     );
@@ -240,12 +293,12 @@ export async function updateProfile(data: {
           $set: {
             cfVerified: false,
             cfVerificationToken: "",
-            handle: newHandle,
+            handle: codeforcesId,
           },
         },
       );
       logger.info(
-        `User ${session.user.email} changed CF handle from "${oldHandle}" to "${newHandle}" — verification reset`,
+        `User ${session.user.email} changed CF handle from "${oldHandle}" to "${codeforcesId}" — verification reset`,
       );
     }
 
@@ -257,7 +310,7 @@ export async function updateProfile(data: {
       handleChanged,
     };
   } catch (err) {
-    logger.error("[user.ts] updateProfile error:", err);
+    logger.error("updateProfile error:", err);
     return { success: false as const, error: "Failed to update profile." };
   }
 }

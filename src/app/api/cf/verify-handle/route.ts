@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import User from "@/models/User";
 import CFUser from "@/models/CFUser";
 import { dbConnect } from "@/lib/mongodb";
-import redis from "@/lib/redis";
+import { getRedis } from "@/lib/redis";
 
 export async function POST(req: Request) {
   try {
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     }
 
     // Rate limit: maximum 1 verify attempt per 60 seconds per user
+    const redis = await getRedis();
     const redisKey = `cf:verify:lock:${session.user.id}`;
     const isLocked = await redis.get(redisKey);
     if (isLocked) {

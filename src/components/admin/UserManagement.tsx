@@ -252,13 +252,6 @@ export default function UserManagement() {
               <button
                 className={styles.addModuleRole}
                 onClick={addTempModuleRole}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  border: "none",
-                  background: "none",
-                }}
               >
                 <Plus size={14} /> Add Module
               </button>
@@ -271,7 +264,7 @@ export default function UserManagement() {
                 Cancel
               </button>
               <button className={styles.save} onClick={saveModuleRoles}>
-                <Save size={16} style={{ marginRight: "4px" }} /> Save Changes
+                <Save size={16} /> Save Changes
               </button>
             </div>
           </div>

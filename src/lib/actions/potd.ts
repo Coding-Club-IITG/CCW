@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import axios from "axios";
 import dbConnect from "@/lib/mongodb";
-import redis from "@/lib/redis";
+import { getRedis } from "@/lib/redis";
 import User from "@/models/User";
 import CFUser from "@/models/CFUser";
 import Problem from "@/models/POTDProblem";
@@ -74,32 +74,38 @@ export async function getTodayChallenge(): Promise<{
   // All challenges for a day share the same window — use 1st
   const first = challenges[0] as any;
 
-  const entries: ChallengeEntry[] = await Promise.all(
-    challenges.map(async (c: any) => {
-      const problem = c.problem as any;
-      const sub = await POTDSubmission.findOne({
-        userId: session.user.id,
-        challengeId: c._id,
-      });
-      return {
-        challengeId: c._id.toString(),
-        difficulty: c.difficulty,
-        problem: {
-          cfContestId: problem.cfContestId,
-          cfIndex: problem.cfIndex,
-          name: problem.name,
-          rating: problem.rating,
-        },
-        mySubmission: sub
-          ? {
-              status: sub.status,
-              solvedAt: sub.solvedAt ? sub.solvedAt.toISOString() : null,
-              pointsAwarded: sub.pointsAwarded,
-            }
-          : { status: "none", solvedAt: null, pointsAwarded: 0 },
-      };
-    }),
+  // Batch fetch all submissions for today's challenges in one query
+  const challengeIds = challenges.map((c: any) => c._id);
+  const submissions = await POTDSubmission.find({
+    userId: session.user.id,
+    challengeId: { $in: challengeIds },
+  }).lean();
+
+  const subMap = new Map(
+    submissions.map((s: any) => [s.challengeId.toString(), s]),
   );
+
+  const entries: ChallengeEntry[] = challenges.map((c: any) => {
+    const problem = c.problem as any;
+    const sub = subMap.get(c._id.toString());
+    return {
+      challengeId: c._id.toString(),
+      difficulty: c.difficulty,
+      problem: {
+        cfContestId: problem.cfContestId,
+        cfIndex: problem.cfIndex,
+        name: problem.name,
+        rating: problem.rating,
+      },
+      mySubmission: sub
+        ? {
+            status: sub.status,
+            solvedAt: sub.solvedAt ? sub.solvedAt.toISOString() : null,
+            pointsAwarded: sub.pointsAwarded,
+          }
+        : { status: "none" as const, solvedAt: null, pointsAwarded: 0 },
+    };
+  });
 
   // Sort Easy -> Medium -> Hard
   entries.sort(
@@ -152,6 +158,8 @@ export async function syncMySubmission(challengeId: string): Promise<{
   if (!cfUser?.cfVerified) {
     return { ok: false, error: "Codeforces handle not verified" };
   }
+
+  const redis = await getRedis();
 
   // L1: Rate-limit — one manual sync per 60s per user
   const rateLimitKey = `potd:sync:ratelimit:${userId}`;

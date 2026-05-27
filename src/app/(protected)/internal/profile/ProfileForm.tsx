@@ -150,7 +150,7 @@ export default function ProfileForm() {
             id="email"
             value={session?.user?.email || ""}
             disabled
-            style={{ background: "#f5f5f5", color: "#666" }}
+            className={styles.disabledInput}
           />
           <span className={styles.hint}>Email cannot be changed.</span>
         </div>
@@ -169,7 +169,7 @@ export default function ProfileForm() {
 
         <div className={styles.field}>
           <label htmlFor="codeforces">Codeforces ID</label>
-          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <div className={styles.cfRow}>
             <input
               type="text"
               id="codeforces"
@@ -181,34 +181,22 @@ export default function ProfileForm() {
             />
             {/* Only show verified badge if the handle matches the saved (verified) one */}
             {cfVerified && formData.codeforcesId === savedCodeforcesId && (
-              <span style={{ color: "green", fontWeight: "bold" }}>
-                Verified ✓
-              </span>
+              <span className={styles.verifiedBadge}>Verified ✓</span>
             )}
           </div>
 
           {/* Show verification flow if unverified OR if the handle was edited */}
           {formData.codeforcesId &&
             (!cfVerified || formData.codeforcesId !== savedCodeforcesId) && (
-              <div
-                style={{
-                  marginTop: "12px",
-                  padding: "1rem",
-                  background: "#fef3c7",
-                  border: "1px solid #ffeeba",
-                  borderRadius: "8px",
-                  color: "#856404",
-                }}
-              >
+              <div className={styles.verificationBox}>
                 <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: cfVerificationToken ? "12px" : "0",
-                  }}
+                  className={
+                    cfVerificationToken
+                      ? styles.verificationHeaderWithMargin
+                      : styles.verificationHeader
+                  }
                 >
-                  <span style={{ fontSize: "0.95rem" }}>
+                  <span className={styles.verificationText}>
                     <strong>Unverified Handle.</strong>
                     {(!cfVerificationToken ||
                       formData.codeforcesId !== tokenHandle) &&
@@ -221,15 +209,7 @@ export default function ProfileForm() {
                       type="button"
                       onClick={handleRequestToken}
                       disabled={verifying}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: "4px",
-                        border: "1px solid #856404",
-                        background: "transparent",
-                        color: "#856404",
-                        cursor: "pointer",
-                        fontWeight: "bold",
-                      }}
+                      className={styles.tokenButton}
                     >
                       {verifying ? "Wait..." : "Get Token"}
                     </button>
@@ -240,37 +220,15 @@ export default function ProfileForm() {
                   the token was generated for — prevents verifying the wrong handle */}
                 {cfVerificationToken &&
                   formData.codeforcesId === tokenHandle && (
-                    <div
-                      style={{
-                        background: "rgba(255,255,255,0.6)",
-                        padding: "12px",
-                        borderRadius: "6px",
-                        fontSize: "0.9rem",
-                        lineHeight: "1.6",
-                      }}
-                    >
-                      <ol
-                        style={{ margin: "0 0 12px 0", paddingLeft: "1.2rem" }}
-                      >
+                    <div className={styles.tokenSteps}>
+                      <ol className={styles.tokenStepsList}>
                         <li>
                           Update your Codeforces <strong>First Name</strong> to:
-                          <code
-                            style={{
-                              background: "#fff",
-                              border: "1px solid #e2e8f0",
-                              padding: "3px 8px",
-                              borderRadius: "4px",
-                              marginLeft: "8px",
-                              fontFamily: "monospace",
-                              fontSize: "1rem",
-                              fontWeight: "bold",
-                              color: "#b45309",
-                            }}
-                          >
+                          <code className={styles.tokenCode}>
                             {cfVerificationToken}
                           </code>
                         </li>
-                        <li style={{ marginTop: "6px" }}>
+                        <li className={styles.tokenStepItem}>
                           Wait a few seconds for Codeforces to update, then
                           click verify.
                         </li>
@@ -279,15 +237,7 @@ export default function ProfileForm() {
                         type="button"
                         onClick={handleVerifySubmit}
                         disabled={verifying}
-                        style={{
-                          padding: "8px 16px",
-                          borderRadius: "4px",
-                          border: "none",
-                          background: "#856404",
-                          color: "#fff",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                        }}
+                        className={styles.verifyButton}
                       >
                         {verifying ? "Verifying..." : "Verify Handle"}
                       </button>
@@ -336,13 +286,11 @@ export default function ProfileForm() {
 
         {message && (
           <div
-            style={{
-              padding: "0.75rem 1rem",
-              borderRadius: "6px",
-              background: message.type === "success" ? "#d1fae5" : "#fee2e2",
-              color: message.type === "success" ? "#065f46" : "#991b1b",
-              fontSize: "0.9rem",
-            }}
+            className={
+              message.type === "success"
+                ? styles.messageSuccess
+                : styles.messageError
+            }
           >
             {message.text}
           </div>

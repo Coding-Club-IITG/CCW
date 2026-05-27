@@ -100,3 +100,52 @@ export function canAccessFile(
 
   return false;
 }
+
+/**
+ * Builds a MongoDB query filter that approximates 'canAccessFile' logic at the
+ * database level, reducing the number of documents fetched into memory.
+ */
+export function buildAccessFilter(
+  userId: string,
+  role: string,
+  moduleRoles: ParsedModuleRole[],
+): Record<string, any> {
+  // Global admins see everything
+  if (isGlobalAdmin(role)) return {};
+
+  const headModules = getHeadModules(role, moduleRoles);
+  const userModules = moduleRoles.map((mr) => mr.module);
+  const userModuleRoleValues = moduleRoles
+    .map((mr) => mr.role)
+    .filter(Boolean) as string[];
+
+  const conditions: Record<string, any>[] = [
+    // Owner can always see their own files
+    { uploadedBy: userId },
+    // Files shared with all members
+    { "accessControl.allMembers": true },
+    // Files shared with the user's global role
+    { "accessControl.allowedGlobalRoles": role },
+    // Files shared with the user directly
+    { "accessControl.allowedUsers": userId },
+  ];
+
+  // Module heads can see files in their modules
+  if (headModules.length > 0) {
+    conditions.push({ uploaderModule: { $in: headModules } });
+  }
+
+  // Files shared with the user's modules
+  if (userModules.length > 0) {
+    conditions.push({ "accessControl.allowedModules": { $in: userModules } });
+  }
+
+  // Files shared with the user's module roles
+  if (userModuleRoleValues.length > 0) {
+    conditions.push({
+      "accessControl.allowedModuleRoles": { $in: userModuleRoleValues },
+    });
+  }
+
+  return { $or: conditions };
+}
