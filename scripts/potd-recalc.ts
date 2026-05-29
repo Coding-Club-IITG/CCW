@@ -27,7 +27,10 @@ async function migrate() {
   );
 
   console.log("Fetching historical data...");
-  const challenges = await DailyChallenge.find()
+  const now = new Date();
+  const challenges = await DailyChallenge.find({
+    graceEnd: { $lte: now },
+  })
     .sort({ windowStart: 1, difficulty: 1 })
     .populate("problem");
 
@@ -107,7 +110,7 @@ async function migrate() {
           } else {
             subs.push({
               result: "AC",
-              problem_id: `${(challenge.problem as any).contestId}_${(challenge.problem as any).problemIndex}`,
+              problem_id: (challenge.problem as any).problemIndex,
               contest_id: (challenge.problem as any).contestId,
               epoch_second: Math.floor(sub.solvedAt.getTime() / 1000),
             });

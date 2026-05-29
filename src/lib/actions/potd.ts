@@ -131,7 +131,7 @@ export async function getTodayChallenge(): Promise<{
 
 // Sync My Submission
 
-const CF_SUBMISSIONS_COUNT = 50;
+const CF_SUBMISSIONS_COUNT = 200;
 
 /**
  * Manually sync the current user's submission against today's challenge

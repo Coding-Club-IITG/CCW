@@ -418,7 +418,7 @@ export async function forceSyncUser(
   let subs: any[] = [];
   try {
     if (platform === "codeforces") {
-      const cfUrl = `https://codeforces.com/api/user.status?handle=${encodeURIComponent(targetUser.codeforcesId)}&from=1&count=50`;
+      const cfUrl = `https://codeforces.com/api/user.status?handle=${encodeURIComponent(targetUser.codeforcesId)}&from=1&count=200`;
       const { data } = await axios.get(cfUrl, { timeout: 10_000 });
       if (data.status === "OK") subs = data.result;
     } else {

@@ -9,7 +9,7 @@ import { processSubmission } from "@/lib/potd/submit";
 import { getUserSubmissions } from "@/lib/platforms/atcoder";
 import type { Platform } from "@/lib/constants";
 
-const CF_SUBMISSIONS_COUNT = 100;
+const CF_SUBMISSIONS_COUNT = 200;
 const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 mins between health-check retries
 const MAX_RETRIES = 6;
 const INTER_USER_DELAY_MS = 2_100; // CF allows about 1 request/s, so use 2.1s to prevent ban
@@ -132,6 +132,18 @@ async function resetStreaksForDay(challenges: any[]): Promise<void> {
 
   const challengeIds = challenges.map((c: any) => c._id);
 
+  // Guard: skip reset if any challenge for this day still has pending submissions
+  const pendingCount = await POTDSubmission.countDocuments({
+    challengeId: { $in: challengeIds },
+    status: "Pending",
+  });
+  if (pendingCount > 0) {
+    logger.info(
+      `[potd-sync] Skipping streak reset - ${pendingCount} submissions still pending`,
+    );
+    return;
+  }
+
   // Find User IDs that solved at least one challenge today
   const savedUserIds = await POTDSubmission.find({
     challengeId: { $in: challengeIds },
@@ -199,7 +211,28 @@ export async function syncPOTDSubmissions(): Promise<void> {
     }
   }
 
-  await resetStreaksForDay(challenges);
+  // Reset streaks for each day that hasn't been processed yet
+  // Group challenges by windowStart and process chronologically to handle
+  // cron outages where multiple days need streak resets.
+  const dayGroups = new Map<number, any[]>();
+  for (const c of challenges) {
+    const key = (c.windowStart as Date).getTime();
+    if (!dayGroups.has(key)) dayGroups.set(key, []);
+    dayGroups.get(key)!.push(c);
+  }
+
+  const sortedDays = Array.from(dayGroups.keys()).sort((a, b) => a - b);
+  for (const dayKey of sortedDays) {
+    const dayChallenges = dayGroups.get(dayKey)!;
+    const resetKey = `potd:streak_reset:${dayKey}`;
+    const alreadyReset = await redis.get(resetKey);
+    if (alreadyReset) continue;
+
+    await resetStreaksForDay(dayChallenges);
+
+    // Mark this day as reset-processed (expire after 7 days)
+    await redis.set(resetKey, "1", { EX: 7 * 86_400 });
+  }
 
   logger.info("[potd-sync] POTD sync complete.");
 }
