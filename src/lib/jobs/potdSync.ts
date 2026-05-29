@@ -6,12 +6,16 @@ import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
 import { logger } from "@/lib/utils";
 import { processSubmission } from "@/lib/potd/submit";
-import { getUserSubmissions } from "@/lib/platforms/atcoder";
+import {
+  getUserSubmissions,
+  isAtCoderAPIReachable,
+} from "@/lib/platforms/atcoder";
+import { isCodeforcesAPIReachable } from "@/lib/platforms/codeforces";
 import type { Platform } from "@/lib/constants";
 
 const CF_SUBMISSIONS_COUNT = 200;
-const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 mins between health-check retries
-const MAX_RETRIES = 6;
+const HEALTH_CHECK_RETRIES = 3;
+const HEALTH_CHECK_DELAY_MS = 10_000; // 10s between retries
 const INTER_USER_DELAY_MS = 2_100; // CF allows about 1 request/s, so use 2.1s to prevent ban
 
 function sleep(ms: number): Promise<void> {
@@ -20,23 +24,19 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Phase 1: Health check
- * Verify CF API is reachable. Retries up to MAX_RETRIES times,
- * waiting RETRY_DELAY_MS between attempts.
+ * Check if platform API is reachable with some retries.
  */
-async function waitForCFApi(): Promise<boolean> {
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const { data } = await axios.get(
-        "https://codeforces.com/api/user.info?handles=tourist",
-        { timeout: 8_000 },
-      );
-      if (data.status === "OK") return true;
-    } catch {
-      logger.warn(
-        `[potd-sync] CF API unreachable (attempt ${attempt}/${MAX_RETRIES})`,
-      );
-    }
-    if (attempt < MAX_RETRIES) await sleep(RETRY_DELAY_MS);
+async function checkPlatformHealth(platform: Platform): Promise<boolean> {
+  for (let attempt = 1; attempt <= HEALTH_CHECK_RETRIES; attempt++) {
+    const reachable =
+      platform === "codeforces"
+        ? await isCodeforcesAPIReachable()
+        : await isAtCoderAPIReachable();
+    if (reachable) return true;
+    logger.warn(
+      `[potd-sync] ${platform} API unreachable (attempt ${attempt}/${HEALTH_CHECK_RETRIES})`,
+    );
+    if (attempt < HEALTH_CHECK_RETRIES) await sleep(HEALTH_CHECK_DELAY_MS);
   }
   return false;
 }
@@ -127,8 +127,8 @@ async function syncPendingSubmissions(challenge: any): Promise<void> {
  * Phase 3: Streak reset
  * Reset streaks only for users who solved nothing today - neither in main or grace window.
  */
-async function resetStreaksForDay(challenges: any[]): Promise<void> {
-  if (challenges.length === 0) return;
+async function resetStreaksForDay(challenges: any[]): Promise<boolean> {
+  if (challenges.length === 0) return true;
 
   const challengeIds = challenges.map((c: any) => c._id);
 
@@ -141,7 +141,7 @@ async function resetStreaksForDay(challenges: any[]): Promise<void> {
     logger.info(
       `[potd-sync] Skipping streak reset - ${pendingCount} submissions still pending`,
     );
-    return;
+    return false;
   }
 
   // Find User IDs that solved at least one challenge today
@@ -164,6 +164,8 @@ async function resetStreaksForDay(challenges: any[]): Promise<void> {
       `[potd-sync] Reset streaks for ${result.modifiedCount} users who missed today's challenges`,
     );
   }
+
+  return true;
 }
 
 /**
@@ -173,12 +175,6 @@ export async function syncPOTDSubmissions(): Promise<void> {
   logger.info("[potd-sync] Starting POTD submission sync...");
 
   await dbConnect();
-
-  const apiReachable = await waitForCFApi();
-  if (!apiReachable) {
-    logger.error("[potd-sync] CF API unreachable after all retries. Aborting.");
-    return;
-  }
 
   const now = new Date();
 
@@ -192,9 +188,44 @@ export async function syncPOTDSubmissions(): Promise<void> {
     return;
   }
 
+  // Determine which platforms are needed and check health independently
+  const platformsNeeded = new Set<Platform>(
+    challenges.map((c: any) => (c.problem as any).platform || "codeforces"),
+  );
+
+  const platformHealth = new Map<Platform, boolean>();
+  for (const platform of platformsNeeded) {
+    const healthy = await checkPlatformHealth(platform);
+    platformHealth.set(platform, healthy);
+    if (!healthy) {
+      logger.warn(
+        `[potd-sync] ${platform} API unreachable after retries — skipping ${platform} challenges`,
+      );
+    }
+  }
+
+  const anyHealthy = [...platformHealth.values()].some((v) => v);
+  if (!anyHealthy) {
+    logger.error(
+      "[potd-sync] All platform APIs unreachable. Aborting sync run.",
+    );
+    return;
+  }
+
   const redis = await getRedis();
 
   for (const challenge of challenges) {
+    const problem = challenge.problem as any;
+    const platform: Platform = problem.platform || "codeforces";
+
+    // Skip challenges whose platform API is down
+    if (!platformHealth.get(platform)) {
+      logger.info(
+        `[potd-sync] Skipping challenge ${challenge._id} (${platform} API down)`,
+      );
+      continue;
+    }
+
     const cronKey = `potd:cron:lock:${challenge._id}`;
     const locked = await redis.set(cronKey, "1", { NX: true, EX: 600 });
     if (!locked) {
@@ -228,10 +259,12 @@ export async function syncPOTDSubmissions(): Promise<void> {
     const alreadyReset = await redis.get(resetKey);
     if (alreadyReset) continue;
 
-    await resetStreaksForDay(dayChallenges);
+    const resetCompleted = await resetStreaksForDay(dayChallenges);
 
-    // Mark this day as reset-processed (expire after 7 days)
-    await redis.set(resetKey, "1", { EX: 7 * 86_400 });
+    // Only mark as processed if reset actually completed (no pending submissions left)
+    if (resetCompleted) {
+      await redis.set(resetKey, "1", { EX: 7 * 86_400 });
+    }
   }
 
   logger.info("[potd-sync] POTD sync complete.");

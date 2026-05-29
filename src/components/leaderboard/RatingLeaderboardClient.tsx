@@ -88,7 +88,7 @@ export default function RatingLeaderboardClient({
     {
       key: "platformRank",
       header: `${PLATFORM_DISPLAY_NAMES[platform]} Rank`,
-      render: (item) => <span className={styles.cfRank}>{item.rank}</span>,
+      render: (item) => <span className={styles.cpRank}>{item.rank}</span>,
     },
   ];
 

@@ -195,7 +195,7 @@ export default function ProfileForm() {
         {/* Codeforces ID */}
         <div className={styles.field}>
           <label htmlFor="codeforces">Codeforces ID</label>
-          <div className={styles.cfRow}>
+          <div className={styles.cpRow}>
             <input
               type="text"
               id="codeforces"
@@ -271,7 +271,7 @@ export default function ProfileForm() {
         {/* AtCoder ID */}
         <div className={styles.field}>
           <label htmlFor="atcoder">AtCoder ID</label>
-          <div className={styles.cfRow}>
+          <div className={styles.cpRow}>
             <input
               type="text"
               id="atcoder"
