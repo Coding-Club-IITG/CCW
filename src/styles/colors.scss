@@ -1,0 +1,298 @@
+// Centralized color definitions
+
+// Light theme (default)
+:root,
+[data-theme="light"] {
+  // Core
+  --primary: #0070f3;
+  --primary-hover: #005bb5;
+  --primary-alpha: rgba(0, 112, 243, 0.08);
+  --secondary: #000000;
+  --secondary-hover: #333333;
+
+  // Surfaces
+  --background: #ffffff;
+  --background-secondary: #f9f9f9;
+  --surface: #ffffff;
+  --surface-secondary: #fafafa;
+  --surface-hover: #fcfcfc;
+
+  // Text
+  --foreground: #000000;
+  --foreground-secondary: #444444;
+  --foreground-strong: #111111;
+  --muted: #666666;
+  --muted-light: #888888;
+  --muted-lighter: #aaaaaa;
+
+  // Borders
+  --border: #eaeaea;
+  --border-light: #eeeeee;
+  --border-lighter: #f0f0f0;
+  --border-input: #dddddd;
+
+  // Grays (structural)
+  --gray-100: #f4f4f4;
+  --gray-200: #eaeaea;
+  --gray-300: #cccccc;
+  --gray-400: #999999;
+  --gray-500: #777777;
+  --gray-600: #555555;
+  --gray-700: #374151;
+
+  // Shadows
+  --shadow-sm: rgba(0, 0, 0, 0.04);
+  --shadow-md: rgba(0, 0, 0, 0.08);
+  --shadow-lg: rgba(0, 0, 0, 0.14);
+  --overlay: rgba(0, 0, 0, 0.45);
+
+  // Semantic: Error/Danger
+  --error: #c0392b;
+  --error-text: #842029;
+  --error-bg: #fff3f3;
+  --error-bg-hover: #fff0f0;
+  --error-border: #f5c6cb;
+  --error-border-light: #ffb3b3;
+  --danger: #ff4d4f;
+  --danger-hover: #d9363e;
+  --danger-text: #e11d48;
+
+  // Semantic: Success
+  --success: #10b981;
+  --success-text: #065f46;
+  --success-bg: #d1fae5;
+  --success-border: #b2f5ea;
+
+  // Semantic: Warning
+  --warning: #d97706;
+  --warning-hover: #b45309;
+  --warning-text: #856404;
+  --warning-bg: #fef3c7;
+  --warning-bg-light: #fffbeb;
+  --warning-border: #fde68a;
+
+  // Semantic: Info/Accent (indigo)
+  --accent: #4f46e5;
+  --accent-light: #6366f1;
+  --accent-bg: #e0e7ff;
+  --accent-surface: #f0f4ff;
+
+  // Component: Tabs
+  --tab-text: #666666;
+  --tab-hover-bg: #f4f4f5;
+  --tab-active-bg: #111111;
+  --tab-active-text: #ffffff;
+
+  // Component: Cards
+  --card-bg: #ffffff;
+  --card-shadow: rgba(0, 0, 0, 0.05);
+  --card-border: #eaeaea;
+
+  // Component: Badges
+  --badge-bg: #f4f4f5;
+  --badge-text: #52525b;
+  --badge-border: #e4e4e7;
+  --badge-primary-bg: rgba(0, 112, 243, 0.06);
+  --badge-primary-text: #0070f3;
+
+  // Component: Access badges
+  --access-download-bg: #e6f7ee;
+  --access-download-text: #237a4b;
+  --access-view-bg: #fff7e6;
+  --access-view-text: #875500;
+
+  // Component: User tag
+  --user-tag-bg: #e8f0fe;
+  --user-tag-text: #1a56a4;
+
+  // Component: Leaderboard ranks
+  --rank-gold-bg: #fef08a;
+  --rank-gold-text: #92400e;
+  --rank-silver-bg: #f1f5f9;
+  --rank-silver-text: #475569;
+  --rank-bronze-bg: #fed7aa;
+  --rank-bronze-text: #9a3412;
+
+  // Component: Streak
+  --streak-text: #ea580c;
+  --streak-bg: #ffedd5;
+
+  // Component: Table
+  --table-header-bg: #f9fafb;
+  --table-header-text: #374151;
+
+  // Component: Module roles
+  --module-role-bg: #f0f7ff;
+
+  // Component: Points info
+  --points-bg: #f8fafc;
+  --points-border: #e2e8f0;
+  --points-header-text: #0f172a;
+  --points-item-bg: #ffffff;
+  --points-item-border: #f1f5f9;
+  --points-item-label: #334155;
+  --points-grid-text: #475569;
+  --points-note-border: #cbd5e1;
+  --points-note-text: #64748b;
+  --points-note-icon: #94a3b8;
+
+  // Component: PDF viewer
+  --pdf-bg: #525659;
+  --image-viewer-bg: #1a1a1a;
+
+  // Component: Verification
+  --verify-token-bg: #ffffff;
+  --verify-token-border: #e2e8f0;
+  --verify-token-text: #b45309;
+
+  // Component: Link
+  --link: #0066cc;
+}
+
+// Dark theme
+[data-theme="dark"] {
+  // Core
+  --primary: #3b9eff;
+  --primary-hover: #5bb0ff;
+  --primary-alpha: rgba(59, 158, 255, 0.12);
+  --secondary: #ffffff;
+  --secondary-hover: #cccccc;
+
+  // Surfaces
+  --background: #121212;
+  --background-secondary: #1a1a1a;
+  --surface: #1e1e1e;
+  --surface-secondary: #252525;
+  --surface-hover: #2a2a2a;
+
+  // Text
+  --foreground: #e4e4e4;
+  --foreground-secondary: #b0b0b0;
+  --foreground-strong: #f0f0f0;
+  --muted: #9a9a9a;
+  --muted-light: #777777;
+  --muted-lighter: #5a5a5a;
+
+  // Borders
+  --border: #2a2a2a;
+  --border-light: #333333;
+  --border-lighter: #2a2a2a;
+  --border-input: #3a3a3a;
+
+  // Grays (structural)
+  --gray-100: #1e1e1e;
+  --gray-200: #2a2a2a;
+  --gray-300: #3a3a3a;
+  --gray-400: #555555;
+  --gray-500: #777777;
+  --gray-600: #999999;
+  --gray-700: #b0b0b0;
+
+  // Shadows
+  --shadow-sm: rgba(0, 0, 0, 0.2);
+  --shadow-md: rgba(0, 0, 0, 0.3);
+  --shadow-lg: rgba(0, 0, 0, 0.4);
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  // Semantic: Error/Danger
+  --error: #f87171;
+  --error-text: #fca5a5;
+  --error-bg: #3b1515;
+  --error-bg-hover: #4a1c1c;
+  --error-border: #7f1d1d;
+  --error-border-light: #991b1b;
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --danger-text: #fb7185;
+
+  // Semantic: Success
+  --success: #34d399;
+  --success-text: #6ee7b7;
+  --success-bg: #132e24;
+  --success-border: #065f46;
+
+  // Semantic: Warning
+  --warning: #fbbf24;
+  --warning-hover: #f59e0b;
+  --warning-text: #fcd34d;
+  --warning-bg: #2e2307;
+  --warning-bg-light: #292105;
+  --warning-border: #78590a;
+
+  // Semantic: Info/Accent (indigo)
+  --accent: #818cf8;
+  --accent-light: #a5b4fc;
+  --accent-bg: #1e1b4b;
+  --accent-surface: #1e1b3a;
+
+  // Component: Tabs
+  --tab-text: #9a9a9a;
+  --tab-hover-bg: #2a2a2a;
+  --tab-active-bg: #e4e4e4;
+  --tab-active-text: #121212;
+
+  // Component: Cards
+  --card-bg: #1e1e1e;
+  --card-shadow: rgba(0, 0, 0, 0.3);
+  --card-border: #2a2a2a;
+
+  // Component: Badges
+  --badge-bg: #2a2a2a;
+  --badge-text: #b0b0b0;
+  --badge-border: #3a3a3a;
+  --badge-primary-bg: rgba(59, 158, 255, 0.12);
+  --badge-primary-text: #3b9eff;
+
+  // Component: Access badges
+  --access-download-bg: #132e24;
+  --access-download-text: #6ee7b7;
+  --access-view-bg: #2e2307;
+  --access-view-text: #fcd34d;
+
+  // Component: User tag
+  --user-tag-bg: #1e2a4a;
+  --user-tag-text: #93c5fd;
+
+  // Component: Leaderboard ranks
+  --rank-gold-bg: #3d3005;
+  --rank-gold-text: #fcd34d;
+  --rank-silver-bg: #2a2a2a;
+  --rank-silver-text: #b0b0b0;
+  --rank-bronze-bg: #3d2005;
+  --rank-bronze-text: #fdba74;
+
+  // Component: Streak
+  --streak-text: #fb923c;
+  --streak-bg: #3d2005;
+
+  // Component: Table
+  --table-header-bg: #1a1a1a;
+  --table-header-text: #b0b0b0;
+
+  // Component: Module roles
+  --module-role-bg: #1e2a4a;
+
+  // Component: Points info
+  --points-bg: #1a1a1a;
+  --points-border: #2a2a2a;
+  --points-header-text: #e4e4e4;
+  --points-item-bg: #1e1e1e;
+  --points-item-border: #2a2a2a;
+  --points-item-label: #b0b0b0;
+  --points-grid-text: #9a9a9a;
+  --points-note-border: #3a3a3a;
+  --points-note-text: #777777;
+  --points-note-icon: #555555;
+
+  // Component: PDF viewer
+  --pdf-bg: #1a1a1a;
+  --image-viewer-bg: #0a0a0a;
+
+  // Component: Verification
+  --verify-token-bg: #1e1e1e;
+  --verify-token-border: #3a3a3a;
+  --verify-token-text: #fbbf24;
+
+  // Component: Link
+  --link: #60a5fa;
+}

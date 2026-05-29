@@ -67,10 +67,9 @@ export default function ProfileForm() {
     setVerifying(platform === "codeforces" ? "cf" : "ac");
     setMessage(null);
     try {
-      const res = await fetch(
-        `/api/cp/verify-handle?platform=${platform}`,
-        { method: "POST" },
-      );
+      const res = await fetch(`/api/cp/verify-handle?platform=${platform}`, {
+        method: "POST",
+      });
       const data = await res.json();
       if (!res.ok) {
         setMessage({
@@ -229,15 +228,15 @@ export default function ProfileForm() {
                   </span>
                   {(!cfVerificationToken ||
                     formData.codeforcesId !== tokenHandleCF) && (
-                      <button
-                        type="button"
-                        onClick={() => handleRequestToken("codeforces")}
-                        disabled={verifying === "cf"}
-                        className={styles.tokenButton}
-                      >
-                        {verifying === "cf" ? "Wait..." : "Get Token"}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRequestToken("codeforces")}
+                      disabled={verifying === "cf"}
+                      className={styles.tokenButton}
+                    >
+                      {verifying === "cf" ? "Wait..." : "Get Token"}
+                    </button>
+                  )}
                 </div>
 
                 {cfVerificationToken &&
@@ -305,15 +304,15 @@ export default function ProfileForm() {
                   </span>
                   {(!acVerificationToken ||
                     formData.atcoderId !== tokenHandleAC) && (
-                      <button
-                        type="button"
-                        onClick={() => handleRequestToken("atcoder")}
-                        disabled={verifying === "ac"}
-                        className={styles.tokenButton}
-                      >
-                        {verifying === "ac" ? "Wait..." : "Get Token"}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRequestToken("atcoder")}
+                      disabled={verifying === "ac"}
+                      className={styles.tokenButton}
+                    >
+                      {verifying === "ac" ? "Wait..." : "Get Token"}
+                    </button>
+                  )}
                 </div>
 
                 {acVerificationToken &&

@@ -8,15 +8,15 @@
 
 .subtitle {
   margin-bottom: 2rem;
-  color: #666;
+  color: var(--muted);
 }
 
 .errorText {
-  color: #842029;
-  background: #fff3f3;
+  color: var(--error-text);
+  background: var(--error-bg);
   padding: 1rem;
   border-radius: 8px;
-  border: 1px solid #f5c6cb;
+  border: 1px solid var(--error-border);
 }
 
 .grid {
@@ -26,19 +26,23 @@
 }
 
 .card {
-  border: 1px solid #eaeaea;
+  border: 1px solid var(--border);
   padding: 2rem;
   border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 4px 6px var(--shadow-sm);
   text-align: center;
-  background: white;
+  background: var(--card-bg);
 }
 
 .avatar {
   width: 100px;
   height: 100px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0070f3 0%, #00a4ff 100%);
+  background: linear-gradient(
+    135deg,
+    var(--primary) 0%,
+    var(--primary-hover) 100%
+  );
   margin: 0 auto 1.5rem;
   display: flex;
   align-items: center;
@@ -56,8 +60,8 @@
 .roleBadge {
   font-size: 0.8rem;
   text-transform: uppercase;
-  background: #0070f315;
-  color: #0070f3;
+  background: var(--badge-primary-bg);
+  color: var(--badge-primary-text);
   padding: 0.3rem 0.8rem;
   border-radius: 20px;
   font-weight: bold;
@@ -68,16 +72,16 @@
 
 .module {
   font-size: 0.95rem;
-  color: #555;
+  color: var(--gray-600);
   font-weight: 500;
 }
 
 .bio {
   margin-top: 1rem;
   font-size: 0.85rem;
-  color: #666;
+  color: var(--muted);
   line-height: 1.4;
   font-style: italic;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-lighter);
   padding-top: 0.75rem;
 }

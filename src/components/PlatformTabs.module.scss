@@ -2,7 +2,7 @@
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 1rem;
 }
 
@@ -12,20 +12,20 @@
   padding: 0.5rem 1.25rem;
   font-size: 0.95rem;
   font-weight: 500;
-  color: #666;
+  color: var(--tab-text);
   cursor: pointer;
   border-radius: 6px;
   transition: all 0.2s ease;
   white-space: nowrap;
 
   &:hover {
-    background: #f4f4f5;
-    color: #111;
+    background: var(--tab-hover-bg);
+    color: var(--foreground-strong);
   }
 
   &.active {
-    background: #111;
-    color: #fff;
-    border-color: #111;
+    background: var(--tab-active-bg);
+    color: var(--tab-active-text);
+    border-color: var(--tab-active-bg);
   }
 }

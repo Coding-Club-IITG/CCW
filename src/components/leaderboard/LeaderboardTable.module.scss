@@ -12,22 +12,22 @@
     margin: 0 0 0.5rem 0;
     font-size: 1.75rem;
     font-weight: 700;
-    color: #111;
+    color: var(--foreground-strong);
   }
 
   p {
     margin: 0;
-    color: #666;
+    color: var(--muted);
     font-size: 0.95rem;
   }
 }
 
 .tableContainer {
-  background: #fff;
-  border: 1px solid #eaeaea;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   overflow: auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px var(--shadow-sm);
 }
 
 .table {
@@ -38,14 +38,14 @@
   th,
   td {
     padding: 1rem 1.5rem;
-    border-bottom: 1px solid #eaeaea;
+    border-bottom: 1px solid var(--border);
     white-space: nowrap;
   }
 
   th {
-    background: #f9fafb;
+    background: var(--table-header-bg);
     font-weight: 600;
-    color: #374151;
+    color: var(--table-header-text);
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -58,14 +58,14 @@
   tbody tr {
     transition: background 0.15s ease;
     &:hover {
-      background: #fcfcfc;
+      background: var(--surface-hover);
     }
   }
 }
 
 .rank {
   font-weight: 700;
-  color: #111;
+  color: var(--foreground-strong);
   font-size: 1.1rem;
 }
 
@@ -80,18 +80,18 @@
 }
 
 .top1 {
-  background: #fef08a;
-  color: #92400e;
+  background: var(--rank-gold-bg);
+  color: var(--rank-gold-text);
 }
 
 .top2 {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--rank-silver-bg);
+  color: var(--rank-silver-text);
 }
 
 .top3 {
-  background: #fed7aa;
-  color: #9a3412;
+  background: var(--rank-bronze-bg);
+  color: var(--rank-bronze-text);
 }
 
 .userInfo {
@@ -101,18 +101,18 @@
 
 .userName {
   font-weight: 600;
-  color: #111;
+  color: var(--foreground-strong);
   font-size: 0.95rem;
 }
 
 .userHandle {
   font-size: 0.8rem;
-  color: #666;
+  color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .handleLink {
-  color: #0070f3;
+  color: var(--primary);
   text-decoration: none;
   font-size: 0.8rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -124,7 +124,7 @@
 
 .ratingBadge {
   font-weight: 700;
-  color: #111;
+  color: var(--foreground-strong);
   font-size: 1.05rem;
 }
 
@@ -134,13 +134,13 @@
   border-radius: 6px;
   font-size: 0.8rem;
   font-weight: 500;
-  background: #f4f4f5;
-  color: #52525b;
-  border: 1px solid #e4e4e7;
+  background: var(--badge-bg);
+  color: var(--badge-text);
+  border: 1px solid var(--badge-border);
 }
 
 .emptyState {
   padding: 2rem;
   text-align: center;
-  color: #666;
+  color: var(--muted);
 }

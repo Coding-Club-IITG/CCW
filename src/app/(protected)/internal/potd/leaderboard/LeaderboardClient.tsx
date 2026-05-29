@@ -43,7 +43,13 @@ export default function LeaderboardClient({
 
       <div className={styles.tableContainer}>
         {data.length === 0 ? (
-          <p style={{ padding: "2rem", textAlign: "center", color: "#666" }}>
+          <p
+            style={{
+              padding: "2rem",
+              textAlign: "center",
+              color: "var(--muted)",
+            }}
+          >
             No data yet - start solving!
           </p>
         ) : (

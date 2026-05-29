@@ -12,14 +12,14 @@
 .sidebar {
   width: 100%;
   padding: 1rem;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid var(--border);
 
   @media (min-width: 768px) {
     width: 250px;
     flex-shrink: 0;
     min-height: calc(100vh - 100px);
     border-bottom: none;
-    border-right: 1px solid #eaeaea;
+    border-right: 1px solid var(--border);
     padding-right: 1.5rem;
   }
 }
@@ -30,7 +30,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #888;
+  color: var(--muted-light);
 
   @media (min-width: 768px) {
     margin-bottom: 1.5rem;
@@ -67,7 +67,7 @@
 
 .navLink {
   text-decoration: none;
-  color: #444;
+  color: var(--foreground-secondary);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -78,14 +78,14 @@
   transition: all 0.2s;
 
   &:hover {
-    background-color: #f5f5f5;
-    color: #111;
+    background-color: var(--gray-100);
+    color: var(--foreground-strong);
   }
 }
 
 .activeLink {
-  background-color: #f0f4ff;
-  color: #4f46e5;
+  background-color: var(--accent-surface);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -106,7 +106,7 @@
     display: block;
     margin: 1.5rem 0 0.5rem;
     height: 1px;
-    background-color: #eaeaea;
+    background-color: var(--border);
   }
 }
 

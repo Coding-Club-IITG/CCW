@@ -89,7 +89,12 @@ export default function SetProblemClient() {
 
   const handleCancelAdd = () => {
     setIsAdding(false);
-    setFormData({ date: "", difficulty: "Easy", platform: "codeforces", problemId: "" });
+    setFormData({
+      date: "",
+      difficulty: "Easy",
+      platform: "codeforces",
+      problemId: "",
+    });
     setFormError(null);
   };
 
@@ -128,7 +133,12 @@ export default function SetProblemClient() {
         return;
       }
       setIsAdding(false);
-      setFormData({ date: "", difficulty: "Easy", platform: "codeforces", problemId: "" });
+      setFormData({
+        date: "",
+        difficulty: "Easy",
+        platform: "codeforces",
+        problemId: "",
+      });
       await fetchScheduled();
     } finally {
       setIsSaving(false);
@@ -192,7 +202,7 @@ export default function SetProblemClient() {
 
       <div className={styles.grid}>
         {loadingInitial && (
-          <p style={{ color: "#666" }}>Loading scheduled problems...</p>
+          <p style={{ color: "var(--muted)" }}>Loading scheduled problems...</p>
         )}
 
         {/* Add form */}
@@ -318,7 +328,7 @@ export default function SetProblemClient() {
             {formError && (
               <p
                 style={{
-                  color: "#e11d48",
+                  color: "var(--danger-text)",
                   fontSize: "0.875rem",
                   marginBottom: "0.5rem",
                 }}
@@ -360,7 +370,11 @@ export default function SetProblemClient() {
             <div
               key={prob.id}
               className={styles.problemCard}
-              style={isToday ? { borderLeft: "3px solid #6366f1" } : undefined}
+              style={
+                isToday
+                  ? { borderLeft: "3px solid var(--accent-light)" }
+                  : undefined
+              }
             >
               <div className={styles.cardHeader}>
                 <div
@@ -377,8 +391,8 @@ export default function SetProblemClient() {
                     <span
                       style={{
                         fontSize: "0.7rem",
-                        background: "#6366f1",
-                        color: "#fff",
+                        background: "var(--accent-light)",
+                        color: "white",
                         padding: "1px 6px",
                         borderRadius: "999px",
                       }}
@@ -419,7 +433,10 @@ export default function SetProblemClient() {
                     Rating: {prob.problem.rating || "Unrated"}
                   </span>
                   <a
-                    href={PLATFORM_PROBLEM_URLS[prob.platform](prob.problem.contestId, prob.problem.problemIndex)}
+                    href={PLATFORM_PROBLEM_URLS[prob.platform](
+                      prob.problem.contestId,
+                      prob.problem.problemIndex,
+                    )}
                     target="_blank"
                     rel="noreferrer"
                     className={styles.urlLink}

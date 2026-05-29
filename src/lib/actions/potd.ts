@@ -103,10 +103,10 @@ export async function getTodayChallenge(): Promise<{
       },
       mySubmission: sub
         ? {
-          status: sub.status,
-          solvedAt: sub.solvedAt ? sub.solvedAt.toISOString() : null,
-          pointsAwarded: sub.pointsAwarded,
-        }
+            status: sub.status,
+            solvedAt: sub.solvedAt ? sub.solvedAt.toISOString() : null,
+            pointsAwarded: sub.pointsAwarded,
+          }
         : { status: "none" as const, solvedAt: null, pointsAwarded: 0 },
     };
   });

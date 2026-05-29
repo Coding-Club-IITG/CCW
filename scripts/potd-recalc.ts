@@ -75,9 +75,7 @@ async function migrate() {
   for (let i = 0; i < cpUsers.length; i++) {
     const cpUser = cpUsers[i];
     const handle = cpUser.cfHandle || cpUser.acHandle || "unknown";
-    console.log(
-      `[${i + 1}/${cpUsers.length}] Recalculating for ${handle}...`,
-    );
+    console.log(`[${i + 1}/${cpUsers.length}] Recalculating for ${handle}...`);
 
     // Fetch all submissions for this user once to avoid repeated queries
     const userSubs = await POTDSubmission.find({ userId: cpUser.userId });

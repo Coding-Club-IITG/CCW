@@ -66,9 +66,6 @@ export default async function LeaderboardPage() {
   ]);
 
   return (
-    <RatingLeaderboardClient
-      cfEntries={cfEntries}
-      acEntries={acEntries}
-    />
+    <RatingLeaderboardClient cfEntries={cfEntries} acEntries={acEntries} />
   );
 }

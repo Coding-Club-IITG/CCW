@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
       try {
         const { unlink } = await import("fs/promises");
         await unlink(path.join(UPLOAD_DIR, storedName));
-      } catch { }
+      } catch {}
 
       logger.error("[Files] DB write error:", err);
       return NextResponse.json(

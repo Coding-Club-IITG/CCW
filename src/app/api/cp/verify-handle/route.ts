@@ -89,11 +89,7 @@ async function verifyCF(cpUserDoc: any, userId: string) {
   }
   const cfData = await cfRes.json();
 
-  if (
-    cfData.status !== "OK" ||
-    !cfData.result ||
-    cfData.result.length === 0
-  ) {
+  if (cfData.status !== "OK" || !cfData.result || cfData.result.length === 0) {
     return NextResponse.json(
       { error: "Handle not found on Codeforces." },
       { status: 404 },

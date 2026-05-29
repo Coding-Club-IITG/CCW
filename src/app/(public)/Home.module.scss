@@ -11,10 +11,10 @@
 .errorBanner {
   margin-bottom: 2rem;
   padding: 1rem 1.5rem;
-  background: #fff3f3;
-  border: 1px solid #f5c6cb;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
   border-radius: 8px;
-  color: #842029;
+  color: var(--error-text);
   max-width: 520px;
   width: 100%;
 }
@@ -29,7 +29,7 @@
   font-size: 1.25rem;
   max-width: 600px;
   margin-bottom: 2.5rem;
-  color: #666;
+  color: var(--muted);
 }
 
 .actions {
@@ -65,7 +65,7 @@
 
 .featureCard {
   padding: 1.5rem;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-light);
   border-radius: 12px;
 
   h3 {
@@ -74,7 +74,7 @@
 
   p {
     font-size: 0.9rem;
-    color: #777;
+    color: var(--gray-500);
     margin: 0;
   }
 }

@@ -44,7 +44,10 @@ export const PLATFORM_DISPLAY_NAMES: Record<Platform, string> = {
   atcoder: "AtCoder",
 };
 
-export const PLATFORM_PROFILE_URLS: Record<Platform, (handle: string) => string> = {
+export const PLATFORM_PROFILE_URLS: Record<
+  Platform,
+  (handle: string) => string
+> = {
   codeforces: (handle) => `https://codeforces.com/profile/${handle}`,
   atcoder: (handle) => `https://atcoder.jp/users/${handle}`,
 };

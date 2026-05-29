@@ -8,21 +8,21 @@
 
 .subtitle {
   margin-bottom: 2rem;
-  color: #666;
+  color: var(--muted);
 }
 
 .errorText {
-  color: #842029;
-  background: #fff3f3;
+  color: var(--error-text);
+  background: var(--error-bg);
   padding: 1rem;
   border-radius: 8px;
-  border: 1px solid #f5c6cb;
+  border: 1px solid var(--error-border);
 }
 
 .emptyState {
   padding: 3rem;
   text-align: center;
-  border: 1px dashed #ccc;
+  border: 1px dashed var(--gray-300);
   border-radius: 8px;
 }
 
@@ -33,17 +33,17 @@
 }
 
 .card {
-  border: 1px solid #eaeaea;
+  border: 1px solid var(--border);
   padding: 1.5rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px var(--card-shadow);
 }
 
 .moduleBadge {
   font-size: 0.75rem;
   text-transform: uppercase;
-  background: #0070f310;
-  color: #0070f3;
+  background: var(--badge-primary-bg);
+  color: var(--badge-primary-text);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
   font-weight: bold;
@@ -56,7 +56,7 @@
 
 .description {
   font-size: 0.9rem;
-  color: #444;
+  color: var(--foreground-secondary);
   margin-bottom: 1rem;
 }
 
@@ -64,7 +64,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 0.8rem;
-  color: #888;
+  color: var(--muted-light);
 }
 
 .status {

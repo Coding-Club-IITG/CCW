@@ -5,9 +5,9 @@
 .addUserSection {
   margin-bottom: 2rem;
   padding: 1rem;
-  background: #f9f9f9;
+  background: var(--surface-secondary);
   border-radius: 8px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-light);
 
   form {
     display: flex;
@@ -27,14 +27,14 @@
 
     input {
       padding: 0.5rem;
-      border: 1px solid #ccc;
+      border: 1px solid var(--gray-300);
       border-radius: 4px;
     }
   }
 
   button {
     padding: 0.5rem 1rem;
-    background: #0070f3;
+    background: var(--primary);
     color: white;
     border: none;
     border-radius: 4px;
@@ -42,11 +42,11 @@
     font-weight: 500;
 
     &:hover {
-      background: #0051a2;
+      background: var(--primary-hover);
     }
 
     &:disabled {
-      background: #ccc;
+      background: var(--gray-300);
     }
   }
 }
@@ -64,24 +64,24 @@
   td {
     text-align: left;
     padding: 0.75rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-light);
   }
 
   th {
-    background: #f4f4f4;
+    background: var(--gray-100);
     font-weight: 600;
   }
 
   tr:hover {
-    background: #fafafa;
+    background: var(--surface-secondary);
   }
 }
 
 .roleSelect {
   padding: 0.4rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--gray-300);
   border-radius: 4px;
-  background: white;
+  background: var(--surface);
 }
 
 .moduleRolesList {
@@ -96,7 +96,7 @@
     gap: 1rem;
     margin-bottom: 0.25rem;
     padding: 0.2rem 0.4rem;
-    background: #f0f7ff;
+    background: var(--module-role-bg);
     border-radius: 4px;
   }
 }
@@ -104,7 +104,7 @@
 .addModuleRole {
   margin-top: 0.5rem;
   font-size: 0.75rem;
-  color: #0070f3;
+  color: var(--primary);
   cursor: pointer;
   text-decoration: underline;
   display: flex;
@@ -115,7 +115,7 @@
 }
 
 .deleteButton {
-  background: #ff4d4f;
+  background: var(--danger);
   color: white;
   border: none;
   padding: 0.3rem 0.6rem;
@@ -124,7 +124,7 @@
   font-size: 0.8rem;
 
   &:hover {
-    background: #d9363e;
+    background: var(--danger-hover);
   }
 }
 
@@ -133,10 +133,10 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: white;
+  background: var(--surface);
   padding: 2rem;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px var(--shadow-lg);
   z-index: 1000;
   min-width: 400px;
 }
@@ -147,7 +147,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   z-index: 999;
 }
 
@@ -185,12 +185,12 @@
   }
 
   .cancel {
-    background: #eee;
-    border: 1px solid #ccc;
+    background: var(--border-light);
+    border: 1px solid var(--gray-300);
   }
 
   .save {
-    background: #0070f3;
+    background: var(--primary);
     color: white;
     border: none;
     display: flex;

@@ -4,7 +4,7 @@
 
 .header {
   margin-bottom: 2rem;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 1.5rem;
 }
 
@@ -20,17 +20,17 @@
   font-size: 1.5rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
-  color: #111;
+  color: var(--foreground-strong);
 }
 
 .header p {
-  color: #666;
+  color: var(--muted);
   font-size: 0.95rem;
 }
 
 .addBtn {
-  background-color: #000;
-  color: white;
+  background-color: var(--secondary);
+  color: var(--background);
   border: none;
   padding: 0.6rem 1.2rem;
   border-radius: 6px;
@@ -40,11 +40,11 @@
   transition: background-color 0.2s;
 
   &:hover:not(:disabled) {
-    background-color: #333;
+    background-color: var(--secondary-hover);
   }
 
   &:disabled {
-    background-color: #ccc;
+    background-color: var(--gray-300);
     cursor: not-allowed;
   }
 }
@@ -58,19 +58,19 @@
 .emptyState {
   text-align: center;
   padding: 3rem;
-  background-color: #f9f9f9;
+  background-color: var(--surface-secondary);
   border-radius: 8px;
-  border: 1px dashed #eaeaea;
-  color: #666;
+  border: 1px dashed var(--border);
+  color: var(--muted);
   font-size: 0.95rem;
 }
 
 .problemCard {
-  background-color: white;
-  border: 1px solid #eaeaea;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 1px 3px var(--shadow-sm);
 }
 
 .cardHeader {
@@ -78,14 +78,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1.25rem;
-  background-color: #fafafa;
-  border-bottom: 1px solid #eaeaea;
+  background-color: var(--surface-secondary);
+  border-bottom: 1px solid var(--border);
 }
 
 .dateLabel {
   font-weight: 600;
   font-size: 0.9rem;
-  color: #333;
+  color: var(--foreground-secondary);
 }
 
 .cardActions {
@@ -103,7 +103,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: var(--muted);
   transition: all 0.2s;
 
   &:disabled {
@@ -113,13 +113,13 @@
 }
 
 .iconBtn:hover:not(:disabled) {
-  background-color: #eaeaea;
-  color: #111;
+  background-color: var(--border);
+  color: var(--foreground-strong);
 }
 
 .iconBtnDestructive:hover:not(:disabled) {
-  background-color: #fee2e2;
-  color: #ef4444;
+  background-color: var(--error-bg);
+  color: var(--danger-hover);
 }
 
 .cardBody {
@@ -129,7 +129,7 @@
 .cardBody h4 {
   font-size: 1.1rem;
   margin-bottom: 0.75rem;
-  color: #111;
+  color: var(--foreground-strong);
 }
 
 .meta {
@@ -145,15 +145,15 @@
 }
 
 .difficulty {
-  background-color: #f0f0f0;
+  background-color: var(--border-lighter);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
-  color: #444;
+  color: var(--foreground-secondary);
   font-weight: 500;
 }
 
 .urlLink {
-  color: #0066cc;
+  color: var(--link);
   text-decoration: none;
 
   &:hover {
@@ -163,23 +163,23 @@
 
 /* Edit Form */
 .editCard {
-  background-color: white;
-  border: 1px solid #000;
+  background-color: var(--surface);
+  border: 1px solid var(--secondary);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px var(--card-shadow);
 }
 
 .editHeader {
   padding: 1rem 1.25rem;
-  background-color: #fafafa;
-  border-bottom: 1px solid #eaeaea;
+  background-color: var(--surface-secondary);
+  border-bottom: 1px solid var(--border);
 }
 
 .editHeader h3 {
   font-size: 1.05rem;
   font-weight: 600;
-  color: #111;
+  color: var(--foreground-strong);
 }
 
 .formGrid {
@@ -202,27 +202,27 @@
 .formGroup label {
   font-size: 0.85rem;
   font-weight: 500;
-  color: #444;
+  color: var(--foreground-secondary);
 }
 
 .formGroup input,
 .formGroup select {
   padding: 0.6rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--gray-300);
   border-radius: 6px;
   font-size: 0.9rem;
   outline: none;
   transition: border-color 0.2s;
 
   &:focus {
-    border-color: #000;
+    border-color: var(--foreground-strong);
   }
 }
 
 .actions {
   padding: 1rem 1.25rem;
-  background-color: #fafafa;
-  border-top: 1px solid #eaeaea;
+  background-color: var(--surface-secondary);
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
@@ -230,8 +230,8 @@
 
 .cancelBtn {
   background-color: transparent;
-  border: 1px solid #ccc;
-  color: #444;
+  border: 1px solid var(--gray-300);
+  color: var(--foreground-secondary);
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-size: 0.9rem;
@@ -239,13 +239,13 @@
   cursor: pointer;
 
   &:hover {
-    background-color: #f5f5f5;
+    background-color: var(--gray-100);
   }
 }
 
 .saveBtn {
-  background-color: #000;
-  color: white;
+  background-color: var(--secondary);
+  color: var(--background);
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 6px;
@@ -254,6 +254,6 @@
   cursor: pointer;
 
   &:hover {
-    background-color: #333;
+    background-color: var(--secondary-hover);
   }
 }

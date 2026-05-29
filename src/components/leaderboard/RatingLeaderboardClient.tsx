@@ -6,10 +6,7 @@ import LeaderboardTable, {
   leaderboardStyles as styles,
 } from "@/components/leaderboard/LeaderboardTable";
 import PlatformTabs from "@/components/PlatformTabs";
-import {
-  PLATFORM_DISPLAY_NAMES,
-  PLATFORM_PROFILE_URLS,
-} from "@/lib/constants";
+import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROFILE_URLS } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
 
 type RatingLeaderboardEntry = {

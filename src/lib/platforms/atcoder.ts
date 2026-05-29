@@ -221,10 +221,9 @@ export async function getUserAffiliation(
     );
     return affiliationMatch ? affiliationMatch[1].trim() : null;
   } catch (err) {
-    logger.warn(
-      `[atcoder-api] Failed to fetch affiliation for ${handle}`,
-      { err },
-    );
+    logger.warn(`[atcoder-api] Failed to fetch affiliation for ${handle}`, {
+      err,
+    });
     return null;
   }
 }

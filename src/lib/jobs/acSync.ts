@@ -47,9 +47,7 @@ export async function syncAtCoderRatings() {
 
         updatedCount++;
       } catch (err: any) {
-        logger.warn(
-          `[AC-Sync] Error syncing ${doc.acHandle}: ${err.message}`,
-        );
+        logger.warn(`[AC-Sync] Error syncing ${doc.acHandle}: ${err.message}`);
       }
 
       await sleep(INTER_USER_DELAY_MS);

@@ -1,13 +1,5 @@
 @use "sass:map";
-
-:root {
-  --primary: #0070f3;
-  --secondary: #000;
-  --background: #fff;
-  --foreground: #000;
-  --gray-100: #f4f4f4;
-  --gray-200: #eaeaea;
-}
+@use "./colors";
 
 * {
   box-sizing: border-box;
@@ -23,6 +15,9 @@ body {
     Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
   background: var(--background);
   color: var(--foreground);
+  transition:
+    background 0.3s ease,
+    color 0.3s ease;
 }
 
 a {

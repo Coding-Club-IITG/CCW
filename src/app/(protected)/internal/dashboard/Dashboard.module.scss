@@ -7,7 +7,7 @@
 }
 
 .welcome {
-  color: #666;
+  color: var(--muted);
   margin-bottom: 2rem;
 }
 
@@ -18,7 +18,7 @@
 
 .card {
   padding: 1.5rem;
-  border: 1px solid #eaeaea;
+  border: 1px solid var(--border);
   border-radius: 8px;
 
   h3 {
@@ -35,7 +35,7 @@
   }
 
   a {
-    color: #0070f3;
+    color: var(--primary);
     text-decoration: none;
 
     &:hover {

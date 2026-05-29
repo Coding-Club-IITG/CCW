@@ -47,7 +47,7 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
       </div>
 
       {sortedData.length === 0 ? (
-        <p style={{ color: "#666", padding: "2rem 0" }}>
+        <p style={{ color: "var(--muted)", padding: "2rem 0" }}>
           No streak data yet - start solving!
         </p>
       ) : (

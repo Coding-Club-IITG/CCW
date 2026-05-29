@@ -190,7 +190,7 @@ export async function deleteUser(userId: string) {
 
       logger.info(
         `[Auth] Cleaned up ${sessionsResult.deletedCount} session(s) and ` +
-        `${accountsResult.deletedCount} account(s) for deleted user: ${userToDelete.email}`,
+          `${accountsResult.deletedCount} account(s) for deleted user: ${userToDelete.email}`,
       );
     } catch (err) {
       logger.error(

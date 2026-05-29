@@ -114,13 +114,13 @@ export default function DailyChallengeClient({
             challenges: prev.challenges.map((c) =>
               c.challengeId === challengeId
                 ? {
-                  ...c,
-                  mySubmission: {
-                    status: result.status as any,
-                    solvedAt: null,
-                    pointsAwarded: result.pointsAwarded ?? 0,
-                  },
-                }
+                    ...c,
+                    mySubmission: {
+                      status: result.status as any,
+                      solvedAt: null,
+                      pointsAwarded: result.pointsAwarded ?? 0,
+                    },
+                  }
                 : c,
             ),
           };
@@ -275,8 +275,7 @@ function ProblemCard({
   const myStatus = mySubmission?.status ?? "none";
   const alreadySolved = myStatus === "Accepted" || myStatus === "Late";
 
-  const isVerified =
-    platform === "codeforces" ? cfVerified : acVerified;
+  const isVerified = platform === "codeforces" ? cfVerified : acVerified;
   const problemUrl = PLATFORM_PROBLEM_URLS[platform](
     problem.contestId,
     problem.problemIndex,
