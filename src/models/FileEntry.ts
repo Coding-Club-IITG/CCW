@@ -34,7 +34,7 @@ export interface IFileEntry extends Document {
 
   /**
    * Logical folder / Category label
-   * Purely organisational — ACL is always per-file.
+   * Purely organisational - ACL is always per-file.
    */
   folder: string;
 

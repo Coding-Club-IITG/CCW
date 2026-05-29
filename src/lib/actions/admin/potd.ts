@@ -7,24 +7,26 @@ import axios from "axios";
 import dbConnect from "@/lib/mongodb";
 import { getRedis } from "@/lib/redis";
 import User from "@/models/User";
-import CFUser from "@/models/CFUser";
+import CPUser from "@/models/CPUser";
 import Problem from "@/models/POTDProblem";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
 
-[User, CFUser, Problem, DailyChallenge, POTDSubmission].forEach(
+[User, CPUser, Problem, DailyChallenge, POTDSubmission].forEach(
   (m) => m && m.init && m.init(),
 );
 
 import { logger } from "@/lib/utils";
 import { canSetPOTD } from "@/lib/roles";
 import { IST_OFFSET_MS } from "@/lib/constants";
+import type { Platform } from "@/lib/constants";
 import {
   computeWindowTimes,
   getTodayISTDateStr,
   windowStartToISTDateStr,
-} from "@/lib/potd-utils";
-import { processSubmission } from "@/lib/potd-submit";
+} from "@/lib/potd/utils";
+import { processSubmission } from "@/lib/potd/submit";
+import { getProblemById } from "@/lib/platforms/atcoder";
 
 async function checkAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -42,20 +44,20 @@ async function checkAdmin() {
 // Set Daily Problem
 
 /**
- * Fetch problem metadata from CF API, upsert Problem doc, create DailyChallenge
+ * Fetch problem metadata from CP platform, upsert Problem doc, create DailyChallenge
  * `dateStr` = YYYY-MM-DD in IST. `difficulty` = Easy | Medium | Hard.
  * Same-day scheduling is allowed; the challenge window ends at EOD IST.
  */
 export async function setDailyProblem(
   dateStr: string,
-  cfContestId: number,
-  cfIndex: string,
+  problemId: string,
   difficulty: "Easy" | "Medium" | "Hard",
+  platform: Platform = "codeforces",
 ): Promise<{ ok: boolean; error?: string }> {
   const session = await checkAdmin();
   if (!session) return { ok: false, error: "Forbidden" };
 
-  if (!dateStr || !cfContestId || !cfIndex || !difficulty)
+  if (!dateStr || !problemId || !difficulty)
     return { ok: false, error: "Missing required fields" };
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr))
@@ -92,79 +94,129 @@ export async function setDailyProblem(
       error: `A ${difficulty} problem is already set for this date`,
     };
 
-  // Check if this problem has already been used on any previous day
-  const existingProblem = await Problem.findOne({
-    cfContestId,
-    cfIndex: cfIndex.toUpperCase(),
-  });
-
-  if (existingProblem) {
-    const previousUsage = await DailyChallenge.findOne({
-      problem: existingProblem._id,
-    });
-    if (previousUsage) {
-      const usedDate = windowStartToISTDateStr(previousUsage.windowStart);
-      return {
-        ok: false,
-        error: `This problem was already used for a POTD on ${usedDate}`,
-      };
-    }
-  }
-
-  // Fetch CF problem metadata.
-  // We use `problemset.problems` (not `contest.standings`) because `contest.standings`
-  // returns HTTP 400 for old Div 2 rounds (e.g. #158) and all Educational rounds —
-  // making it impossible to set problems from those contests. `problemset.problems`
-  // covers all ~10k public CF problems. The full response is cached in Redis for 24h
-  // under `cf:problemset:problems:v1` to avoid hitting CF on every admin action.
+  let contestId: string;
+  let problemIndex: string;
   let problemName: string;
   let problemRating: number;
   let problemTags: string[];
 
-  try {
-    const indexUpper = cfIndex.toUpperCase();
-    const CACHE_KEY = "cf:problemset:problems:v1";
-    const redis = await getRedis();
-
-    let allProblems: any[];
-    const cached = await redis.get(CACHE_KEY);
-    if (cached) {
-      allProblems = JSON.parse(cached);
-    } else {
-      const { data } = await axios.get(
-        "https://codeforces.com/api/problemset.problems",
-        { timeout: 30_000 },
-      );
-      if (data.status !== "OK")
-        return {
-          ok: false,
-          error: `CF API error: ${data.comment ?? "unknown"}`,
-        };
-      allProblems = data.result.problems;
-      await redis.set(CACHE_KEY, JSON.stringify(allProblems), { EX: 86_400 });
-    }
-
-    const cfProblem = allProblems.find(
-      (p) =>
-        p.contestId === cfContestId && p.index.toUpperCase() === indexUpper,
-    );
-    if (!cfProblem)
+  if (platform === "codeforces") {
+    // Parse CF problem ID format: "158A" or "1234B1"
+    const idMatches = problemId.match(/^(\d+)\s*([A-Z0-9]+)$/i);
+    if (!idMatches) {
       return {
         ok: false,
-        error: `Problem ${cfContestId}${cfIndex} not found in CF problemset`,
+        error: "Invalid CF Problem ID. Use format like '158A' or '1234B1'.",
       };
+    }
+    contestId = idMatches[1];
+    problemIndex = idMatches[2].toUpperCase();
 
-    problemName = cfProblem.name;
-    problemRating = cfProblem.rating ?? 0;
-    problemTags = cfProblem.tags ?? [];
-  } catch (err) {
-    logger.error("[setDailyProblem] CF API fetch failed", { err });
-    return { ok: false, error: "Failed to fetch problem from Codeforces" };
+    // Check if this problem has already been used
+    const existingProblem = await Problem.findOne({
+      platform: "codeforces",
+      contestId,
+      problemIndex,
+    });
+    if (existingProblem) {
+      const previousUsage = await DailyChallenge.findOne({
+        problem: existingProblem._id,
+      });
+      if (previousUsage) {
+        const usedDate = windowStartToISTDateStr(previousUsage.windowStart);
+        return {
+          ok: false,
+          error: `This problem was already used for a POTD on ${usedDate}`,
+        };
+      }
+    }
+
+    // Fetch CF problem metadata
+    try {
+      const CACHE_KEY = "cf:problemset:problems:v1";
+      const redis = await getRedis();
+
+      let allProblems: any[];
+      const cached = await redis.get(CACHE_KEY);
+      if (cached) {
+        allProblems = JSON.parse(cached);
+      } else {
+        const { data } = await axios.get(
+          "https://codeforces.com/api/problemset.problems",
+          { timeout: 30_000 },
+        );
+        if (data.status !== "OK")
+          return {
+            ok: false,
+            error: `CF API error: ${data.comment ?? "unknown"}`,
+          };
+        allProblems = data.result.problems;
+        await redis.set(CACHE_KEY, JSON.stringify(allProblems), { EX: 86_400 });
+      }
+
+      const cfProblem = allProblems.find(
+        (p: any) =>
+          String(p.contestId) === contestId &&
+          p.index.toUpperCase() === problemIndex,
+      );
+      if (!cfProblem)
+        return {
+          ok: false,
+          error: `Problem ${contestId}${problemIndex} not found in CF problemset`,
+        };
+
+      problemName = cfProblem.name;
+      problemRating = cfProblem.rating ?? 0;
+      problemTags = cfProblem.tags ?? [];
+    } catch (err) {
+      logger.error("[setDailyProblem] CF API fetch failed", { err });
+      return { ok: false, error: "Failed to fetch problem from Codeforces" };
+    }
+  } else {
+    // Parse AC problem ID format: "abc123_a" or "contest_id/task_id"
+    const normalizedId = problemId.toLowerCase().replace("/", "_");
+
+    // Check if already used
+    const existingProblem = await Problem.findOne({
+      platform: "atcoder",
+      problemIndex: normalizedId,
+    });
+    if (existingProblem) {
+      const previousUsage = await DailyChallenge.findOne({
+        problem: existingProblem._id,
+      });
+      if (previousUsage) {
+        const usedDate = windowStartToISTDateStr(previousUsage.windowStart);
+        return {
+          ok: false,
+          error: `This problem was already used for a POTD on ${usedDate}`,
+        };
+      }
+    }
+
+    // Fetch AC problem metadata from kenkoooo API
+    try {
+      const result = await getProblemById(normalizedId);
+      if (!result)
+        return {
+          ok: false,
+          error: `Problem "${problemId}" not found in AtCoder`,
+        };
+
+      contestId = result.problem.contest_id;
+      problemIndex = result.problem.id;
+      problemName = result.problem.name || result.problem.title;
+      problemRating = result.difficulty;
+      problemTags = [];
+    } catch (err) {
+      logger.error("[setDailyProblem] AtCoder API fetch failed", { err });
+      return { ok: false, error: "Failed to fetch problem from AtCoder" };
+    }
   }
 
   // Upsert Problem doc
   const problemDoc = await Problem.findOneAndUpdate(
-    { cfContestId, cfIndex: cfIndex.toUpperCase() },
+    { platform, contestId, problemIndex },
     { $set: { name: problemName, rating: problemRating, tags: problemTags } },
     { upsert: true, new: true },
   );
@@ -180,8 +232,9 @@ export async function setDailyProblem(
 
   logger.info("[setDailyProblem] Created", {
     dateStr,
-    cfContestId,
-    cfIndex,
+    platform,
+    contestId,
+    problemIndex,
     difficulty,
   });
   revalidatePath("/internal/potd");
@@ -197,10 +250,11 @@ export type ScheduledChallenge = {
   windowStart: string;
   windowEnd: string;
   difficulty: "Easy" | "Medium" | "Hard";
+  platform: Platform;
   isToday: boolean;
   problem: {
-    cfContestId: number;
-    cfIndex: string;
+    contestId: string;
+    problemIndex: string;
     name: string;
     rating: number;
   };
@@ -238,10 +292,11 @@ export async function getScheduledChallenges(): Promise<{
       windowStart: c.windowStart.toISOString(),
       windowEnd: c.windowEnd.toISOString(),
       difficulty: c.difficulty,
+      platform: (p.platform || "codeforces") as Platform,
       isToday: istDate === todayIST,
       problem: {
-        cfContestId: p.cfContestId,
-        cfIndex: p.cfIndex,
+        contestId: p.contestId,
+        problemIndex: p.problemIndex,
         name: p.name,
         rating: p.rating,
       },
@@ -321,11 +376,11 @@ export async function getPendingSubmissions(challengeId: string): Promise<{
 
 /**
  * Admin: force a CF sync for a specific user/challenge
- * Respects cron locks — aborts if cron is already running.
+ * Respects cron locks - aborts if cron is already running.
  * Applies the same status/points/streak semantics as the cron worker:
- *   "Accepted" -> streak++, full points
- *   "Late"     -> 50% points, streak preserved (not incremented)
- *   "NotSolved"-> no stat changes (streak resets via end-of-day cron)
+ *   "Accepted"  -> streak++, full points
+ *   "Late"      -> 50% points, streak preserved (not incremented)
+ *   "NotSolved "-> no stat changes (streak resets via end-of-day cron)
  */
 export async function forceSyncUser(
   targetUserId: string,
@@ -338,46 +393,52 @@ export async function forceSyncUser(
 
   const targetUser = await User.findById(targetUserId);
   if (!targetUser) return { ok: false, error: "User not found" };
-  if (!targetUser.codeforcesId)
-    return { ok: false, error: "User's CF handle not set" };
-
-  const targetCFUser = await CFUser.findOne({ userId: targetUserId });
-  if (!targetCFUser?.cfVerified)
-    return { ok: false, error: "User's CF handle not verified" };
 
   const challenge =
     await DailyChallenge.findById(challengeId).populate("problem");
   if (!challenge) return { ok: false, error: "Challenge not found" };
 
   const problem = challenge.problem as any;
-  const windowStart = challenge.windowStart as Date;
-  const windowEnd = challenge.windowEnd as Date;
-  const graceEnd = challenge.graceEnd as Date;
-  const now = new Date();
+  const platform: Platform = problem.platform || "codeforces";
 
-  const todaysChallengeIds: any[] = await DailyChallenge.find({
-    windowStart: challenge.windowStart,
-  }).distinct("_id");
+  const targetCPUser = await CPUser.findOne({ userId: targetUserId });
 
-  const otherChallengeIds = todaysChallengeIds.filter(
-    (id) => id.toString() !== challengeId,
-  );
+  if (platform === "codeforces") {
+    if (!targetUser.codeforcesId)
+      return { ok: false, error: "User's CF handle not set" };
+    if (!targetCPUser?.cfVerified)
+      return { ok: false, error: "User's CF handle not verified" };
+  } else {
+    if (!targetUser.atcoderId)
+      return { ok: false, error: "User's AtCoder handle not set" };
+    if (!targetCPUser?.acVerified)
+      return { ok: false, error: "User's AtCoder handle not verified" };
+  }
 
-  const cfUrl = `https://codeforces.com/api/user.status?handle=${encodeURIComponent(targetUser.codeforcesId)}&from=1&count=50`;
-  let cfSubs: any[] = [];
+  let subs: any[] = [];
   try {
-    const { data } = await axios.get(cfUrl, { timeout: 10_000 });
-    if (data.status === "OK") cfSubs = data.result;
+    if (platform === "codeforces") {
+      const cfUrl = `https://codeforces.com/api/user.status?handle=${encodeURIComponent(targetUser.codeforcesId)}&from=1&count=50`;
+      const { data } = await axios.get(cfUrl, { timeout: 10_000 });
+      if (data.status === "OK") subs = data.result;
+    } else {
+      const { getUserSubmissions } = await import("@/lib/platforms/atcoder");
+      const windowStartEpoch = Math.floor(
+        challenge.windowStart.getTime() / 1000,
+      );
+      subs = await getUserSubmissions(targetUser.atcoderId, windowStartEpoch);
+    }
   } catch (err) {
-    logger.warn("[forceSyncUser] CF API error", { err });
-    return { ok: false, error: "Failed to reach Codeforces API" };
+    logger.warn("[forceSyncUser] API error", { err });
+    return { ok: false, error: `Failed to reach ${platform} API` };
   }
 
   const { status: newStatus } = await processSubmission(
     targetUserId,
     challenge,
-    targetCFUser,
-    cfSubs,
+    targetCPUser,
+    subs,
+    platform,
   );
 
   logger.info("[forceSyncUser] Synced", {

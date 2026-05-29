@@ -142,7 +142,7 @@ export default function UploadModal({
                 onChange={(e) =>
                   setForm((p) => ({ ...p, title: e.target.value }))
                 }
-                placeholder="e.g. Q3 Meeting Notes"
+                placeholder="Eg. Q3 Meeting Notes"
                 required
               />
             </div>
@@ -225,7 +225,7 @@ export default function UploadModal({
                 <span className={styles.toggleHint}>
                   {form.isDownloadable
                     ? "Users can download this file"
-                    : "View-only — no download option"}
+                    : "View-only - no download option"}
                 </span>
               </label>
             </div>

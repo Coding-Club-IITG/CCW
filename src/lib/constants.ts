@@ -34,6 +34,31 @@ export type ModuleRoleType = (typeof MODULE_ROLES)[number];
 export const PROJECT_STATUSES = ["Upcoming", "Completed"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
+/* CP Platforms */
+
+export const PLATFORMS = ["codeforces", "atcoder"] as const;
+export type Platform = (typeof PLATFORMS)[number];
+
+export const PLATFORM_DISPLAY_NAMES: Record<Platform, string> = {
+  codeforces: "Codeforces",
+  atcoder: "AtCoder",
+};
+
+export const PLATFORM_PROFILE_URLS: Record<Platform, (handle: string) => string> = {
+  codeforces: (handle) => `https://codeforces.com/profile/${handle}`,
+  atcoder: (handle) => `https://atcoder.jp/users/${handle}`,
+};
+
+export const PLATFORM_PROBLEM_URLS: Record<
+  Platform,
+  (contestId: string, problemIndex: string) => string
+> = {
+  codeforces: (contestId, index) =>
+    `https://codeforces.com/problemset/problem/${contestId}/${index}`,
+  atcoder: (contestId, index) =>
+    `https://atcoder.jp/contests/${contestId}/tasks/${index}`,
+};
+
 /* POTD */
 
 export const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // Offset from UTC to IST in ms

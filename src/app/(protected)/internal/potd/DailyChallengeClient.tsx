@@ -9,15 +9,22 @@ import {
   type ChallengeEntry,
 } from "@/lib/actions/potd";
 import { IconCheckCircle, IconInfoCircle, IconStar } from "@/components/Icons";
-import { DIFFICULTY_COLORS, IST_OFFSET_MS } from "@/lib/constants";
+import {
+  DIFFICULTY_COLORS,
+  IST_OFFSET_MS,
+  PLATFORM_DISPLAY_NAMES,
+  PLATFORM_PROBLEM_URLS,
+} from "@/lib/constants";
 
 type Props = {
   cfVerified: boolean;
+  acVerified: boolean;
   initialData: TodayChallengeData | null;
 };
 
 export default function DailyChallengeClient({
   cfVerified,
+  acVerified,
   initialData,
 }: Props) {
   const [timeLeft, setTimeLeft] = useState<string>("");
@@ -107,13 +114,13 @@ export default function DailyChallengeClient({
             challenges: prev.challenges.map((c) =>
               c.challengeId === challengeId
                 ? {
-                    ...c,
-                    mySubmission: {
-                      status: result.status as any,
-                      solvedAt: null,
-                      pointsAwarded: result.pointsAwarded ?? 0,
-                    },
-                  }
+                  ...c,
+                  mySubmission: {
+                    status: result.status as any,
+                    solvedAt: null,
+                    pointsAwarded: result.pointsAwarded ?? 0,
+                  },
+                }
                 : c,
             ),
           };
@@ -123,7 +130,7 @@ export default function DailyChallengeClient({
           alert(`Sync complete! You earned ${result.pointsAwarded} pts.`);
         } else if (result.status === "Late") {
           alert(
-            `Sync complete! Grace window solve — ${result.pointsAwarded} pts earned (50% penalty applied, streak saved).`,
+            `Sync complete! Grace window solve - ${result.pointsAwarded} pts earned (50% penalty applied, streak saved).`,
           );
         } else if (result.status === "Pending") {
           alert("No accepted submission found yet. Try again later.");
@@ -201,6 +208,7 @@ export default function DailyChallengeClient({
           key={entry.challengeId}
           entry={entry}
           cfVerified={cfVerified}
+          acVerified={acVerified}
           isSyncing={!!syncing[entry.challengeId]}
           cooldown={cooldowns[entry.challengeId] ?? 0}
           syncError={syncErrors[entry.challengeId] ?? null}
@@ -233,7 +241,7 @@ export default function DailyChallengeClient({
             <IconInfoCircle width="16" height="16" />
             <span>
               Solves after midnight IST enter a 2-hour grace window (until 2:00
-              AM IST). Grace solves earn half points and preserve your streak —
+              AM IST). Grace solves earn half points and preserve your streak -
               but the day&apos;s problem is not shown during this window.
               Submissions are tracked automatically.
             </span>
@@ -249,6 +257,7 @@ export default function DailyChallengeClient({
 function ProblemCard({
   entry,
   cfVerified,
+  acVerified,
   isSyncing,
   cooldown,
   syncError,
@@ -256,15 +265,23 @@ function ProblemCard({
 }: {
   entry: ChallengeEntry;
   cfVerified: boolean;
+  acVerified: boolean;
   isSyncing: boolean;
   cooldown: number;
   syncError: string | null;
   onSync: () => void;
 }) {
-  const { problem, mySubmission, difficulty } = entry;
+  const { problem, mySubmission, difficulty, platform } = entry;
   const myStatus = mySubmission?.status ?? "none";
-  // Hide the sync button once the submission is in a terminal solved state
   const alreadySolved = myStatus === "Accepted" || myStatus === "Late";
+
+  const isVerified =
+    platform === "codeforces" ? cfVerified : acVerified;
+  const problemUrl = PLATFORM_PROBLEM_URLS[platform](
+    problem.contestId,
+    problem.problemIndex,
+  );
+  const platformName = PLATFORM_DISPLAY_NAMES[platform];
 
   return (
     <div className={styles.card}>
@@ -272,7 +289,7 @@ function ProblemCard({
         <div>
           <div className={styles.problemHeaderRow}>
             <span className={styles.problemId}>
-              Codeforces {problem.cfContestId}-{problem.cfIndex}
+              {platformName} {problem.contestId}-{problem.problemIndex}
             </span>
             <span
               className={styles.difficultyBadge}
@@ -316,7 +333,7 @@ function ProblemCard({
             ) : myStatus === "NotSolved" ? (
               "Not solved"
             ) : (
-              "—"
+              "-"
             )}
           </span>
         </div>
@@ -325,10 +342,10 @@ function ProblemCard({
       {syncError && <p className={styles.syncError}>{syncError}</p>}
 
       <div className={styles.actionArea}>
-        {cfVerified ? (
+        {isVerified ? (
           <>
             <a
-              href={`https://codeforces.com/problemset/problem/${problem.cfContestId}/${problem.cfIndex}`}
+              href={problemUrl}
               target="_blank"
               rel="noreferrer"
               className={`${styles.syncBtn} ${styles.openProblemLink}`}
@@ -352,7 +369,8 @@ function ProblemCard({
         ) : (
           <div className={styles.verifyPrompt}>
             <p>
-              Your Codeforces ID is unverified. Please verify it to participate.
+              Your {platformName} ID is unverified. Please verify it to
+              participate.
             </p>
             <Link href="/internal/profile" className={styles.verifyBtn}>
               Verify ID

@@ -1,6 +1,6 @@
 /**
- * GET  /api/files  — list all files the current user can access
- * POST /api/files  — upload a new file
+ * GET  /api/files  - list all files the current user can access
+ * POST /api/files  - upload a new file
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     // Build a MongoDB query filter to reduce in-memory filtering
     const accessFilter = buildAccessFilter(user.id, user.role, moduleRoles);
 
-    // storedName (UUID disk path) is deliberately excluded — it must never leave the server
+    // storedName (UUID disk path) is deliberately excluded - it must never leave the server
     const files = await FileEntry.find(accessFilter)
       .select("-storedName")
       .sort({ createdAt: -1 })
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
       try {
         const { unlink } = await import("fs/promises");
         await unlink(path.join(UPLOAD_DIR, storedName));
-      } catch {}
+      } catch { }
 
       logger.error("[Files] DB write error:", err);
       return NextResponse.json(

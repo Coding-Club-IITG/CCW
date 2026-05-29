@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 import * as dotenv from "dotenv";
 import path from "path";
-import CFUser from "../src/models/CFUser";
+import CPUser from "../src/models/CPUser";
 import POTDSubmission from "../src/models/POTDSubmission";
 import DailyChallenge from "../src/models/POTDDailyChallenge";
 import Problem from "../src/models/POTDProblem";
 import User from "../src/models/User";
-import { processSubmission } from "../src/lib/potd-submit";
+import { processSubmission } from "../src/lib/potd/submit";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
@@ -22,7 +22,7 @@ async function migrate() {
   console.log("Connected to MongoDB");
 
   // Initialize models to ensure they are registered
-  [User, CFUser, POTDSubmission, DailyChallenge, Problem].forEach(
+  [User, CPUser, POTDSubmission, DailyChallenge, Problem].forEach(
     (m) => m && m.init && m.init(),
   );
 
@@ -40,15 +40,15 @@ async function migrate() {
   });
 
   const sortedDays = Array.from(daysMap.keys()).sort();
-  const cfUsers = await CFUser.find();
+  const cpUsers = await CPUser.find();
   console.log(
-    `Processing ${cfUsers.length} users across ${sortedDays.length} days of challenges...`,
+    `Processing ${cpUsers.length} users across ${sortedDays.length} days of challenges...`,
   );
 
   console.log(
     "Resetting all user stats and submission statuses for clean recalculation...",
   );
-  await CFUser.updateMany(
+  await CPUser.updateMany(
     {},
     {
       $set: {
@@ -69,14 +69,15 @@ async function migrate() {
   );
 
   // Process users one by one to ensure streak logic is correctly applied sequentially
-  for (let i = 0; i < cfUsers.length; i++) {
-    const cfUser = cfUsers[i];
+  for (let i = 0; i < cpUsers.length; i++) {
+    const cpUser = cpUsers[i];
+    const handle = cpUser.cfHandle || cpUser.acHandle || "unknown";
     console.log(
-      `[${i + 1}/${cfUsers.length}] Recalculating for ${cfUser.handle}...`,
+      `[${i + 1}/${cpUsers.length}] Recalculating for ${handle}...`,
     );
 
     // Fetch all submissions for this user once to avoid repeated queries
-    const userSubs = await POTDSubmission.find({ userId: cfUser.userId });
+    const userSubs = await POTDSubmission.find({ userId: cpUser.userId });
 
     for (const day of sortedDays) {
       const dayChallenges = daysMap.get(day)!;
@@ -88,28 +89,41 @@ async function migrate() {
           (s) => s.challengeId.toString() === challenge._id.toString(),
         );
 
-        // Mock cfSubs format as expected by processSubmission
-        const cfSubs: any[] = [];
+        // Determine platform from challenge
+        const platform = (challenge as any).platform || "codeforces";
+
+        // Mock submissions format as expected by processSubmission
+        const subs: any[] = [];
         if (sub && sub.solvedAt) {
-          cfSubs.push({
-            verdict: "OK",
-            problem: {
-              contestId: (challenge.problem as any).cfContestId,
-              index: (challenge.problem as any).cfIndex,
-            },
-            creationTimeSeconds: Math.floor(sub.solvedAt.getTime() / 1000),
-          });
+          if (platform === "codeforces") {
+            subs.push({
+              verdict: "OK",
+              problem: {
+                contestId: (challenge.problem as any).contestId,
+                index: (challenge.problem as any).problemIndex,
+              },
+              creationTimeSeconds: Math.floor(sub.solvedAt.getTime() / 1000),
+            });
+          } else {
+            subs.push({
+              result: "AC",
+              problem_id: `${(challenge.problem as any).contestId}_${(challenge.problem as any).problemIndex}`,
+              contest_id: (challenge.problem as any).contestId,
+              epoch_second: Math.floor(sub.solvedAt.getTime() / 1000),
+            });
+          }
         }
 
-        // Always fetch latest cfUser from DB to ensure processSubmission sees updated streak
-        const latestCfUser = await CFUser.findOne({ userId: cfUser.userId });
+        // Always fetch latest cpUser from DB to ensure processSubmission sees updated streak
+        const latestCpUser = await CPUser.findOne({ userId: cpUser.userId });
 
         const result = await processSubmission(
-          cfUser.userId.toString(),
+          cpUser.userId.toString(),
           challenge,
-          latestCfUser,
-          cfSubs,
-          new Date(), // Use current time as 'now' so all historical challenges are past graceEnd
+          latestCpUser,
+          subs,
+          platform,
+          new Date(),
         );
 
         if (result.status === "Accepted" || result.status === "Late") {
@@ -119,10 +133,10 @@ async function migrate() {
 
       // If no solve at all today, reset streak
       if (!solvedAnyToday) {
-        const latestCfUser = await CFUser.findOne({ userId: cfUser.userId });
-        if (latestCfUser && latestCfUser.potdCurrentStreak > 0) {
-          await CFUser.updateOne(
-            { userId: cfUser.userId },
+        const latestCpUser = await CPUser.findOne({ userId: cpUser.userId });
+        if (latestCpUser && latestCpUser.potdCurrentStreak > 0) {
+          await CPUser.updateOne(
+            { userId: cpUser.userId },
             { $set: { potdCurrentStreak: 0 } },
           );
         }

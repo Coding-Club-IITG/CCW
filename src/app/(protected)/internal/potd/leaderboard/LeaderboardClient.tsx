@@ -44,7 +44,7 @@ export default function LeaderboardClient({
       <div className={styles.tableContainer}>
         {data.length === 0 ? (
           <p style={{ padding: "2rem", textAlign: "center", color: "#666" }}>
-            No data yet — start solving!
+            No data yet - start solving!
           </p>
         ) : (
           <table className={styles.table}>
@@ -91,9 +91,9 @@ export default function LeaderboardClient({
                       <td>
                         <div className={styles.userInfo}>
                           <span className={styles.userName}>{user.name}</span>
-                          {user.codeforcesId && (
+                          {user.handle && (
                             <span className={styles.userHandle}>
-                              @{user.codeforcesId}
+                              @{user.handle}
                             </span>
                           )}
                         </div>

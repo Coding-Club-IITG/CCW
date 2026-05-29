@@ -9,16 +9,24 @@ import {
   type ScheduledChallenge,
 } from "@/lib/actions/admin/potd";
 import { IconTrash } from "@/components/Icons";
-import { DIFFICULTIES, DIFFICULTY_COLORS } from "@/lib/constants";
+import {
+  DIFFICULTIES,
+  DIFFICULTY_COLORS,
+  PLATFORMS,
+  PLATFORM_DISPLAY_NAMES,
+  PLATFORM_PROBLEM_URLS,
+} from "@/lib/constants";
+import type { Platform } from "@/lib/constants";
 import {
   formatDate,
   getAvailableDates,
   getTodayISTDateStr,
-} from "@/lib/potd-utils";
+} from "@/lib/potd/utils";
 
 type FormData = {
   date: string;
   difficulty: "Easy" | "Medium" | "Hard";
+  platform: Platform;
   problemId: string;
 };
 
@@ -32,6 +40,7 @@ export default function SetProblemClient() {
   const [formData, setFormData] = useState<FormData>({
     date: "",
     difficulty: "Easy",
+    platform: "codeforces",
     problemId: "",
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -72,6 +81,7 @@ export default function SetProblemClient() {
     setFormData({
       date: firstOpenDate,
       difficulty: firstFreeDiff,
+      platform: "codeforces",
       problemId: "",
     });
     setIsAdding(true);
@@ -79,7 +89,7 @@ export default function SetProblemClient() {
 
   const handleCancelAdd = () => {
     setIsAdding(false);
-    setFormData({ date: "", difficulty: "Easy", problemId: "" });
+    setFormData({ date: "", difficulty: "Easy", platform: "codeforces", problemId: "" });
     setFormError(null);
   };
 
@@ -88,29 +98,37 @@ export default function SetProblemClient() {
       setFormError("All fields are required.");
       return;
     }
-    const idMatches = formData.problemId.match(/^(\d+)\s*([A-Z0-9]+)$/i);
-    if (!idMatches) {
-      setFormError("Invalid Problem ID. Use format like '158A' or '1234B1'.");
-      return;
+
+    if (formData.platform === "codeforces") {
+      const idMatches = formData.problemId.match(/^(\d+)\s*([A-Z0-9]+)$/i);
+      if (!idMatches) {
+        setFormError("Invalid Problem ID. Use format like '158A' or '1234B1'.");
+        return;
+      }
+    } else {
+      if (!/^[a-z0-9]+[_/][a-z0-9_]+$/i.test(formData.problemId)) {
+        setFormError(
+          "Invalid AtCoder Problem ID. Use format like 'abc123_a' or 'abc300_d'.",
+        );
+        return;
+      }
     }
-    const cfContestId = parseInt(idMatches[1], 10);
-    const cfIndex = idMatches[2].toUpperCase();
 
     setIsSaving(true);
     setFormError(null);
     try {
       const result = await setDailyProblem(
         formData.date,
-        cfContestId,
-        cfIndex,
+        formData.problemId,
         formData.difficulty,
+        formData.platform,
       );
       if (!result.ok) {
         setFormError(result.error ?? "Failed to save problem");
         return;
       }
       setIsAdding(false);
-      setFormData({ date: "", difficulty: "Easy", problemId: "" });
+      setFormData({ date: "", difficulty: "Easy", platform: "codeforces", problemId: "" });
       await fetchScheduled();
     } finally {
       setIsSaving(false);
@@ -247,13 +265,44 @@ export default function SetProblemClient() {
                 </select>
               </div>
 
+              {/* Platform */}
+              <div className={styles.formGroup}>
+                <label htmlFor="editPlatform">Platform</label>
+                <select
+                  id="editPlatform"
+                  title="Select Platform"
+                  value={formData.platform}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      platform: e.target.value as Platform,
+                      problemId: "",
+                    })
+                  }
+                >
+                  {PLATFORMS.map((p) => (
+                    <option key={p} value={p}>
+                      {PLATFORM_DISPLAY_NAMES[p]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Problem ID */}
               <div className={styles.formGroup}>
                 <label>Problem ID</label>
                 <input
                   type="text"
-                  title="Codeforces Problem ID (e.g., 158A)"
-                  placeholder="e.g., 158A or 1234B1"
+                  title={
+                    formData.platform === "codeforces"
+                      ? "Codeforces Problem ID (Eg. 158A)"
+                      : "AtCoder Problem ID (Eg. abc123_a)"
+                  }
+                  placeholder={
+                    formData.platform === "codeforces"
+                      ? "Eg. 158A or 1234B1"
+                      : "Eg. abc123_a or abc300_d"
+                  }
                   value={formData.problemId}
                   onChange={(e) =>
                     setFormData({
@@ -370,12 +419,12 @@ export default function SetProblemClient() {
                     Rating: {prob.problem.rating || "Unrated"}
                   </span>
                   <a
-                    href={`https://codeforces.com/problemset/problem/${prob.problem.cfContestId}/${prob.problem.cfIndex}`}
+                    href={PLATFORM_PROBLEM_URLS[prob.platform](prob.problem.contestId, prob.problem.problemIndex)}
                     target="_blank"
                     rel="noreferrer"
                     className={styles.urlLink}
                   >
-                    View on CF ↗
+                    View on {PLATFORM_DISPLAY_NAMES[prob.platform]} ↗
                   </a>
                 </div>
               </div>

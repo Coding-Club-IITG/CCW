@@ -1,7 +1,11 @@
 import styles from "../Lists.module.scss";
 import { getPastProblems } from "@/lib/actions/potd";
-import { DIFFICULTY_COLORS } from "@/lib/constants";
-import { windowStartToISTDateStr } from "@/lib/potd-utils";
+import {
+  DIFFICULTY_COLORS,
+  PLATFORM_DISPLAY_NAMES,
+  PLATFORM_PROBLEM_URLS,
+} from "@/lib/constants";
+import { windowStartToISTDateStr } from "@/lib/potd/utils";
 
 export default async function PastProblemsPage() {
   const result = await getPastProblems(30);
@@ -25,6 +29,7 @@ export default async function PastProblemsPage() {
               <tr>
                 <th>Date</th>
                 <th>Problem</th>
+                <th>Platform</th>
                 <th>Rating</th>
                 <th>Difficulty</th>
                 <th>Solved By</th>
@@ -39,16 +44,15 @@ export default async function PastProblemsPage() {
                   month: "short",
                   year: "numeric",
                 });
-                const problemLabel = `${p.problem.cfContestId}-${p.problem.cfIndex}`;
-                const problemUrl = `https://codeforces.com/problemset/problem/${p.problem.cfContestId}/${p.problem.cfIndex}`;
+                const problemUrl = PLATFORM_PROBLEM_URLS[p.platform](
+                  p.problem.contestId,
+                  p.problem.problemIndex,
+                );
 
                 return (
                   <tr key={p.challengeId}>
                     <td className={styles.subText}>{dateLabel}</td>
                     <td>
-                      <span className={styles.problemId}>
-                        CF {problemLabel}
-                      </span>
                       <a
                         href={problemUrl}
                         target="_blank"
@@ -57,6 +61,9 @@ export default async function PastProblemsPage() {
                       >
                         {p.problem.name}
                       </a>
+                    </td>
+                    <td className={styles.subText}>
+                      {PLATFORM_DISPLAY_NAMES[p.platform]}
                     </td>
                     <td>
                       <span className={styles.rating}>

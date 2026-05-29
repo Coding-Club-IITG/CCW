@@ -1,17 +1,18 @@
 import POTDSubmission from "@/models/POTDSubmission";
-import CFUser from "@/models/CFUser";
+import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
-import { computePoints } from "./potd-utils";
+import { computePoints } from "@/lib/potd/utils";
+import type { Platform } from "@/lib/constants";
 
 /**
- * Process a user's submission for a specific challenge.
- * Uses findOneAndUpdate with conditions to prevent race-condition double increments.
+ * Process a user's submission for a specific challenge
  */
 export async function processSubmission(
   userId: string,
   challenge: any,
-  cfUser: any,
-  cfSubs: any[],
+  cpUser: any,
+  submissions: any[],
+  platform: Platform = "codeforces",
   now: Date = new Date(),
 ): Promise<{ status: string; pointsAwarded: number }> {
   const problem = challenge.problem as any;
@@ -21,12 +22,11 @@ export async function processSubmission(
   const graceEnd = challenge.graceEnd as Date;
 
   // Find 1st AC for this problem submitted after windowStart
-  const acceptedSub = cfSubs.find(
-    (s: any) =>
-      s.verdict === "OK" &&
-      s.problem.contestId === problem.cfContestId &&
-      s.problem.index === problem.cfIndex &&
-      new Date(s.creationTimeSeconds * 1000) >= windowStart,
+  const acceptedSub = findAcceptedSubmission(
+    submissions,
+    problem,
+    windowStart,
+    platform,
   );
 
   let newStatus: "Pending" | "Accepted" | "Late" | "NotSolved" = "Pending";
@@ -34,7 +34,7 @@ export async function processSubmission(
   let pointsAwarded = 0;
 
   if (acceptedSub) {
-    solvedAt = new Date(acceptedSub.creationTimeSeconds * 1000);
+    solvedAt = getSubmissionTime(acceptedSub, platform);
     newStatus = solvedAt <= windowEnd ? "Accepted" : "Late";
   } else if (now > graceEnd) {
     newStatus = "NotSolved";
@@ -59,8 +59,7 @@ export async function processSubmission(
         status: "Accepted",
       }));
 
-    const currentStreak = cfUser.potdCurrentStreak ?? 0;
-    // Points should reflect streak at the start of the day
+    const currentStreak = cpUser.potdCurrentStreak ?? 0;
     const effectiveStreak = alreadySolvedToday
       ? Math.max(0, currentStreak - 1)
       : currentStreak;
@@ -74,7 +73,7 @@ export async function processSubmission(
     );
   }
 
-  // Atomically update POTDSubmission — returns the PREVIOUS document
+  // Atomically update POTDSubmission - returns the PREVIOUS document
   const prevSub = await POTDSubmission.findOneAndUpdate(
     { userId, challengeId },
     {
@@ -93,16 +92,14 @@ export async function processSubmission(
   const wasAlreadyFinal =
     prevSub?.status === "Accepted" || prevSub?.status === "Late";
 
-  // If newly finalized, update CFUser stats atomically
+  // If newly finalized, update CPUser stats atomically
   if (!wasAlreadyFinal) {
     if (newStatus === "Accepted") {
       if (!alreadySolvedToday) {
-        // Use atomic conditional update to prevent race condition:
-        // Only increment streak if it hasn't changed since we read it
-        const expectedStreak = cfUser.potdCurrentStreak ?? 0;
+        const expectedStreak = cpUser.potdCurrentStreak ?? 0;
         const newStreak = expectedStreak + 1;
 
-        const updated = await CFUser.findOneAndUpdate(
+        const updated = await CPUser.findOneAndUpdate(
           { userId, potdCurrentStreak: expectedStreak },
           {
             $inc: { potdTotalPoints: pointsAwarded, potdTotalSolved: 1 },
@@ -111,22 +108,20 @@ export async function processSubmission(
           },
         );
 
-        // If the conditional update didn't match (streak already changed),
-        // still add points/solved count without touching streak
         if (!updated) {
-          await CFUser.findOneAndUpdate(
+          await CPUser.findOneAndUpdate(
             { userId },
             { $inc: { potdTotalPoints: pointsAwarded, potdTotalSolved: 1 } },
           );
         }
       } else {
-        await CFUser.findOneAndUpdate(
+        await CPUser.findOneAndUpdate(
           { userId },
           { $inc: { potdTotalPoints: pointsAwarded, potdTotalSolved: 1 } },
         );
       }
     } else if (newStatus === "Late") {
-      await CFUser.findOneAndUpdate(
+      await CPUser.findOneAndUpdate(
         { userId },
         { $inc: { potdTotalPoints: pointsAwarded, potdTotalSolved: 1 } },
       );
@@ -134,4 +129,48 @@ export async function processSubmission(
   }
 
   return { status: newStatus, pointsAwarded };
+}
+
+/**
+ * Find the first accepted submission matching the problem
+ */
+function findAcceptedSubmission(
+  submissions: any[],
+  problem: any,
+  windowStart: Date,
+  platform: Platform,
+): any | null {
+  if (platform === "codeforces") {
+    return (
+      submissions.find(
+        (s: any) =>
+          s.verdict === "OK" &&
+          String(s.problem.contestId) === problem.contestId &&
+          s.problem.index === problem.problemIndex &&
+          new Date(s.creationTimeSeconds * 1000) >= windowStart,
+      ) ?? null
+    );
+  } else {
+    const windowStartEpoch = Math.floor(windowStart.getTime() / 1000);
+    return (
+      submissions.find(
+        (s: any) =>
+          s.result === "AC" &&
+          s.problem_id === problem.problemIndex &&
+          s.contest_id === problem.contestId &&
+          s.epoch_second >= windowStartEpoch,
+      ) ?? null
+    );
+  }
+}
+
+/**
+ * Get the submission timestamp
+ */
+function getSubmissionTime(submission: any, platform: Platform): Date {
+  if (platform === "codeforces") {
+    return new Date(submission.creationTimeSeconds * 1000);
+  } else {
+    return new Date(submission.epoch_second * 1000);
+  }
 }

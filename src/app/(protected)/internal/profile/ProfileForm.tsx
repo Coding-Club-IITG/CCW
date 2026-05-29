@@ -3,14 +3,14 @@
 import { useState, useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
 import { updateProfile } from "@/lib/actions/user";
-import { requestHandleVerification } from "@/lib/actions/cf";
-import { getCFStatus } from "@/lib/actions/cfStatus";
+import { requestHandleVerification } from "@/lib/actions/cp-verification";
+import { getCPStatus } from "@/lib/actions/cp-status";
 import styles from "./ProfileForm.module.scss";
 
 export default function ProfileForm() {
   const { data: session, isPending } = useSession();
   const [loading, setLoading] = useState(false);
-  const [verifying, setVerifying] = useState(false);
+  const [verifying, setVerifying] = useState<"" | "cf" | "ac">("");
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -19,6 +19,7 @@ export default function ProfileForm() {
   const [formData, setFormData] = useState({
     name: "",
     codeforcesId: "",
+    atcoderId: "",
     githubId: "",
     bio: "",
     phoneNumber: "",
@@ -26,39 +27,50 @@ export default function ProfileForm() {
 
   const [cfVerificationToken, setCfVerificationToken] = useState("");
   const [cfVerified, setCfVerified] = useState(false);
-  // Tracks the last-saved handle so we can detect unsaved edits
   const [savedCodeforcesId, setSavedCodeforcesId] = useState("");
-  // Tracks which handle the current pending token was generated for
-  const [tokenHandle, setTokenHandle] = useState("");
+  const [tokenHandleCF, setTokenHandleCF] = useState("");
+
+  const [acVerificationToken, setAcVerificationToken] = useState("");
+  const [acVerified, setAcVerified] = useState(false);
+  const [savedAtcoderId, setSavedAtcoderId] = useState("");
+  const [tokenHandleAC, setTokenHandleAC] = useState("");
 
   useEffect(() => {
     if (!session?.user) return;
 
     const cfHandle = (session.user as any).codeforcesId || "";
+    const acHandle = (session.user as any).atcoderId || "";
     setFormData({
       name: session.user.name || "",
       codeforcesId: cfHandle,
+      atcoderId: acHandle,
       githubId: (session.user as any).githubId || "",
       bio: (session.user as any).bio || "",
       phoneNumber: (session.user as any).phoneNumber || "",
     });
     setSavedCodeforcesId(cfHandle);
+    setSavedAtcoderId(acHandle);
 
-    getCFStatus().then((res) => {
+    getCPStatus().then((res) => {
       if (res.ok) {
         setCfVerified(res.cfVerified ?? false);
         setCfVerificationToken(res.cfVerificationToken ?? "");
-        // tokenHandle = the handle the pending token belongs to
-        setTokenHandle(res.cfHandle ?? "");
+        setTokenHandleCF(res.cfHandle ?? "");
+        setAcVerified(res.acVerified ?? false);
+        setAcVerificationToken(res.acVerificationToken ?? "");
+        setTokenHandleAC(res.acHandle ?? "");
       }
     });
   }, [session]);
 
-  async function handleVerifySubmit() {
-    setVerifying(true);
+  async function handleVerifySubmit(platform: "codeforces" | "atcoder") {
+    setVerifying(platform === "codeforces" ? "cf" : "ac");
     setMessage(null);
     try {
-      const res = await fetch("/api/cf/verify-handle", { method: "POST" });
+      const res = await fetch(
+        `/api/cp/verify-handle?platform=${platform}`,
+        { method: "POST" },
+      );
       const data = await res.json();
       if (!res.ok) {
         setMessage({
@@ -67,41 +79,56 @@ export default function ProfileForm() {
         });
         return;
       }
-      setCfVerified(true);
-      setCfVerificationToken("");
-      setTokenHandle("");
-      // Verification saved the handle to User.codeforcesId on the backend —
-      // advance savedCodeforcesId so the verified badge appears immediately
-      setSavedCodeforcesId(formData.codeforcesId);
-      setMessage({ type: "success", text: "Codeforces handle verified!" });
+      if (platform === "codeforces") {
+        setCfVerified(true);
+        setCfVerificationToken("");
+        setTokenHandleCF("");
+        setSavedCodeforcesId(formData.codeforcesId);
+        setMessage({ type: "success", text: "Codeforces handle verified!" });
+      } else {
+        setAcVerified(true);
+        setAcVerificationToken("");
+        setTokenHandleAC("");
+        setSavedAtcoderId(formData.atcoderId);
+        setMessage({ type: "success", text: "AtCoder handle verified!" });
+      }
     } catch {
       setMessage({ type: "error", text: "Network error. Please try again." });
     } finally {
-      setVerifying(false);
+      setVerifying("");
     }
   }
 
-  async function handleRequestToken() {
-    setVerifying(true);
+  async function handleRequestToken(platform: "codeforces" | "atcoder") {
+    const handle =
+      platform === "codeforces" ? formData.codeforcesId : formData.atcoderId;
+    setVerifying(platform === "codeforces" ? "cf" : "ac");
     setMessage(null);
-    const result = await requestHandleVerification(formData.codeforcesId);
-    setVerifying(false);
+    const result = await requestHandleVerification(handle, platform);
+    setVerifying("");
     if (!result.ok) {
       setMessage({
         type: "error",
         text: result.error || "Failed to generate token",
       });
     } else {
-      setCfVerificationToken(result.token!);
-      // Record which handle this token was generated for;
-      // the token display + verify button only appear when input matches this
-      setTokenHandle(formData.codeforcesId);
-      // Backend reset cfVerified on the CFUser record
-      setCfVerified(false);
-      setMessage({
-        type: "success",
-        text: "Token generated. Please update your CF profile.",
-      });
+      if (platform === "codeforces") {
+        setCfVerificationToken(result.token!);
+        setTokenHandleCF(formData.codeforcesId);
+        setCfVerified(false);
+        setMessage({
+          type: "success",
+          text: "Token generated. Please update your CF profile.",
+        });
+      } else {
+        setAcVerificationToken(result.token!);
+        setTokenHandleAC(formData.atcoderId);
+        setAcVerified(false);
+        setMessage({
+          type: "success",
+          text: "Token generated. Please update your AtCoder profile.",
+        });
+      }
     }
   }
 
@@ -119,13 +146,12 @@ export default function ProfileForm() {
         text: result.error || "Failed to update profile.",
       });
     } else {
-      // If the handle changed, the backend has already reset verification —
-      // update local state so the UI immediately shows the verification flow
       if (result.handleChanged) {
         setCfVerified(false);
         setCfVerificationToken("");
       }
       setSavedCodeforcesId(formData.codeforcesId);
+      setSavedAtcoderId(formData.atcoderId);
       setMessage({
         type: "success",
         text: "Profile updated successfully!",
@@ -167,6 +193,7 @@ export default function ProfileForm() {
           />
         </div>
 
+        {/* Codeforces ID */}
         <div className={styles.field}>
           <label htmlFor="codeforces">Codeforces ID</label>
           <div className={styles.cfRow}>
@@ -177,15 +204,13 @@ export default function ProfileForm() {
               onChange={(e) =>
                 setFormData({ ...formData, codeforcesId: e.target.value })
               }
-              placeholder="e.g. tourist"
+              placeholder="Eg. tourist"
             />
-            {/* Only show verified badge if the handle matches the saved (verified) one */}
             {cfVerified && formData.codeforcesId === savedCodeforcesId && (
               <span className={styles.verifiedBadge}>Verified ✓</span>
             )}
           </div>
 
-          {/* Show verification flow if unverified OR if the handle was edited */}
           {formData.codeforcesId &&
             (!cfVerified || formData.codeforcesId !== savedCodeforcesId) && (
               <div className={styles.verificationBox}>
@@ -199,27 +224,24 @@ export default function ProfileForm() {
                   <span className={styles.verificationText}>
                     <strong>Unverified Handle.</strong>
                     {(!cfVerificationToken ||
-                      formData.codeforcesId !== tokenHandle) &&
+                      formData.codeforcesId !== tokenHandleCF) &&
                       " Generate a secure token to begin."}
                   </span>
-                  {/* Show Get Token when: no token yet, or input drifted from the handle the token is for */}
                   {(!cfVerificationToken ||
-                    formData.codeforcesId !== tokenHandle) && (
-                    <button
-                      type="button"
-                      onClick={handleRequestToken}
-                      disabled={verifying}
-                      className={styles.tokenButton}
-                    >
-                      {verifying ? "Wait..." : "Get Token"}
-                    </button>
-                  )}
+                    formData.codeforcesId !== tokenHandleCF) && (
+                      <button
+                        type="button"
+                        onClick={() => handleRequestToken("codeforces")}
+                        disabled={verifying === "cf"}
+                        className={styles.tokenButton}
+                      >
+                        {verifying === "cf" ? "Wait..." : "Get Token"}
+                      </button>
+                    )}
                 </div>
 
-                {/* Only show the token steps + verify button when the input matches the handle
-                  the token was generated for — prevents verifying the wrong handle */}
                 {cfVerificationToken &&
-                  formData.codeforcesId === tokenHandle && (
+                  formData.codeforcesId === tokenHandleCF && (
                     <div className={styles.tokenSteps}>
                       <ol className={styles.tokenStepsList}>
                         <li>
@@ -235,11 +257,87 @@ export default function ProfileForm() {
                       </ol>
                       <button
                         type="button"
-                        onClick={handleVerifySubmit}
-                        disabled={verifying}
+                        onClick={() => handleVerifySubmit("codeforces")}
+                        disabled={verifying === "cf"}
                         className={styles.verifyButton}
                       >
-                        {verifying ? "Verifying..." : "Verify Handle"}
+                        {verifying === "cf" ? "Verifying..." : "Verify Handle"}
+                      </button>
+                    </div>
+                  )}
+              </div>
+            )}
+        </div>
+
+        {/* AtCoder ID */}
+        <div className={styles.field}>
+          <label htmlFor="atcoder">AtCoder ID</label>
+          <div className={styles.cfRow}>
+            <input
+              type="text"
+              id="atcoder"
+              value={formData.atcoderId}
+              onChange={(e) =>
+                setFormData({ ...formData, atcoderId: e.target.value })
+              }
+              placeholder="Eg. chokudai"
+            />
+            {acVerified && formData.atcoderId === savedAtcoderId && (
+              <span className={styles.verifiedBadge}>Verified ✓</span>
+            )}
+          </div>
+
+          {formData.atcoderId &&
+            (!acVerified || formData.atcoderId !== savedAtcoderId) && (
+              <div className={styles.verificationBox}>
+                <div
+                  className={
+                    acVerificationToken
+                      ? styles.verificationHeaderWithMargin
+                      : styles.verificationHeader
+                  }
+                >
+                  <span className={styles.verificationText}>
+                    <strong>Unverified Handle.</strong>
+                    {(!acVerificationToken ||
+                      formData.atcoderId !== tokenHandleAC) &&
+                      " Generate a secure token to begin."}
+                  </span>
+                  {(!acVerificationToken ||
+                    formData.atcoderId !== tokenHandleAC) && (
+                      <button
+                        type="button"
+                        onClick={() => handleRequestToken("atcoder")}
+                        disabled={verifying === "ac"}
+                        className={styles.tokenButton}
+                      >
+                        {verifying === "ac" ? "Wait..." : "Get Token"}
+                      </button>
+                    )}
+                </div>
+
+                {acVerificationToken &&
+                  formData.atcoderId === tokenHandleAC && (
+                    <div className={styles.tokenSteps}>
+                      <ol className={styles.tokenStepsList}>
+                        <li>
+                          Update your AtCoder <strong>Affiliation</strong> to:
+                          <code className={styles.tokenCode}>
+                            {acVerificationToken}
+                          </code>
+                        </li>
+                        <li className={styles.tokenStepItem}>
+                          Wait a few seconds for AtCoder to update, then click
+                          verify.
+                        </li>
+                      </ol>
+                      <button
+                        type="button"
+                        onClick={() => handleVerifySubmit("atcoder")}
+                        disabled={verifying === "ac"}
+                        className={styles.verifyButton}
+                      >
+                        {verifying === "ac" ? "Verifying..." : "Verify Handle"}
                       </button>
                     </div>
                   )}
@@ -256,7 +354,7 @@ export default function ProfileForm() {
             onChange={(e) =>
               setFormData({ ...formData, githubId: e.target.value })
             }
-            placeholder="e.g. octocat"
+            placeholder="Eg. octocat"
           />
         </div>
 
@@ -280,7 +378,7 @@ export default function ProfileForm() {
             onChange={(e) =>
               setFormData({ ...formData, phoneNumber: e.target.value })
             }
-            placeholder="e.g. +91 9876543210"
+            placeholder="Eg. +91 9876543210"
           />
         </div>
 

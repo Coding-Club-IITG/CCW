@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import dbConnect from "@/lib/mongodb";
 import { getClient } from "@/lib/mongodb";
 import User from "@/models/User";
-import CFUser from "@/models/CFUser";
+import CPUser from "@/models/CPUser";
 import POTDSubmission from "@/models/POTDSubmission";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/utils";
@@ -163,12 +163,12 @@ export async function deleteUser(userId: string) {
     await User.findByIdAndDelete(userId);
 
     // Cascade delete related documents
-    const [cfResult, potdResult] = await Promise.all([
-      CFUser.deleteMany({ userId }),
+    const [cpResult, potdResult] = await Promise.all([
+      CPUser.deleteMany({ userId }),
       POTDSubmission.deleteMany({ userId }),
     ]);
     logger.info(
-      `Admin deleted ${cfResult.deletedCount} CFUser and ${potdResult.deletedCount} POTDSubmission records: ${userToDelete.email}`,
+      `Admin deleted ${cpResult.deletedCount} CPUser and ${potdResult.deletedCount} POTDSubmission records: ${userToDelete.email}`,
     );
 
     // Purge all sessions and linked accounts
@@ -190,7 +190,7 @@ export async function deleteUser(userId: string) {
 
       logger.info(
         `[Auth] Cleaned up ${sessionsResult.deletedCount} session(s) and ` +
-          `${accountsResult.deletedCount} account(s) for deleted user: ${userToDelete.email}`,
+        `${accountsResult.deletedCount} account(s) for deleted user: ${userToDelete.email}`,
       );
     } catch (err) {
       logger.error(
@@ -210,6 +210,7 @@ export async function deleteUser(userId: string) {
 export async function updateProfile(data: {
   name: string;
   codeforcesId?: string;
+  atcoderId?: string;
   githubId?: string;
   bio?: string;
   phoneNumber?: string;
@@ -235,6 +236,15 @@ export async function updateProfile(data: {
         success: false as const,
         error:
           "Codeforces ID must be 50 characters or fewer and contain only letters, numbers, underscores, or hyphens.",
+      };
+    }
+
+    const atcoderId = data.atcoderId?.trim() || "";
+    if (atcoderId.length > 50 || !/^[\w-]*$/.test(atcoderId)) {
+      return {
+        success: false as const,
+        error:
+          "AtCoder ID must be 50 characters or fewer and contain only letters, numbers, underscores, or hyphens.",
       };
     }
 
@@ -266,18 +276,21 @@ export async function updateProfile(data: {
 
     await dbConnect();
 
-    // Check if the CF handle is being changed — if so, reset verification
+    // Check if CF or AC handles changed
     const currentUser = (await User.findById(session.user.id)
-      .select("codeforcesId")
+      .select("codeforcesId atcoderId")
       .lean()) as any;
-    const oldHandle = currentUser?.codeforcesId?.trim() || "";
-    const handleChanged = codeforcesId !== oldHandle;
+    const oldCfHandle = currentUser?.codeforcesId?.trim() || "";
+    const oldAcHandle = currentUser?.atcoderId?.trim() || "";
+    const handleChanged = codeforcesId !== oldCfHandle;
+    const acHandleChanged = atcoderId !== oldAcHandle;
 
     const updatedUser = await User.findByIdAndUpdate(
       session.user.id,
       {
         name,
         codeforcesId,
+        atcoderId,
         githubId,
         bio,
         phoneNumber,
@@ -285,20 +298,37 @@ export async function updateProfile(data: {
       { new: true },
     );
 
-    // If the handle changed, revoke the old verification so the new handle must be re-verified
+    // If the CF handle changed, revoke old verification
     if (handleChanged) {
-      await CFUser.findOneAndUpdate(
+      await CPUser.findOneAndUpdate(
         { userId: session.user.id },
         {
           $set: {
             cfVerified: false,
             cfVerificationToken: "",
-            handle: codeforcesId,
+            cfHandle: codeforcesId,
           },
         },
       );
       logger.info(
-        `User ${session.user.email} changed CF handle from "${oldHandle}" to "${codeforcesId}" — verification reset`,
+        `User ${session.user.email} changed CF handle from "${oldCfHandle}" to "${codeforcesId}" - verification reset`,
+      );
+    }
+
+    // If the AC handle changed, revoke old verification
+    if (acHandleChanged) {
+      await CPUser.findOneAndUpdate(
+        { userId: session.user.id },
+        {
+          $set: {
+            acVerified: false,
+            acVerificationToken: "",
+            acHandle: atcoderId,
+          },
+        },
+      );
+      logger.info(
+        `User ${session.user.email} changed AC handle from "${oldAcHandle}" to "${atcoderId}" - verification reset`,
       );
     }
 

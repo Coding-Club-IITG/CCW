@@ -2,12 +2,12 @@
  * File Access Control utilities
  *
  * Permission tiers (in order of privilege):
- *  1. Global File Admins (Secretary / OC) — full control over every file.
- *  2. Club Admins (+ Core Team)           — can upload; manage their own uploads
+ *  1. Global File Admins (Secretary / OC) - full control over every file.
+ *  2. Club Admins (+ Core Team)           - can upload; manage their own uploads
  *                                            and files in modules where they are Head.
- *  3. Module Heads                         — can upload; manage files whose
+ *  3. Module Heads                         - can upload; manage files whose
  *                                            uploaderModule matches one of their modules.
- *  4. Standard members                     — read-only, subject to per-file ACL.
+ *  4. Standard members                     - read-only, subject to per-file ACL.
  */
 
 import { IFileEntry } from "@/models/FileEntry";

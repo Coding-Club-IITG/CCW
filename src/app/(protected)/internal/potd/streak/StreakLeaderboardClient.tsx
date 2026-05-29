@@ -48,7 +48,7 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
 
       {sortedData.length === 0 ? (
         <p style={{ color: "#666", padding: "2rem 0" }}>
-          No streak data yet — start solving!
+          No streak data yet - start solving!
         </p>
       ) : (
         <div className={styles.tableContainer}>
@@ -121,9 +121,9 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
                       <td>
                         <div className={styles.userInfo}>
                           <span className={styles.userName}>{user.name}</span>
-                          {user.codeforcesId && (
+                          {user.handle && (
                             <span className={styles.userHandle}>
-                              @{user.codeforcesId}
+                              @{user.handle}
                             </span>
                           )}
                         </div>

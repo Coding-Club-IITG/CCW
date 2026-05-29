@@ -134,7 +134,7 @@ export default function EditModal({
                 <span className={styles.toggleHint}>
                   {form.isDownloadable
                     ? "Users can download this file"
-                    : "View-only — no download option"}
+                    : "View-only - no download option"}
                 </span>
               </label>
             </div>

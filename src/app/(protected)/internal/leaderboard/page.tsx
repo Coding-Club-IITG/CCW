@@ -1,12 +1,9 @@
-import CFUser from "@/models/CFUser";
+import CPUser from "@/models/CPUser";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
-import LeaderboardTable, {
-  type Column,
-  leaderboardStyles as styles,
-} from "@/components/leaderboard/LeaderboardTable";
+import RatingLeaderboardClient from "@/components/leaderboard/RatingLeaderboardClient";
 
-type CFLeaderboardEntry = {
+type RatingLeaderboardEntry = {
   id: string;
   name: string;
   handle: string;
@@ -14,14 +11,14 @@ type CFLeaderboardEntry = {
   rank: string;
 };
 
-export default async function LeaderboardPage() {
+async function getCFLeaderboard(): Promise<RatingLeaderboardEntry[]> {
   await dbConnect();
 
-  const leaderboardData = await CFUser.find({
+  const data = await CPUser.find({
     cfVerified: true,
-    rating: { $gt: 0 },
+    cfRating: { $gt: 0 },
   })
-    .sort({ rating: -1 })
+    .sort({ cfRating: -1 })
     .populate({
       path: "userId",
       model: User,
@@ -29,79 +26,49 @@ export default async function LeaderboardPage() {
     })
     .lean();
 
-  const entries: CFLeaderboardEntry[] = leaderboardData.map((entry: any) => ({
+  return data.map((entry: any) => ({
     id: entry._id.toString(),
     name: entry.userId?.name || "Unknown",
-    handle: entry.handle,
-    rating: entry.rating,
-    rank: entry.rank,
+    handle: entry.cfHandle,
+    rating: entry.cfRating,
+    rank: entry.cfRank,
   }));
+}
 
-  const columns: Column<CFLeaderboardEntry>[] = [
-    {
-      key: "rank",
-      header: "Rank",
-      render: (_item, index) => {
-        const rank = index + 1;
-        let rankClass = "";
-        if (rank === 1) rankClass = styles.top1;
-        else if (rank === 2) rankClass = styles.top2;
-        else if (rank === 3) rankClass = styles.top3;
+async function getACLeaderboard(): Promise<RatingLeaderboardEntry[]> {
+  await dbConnect();
 
-        return (
-          <span
-            className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
-          >
-            {rank}
-          </span>
-        );
-      },
-    },
-    {
-      key: "member",
-      header: "Member",
-      render: (item) => (
-        <div className={styles.userInfo}>
-          <span className={styles.userName}>{item.name}</span>
-        </div>
-      ),
-    },
-    {
-      key: "handle",
-      header: "Handle",
-      render: (item) => (
-        <a
-          href={`https://codeforces.com/profile/${item.handle}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.handleLink}
-        >
-          {item.handle}
-        </a>
-      ),
-    },
-    {
-      key: "rating",
-      header: "Rating",
-      render: (item) => (
-        <span className={styles.ratingBadge}>{item.rating}</span>
-      ),
-    },
-    {
-      key: "cfRank",
-      header: "CF Rank",
-      render: (item) => <span className={styles.cfRank}>{item.rank}</span>,
-    },
-  ];
+  const data = await CPUser.find({
+    acVerified: true,
+    acRating: { $gt: 0 },
+  })
+    .sort({ acRating: -1 })
+    .populate({
+      path: "userId",
+      model: User,
+      select: "name",
+    })
+    .lean();
+
+  return data.map((entry: any) => ({
+    id: entry._id.toString(),
+    name: entry.userId?.name || "Unknown",
+    handle: entry.acHandle,
+    rating: entry.acRating,
+    rank: entry.acRank,
+  }));
+}
+
+export default async function LeaderboardPage() {
+  const [cfEntries, acEntries] = await Promise.all([
+    getCFLeaderboard(),
+    getACLeaderboard(),
+  ]);
 
   return (
-    <LeaderboardTable
-      title="Codeforces Leaderboard"
-      description="Current standings of coding club members."
-      columns={columns}
-      data={entries}
-      getKey={(item) => item.id}
-      emptyMessage="No data available yet. Ratings sync every 6 hours."
+    <RatingLeaderboardClient
+      cfEntries={cfEntries}
+      acEntries={acEntries}
     />
   );
 }

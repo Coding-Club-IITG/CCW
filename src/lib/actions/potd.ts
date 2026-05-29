@@ -7,28 +7,31 @@ import axios from "axios";
 import dbConnect from "@/lib/mongodb";
 import { getRedis } from "@/lib/redis";
 import User from "@/models/User";
-import CFUser from "@/models/CFUser";
+import CPUser from "@/models/CPUser";
 import Problem from "@/models/POTDProblem";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
 
 // Ensure models are registered (prevents Next.js compiler from tree-shaking unused model imports)
-[User, CFUser, Problem, DailyChallenge, POTDSubmission].forEach(
+[User, CPUser, Problem, DailyChallenge, POTDSubmission].forEach(
   (m) => m && m.init && m.init(),
 );
 
 import { logger } from "@/lib/utils";
 import { DIFFICULTY_ORDER } from "@/lib/constants";
-import { processSubmission } from "@/lib/potd-submit";
+import type { Platform } from "@/lib/constants";
+import { processSubmission } from "@/lib/potd/submit";
+import { getUserSubmissions } from "@/lib/platforms/atcoder";
 
 // Types
 
 export type ChallengeEntry = {
   challengeId: string;
   difficulty: "Easy" | "Medium" | "Hard";
+  platform: Platform;
   problem: {
-    cfContestId: number;
-    cfIndex: string;
+    contestId: string;
+    problemIndex: string;
     name: string;
     rating: number;
   };
@@ -40,9 +43,9 @@ export type ChallengeEntry = {
 };
 
 export type TodayChallengeData = {
-  windowStart: string; // ISO — shared across all challenges for the day
-  windowEnd: string; // ISO — EOD IST (18:29 UTC)
-  graceEnd: string; // ISO — 2:00 AM IST next day (20:29 UTC)
+  windowStart: string; // ISO - shared across all challenges for the day
+  windowEnd: string; // ISO - EOD IST (18:29 UTC)
+  graceEnd: string; // ISO - 2:00 AM IST next day (20:29 UTC)
   challenges: ChallengeEntry[]; // sorted Easy -> Medium -> Hard
 };
 
@@ -71,7 +74,7 @@ export async function getTodayChallenge(): Promise<{
   if (challenges.length === 0)
     return { ok: false, error: "No active challenge" };
 
-  // All challenges for a day share the same window — use 1st
+  // All challenges for a day share the same window - use 1st
   const first = challenges[0] as any;
 
   // Batch fetch all submissions for today's challenges in one query
@@ -91,18 +94,19 @@ export async function getTodayChallenge(): Promise<{
     return {
       challengeId: c._id.toString(),
       difficulty: c.difficulty,
+      platform: problem.platform || "codeforces",
       problem: {
-        cfContestId: problem.cfContestId,
-        cfIndex: problem.cfIndex,
+        contestId: problem.contestId,
+        problemIndex: problem.problemIndex,
         name: problem.name,
         rating: problem.rating,
       },
       mySubmission: sub
         ? {
-            status: sub.status,
-            solvedAt: sub.solvedAt ? sub.solvedAt.toISOString() : null,
-            pointsAwarded: sub.pointsAwarded,
-          }
+          status: sub.status,
+          solvedAt: sub.solvedAt ? sub.solvedAt.toISOString() : null,
+          pointsAwarded: sub.pointsAwarded,
+        }
         : { status: "none" as const, solvedAt: null, pointsAwarded: 0 },
     };
   });
@@ -130,11 +134,11 @@ export async function getTodayChallenge(): Promise<{
 const CF_SUBMISSIONS_COUNT = 50;
 
 /**
- * Manually sync the current user's CF submission against today's challenge.
+ * Manually sync the current user's submission against today's challenge
  * Uses a 3-layer Redis lock pattern:
  *   L1: per-user global sync rate-limit (60s)
- *   L2: per-user per-challenge advisory lock (30s) — prevents double-click races
- *   L3: per-challenge cron lock guard — if cron is running, back off
+ *   L2: per-user per-challenge advisory lock (30s) - prevents double-click races
+ *   L3: per-challenge cron lock guard - if cron is running, back off
  */
 export async function syncMySubmission(challengeId: string): Promise<{
   ok: boolean;
@@ -148,20 +152,38 @@ export async function syncMySubmission(challengeId: string): Promise<{
   const userId = session.user.id;
   const user = session.user as any;
 
-  if (!user.codeforcesId) {
-    return { ok: false, error: "Codeforces handle not set" };
-  }
-
   await dbConnect();
 
-  const cfUser = await CFUser.findOne({ userId });
-  if (!cfUser?.cfVerified) {
-    return { ok: false, error: "Codeforces handle not verified" };
+  const cpUser = await CPUser.findOne({ userId });
+
+  // Look up the challenge to determine its platform
+  const challenge =
+    await DailyChallenge.findById(challengeId).populate("problem");
+  if (!challenge) return { ok: false, error: "Challenge not found" };
+
+  const problem = challenge.problem as any;
+  const platform: Platform = problem.platform || "codeforces";
+
+  // Verify handle for the appropriate platform
+  if (platform === "codeforces") {
+    if (!user.codeforcesId) {
+      return { ok: false, error: "Codeforces handle not set" };
+    }
+    if (!cpUser?.cfVerified) {
+      return { ok: false, error: "Codeforces handle not verified" };
+    }
+  } else {
+    if (!user.atcoderId) {
+      return { ok: false, error: "AtCoder handle not set" };
+    }
+    if (!cpUser?.acVerified) {
+      return { ok: false, error: "AtCoder handle not verified" };
+    }
   }
 
   const redis = await getRedis();
 
-  // L1: Rate-limit — one manual sync per 60s per user
+  // L1: Rate-limit - one manual sync per 60s per user
   const rateLimitKey = `potd:sync:ratelimit:${userId}`;
   const rateLimitSet = await redis.set(rateLimitKey, "1", { NX: true, EX: 60 });
   if (!rateLimitSet) {
@@ -169,27 +191,12 @@ export async function syncMySubmission(challengeId: string): Promise<{
     return { ok: false, error: `Please wait ${ttl}s before syncing again` };
   }
 
-  // L2: Advisory lock — prevents duplicate concurrent requests
+  // L2: Advisory lock - prevents duplicate concurrent requests
   const advisoryKey = `potd:sync:lock:${userId}:${challengeId}`;
   const advisorySet = await redis.set(advisoryKey, "1", { NX: true, EX: 30 });
   if (!advisorySet) {
-    await redis.del(rateLimitKey); // release rate limit on lock failure
-    return { ok: false, error: "Sync already in progress" };
-  }
-
-  // L2.5: Global CF API rate limit — one CF call every 2s across all manual syncs
-  const globalCFLimitKey = `potd:sync:cf_api_global`;
-  const cfApiLocked = await redis.set(globalCFLimitKey, "1", {
-    NX: true,
-    EX: 2,
-  });
-  if (!cfApiLocked) {
     await redis.del(rateLimitKey);
-    await redis.del(advisoryKey);
-    return {
-      ok: false,
-      error: "Codeforces is busy. Please try again in 5 seconds.",
-    };
+    return { ok: false, error: "Sync already in progress" };
   }
 
   // L3: Check if cron is running for this challenge
@@ -205,10 +212,6 @@ export async function syncMySubmission(challengeId: string): Promise<{
   }
 
   try {
-    const challenge =
-      await DailyChallenge.findById(challengeId).populate("problem");
-    if (!challenge) return { ok: false, error: "Challenge not found" };
-
     // Don't re-process an already-finalized submission
     const existing = await POTDSubmission.findOne({ userId, challengeId });
     if (existing?.status === "Accepted" || existing?.status === "Late") {
@@ -219,26 +222,58 @@ export async function syncMySubmission(challengeId: string): Promise<{
       };
     }
 
-    // Fetch CF submissions
-    const cfUrl = `https://codeforces.com/api/user.status?handle=${encodeURIComponent(user.codeforcesId)}&from=1&count=${CF_SUBMISSIONS_COUNT}`;
+    // Fetch submissions based on platform
+    let platformSubs: any[] = [];
 
-    let cfSubs: any[] = [];
-    try {
-      const { data } = await axios.get(cfUrl, { timeout: 10_000 });
-      if (data.status !== "OK") {
-        return { ok: false, error: "Codeforces API returned an error" };
+    if (platform === "codeforces") {
+      // Global CF API rate limit
+      const globalCFLimitKey = `potd:sync:cf_api_global`;
+      const cfApiLocked = await redis.set(globalCFLimitKey, "1", {
+        NX: true,
+        EX: 2,
+      });
+      if (!cfApiLocked) {
+        await redis.del(rateLimitKey);
+        await redis.del(advisoryKey);
+        return {
+          ok: false,
+          error: "Codeforces is busy. Please try again in 5 seconds.",
+        };
       }
-      cfSubs = data.result;
-    } catch (err) {
-      logger.warn("[syncMySubmission] CF API error", { err });
-      return { ok: false, error: "Failed to reach Codeforces API" };
+
+      const cfUrl = `https://codeforces.com/api/user.status?handle=${encodeURIComponent(user.codeforcesId)}&from=1&count=${CF_SUBMISSIONS_COUNT}`;
+      try {
+        const { data } = await axios.get(cfUrl, { timeout: 10_000 });
+        if (data.status !== "OK") {
+          return { ok: false, error: "Codeforces API returned an error" };
+        }
+        platformSubs = data.result;
+      } catch (err) {
+        logger.warn("[syncMySubmission] CF API error", { err });
+        return { ok: false, error: "Failed to reach Codeforces API" };
+      }
+    } else {
+      // AtCoder: fetch submissions from kenkoooo API
+      const windowStartEpoch = Math.floor(
+        challenge.windowStart.getTime() / 1000,
+      );
+      try {
+        platformSubs = await getUserSubmissions(
+          user.atcoderId,
+          windowStartEpoch,
+        );
+      } catch (err) {
+        logger.warn("[syncMySubmission] AtCoder API error", { err });
+        return { ok: false, error: "Failed to reach AtCoder API" };
+      }
     }
 
     const { status: newStatus, pointsAwarded } = await processSubmission(
       userId,
       challenge,
-      cfUser,
-      cfSubs,
+      cpUser,
+      platformSubs,
+      platform,
     );
 
     revalidatePath("/internal/potd");
@@ -267,9 +302,10 @@ export async function getMyPotdStats(): Promise<{
       status: string;
       solvedAt: string | null;
       pointsAwarded: number;
+      platform: Platform;
       problem: {
-        cfContestId: number;
-        cfIndex: string;
+        contestId: string;
+        problemIndex: string;
         name: string;
         rating: number;
       };
@@ -282,7 +318,7 @@ export async function getMyPotdStats(): Promise<{
 
   await dbConnect();
 
-  const cfUserDoc = await CFUser.findOne({ userId: session.user.id });
+  const cpUserDoc = await CPUser.findOne({ userId: session.user.id });
 
   const subs = await POTDSubmission.find({
     userId: session.user.id,
@@ -300,9 +336,10 @@ export async function getMyPotdStats(): Promise<{
       status: s.status,
       solvedAt: s.solvedAt?.toISOString() ?? null,
       pointsAwarded: s.pointsAwarded,
+      platform: (problem?.platform || "codeforces") as Platform,
       problem: {
-        cfContestId: problem?.cfContestId ?? 0,
-        cfIndex: problem?.cfIndex ?? "",
+        contestId: problem?.contestId ?? "",
+        problemIndex: problem?.problemIndex ?? "",
         name: problem?.name ?? "",
         rating: problem?.rating ?? 0,
       },
@@ -312,10 +349,10 @@ export async function getMyPotdStats(): Promise<{
   return {
     ok: true,
     data: {
-      totalPoints: cfUserDoc?.potdTotalPoints ?? 0,
-      currentStreak: cfUserDoc?.potdCurrentStreak ?? 0,
-      longestStreak: cfUserDoc?.potdLongestStreak ?? 0,
-      totalSolved: cfUserDoc?.potdTotalSolved ?? 0,
+      totalPoints: cpUserDoc?.potdTotalPoints ?? 0,
+      currentStreak: cpUserDoc?.potdCurrentStreak ?? 0,
+      longestStreak: cpUserDoc?.potdLongestStreak ?? 0,
+      totalSolved: cpUserDoc?.potdTotalSolved ?? 0,
       recentSubmissions,
     },
   };
@@ -327,9 +364,10 @@ export type PastProblemEntry = {
   challengeId: string;
   windowStart: string;
   difficulty: "Easy" | "Medium" | "Hard";
+  platform: Platform;
   problem: {
-    cfContestId: number;
-    cfIndex: string;
+    contestId: string;
+    problemIndex: string;
     name: string;
     rating: number;
   };
@@ -372,9 +410,10 @@ export async function getPastProblems(
       challengeId: c._id.toString(),
       windowStart: c.windowStart.toISOString(),
       difficulty: c.difficulty,
+      platform: (p.platform || "codeforces") as Platform,
       problem: {
-        cfContestId: p.cfContestId,
-        cfIndex: p.cfIndex,
+        contestId: p.contestId,
+        problemIndex: p.problemIndex,
         name: p.name,
         rating: p.rating,
       },
@@ -390,7 +429,7 @@ export async function getPastProblems(
 export type LeaderboardEntry = {
   userId: string;
   name: string;
-  codeforcesId: string;
+  handle: string;
   totalPoints: number;
   totalSolved: number;
   currentStreak: number;
@@ -427,19 +466,19 @@ export async function getPotdLeaderboard(
     // Join cfusers BEFORE sorting so we can use currentStreak as tiebreaker
     {
       $lookup: {
-        from: "cfusers",
+        from: "cpusers",
         localField: "_id",
         foreignField: "userId",
-        as: "cfUser",
+        as: "cpUser",
       },
     },
-    { $unwind: { path: "$cfUser", preserveNullAndEmptyArrays: true } },
+    { $unwind: { path: "$cpUser", preserveNullAndEmptyArrays: true } },
     {
       $addFields: {
-        currentStreak: { $ifNull: ["$cfUser.potdCurrentStreak", 0] },
+        currentStreak: { $ifNull: ["$cpUser.potdCurrentStreak", 0] },
       },
     },
-    // Primary: points DESC. Tiebreaker: streak DESC (no time/skill bias)
+    // Primary: points DESC; Tiebreaker: streak DESC
     { $sort: { totalPoints: -1, currentStreak: -1 } },
     { $limit: 50 },
     {
@@ -456,7 +495,9 @@ export async function getPotdLeaderboard(
         _id: 0,
         userId: { $toString: "$_id" },
         name: "$user.name",
-        codeforcesId: "$user.codeforcesId",
+        handle: {
+          $ifNull: ["$user.codeforcesId", "$user.atcoderId", ""],
+        },
         totalPoints: 1,
         totalSolved: 1,
         currentStreak: 1,
@@ -472,7 +513,7 @@ export async function getPotdLeaderboard(
 export type StreakEntry = {
   userId: string;
   name: string;
-  codeforcesId: string;
+  handle: string;
   currentStreak: number;
   longestStreak: number;
   totalSolved: number;
@@ -489,7 +530,7 @@ export async function getStreakLeaderboard(): Promise<{
 
   await dbConnect();
 
-  const cfUsers = await CFUser.find(
+  const cpUsers = await CPUser.find(
     { potdTotalSolved: { $gt: 0 } },
     {
       userId: 1,
@@ -499,17 +540,17 @@ export async function getStreakLeaderboard(): Promise<{
       potdTotalPoints: 1,
     },
   )
-    // Primary: streak DESC. Tiebreaker: totalPoints DESC (no time/skill bias)
+    // Primary: streak DESC; Tiebreaker: totalPoints DESC
     .sort({ potdCurrentStreak: -1, potdTotalPoints: -1, potdLongestStreak: -1 })
     .limit(50)
-    .populate("userId", "name codeforcesId");
+    .populate("userId", "name codeforcesId atcoderId");
 
-  const data: StreakEntry[] = cfUsers.map((cu: any) => {
+  const data: StreakEntry[] = cpUsers.map((cu: any) => {
     const u = cu.userId as any;
     return {
       userId: u?._id?.toString() ?? "",
       name: u?.name ?? "",
-      codeforcesId: u?.codeforcesId ?? "",
+      handle: u?.codeforcesId || u?.atcoderId || "",
       currentStreak: cu.potdCurrentStreak ?? 0,
       longestStreak: cu.potdLongestStreak ?? 0,
       totalSolved: cu.potdTotalSolved ?? 0,

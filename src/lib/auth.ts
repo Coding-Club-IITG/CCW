@@ -41,6 +41,9 @@ export const auth = betterAuth({
       codeforcesId: {
         type: "string",
       },
+      atcoderId: {
+        type: "string",
+      },
       githubId: {
         type: "string",
       },

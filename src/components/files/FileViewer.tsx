@@ -177,7 +177,7 @@ export default function FileViewer({ file, onClose }: Props) {
           setBlob(typed);
         }
       } catch {
-        if (!revoked) setLoadError("Network error — could not load file.");
+        if (!revoked) setLoadError("Network error - could not load file.");
       } finally {
         if (!revoked) setFetching(false);
       }
@@ -256,7 +256,7 @@ export default function FileViewer({ file, onClose }: Props) {
       );
     }
 
-    // Plain text — blob URL iframe
+    // Plain text - blob URL iframe
     if (isText && objectUrl) {
       return (
         <iframe

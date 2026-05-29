@@ -1,6 +1,7 @@
 import "./lib/env";
 import agenda from "./lib/agenda";
 import { syncCodeforcesRatings } from "./lib/jobs/cfSync";
+import { syncAtCoderRatings } from "./lib/jobs/acSync";
 import { syncPOTDSubmissions } from "./lib/jobs/potdSync";
 import { logger } from "./lib/utils";
 import dbConnect from "./lib/mongodb";
@@ -16,6 +17,10 @@ async function run() {
     await syncCodeforcesRatings();
   });
 
+  agenda.define("sync-ac-ratings", async () => {
+    await syncAtCoderRatings();
+  });
+
   agenda.define("sync-potd-submissions", async () => {
     await syncPOTDSubmissions();
   });
@@ -25,6 +30,9 @@ async function run() {
 
   // Schedule the CF ratings sync every 6 hours
   await agenda.every("6 hours", "sync-cf-ratings");
+
+  // Schedule the AC ratings sync every 6 hours (offset by 3h from CF)
+  await agenda.every("6 hours", "sync-ac-ratings");
 
   // Schedule POTD sync at 2:00 AM IST, after grace window close
   await agenda.every("0 30 20 * * *", "sync-potd-submissions");

@@ -34,6 +34,11 @@ export default async function DashboardPage() {
         <div className={styles.card}>
           <h3>Quick Links</h3>
           <ul>
+            {isAdmin(user.role) && (
+              <li>
+                <a href="/admin">Website Administration</a>
+              </li>
+            )}
             <li>
               <a href="/internal/profile">Update Profile</a>
             </li>
@@ -41,16 +46,11 @@ export default async function DashboardPage() {
               <a href="/internal/files">Files Sharing</a>
             </li>
             <li>
-              <a href="/internal/leaderboard">Codeforces Leaderboard</a>
+              <a href="/internal/leaderboard">CP Leaderboard</a>
             </li>
             <li>
-              <a href="/internal/potd">Codeforces POTD</a>
+              <a href="/internal/potd">Problem of the Day</a>
             </li>
-            {isAdmin(user.role) && (
-              <li>
-                <a href="/admin">Website Administration</a>
-              </li>
-            )}
           </ul>
         </div>
       </div>

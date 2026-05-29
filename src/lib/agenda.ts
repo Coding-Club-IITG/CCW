@@ -6,7 +6,7 @@ import { logger } from "./utils";
 const mongodbUri = process.env.MONGODB_URI!;
 const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 
-// Attach an error listener BEFORE passing to Agenda — ioredis emits 'error'
+// Attach an error listener BEFORE passing to Agenda - ioredis emits 'error'
 // as an EventEmitter event, which Node.js re-throws if there is no listener,
 // crashing the entire process. This keeps the worker alive during Redis blips;
 // Agenda falls back to polling MongoDB every `processEvery` interval.

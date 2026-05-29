@@ -1,7 +1,7 @@
 /**
- * GET    /api/files/[id]  — serve / stream a file to the client
- * PATCH  /api/files/[id]  — update file metadata / permissions
- * DELETE /api/files/[id]  — delete a file (disk + metadata)
+ * GET    /api/files/[id]  - serve / stream a file to the client
+ * PATCH  /api/files/[id]  - update file metadata / permissions
+ * DELETE /api/files/[id]  - delete a file (disk + metadata)
  */
 
 import { NextRequest, NextResponse } from "next/server";

@@ -2,7 +2,7 @@
  * Pure utility helpers for POTD window calculations, scoring, and date formatting
  */
 
-import { IST_OFFSET_MS } from "./constants";
+import { IST_OFFSET_MS } from "@/lib/constants";
 
 /**
  * Given IST date string, compute the three window timestamps

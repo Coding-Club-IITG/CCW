@@ -1,5 +1,5 @@
 import axios from "axios";
-import CFUser from "@/models/CFUser";
+import CPUser from "@/models/CPUser";
 import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
 
@@ -12,21 +12,19 @@ export async function syncCodeforcesRatings() {
   await dbConnect();
 
   try {
-    // Only sync verified CF users
-    const verifiedUsers = await CFUser.find({
+    const verifiedUsers = await CPUser.find({
       cfVerified: true,
-      handle: { $exists: true, $ne: "" },
-    }).select("_id handle userId");
+      cfHandle: { $exists: true, $ne: "" },
+    }).select("_id cfHandle userId");
 
     if (verifiedUsers.length === 0) {
       logger.info("[CF-Sync] No verified CF users found.");
       return;
     }
 
-    // Build handle -> CFUser ID map
     const handleToDocId: Record<string, string> = {};
-    verifiedUsers.forEach((doc) => {
-      handleToDocId[doc.handle.toLowerCase()] = doc._id.toString();
+    verifiedUsers.forEach((doc: any) => {
+      handleToDocId[doc.cfHandle.toLowerCase()] = doc._id.toString();
     });
 
     const handles = Object.keys(handleToDocId);
@@ -34,7 +32,6 @@ export async function syncCodeforcesRatings() {
       `[CF-Sync] Fetching data for ${handles.length} verified handles...`,
     );
 
-    // Process in batches
     const bulkOps: any[] = [];
 
     for (let i = 0; i < handles.length; i += BATCH_SIZE) {
@@ -64,13 +61,13 @@ export async function syncCodeforcesRatings() {
               filter: { _id: docId },
               update: {
                 $set: {
-                  handle: cfData.handle,
-                  rating: cfData.rating || 0,
-                  rank: cfData.rank || "Unrated",
-                  maxRating: cfData.maxRating || 0,
-                  maxRank: cfData.maxRank || "Unrated",
-                  avatar: cfData.avatar || "",
-                  lastUpdated: new Date(),
+                  cfHandle: cfData.handle,
+                  cfRating: cfData.rating || 0,
+                  cfRank: cfData.rank || "Unrated",
+                  cfMaxRating: cfData.maxRating || 0,
+                  cfMaxRank: cfData.maxRank || "Unrated",
+                  cfAvatar: cfData.avatar || "",
+                  cfLastUpdated: new Date(),
                 },
               },
             },
@@ -84,9 +81,9 @@ export async function syncCodeforcesRatings() {
     }
 
     if (bulkOps.length > 0) {
-      await CFUser.bulkWrite(bulkOps);
+      await CPUser.bulkWrite(bulkOps);
       logger.info(
-        `[CF-Sync] Successfully updated ${bulkOps.length} CFUser records.`,
+        `[CF-Sync] Successfully updated ${bulkOps.length} CPUser records.`,
       );
     }
   } catch (error: any) {
