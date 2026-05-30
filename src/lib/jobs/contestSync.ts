@@ -3,9 +3,12 @@ import { fetchAllContests } from "@/lib/platforms/contests";
 import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
 
+const MAX_PAST_CONTESTS = 100;
+
 /**
  * Sync upcoming contests from all platforms
- * Upserts by (platform, platformContestId) and removes stale future contests
+ * Upserts by (platform, platformContestId) and removes stale future contests.
+ * Keeps up to MAX_PAST_CONTESTS past entries in the DB for historical display.
  */
 export async function syncContests() {
   logger.info("[ContestSync] Starting contest sync...");
@@ -44,7 +47,7 @@ export async function syncContests() {
       );
     }
 
-    // Remove stale future contests
+    // Remove stale future contests (no longer listed by platforms)
     for (const platform of Object.keys(syncedIds)) {
       const ids = Array.from(syncedIds[platform]);
       if (ids.length > 0) {
@@ -54,6 +57,22 @@ export async function syncContests() {
           platformContestId: { $nin: ids },
         });
       }
+    }
+
+    // Trim old past contests to keep at most MAX_PAST_CONTESTS
+    const pastCount = await Contest.countDocuments({ endTime: { $lt: now } });
+    if (pastCount > MAX_PAST_CONTESTS) {
+      const toRemove = pastCount - MAX_PAST_CONTESTS;
+      const oldest = await Contest.find({ endTime: { $lt: now } })
+        .sort({ endTime: 1 })
+        .limit(toRemove)
+        .select("_id");
+      await Contest.deleteMany({
+        _id: { $in: oldest.map((c) => c._id) },
+      });
+      logger.info(
+        `[ContestSync] Trimmed ${toRemove} old past contests (kept ${MAX_PAST_CONTESTS})`,
+      );
     }
 
     logger.info(

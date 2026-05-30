@@ -1,69 +1,30 @@
+@use "@/styles/mixins" as *;
+
 .cpPage {
-  display: flex;
-  gap: 1.5rem;
-  min-height: calc(100vh - 80px);
+  @include sidebar-layout;
 }
 
 .sidebar {
-  width: 220px;
-  flex-shrink: 0;
-  border-right: 1px solid var(--border);
-  padding-right: 1rem;
+  @include sidebar-panel;
 }
 
 .sidebarNav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  position: sticky;
-  top: 80px;
+  @include sidebar-nav;
 }
 
 .icon {
-  width: 16px;
-  height: 16px;
-  opacity: 0.7;
-  flex-shrink: 0;
+  @include sidebar-icon;
 }
 
 .sidebarTab {
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-  position: relative;
-
-  &:hover {
-    background: var(--surface-hover);
-    color: var(--foreground-strong);
-  }
+  @include sidebar-tab;
+  @include sidebar-tab-mobile;
 
   &.active {
-    background: var(--surface-hover);
-    color: var(--foreground-strong);
-    font-weight: 600;
+    @include sidebar-tab-active;
 
     .icon {
       opacity: 1;
-    }
-
-    &::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0.375rem;
-      bottom: 0.375rem;
-      width: 3px;
-      border-radius: 3px;
-      background: var(--tab-active-border);
     }
   }
 }
@@ -71,44 +32,4 @@
 .content {
   flex: 1;
   min-width: 0;
-}
-
-@media (max-width: 768px) {
-  .cpPage {
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding-right: 0;
-    padding-bottom: 0.75rem;
-  }
-
-  .sidebarNav {
-    flex-direction: row;
-    position: static;
-    gap: 0;
-    overflow-x: auto;
-  }
-
-  .sidebarTab {
-    flex: 1;
-    text-align: center;
-    justify-content: center;
-    border-radius: 0;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-
-    &.active {
-      background: transparent;
-      border-bottom-color: var(--tab-active-border);
-
-      &::before {
-        display: none;
-      }
-    }
-  }
 }

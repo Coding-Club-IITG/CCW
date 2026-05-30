@@ -5,8 +5,11 @@ import dbConnect from "@/lib/mongodb";
 export async function GET() {
   await dbConnect();
 
-  const now = new Date();
-  const contests = await Contest.find({ startTime: { $gte: now } })
+  // Exclude contests longer than 24 hours
+  const MAX_DURATION = 24 * 60 * 60;
+  const contests = await Contest.find({
+    durationSeconds: { $lte: MAX_DURATION },
+  })
     .sort({ startTime: 1 })
     .lean();
 
