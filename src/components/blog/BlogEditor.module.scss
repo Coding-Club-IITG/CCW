@@ -1,0 +1,159 @@
+@use "@/styles/mixins" as *;
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.error {
+  background: var(--error-bg);
+  color: var(--error-text);
+  border: 1px solid var(--error-border-light);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--foreground-strong);
+}
+
+.input,
+.textarea,
+.select {
+  background: var(--blog-editor-bg);
+  border: 1px solid var(--blog-editor-border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--foreground);
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 3rem;
+}
+
+.select {
+  cursor: pointer;
+  max-width: 200px;
+}
+
+.coverRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.coverPreview {
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.tagsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.contentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.contentActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.contentTextarea {
+  background: var(--blog-editor-bg);
+  border: 1px solid var(--blog-editor-border);
+  border-radius: 6px;
+  padding: 1rem;
+  font-size: 0.875rem;
+  color: var(--foreground);
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 400px;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+}
+
+.preview {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.5rem;
+  min-height: 400px;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.btnPrimary {
+  @include btn-primary;
+  padding: 0.5rem 1.25rem;
+}
+
+.btnSecondary {
+  @include btn-secondary;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+
+  &.active {
+    background: var(--primary-alpha);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+}
+
+.btnDanger {
+  background: var(--error-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--error-border-light);
+  border-radius: 6px;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--error-bg-hover);
+  }
+}

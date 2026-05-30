@@ -1,0 +1,27 @@
+@use "@/styles/mixins" as *;
+
+.tag {
+  @include blog-tag;
+  cursor: default;
+  background: var(--badge-bg);
+  color: var(--badge-text);
+  border-color: var(--badge-border);
+}
+
+button.tag {
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+
+  &:hover {
+    background: var(--primary-alpha);
+    border-color: var(--primary);
+  }
+}
+
+.active {
+  background: var(--primary-alpha);
+  color: var(--primary);
+  border-color: var(--primary);
+}

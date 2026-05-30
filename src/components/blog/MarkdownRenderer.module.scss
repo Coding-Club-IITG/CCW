@@ -1,0 +1,5 @@
+@use "@/styles/mixins" as *;
+
+.prose {
+  @include blog-prose;
+}

@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { isAdmin } from "@/lib/roles";
+import LinkCard from "@/components/LinkCard";
 import styles from "./Dashboard.module.scss";
 
 export default async function DashboardPage() {
@@ -16,29 +17,40 @@ export default async function DashboardPage() {
       <h1>Member Dashboard</h1>
       <p className={styles.welcome}>Welcome back, {user.name}!</p>
 
+      <h2 className={styles.sectionTitle}>Quick Links</h2>
       <div className={styles.grid}>
-        <div className={styles.card}>
-          <h3>Quick Links</h3>
-          <ul>
-            {isAdmin(user.role) && (
-              <li>
-                <a href="/admin">Website Administration</a>
-              </li>
-            )}
-            <li>
-              <a href="/internal/profile">Update Profile</a>
-            </li>
-            <li>
-              <a href="/internal/files">Files Sharing</a>
-            </li>
-            <li>
-              <a href="/internal/cp">Competitive Programming</a>
-            </li>
-            <li>
-              <a href="/internal/potd">Problem of the Day</a>
-            </li>
-          </ul>
-        </div>
+        {isAdmin(user.role) && (
+          <LinkCard
+            href="/admin"
+            title="Website Administration"
+            description="Manage users, blog posts, and club-wide settings."
+          />
+        )}
+        <LinkCard
+          href="/internal/profile"
+          title="Update Profile"
+          description="Edit your display name, bio, and linked platform handles."
+        />
+        <LinkCard
+          href="/internal/files"
+          title="File Sharing"
+          description="Access shared resources, notes, and module materials."
+        />
+        <LinkCard
+          href="/internal/cp"
+          title="Competitive Programming"
+          description="Leaderboards, contests, and your CP performance tracker."
+        />
+        <LinkCard
+          href="/internal/potd"
+          title="Problem of the Day"
+          description="Daily coding challenges, streaks, and submissions."
+        />
+        <LinkCard
+          href="/blog"
+          title="Blog"
+          description="Read the latest posts from the Coding Club community."
+        />
       </div>
     </div>
   );

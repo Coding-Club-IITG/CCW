@@ -62,7 +62,7 @@ export const PLATFORM_PROBLEM_URLS: Record<
     `https://atcoder.jp/contests/${contestId}/tasks/${index}`,
 };
 
-/* Contest Platforms (superset of CP platforms, includes CodeChef & LeetCode) */
+/* Contest Platforms */
 
 export const CONTEST_PLATFORMS = [
   "codeforces",
@@ -97,3 +97,17 @@ export const DIFFICULTY_ORDER: Record<Difficulty, number> = {
   Medium: 1,
   Hard: 2,
 };
+
+/* Blog */
+
+export const BLOG_STATUSES = ["draft", "published"] as const;
+export type BlogStatus = (typeof BLOG_STATUSES)[number];
+
+export const BLOG_TAGS = [
+  ...MODULES,
+  "General",
+  "Tutorial",
+  "Event Recap",
+  "Announcement",
+] as const;
+export type BlogTag = (typeof BLOG_TAGS)[number];

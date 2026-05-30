@@ -3,6 +3,7 @@
 }
 
 .header {
+  margin-top: 1rem;
   margin-bottom: 1.5rem;
 
   h1 {
@@ -19,8 +20,9 @@
   }
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
+.section {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
 }

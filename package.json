@@ -19,25 +19,28 @@
     "agenda": "^6.2.5",
     "axios": "^1.16.1",
     "better-auth": "^1.6.11",
-    "lucide-react": "^1.16.0",
+    "lucide-react": "^1.17.0",
     "mongodb": "^7.2.0",
-    "mongoose": "^9.6.2",
+    "mongoose": "^9.6.3",
     "next": "^16.2.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "redis": "^5.12.1",
-    "sass": "^1.99.0",
-    "zustand": "^5.0.13"
+    "react-markdown": "^10.1.0",
+    "redis": "^6.0.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
+    "sass": "^1.100.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@types/node": "^25.8.0",
-    "@types/react": "^19.2.14",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
-    "concurrently": "^9.2.1",
+    "concurrently": "^10.0.0",
     "dotenv": "^17.4.2",
     "eslint": "^10.4.0",
     "eslint-config-next": "^16.2.6",
-    "tsx": "^4.22.1",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3"
   }
 }

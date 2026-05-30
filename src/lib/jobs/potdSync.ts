@@ -199,7 +199,7 @@ export async function syncPOTDSubmissions(): Promise<void> {
     platformHealth.set(platform, healthy);
     if (!healthy) {
       logger.warn(
-        `[potd-sync] ${platform} API unreachable after retries — skipping ${platform} challenges`,
+        `[potd-sync] ${platform} API unreachable after retries - skipping ${platform} challenges`,
       );
     }
   }

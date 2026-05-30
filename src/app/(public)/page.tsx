@@ -39,12 +39,25 @@ export default async function Home({ searchParams }: Props) {
           <p>Building scalable solutions and modern applications.</p>
         </div>
         <div className={styles.featureCard}>
+          <h3>Competitive Programming</h3>
+          <p>
+            Sharpening problem-solving skills through algorithmic contests and
+            challenges.
+          </p>
+        </div>
+        <div className={styles.featureCard}>
           <h3>Machine Learning</h3>
           <p>Harnessing the power of data and artificial intelligence.</p>
         </div>
         <div className={styles.featureCard}>
           <h3>Cybersecurity</h3>
           <p>Securing the digital frontier and exploring vulnerabilities.</p>
+        </div>
+        <div className={styles.featureCard}>
+          <h3>Design</h3>
+          <p>
+            Crafting intuitive interfaces and compelling visual experiences.
+          </p>
         </div>
       </div>
     </div>

@@ -42,7 +42,7 @@ export async function processSubmission(
     } else if (solvedAt <= graceEnd) {
       newStatus = "Late";
     } else {
-      // Solved after grace period — does not count
+      // Solved after grace period - does not count
       solvedAt = null;
       newStatus = now > graceEnd ? "NotSolved" : "Pending";
     }
@@ -127,7 +127,7 @@ export async function processSubmission(
             );
 
             if (!updated) {
-              // Streak changed concurrently — still award points/solve count
+              // Streak changed concurrently - still award points/solve count
               await CPUser.findOneAndUpdate(
                 { userId },
                 {
