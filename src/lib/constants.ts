@@ -62,6 +62,23 @@ export const PLATFORM_PROBLEM_URLS: Record<
     `https://atcoder.jp/contests/${contestId}/tasks/${index}`,
 };
 
+/* Contest Platforms (superset of CP platforms, includes CodeChef & LeetCode) */
+
+export const CONTEST_PLATFORMS = [
+  "codeforces",
+  "atcoder",
+  "codechef",
+  "leetcode",
+] as const;
+export type ContestPlatform = (typeof CONTEST_PLATFORMS)[number];
+
+export const CONTEST_PLATFORM_DISPLAY_NAMES: Record<ContestPlatform, string> = {
+  codeforces: "Codeforces",
+  atcoder: "AtCoder",
+  codechef: "CodeChef",
+  leetcode: "LeetCode",
+};
+
 /* POTD */
 
 export const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // Offset from UTC to IST in ms

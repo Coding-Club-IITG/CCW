@@ -46,7 +46,7 @@ export default async function DashboardPage() {
               <a href="/internal/files">Files Sharing</a>
             </li>
             <li>
-              <a href="/internal/leaderboard">CP Leaderboard</a>
+              <a href="/internal/cp">Competitive Programming</a>
             </li>
             <li>
               <a href="/internal/potd">Problem of the Day</a>

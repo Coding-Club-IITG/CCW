@@ -37,6 +37,7 @@ export default function Navbar() {
             </Link>
             <Link href="/internal/profile">Profile</Link>
             <Link href="/internal/files">Files</Link>
+            <Link href="/internal/cp">CP</Link>
             <Link href="/internal/potd">POTD</Link>
             <button
               onClick={async () => {

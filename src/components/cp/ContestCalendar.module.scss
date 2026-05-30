@@ -1,0 +1,243 @@
+.calendar {
+  padding: 1rem 0;
+}
+
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: var(--foreground-strong);
+}
+
+/* Timeline grid layout */
+.timeline {
+  display: grid;
+  grid-template-columns: 3.5rem repeat(7, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+/* Time axis (left column) */
+.timeAxis {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-light);
+}
+
+.timeAxisHeader {
+  height: 3.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.timeAxisBody {
+  position: relative;
+  height: 600px;
+}
+
+.timeLabel {
+  position: absolute;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Day columns */
+.dayColumn {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-light);
+}
+
+.dayColumn.today {
+  background: var(--primary-alpha);
+}
+
+.dayHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 3.5rem;
+  padding: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dayName {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dayDate {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--foreground-strong);
+}
+
+.today .dayDate {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* Day body with time slots */
+.dayBody {
+  position: relative;
+  height: 600px;
+  overflow: hidden;
+}
+
+.hourLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border-light);
+}
+
+/* Contest bars */
+.contestBar {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 4px;
+  padding: 0.2rem 0.35rem;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  cursor: pointer;
+  z-index: 1;
+  transition:
+    opacity 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &:hover {
+    opacity: 0.9;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+  }
+
+  &.cf {
+    background: var(--contest-cf);
+    color: #fff;
+  }
+
+  &.ac {
+    background: var(--contest-ac);
+    color: #fff;
+  }
+
+  &.cc {
+    background: var(--contest-cc);
+    color: #fff;
+  }
+
+  &.lc {
+    background: var(--contest-lc);
+    color: #fff;
+  }
+}
+
+.barPlatform {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.barName {
+  font-size: 0.65rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barTime {
+  font-size: 0.55rem;
+  opacity: 0.85;
+}
+
+/* Upcoming section (beyond 7 days) */
+.upcomingSection {
+  margin-top: 2rem;
+}
+
+.upcomingTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--foreground-strong);
+}
+
+.upcomingList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.upcomingItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  background: var(--surface-secondary);
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--surface-hover);
+  }
+
+  &.cf {
+    border-left-color: var(--contest-cf);
+  }
+
+  &.ac {
+    border-left-color: var(--contest-ac);
+  }
+
+  &.cc {
+    border-left-color: var(--contest-cc);
+  }
+
+  &.lc {
+    border-left-color: var(--contest-lc);
+  }
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 2rem;
+}
+
+@media (max-width: 768px) {
+  .timeline {
+    grid-template-columns: 2.5rem repeat(7, 1fr);
+  }
+
+  .timeAxisBody,
+  .dayBody {
+    height: 400px;
+  }
+
+  .barName {
+    display: none;
+  }
+
+  .upcomingItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}

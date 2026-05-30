@@ -1,7 +1,8 @@
 import CPUser from "@/models/CPUser";
+import Contest from "@/models/Contest";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
-import RatingLeaderboardClient from "@/components/leaderboard/RatingLeaderboardClient";
+import CPPageClient from "@/components/cp/CPPageClient";
 
 type RatingLeaderboardEntry = {
   id: string;
@@ -59,13 +60,37 @@ async function getACLeaderboard(): Promise<RatingLeaderboardEntry[]> {
   }));
 }
 
-export default async function LeaderboardPage() {
-  const [cfEntries, acEntries] = await Promise.all([
+async function getUpcomingContests() {
+  await dbConnect();
+
+  const now = new Date();
+  const contests = await Contest.find({ startTime: { $gte: now } })
+    .sort({ startTime: 1 })
+    .lean();
+
+  return contests.map((c: any) => ({
+    id: c._id.toString(),
+    platform: c.platform,
+    name: c.name,
+    startTime: c.startTime.toISOString(),
+    endTime: c.endTime.toISOString(),
+    durationSeconds: c.durationSeconds,
+    url: c.url,
+  }));
+}
+
+export default async function CPPage() {
+  const [cfEntries, acEntries, contests] = await Promise.all([
     getCFLeaderboard(),
     getACLeaderboard(),
+    getUpcomingContests(),
   ]);
 
   return (
-    <RatingLeaderboardClient cfEntries={cfEntries} acEntries={acEntries} />
+    <CPPageClient
+      cfEntries={cfEntries}
+      acEntries={acEntries}
+      contests={contests}
+    />
   );
 }

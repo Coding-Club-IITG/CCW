@@ -1,0 +1,67 @@
+.cpPage {
+  display: flex;
+  gap: 1.5rem;
+  min-height: calc(100vh - 80px);
+}
+
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+}
+
+.sidebarNav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: sticky;
+  top: 80px;
+}
+
+.sidebarTab {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    background: var(--tab-hover-bg);
+    color: var(--foreground-strong);
+  }
+
+  &.active {
+    background: var(--tab-active-bg);
+    color: var(--tab-active-text);
+    font-weight: 600;
+  }
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .cpPage {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .sidebarNav {
+    flex-direction: row;
+    position: static;
+  }
+
+  .sidebarTab {
+    flex: 1;
+    text-align: center;
+  }
+}
