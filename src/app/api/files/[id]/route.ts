@@ -62,6 +62,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Forbidden." }, { status: 403 });
     }
 
+    // Block direct navigation to view-only files
+    if (!file.isDownloadable) {
+      const secFetchDest = request.headers.get("sec-fetch-dest");
+      const secFetchMode = request.headers.get("sec-fetch-mode");
+
+      // Allow: iframe/embed/object embeds and fetch/XHR from same origin (for the viewer)
+      // Block: direct navigation
+      const isDirectNavigation =
+        secFetchDest === "document" && secFetchMode === "navigate";
+
+      if (isDirectNavigation) {
+        return NextResponse.json(
+          { error: "This file is view-only and cannot be opened directly." },
+          { status: 403 },
+        );
+      }
+    }
+
     const filePath = path.join(UPLOAD_DIR, file.storedName);
     if (!existsSync(filePath)) {
       logger.warn(

@@ -1,0 +1,127 @@
+@use "@/styles/mixins" as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+  padding: 2rem;
+  background: var(--background);
+}
+
+.glitch {
+  font-size: 8rem;
+  font-weight: 900;
+  color: var(--primary);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin-bottom: 1rem;
+  position: relative;
+  user-select: none;
+
+  &::after {
+    content: "404";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    color: var(--primary);
+    opacity: 0.15;
+    animation: flicker 3s infinite;
+  }
+}
+
+@keyframes flicker {
+  0%,
+  95%,
+  100% {
+    opacity: 0.15;
+    transform: translate(0);
+  }
+  96% {
+    opacity: 0.4;
+    transform: translate(-2px, 1px);
+  }
+  97% {
+    opacity: 0.1;
+    transform: translate(2px, -1px);
+  }
+}
+
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--foreground-strong);
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.02em;
+}
+
+.description {
+  font-size: 1.05rem;
+  color: var(--muted);
+  max-width: 420px;
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.homeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--btn-primary-bg-hover);
+  }
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--btn-secondary-border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--btn-secondary-bg-hover);
+  }
+}
+
+.divider {
+  width: 48px;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 2.5rem 0 1.5rem;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: var(--muted-light);
+}
