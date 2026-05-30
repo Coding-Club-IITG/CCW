@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import styles from "./Potd.module.scss";
 import {
@@ -31,6 +31,23 @@ export default function DailyChallengeClient({
   const [hoursLeft, setHoursLeft] = useState<number>(0);
   const [isClient, setIsClient] = useState(false);
   const [data, setData] = useState(initialData);
+
+  const [showPointsInfo, setShowPointsInfo] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showPointsInfo) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node)
+      ) {
+        setShowPointsInfo(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showPointsInfo]);
 
   // Per-challenge sync state
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
@@ -175,29 +192,71 @@ export default function DailyChallengeClient({
     <div className={styles.container}>
       {/* Shared timer card */}
       <div className={styles.card}>
-        <div className={styles.stats}>
-          <div className={styles.stat}>
-            <span className={styles.label}>
-              {isInGrace ? "Grace Window Ends" : "Window Closes"}
-            </span>
-            <span
-              className={`${styles.value} ${styles.timerValue}`}
-              style={{
-                color: !isClient
-                  ? "inherit"
-                  : hoursLeft > 10
-                    ? "#10b981"
-                    : hoursLeft < 2
-                      ? "#e11d48"
-                      : "#f59e0b",
-              }}
-            >
-              {isClient ? timeLeft : "00:00:00"}
-            </span>
+        <div className={styles.statsRow}>
+          <div className={styles.stats}>
+            <div className={styles.stat}>
+              <span className={styles.label}>
+                {isInGrace ? "Grace Window Ends" : "Window Closes"}
+              </span>
+              <span
+                className={`${styles.value} ${styles.timerValue}`}
+                style={{
+                  color: !isClient
+                    ? "inherit"
+                    : hoursLeft > 10
+                      ? "var(--success)"
+                      : hoursLeft < 2
+                        ? "var(--danger)"
+                        : "var(--warning)",
+                }}
+              >
+                {isClient ? timeLeft : "00:00:00"}
+              </span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.label}>Today&apos;s Problems</span>
+              <span className={styles.value}>{data.challenges.length}</span>
+            </div>
           </div>
-          <div className={styles.stat}>
-            <span className={styles.label}>Today&apos;s Problems</span>
-            <span className={styles.value}>{data.challenges.length}</span>
+          <div className={styles.infoTriggerWrapper} ref={popoverRef}>
+            <button
+              className={styles.infoTrigger}
+              onClick={() => setShowPointsInfo(!showPointsInfo)}
+              aria-label="Points calculation info"
+              type="button"
+            >
+              <IconInfoCircle width="20" height="20" />
+            </button>
+            {showPointsInfo && (
+              <div className={styles.infoPopover}>
+                <div className={styles.infoPopoverHeader}>
+                  <IconStar width="14" height="14" />
+                  Points Calculation
+                </div>
+                <div className={styles.infoPopoverGrid}>
+                  <div className={styles.infoPopoverItem}>
+                    <span>Base Points</span>
+                    <span>Problem Rating ÷ 10</span>
+                  </div>
+                  <div className={styles.infoPopoverItem}>
+                    <span>Streak Bonus</span>
+                    <span>+5% per day (max +50% at 10-day streak)</span>
+                  </div>
+                  <div className={styles.infoPopoverItem}>
+                    <span>Grace Penalty</span>
+                    <span>50% of base, no streak bonus (streak preserved)</span>
+                  </div>
+                </div>
+                <div className={styles.infoPopoverNote}>
+                  <IconInfoCircle width="12" height="12" />
+                  <span>
+                    Solves after midnight IST enter a 2-hour grace window (until
+                    2:00 AM). Grace solves earn half points and preserve your
+                    streak. Submissions are tracked automatically.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -215,39 +274,6 @@ export default function DailyChallengeClient({
           onSync={() => handleSync(entry.challengeId)}
         />
       ))}
-
-      {/* Scoring Info */}
-      <div className={styles.card}>
-        <div className={styles.pointsInfo}>
-          <div className={styles.pointsHeader}>
-            <IconStar width="18" height="18" />
-            Points Calculation
-          </div>
-          <div className={styles.pointsGrid}>
-            <div className={styles.pointsItem}>
-              <span>Base Points</span>
-              <span>Problem Rating ÷ 10</span>
-            </div>
-            <div className={styles.pointsItem}>
-              <span>Streak Bonus</span>
-              <span>+5% per day (max +50% at 10-day streak)</span>
-            </div>
-            <div className={styles.pointsItem}>
-              <span>Grace Penalty</span>
-              <span>50% of base, no streak bonus (streak still saved)</span>
-            </div>
-          </div>
-          <div className={styles.graceNote}>
-            <IconInfoCircle width="16" height="16" />
-            <span>
-              Solves after midnight IST enter a 2-hour grace window (until 2:00
-              AM IST). Grace solves earn half points and preserve your streak -
-              but the day&apos;s problem is not shown during this window.
-              Submissions are tracked automatically.
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -305,7 +331,7 @@ function ProblemCard({
         <div className={styles.rating}>{problem.rating || "Unrated"}</div>
       </div>
 
-      <div className={styles.stats}>
+      <div className={styles.statsWithBorder}>
         <div className={styles.stat}>
           <span className={styles.label}>Your Status</span>
           <span className={styles.value}>

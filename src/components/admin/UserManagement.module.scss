@@ -1,165 +1,164 @@
+@use "@/styles/mixins" as *;
+
 .container {
   padding: 1rem 0;
 }
 
 .addUserSection {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   padding: 1rem;
   background: var(--surface-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  border: 1px solid var(--border);
 
   form {
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
     align-items: flex-end;
   }
 
   .field {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.375rem;
 
     label {
-      font-weight: bold;
-      font-size: 0.85rem;
+      font-weight: 600;
+      font-size: 0.8125rem;
     }
 
     input {
-      padding: 0.5rem;
-      border: 1px solid var(--gray-300);
-      border-radius: 4px;
+      padding: 0.375rem 0.625rem;
+      border: 1px solid var(--border-input);
+      border-radius: 6px;
+      font-size: 0.875rem;
+      background: var(--surface);
+      color: var(--foreground);
+
+      &:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--focus-ring);
+      }
     }
   }
 
   button {
-    padding: 0.5rem 1rem;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
-
-    &:hover {
-      background: var(--primary-hover);
-    }
+    @include btn-primary;
+    padding: 0.375rem 0.875rem;
+    font-weight: 600;
 
     &:disabled {
-      background: var(--gray-300);
+      background: var(--border);
+      color: var(--muted-light);
     }
   }
 }
 
 .tableContainer {
   overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
 }
 
 .table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
+  @include table-base;
 
   th,
   td {
-    text-align: left;
-    padding: 0.75rem;
-    border-bottom: 1px solid var(--border-light);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
   }
 
-  th {
-    background: var(--gray-100);
-    font-weight: 600;
-  }
-
-  tr:hover {
-    background: var(--surface-secondary);
+  tbody tr {
+    transition: background 0.15s ease;
+    &:hover {
+      background: var(--surface-hover);
+    }
   }
 }
 
 .roleSelect {
-  padding: 0.4rem;
-  border: 1px solid var(--gray-300);
-  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
   background: var(--surface);
+  font-size: 0.8125rem;
+  color: var(--foreground);
 }
 
 .moduleRolesList {
   list-style: none;
   padding: 0;
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
 
   li {
     display: flex;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.75rem;
     margin-bottom: 0.25rem;
-    padding: 0.2rem 0.4rem;
+    padding: 0.2rem 0.5rem;
     background: var(--module-role-bg);
-    border-radius: 4px;
+    border-radius: 6px;
   }
 }
 
 .addModuleRole {
-  margin-top: 0.5rem;
+  margin-top: 0.375rem;
   font-size: 0.75rem;
-  color: var(--primary);
+  color: var(--link);
   cursor: pointer;
   text-decoration: underline;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0.25rem;
   border: none;
   background: none;
 }
 
 .deleteButton {
   background: var(--danger);
-  color: white;
+  color: var(--fg-on-emphasis);
   border: none;
-  padding: 0.3rem 0.6rem;
-  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background 0.15s ease;
 
   &:hover {
     background: var(--danger-hover);
   }
 }
 
+.overlay {
+  @include modal-overlay;
+  z-index: 999;
+}
+
 .modal {
+  @include modal-dialog(400px);
+  z-index: 1000;
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: var(--surface);
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px var(--shadow-lg);
-  z-index: 1000;
-  min-width: 400px;
-}
-
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--overlay);
-  z-index: 999;
 }
 
 .modalHeader {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   h2 {
     margin: 0;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--foreground-strong);
   }
 }
 
 .modalBody {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .moduleRoleItem {
@@ -169,32 +168,32 @@
   align-items: center;
 
   select {
-    padding: 0.3rem;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    background: var(--surface);
+    color: var(--foreground);
   }
 }
 
 .modalActions {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-
-  button {
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-  }
+  gap: 0.5rem;
 
   .cancel {
-    background: var(--border-light);
-    border: 1px solid var(--gray-300);
+    @include btn-secondary;
+    padding: 0.375rem 0.875rem;
+    font-weight: 600;
   }
 
   .save {
-    background: var(--primary);
-    color: white;
-    border: none;
+    @include btn-primary;
+    padding: 0.375rem 0.875rem;
+    font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 0.25rem;
   }
 }

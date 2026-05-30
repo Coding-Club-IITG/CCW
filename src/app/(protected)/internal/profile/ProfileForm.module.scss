@@ -1,82 +1,96 @@
 .container {
   max-width: 600px;
-  margin: 2rem auto;
-  padding: 2rem;
+  margin: 1.5rem auto;
+  padding: 1.5rem;
   background: var(--surface);
-  border-radius: 12px;
-  box-shadow: 0 4px 6px var(--card-shadow);
-  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  border: 1px solid var(--border);
 }
 
 .title {
-  font-size: 1.75rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  color: var(--foreground-strong);
 }
 
 .subtitle {
   color: var(--muted);
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
 
   label {
     font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--foreground-secondary);
+    font-size: 0.875rem;
+    color: var(--foreground);
   }
 
-  input {
-    padding: 0.75rem;
+  input,
+  textarea {
+    padding: 0.375rem 0.75rem;
     border: 1px solid var(--border-input);
     border-radius: 6px;
-    font-size: 1rem;
+    font-size: 0.875rem;
+    background: var(--surface);
+    color: var(--foreground);
+    line-height: 1.5;
+    font-family: inherit;
 
     &:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 2px var(--primary-alpha);
+      box-shadow: 0 0 0 3px var(--focus-ring);
     }
   }
 
+  textarea {
+    resize: vertical;
+    min-height: 64px;
+  }
+
   .hint {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--muted-light);
   }
 }
 
 .disabledInput {
-  background: var(--gray-100);
+  background: var(--surface-secondary);
   color: var(--muted);
 }
 
 .cpRow {
   display: flex;
-  gap: 10px;
+  gap: 0.625rem;
   align-items: center;
 }
 
 .verifiedBadge {
   color: var(--success);
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 0.875rem;
 }
 
 .verificationBox {
-  margin-top: 12px;
-  padding: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.875rem;
   background: var(--warning-bg);
   border: 1px solid var(--warning-border);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--warning-text);
+  font-size: 0.875rem;
 }
 
 .verificationHeader {
@@ -87,125 +101,119 @@
 
 .verificationHeaderWithMargin {
   composes: verificationHeader;
-  margin-bottom: 12px;
+  margin-bottom: 0.75rem;
 }
 
 .verificationText {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
 .tokenButton {
-  padding: 6px 12px;
-  border-radius: 4px;
-  border: 1px solid var(--warning-text);
-  background: transparent;
-  color: var(--warning-text);
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-input);
+  background: var(--btn-secondary-bg);
+  color: var(--foreground);
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--btn-secondary-bg-hover);
+  }
 }
 
 .tokenSteps {
   background: var(--warning-bg-light);
-  padding: 12px;
+  padding: 0.75rem;
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
   line-height: 1.6;
 }
 
 .tokenStepsList {
-  margin: 0 0 12px 0;
+  margin: 0 0 0.75rem 0;
   padding-left: 1.2rem;
 }
 
 .tokenStepItem {
-  margin-top: 6px;
+  margin-top: 0.375rem;
 }
 
 .tokenCode {
   background: var(--verify-token-bg);
   border: 1px solid var(--verify-token-border);
-  padding: 3px 8px;
-  border-radius: 4px;
-  margin-left: 8px;
-  font-family: monospace;
-  font-size: 1rem;
-  font-weight: bold;
+  padding: 0.125rem 0.5rem;
+  border-radius: 6px;
+  margin-left: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: var(--verify-token-text);
 }
 
 .verifyButton {
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 0.375rem 0.875rem;
+  border-radius: 6px;
   border: none;
-  background: var(--warning-text);
-  color: white;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--btn-primary-bg-hover);
+  }
 }
 
 .messageSuccess {
-  padding: 0.75rem 1rem;
+  padding: 0.625rem 0.875rem;
   border-radius: 6px;
   background: var(--success-bg);
   color: var(--success-text);
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
+  border: 1px solid var(--success-border);
 }
 
 .messageError {
-  padding: 0.75rem 1rem;
+  padding: 0.625rem 0.875rem;
   border-radius: 6px;
   background: var(--error-bg);
   color: var(--error-text);
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
+  border: 1px solid var(--error-border);
 }
 
 .saveButton {
-  padding: 0.75rem;
-  background: var(--primary);
-  color: white;
+  padding: 0.375rem 0.875rem;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
   border: none;
   border-radius: 6px;
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s ease;
 
   &:hover {
-    background: var(--primary-hover);
+    background: var(--btn-primary-bg-hover);
   }
 
   &:disabled {
-    background: var(--gray-300);
-    cursor: not-allowed;
-  }
-}
-
-.submitButton {
-  padding: 0.75rem;
-  background: var(--primary);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-
-  &:hover {
-    background: var(--primary-hover);
-  }
-
-  &:disabled {
-    background: var(--gray-300);
+    background: var(--border);
+    color: var(--muted-light);
     cursor: not-allowed;
   }
 }
 
 .message {
-  padding: 1rem;
+  padding: 0.75rem;
   border-radius: 6px;
-  font-size: 0.9rem;
-  margin-top: 1rem;
+  font-size: 0.8125rem;
+  margin-top: 0.75rem;
 
   &.success {
     background: var(--success-bg);
@@ -216,6 +224,6 @@
   &.error {
     background: var(--error-bg);
     color: var(--error-text);
-    border: 1px solid var(--error-border-light);
+    border: 1px solid var(--error-border);
   }
 }

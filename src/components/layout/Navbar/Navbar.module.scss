@@ -2,9 +2,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   background: var(--background);
-  border-bottom: 1px solid var(--gray-200);
+  border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -16,9 +16,10 @@
   }
 
   .logo {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: var(--primary);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--foreground-strong);
+    letter-spacing: -0.02em;
   }
 
   .themeToggle {
@@ -26,23 +27,28 @@
     align-items: center;
     justify-content: center;
     padding: 0.4rem;
-    border-radius: 4px;
-    color: var(--foreground);
-    transition: background 0.2s;
+    border-radius: 6px;
+    color: var(--muted);
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
 
     &:hover {
-      background: var(--gray-200);
+      background: var(--surface-hover);
+      color: var(--foreground);
     }
   }
 
   .navLinks {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1.25rem;
 
     a {
       font-weight: 500;
-      transition: color 0.2s;
+      font-size: 0.875rem;
+      color: var(--foreground);
+      transition: color 0.15s ease;
 
       &:hover {
         color: var(--primary);
@@ -51,19 +57,172 @@
   }
 
   .authButton {
-    background: var(--primary);
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
+    padding: 0.4rem 0.875rem;
+    border-radius: 6px;
     font-weight: 500;
-    transition: opacity 0.2s;
+    font-size: 0.875rem;
+    transition:
+      background 0.15s ease,
+      box-shadow 0.15s ease;
     border: none;
     cursor: pointer;
     font-family: inherit;
-    font-size: inherit;
 
     &:hover {
-      opacity: 0.9;
+      background: var(--btn-primary-bg-hover);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+  }
+
+  // Avatar & user menu
+  .avatarWrapper {
+    position: relative;
+  }
+
+  .avatarButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+    background: var(--surface-secondary);
+
+    &:hover {
+      border-color: var(--border);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+  }
+
+  .avatarImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  .avatarInitials {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--foreground-strong);
+    line-height: 1;
+  }
+
+  .userMenu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px var(--shadow-lg);
+    padding: 0.25rem 0;
+    z-index: 200;
+    animation: menuFadeIn 0.12s ease;
+  }
+
+  @keyframes menuFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .userMenuHeader {
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.0625rem;
+  }
+
+  .userMenuName {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    color: var(--foreground-strong);
+  }
+
+  .userMenuEmail {
+    font-size: 0.6875rem;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .userMenuRole {
+    font-size: 0.6875rem;
+    color: var(--muted-light);
+    margin-top: 0.25rem;
+  }
+
+  .userMenuDivider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.25rem 0;
+  }
+
+  .userMenuItem {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--foreground);
+    transition:
+      background 0.1s ease,
+      color 0.1s ease;
+    cursor: pointer;
+    text-decoration: none;
+    background: none;
+    border: none;
+    font-family: inherit;
+
+    &:hover {
+      background: var(--surface-hover);
+      color: var(--foreground-strong);
+    }
+  }
+
+  .userMenuLogout {
+    display: block;
+    width: calc(100% - 1rem);
+    margin: 0.375rem 0.5rem 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-align: center;
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: var(--btn-primary-bg-hover);
     }
   }
 }

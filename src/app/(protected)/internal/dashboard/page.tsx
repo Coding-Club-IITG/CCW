@@ -10,7 +10,6 @@ export default async function DashboardPage() {
 
   // session is guaranteed by proxy
   const user = session!.user as any;
-  const moduleRoles = user.moduleRoles || [];
 
   return (
     <div className={styles.container}>
@@ -18,19 +17,6 @@ export default async function DashboardPage() {
       <p className={styles.welcome}>Welcome back, {user.name}!</p>
 
       <div className={styles.grid}>
-        <div className={styles.card}>
-          <h3>Your Roles</h3>
-          <ul>
-            <li>Global Role: {user.role}</li>
-            {moduleRoles.map((mr: any, i: number) => (
-              <li key={i}>
-                {mr.module}
-                {mr.role ? `: ${mr.role}` : ""}
-              </li>
-            ))}
-          </ul>
-        </div>
-
         <div className={styles.card}>
           <h3>Quick Links</h3>
           <ul>

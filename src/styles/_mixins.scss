@@ -1,0 +1,161 @@
+// Shared SCSS mixins for reuse across CSS modules
+
+// Table styles
+@mixin table-base {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+
+  th,
+  td {
+    text-align: left;
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    font-weight: 600;
+    color: var(--table-header-text);
+    background: var(--table-header-bg);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  td {
+    color: var(--foreground);
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+// Modal overlay + dialog
+@mixin modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+@mixin modal-dialog($max-width: 480px) {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: $max-width;
+  box-shadow: 0 8px 24px var(--shadow-lg);
+}
+
+// Badge pill
+@mixin badge-pill(
+  $bg: var(--badge-bg),
+  $color: var(--badge-text),
+  $border: var(--badge-border)
+) {
+  display: inline-flex;
+  align-items: center;
+  background: $bg;
+  color: $color;
+  padding: 0.125rem 0.5rem;
+  border-radius: 2rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid $border;
+}
+
+// Primary button
+@mixin btn-primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--btn-primary-bg-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+// Secondary button
+@mixin btn-secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--btn-secondary-border);
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+
+  &:hover {
+    background: var(--btn-secondary-bg-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+// Card container
+@mixin card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.5rem;
+}
+
+// Underline tabs
+@mixin underline-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+@mixin underline-tab {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--tab-text);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--foreground-strong);
+    border-bottom-color: var(--border);
+  }
+}
+
+@mixin underline-tab-active {
+  color: var(--tab-active-text);
+  font-weight: 600;
+  border-bottom-color: var(--tab-active-border);
+}

@@ -1,31 +1,18 @@
+@use "@/styles/mixins" as *;
+
 .tabs {
-  display: flex;
-  gap: 0.5rem;
+  @include underline-tabs;
   margin-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 1rem;
 }
 
 .tab {
+  @include underline-tab;
   background: transparent;
-  border: 1px solid transparent;
-  padding: 0.5rem 1.25rem;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--tab-text);
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  border: none;
+  padding: 0.625rem 1rem;
   white-space: nowrap;
 
-  &:hover {
-    background: var(--tab-hover-bg);
-    color: var(--foreground-strong);
-  }
-
   &.active {
-    background: var(--tab-active-bg);
-    color: var(--tab-active-text);
-    border-color: var(--tab-active-bg);
+    @include underline-tab-active;
   }
 }

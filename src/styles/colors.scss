@@ -1,310 +1,323 @@
 // Centralized color definitions
+// Follows GitHub's official color palette
 
-// Light theme (default)
+// Dark theme (default)
 :root,
-[data-theme="light"] {
-  // Core
-  --primary: #0070f3;
-  --primary-hover: #005bb5;
-  --primary-alpha: rgba(0, 112, 243, 0.08);
-  --secondary: #000000;
-  --secondary-hover: #333333;
-
-  // Surfaces
-  --background: #ffffff;
-  --background-secondary: #f9f9f9;
-  --surface: #ffffff;
-  --surface-secondary: #fafafa;
-  --surface-hover: #fcfcfc;
-
-  // Text
-  --foreground: #000000;
-  --foreground-secondary: #444444;
-  --foreground-strong: #111111;
-  --muted: #666666;
-  --muted-light: #888888;
-  --muted-lighter: #aaaaaa;
-
-  // Borders
-  --border: #eaeaea;
-  --border-light: #eeeeee;
-  --border-lighter: #f0f0f0;
-  --border-input: #dddddd;
-
-  // Grays (structural)
-  --gray-100: #f4f4f4;
-  --gray-200: #eaeaea;
-  --gray-300: #cccccc;
-  --gray-400: #999999;
-  --gray-500: #777777;
-  --gray-600: #555555;
-  --gray-700: #374151;
-
-  // Shadows
-  --shadow-sm: rgba(0, 0, 0, 0.04);
-  --shadow-md: rgba(0, 0, 0, 0.08);
-  --shadow-lg: rgba(0, 0, 0, 0.14);
-  --overlay: rgba(0, 0, 0, 0.45);
-
-  // Semantic: Error/Danger
-  --error: #c0392b;
-  --error-text: #842029;
-  --error-bg: #fff3f3;
-  --error-bg-hover: #fff0f0;
-  --error-border: #f5c6cb;
-  --error-border-light: #ffb3b3;
-  --danger: #ff4d4f;
-  --danger-hover: #d9363e;
-  --danger-text: #e11d48;
-
-  // Semantic: Success
-  --success: #10b981;
-  --success-text: #065f46;
-  --success-bg: #d1fae5;
-  --success-border: #b2f5ea;
-
-  // Semantic: Warning
-  --warning: #d97706;
-  --warning-hover: #b45309;
-  --warning-text: #856404;
-  --warning-bg: #fef3c7;
-  --warning-bg-light: #fffbeb;
-  --warning-border: #fde68a;
-
-  // Semantic: Info/Accent (indigo)
-  --accent: #4f46e5;
-  --accent-light: #6366f1;
-  --accent-bg: #e0e7ff;
-  --accent-surface: #f0f4ff;
-
-  // Component: Tabs
-  --tab-text: #666666;
-  --tab-hover-bg: #f4f4f5;
-  --tab-active-bg: #111111;
-  --tab-active-text: #ffffff;
-
-  // Component: Cards
-  --card-bg: #ffffff;
-  --card-shadow: rgba(0, 0, 0, 0.05);
-  --card-border: #eaeaea;
-
-  // Component: Badges
-  --badge-bg: #f4f4f5;
-  --badge-text: #52525b;
-  --badge-border: #e4e4e7;
-  --badge-primary-bg: rgba(0, 112, 243, 0.06);
-  --badge-primary-text: #0070f3;
-
-  // Component: Access badges
-  --access-download-bg: #e6f7ee;
-  --access-download-text: #237a4b;
-  --access-view-bg: #fff7e6;
-  --access-view-text: #875500;
-
-  // Component: User tag
-  --user-tag-bg: #e8f0fe;
-  --user-tag-text: #1a56a4;
-
-  // Component: Leaderboard ranks
-  --rank-gold-bg: #fef08a;
-  --rank-gold-text: #92400e;
-  --rank-silver-bg: #f1f5f9;
-  --rank-silver-text: #475569;
-  --rank-bronze-bg: #fed7aa;
-  --rank-bronze-text: #9a3412;
-
-  // Component: Streak
-  --streak-text: #ea580c;
-  --streak-bg: #ffedd5;
-
-  // Component: Table
-  --table-header-bg: #f9fafb;
-  --table-header-text: #374151;
-
-  // Component: Module roles
-  --module-role-bg: #f0f7ff;
-
-  // Component: Points info
-  --points-bg: #f8fafc;
-  --points-border: #e2e8f0;
-  --points-header-text: #0f172a;
-  --points-item-bg: #ffffff;
-  --points-item-border: #f1f5f9;
-  --points-item-label: #334155;
-  --points-grid-text: #475569;
-  --points-note-border: #cbd5e1;
-  --points-note-text: #64748b;
-  --points-note-icon: #94a3b8;
-
-  // Component: PDF viewer
-  --pdf-bg: #525659;
-  --image-viewer-bg: #1a1a1a;
-
-  // Component: Verification
-  --verify-token-bg: #ffffff;
-  --verify-token-border: #e2e8f0;
-  --verify-token-text: #b45309;
-
-  // Component: Link
-  --link: #0066cc;
-
-  // Component: Contest platforms
-  --contest-cf: #1a73e8;
-  --contest-ac: #00a0a0;
-  --contest-cc: #5b4638;
-  --contest-lc: #ffa116;
-}
-
-// Dark theme
 [data-theme="dark"] {
   // Core
-  --primary: #3b9eff;
-  --primary-hover: #5bb0ff;
-  --primary-alpha: rgba(59, 158, 255, 0.12);
-  --secondary: #ffffff;
-  --secondary-hover: #cccccc;
+  --primary: #58a6ff;
+  --primary-hover: #79c0ff;
+  --primary-alpha: rgba(88, 166, 255, 0.1);
+  --secondary: #c9d1d9;
+  --secondary-hover: #e6edf3;
+
+  // Button: primary CTA (green)
+  --btn-primary-bg: #238636;
+  --btn-primary-bg-hover: #2ea043;
+  --btn-primary-text: #ffffff;
+
+  // Button: secondary/default
+  --btn-secondary-bg: #21262d;
+  --btn-secondary-bg-hover: #30363d;
+  --btn-secondary-border: #363b42;
+  --btn-secondary-text: #c9d1d9;
+
+  // Focus
+  --focus-ring: rgba(88, 166, 255, 0.4);
+
+  // On emphasis (text on colored backgrounds)
+  --fg-on-emphasis: #ffffff;
 
   // Surfaces
-  --background: #121212;
-  --background-secondary: #1a1a1a;
-  --surface: #1e1e1e;
-  --surface-secondary: #252525;
-  --surface-hover: #2a2a2a;
+  --background: #0d1117;
+  --background-secondary: #161b22;
+  --surface: #161b22;
+  --surface-secondary: #1c2128;
+  --surface-hover: #21262d;
 
   // Text
-  --foreground: #e4e4e4;
-  --foreground-secondary: #b0b0b0;
-  --foreground-strong: #f0f0f0;
-  --muted: #9a9a9a;
-  --muted-light: #777777;
-  --muted-lighter: #5a5a5a;
+  --foreground: #c9d1d9;
+  --foreground-secondary: #8b949e;
+  --foreground-strong: #e6edf3;
+  --muted: #8b949e;
+  --muted-light: #6e7681;
+  --muted-lighter: #484f58;
 
   // Borders
-  --border: #2a2a2a;
-  --border-light: #333333;
-  --border-lighter: #2a2a2a;
-  --border-input: #3a3a3a;
+  --border: #30363d;
+  --border-light: #21262d;
+  --border-lighter: #1c2128;
+  --border-input: #30363d;
 
   // Grays (structural)
-  --gray-100: #1e1e1e;
-  --gray-200: #2a2a2a;
-  --gray-300: #3a3a3a;
-  --gray-400: #555555;
-  --gray-500: #777777;
-  --gray-600: #999999;
-  --gray-700: #b0b0b0;
+  --gray-100: #161b22;
+  --gray-200: #21262d;
+  --gray-300: #30363d;
+  --gray-400: #484f58;
+  --gray-500: #6e7681;
+  --gray-600: #8b949e;
+  --gray-700: #c9d1d9;
 
   // Shadows
   --shadow-sm: rgba(0, 0, 0, 0.2);
   --shadow-md: rgba(0, 0, 0, 0.3);
   --shadow-lg: rgba(0, 0, 0, 0.4);
-  --overlay: rgba(0, 0, 0, 0.6);
+  --overlay: rgba(1, 4, 9, 0.8);
 
   // Semantic: Error/Danger
-  --error: #f87171;
-  --error-text: #fca5a5;
-  --error-bg: #3b1515;
-  --error-bg-hover: #4a1c1c;
-  --error-border: #7f1d1d;
-  --error-border-light: #991b1b;
-  --danger: #f87171;
-  --danger-hover: #ef4444;
-  --danger-text: #fb7185;
+  --error: #f85149;
+  --error-text: #ffa198;
+  --error-bg: rgba(248, 81, 73, 0.1);
+  --error-bg-hover: rgba(248, 81, 73, 0.15);
+  --error-border: rgba(248, 81, 73, 0.4);
+  --error-border-light: rgba(248, 81, 73, 0.2);
+  --danger: #f85149;
+  --danger-hover: #da3633;
+  --danger-text: #f85149;
 
   // Semantic: Success
-  --success: #34d399;
-  --success-text: #6ee7b7;
-  --success-bg: #132e24;
-  --success-border: #065f46;
+  --success: #3fb950;
+  --success-text: #56d364;
+  --success-bg: rgba(63, 185, 80, 0.1);
+  --success-border: rgba(63, 185, 80, 0.4);
 
   // Semantic: Warning
-  --warning: #fbbf24;
-  --warning-hover: #f59e0b;
-  --warning-text: #fcd34d;
-  --warning-bg: #2e2307;
-  --warning-bg-light: #292105;
-  --warning-border: #78590a;
+  --warning: #d29922;
+  --warning-hover: #e3b341;
+  --warning-text: #e3b341;
+  --warning-bg: rgba(187, 128, 9, 0.1);
+  --warning-bg-light: rgba(187, 128, 9, 0.06);
+  --warning-border: rgba(187, 128, 9, 0.4);
 
-  // Semantic: Info/Accent (indigo)
-  --accent: #818cf8;
-  --accent-light: #a5b4fc;
-  --accent-bg: #1e1b4b;
-  --accent-surface: #1e1b3a;
+  // Semantic: Info/Accent
+  --accent: #79c0ff;
+  --accent-light: #a5d6ff;
+  --accent-bg: rgba(56, 139, 253, 0.1);
+  --accent-surface: rgba(56, 139, 253, 0.06);
 
-  // Component: Tabs
-  --tab-text: #9a9a9a;
-  --tab-hover-bg: #2a2a2a;
-  --tab-active-bg: #e4e4e4;
-  --tab-active-text: #121212;
+  // Component: Tabs (underline style)
+  --tab-text: #8b949e;
+  --tab-hover-bg: rgba(48, 54, 61, 0.5);
+  --tab-active-border: #f78166;
+  --tab-active-text: #e6edf3;
+  --tab-active-bg: transparent;
 
   // Component: Cards
-  --card-bg: #1e1e1e;
+  --card-bg: #161b22;
   --card-shadow: rgba(0, 0, 0, 0.3);
-  --card-border: #2a2a2a;
+  --card-border: #30363d;
 
   // Component: Badges
-  --badge-bg: #2a2a2a;
-  --badge-text: #b0b0b0;
-  --badge-border: #3a3a3a;
-  --badge-primary-bg: rgba(59, 158, 255, 0.12);
-  --badge-primary-text: #3b9eff;
+  --badge-bg: rgba(56, 139, 253, 0.1);
+  --badge-text: #79c0ff;
+  --badge-border: rgba(56, 139, 253, 0.2);
+  --badge-primary-bg: rgba(88, 166, 255, 0.1);
+  --badge-primary-text: #58a6ff;
 
   // Component: Access badges
-  --access-download-bg: #132e24;
-  --access-download-text: #6ee7b7;
-  --access-view-bg: #2e2307;
-  --access-view-text: #fcd34d;
+  --access-download-bg: rgba(63, 185, 80, 0.1);
+  --access-download-text: #56d364;
+  --access-view-bg: rgba(187, 128, 9, 0.1);
+  --access-view-text: #e3b341;
 
   // Component: User tag
-  --user-tag-bg: #1e2a4a;
-  --user-tag-text: #93c5fd;
+  --user-tag-bg: rgba(56, 139, 253, 0.1);
+  --user-tag-text: #79c0ff;
 
   // Component: Leaderboard ranks
-  --rank-gold-bg: #3d3005;
-  --rank-gold-text: #fcd34d;
-  --rank-silver-bg: #2a2a2a;
-  --rank-silver-text: #b0b0b0;
-  --rank-bronze-bg: #3d2005;
-  --rank-bronze-text: #fdba74;
+  --rank-gold-bg: rgba(187, 128, 9, 0.15);
+  --rank-gold-text: #e3b341;
+  --rank-silver-bg: #21262d;
+  --rank-silver-text: #8b949e;
+  --rank-bronze-bg: rgba(219, 109, 40, 0.15);
+  --rank-bronze-text: #db6d28;
 
   // Component: Streak
-  --streak-text: #fb923c;
-  --streak-bg: #3d2005;
+  --streak-text: #db6d28;
+  --streak-bg: rgba(219, 109, 40, 0.1);
 
   // Component: Table
-  --table-header-bg: #1a1a1a;
-  --table-header-text: #b0b0b0;
+  --table-header-bg: #161b22;
+  --table-header-text: #8b949e;
 
   // Component: Module roles
-  --module-role-bg: #1e2a4a;
-
-  // Component: Points info
-  --points-bg: #1a1a1a;
-  --points-border: #2a2a2a;
-  --points-header-text: #e4e4e4;
-  --points-item-bg: #1e1e1e;
-  --points-item-border: #2a2a2a;
-  --points-item-label: #b0b0b0;
-  --points-grid-text: #9a9a9a;
-  --points-note-border: #3a3a3a;
-  --points-note-text: #777777;
-  --points-note-icon: #555555;
+  --module-role-bg: rgba(56, 139, 253, 0.1);
 
   // Component: PDF viewer
-  --pdf-bg: #1a1a1a;
-  --image-viewer-bg: #0a0a0a;
+  --pdf-bg: #161b22;
+  --image-viewer-bg: #010409;
 
   // Component: Verification
-  --verify-token-bg: #1e1e1e;
-  --verify-token-border: #3a3a3a;
-  --verify-token-text: #fbbf24;
+  --verify-token-bg: #0d1117;
+  --verify-token-border: #30363d;
+  --verify-token-text: #e3b341;
 
   // Component: Link
-  --link: #60a5fa;
+  --link: #58a6ff;
 
   // Component: Contest platforms
-  --contest-cf: #5ba3f5;
-  --contest-ac: #4dd4d4;
-  --contest-cc: #a68b7b;
-  --contest-lc: #ffb84d;
+  --contest-cf: #58a6ff;
+  --contest-ac: #3fb950;
+  --contest-cc: #bc8cff;
+  --contest-lc: #d29922;
+}
+
+// Light theme
+[data-theme="light"] {
+  // Core
+  --primary: #0969da;
+  --primary-hover: #0550ae;
+  --primary-alpha: rgba(9, 105, 218, 0.08);
+  --secondary: #24292f;
+  --secondary-hover: #32383f;
+
+  // Button: primary CTA (green)
+  --btn-primary-bg: #2da44e;
+  --btn-primary-bg-hover: #2c974b;
+  --btn-primary-text: #ffffff;
+
+  // Button: secondary/default
+  --btn-secondary-bg: #f6f8fa;
+  --btn-secondary-bg-hover: #f3f4f6;
+  --btn-secondary-border: #d0d7de;
+  --btn-secondary-text: #24292f;
+
+  // Focus
+  --focus-ring: rgba(9, 105, 218, 0.4);
+
+  // On emphasis (text on colored backgrounds)
+  --fg-on-emphasis: #ffffff;
+
+  // Surfaces
+  --background: #ffffff;
+  --background-secondary: #f6f8fa;
+  --surface: #ffffff;
+  --surface-secondary: #f6f8fa;
+  --surface-hover: #f3f4f6;
+
+  // Text
+  --foreground: #24292f;
+  --foreground-secondary: #57606a;
+  --foreground-strong: #1f2328;
+  --muted: #57606a;
+  --muted-light: #6e7781;
+  --muted-lighter: #8c959f;
+
+  // Borders
+  --border: #d0d7de;
+  --border-light: #d8dee4;
+  --border-lighter: #e1e4e8;
+  --border-input: #d0d7de;
+
+  // Grays (structural)
+  --gray-100: #f6f8fa;
+  --gray-200: #e1e4e8;
+  --gray-300: #d0d7de;
+  --gray-400: #8c959f;
+  --gray-500: #6e7781;
+  --gray-600: #57606a;
+  --gray-700: #424a53;
+
+  // Shadows
+  --shadow-sm: rgba(31, 35, 40, 0.04);
+  --shadow-md: rgba(31, 35, 40, 0.1);
+  --shadow-lg: rgba(31, 35, 40, 0.15);
+  --overlay: rgba(27, 31, 36, 0.5);
+
+  // Semantic: Error/Danger
+  --error: #cf222e;
+  --error-text: #82071e;
+  --error-bg: #ffebe9;
+  --error-bg-hover: #ffd7d5;
+  --error-border: #ff8182;
+  --error-border-light: #ffcecb;
+  --danger: #cf222e;
+  --danger-hover: #a40e26;
+  --danger-text: #cf222e;
+
+  // Semantic: Success
+  --success: #1a7f37;
+  --success-text: #116329;
+  --success-bg: #dafbe1;
+  --success-border: #aceebb;
+
+  // Semantic: Warning
+  --warning: #9a6700;
+  --warning-hover: #7d4e00;
+  --warning-text: #7d4e00;
+  --warning-bg: #fff8c5;
+  --warning-bg-light: #fffbdd;
+  --warning-border: #d4a72c;
+
+  // Semantic: Info/Accent
+  --accent: #0550ae;
+  --accent-light: #0969da;
+  --accent-bg: #ddf4ff;
+  --accent-surface: #f1f8ff;
+
+  // Component: Tabs (underline style)
+  --tab-text: #57606a;
+  --tab-hover-bg: rgba(208, 215, 222, 0.32);
+  --tab-active-border: #fd8c73;
+  --tab-active-text: #24292f;
+  --tab-active-bg: transparent;
+
+  // Component: Cards
+  --card-bg: #ffffff;
+  --card-shadow: rgba(31, 35, 40, 0.04);
+  --card-border: #d0d7de;
+
+  // Component: Badges
+  --badge-bg: #ddf4ff;
+  --badge-text: #0550ae;
+  --badge-border: #b6e3ff;
+  --badge-primary-bg: rgba(9, 105, 218, 0.08);
+  --badge-primary-text: #0969da;
+
+  // Component: Access badges
+  --access-download-bg: #dafbe1;
+  --access-download-text: #116329;
+  --access-view-bg: #fff8c5;
+  --access-view-text: #7d4e00;
+
+  // Component: User tag
+  --user-tag-bg: #ddf4ff;
+  --user-tag-text: #0550ae;
+
+  // Component: Leaderboard ranks
+  --rank-gold-bg: #fff8c5;
+  --rank-gold-text: #7d4e00;
+  --rank-silver-bg: #f6f8fa;
+  --rank-silver-text: #57606a;
+  --rank-bronze-bg: #fff1e5;
+  --rank-bronze-text: #953800;
+
+  // Component: Streak
+  --streak-text: #bc4c00;
+  --streak-bg: #fff1e5;
+
+  // Component: Table
+  --table-header-bg: #f6f8fa;
+  --table-header-text: #424a53;
+
+  // Component: Module roles
+  --module-role-bg: #ddf4ff;
+
+  // Component: PDF viewer
+  --pdf-bg: #424a53;
+  --image-viewer-bg: #1f2328;
+
+  // Component: Verification
+  --verify-token-bg: #ffffff;
+  --verify-token-border: #d0d7de;
+  --verify-token-text: #9a6700;
+
+  // Component: Link
+  --link: #0969da;
+
+  // Component: Contest platforms
+  --contest-cf: #0969da;
+  --contest-ac: #0a7d6c;
+  --contest-cc: #6e5494;
+  --contest-lc: #bf8700;
 }

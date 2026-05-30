@@ -61,7 +61,6 @@ export default function PotdLayout({
   return (
     <div className={styles.layoutContainer}>
       <aside className={styles.sidebar}>
-        <h3 className={styles.sidebarHeader}>POTD Navigator</h3>
         <ul className={styles.navList}>
           {navItems.map((item) => {
             const isActive = item.exact

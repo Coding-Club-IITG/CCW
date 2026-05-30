@@ -4,6 +4,7 @@ import { useState } from "react";
 import RatingLeaderboardClient from "@/components/leaderboard/RatingLeaderboardClient";
 import ContestCalendar from "@/components/cp/ContestCalendar";
 import styles from "./CPPage.module.scss";
+import { IconTrophy, IconCalendar } from "@/components/Icons";
 
 type RatingLeaderboardEntry = {
   id: string;
@@ -30,8 +31,8 @@ type Props = {
 };
 
 const TABS = [
-  { key: "rating", label: "Rating" },
-  { key: "contests", label: "Contests" },
+  { key: "rating", label: "Rating", icon: IconTrophy },
+  { key: "contests", label: "Contests", icon: IconCalendar },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -47,15 +48,19 @@ export default function CPPageClient({
     <div className={styles.cpPage}>
       <aside className={styles.sidebar}>
         <nav className={styles.sidebarNav}>
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              className={`${styles.sidebarTab} ${activeTab === tab.key ? styles.active : ""}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                className={`${styles.sidebarTab} ${activeTab === tab.key ? styles.active : ""}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                <Icon className={styles.icon} />
+                {tab.label}
+              </button>
+            );
+          })}
         </nav>
       </aside>
       <main className={styles.content}>

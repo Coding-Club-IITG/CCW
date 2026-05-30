@@ -11,7 +11,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
   theme:
     (typeof window !== "undefined" &&
       (localStorage.getItem("theme") as Theme)) ||
-    "light",
+    "dark",
   toggleTheme: () =>
     set((state) => {
       const next = state.theme === "light" ? "dark" : "light";

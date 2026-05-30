@@ -1,16 +1,18 @@
+@use "@/styles/mixins" as *;
+
 .container {
   max-width: 1000px;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .header {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 
   h1 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.75rem;
+    margin: 0 0 0.25rem 0;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--foreground-strong);
   }
@@ -18,41 +20,24 @@
   p {
     margin: 0;
     color: var(--muted);
-    font-size: 0.95rem;
+    font-size: 0.875rem;
   }
 }
 
 .tableContainer {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  @include card;
+  padding: 0;
   overflow: auto;
-  box-shadow: 0 2px 8px var(--shadow-sm);
 }
 
 .table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
+  @include table-base;
 
   th,
   td {
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border);
+    padding: 0.625rem 1rem;
     white-space: nowrap;
-  }
-
-  th {
-    background: var(--table-header-bg);
-    font-weight: 600;
-    color: var(--table-header-text);
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  tr:last-child td {
-    border-bottom: none;
+    font-size: 0.875rem;
   }
 
   tbody tr {
@@ -66,17 +51,18 @@
 .rank {
   font-weight: 700;
   color: var(--foreground-strong);
-  font-size: 1.1rem;
+  font-size: 0.875rem;
 }
 
 .rankBadge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
 }
 
 .top1 {
@@ -102,19 +88,19 @@
 .userName {
   font-weight: 600;
   color: var(--foreground-strong);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
 .userHandle {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .handleLink {
-  color: var(--primary);
+  color: var(--link);
   text-decoration: none;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   &:hover {
@@ -125,22 +111,16 @@
 .ratingBadge {
   font-weight: 700;
   color: var(--foreground-strong);
-  font-size: 1.05rem;
+  font-size: 0.875rem;
 }
 
 .cpRank {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  background: var(--badge-bg);
-  color: var(--badge-text);
-  border: 1px solid var(--badge-border);
+  @include badge-pill;
 }
 
 .emptyState {
   padding: 2rem;
   text-align: center;
   color: var(--muted);
+  font-size: 0.875rem;
 }
