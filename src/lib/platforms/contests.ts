@@ -51,30 +51,61 @@ async function fetchCodeforcesContests(): Promise<RawContest[]> {
 }
 
 /**
- * Fetch upcoming AtCoder contests via Kenkoooo's API
+ * Fetch upcoming AtCoder contests
+ * Kenkoooo's API lags behind, so resorting to scraping official website.
  */
 async function fetchAtCoderContests(): Promise<RawContest[]> {
-  const response = await axios.get(
-    "https://kenkoooo.com/atcoder/resources/contests.json",
-    { timeout: 10000 },
+  const { data: html } = await axios.get(
+    "https://atcoder.jp/contests/?lang=en",
+    {
+      timeout: 15000,
+      responseType: "text",
+      headers: { "User-Agent": "Mozilla/5.0" },
+    },
   );
 
-  const now = Date.now() / 1000;
-  const upcoming = response.data.filter((c: any) => c.start_epoch_second > now);
+  const contests: RawContest[] = [];
 
-  return upcoming.map((c: any) => {
-    const startTime = new Date(c.start_epoch_second * 1000);
-    const endTime = new Date((c.start_epoch_second + c.duration_second) * 1000);
-    return {
-      platform: "atcoder" as const,
-      platformContestId: c.id,
-      name: c.title,
-      startTime,
-      endTime,
-      durationSeconds: c.duration_second,
-      url: `https://atcoder.jp/contests/${c.id}`,
-    };
-  });
+  // Extract the upcoming contests table section
+  const upcomingSection = html.match(
+    /id="contest-table-upcoming"[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/,
+  );
+  // Also extract ongoing contests which may still be relevant
+  const ongoingSection = html.match(
+    /id="contest-table-action"[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/,
+  );
+
+  const sections = [upcomingSection?.[1], ongoingSection?.[1]].filter(Boolean);
+
+  for (const section of sections) {
+    // Match each row: start time, contest slug, contest name, duration
+    const rowRegex =
+      /<tr>[\s\S]*?<time[^>]*>([^<]+)<\/time>[\s\S]*?<a href="\/contests\/([^"]+)">([^<]+)<\/a>[\s\S]*?<td class="text-center">(\d+):(\d+)<\/td>[\s\S]*?<\/tr>/g;
+
+    let match;
+    while ((match = rowRegex.exec(section!)) !== null) {
+      const [, timeStr, contestId, name, hours, minutes] = match;
+      const startTime = new Date(timeStr.trim());
+
+      if (isNaN(startTime.getTime())) continue;
+
+      const durationSeconds =
+        parseInt(hours, 10) * 3600 + parseInt(minutes, 10) * 60;
+      const endTime = new Date(startTime.getTime() + durationSeconds * 1000);
+
+      contests.push({
+        platform: "atcoder" as const,
+        platformContestId: contestId,
+        name: name.trim(),
+        startTime,
+        endTime,
+        durationSeconds,
+        url: `https://atcoder.jp/contests/${contestId}`,
+      });
+    }
+  }
+
+  return contests;
 }
 
 /**
@@ -157,7 +188,7 @@ async function fetchLeetCodeContests(): Promise<RawContest[]> {
 }
 
 /**
- * Fetch all upcoming contests from all platforms.
+ * Fetch all upcoming contests from all platforms
  * Uses Promise.allSettled so one failing platform doesn't break the sync.
  */
 export async function fetchAllContests(): Promise<RawContest[]> {
