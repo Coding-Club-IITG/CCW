@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
 import TagBadge from "@/components/blog/TagBadge";
+import BackLink from "@/components/BackLink";
 import type { BlogTag } from "@/lib/constants";
 import styles from "./BlogPost.module.scss";
 
@@ -20,14 +21,31 @@ export default async function BlogPostPage({ params }: Props) {
     notFound();
   }
 
-  const date = new Date(post.publishedAt!).toLocaleDateString("en-IN", {
+  const publishedDate = new Date(post.publishedAt!).toLocaleDateString(
+    "en-IN",
+    {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    },
+  );
+
+  const updatedDate = new Date(post.updatedAt).toLocaleDateString("en-IN", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 
+  const wasEdited =
+    post.updatedAt.getTime() - post.publishedAt!.getTime() > 60000;
+
+  const authorNames =
+    post.authors.map((a: any) => a.name).join(", ") || "Unknown";
+
   return (
     <article className={styles.article}>
+      <BackLink href="/blog" label="Back to Blog" />
+
       {post.coverImage && (
         <div className={styles.coverWrapper}>
           <img src={post.coverImage} alt="" className={styles.cover} />
@@ -37,9 +55,15 @@ export default async function BlogPostPage({ params }: Props) {
       <header className={styles.header}>
         <h1 className={styles.title}>{post.title}</h1>
         <div className={styles.meta}>
-          <span className={styles.author}>{post.authorName}</span>
+          <span className={styles.author}>{authorNames}</span>
           <span className={styles.dot}>·</span>
-          <time className={styles.date}>{date}</time>
+          <time className={styles.date}>{publishedDate}</time>
+          {wasEdited && (
+            <>
+              <span className={styles.dot}>·</span>
+              <span className={styles.edited}>Updated {updatedDate}</span>
+            </>
+          )}
         </div>
         {post.tags.length > 0 && (
           <div className={styles.tags}>

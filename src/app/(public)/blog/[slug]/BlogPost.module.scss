@@ -5,6 +5,7 @@
 }
 
 .coverWrapper {
+  margin-top: 1.25rem;
   width: 100%;
   aspect-ratio: 21 / 9;
   overflow: hidden;
@@ -52,6 +53,11 @@
 
 .date {
   color: var(--muted);
+}
+
+.edited {
+  color: var(--muted-light);
+  font-style: italic;
 }
 
 .tags {

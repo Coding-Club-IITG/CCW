@@ -26,7 +26,9 @@ export async function GET(request: NextRequest) {
 
     const [posts, total, availableTags] = await Promise.all([
       BlogPost.find(filter)
-        .select("title slug excerpt coverImage authorName tags publishedAt")
+        .select(
+          "title slug excerpt coverImage authors tags publishedAt updatedAt",
+        )
         .sort({ publishedAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)

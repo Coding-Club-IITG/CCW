@@ -6,13 +6,18 @@ import TagBadge from "@/components/blog/TagBadge";
 import { type BlogTag } from "@/lib/constants";
 import styles from "./Blog.module.scss";
 
+interface BlogAuthor {
+  userId: string;
+  name: string;
+}
+
 interface Post {
   _id: string;
   slug: string;
   title: string;
   excerpt: string;
   coverImage?: string;
-  authorName: string;
+  authors: BlogAuthor[];
   tags: BlogTag[];
   publishedAt: string;
 }
@@ -92,7 +97,7 @@ export default function BlogPage() {
                 title={post.title}
                 excerpt={post.excerpt}
                 coverImage={post.coverImage}
-                authorName={post.authorName}
+                authors={post.authors}
                 tags={post.tags}
                 publishedAt={post.publishedAt}
               />

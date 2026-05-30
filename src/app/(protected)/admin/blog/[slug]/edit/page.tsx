@@ -47,6 +47,7 @@ export default function EditBlogPostPage({ params }: Props) {
     coverImage: string;
     tags: BlogTag[];
     status: BlogStatus;
+    authors: { userId: string; name: string }[];
   }) => {
     const res = await fetch(`/api/admin/blog/${slug}`, {
       method: "PATCH",
@@ -106,6 +107,7 @@ export default function EditBlogPostPage({ params }: Props) {
           coverImage: post.coverImage,
           tags: post.tags,
           status: post.status,
+          authors: post.authors || [],
         }}
         onSave={handleSave}
       />

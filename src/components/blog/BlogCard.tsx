@@ -3,12 +3,17 @@ import TagBadge from "./TagBadge";
 import type { BlogTag } from "@/lib/constants";
 import styles from "./BlogCard.module.scss";
 
+interface BlogAuthor {
+  userId: string;
+  name: string;
+}
+
 interface BlogCardProps {
   slug: string;
   title: string;
   excerpt: string;
   coverImage?: string;
-  authorName: string;
+  authors: BlogAuthor[];
   tags: BlogTag[];
   publishedAt: string;
 }
@@ -18,7 +23,7 @@ export default function BlogCard({
   title,
   excerpt,
   coverImage,
-  authorName,
+  authors,
   tags,
   publishedAt,
 }: BlogCardProps) {
@@ -27,6 +32,8 @@ export default function BlogCard({
     month: "short",
     day: "numeric",
   });
+
+  const authorNames = authors.map((a) => a.name).join(", ") || "Unknown";
 
   return (
     <Link href={`/blog/${slug}`} className={styles.card}>
@@ -39,7 +46,7 @@ export default function BlogCard({
         <h3 className={styles.title}>{title}</h3>
         <p className={styles.excerpt}>{excerpt}</p>
         <div className={styles.meta}>
-          <span className={styles.author}>{authorName}</span>
+          <span className={styles.author}>{authorNames}</span>
           <span className={styles.dot}>·</span>
           <time className={styles.date}>{date}</time>
         </div>

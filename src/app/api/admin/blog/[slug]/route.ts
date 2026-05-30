@@ -117,6 +117,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
+    // Update authors list if provided
+    if (body.authors !== undefined && Array.isArray(body.authors)) {
+      post.authors = body.authors
+        .filter((a: any) => a.userId && a.name)
+        .map((a: any) => ({ userId: a.userId, name: String(a.name) }));
+    }
+
+    // Auto-add current editor to authors if not already present
+    const editorExists = post.authors.some(
+      (a: any) => String(a.userId) === String(user.id),
+    );
+    if (!editorExists) {
+      post.authors.push({ userId: user.id, name: user.name || "Unknown" });
+    }
+
     if (body.status !== undefined) {
       if (BLOG_STATUSES.includes(body.status as BlogStatus)) {
         const newStatus = body.status as BlogStatus;

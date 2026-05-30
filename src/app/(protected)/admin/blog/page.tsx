@@ -14,9 +14,10 @@ interface Post {
   excerpt: string;
   tags: BlogTag[];
   status: BlogStatus;
-  authorName: string;
+  authors: { userId: string; name: string }[];
   publishedAt: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export default function AdminBlogPage() {
@@ -109,7 +110,9 @@ export default function AdminBlogPage() {
                   >
                     {post.status}
                   </span>
-                  <span className={styles.rowAuthor}>{post.authorName}</span>
+                  <span className={styles.rowAuthor}>
+                    {post.authors?.map((a) => a.name).join(", ") || "Unknown"}
+                  </span>
                   <span className={styles.rowDate}>
                     {new Date(
                       post.publishedAt || post.createdAt,

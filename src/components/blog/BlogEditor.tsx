@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TagBadge from "./TagBadge";
 import {
@@ -11,6 +11,11 @@ import {
 } from "@/lib/constants";
 import styles from "./BlogEditor.module.scss";
 
+interface BlogAuthor {
+  userId: string;
+  name: string;
+}
+
 interface BlogEditorProps {
   initialData?: {
     title: string;
@@ -19,6 +24,7 @@ interface BlogEditorProps {
     coverImage: string;
     tags: BlogTag[];
     status: BlogStatus;
+    authors: BlogAuthor[];
   };
   onSave: (data: {
     title: string;
@@ -27,6 +33,7 @@ interface BlogEditorProps {
     coverImage: string;
     tags: BlogTag[];
     status: BlogStatus;
+    authors: BlogAuthor[];
   }) => Promise<void>;
   isNew?: boolean;
 }
@@ -44,6 +51,10 @@ export default function BlogEditor({
   const [status, setStatus] = useState<BlogStatus>(
     initialData?.status || "draft",
   );
+  const [authors, setAuthors] = useState<BlogAuthor[]>(
+    initialData?.authors || [],
+  );
+  const [allUsers, setAllUsers] = useState<{ _id: string; name: string }[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -52,10 +63,29 @@ export default function BlogEditor({
   const inlineImageRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    fetch("/api/users")
+      .then((res) => res.json())
+      .then((data) => setAllUsers(data.users || []))
+      .catch(() => {});
+  }, []);
+
   const toggleTag = (tag: BlogTag) => {
     setTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
+  };
+
+  const addAuthor = (userId: string) => {
+    if (authors.some((a) => a.userId === userId)) return;
+    const user = allUsers.find((u) => u._id === userId);
+    if (user) {
+      setAuthors((prev) => [...prev, { userId: user._id, name: user.name }]);
+    }
+  };
+
+  const removeAuthor = (userId: string) => {
+    setAuthors((prev) => prev.filter((a) => a.userId !== userId));
   };
 
   const handleImageUpload = async (file: File, type: "cover" | "inline") => {
@@ -108,13 +138,26 @@ export default function BlogEditor({
     setSaving(true);
     setError("");
     try {
-      await onSave({ title, content, excerpt, coverImage, tags, status });
+      await onSave({
+        title,
+        content,
+        excerpt,
+        coverImage,
+        tags,
+        status,
+        authors,
+      });
     } catch (err: any) {
       setError(err.message || "Failed to save.");
     } finally {
       setSaving(false);
     }
   };
+
+  // Users not yet added as authors
+  const availableUsers = allUsers.filter(
+    (u) => !authors.some((a) => a.userId === u._id),
+  );
 
   return (
     <div className={styles.editor}>
@@ -144,6 +187,44 @@ export default function BlogEditor({
           maxLength={500}
           rows={2}
         />
+      </div>
+
+      {/* Authors */}
+      <div className={styles.field}>
+        <label className={styles.label}>Authors</label>
+        {authors.length > 0 && (
+          <div className={styles.authorsList}>
+            {authors.map((a) => (
+              <span key={a.userId} className={styles.authorChip}>
+                {a.name}
+                <button
+                  type="button"
+                  className={styles.authorRemove}
+                  onClick={() => removeAuthor(a.userId)}
+                  aria-label={`Remove ${a.name}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        {availableUsers.length > 0 && (
+          <select
+            className={styles.select}
+            value=""
+            onChange={(e) => {
+              if (e.target.value) addAuthor(e.target.value);
+            }}
+          >
+            <option value="">Add an author...</option>
+            {availableUsers.map((u) => (
+              <option key={u._id} value={u._id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Cover Image */}

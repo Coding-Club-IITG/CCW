@@ -2,20 +2,32 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 import { BLOG_STATUSES, BLOG_TAGS } from "@/lib/constants";
 import type { BlogStatus, BlogTag } from "@/lib/constants";
 
+export interface IBlogAuthor {
+  userId: Types.ObjectId;
+  name: string;
+}
+
 export interface IBlogPost extends Document {
   title: string;
   slug: string;
   content: string;
   excerpt: string;
   coverImage: string;
-  author: Types.ObjectId;
-  authorName: string;
+  authors: IBlogAuthor[];
   tags: BlogTag[];
   status: BlogStatus;
   publishedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const BlogAuthorSchema = new Schema<IBlogAuthor>(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    name: { type: String, required: true },
+  },
+  { _id: false },
+);
 
 const BlogPostSchema = new Schema<IBlogPost>(
   {
@@ -24,8 +36,7 @@ const BlogPostSchema = new Schema<IBlogPost>(
     content: { type: String, default: "" },
     excerpt: { type: String, default: "", maxlength: 500 },
     coverImage: { type: String, default: "" },
-    author: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    authorName: { type: String, required: true },
+    authors: { type: [BlogAuthorSchema], default: [] },
     tags: [{ type: String, enum: BLOG_TAGS }],
     status: { type: String, enum: BLOG_STATUSES, default: "draft" },
     publishedAt: { type: Date, default: null },

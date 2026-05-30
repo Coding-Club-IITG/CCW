@@ -61,7 +61,9 @@ export async function GET(request: NextRequest) {
     }
 
     const posts = await BlogPost.find(filter)
-      .select("title slug excerpt tags status publishedAt createdAt authorName")
+      .select(
+        "title slug excerpt tags status publishedAt createdAt updatedAt authors",
+      )
       .sort({ updatedAt: -1 })
       .lean();
 
@@ -143,8 +145,7 @@ export async function POST(request: NextRequest) {
       content: content || "",
       excerpt: (excerpt || "").trim(),
       coverImage: coverImage || "",
-      author: user.id,
-      authorName: user.name || "Unknown",
+      authors: [{ userId: user.id, name: user.name || "Unknown" }],
       tags: validTags,
       status: postStatus,
       publishedAt: postStatus === "published" ? new Date() : null,
