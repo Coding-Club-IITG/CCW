@@ -1,4 +1,4 @@
-import LinkCard from "@/components/LinkCard";
+import LinkCard from "@/components/shared/LinkCard";
 import styles from "./Admin.module.scss";
 
 export default async function AdminPage() {

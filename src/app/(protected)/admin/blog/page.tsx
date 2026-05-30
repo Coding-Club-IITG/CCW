@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import BackLink from "@/components/BackLink";
+import BackLink from "@/components/shared/BackLink";
 import type { BlogStatus } from "@/lib/constants";
 import styles from "./AdminBlog.module.scss";
 

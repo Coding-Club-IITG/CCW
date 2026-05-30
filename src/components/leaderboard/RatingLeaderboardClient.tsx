@@ -5,7 +5,7 @@ import LeaderboardTable, {
   type Column,
   leaderboardStyles as styles,
 } from "@/components/leaderboard/LeaderboardTable";
-import PlatformTabs from "@/components/PlatformTabs";
+import PlatformTabs from "@/components/shared/PlatformTabs";
 import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROFILE_URLS } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
 

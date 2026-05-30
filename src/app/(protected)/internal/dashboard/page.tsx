@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { isAdmin } from "@/lib/roles";
-import LinkCard from "@/components/LinkCard";
+import LinkCard from "@/components/shared/LinkCard";
 import { getDisplayName } from "@/lib/utils";
 import styles from "./Dashboard.module.scss";
 

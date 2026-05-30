@@ -12,7 +12,7 @@ import {
   IconFlame,
   IconArchive,
   IconEdit,
-} from "@/components/Icons";
+} from "@/components/shared/Icons";
 
 // Icons for navigation items
 const Icons = {

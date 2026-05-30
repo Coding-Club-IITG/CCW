@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { use } from "react";
 import Link from "next/link";
-import BackLink from "@/components/BackLink";
+import BackLink from "@/components/shared/BackLink";
 import BlogEditor from "@/components/blog/BlogEditor";
 import type { BlogStatus } from "@/lib/constants";
 import styles from "./EditPost.module.scss";

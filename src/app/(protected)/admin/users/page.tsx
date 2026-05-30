@@ -1,5 +1,5 @@
 import UserManagement from "@/components/admin/UserManagement";
-import BackLink from "@/components/BackLink";
+import BackLink from "@/components/shared/BackLink";
 import styles from "./Users.module.scss";
 
 export default async function AdminUsersPage() {

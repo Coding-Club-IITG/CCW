@@ -8,7 +8,11 @@ import {
   type TodayChallengeData,
   type ChallengeEntry,
 } from "@/lib/actions/potd";
-import { IconCheckCircle, IconInfoCircle, IconStar } from "@/components/Icons";
+import {
+  IconCheckCircle,
+  IconInfoCircle,
+  IconStar,
+} from "@/components/shared/Icons";
 import {
   DIFFICULTY_COLORS,
   IST_OFFSET_MS,

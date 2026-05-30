@@ -8,7 +8,7 @@ import {
   deleteScheduledChallenge,
   type ScheduledChallenge,
 } from "@/lib/actions/admin/potd";
-import { IconTrash } from "@/components/Icons";
+import { IconTrash } from "@/components/shared/Icons";
 import {
   DIFFICULTIES,
   DIFFICULTY_COLORS,

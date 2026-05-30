@@ -3,7 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
 import TagBadge from "@/components/blog/TagBadge";
-import BackLink from "@/components/BackLink";
+import BackLink from "@/components/shared/BackLink";
 import styles from "./BlogPost.module.scss";
 
 interface Props {

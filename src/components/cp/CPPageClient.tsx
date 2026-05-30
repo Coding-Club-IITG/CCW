@@ -4,7 +4,7 @@ import { useState } from "react";
 import RatingLeaderboardClient from "@/components/leaderboard/RatingLeaderboardClient";
 import ContestCalendar from "@/components/cp/ContestCalendar";
 import styles from "./CPPage.module.scss";
-import { IconTrophy, IconCalendar } from "@/components/Icons";
+import { IconTrophy, IconCalendar } from "@/components/shared/Icons";
 
 type RatingLeaderboardEntry = {
   id: string;
