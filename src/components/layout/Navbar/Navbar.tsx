@@ -5,6 +5,7 @@ import { useSession, signIn, signOut } from "@/lib/auth-client";
 import { useState, useRef, useEffect } from "react";
 import { useThemeStore } from "@/lib/theme-store";
 import { isAdmin } from "@/lib/roles";
+import { getDisplayName } from "@/lib/utils";
 import { Moon, Sun } from "lucide-react";
 import styles from "./Navbar.module.scss";
 
@@ -55,6 +56,7 @@ export default function Navbar() {
         image?: string | null;
         role?: string;
         moduleRoles?: any[];
+        pizza_count?: number;
       }
     | undefined;
 
@@ -95,7 +97,7 @@ export default function Navbar() {
                 <div className={styles.userMenu}>
                   <div className={styles.userMenuHeader}>
                     <span className={styles.userMenuName}>
-                      {user?.name || "User"}
+                      {getDisplayName(user?.name || "User", user?.pizza_count)}
                     </span>
                     <span className={styles.userMenuEmail}>
                       {user?.email || ""}

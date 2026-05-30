@@ -17,7 +17,7 @@ import POTDSubmission from "@/models/POTDSubmission";
   (m) => m && m.init && m.init(),
 );
 
-import { logger } from "@/lib/utils";
+import { logger, getDisplayName } from "@/lib/utils";
 import { DIFFICULTY_ORDER } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
 import { processSubmission } from "@/lib/potd/submit";
@@ -495,6 +495,7 @@ export async function getPotdLeaderboard(
         _id: 0,
         userId: { $toString: "$_id" },
         name: "$user.name",
+        pizza_count: { $ifNull: ["$user.pizza_count", 0] },
         handle: {
           $ifNull: ["$user.codeforcesId", "$user.atcoderId", ""],
         },
@@ -505,7 +506,12 @@ export async function getPotdLeaderboard(
     },
   ]);
 
-  return { ok: true, data: rows };
+  const data: LeaderboardEntry[] = rows.map((row: any) => ({
+    ...row,
+    name: getDisplayName(row.name, row.pizza_count),
+  }));
+
+  return { ok: true, data };
 }
 
 // Streak Leaderboard
@@ -543,13 +549,13 @@ export async function getStreakLeaderboard(): Promise<{
     // Primary: streak DESC; Tiebreaker: totalPoints DESC
     .sort({ potdCurrentStreak: -1, potdTotalPoints: -1, potdLongestStreak: -1 })
     .limit(50)
-    .populate("userId", "name codeforcesId atcoderId");
+    .populate("userId", "name codeforcesId atcoderId pizza_count");
 
   const data: StreakEntry[] = cpUsers.map((cu: any) => {
     const u = cu.userId as any;
     return {
       userId: u?._id?.toString() ?? "",
-      name: u?.name ?? "",
+      name: getDisplayName(u?.name ?? "", u?.pizza_count),
       handle: u?.codeforcesId || u?.atcoderId || "",
       currentStreak: cu.potdCurrentStreak ?? 0,
       longestStreak: cu.potdLongestStreak ?? 0,

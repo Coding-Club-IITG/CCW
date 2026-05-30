@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { isAdmin } from "@/lib/roles";
 import LinkCard from "@/components/LinkCard";
+import { getDisplayName } from "@/lib/utils";
 import styles from "./Dashboard.module.scss";
 
 export default async function DashboardPage() {
@@ -15,7 +16,9 @@ export default async function DashboardPage() {
   return (
     <div className={styles.container}>
       <h1>Member Dashboard</h1>
-      <p className={styles.welcome}>Welcome back, {user.name}!</p>
+      <p className={styles.welcome}>
+        Welcome back, {getDisplayName(user.name, user.pizza_count)}!
+      </p>
 
       <h2 className={styles.sectionTitle}>Quick Links</h2>
       <div className={styles.grid}>

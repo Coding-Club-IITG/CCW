@@ -6,7 +6,7 @@ import { use } from "react";
 import Link from "next/link";
 import BackLink from "@/components/BackLink";
 import BlogEditor from "@/components/blog/BlogEditor";
-import type { BlogTag, BlogStatus } from "@/lib/constants";
+import type { BlogStatus } from "@/lib/constants";
 import styles from "./EditPost.module.scss";
 
 interface Props {
@@ -45,7 +45,7 @@ export default function EditBlogPostPage({ params }: Props) {
     content: string;
     excerpt: string;
     coverImage: string;
-    tags: BlogTag[];
+    tags: string[];
     status: BlogStatus;
     authors: { userId: string; name: string }[];
   }) => {

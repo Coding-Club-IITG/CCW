@@ -3,6 +3,7 @@ import Contest from "@/models/Contest";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import CPPageClient from "@/components/cp/CPPageClient";
+import { getDisplayName } from "@/lib/utils";
 
 type RatingLeaderboardEntry = {
   id: string;
@@ -23,13 +24,16 @@ async function getCFLeaderboard(): Promise<RatingLeaderboardEntry[]> {
     .populate({
       path: "userId",
       model: User,
-      select: "name",
+      select: "name pizza_count",
     })
     .lean();
 
   return data.map((entry: any) => ({
     id: entry._id.toString(),
-    name: entry.userId?.name || "Unknown",
+    name: getDisplayName(
+      entry.userId?.name || "Unknown",
+      entry.userId?.pizza_count,
+    ),
     handle: entry.cfHandle,
     rating: entry.cfRating,
     rank: entry.cfRank,
@@ -47,13 +51,16 @@ async function getACLeaderboard(): Promise<RatingLeaderboardEntry[]> {
     .populate({
       path: "userId",
       model: User,
-      select: "name",
+      select: "name pizza_count",
     })
     .lean();
 
   return data.map((entry: any) => ({
     id: entry._id.toString(),
-    name: entry.userId?.name || "Unknown",
+    name: getDisplayName(
+      entry.userId?.name || "Unknown",
+      entry.userId?.pizza_count,
+    ),
     handle: entry.acHandle,
     rating: entry.acRating,
     rank: entry.acRank,

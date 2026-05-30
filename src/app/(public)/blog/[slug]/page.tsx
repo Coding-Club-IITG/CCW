@@ -4,7 +4,6 @@ import BlogPost from "@/models/BlogPost";
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
 import TagBadge from "@/components/blog/TagBadge";
 import BackLink from "@/components/BackLink";
-import type { BlogTag } from "@/lib/constants";
 import styles from "./BlogPost.module.scss";
 
 interface Props {
@@ -67,7 +66,7 @@ export default async function BlogPostPage({ params }: Props) {
         </div>
         {post.tags.length > 0 && (
           <div className={styles.tags}>
-            {post.tags.map((tag: BlogTag) => (
+            {post.tags.map((tag: string) => (
               <TagBadge key={tag} tag={tag} />
             ))}
           </div>

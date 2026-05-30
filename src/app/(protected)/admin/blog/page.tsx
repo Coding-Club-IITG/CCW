@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BackLink from "@/components/BackLink";
-import type { BlogTag, BlogStatus } from "@/lib/constants";
+import type { BlogStatus } from "@/lib/constants";
 import styles from "./AdminBlog.module.scss";
 
 interface Post {
@@ -12,7 +12,7 @@ interface Post {
   slug: string;
   title: string;
   excerpt: string;
-  tags: BlogTag[];
+  tags: string[];
   status: BlogStatus;
   authors: { userId: string; name: string }[];
   publishedAt: string | null;

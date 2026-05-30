@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
-import { BLOG_STATUSES, BLOG_TAGS } from "@/lib/constants";
-import type { BlogStatus, BlogTag } from "@/lib/constants";
+import { BLOG_STATUSES } from "@/lib/constants";
+import type { BlogStatus } from "@/lib/constants";
 
 export interface IBlogAuthor {
   userId: Types.ObjectId;
@@ -14,7 +14,7 @@ export interface IBlogPost extends Document {
   excerpt: string;
   coverImage: string;
   authors: IBlogAuthor[];
-  tags: BlogTag[];
+  tags: string[];
   status: BlogStatus;
   publishedAt: Date | null;
   createdAt: Date;
@@ -37,7 +37,7 @@ const BlogPostSchema = new Schema<IBlogPost>(
     excerpt: { type: String, default: "", maxlength: 500 },
     coverImage: { type: String, default: "" },
     authors: { type: [BlogAuthorSchema], default: [] },
-    tags: [{ type: String, enum: BLOG_TAGS }],
+    tags: [{ type: String }],
     status: { type: String, enum: BLOG_STATUSES, default: "draft" },
     publishedAt: { type: Date, default: null },
   },

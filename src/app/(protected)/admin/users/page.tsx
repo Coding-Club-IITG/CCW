@@ -8,7 +8,7 @@ export default async function AdminUsersPage() {
       <BackLink href="/admin" label="Back to Administration" />
 
       <header className={styles.header}>
-        <h1>User & Role Management</h1>
+        <h1>User Management</h1>
         <p>Manage members, assign roles, and configure module permissions.</p>
       </header>
 

@@ -10,6 +10,7 @@ import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import { canUploadFiles } from "@/lib/fileAccess";
 import { parseModuleRoles } from "@/lib/roles";
+import { getDisplayName } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -24,9 +25,14 @@ export async function GET(request: NextRequest) {
 
   await dbConnect();
   const users = await User.find({})
-    .select("_id name email")
+    .select("_id name email pizza_count")
     .sort({ name: 1 })
     .lean();
 
-  return NextResponse.json({ users });
+  const usersWithDisplay = users.map((u: any) => ({
+    ...u,
+    name: getDisplayName(u.name, u.pizza_count),
+  }));
+
+  return NextResponse.json({ users: usersWithDisplay });
 }

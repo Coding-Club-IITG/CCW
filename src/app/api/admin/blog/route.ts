@@ -8,12 +8,7 @@ import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
-import {
-  BLOG_TAGS,
-  BLOG_STATUSES,
-  type BlogTag,
-  type BlogStatus,
-} from "@/lib/constants";
+import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 
 function generateSlug(title: string): string {
   return title
@@ -120,11 +115,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate tags
-    const validTags: BlogTag[] = [];
+    const validTags: string[] = [];
     if (Array.isArray(tags)) {
       for (const t of tags) {
-        if (BLOG_TAGS.includes(t as BlogTag)) {
-          validTags.push(t as BlogTag);
+        if (
+          typeof t === "string" &&
+          t.trim().length > 0 &&
+          t.trim().length <= 50
+        ) {
+          validTags.push(t.trim());
         }
       }
     }

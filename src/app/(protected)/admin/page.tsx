@@ -12,7 +12,7 @@ export default async function AdminPage() {
       <div className={styles.grid}>
         <LinkCard
           href="/admin/users"
-          title="User & Role Management"
+          title="User Management"
           description="Manage members, assign global roles, and configure module permissions."
         />
         <LinkCard

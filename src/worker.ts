@@ -4,6 +4,7 @@ import { syncCodeforcesRatings } from "./lib/jobs/cfSync";
 import { syncAtCoderRatings } from "./lib/jobs/acSync";
 import { syncPOTDSubmissions } from "./lib/jobs/potdSync";
 import { syncContests } from "./lib/jobs/contestSync";
+import { cleanupOrphanedBlogImages } from "./lib/jobs/blogImageCleanup";
 import { logger } from "./lib/utils";
 import dbConnect from "./lib/mongodb";
 
@@ -30,6 +31,10 @@ async function run() {
     await syncContests();
   });
 
+  agenda.define("cleanup-blog-images", async () => {
+    await cleanupOrphanedBlogImages();
+  });
+
   // Start agenda
   await agenda.start();
 
@@ -44,6 +49,9 @@ async function run() {
 
   // Schedule contest sync every 3 hours
   await agenda.every("3 hours", "sync-contests");
+
+  // Schedule blog image orphan cleanup weekly (every Sunday at 3:00 AM IST)
+  await agenda.every("0 30 21 * * 0", "cleanup-blog-images");
 
   logger.info("[Worker] Agenda started and jobs scheduled.");
 

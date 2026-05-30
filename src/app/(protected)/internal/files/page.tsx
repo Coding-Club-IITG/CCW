@@ -8,6 +8,7 @@ import {
   isGlobalAdmin,
   isAdmin,
 } from "@/lib/roles";
+import { getDisplayName } from "@/lib/utils";
 import type { CurrentUser } from "@/components/files/types";
 
 export default async function FilesPage() {
@@ -21,7 +22,7 @@ export default async function FilesPage() {
 
   const currentUser: CurrentUser = {
     id: user.id,
-    name: user.name,
+    name: getDisplayName(user.name, user.pizza_count),
     email: user.email,
     role: user.role,
     moduleRoles,

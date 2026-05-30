@@ -1,6 +1,5 @@
 import Link from "next/link";
 import TagBadge from "./TagBadge";
-import type { BlogTag } from "@/lib/constants";
 import styles from "./BlogCard.module.scss";
 
 interface BlogAuthor {
@@ -14,7 +13,7 @@ interface BlogCardProps {
   excerpt: string;
   coverImage?: string;
   authors: BlogAuthor[];
-  tags: BlogTag[];
+  tags: string[];
   publishedAt: string;
 }
 

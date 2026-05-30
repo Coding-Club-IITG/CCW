@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import BlogCard from "@/components/blog/BlogCard";
 import TagBadge from "@/components/blog/TagBadge";
-import { type BlogTag } from "@/lib/constants";
 import styles from "./Blog.module.scss";
 
 interface BlogAuthor {
@@ -18,15 +17,15 @@ interface Post {
   excerpt: string;
   coverImage?: string;
   authors: BlogAuthor[];
-  tags: BlogTag[];
+  tags: string[];
   publishedAt: string;
 }
 
 export default function BlogPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTag, setActiveTag] = useState<BlogTag | null>(null);
-  const [availableTags, setAvailableTags] = useState<BlogTag[]>([]);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -54,7 +53,7 @@ export default function BlogPage() {
     }
   };
 
-  const handleTagFilter = (tag: BlogTag) => {
+  const handleTagFilter = (tag: string) => {
     setActiveTag((prev) => (prev === tag ? null : tag));
     setPage(1);
   };

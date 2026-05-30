@@ -53,6 +53,10 @@ export const auth = betterAuth({
       phoneNumber: {
         type: "string",
       },
+      pizza_count: {
+        type: "number",
+        defaultValue: 0,
+      },
     },
   },
 

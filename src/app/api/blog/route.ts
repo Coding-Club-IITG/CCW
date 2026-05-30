@@ -5,7 +5,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
-import { BLOG_TAGS, type BlogTag } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,11 +16,11 @@ export async function GET(request: NextRequest) {
       50,
       Math.max(1, parseInt(searchParams.get("limit") || "12", 10)),
     );
-    const tag = searchParams.get("tag") as BlogTag | null;
+    const tag = searchParams.get("tag");
 
     const filter: Record<string, any> = { status: "published" };
-    if (tag && BLOG_TAGS.includes(tag as BlogTag)) {
-      filter.tags = tag;
+    if (tag && tag.trim().length > 0) {
+      filter.tags = tag.trim();
     }
 
     const [posts, total, availableTags] = await Promise.all([

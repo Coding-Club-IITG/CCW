@@ -207,6 +207,40 @@ export async function deleteUser(userId: string) {
   }
 }
 
+export async function updateUserPizzaCount(userId: string, delta: 1 | -1) {
+  try {
+    const adminSession = await checkAdmin();
+    if (!adminSession)
+      return { success: false as const, error: "Unauthorized" };
+    await dbConnect();
+
+    const user = await User.findById(userId);
+    if (!user) return { success: false as const, error: "User not found" };
+
+    const newCount = Math.max(0, (user.pizza_count || 0) + delta);
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { pizza_count: newCount },
+      { new: true },
+    );
+
+    logger.info(
+      `Admin ${adminSession.user.email} updated pizza_count of ${updatedUser.email} to ${newCount}`,
+    );
+    revalidatePath("/admin");
+    return {
+      success: true as const,
+      pizza_count: newCount,
+    };
+  } catch (err) {
+    logger.error("updateUserPizzaCount error:", err);
+    return {
+      success: false as const,
+      error: "Failed to update pizza count.",
+    };
+  }
+}
+
 export async function updateProfile(data: {
   name: string;
   codeforcesId?: string;

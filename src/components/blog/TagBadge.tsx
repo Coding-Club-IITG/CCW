@@ -1,8 +1,7 @@
-import type { BlogTag } from "@/lib/constants";
 import styles from "./TagBadge.module.scss";
 
 interface TagBadgeProps {
-  tag: BlogTag;
+  tag: string;
   onClick?: () => void;
   active?: boolean;
 }

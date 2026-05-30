@@ -9,12 +9,7 @@ import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
-import {
-  BLOG_TAGS,
-  BLOG_STATUSES,
-  type BlogTag,
-  type BlogStatus,
-} from "@/lib/constants";
+import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -111,9 +106,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (body.tags !== undefined) {
       if (Array.isArray(body.tags)) {
-        post.tags = body.tags.filter((t: string) =>
-          BLOG_TAGS.includes(t as BlogTag),
-        ) as BlogTag[];
+        post.tags = body.tags
+          .filter(
+            (t: any) =>
+              typeof t === "string" &&
+              t.trim().length > 0 &&
+              t.trim().length <= 50,
+          )
+          .map((t: string) => t.trim());
       }
     }
 

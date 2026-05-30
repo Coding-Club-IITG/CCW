@@ -7,6 +7,7 @@ import {
   updateUserRole,
   updateUserModuleRoles,
   deleteUser,
+  updateUserPizzaCount,
 } from "@/lib/actions/user";
 import styles from "./UserManagement.module.scss";
 import { Trash2, Plus, X, Save } from "lucide-react";
@@ -111,6 +112,15 @@ export default function UserManagement() {
     setTempModuleRoles(tempModuleRoles.filter((_, i) => i !== index));
   }
 
+  async function handlePizzaChange(userId: string, delta: 1 | -1) {
+    const result = await updateUserPizzaCount(userId, delta);
+    if (!result.success) {
+      alert(result.error);
+    } else {
+      fetchUsers();
+    }
+  }
+
   if (loading) return <div>Loading users...</div>;
 
   return (
@@ -149,6 +159,7 @@ export default function UserManagement() {
               <th>Email</th>
               <th>Global Role</th>
               <th>Module Roles</th>
+              <th>Pizza</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -187,6 +198,26 @@ export default function UserManagement() {
                       Edit Module Roles
                     </div>
                   )}
+                </td>
+                <td>
+                  <div className={styles.pizzaControls}>
+                    <button
+                      className={styles.pizzaButton}
+                      onClick={() => handlePizzaChange(user._id, -1)}
+                      disabled={!user.pizza_count}
+                    >
+                      −
+                    </button>
+                    <span className={styles.pizzaCount}>
+                      {user.pizza_count || 0}
+                    </span>
+                    <button
+                      className={styles.pizzaButton}
+                      onClick={() => handlePizzaChange(user._id, 1)}
+                    >
+                      +
+                    </button>
+                  </div>
                 </td>
                 <td>
                   <button

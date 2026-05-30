@@ -3,12 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TagBadge from "./TagBadge";
-import {
-  BLOG_TAGS,
-  BLOG_STATUSES,
-  type BlogTag,
-  type BlogStatus,
-} from "@/lib/constants";
+import { BLOG_TAGS, BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import styles from "./BlogEditor.module.scss";
 
 interface BlogAuthor {
@@ -22,7 +17,7 @@ interface BlogEditorProps {
     content: string;
     excerpt: string;
     coverImage: string;
-    tags: BlogTag[];
+    tags: string[];
     status: BlogStatus;
     authors: BlogAuthor[];
   };
@@ -31,7 +26,7 @@ interface BlogEditorProps {
     content: string;
     excerpt: string;
     coverImage: string;
-    tags: BlogTag[];
+    tags: string[];
     status: BlogStatus;
     authors: BlogAuthor[];
   }) => Promise<void>;
@@ -47,10 +42,11 @@ export default function BlogEditor({
   const [content, setContent] = useState(initialData?.content || "");
   const [excerpt, setExcerpt] = useState(initialData?.excerpt || "");
   const [coverImage, setCoverImage] = useState(initialData?.coverImage || "");
-  const [tags, setTags] = useState<BlogTag[]>(initialData?.tags || []);
+  const [tags, setTags] = useState<string[]>(initialData?.tags || []);
   const [status, setStatus] = useState<BlogStatus>(
     initialData?.status || "draft",
   );
+  const [customTagInput, setCustomTagInput] = useState("");
   const [authors, setAuthors] = useState<BlogAuthor[]>(
     initialData?.authors || [],
   );
@@ -70,10 +66,25 @@ export default function BlogEditor({
       .catch(() => {});
   }, []);
 
-  const toggleTag = (tag: BlogTag) => {
+  const toggleTag = (tag: string) => {
     setTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
+  };
+
+  const addCustomTag = () => {
+    const trimmed = customTagInput.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      setTags((prev) => [...prev, trimmed]);
+    }
+    setCustomTagInput("");
+  };
+
+  const handleCustomTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addCustomTag();
+    }
   };
 
   const addAuthor = (userId: string) => {
@@ -281,6 +292,35 @@ export default function BlogEditor({
               onClick={() => toggleTag(tag)}
             />
           ))}
+          {tags
+            .filter((t) => !(BLOG_TAGS as readonly string[]).includes(t))
+            .map((tag) => (
+              <TagBadge
+                key={tag}
+                tag={tag}
+                active={true}
+                onClick={() => toggleTag(tag)}
+              />
+            ))}
+        </div>
+        <div className={styles.customTagRow}>
+          <input
+            type="text"
+            value={customTagInput}
+            onChange={(e) => setCustomTagInput(e.target.value)}
+            onKeyDown={handleCustomTagKeyDown}
+            className={styles.input}
+            placeholder="Add custom tag..."
+            maxLength={50}
+          />
+          <button
+            type="button"
+            className={styles.btnSecondary}
+            onClick={addCustomTag}
+            disabled={!customTagInput.trim()}
+          >
+            Add
+          </button>
         </div>
       </div>
 

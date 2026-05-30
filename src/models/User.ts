@@ -30,6 +30,7 @@ const UserSchema = new mongoose.Schema(
     githubId: { type: String, default: "" },
     bio: { type: String, default: "" },
     phoneNumber: { type: String, default: "" },
+    pizza_count: { type: Number, default: 0 },
   },
   { timestamps: true },
 );
