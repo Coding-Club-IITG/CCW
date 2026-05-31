@@ -5,6 +5,8 @@ import { syncAtCoderRatings } from "./lib/jobs/acSync";
 import { syncPOTDSubmissions } from "./lib/jobs/potdSync";
 import { syncContests } from "./lib/jobs/contestSync";
 import { cleanupOrphanedBlogImages } from "./lib/jobs/blogImageCleanup";
+import { sendHackathonDeadlineReminders } from "./lib/jobs/hackathonReminder";
+import { sendPOTDReminders } from "./lib/jobs/potdReminder";
 import { logger } from "./lib/utils";
 import dbConnect from "./lib/mongodb";
 
@@ -35,6 +37,14 @@ async function run() {
     await cleanupOrphanedBlogImages();
   });
 
+  agenda.define("hackathon-deadline-reminders", async () => {
+    await sendHackathonDeadlineReminders();
+  });
+
+  agenda.define("potd-reminders", async () => {
+    await sendPOTDReminders();
+  });
+
   // Start agenda
   await agenda.start();
 
@@ -52,6 +62,12 @@ async function run() {
 
   // Schedule blog image orphan cleanup weekly (every Sunday at 3:00 AM IST)
   await agenda.every("0 30 21 * * 0", "cleanup-blog-images");
+
+  // Schedule hackathon deadline reminders every hour
+  await agenda.every("1 hour", "hackathon-deadline-reminders");
+
+  // Schedule POTD reminders every hour
+  await agenda.every("1 hour", "potd-reminders");
 
   logger.info("[Worker] Agenda started and jobs scheduled.");
 

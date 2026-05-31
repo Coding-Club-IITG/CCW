@@ -7,6 +7,7 @@ import { useThemeStore } from "@/lib/theme-store";
 import { isAdmin } from "@/lib/roles";
 import { getDisplayName } from "@/lib/utils";
 import { Moon, Sun } from "lucide-react";
+import NotificationBell from "./NotificationBell";
 import styles from "./Navbar.module.scss";
 
 function UserAvatar({
@@ -84,6 +85,9 @@ export default function Navbar() {
             <Link href="/internal/files">Files</Link>
             <Link href="/internal/cp">CP</Link>
             <Link href="/internal/potd">POTD</Link>
+            <Link href="/internal/hackathons">Hackathons</Link>
+            <Link href="/blog">Blog</Link>
+            <NotificationBell />
             <div className={styles.avatarWrapper} ref={menuRef}>
               <button
                 className={styles.avatarButton}

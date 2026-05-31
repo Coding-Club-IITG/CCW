@@ -26,7 +26,7 @@ export default async function DashboardPage() {
           <LinkCard
             href="/admin"
             title="Website Administration"
-            description="Manage users, blog posts, and club-wide settings."
+            description="Manage website settings."
           />
         )}
         <LinkCard
@@ -48,6 +48,11 @@ export default async function DashboardPage() {
           href="/internal/potd"
           title="Problem of the Day"
           description="Daily coding challenges, streaks, and submissions."
+        />
+        <LinkCard
+          href="/internal/hackathons"
+          title="Hackathon Finder"
+          description="Find active hackathons and build your team."
         />
         <LinkCard
           href="/blog"

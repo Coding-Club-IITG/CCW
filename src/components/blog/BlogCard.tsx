@@ -1,5 +1,6 @@
 import Link from "next/link";
 import TagBadge from "./TagBadge";
+import { IconCalendar, IconEdit } from "@/components/shared/Icons";
 import styles from "./BlogCard.module.scss";
 
 interface BlogAuthor {
@@ -15,6 +16,7 @@ interface BlogCardProps {
   authors: BlogAuthor[];
   tags: string[];
   publishedAt: string;
+  updatedAt?: string;
 }
 
 export default function BlogCard({
@@ -25,12 +27,18 @@ export default function BlogCard({
   authors,
   tags,
   publishedAt,
+  updatedAt,
 }: BlogCardProps) {
-  const date = new Date(publishedAt).toLocaleDateString("en-IN", {
+  const dateOpts: Intl.DateTimeFormatOptions = {
     year: "numeric",
     month: "short",
     day: "numeric",
-  });
+  };
+  const date = new Date(publishedAt).toLocaleDateString("en-IN", dateOpts);
+  const editedDate =
+    updatedAt && updatedAt !== publishedAt
+      ? new Date(updatedAt).toLocaleDateString("en-IN", dateOpts)
+      : null;
 
   const authorNames = authors.map((a) => a.name).join(", ") || "Unknown";
 
@@ -47,7 +55,17 @@ export default function BlogCard({
         <div className={styles.meta}>
           <span className={styles.author}>{authorNames}</span>
           <span className={styles.dot}>·</span>
-          <time className={styles.date}>{date}</time>
+          <time className={styles.date}>
+            <IconCalendar width={12} height={12} /> {date}
+          </time>
+          {editedDate && (
+            <>
+              <span className={styles.dot}>·</span>
+              <time className={styles.date}>
+                <IconEdit width={12} height={12} /> {editedDate}
+              </time>
+            </>
+          )}
         </div>
         {tags.length > 0 && (
           <div className={styles.tags}>

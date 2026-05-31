@@ -19,6 +19,7 @@ interface Post {
   authors: BlogAuthor[];
   tags: string[];
   publishedAt: string;
+  updatedAt?: string;
 }
 
 export default function BlogPage() {
@@ -99,6 +100,7 @@ export default function BlogPage() {
                 authors={post.authors}
                 tags={post.tags}
                 publishedAt={post.publishedAt}
+                updatedAt={post.updatedAt}
               />
             ))}
           </div>

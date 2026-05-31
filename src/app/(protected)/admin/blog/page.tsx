@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
+import { IconExternalLink } from "@/components/shared/Icons";
 import type { BlogStatus } from "@/lib/constants";
 import styles from "./AdminBlog.module.scss";
 
@@ -137,7 +138,7 @@ export default function AdminBlogPage() {
                     className={styles.btnSecondary}
                     target="_blank"
                   >
-                    View
+                    View <IconExternalLink width={12} height={12} />
                   </Link>
                 )}
                 <button

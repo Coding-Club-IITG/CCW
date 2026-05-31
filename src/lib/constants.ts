@@ -98,6 +98,36 @@ export const DIFFICULTY_ORDER: Record<Difficulty, number> = {
   Hard: 2,
 };
 
+/* Hackathons */
+
+export const HACKATHON_STATUSES = ["active", "archived"] as const;
+export type HackathonStatus = (typeof HACKATHON_STATUSES)[number];
+
+export const HACKATHON_TEAM_STATUSES = ["open", "full", "closed"] as const;
+export type HackathonTeamStatus = (typeof HACKATHON_TEAM_STATUSES)[number];
+
+export const HACKATHON_REQUEST_TYPES = ["join_request", "invite"] as const;
+export type HackathonRequestType = (typeof HACKATHON_REQUEST_TYPES)[number];
+
+export const HACKATHON_REQUEST_STATUSES = [
+  "pending",
+  "accepted",
+  "rejected",
+] as const;
+export type HackathonRequestStatus =
+  (typeof HACKATHON_REQUEST_STATUSES)[number];
+
+export const NOTIFICATION_TYPES = [
+  "team_invite",
+  "join_request",
+  "request_accepted",
+  "request_rejected",
+  "hackathon_reminder",
+  "potd_reminder",
+  "announcement",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
 /* Blog */
 
 export const BLOG_STATUSES = ["draft", "published"] as const;

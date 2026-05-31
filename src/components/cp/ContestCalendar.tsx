@@ -375,7 +375,7 @@ export default function ContestCalendar({ contests }: Props) {
           <div className={styles.popoverName}>{popover.contest.name}</div>
           <div className={styles.popoverMeta}>
             <span>
-              {formatTime(new Date(popover.contest.startTime))} –{" "}
+              {formatTime(new Date(popover.contest.startTime))} -{" "}
               {formatTime(new Date(popover.contest.endTime))}
             </span>
             <span className={styles.popoverDot}>•</span>

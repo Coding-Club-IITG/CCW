@@ -21,9 +21,14 @@ export default async function AdminPage() {
           description="Create, edit, and publish blog posts for the community."
         />
         <LinkCard
-          href="/admin"
-          title="Global Settings"
-          description="Club-wide announcements and maintenance settings (Coming Soon)."
+          href="/admin/hackathons"
+          title="Hackathon Management"
+          description="Create hackathons and monitor team registrations."
+        />
+        <LinkCard
+          href="/admin/notifications"
+          title="Send Notifications"
+          description="Broadcast announcements to all members or specific modules."
         />
       </div>
     </div>
