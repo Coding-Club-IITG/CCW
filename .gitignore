@@ -20,8 +20,6 @@ next-env.d.ts
 # Misc
 .DS_Store
 *.pem
-.gemini
-.github/copilot-instructions.md
 
 # File uploads
 uploads/
