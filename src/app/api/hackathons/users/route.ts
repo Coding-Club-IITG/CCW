@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
+import { paginatedResponse, parsePagination } from "@/lib/pagination";
 import User from "@/models/User";
 
 export async function GET(request: NextRequest) {
@@ -18,26 +19,31 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get("q") || "";
 
     if (q.length < 2) {
-      return NextResponse.json({ users: [] });
+      return NextResponse.json(paginatedResponse([], 0, 1, 20));
     }
 
     await dbConnect();
 
-    const users = await User.find({
-      name: { $regex: q, $options: "i" },
-    })
-      .select("_id name email pizza_count")
-      .limit(20)
-      .lean();
+    const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
+    const filter = { name: { $regex: q, $options: "i" } };
 
-    return NextResponse.json({
-      users: (users as any[]).map((u) => ({
-        id: u._id.toString(),
-        name: u.name,
-        email: u.email,
-        pizza_count: u.pizza_count,
-      })),
-    });
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .select("_id name email pizza_count")
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(filter),
+    ]);
+
+    const data = (users as any[]).map((u) => ({
+      id: u._id.toString(),
+      name: u.name,
+      email: u.email,
+      pizza_count: u.pizza_count,
+    }));
+
+    return NextResponse.json(paginatedResponse(data, total, page, limit));
   } catch (err) {
     console.error("[Hackathon Users] GET error:", err);
     return NextResponse.json(

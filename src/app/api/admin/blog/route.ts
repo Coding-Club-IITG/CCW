@@ -6,8 +6,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
-import BlogPost from "@/models/BlogPost";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
+import {
+  cachedFetch,
+  buildCacheKey,
+  CACHE_TTLS,
+  invalidateCache,
+} from "@/lib/cache";
+import { parsePagination, paginatedResponse } from "@/lib/pagination";
+import BlogPost from "@/models/BlogPost";
 
 function generateSlug(title: string): string {
   return title
@@ -39,6 +46,7 @@ export async function GET(request: NextRequest) {
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
     const status = searchParams.get("status") as BlogStatus | null;
 
     const filter: Record<string, any> = {};
@@ -46,14 +54,30 @@ export async function GET(request: NextRequest) {
       filter.status = status;
     }
 
-    const posts = await BlogPost.find(filter)
-      .select(
-        "title slug excerpt tags status publishedAt createdAt updatedAt authors",
-      )
-      .sort({ updatedAt: -1 })
-      .lean();
+    const cacheKey = buildCacheKey("admin:blog", {
+      page,
+      limit,
+      status: status || undefined,
+    });
 
-    return NextResponse.json({ posts });
+    const result = await cachedFetch(cacheKey, CACHE_TTLS.BLOG, async () => {
+      const [posts, total] = await Promise.all([
+        BlogPost.find(filter)
+          .select(
+            "title slug excerpt tags status publishedAt createdAt updatedAt authors",
+          )
+          .sort({ updatedAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        BlogPost.countDocuments(filter),
+      ]);
+      return { posts, total };
+    });
+
+    return NextResponse.json(
+      paginatedResponse(result.posts, result.total, page, limit),
+    );
   } catch (err) {
     console.error("[Blog Admin] GET error:", err);
     return NextResponse.json(
@@ -140,6 +164,9 @@ export async function POST(request: NextRequest) {
       status: postStatus,
       publishedAt: postStatus === "published" ? new Date() : null,
     });
+
+    await invalidateCache("blog");
+    await invalidateCache("admin:blog");
 
     return NextResponse.json({ post }, { status: 201 });
   } catch (err) {

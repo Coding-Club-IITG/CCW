@@ -9,6 +9,7 @@ import {
   deleteUser,
   updateUserPizzaCount,
 } from "@/lib/actions/user";
+import Pagination from "@/components/shared/Pagination";
 import styles from "./UserManagement.module.scss";
 import { Trash2, Plus, X, Save } from "lucide-react";
 import { GLOBAL_ROLES as ROLES, MODULES, MODULE_ROLES } from "@/lib/constants";
@@ -19,6 +20,8 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Modal state
   const [editingUser, setEditingUser] = useState<any | null>(null);
@@ -26,15 +29,17 @@ export default function UserManagement() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [page]);
 
   async function fetchUsers() {
+    setLoading(true);
     try {
-      const result = await getUsers();
+      const result = await getUsers(page, 50);
       if (!result.success) {
         console.error("Failed to fetch users:", result.error);
       } else {
         setUsers(result.users);
+        setTotalPages(Math.ceil((result.total || result.users.length) / 50));
       }
     } catch (error) {
       console.error("Failed to fetch users:", error);
@@ -151,87 +156,96 @@ export default function UserManagement() {
         </form>
       </div>
 
-      <div className={styles.tableContainer}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Global Role</th>
-              <th>Module Roles</th>
-              <th>Pizza</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user._id}>
-                <td>{user.name}</td>
-                <td>{user.email}</td>
-                <td>
-                  <select
-                    className={styles.roleSelect}
-                    value={user.role}
-                    onChange={(e) => handleRoleChange(user._id, e.target.value)}
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <ul className={styles.moduleRolesList}>
-                    {user.moduleRoles?.map((mr: any, idx: number) => (
-                      <li key={idx}>
-                        <span>{mr.module}</span>
-                        <strong>{mr.role}</strong>
-                      </li>
-                    ))}
-                  </ul>
-                  {!isGlobalAdmin(user.role) && (
-                    <div
-                      className={styles.addModuleRole}
-                      onClick={() => openModuleRoleModal(user)}
-                    >
-                      Edit Module Roles
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <div className={styles.pizzaControls}>
-                    <button
-                      className={styles.pizzaButton}
-                      onClick={() => handlePizzaChange(user._id, -1)}
-                      disabled={!user.pizza_count}
-                    >
-                      −
-                    </button>
-                    <span className={styles.pizzaCount}>
-                      {user.pizza_count || 0}
-                    </span>
-                    <button
-                      className={styles.pizzaButton}
-                      onClick={() => handlePizzaChange(user._id, 1)}
-                    >
-                      +
-                    </button>
-                  </div>
-                </td>
-                <td>
-                  <button
-                    className={styles.deleteButton}
-                    onClick={() => handleDelete(user._id)}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </td>
+      <>
+        <div className={styles.tableContainer}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Global Role</th>
+                <th>Module Roles</th>
+                <th>Pizza</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user._id}>
+                  <td>{user.name}</td>
+                  <td>{user.email}</td>
+                  <td>
+                    <select
+                      className={styles.roleSelect}
+                      value={user.role}
+                      onChange={(e) =>
+                        handleRoleChange(user._id, e.target.value)
+                      }
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <ul className={styles.moduleRolesList}>
+                      {user.moduleRoles?.map((mr: any, idx: number) => (
+                        <li key={idx}>
+                          <span>{mr.module}</span>
+                          <strong>{mr.role}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                    {!isGlobalAdmin(user.role) && (
+                      <div
+                        className={styles.addModuleRole}
+                        onClick={() => openModuleRoleModal(user)}
+                      >
+                        Edit Module Roles
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <div className={styles.pizzaControls}>
+                      <button
+                        className={styles.pizzaButton}
+                        onClick={() => handlePizzaChange(user._id, -1)}
+                        disabled={!user.pizza_count}
+                      >
+                        −
+                      </button>
+                      <span className={styles.pizzaCount}>
+                        {user.pizza_count || 0}
+                      </span>
+                      <button
+                        className={styles.pizzaButton}
+                        onClick={() => handlePizzaChange(user._id, 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </td>
+                  <td>
+                    <button
+                      className={styles.deleteButton}
+                      onClick={() => handleDelete(user._id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
+      </>
 
       {editingUser && (
         <>

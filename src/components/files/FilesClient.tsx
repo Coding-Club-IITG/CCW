@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { CurrentUser, FileEntry, UserBasic } from "./types";
 import { formatBytes, formatDate, canManageFile, aclSummary } from "./utils";
+import Pagination from "@/components/shared/Pagination";
 import FileViewer from "./FileViewer";
 import UploadModal from "./UploadModal";
 import EditModal from "./EditModal";
@@ -29,6 +30,8 @@ export default function FilesClient({ currentUser }: Props) {
   const [users, setUsers] = useState<UserBasic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Toolbar
   const [searchQuery, setSearchQuery] = useState("");
@@ -45,19 +48,20 @@ export default function FilesClient({ currentUser }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/files");
+      const res = await fetch(`/api/files?page=${page}&limit=30`);
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Failed to load files.");
         return;
       }
-      setFiles(data.files);
+      setFiles(data.data || []);
+      setTotalPages(data.pagination?.totalPages || 1);
     } catch {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   const fetchUsers = useCallback(async () => {
     if (!currentUser.canUpload) return;
@@ -186,115 +190,128 @@ export default function FilesClient({ currentUser }: Props) {
             : "No files here yet."}
         </div>
       ) : (
-        <div className={styles.tableContainer}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Folder</th>
-                <th>Uploaded By</th>
-                <th>Date</th>
-                <th>Size</th>
-                <th>Access</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredFiles.map((file) => {
-                const canManage = canManageFile(currentUser, file);
-                return (
-                  <tr key={file._id}>
-                    <td>
-                      <div className={styles.fileTitle}>
-                        <FileIcon size={15} className={styles.fileIcon} />
-                        <div>
-                          <span className={styles.fileName}>{file.title}</span>
-                          {file.description && (
-                            <span className={styles.fileDesc}>
-                              {file.description}
+        <>
+          <div className={styles.tableContainer}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Folder</th>
+                  <th>Uploaded By</th>
+                  <th>Date</th>
+                  <th>Size</th>
+                  <th>Access</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredFiles.map((file) => {
+                  const canManage = canManageFile(currentUser, file);
+                  return (
+                    <tr key={file._id}>
+                      <td>
+                        <div className={styles.fileTitle}>
+                          <FileIcon size={15} className={styles.fileIcon} />
+                          <div>
+                            <span className={styles.fileName}>
+                              {file.title}
                             </span>
-                          )}
+                            {file.description && (
+                              <span className={styles.fileDesc}>
+                                {file.description}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={styles.folderBadge}>{file.folder}</span>
-                    </td>
-                    <td className={styles.subtle}>{file.uploadedByName}</td>
-                    <td className={styles.subtle}>
-                      {formatDate(file.createdAt)}
-                    </td>
-                    <td className={styles.subtle}>{formatBytes(file.size)}</td>
-                    <td>
-                      <span
-                        className={`${styles.accessBadge} ${
-                          file.isDownloadable
-                            ? styles.download
-                            : styles.viewOnly
-                        }`}
-                      >
-                        {file.isDownloadable ? (
-                          <>
-                            <Download size={11} /> Download
-                          </>
-                        ) : (
-                          <>
-                            <Eye size={11} /> View only
-                          </>
-                        )}
-                      </span>
-                      <div className={styles.aclHint}>
-                        {aclSummary(file.accessControl)}
-                      </div>
-                    </td>
-                    <td>
-                      <div className={styles.actions}>
-                        {file.isDownloadable ? (
-                          <a
-                            href={`/api/files/${file._id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={styles.actionBtn}
-                            title="Download file"
-                          >
-                            <Download size={15} />
-                          </a>
-                        ) : (
-                          <button
-                            className={styles.actionBtn}
-                            title="View file"
-                            onClick={() => setViewFile(file)}
-                          >
-                            <Eye size={15} />
-                          </button>
-                        )}
-
-                        {canManage && (
-                          <>
+                      </td>
+                      <td>
+                        <span className={styles.folderBadge}>
+                          {file.folder}
+                        </span>
+                      </td>
+                      <td className={styles.subtle}>{file.uploadedByName}</td>
+                      <td className={styles.subtle}>
+                        {formatDate(file.createdAt)}
+                      </td>
+                      <td className={styles.subtle}>
+                        {formatBytes(file.size)}
+                      </td>
+                      <td>
+                        <span
+                          className={`${styles.accessBadge} ${
+                            file.isDownloadable
+                              ? styles.download
+                              : styles.viewOnly
+                          }`}
+                        >
+                          {file.isDownloadable ? (
+                            <>
+                              <Download size={11} /> Download
+                            </>
+                          ) : (
+                            <>
+                              <Eye size={11} /> View only
+                            </>
+                          )}
+                        </span>
+                        <div className={styles.aclHint}>
+                          {aclSummary(file.accessControl)}
+                        </div>
+                      </td>
+                      <td>
+                        <div className={styles.actions}>
+                          {file.isDownloadable ? (
+                            <a
+                              href={`/api/files/${file._id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.actionBtn}
+                              title="Download file"
+                            >
+                              <Download size={15} />
+                            </a>
+                          ) : (
                             <button
                               className={styles.actionBtn}
-                              title="Edit"
-                              onClick={() => setEditFile(file)}
+                              title="View file"
+                              onClick={() => setViewFile(file)}
                             >
-                              <Edit2 size={15} />
+                              <Eye size={15} />
                             </button>
-                            <button
-                              className={`${styles.actionBtn} ${styles.danger}`}
-                              title="Delete"
-                              onClick={() => handleDelete(file)}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                          )}
+
+                          {canManage && (
+                            <>
+                              <button
+                                className={styles.actionBtn}
+                                title="Edit"
+                                onClick={() => setEditFile(file)}
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                              <button
+                                className={`${styles.actionBtn} ${styles.danger}`}
+                                title="Delete"
+                                onClick={() => handleDelete(file)}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </>
       )}
 
       {/* Modals */}

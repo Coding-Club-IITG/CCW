@@ -13,6 +13,7 @@ import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import crypto from "crypto";
+import { parsePagination, paginatedResponse } from "@/lib/pagination";
 import { logger } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -43,16 +44,22 @@ export async function GET(request: NextRequest) {
 
     await dbConnect();
 
-    // Build a MongoDB query filter to reduce in-memory filtering
+    const { searchParams } = new URL(request.url);
+    const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
+
     const accessFilter = buildAccessFilter(user.id, user.role, moduleRoles);
 
-    // storedName (UUID disk path) is deliberately excluded - it must never leave the server
-    const files = await FileEntry.find(accessFilter)
-      .select("-storedName")
-      .sort({ createdAt: -1 })
-      .lean();
+    const [files, total] = await Promise.all([
+      FileEntry.find(accessFilter)
+        .select("-storedName")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      FileEntry.countDocuments(accessFilter),
+    ]);
 
-    return NextResponse.json({ files });
+    return NextResponse.json(paginatedResponse(files, total, page, limit));
   } catch (err) {
     logger.error("[Files] GET /api/files error:", err);
     return NextResponse.json(

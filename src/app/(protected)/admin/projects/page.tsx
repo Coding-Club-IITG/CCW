@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import BackLink from "@/components/shared/BackLink";
+import Pagination from "@/components/shared/Pagination";
 import { deleteProject } from "@/lib/actions/admin/projects";
 import styles from "../events/AdminEvents.module.scss";
 
@@ -26,28 +27,31 @@ export default function AdminProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
+    setLoading(true);
     void fetchProjects();
-  }, []);
+  }, [page]);
 
   async function fetchProjects() {
     try {
-      const res = await fetch("/api/admin/projects");
-      const data = (await res.json()) as {
-        error?: string;
-        projects?: ProjectItem[];
-      };
+      setError("");
+      const res = await fetch(`/api/admin/projects?page=${page}&limit=20`);
+      const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data.error || "Failed to fetch projects.");
       }
 
-      setProjects(data.projects || []);
+      setProjects(data.data || []);
+      setTotalPages(data.pagination?.totalPages || 1);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch projects.",
       );
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -92,41 +96,48 @@ export default function AdminProjectsPage() {
       ) : projects.length === 0 ? (
         <p className={styles.empty}>No projects yet.</p>
       ) : (
-        <div className={styles.list}>
-          {projects.map((project) => (
-            <div key={project._id} className={styles.item}>
-              <div className={styles.itemInfo}>
-                <div className={styles.itemTop}>
-                  <span className={styles.itemTitle}>{project.title}</span>
-                  <span
-                    className={`${styles.statusBadge} ${styles[project.status.toLowerCase()]}`}
-                  >
-                    {project.status}
+        <>
+          <div className={styles.list}>
+            {projects.map((project) => (
+              <div key={project._id} className={styles.item}>
+                <div className={styles.itemInfo}>
+                  <div className={styles.itemTop}>
+                    <span className={styles.itemTitle}>{project.title}</span>
+                    <span
+                      className={`${styles.statusBadge} ${styles[project.status.toLowerCase()]}`}
+                    >
+                      {project.status}
+                    </span>
+                  </div>
+                  <span className={styles.itemMeta}>
+                    {project.module} · {formatMonthYear(project.date)}
                   </span>
                 </div>
-                <span className={styles.itemMeta}>
-                  {project.module} · {formatMonthYear(project.date)}
-                </span>
+                <div className={styles.itemActions}>
+                  <Link
+                    href={`/admin/projects/${project._id}`}
+                    className={styles.editBtn}
+                  >
+                    Edit
+                  </Link>
+                  <button
+                    type="button"
+                    className={styles.deleteBtn}
+                    onClick={() => void handleDelete(project._id)}
+                    disabled={deleting === project._id}
+                  >
+                    {deleting === project._id ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
               </div>
-              <div className={styles.itemActions}>
-                <Link
-                  href={`/admin/projects/${project._id}`}
-                  className={styles.editBtn}
-                >
-                  Edit
-                </Link>
-                <button
-                  type="button"
-                  className={styles.deleteBtn}
-                  onClick={() => void handleDelete(project._id)}
-                  disabled={deleting === project._id}
-                >
-                  {deleting === project._id ? "Deleting..." : "Delete"}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </>
       )}
     </div>
   );

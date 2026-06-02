@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
 import { IconExternalLink } from "@/components/shared/Icons";
+import Pagination from "@/components/shared/Pagination";
 import type { BlogStatus } from "@/lib/constants";
 import styles from "./AdminBlog.module.scss";
 
@@ -24,19 +25,24 @@ interface Post {
 export default function AdminBlogPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const router = useRouter();
 
   useEffect(() => {
-    fetchPosts();
-  }, []);
+    setLoading(true);
+    void fetchPosts();
+  }, [page]);
 
   const fetchPosts = async () => {
     try {
-      const res = await fetch("/api/admin/blog");
-      const data = await res.json();
-      setPosts(data.posts || []);
+      const res = await fetch(`/api/admin/blog?page=${page}&limit=20`);
+      const json = await res.json();
+      setPosts(json.data || []);
+      setTotalPages(json.pagination?.totalPages || 1);
     } catch {
       setPosts([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -95,62 +101,69 @@ export default function AdminBlogPage() {
           <p>No blog posts yet. Create your first post to get started.</p>
         </div>
       ) : (
-        <div className={styles.list}>
-          {posts.map((post) => (
-            <div key={post._id} className={styles.row}>
-              <div className={styles.rowInfo}>
-                <Link
-                  href={`/admin/blog/${post.slug}/edit`}
-                  className={styles.rowTitle}
-                >
-                  {post.title}
-                </Link>
-                <div className={styles.rowMeta}>
-                  <span
-                    className={`${styles.statusBadge} ${post.status === "published" ? styles.published : styles.draft}`}
+        <>
+          <div className={styles.list}>
+            {posts.map((post) => (
+              <div key={post._id} className={styles.row}>
+                <div className={styles.rowInfo}>
+                  <Link
+                    href={`/admin/blog/${post.slug}/edit`}
+                    className={styles.rowTitle}
                   >
-                    {post.status}
-                  </span>
-                  <span className={styles.rowAuthor}>
-                    {post.authors?.map((a) => a.name).join(", ") || "Unknown"}
-                  </span>
-                  <span className={styles.rowDate}>
-                    {new Date(
-                      post.publishedAt || post.createdAt,
-                    ).toLocaleDateString("en-IN", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
+                    {post.title}
+                  </Link>
+                  <div className={styles.rowMeta}>
+                    <span
+                      className={`${styles.statusBadge} ${post.status === "published" ? styles.published : styles.draft}`}
+                    >
+                      {post.status}
+                    </span>
+                    <span className={styles.rowAuthor}>
+                      {post.authors?.map((a) => a.name).join(", ") || "Unknown"}
+                    </span>
+                    <span className={styles.rowDate}>
+                      {new Date(
+                        post.publishedAt || post.createdAt,
+                      ).toLocaleDateString("en-IN", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </div>
+                </div>
+                <div className={styles.rowActions}>
+                  <Link
+                    href={`/admin/blog/${post.slug}/edit`}
+                    className={styles.btnSecondary}
+                  >
+                    Edit
+                  </Link>
+                  {post.status === "published" && (
+                    <Link
+                      href={`/blog/${post.slug}`}
+                      className={styles.btnSecondary}
+                      target="_blank"
+                    >
+                      View <IconExternalLink width={12} height={12} />
+                    </Link>
+                  )}
+                  <button
+                    className={styles.btnDanger}
+                    onClick={() => handleDelete(post.slug)}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
-              <div className={styles.rowActions}>
-                <Link
-                  href={`/admin/blog/${post.slug}/edit`}
-                  className={styles.btnSecondary}
-                >
-                  Edit
-                </Link>
-                {post.status === "published" && (
-                  <Link
-                    href={`/blog/${post.slug}`}
-                    className={styles.btnSecondary}
-                    target="_blank"
-                  >
-                    View <IconExternalLink width={12} height={12} />
-                  </Link>
-                )}
-                <button
-                  className={styles.btnDanger}
-                  onClick={() => handleDelete(post.slug)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </>
       )}
     </div>
   );

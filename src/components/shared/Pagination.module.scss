@@ -1,0 +1,52 @@
+@use "@/styles/mixins" as *;
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 1rem 0;
+}
+
+.pageBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    border-color: var(--accent-primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--text-on-accent, #fff);
+    font-weight: 600;
+  }
+}
+
+.ellipsis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}

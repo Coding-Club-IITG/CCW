@@ -9,6 +9,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
+import { invalidateCache } from "@/lib/cache";
 
 function generateSlug(title: string): string {
   return title
@@ -163,6 +164,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     await post.save();
+    await invalidateCache("blog");
+    await invalidateCache("admin:blog");
 
     return NextResponse.json({ post: post.toObject() });
   } catch (err) {
@@ -189,6 +192,9 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     if (!result) {
       return NextResponse.json({ error: "Post not found." }, { status: 404 });
     }
+
+    await invalidateCache("blog");
+    await invalidateCache("admin:blog");
 
     return NextResponse.json({ success: true });
   } catch (err) {

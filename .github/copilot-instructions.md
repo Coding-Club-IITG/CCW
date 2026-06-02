@@ -49,7 +49,7 @@ Always use `getDisplayName(name, pizzaCount)` from `src/lib/utils.ts` - never re
 
 ### Reuse Components
 
-Check `src/components/shared/` (PlatformTabs, LinkCard, BackLink, Icons), `leaderboard/` (LeaderboardTable), `blog/` (BlogCard, TagBadge, MarkdownRenderer) before creating new UI.
+Check `src/components/shared/` (PlatformTabs, LinkCard, BackLink, Icons, Pagination), `leaderboard/` (LeaderboardTable), `blog/` (BlogCard, TagBadge, MarkdownRenderer) before creating new UI.
 
 ### Client vs Server
 
@@ -153,9 +153,29 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 
 ## 8. Platform Integrations (`src/lib/platforms/`)
 
-- **Codeforces:** REST API, batches up to 50 handles per request
-- **AtCoder:** kenkoooo API + scraping, Redis-cached problems, 1s delay between requests
+- **Codeforces:** REST API, batches up to 50 handles per request, problemset cached 6h via `cachedFetch`
+- **AtCoder:** kenkoooo API + scraping, problems/difficulties cached 24h via `cachedFetch`, 1s delay between requests
 - **Contests:** Fetches CF + AtCoder + CodeChef + LeetCode via `Promise.allSettled`
+
+---
+
+## 8.5. Pagination & Caching (`src/lib/pagination.ts`, `src/lib/cache.ts`)
+
+### Pagination
+
+- All list API routes use offset-based pagination: `?page=1&limit=20`
+- Use `parsePagination(searchParams, { limit?: number })` → `{ page, limit, skip }`
+- Return via `paginatedResponse(data, total, page, limit)` → `{ data, pagination: { page, limit, total, totalPages, hasNext, hasPrev } }`
+- Max limit cap: 100. Default: 20.
+- Client pages use `<Pagination page={p} totalPages={tp} onPageChange={fn} />` from `@/components/shared/Pagination`
+
+### Redis Caching
+
+- Use `cachedFetch<T>(key, ttlSeconds, fetchFn)` for all cacheable reads — never inline `redis.get/set`
+- Use `buildCacheKey(prefix, params)` for deterministic keys: `ccw:<prefix>:<sorted-params>`
+- Use `invalidateCache(prefix)` after mutations to clear `ccw:<prefix>:*` keys
+- TTLs in `CACHE_TTLS` constant: TEAM (6h), CONTESTS (3h), CF_PROBLEMSET (6h), EVENTS/PROJECTS/LEADERBOARDS (5min), BLOG/FILES/USERS (2min), POTD (2min), HACKATHONS (5min)
+- Graceful fallback: if Redis is unavailable, `cachedFetch` falls through to `fetchFn` directly
 
 ---
 
@@ -165,7 +185,9 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 - **Models:** `export default`. **Actions/Constants:** named exports
 - **Dates:** IST via `IST_OFFSET_MS`. Display via `formatDate()` with `"en-IN"` locale
 - **Logging:** `logger.info/warn/error/debug` from `@/lib/utils` (prefixed `[CCW]`)
-- **DB:** `await dbConnect()` at start of any server function. `await getRedis()` for Redis
+- **DB:** `await dbConnect()` at start of any server function. `await getRedis()` for raw Redis access
+- **Caching:** Use `cachedFetch(key, ttl, fn)` from `@/lib/cache` — never inline `redis.get/set`. Call `invalidateCache(prefix)` in mutation handlers
+- **Pagination:** Use `parsePagination(searchParams)` + `paginatedResponse(data, total, page, limit)` from `@/lib/pagination` for all list endpoints
 - **Env:** Import `./lib/env` first in standalone entry points. See `.env.example` for required vars
 - **Validation:** Server-side validation with early returns; never trust client alone
 - **Serialization:** `JSON.parse(JSON.stringify(...))` for Mongoose docs to client
@@ -179,5 +201,5 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 3. **Redis resilience:** Agenda Redis channel has error listeners; worker survives Redis blips via MongoDB polling fallback.
 4. **`moduleRoles` type mismatch:** JSON string in better-auth session vs array in Mongoose - always use `parseModuleRoles()` from `src/lib/roles.ts`.
 5. **File upload limit:** 50MB (`next.config.mjs` serverActions.bodySizeLimit).
-6. **Theme:** Dark default. SSR theme detectino with cookie.
+6. **Theme:** Dark default. SSR theme detection with cookie.
 7. **No middleware.ts:** Route protection is `src/proxy.ts`, in newer versions of Next.js.

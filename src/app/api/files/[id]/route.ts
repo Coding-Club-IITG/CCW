@@ -15,6 +15,7 @@ import { createReadStream, existsSync } from "fs";
 import { unlink } from "fs/promises";
 import { Readable } from "stream";
 import path from "path";
+import { invalidateCache } from "@/lib/cache";
 import { logger } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -303,6 +304,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     await FileEntry.findByIdAndDelete(id);
+    await invalidateCache("files");
 
     logger.info(`[Files] ${user.email} deleted "${file.title}" (id: ${id})`);
     return NextResponse.json({ success: true });

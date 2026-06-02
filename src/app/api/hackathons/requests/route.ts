@@ -8,8 +8,9 @@ import dbConnect from "@/lib/mongodb";
 import Hackathon from "@/models/Hackathon";
 import HackathonTeam from "@/models/HackathonTeam";
 import HackathonRequest from "@/models/HackathonRequest";
-import { notify } from "@/lib/notify";
 import type { HackathonRequestType } from "@/lib/constants";
+import { notify } from "@/lib/notify";
+import { paginatedResponse, parsePagination } from "@/lib/pagination";
 
 export async function POST(request: NextRequest) {
   try {
@@ -229,19 +230,18 @@ export async function GET(request: NextRequest) {
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
     const teamId = searchParams.get("teamId");
 
     let filter: Record<string, any> = {};
 
     if (teamId) {
-      // Get requests for a team (only team owner can view)
       const team = (await HackathonTeam.findById(teamId).lean()) as any;
       if (!team || team.owner !== user.id) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
       filter = { teamId, type: "join_request", status: "pending" };
     } else {
-      // Get invites/responses for the current user
       filter = {
         $or: [
           { toUserId: user.id, type: "invite", status: "pending" },
@@ -250,11 +250,15 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const requests = await HackathonRequest.find(filter)
-      .sort({ createdAt: -1 })
-      .lean();
+    const [requests, total] = await Promise.all([
+      HackathonRequest.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      HackathonRequest.countDocuments(filter),
+    ]);
 
-    // If fetching team requests, include user details for display
     let users: Record<string, { name: string; pizza_count: number }> = {};
     if (teamId && requests.length > 0) {
       const User = (await import("@/models/User")).default;
@@ -270,7 +274,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ requests, users });
+    return NextResponse.json({
+      ...paginatedResponse(requests, total, page, limit),
+      users,
+    });
   } catch (err) {
     console.error("[Hackathon Requests] GET error:", err);
     return NextResponse.json(

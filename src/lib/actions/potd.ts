@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import axios from "axios";
 import dbConnect from "@/lib/mongodb";
+import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache";
 import { getRedis } from "@/lib/redis";
 import User from "@/models/User";
 import CPUser from "@/models/CPUser";
@@ -375,53 +376,73 @@ export type PastProblemEntry = {
 };
 
 export async function getPastProblems(
+  page = 1,
   limit = 30,
-): Promise<{ ok: boolean; data?: PastProblemEntry[]; error?: string }> {
+): Promise<{
+  ok: boolean;
+  data?: PastProblemEntry[];
+  total?: number;
+  error?: string;
+}> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return { ok: false, error: "Unauthorized" };
 
   await dbConnect();
 
-  const now = new Date();
-  const challenges = await DailyChallenge.find({ graceEnd: { $lt: now } })
-    .sort({ windowStart: -1, difficulty: 1 })
-    .limit(limit)
-    .populate("problem");
+  const cacheKey = buildCacheKey("potd:past", { page, limit });
+  const skip = (page - 1) * limit;
 
-  const challengeIds = challenges.map((c: any) => c._id);
-  const counts = await POTDSubmission.aggregate([
-    {
-      $match: {
-        challengeId: { $in: challengeIds },
-        // Count both normal and grace solves
-        status: { $in: ["Accepted", "Late"] },
-      },
+  const result = await cachedFetch(
+    cacheKey,
+    CACHE_TTLS.LEADERBOARDS,
+    async () => {
+      const now = new Date();
+      const [challenges, total] = await Promise.all([
+        DailyChallenge.find({ graceEnd: { $lt: now } })
+          .sort({ windowStart: -1, difficulty: 1 })
+          .skip(skip)
+          .limit(limit)
+          .populate("problem"),
+        DailyChallenge.countDocuments({ graceEnd: { $lt: now } }),
+      ]);
+
+      const challengeIds = challenges.map((c: any) => c._id);
+      const counts = await POTDSubmission.aggregate([
+        {
+          $match: {
+            challengeId: { $in: challengeIds },
+            status: { $in: ["Accepted", "Late"] },
+          },
+        },
+        { $group: { _id: "$challengeId", count: { $sum: 1 } } },
+      ]);
+
+      const countMap = new Map<string, number>(
+        counts.map((c: any) => [c._id.toString(), c.count]),
+      );
+
+      const data: PastProblemEntry[] = challenges.map((c: any) => {
+        const p = c.problem as any;
+        return {
+          challengeId: c._id.toString(),
+          windowStart: c.windowStart.toISOString(),
+          difficulty: c.difficulty,
+          platform: (p.platform || "codeforces") as Platform,
+          problem: {
+            contestId: p.contestId,
+            problemIndex: p.problemIndex,
+            name: p.name,
+            rating: p.rating,
+          },
+          solvedBy: countMap.get(c._id.toString()) ?? 0,
+        };
+      });
+
+      return { data, total };
     },
-    { $group: { _id: "$challengeId", count: { $sum: 1 } } },
-  ]);
-
-  const countMap = new Map<string, number>(
-    counts.map((c: any) => [c._id.toString(), c.count]),
   );
 
-  const data: PastProblemEntry[] = challenges.map((c: any) => {
-    const p = c.problem as any;
-    return {
-      challengeId: c._id.toString(),
-      windowStart: c.windowStart.toISOString(),
-      difficulty: c.difficulty,
-      platform: (p.platform || "codeforces") as Platform,
-      problem: {
-        contestId: p.contestId,
-        problemIndex: p.problemIndex,
-        name: p.name,
-        rating: p.rating,
-      },
-      solvedBy: countMap.get(c._id.toString()) ?? 0,
-    };
-  });
-
-  return { ok: true, data };
+  return { ok: true, data: result.data, total: result.total };
 }
 
 // Leaderboard
@@ -443,73 +464,79 @@ export async function getPotdLeaderboard(
 
   await dbConnect();
 
-  const now = new Date();
-  const since =
-    view === "weekly"
-      ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const cacheKey = buildCacheKey("potd:leaderboard", { view });
 
-  const rows = await POTDSubmission.aggregate([
-    {
-      $match: {
-        status: { $in: ["Accepted", "Late"] },
-        solvedAt: { $gte: since },
-      },
-    },
-    {
-      $group: {
-        _id: "$userId",
-        totalPoints: { $sum: "$pointsAwarded" },
-        totalSolved: { $sum: 1 },
-      },
-    },
-    // Join cfusers BEFORE sorting so we can use currentStreak as tiebreaker
-    {
-      $lookup: {
-        from: "cpusers",
-        localField: "_id",
-        foreignField: "userId",
-        as: "cpUser",
-      },
-    },
-    { $unwind: { path: "$cpUser", preserveNullAndEmptyArrays: true } },
-    {
-      $addFields: {
-        currentStreak: { $ifNull: ["$cpUser.potdCurrentStreak", 0] },
-      },
-    },
-    // Primary: points DESC; Tiebreaker: streak DESC
-    { $sort: { totalPoints: -1, currentStreak: -1 } },
-    { $limit: 50 },
-    {
-      $lookup: {
-        from: "users",
-        localField: "_id",
-        foreignField: "_id",
-        as: "user",
-      },
-    },
-    { $unwind: "$user" },
-    {
-      $project: {
-        _id: 0,
-        userId: { $toString: "$_id" },
-        name: "$user.name",
-        pizza_count: { $ifNull: ["$user.pizza_count", 0] },
-        handle: {
-          $ifNull: ["$user.codeforcesId", "$user.atcoderId", ""],
+  const data = await cachedFetch<LeaderboardEntry[]>(
+    cacheKey,
+    CACHE_TTLS.LEADERBOARDS,
+    async () => {
+      const now = new Date();
+      const since =
+        view === "weekly"
+          ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const rows = await POTDSubmission.aggregate([
+        {
+          $match: {
+            status: { $in: ["Accepted", "Late"] },
+            solvedAt: { $gte: since },
+          },
         },
-        totalPoints: 1,
-        totalSolved: 1,
-        currentStreak: 1,
-      },
-    },
-  ]);
+        {
+          $group: {
+            _id: "$userId",
+            totalPoints: { $sum: "$pointsAwarded" },
+            totalSolved: { $sum: 1 },
+          },
+        },
+        {
+          $lookup: {
+            from: "cpusers",
+            localField: "_id",
+            foreignField: "userId",
+            as: "cpUser",
+          },
+        },
+        { $unwind: { path: "$cpUser", preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            currentStreak: { $ifNull: ["$cpUser.potdCurrentStreak", 0] },
+          },
+        },
+        { $sort: { totalPoints: -1, currentStreak: -1 } },
+        { $limit: 50 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: "$user" },
+        {
+          $project: {
+            _id: 0,
+            userId: { $toString: "$_id" },
+            name: "$user.name",
+            pizza_count: { $ifNull: ["$user.pizza_count", 0] },
+            handle: {
+              $ifNull: ["$user.codeforcesId", "$user.atcoderId", ""],
+            },
+            totalPoints: 1,
+            totalSolved: 1,
+            currentStreak: 1,
+          },
+        },
+      ]);
 
-  const data: LeaderboardEntry[] = rows.map((row: any) => ({
-    ...row,
-    name: getDisplayName(row.name, row.pizza_count),
-  }));
+      return rows.map((row: any) => ({
+        ...row,
+        name: getDisplayName(row.name, row.pizza_count),
+      }));
+    },
+  );
 
   return { ok: true, data };
 }
@@ -536,33 +563,44 @@ export async function getStreakLeaderboard(): Promise<{
 
   await dbConnect();
 
-  const cpUsers = await CPUser.find(
-    { potdTotalSolved: { $gt: 0 } },
-    {
-      userId: 1,
-      potdCurrentStreak: 1,
-      potdLongestStreak: 1,
-      potdTotalSolved: 1,
-      potdTotalPoints: 1,
-    },
-  )
-    // Primary: streak DESC; Tiebreaker: totalPoints DESC
-    .sort({ potdCurrentStreak: -1, potdTotalPoints: -1, potdLongestStreak: -1 })
-    .limit(50)
-    .populate("userId", "name codeforcesId atcoderId pizza_count");
+  const cacheKey = "ccw:potd:streak-leaderboard";
 
-  const data: StreakEntry[] = cpUsers.map((cu: any) => {
-    const u = cu.userId as any;
-    return {
-      userId: u?._id?.toString() ?? "",
-      name: getDisplayName(u?.name ?? "", u?.pizza_count),
-      handle: u?.codeforcesId || u?.atcoderId || "",
-      currentStreak: cu.potdCurrentStreak ?? 0,
-      longestStreak: cu.potdLongestStreak ?? 0,
-      totalSolved: cu.potdTotalSolved ?? 0,
-      totalPoints: cu.potdTotalPoints ?? 0,
-    };
-  });
+  const data = await cachedFetch<StreakEntry[]>(
+    cacheKey,
+    CACHE_TTLS.LEADERBOARDS,
+    async () => {
+      const cpUsers = await CPUser.find(
+        { potdTotalSolved: { $gt: 0 } },
+        {
+          userId: 1,
+          potdCurrentStreak: 1,
+          potdLongestStreak: 1,
+          potdTotalSolved: 1,
+          potdTotalPoints: 1,
+        },
+      )
+        .sort({
+          potdCurrentStreak: -1,
+          potdTotalPoints: -1,
+          potdLongestStreak: -1,
+        })
+        .limit(50)
+        .populate("userId", "name codeforcesId atcoderId pizza_count");
+
+      return cpUsers.map((cu: any) => {
+        const u = cu.userId as any;
+        return {
+          userId: u?._id?.toString() ?? "",
+          name: getDisplayName(u?.name ?? "", u?.pizza_count),
+          handle: u?.codeforcesId || u?.atcoderId || "",
+          currentStreak: cu.potdCurrentStreak ?? 0,
+          longestStreak: cu.potdLongestStreak ?? 0,
+          totalSolved: cu.potdTotalSolved ?? 0,
+          totalPoints: cu.potdTotalPoints ?? 0,
+        };
+      });
+    },
+  );
 
   return { ok: true, data };
 }

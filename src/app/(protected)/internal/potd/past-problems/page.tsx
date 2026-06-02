@@ -8,7 +8,7 @@ import {
 import { windowStartToISTDateStr } from "@/lib/potd/utils";
 
 export default async function PastProblemsPage() {
-  const result = await getPastProblems(30);
+  const result = await getPastProblems(1, 30);
   const pastProblems = result.data ?? [];
 
   return (

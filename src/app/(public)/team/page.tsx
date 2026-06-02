@@ -1,3 +1,4 @@
+import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import {
@@ -51,13 +52,19 @@ export default async function TeamPage() {
 
   try {
     await dbConnect();
-    const users = await User.find({
-      role: { $in: TEAM_ROLES },
-      email: { $ne: "codingclub@iitg.ac.in" },
-    })
-      .select("name image role moduleRoles bio pizza_count")
-      .lean();
-    teamMembers = users as unknown as TeamMember[];
+    teamMembers = await cachedFetch<TeamMember[]>(
+      "ccw:team:roster",
+      CACHE_TTLS.TEAM,
+      async () => {
+        const users = await User.find({
+          role: { $in: TEAM_ROLES },
+          email: { $ne: "codingclub@iitg.ac.in" },
+        })
+          .select("name image role moduleRoles bio pizza_count")
+          .lean();
+        return users as unknown as TeamMember[];
+      },
+    );
   } catch (e) {
     logger.error("Failed to fetch team members", e);
     fetchError = true;

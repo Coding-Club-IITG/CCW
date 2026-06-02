@@ -4,7 +4,7 @@
  */
 
 import axios from "axios";
-import { getRedis } from "@/lib/redis";
+import { cachedFetch } from "@/lib/cache";
 import { logger } from "@/lib/utils";
 
 const ATCODER_API_BASE = "https://kenkoooo.com/atcoder";
@@ -60,24 +60,18 @@ export type ACUserInfo = {
 export async function getContestProblems(
   contestId: string,
 ): Promise<ACProblem[]> {
-  const redis = await getRedis();
-  const cacheKey = `ac:contest_problems:${contestId}`;
-  const cached = await redis.get(cacheKey);
-  if (cached) return JSON.parse(cached);
-
-  const { data } = await axios.get(
-    `${ATCODER_API_BASE}/resources/problems.json`,
-    { timeout: 15_000 },
+  const allProblems = await cachedFetch<ACProblem[]>(
+    `ccw:ac:contest_problems:${contestId}`,
+    86_400,
+    async () => {
+      const { data } = await axios.get(
+        `${ATCODER_API_BASE}/resources/problems.json`,
+        { timeout: 15_000 },
+      );
+      return data.filter((p: ACProblem) => p.contest_id === contestId);
+    },
   );
-
-  const contestProblems = data.filter(
-    (p: ACProblem) => p.contest_id === contestId,
-  );
-  if (contestProblems.length > 0) {
-    await redis.set(cacheKey, JSON.stringify(contestProblems), { EX: 86_400 });
-  }
-
-  return contestProblems;
+  return allProblems;
 }
 
 /**
@@ -86,18 +80,17 @@ export async function getContestProblems(
 export async function getProblemDifficulties(): Promise<
   Record<string, ACProblemDifficulty>
 > {
-  const redis = await getRedis();
-  const cacheKey = "ac:problem_difficulties:v1";
-  const cached = await redis.get(cacheKey);
-  if (cached) return JSON.parse(cached);
-
-  const { data } = await axios.get(
-    `${ATCODER_API_BASE}/resources/problem-models.json`,
-    { timeout: 30_000 },
+  return cachedFetch<Record<string, ACProblemDifficulty>>(
+    "ccw:ac:problem_difficulties:v1",
+    86_400,
+    async () => {
+      const { data } = await axios.get(
+        `${ATCODER_API_BASE}/resources/problem-models.json`,
+        { timeout: 30_000 },
+      );
+      return data;
+    },
   );
-
-  await redis.set(cacheKey, JSON.stringify(data), { EX: 86_400 });
-  return data;
 }
 
 /**
@@ -106,21 +99,17 @@ export async function getProblemDifficulties(): Promise<
 export async function getProblemById(
   problemId: string,
 ): Promise<{ problem: ACProblem; difficulty: number } | null> {
-  const redis = await getRedis();
-  const allProblemsCacheKey = "ac:all_problems:v1";
-
-  let allProblems: ACProblem[];
-  const cached = await redis.get(allProblemsCacheKey);
-  if (cached) {
-    allProblems = JSON.parse(cached);
-  } else {
-    const { data } = await axios.get(
-      `${ATCODER_API_BASE}/resources/problems.json`,
-      { timeout: 30_000 },
-    );
-    allProblems = data;
-    await redis.set(allProblemsCacheKey, JSON.stringify(data), { EX: 86_400 });
-  }
+  const allProblems = await cachedFetch<ACProblem[]>(
+    "ccw:ac:all_problems:v1",
+    86_400,
+    async () => {
+      const { data } = await axios.get(
+        `${ATCODER_API_BASE}/resources/problems.json`,
+        { timeout: 30_000 },
+      );
+      return data;
+    },
+  );
 
   const problem = allProblems.find((p) => p.id === problemId);
   if (!problem) return null;

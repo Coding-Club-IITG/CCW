@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
+import { invalidateCache } from "@/lib/cache";
 import Hackathon from "@/models/Hackathon";
 
 export async function PATCH(
@@ -61,6 +62,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Not found." }, { status: 404 });
     }
 
+    await invalidateCache("hackathons");
+    await invalidateCache("admin:hackathons");
+
     return NextResponse.json({ hackathon });
   } catch (err) {
     console.error("[Hackathon Admin] PATCH error:", err);
@@ -94,6 +98,9 @@ export async function DELETE(
     if (!hackathon) {
       return NextResponse.json({ error: "Not found." }, { status: 404 });
     }
+
+    await invalidateCache("hackathons");
+    await invalidateCache("admin:hackathons");
 
     return NextResponse.json({ hackathon });
   } catch (err) {

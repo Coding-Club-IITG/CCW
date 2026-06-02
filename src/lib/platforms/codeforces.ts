@@ -4,6 +4,7 @@
  */
 
 import axios from "axios";
+import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import { logger } from "@/lib/utils";
 
 const CF_API_BASE = "https://codeforces.com/api";
@@ -89,15 +90,19 @@ export async function getProblems(): Promise<{
   problems: CFProblem[];
   problemStatistics: any[];
 }> {
-  const response = await axios.get(`${CF_API_BASE}/problemset.problems`);
-
-  if (response.data.status !== "OK") {
-    throw new Error(
-      `Codeforces API error: ${response.data.comment || "Unknown"}`,
-    );
-  }
-
-  return response.data.result;
+  return cachedFetch(
+    "ccw:cf:problemset",
+    CACHE_TTLS.CF_PROBLEMSET,
+    async () => {
+      const response = await axios.get(`${CF_API_BASE}/problemset.problems`);
+      if (response.data.status !== "OK") {
+        throw new Error(
+          `Codeforces API error: ${response.data.comment || "Unknown"}`,
+        );
+      }
+      return response.data.result;
+    },
+  );
 }
 
 /**

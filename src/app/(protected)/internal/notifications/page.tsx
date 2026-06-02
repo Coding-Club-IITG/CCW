@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { IconExternalLink } from "@/components/shared/Icons";
+import Pagination from "@/components/shared/Pagination";
 import styles from "./Notifications.module.scss";
 
 interface Notification {
@@ -18,16 +19,22 @@ interface Notification {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    setLoading(true);
     fetchNotifications();
-  }, []);
+  }, [page]);
 
   async function fetchNotifications() {
     try {
-      const res = await fetch("/api/notifications");
+      const res = await fetch(`/api/notifications?page=${page}&limit=30`);
       const data = await res.json();
-      setNotifications(data.notifications || []);
+      setNotifications(data.data || []);
+      setTotalPages(data.pagination?.totalPages || 1);
+      setUnreadCount(data.unreadCount ?? 0);
     } catch {
       // silent
     } finally {
@@ -43,6 +50,7 @@ export default function NotificationsPage() {
         body: JSON.stringify({ all: true }),
       });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
     } catch {
       // silent
     }
@@ -58,12 +66,11 @@ export default function NotificationsPage() {
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, read: true } : n)),
       );
+      setUnreadCount((c) => Math.max(0, c - 1));
     } catch {
       // silent
     }
   }
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <div className={styles.container}>
@@ -87,28 +94,35 @@ export default function NotificationsPage() {
       ) : notifications.length === 0 ? (
         <p className={styles.muted}>No notifications yet.</p>
       ) : (
-        <div className={styles.list}>
-          {notifications.map((n) => (
-            <div
-              key={n._id}
-              className={`${styles.item} ${!n.read ? styles.unread : ""}`}
-              onClick={() => !n.read && markRead(n._id)}
-            >
-              <div className={styles.itemContent}>
-                <h3>{n.title}</h3>
-                <p>{n.message}</p>
-                <span className={styles.time}>
-                  {new Date(n.createdAt).toLocaleString()}
-                </span>
+        <>
+          <div className={styles.list}>
+            {notifications.map((n) => (
+              <div
+                key={n._id}
+                className={`${styles.item} ${!n.read ? styles.unread : ""}`}
+                onClick={() => !n.read && markRead(n._id)}
+              >
+                <div className={styles.itemContent}>
+                  <h3>{n.title}</h3>
+                  <p>{n.message}</p>
+                  <span className={styles.time}>
+                    {new Date(n.createdAt).toLocaleString()}
+                  </span>
+                </div>
+                {n.link && (
+                  <Link href={n.link} className={styles.itemLink}>
+                    View <IconExternalLink width={12} height={12} />
+                  </Link>
+                )}
               </div>
-              {n.link && (
-                <Link href={n.link} className={styles.itemLink}>
-                  View <IconExternalLink width={12} height={12} />
-                </Link>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </>
       )}
     </div>
   );

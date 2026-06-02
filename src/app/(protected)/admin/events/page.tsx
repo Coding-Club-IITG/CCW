@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import BackLink from "@/components/shared/BackLink";
+import Pagination from "@/components/shared/Pagination";
 import { deleteEvent } from "@/lib/actions/admin/events";
 import { getEventStatus } from "@/lib/eventStatus";
 import type { EventRecurrenceType } from "@/lib/constants";
@@ -46,26 +47,25 @@ export default function AdminEventsPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
+    setLoading(true);
     void fetchEvents();
-  }, []);
+  }, [page]);
 
   async function fetchEvents() {
     try {
-      const res = await fetch("/api/admin/events");
-      const data = (await res.json()) as {
-        error?: string;
-        events?: EventItem[];
-      };
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch events.");
-      }
-
-      setEvents(data.events || []);
+      setError("");
+      const res = await fetch(`/api/admin/events?page=${page}&limit=20`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch events.");
+      setEvents(data.data || []);
+      setTotalPages(data.pagination?.totalPages || 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch events.");
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -110,51 +110,58 @@ export default function AdminEventsPage() {
       ) : events.length === 0 ? (
         <p className={styles.empty}>No events yet.</p>
       ) : (
-        <div className={styles.list}>
-          {events.map((event) => {
-            const status = getEventStatus(
-              event.startDate,
-              event.endDate,
-              event.recurrenceType as EventRecurrenceType | undefined,
-              event.recurrenceCount,
-            );
+        <>
+          <div className={styles.list}>
+            {events.map((event) => {
+              const status = getEventStatus(
+                event.startDate,
+                event.endDate,
+                event.recurrenceType as EventRecurrenceType | undefined,
+                event.recurrenceCount,
+              );
 
-            return (
-              <div key={event._id} className={styles.item}>
-                <div className={styles.itemInfo}>
-                  <div className={styles.itemTop}>
-                    <span className={styles.itemTitle}>{event.title}</span>
-                    <span
-                      className={`${styles.statusBadge} ${styles[status.toLowerCase()]}`}
-                    >
-                      {status}
+              return (
+                <div key={event._id} className={styles.item}>
+                  <div className={styles.itemInfo}>
+                    <div className={styles.itemTop}>
+                      <span className={styles.itemTitle}>{event.title}</span>
+                      <span
+                        className={`${styles.statusBadge} ${styles[status.toLowerCase()]}`}
+                      >
+                        {status}
+                      </span>
+                    </div>
+                    <span className={styles.itemMeta}>
+                      {formatEventDate(event.startDate, event.endDate)}
+                      {event.module ? ` · ${event.module}` : ""}
                     </span>
                   </div>
-                  <span className={styles.itemMeta}>
-                    {formatEventDate(event.startDate, event.endDate)}
-                    {event.module ? ` · ${event.module}` : ""}
-                  </span>
+                  <div className={styles.itemActions}>
+                    <Link
+                      href={`/admin/events/${event._id}`}
+                      className={styles.editBtn}
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      type="button"
+                      className={styles.deleteBtn}
+                      onClick={() => void handleDelete(event._id)}
+                      disabled={deleting === event._id}
+                    >
+                      {deleting === event._id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
                 </div>
-                <div className={styles.itemActions}>
-                  <Link
-                    href={`/admin/events/${event._id}`}
-                    className={styles.editBtn}
-                  >
-                    Edit
-                  </Link>
-                  <button
-                    type="button"
-                    className={styles.deleteBtn}
-                    onClick={() => void handleDelete(event._id)}
-                    disabled={deleting === event._id}
-                  >
-                    {deleting === event._id ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </>
       )}
     </div>
   );

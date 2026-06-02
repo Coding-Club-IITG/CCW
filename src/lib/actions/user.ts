@@ -8,6 +8,12 @@ import User from "@/models/User";
 import CPUser from "@/models/CPUser";
 import POTDSubmission from "@/models/POTDSubmission";
 import { revalidatePath } from "next/cache";
+import {
+  cachedFetch,
+  buildCacheKey,
+  CACHE_TTLS,
+  invalidateCache,
+} from "@/lib/cache";
 import { logger } from "@/lib/utils";
 import { isAdmin, cleanUserRoles } from "@/lib/roles";
 import { ObjectId } from "mongodb";
@@ -31,13 +37,24 @@ async function checkAdmin() {
   }
 }
 
-export async function getUsers() {
+export async function getUsers(page = 1, limit = 50) {
   try {
     const session = await checkAdmin();
     if (!session) return { success: false as const, error: "Unauthorized" };
     await dbConnect();
-    const users = await User.find({}).sort({ createdAt: -1 }).lean();
-    return { success: true as const, users: JSON.parse(JSON.stringify(users)) };
+
+    const cacheKey = buildCacheKey("users:admin", { page, limit });
+    const skip = (page - 1) * limit;
+
+    const result = await cachedFetch(cacheKey, CACHE_TTLS.USERS, async () => {
+      const [users, total] = await Promise.all([
+        User.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        User.countDocuments({}),
+      ]);
+      return { users: JSON.parse(JSON.stringify(users)), total };
+    });
+
+    return { success: true as const, users: result.users, total: result.total };
   } catch (err) {
     logger.error("getUsers error:", err);
     return { success: false as const, error: "Failed to fetch users." };
@@ -65,6 +82,7 @@ export async function addUser(email: string, name?: string) {
     });
 
     logger.info(`Admin ${adminSession.user.email} added user: ${email}`);
+    await invalidateCache("users");
     revalidatePath("/admin");
     return {
       success: true as const,
@@ -97,6 +115,8 @@ export async function updateUserRole(userId: string, role: string) {
     logger.info(
       `Admin ${adminSession.user.email} updated role of ${updatedUser.email} to ${role}`,
     );
+    await invalidateCache("users");
+    await invalidateCache("team");
     revalidatePath("/admin");
     return {
       success: true as const,
@@ -132,6 +152,8 @@ export async function updateUserModuleRoles(
     logger.info(
       `Admin ${adminSession.user.email} updated module roles of ${updatedUser.email}`,
     );
+    await invalidateCache("users");
+    await invalidateCache("team");
     revalidatePath("/admin");
     return {
       success: true as const,
@@ -199,6 +221,10 @@ export async function deleteUser(userId: string) {
       );
     }
 
+    await invalidateCache("users");
+    await invalidateCache("team");
+    await invalidateCache("cp");
+    await invalidateCache("potd");
     revalidatePath("/admin");
     return { success: true as const };
   } catch (err) {
@@ -227,6 +253,10 @@ export async function updateUserPizzaCount(userId: string, delta: 1 | -1) {
     logger.info(
       `Admin ${adminSession.user.email} updated pizza_count of ${updatedUser.email} to ${newCount}`,
     );
+    await invalidateCache("users");
+    await invalidateCache("team");
+    await invalidateCache("cp");
+    await invalidateCache("potd");
     revalidatePath("/admin");
     return {
       success: true as const,
@@ -403,6 +433,9 @@ export async function updateProfile(data: {
     }
 
     logger.info(`User ${session.user.email} updated their profile`);
+    await invalidateCache("team");
+    await invalidateCache("cp");
+    await invalidateCache("potd");
     revalidatePath("/internal/dashboard");
     revalidatePath("/team");
     return {

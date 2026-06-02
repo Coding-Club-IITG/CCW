@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
+import { paginatedResponse, parsePagination } from "@/lib/pagination";
 import Notification from "@/models/Notification";
 
 export async function GET(request: NextRequest) {
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
     const unreadOnly = searchParams.get("unread") === "true";
 
     const filter: Record<string, any> = { userId: user.id };
@@ -26,17 +28,20 @@ export async function GET(request: NextRequest) {
       filter.read = false;
     }
 
-    const notifications = await Notification.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
+    const [notifications, total, unreadCount] = await Promise.all([
+      Notification.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Notification.countDocuments(filter),
+      Notification.countDocuments({ userId: user.id, read: false }),
+    ]);
 
-    const unreadCount = await Notification.countDocuments({
-      userId: user.id,
-      read: false,
+    return NextResponse.json({
+      ...paginatedResponse(notifications, total, page, limit),
+      unreadCount,
     });
-
-    return NextResponse.json({ notifications, unreadCount });
   } catch (err) {
     console.error("[Notifications] GET error:", err);
     return NextResponse.json(

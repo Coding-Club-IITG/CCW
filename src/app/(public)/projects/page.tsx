@@ -1,3 +1,4 @@
+import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import Project, { IProject } from "@/models/Project";
 import { logger } from "@/lib/utils";
@@ -16,9 +17,14 @@ export default async function ProjectsPage() {
 
   try {
     await dbConnect();
-    projects = (await Project.find({})
-      .sort({ date: -1 })
-      .lean()) as unknown as IProject[];
+    projects = await cachedFetch<IProject[]>(
+      "ccw:projects:public",
+      CACHE_TTLS.PROJECTS,
+      async () => {
+        const result = await Project.find({}).sort({ date: -1 }).lean();
+        return result as unknown as IProject[];
+      },
+    );
   } catch (e) {
     logger.error("Failed to fetch projects", e);
     fetchError = true;

@@ -6,10 +6,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
-import Hackathon from "@/models/Hackathon";
-import User from "@/models/User";
+import {
+  cachedFetch,
+  buildCacheKey,
+  CACHE_TTLS,
+  invalidateCache,
+} from "@/lib/cache";
 import { notifyMany } from "@/lib/notify";
 import { fetchOgImage } from "@/lib/ogImage";
+import { parsePagination, paginatedResponse } from "@/lib/pagination";
+import Hackathon from "@/models/Hackathon";
+import User from "@/models/User";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,6 +28,7 @@ export async function GET(request: NextRequest) {
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
     const status = searchParams.get("status");
 
     const filter: Record<string, any> = {};
@@ -28,11 +36,31 @@ export async function GET(request: NextRequest) {
       filter.status = status;
     }
 
-    const hackathons = await Hackathon.find(filter)
-      .sort({ createdAt: -1 })
-      .lean();
+    const cacheKey = buildCacheKey("admin:hackathons", {
+      page,
+      limit,
+      status: status || undefined,
+    });
 
-    return NextResponse.json({ hackathons });
+    const result = await cachedFetch(
+      cacheKey,
+      CACHE_TTLS.HACKATHONS,
+      async () => {
+        const [hackathons, total] = await Promise.all([
+          Hackathon.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
+          Hackathon.countDocuments(filter),
+        ]);
+        return { hackathons, total };
+      },
+    );
+
+    return NextResponse.json(
+      paginatedResponse(result.hackathons, result.total, page, limit),
+    );
   } catch (err) {
     console.error("[Hackathon Admin] GET error:", err);
     return NextResponse.json(
@@ -162,6 +190,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Broadcast notification to all members
+    await invalidateCache("hackathons");
+    await invalidateCache("admin:hackathons");
+
     const allUsers = await User.find({}).select("_id").lean();
     const userIds = (allUsers as any[]).map((u) => u._id.toString());
     await notifyMany(userIds, {

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import styles from "./Hackathons.module.scss";
 import BackLink from "@/components/shared/BackLink";
+import Pagination from "@/components/shared/Pagination";
+import styles from "./Hackathons.module.scss";
 
 interface Hackathon {
   _id: string;
@@ -26,6 +27,8 @@ export default function AdminHackathonsPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Form state
   const [name, setName] = useState("");
@@ -38,16 +41,20 @@ export default function AdminHackathonsPage() {
   const [description, setDescription] = useState("");
 
   useEffect(() => {
-    fetchHackathons();
-  }, []);
+    setLoading(true);
+    void fetchHackathons();
+  }, [page]);
 
   async function fetchHackathons() {
     try {
-      const res = await fetch("/api/admin/hackathons");
+      setError("");
+      const res = await fetch(`/api/admin/hackathons?page=${page}&limit=20`);
       const data = await res.json();
-      setHackathons(data.hackathons || []);
+      setHackathons(data.data || []);
+      setTotalPages(data.pagination?.totalPages || 1);
     } catch {
       setError("Failed to fetch hackathons.");
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -228,57 +235,64 @@ export default function AdminHackathonsPage() {
       ) : hackathons.length === 0 ? (
         <p className={styles.muted}>No hackathons yet.</p>
       ) : (
-        <div className={styles.list}>
-          {hackathons.map((h) => (
-            <div key={h._id} className={styles.card}>
-              <div className={styles.cardHeader}>
-                <h3>{h.name}</h3>
-                <span
-                  className={`${styles.badge} ${h.status === "active" ? styles.badgeActive : styles.badgeArchived}`}
-                >
-                  {h.status}
-                </span>
-              </div>
-              <p className={styles.cardOrg}>{h.organization}</p>
-              <div className={styles.cardMeta}>
-                <span>
-                  Team size:{" "}
-                  {h.minMembers === h.maxMembers
-                    ? h.maxMembers
-                    : `${h.minMembers}-${h.maxMembers}`}
-                </span>
-                <span>
-                  Deadline: {new Date(h.deadline).toLocaleDateString()}
-                </span>
-              </div>
-              {h.skills.length > 0 && (
-                <div className={styles.skills}>
-                  {h.skills.map((s) => (
-                    <span key={s} className={styles.skill}>
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className={styles.cardActions}>
-                <button
-                  className={styles.btnSecondary}
-                  onClick={() => router.push(`/admin/hackathons/${h._id}`)}
-                >
-                  Monitor Teams
-                </button>
-                {h.status === "active" && (
-                  <button
-                    className={styles.btnDanger}
-                    onClick={() => handleArchive(h._id)}
+        <>
+          <div className={styles.list}>
+            {hackathons.map((h) => (
+              <div key={h._id} className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <h3>{h.name}</h3>
+                  <span
+                    className={`${styles.badge} ${h.status === "active" ? styles.badgeActive : styles.badgeArchived}`}
                   >
-                    Archive
-                  </button>
+                    {h.status}
+                  </span>
+                </div>
+                <p className={styles.cardOrg}>{h.organization}</p>
+                <div className={styles.cardMeta}>
+                  <span>
+                    Team size:{" "}
+                    {h.minMembers === h.maxMembers
+                      ? h.maxMembers
+                      : `${h.minMembers}-${h.maxMembers}`}
+                  </span>
+                  <span>
+                    Deadline: {new Date(h.deadline).toLocaleDateString()}
+                  </span>
+                </div>
+                {h.skills.length > 0 && (
+                  <div className={styles.skills}>
+                    {h.skills.map((s) => (
+                      <span key={s} className={styles.skill}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
                 )}
+                <div className={styles.cardActions}>
+                  <button
+                    className={styles.btnSecondary}
+                    onClick={() => router.push(`/admin/hackathons/${h._id}`)}
+                  >
+                    Monitor Teams
+                  </button>
+                  {h.status === "active" && (
+                    <button
+                      className={styles.btnDanger}
+                      onClick={() => handleArchive(h._id)}
+                    >
+                      Archive
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </>
       )}
     </div>
   );

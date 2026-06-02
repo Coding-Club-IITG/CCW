@@ -3,7 +3,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
+import { paginatedResponse, parsePagination } from "@/lib/pagination";
 import BlogPost from "@/models/BlogPost";
 
 export async function GET(request: NextRequest) {
@@ -11,40 +13,40 @@ export async function GET(request: NextRequest) {
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const limit = Math.min(
-      50,
-      Math.max(1, parseInt(searchParams.get("limit") || "12", 10)),
-    );
-    const tag = searchParams.get("tag");
+    const { page, limit, skip } = parsePagination(searchParams, { limit: 12 });
+    const tag = searchParams.get("tag")?.trim() || null;
 
-    const filter: Record<string, any> = { status: "published" };
-    if (tag && tag.trim().length > 0) {
-      filter.tags = tag.trim();
-    }
+    const cacheKey = buildCacheKey("blog", {
+      page,
+      limit,
+      tag: tag || undefined,
+    });
 
-    const [posts, total, availableTags] = await Promise.all([
-      BlogPost.find(filter)
-        .select(
-          "title slug excerpt coverImage authors tags publishedAt updatedAt",
-        )
-        .sort({ publishedAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-      BlogPost.countDocuments(filter),
-      BlogPost.distinct("tags", { status: "published" }),
-    ]);
+    const result = await cachedFetch(cacheKey, CACHE_TTLS.BLOG, async () => {
+      const filter: Record<string, any> = { status: "published" };
+      if (tag) {
+        filter.tags = tag;
+      }
+
+      const [posts, total, availableTags] = await Promise.all([
+        BlogPost.find(filter)
+          .select(
+            "title slug excerpt coverImage authors tags publishedAt updatedAt",
+          )
+          .sort({ publishedAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        BlogPost.countDocuments(filter),
+        BlogPost.distinct("tags", { status: "published" }),
+      ]);
+
+      return { posts, total, availableTags };
+    });
 
     return NextResponse.json({
-      posts,
-      availableTags,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      ...paginatedResponse(result.posts, result.total, page, limit),
+      availableTags: result.availableTags,
     });
   } catch (err) {
     console.error("[Blog] GET /api/blog error:", err);

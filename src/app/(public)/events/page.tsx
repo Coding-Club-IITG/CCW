@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { type EventRecurrenceType } from "@/lib/constants";
 import { getEventStatus } from "@/lib/eventStatus";
+import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { formatDate, logger } from "@/lib/utils";
 import Event, { type IEvent } from "@/models/Event";
@@ -32,9 +33,14 @@ export default async function EventsPage() {
 
   try {
     await dbConnect();
-    events = (await Event.find({})
-      .sort({ startDate: -1 })
-      .lean()) as unknown as IEvent[];
+    events = await cachedFetch<IEvent[]>(
+      "ccw:events:public",
+      CACHE_TTLS.EVENTS,
+      async () => {
+        const result = await Event.find({}).sort({ startDate: -1 }).lean();
+        return result as unknown as IEvent[];
+      },
+    );
   } catch (error) {
     logger.error("Failed to fetch events", error);
     fetchError = true;

@@ -4,7 +4,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
+import { paginatedResponse, parsePagination } from "@/lib/pagination";
 import Hackathon from "@/models/Hackathon";
 
 export async function GET(request: NextRequest) {
@@ -16,11 +18,34 @@ export async function GET(request: NextRequest) {
 
     await dbConnect();
 
-    const hackathons = await Hackathon.find({ status: "active" })
-      .sort({ deadline: 1 })
-      .lean();
+    const { searchParams } = new URL(request.url);
+    const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
 
-    return NextResponse.json({ hackathons });
+    const cacheKey = buildCacheKey("hackathons", {
+      page,
+      limit,
+      status: "active",
+    });
+
+    const result = await cachedFetch(
+      cacheKey,
+      CACHE_TTLS.HACKATHONS,
+      async () => {
+        const [hackathons, total] = await Promise.all([
+          Hackathon.find({ status: "active" })
+            .sort({ deadline: 1 })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
+          Hackathon.countDocuments({ status: "active" }),
+        ]);
+        return { hackathons, total };
+      },
+    );
+
+    return NextResponse.json(
+      paginatedResponse(result.hackathons, result.total, page, limit),
+    );
   } catch (err) {
     console.error("[Hackathons] GET error:", err);
     return NextResponse.json(
