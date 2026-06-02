@@ -6,8 +6,8 @@
 import dbConnect from "@/lib/mongodb";
 import Hackathon from "@/models/Hackathon";
 import HackathonTeam from "@/models/HackathonTeam";
-import Notification from "@/models/Notification";
 import User from "@/models/User";
+import { notifyMany } from "@/lib/notify";
 import { logger } from "@/lib/utils";
 
 export async function sendHackathonDeadlineReminders() {
@@ -42,17 +42,15 @@ export async function sendHackathonDeadlineReminders() {
 
     if (unregisteredUsers.length === 0) continue;
 
-    const notifications = unregisteredUsers.map((u) => ({
-      userId: u._id.toString(),
-      type: "hackathon_reminder" as const,
+    const userIds = unregisteredUsers.map((u) => u._id.toString());
+    await notifyMany(userIds, {
+      type: "hackathon_reminder",
       title: "Hackathon Deadline Approaching",
       message: `"${hackathon.name}" deadline is in 2 days! Find a team before it's too late.`,
       link: `/internal/hackathons/${hackathon._id}`,
-    }));
-
-    await Notification.insertMany(notifications, { ordered: false });
+    });
     logger.info(
-      `[hackathon-reminder] Sent ${notifications.length} reminders for "${hackathon.name}"`,
+      `[hackathon-reminder] Sent ${userIds.length} reminders for "${hackathon.name}"`,
     );
   }
 }

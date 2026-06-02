@@ -8,7 +8,7 @@ import dbConnect from "@/lib/mongodb";
 import HackathonTeam from "@/models/HackathonTeam";
 import HackathonRequest from "@/models/HackathonRequest";
 import Hackathon from "@/models/Hackathon";
-import Notification from "@/models/Notification";
+import { notify } from "@/lib/notify";
 
 export async function PATCH(
   request: NextRequest,
@@ -77,7 +77,7 @@ export async function PATCH(
       // Notify the requester
       const notifyUserId =
         req.type === "join_request" ? req.fromUserId : req.fromUserId;
-      await Notification.create({
+      await notify({
         userId: notifyUserId,
         type: "request_rejected",
         title: "Request Rejected",
@@ -148,7 +148,7 @@ export async function PATCH(
     // Notify
     const notifyUserId =
       req.type === "join_request" ? req.fromUserId : req.toUserId;
-    await Notification.create({
+    await notify({
       userId: notifyUserId,
       type: "request_accepted",
       title: "Request Accepted",

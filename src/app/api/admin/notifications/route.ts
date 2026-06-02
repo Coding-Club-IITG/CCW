@@ -9,20 +9,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
+import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
-import Notification from "@/models/Notification";
+import { notifyMany } from "@/lib/notify";
 import User from "@/models/User";
 import { MODULES } from "@/lib/constants";
-
-async function requireAdmin(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) return null;
-  const user = session.user as any;
-  if (!isAdmin(user.role)) return null;
-  return user;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -103,19 +94,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const notifications = (users as any[]).map((u) => ({
-      userId: u._id.toString(),
-      type: "announcement" as const,
+    const userIds = (users as any[]).map((u) => u._id.toString());
+
+    await notifyMany(userIds, {
+      type: "announcement",
       title: title.trim(),
       message: message.trim(),
       link: link || "",
-    }));
-
-    await Notification.insertMany(notifications, { ordered: false });
+    });
 
     return NextResponse.json({
       success: true,
-      sent: notifications.length,
+      sent: userIds.length,
     });
   } catch (err) {
     console.error("[Admin Notifications] POST error:", err);

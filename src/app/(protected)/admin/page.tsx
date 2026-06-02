@@ -21,6 +21,16 @@ export default async function AdminPage() {
           description="Create, edit, and publish blog posts for the community."
         />
         <LinkCard
+          href="/admin/events"
+          title="Event Management"
+          description="Create, edit, and maintain event listings for the club."
+        />
+        <LinkCard
+          href="/admin/projects"
+          title="Project Management"
+          description="Manage showcase projects, repository links, and cover images."
+        />
+        <LinkCard
           href="/admin/hackathons"
           title="Hackathon Management"
           description="Create hackathons and monitor team registrations."

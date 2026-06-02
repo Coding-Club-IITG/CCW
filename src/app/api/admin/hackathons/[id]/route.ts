@@ -4,18 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
+import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
 import Hackathon from "@/models/Hackathon";
-
-async function requireAdmin(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) return null;
-  const user = session.user as any;
-  if (!isAdmin(user.role)) return null;
-  return user;
-}
 
 export async function PATCH(
   request: NextRequest,

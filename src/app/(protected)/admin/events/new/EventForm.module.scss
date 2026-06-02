@@ -1,0 +1,142 @@
+@use "@/styles/mixins" as *;
+
+.container {
+  padding: 1rem 0;
+}
+
+.pageTitle {
+  margin: 1rem 0 1.25rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground-strong);
+}
+
+.error {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--error-border-light);
+  border-radius: 6px;
+  background: var(--error-bg);
+  color: var(--error-text);
+  font-size: 0.875rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+
+  @media (max-width: 720px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.field {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--foreground-secondary);
+}
+
+.input,
+.textarea,
+.select {
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  background: var(--surface-secondary);
+  color: var(--foreground);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 5rem;
+}
+
+.select {
+  cursor: pointer;
+}
+
+.posterRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.posterPreview {
+  width: 12rem;
+  height: 6.75rem;
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--surface-secondary);
+}
+
+.btnSecondary,
+.uploadBtn {
+  @include btn-secondary;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.btnDanger,
+.removeBtn {
+  border: 1px solid var(--error-border-light);
+  border-radius: 6px;
+  background: var(--error-bg);
+  color: var(--danger-text);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--error-bg-hover);
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
+}
+
+.btnPrimary,
+.submitBtn {
+  @include btn-primary;
+  padding: 0.5rem 1.25rem;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}

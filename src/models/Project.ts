@@ -12,7 +12,8 @@ export interface IProject extends Document {
   date: Date;
   module: ProjectModuleName;
   status: ProjectStatus;
-  link?: string;
+  repoLink: string;
+  coverImage?: string;
   tags: string[];
 }
 
@@ -31,7 +32,8 @@ const ProjectSchema: Schema = new Schema(
       enum: PROJECT_STATUSES,
       required: true,
     },
-    link: { type: String },
+    repoLink: { type: String, required: true },
+    coverImage: { type: String },
     tags: { type: [String], default: [] },
   },
   { timestamps: true },

@@ -4,21 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
+import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
 import Hackathon from "@/models/Hackathon";
-import Notification from "@/models/Notification";
 import User from "@/models/User";
+import { notifyMany } from "@/lib/notify";
 import { fetchOgImage } from "@/lib/ogImage";
-
-async function requireAdmin(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) return null;
-  const user = session.user as any;
-  if (!isAdmin(user.role)) return null;
-  return user;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -172,16 +163,13 @@ export async function POST(request: NextRequest) {
 
     // Broadcast notification to all members
     const allUsers = await User.find({}).select("_id").lean();
-    const notifications = (allUsers as any[]).map((u) => ({
-      userId: u._id.toString(),
-      type: "team_invite" as const,
+    const userIds = (allUsers as any[]).map((u) => u._id.toString());
+    await notifyMany(userIds, {
+      type: "team_invite",
       title: "New Hackathon Added",
       message: `"${name.trim()}" by ${organization.trim()} is now open for team formation!`,
       link: `/internal/hackathons/${hackathon._id}`,
-    }));
-    if (notifications.length > 0) {
-      await Notification.insertMany(notifications, { ordered: false });
-    }
+    });
 
     return NextResponse.json({ hackathon }, { status: 201 });
   } catch (err) {

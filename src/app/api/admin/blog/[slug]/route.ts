@@ -5,21 +5,34 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
+import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 
-type RouteContext = { params: Promise<{ slug: string }> };
-
-async function requireAdmin(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) return null;
-  const user = session.user as any;
-  if (!isAdmin(user.role)) return null;
-  return user;
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 100);
 }
+
+async function uniqueSlug(base: string, currentSlug?: string): Promise<string> {
+  let slug = base;
+  let counter = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const existing = await BlogPost.findOne({ slug }).select("slug").lean();
+    if (!existing || (currentSlug && existing.slug === currentSlug)) break;
+    slug = `${base}-${++counter}`;
+  }
+  return slug;
+}
+
+type RouteContext = { params: Promise<{ slug: string }> };
 
 // GET /api/admin/blog/[slug]
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -83,6 +96,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         );
       }
       post.title = title;
+      // Regenerate slug from new title
+      const newSlugBase = generateSlug(title);
+      if (newSlugBase) {
+        const newSlug = await uniqueSlug(newSlugBase, slug);
+        post.slug = newSlug;
+      }
     }
 
     if (body.content !== undefined) {

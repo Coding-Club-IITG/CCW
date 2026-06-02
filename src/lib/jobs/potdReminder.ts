@@ -1,13 +1,14 @@
 /**
  * POTD reminder job
- * Sends notifications to users who haven't solved today's POTD 6 hours before closing.
+ * Sends a notification to users who haven't solved at least one of today's POTDs
+ * 6 hours before closing.
  */
 
 import dbConnect from "@/lib/mongodb";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
-import Notification from "@/models/Notification";
 import User from "@/models/User";
+import { notifyMany } from "@/lib/notify";
 import { logger } from "@/lib/utils";
 
 export async function sendPOTDReminders() {
@@ -25,36 +26,41 @@ export async function sendPOTDReminders() {
 
   if (challenges.length === 0) return;
 
+  // Collect users who solved at least one of today's challenges
+  const solvedUserIds = new Set<string>();
   for (const challenge of challenges as any[]) {
-    // Get users who already submitted for this challenge
     const submissions = await POTDSubmission.find({
       challengeId: challenge._id,
     })
       .select("userId")
       .lean();
-    const solvedUserIds = new Set(
-      (submissions as any[]).map((s) => s.userId.toString()),
-    );
-
-    // Get all users
-    const allUsers = await User.find({}).select("_id").lean();
-    const unsolvedUsers = (allUsers as any[]).filter(
-      (u) => !solvedUserIds.has(u._id.toString()),
-    );
-
-    if (unsolvedUsers.length === 0) continue;
-
-    const notifications = unsolvedUsers.map((u) => ({
-      userId: u._id.toString(),
-      type: "potd_reminder" as const,
-      title: "POTD Closing Soon",
-      message: `Today's ${challenge.difficulty} problem closes in ~6 hours. Don't miss your streak!`,
-      link: "/internal/potd",
-    }));
-
-    await Notification.insertMany(notifications, { ordered: false });
-    logger.info(
-      `[potd-reminder] Sent ${notifications.length} reminders for ${challenge.difficulty} challenge`,
-    );
+    for (const s of submissions as any[]) {
+      solvedUserIds.add(s.userId.toString());
+    }
   }
+
+  // Get all users who haven't solved any challenge
+  const allUsers = await User.find({}).select("_id").lean();
+  const unsolvedUsers = (allUsers as any[]).filter(
+    (u) => !solvedUserIds.has(u._id.toString()),
+  );
+
+  if (unsolvedUsers.length === 0) return;
+
+  const difficulties = (challenges as any[]).map((c) => c.difficulty);
+  const difficultyText =
+    difficulties.length === 1
+      ? `a ${difficulties[0]} problem`
+      : `${difficulties.length} problems (${difficulties.join(", ")})`;
+
+  const userIds = unsolvedUsers.map((u) => u._id.toString());
+  await notifyMany(userIds, {
+    type: "potd_reminder",
+    title: "POTD Closing Soon",
+    message: `Today's ${difficultyText} closing in ~6 hours. Don't miss your streak!`,
+    link: "/internal/potd",
+  });
+  logger.info(
+    `[potd-reminder] Sent ${userIds.length} reminders for ${difficulties.join(", ")} challenges`,
+  );
 }

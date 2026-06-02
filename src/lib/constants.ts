@@ -31,8 +31,11 @@ export const MODULE_ROLES = [
 ] as const;
 export type ModuleRoleType = (typeof MODULE_ROLES)[number];
 
-export const PROJECT_STATUSES = ["Upcoming", "Completed"] as const;
+export const PROJECT_STATUSES = ["Upcoming", "Ongoing", "Completed"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+export const EVENT_STATUSES = ["Upcoming", "Ongoing", "Completed"] as const;
+export type EventStatus = (typeof EVENT_STATUSES)[number];
 
 /* CP Platforms */
 
@@ -122,6 +125,8 @@ export const NOTIFICATION_TYPES = [
   "join_request",
   "request_accepted",
   "request_rejected",
+  "team_removed",
+  "team_deleted",
   "hackathon_reminder",
   "potd_reminder",
   "announcement",

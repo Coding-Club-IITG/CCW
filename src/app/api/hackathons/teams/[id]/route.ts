@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import HackathonTeam from "@/models/HackathonTeam";
 import HackathonRequest from "@/models/HackathonRequest";
-import Notification from "@/models/Notification";
+import { notify, notifyMany } from "@/lib/notify";
 
 export async function PATCH(
   request: NextRequest,
@@ -69,7 +69,7 @@ export async function PATCH(
       });
 
       // Notify the removed member
-      await Notification.create({
+      await notify({
         userId: memberId,
         type: "team_removed",
         title: "Removed from Team",
@@ -170,15 +170,12 @@ export async function DELETE(
     // Notify all other team members about deletion
     const otherMembers = team.members.filter((m: string) => m !== user.id);
     if (otherMembers.length > 0) {
-      await Notification.insertMany(
-        otherMembers.map((memberId: string) => ({
-          userId: memberId,
-          type: "team_deleted",
-          title: "Team Deleted",
-          message: `Team "${team.name}" has been deleted by the owner.`,
-          link: `/internal/hackathons/${team.hackathonId}`,
-        })),
-      );
+      await notifyMany(otherMembers, {
+        type: "team_deleted",
+        title: "Team Deleted",
+        message: `Team "${team.name}" has been deleted by the owner.`,
+        link: `/internal/hackathons/${team.hackathonId}`,
+      });
     }
 
     return NextResponse.json({ success: true });

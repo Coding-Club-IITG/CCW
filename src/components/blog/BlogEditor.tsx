@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import MarkdownRenderer from "./MarkdownRenderer";
+import { useState, useEffect } from "react";
+import MarkdownEditor from "@/components/shared/MarkdownEditor";
+import ImageUpload from "@/components/shared/ImageUpload";
 import TagBadge from "./TagBadge";
 import { BLOG_TAGS, BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import styles from "./BlogEditor.module.scss";
@@ -51,13 +52,8 @@ export default function BlogEditor({
     initialData?.authors || [],
   );
   const [allUsers, setAllUsers] = useState<{ _id: string; name: string }[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const inlineImageRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     fetch("/api/users")
@@ -97,48 +93,6 @@ export default function BlogEditor({
 
   const removeAuthor = (userId: string) => {
     setAuthors((prev) => prev.filter((a) => a.userId !== userId));
-  };
-
-  const handleImageUpload = async (file: File, type: "cover" | "inline") => {
-    setUploading(true);
-    setError("");
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/admin/blog/upload-image", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Upload failed");
-      }
-
-      const { url } = await res.json();
-
-      if (type === "cover") {
-        setCoverImage(url);
-      } else {
-        // Insert markdown image at cursor position
-        const textarea = textareaRef.current;
-        if (textarea) {
-          const start = textarea.selectionStart;
-          const end = textarea.selectionEnd;
-          const imageMarkdown = `![image](${url})`;
-          const newContent =
-            content.slice(0, start) + imageMarkdown + content.slice(end);
-          setContent(newContent);
-        } else {
-          setContent((prev) => prev + `\n![image](${url})\n`);
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to upload image.");
-    } finally {
-      setUploading(false);
-    }
   };
 
   const handleSave = async () => {
@@ -241,42 +195,11 @@ export default function BlogEditor({
       {/* Cover Image */}
       <div className={styles.field}>
         <label className={styles.label}>Cover Image</label>
-        <div className={styles.coverRow}>
-          {coverImage && (
-            <img src={coverImage} alt="Cover" className={styles.coverPreview} />
-          )}
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading
-              ? "Uploading..."
-              : coverImage
-                ? "Change Image"
-                : "Upload Image"}
-          </button>
-          {coverImage && (
-            <button
-              type="button"
-              className={styles.btnDanger}
-              onClick={() => setCoverImage("")}
-            >
-              Remove
-            </button>
-          )}
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) handleImageUpload(file, "cover");
-            e.target.value = "";
-          }}
+        <ImageUpload
+          value={coverImage}
+          onChange={setCoverImage}
+          uploadEndpoint="/api/admin/blog/upload-image"
+          label="Image"
         />
       </div>
 
@@ -342,51 +265,14 @@ export default function BlogEditor({
 
       {/* Content */}
       <div className={styles.field}>
-        <div className={styles.contentHeader}>
-          <label className={styles.label}>Content (Markdown)</label>
-          <div className={styles.contentActions}>
-            <button
-              type="button"
-              className={styles.btnSecondary}
-              onClick={() => inlineImageRef.current?.click()}
-              disabled={uploading}
-            >
-              Insert Image
-            </button>
-            <button
-              type="button"
-              className={`${styles.btnSecondary} ${showPreview ? styles.active : ""}`}
-              onClick={() => setShowPreview(!showPreview)}
-            >
-              {showPreview ? "Edit" : "Preview"}
-            </button>
-          </div>
-        </div>
-        <input
-          ref={inlineImageRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) handleImageUpload(file, "inline");
-            e.target.value = "";
-          }}
+        <label className={styles.label}>Content (Markdown)</label>
+        <MarkdownEditor
+          value={content}
+          onChange={setContent}
+          uploadEndpoint="/api/admin/blog/upload-image"
+          placeholder="Write your blog post in Markdown..."
+          rows={20}
         />
-        {showPreview ? (
-          <div className={styles.preview}>
-            <MarkdownRenderer content={content} />
-          </div>
-        ) : (
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className={styles.contentTextarea}
-            placeholder="Write your blog post in Markdown..."
-            rows={20}
-          />
-        )}
       </div>
 
       {/* Actions */}

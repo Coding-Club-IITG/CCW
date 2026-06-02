@@ -157,6 +157,7 @@ export default function Navbar() {
           <>
             <Link href="/">Home</Link>
             <Link href="/blog">Blog</Link>
+            <Link href="/events">Events</Link>
             <Link href="/projects">Projects</Link>
             <Link href="/team">Team</Link>
             <button

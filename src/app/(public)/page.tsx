@@ -28,6 +28,9 @@ export default async function Home({ searchParams }: Props) {
         <Link href="/projects" className={styles.primaryBtn}>
           Explore Projects
         </Link>
+        <Link href="/events" className={styles.secondaryBtn}>
+          Upcoming Events
+        </Link>
         <Link href="/team" className={styles.secondaryBtn}>
           Meet the Team
         </Link>

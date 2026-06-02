@@ -1,0 +1,28 @@
+@use "@/styles/mixins" as *;
+
+.badge {
+  @include badge-pill;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.upcoming {
+  background: var(--primary-alpha);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.ongoing {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success-border);
+}
+
+.completed {
+  background: var(--badge-bg);
+  color: var(--badge-text);
+  border-color: var(--badge-border);
+}

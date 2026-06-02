@@ -8,7 +8,7 @@ import dbConnect from "@/lib/mongodb";
 import Hackathon from "@/models/Hackathon";
 import HackathonTeam from "@/models/HackathonTeam";
 import HackathonRequest from "@/models/HackathonRequest";
-import Notification from "@/models/Notification";
+import { notify } from "@/lib/notify";
 import type { HackathonRequestType } from "@/lib/constants";
 
 export async function POST(request: NextRequest) {
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Notify team owner
-      await Notification.create({
+      await notify({
         userId: team.owner,
         type: "join_request",
         title: "New Join Request",
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Notify invited user
-      await Notification.create({
+      await notify({
         userId: toUserId,
         type: "team_invite",
         title: "Team Invite",

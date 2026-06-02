@@ -1,7 +1,14 @@
 import dbConnect from "@/lib/mongodb";
 import Project, { IProject } from "@/models/Project";
-import { formatDate, logger } from "@/lib/utils";
+import { logger } from "@/lib/utils";
 import styles from "./Projects.module.scss";
+
+function formatMonthYear(date: Date): string {
+  return new Date(date).toLocaleDateString("en-IN", {
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export default async function ProjectsPage() {
   let projects: IProject[] = [];
@@ -19,9 +26,9 @@ export default async function ProjectsPage() {
 
   return (
     <div className={styles.container}>
-      <h1>Projects & Events</h1>
+      <h1>Projects</h1>
       <p className={styles.subtitle}>
-        Discover what we&apos;ve been building and the events we&apos;ve hosted.
+        Open-source projects built by Coding Club IITG members.
       </p>
 
       {fetchError && (
@@ -32,20 +39,37 @@ export default async function ProjectsPage() {
 
       {projects.length === 0 && !fetchError ? (
         <div className={styles.emptyState}>
-          <p>No projects or events found. Stay tuned for updates!</p>
+          <p>No projects found. Stay tuned for updates!</p>
         </div>
       ) : (
         <div className={styles.grid}>
           {projects.map((project) => (
-            <div key={String(project._id)} className={styles.card}>
-              <span className={styles.moduleBadge}>{project.module}</span>
-              <h2 className={styles.projectTitle}>{project.title}</h2>
-              <p className={styles.description}>{project.description}</p>
-              <div className={styles.meta}>
-                <span>{formatDate(project.date)}</span>
-                <span className={styles.status}>{project.status}</span>
+            <a
+              key={String(project._id)}
+              href={project.repoLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.card}
+            >
+              {project.coverImage && (
+                <div className={styles.coverWrapper}>
+                  <img
+                    src={project.coverImage}
+                    alt={project.title}
+                    className={styles.cover}
+                  />
+                </div>
+              )}
+              <div className={styles.cardContent}>
+                <span className={styles.moduleBadge}>{project.module}</span>
+                <h2 className={styles.projectTitle}>{project.title}</h2>
+                <p className={styles.description}>{project.description}</p>
+                <div className={styles.meta}>
+                  <span>{formatMonthYear(project.date)}</span>
+                  <span className={styles.status}>{project.status}</span>
+                </div>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       )}
