@@ -243,6 +243,7 @@ export async function updateUserPizzaCount(userId: string, delta: 1 | -1) {
 
 export async function updateProfile(data: {
   name: string;
+  image?: string;
   codeforcesId?: string;
   atcoderId?: string;
   githubId?: string;
@@ -261,6 +262,17 @@ export async function updateProfile(data: {
       return {
         success: false as const,
         error: "Name is required and must be 100 characters or fewer.",
+      };
+    }
+
+    // Validate image URL
+    const image = data.image?.trim() || "";
+    const AVATAR_URL_REGEX =
+      /^\/api\/profile\/assets\/[0-9a-f]+\.(jpe?g|png|gif|webp|avif)$/i;
+    if (image && !AVATAR_URL_REGEX.test(image)) {
+      return {
+        success: false as const,
+        error: "Invalid profile image URL.",
       };
     }
 
@@ -312,10 +324,11 @@ export async function updateProfile(data: {
 
     // Check if CF or AC handles changed
     const currentUser = (await User.findById(session.user.id)
-      .select("codeforcesId atcoderId")
+      .select("codeforcesId atcoderId image")
       .lean()) as any;
     const oldCfHandle = currentUser?.codeforcesId?.trim() || "";
     const oldAcHandle = currentUser?.atcoderId?.trim() || "";
+    const oldImage = currentUser?.image || "";
     const handleChanged = codeforcesId !== oldCfHandle;
     const acHandleChanged = atcoderId !== oldAcHandle;
 
@@ -323,6 +336,7 @@ export async function updateProfile(data: {
       session.user.id,
       {
         name,
+        image,
         codeforcesId,
         atcoderId,
         githubId,
@@ -331,6 +345,28 @@ export async function updateProfile(data: {
       },
       { new: true },
     );
+
+    // Delete old avatar file if image changed
+    if (
+      oldImage &&
+      oldImage !== image &&
+      oldImage.startsWith("/api/profile/assets/")
+    ) {
+      try {
+        const oldFilename = oldImage.split("/").pop();
+        if (oldFilename) {
+          const { unlink } = await import("fs/promises");
+          const pathMod = await import("path");
+          const avatarDir =
+            process.env.AVATAR_UPLOAD_DIR ??
+            pathMod.default.join(process.cwd(), "uploads", "avatars");
+          const filePath = pathMod.default.join(avatarDir, oldFilename);
+          await unlink(filePath).catch(() => {});
+        }
+      } catch {
+        // Best-effort deletion
+      }
+    }
 
     // If the CF handle changed, revoke old verification
     if (handleChanged) {
@@ -368,6 +404,7 @@ export async function updateProfile(data: {
 
     logger.info(`User ${session.user.email} updated their profile`);
     revalidatePath("/internal/dashboard");
+    revalidatePath("/team");
     return {
       success: true as const,
       user: JSON.parse(JSON.stringify(updatedUser)),

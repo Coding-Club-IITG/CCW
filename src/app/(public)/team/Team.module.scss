@@ -24,10 +24,23 @@
   font-size: 0.875rem;
 }
 
+.section {
+  margin-bottom: 2rem;
+}
+
+.sectionTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 0.75rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
 .grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 .card {
@@ -44,53 +57,43 @@
 }
 
 .avatar {
-  width: 80px;
-  height: 80px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   background: var(--surface-hover);
   border: 2px solid var(--border);
-  margin: 0 auto 1rem;
+  margin: 0 auto 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   color: var(--muted);
   font-weight: 600;
+}
+
+.avatarImg {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  margin: 0 auto 0.75rem;
+  display: block;
 }
 
 .name {
   margin: 0.375rem 0;
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--foreground-strong);
 }
 
-.roleBadge {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  background: var(--badge-primary-bg);
-  color: var(--badge-primary-text);
-  padding: 0.2rem 0.625rem;
-  border-radius: 2rem;
-  font-weight: 600;
-  display: inline-block;
-  margin-bottom: 0.75rem;
-  letter-spacing: 0.02em;
-  border: 1px solid var(--badge-border);
-}
-
-.module {
-  font-size: 0.8125rem;
-  color: var(--muted);
-  font-weight: 500;
-}
-
 .bio {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   font-size: 0.8125rem;
   color: var(--muted-light);
   line-height: 1.5;
   font-style: italic;
   border-top: 1px solid var(--border);
-  padding-top: 0.75rem;
+  padding-top: 0.5rem;
 }

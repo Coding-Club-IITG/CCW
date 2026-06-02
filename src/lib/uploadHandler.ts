@@ -23,6 +23,12 @@ interface UploadOptions {
   maxSize?: number;
   /** Log prefix for errors (Eg. "[Event Upload]") */
   logPrefix?: string;
+  /** Whether admin role is required (default: true) */
+  requireAdmin?: boolean;
+  /** Override allowed MIME types (default: ALLOWED_IMAGE_MIME_TYPES) */
+  allowedMimeTypes?: readonly string[];
+  /** Override allowed extensions (default: ALLOWED_IMAGE_EXTENSIONS) */
+  allowedExtensions?: readonly string[];
 }
 
 export function createImageUploadHandler(options: UploadOptions) {
@@ -31,6 +37,9 @@ export function createImageUploadHandler(options: UploadOptions) {
     urlPrefix,
     maxSize = 5 * 1024 * 1024,
     logPrefix = "[Upload]",
+    requireAdmin = true,
+    allowedMimeTypes = ALLOWED_IMAGE_MIME_TYPES as readonly string[],
+    allowedExtensions = ALLOWED_IMAGE_EXTENSIONS as readonly string[],
   } = options;
 
   return async function POST(request: NextRequest) {
@@ -39,9 +48,11 @@ export function createImageUploadHandler(options: UploadOptions) {
       if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      const user = session.user as any;
-      if (!isAdmin(user.role)) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (requireAdmin) {
+        const user = session.user as any;
+        if (!isAdmin(user.role)) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
       }
 
       let formData: FormData;
@@ -62,9 +73,7 @@ export function createImageUploadHandler(options: UploadOptions) {
         );
       }
 
-      if (
-        !(ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(file.type)
-      ) {
+      if (!allowedMimeTypes.includes(file.type)) {
         return NextResponse.json(
           {
             error: "Not a supported image file format",
@@ -87,11 +96,10 @@ export function createImageUploadHandler(options: UploadOptions) {
       }
 
       const ext = path.extname(file.name).toLowerCase() || ".png";
-      if (!(ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(ext)) {
+      if (!allowedExtensions.includes(ext)) {
         return NextResponse.json(
           {
-            error:
-              "Only image files are allowed (JPEG, PNG, GIF, WebP, AVIF, SVG).",
+            error: "Unsupported image file type",
           },
           { status: 400 },
         );

@@ -5,6 +5,7 @@ import { useSession } from "@/lib/auth-client";
 import { updateProfile } from "@/lib/actions/user";
 import { requestHandleVerification } from "@/lib/actions/cp-verification";
 import { getCPStatus } from "@/lib/actions/cp-status";
+import ImageUpload from "@/components/shared/ImageUpload";
 import styles from "./ProfileForm.module.scss";
 
 export default function ProfileForm() {
@@ -18,6 +19,7 @@ export default function ProfileForm() {
 
   const [formData, setFormData] = useState({
     name: "",
+    image: "",
     codeforcesId: "",
     atcoderId: "",
     githubId: "",
@@ -42,6 +44,7 @@ export default function ProfileForm() {
     const acHandle = (session.user as any).atcoderId || "";
     setFormData({
       name: session.user.name || "",
+      image: session.user.image || "",
       codeforcesId: cfHandle,
       atcoderId: acHandle,
       githubId: (session.user as any).githubId || "",
@@ -168,6 +171,17 @@ export default function ProfileForm() {
       </p>
 
       <form onSubmit={handleSubmit} className={styles.form}>
+        <div className={styles.field}>
+          <label>Profile Picture</label>
+          <ImageUpload
+            value={formData.image}
+            onChange={(url) => setFormData({ ...formData, image: url })}
+            uploadEndpoint="/api/profile/upload-image"
+            label="Photo"
+            previewClassName={styles.avatarPreview}
+          />
+        </div>
+
         <div className={styles.field}>
           <label htmlFor="email">Email</label>
           <input
