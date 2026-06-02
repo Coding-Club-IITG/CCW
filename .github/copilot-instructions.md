@@ -65,7 +65,7 @@ Before writing any new component, style, constant, or utility, search the codeba
 
 - **Server:** `auth.api.getSession({ headers: await headers() })` from `@/lib/auth`
 - **Client:** `useSession()`, `signIn()`, `signOut()` from `@/lib/auth-client`
-- **Route protection:** `src/proxy.ts` - redirects unauthed from `/internal/*`, `/admin/*` to `/`; logged-in on `/` → `/internal/dashboard`
+- **Route protection:** `src/proxy.ts` - redirects unauthed from `/internal/*`, `/admin/*` to `/`; logged-in on `/` → `/internal/dashboard` (unless `viewMode` cookie is `"public"`)
 
 **Role hierarchy** (`src/lib/roles.ts`):
 
@@ -179,5 +179,5 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 3. **Redis resilience:** Agenda Redis channel has error listeners; worker survives Redis blips via MongoDB polling fallback.
 4. **`moduleRoles` type mismatch:** JSON string in better-auth session vs array in Mongoose - always use `parseModuleRoles()` from `src/lib/roles.ts`.
 5. **File upload limit:** 50MB (`next.config.mjs` serverActions.bodySizeLimit).
-6. **Theme:** Dark default. No SSR theme detection. Toggle writes `data-theme` attr + localStorage.
+6. **Theme:** Dark default. SSR theme detectino with cookie.
 7. **No middleware.ts:** Route protection is `src/proxy.ts`, in newer versions of Next.js.

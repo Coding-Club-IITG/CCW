@@ -11,8 +11,19 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/internal") || pathname.startsWith("/admin");
 
   // If no session, send to home
-  if (isProtectedRoute && !session) {
+  if (isProtectedRoute && !session)
     return NextResponse.redirect(new URL("/", request.url));
+
+  // Redirect members
+  if (
+    pathname === "/" &&
+    session &&
+    !request.nextUrl.searchParams.has("error")
+  ) {
+    const viewMode = request.cookies.get("viewMode")?.value;
+    if (viewMode !== "public") {
+      return NextResponse.redirect(new URL("/internal/dashboard", request.url));
+    }
   }
 
   return NextResponse.next();

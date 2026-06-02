@@ -7,10 +7,22 @@ interface ViewModeState {
   toggleViewMode: () => void;
 }
 
+function setViewModeCookie(mode: ViewMode) {
+  document.cookie = `viewMode=${mode};path=/;max-age=31536000;SameSite=Lax`;
+}
+
+function getInitialViewMode(): ViewMode {
+  if (typeof document === "undefined") return "internal";
+  const match = document.cookie.match(/(?:^|; )viewMode=(internal|public)/);
+  return (match?.[1] as ViewMode) ?? "internal";
+}
+
 export const useViewModeStore = create<ViewModeState>((set) => ({
-  viewMode: "internal",
+  viewMode: getInitialViewMode(),
   toggleViewMode: () =>
-    set((state) => ({
-      viewMode: state.viewMode === "internal" ? "public" : "internal",
-    })),
+    set((state) => {
+      const next = state.viewMode === "internal" ? "public" : "internal";
+      setViewModeCookie(next);
+      return { viewMode: next };
+    }),
 }));
