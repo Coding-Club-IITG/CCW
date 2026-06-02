@@ -1,9 +1,6 @@
 import { notFound } from "next/navigation";
-import {
-  IST_OFFSET_MS,
-  type EventRecurrenceType,
-  type EventStatus,
-} from "@/lib/constants";
+import { type EventRecurrenceType } from "@/lib/constants";
+import { getEventStatus } from "@/lib/eventStatus";
 import dbConnect from "@/lib/mongodb";
 import { formatDate, logger } from "@/lib/utils";
 import Event, { type IEvent } from "@/models/Event";
@@ -11,28 +8,6 @@ import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
 import BackLink from "@/components/shared/BackLink";
 import StatusBadge from "@/components/shared/StatusBadge";
 import styles from "./EventDetail.module.scss";
-
-function getEventStatus(startDate: Date, endDate?: Date): EventStatus {
-  const now = new Date(Date.now() + IST_OFFSET_MS);
-  const start = new Date(new Date(startDate).getTime() + IST_OFFSET_MS);
-  const end = endDate
-    ? new Date(new Date(endDate).getTime() + IST_OFFSET_MS)
-    : null;
-
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const eventStart = new Date(
-    start.getFullYear(),
-    start.getMonth(),
-    start.getDate(),
-  );
-  const eventEnd = end
-    ? new Date(end.getFullYear(), end.getMonth(), end.getDate())
-    : eventStart;
-
-  if (todayStart < eventStart) return "Upcoming";
-  if (todayStart > eventEnd) return "Completed";
-  return "Ongoing";
-}
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -54,15 +29,20 @@ export default async function EventDetailPage({ params }: Props) {
     notFound();
   }
 
-  const status = getEventStatus(event.startDate, event.endDate);
-  const dateStr = event.endDate
-    ? `${formatDate(event.startDate)} - ${formatDate(event.endDate)}`
-    : formatDate(event.startDate);
-
   const recurrenceType = (event as any).recurrenceType as
     | EventRecurrenceType
     | undefined;
   const recurrenceCount = (event as any).recurrenceCount as number | undefined;
+
+  const status = getEventStatus(
+    event.startDate,
+    event.endDate,
+    recurrenceType,
+    recurrenceCount,
+  );
+  const dateStr = event.endDate
+    ? `${formatDate(event.startDate)} - ${formatDate(event.endDate)}`
+    : formatDate(event.startDate);
 
   function getOccurrenceDates(): Date[] {
     if (!recurrenceType || recurrenceType === "none") return [];

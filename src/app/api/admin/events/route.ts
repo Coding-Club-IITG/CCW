@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     await dbConnect();
     const events = await Event.find({})
       .select(
-        "title shortDescription poster startDate endDate module tags createdAt updatedAt",
+        "title shortDescription poster startDate endDate module tags recurrenceType recurrenceCount createdAt updatedAt",
       )
       .sort({ startDate: -1 })
       .lean();

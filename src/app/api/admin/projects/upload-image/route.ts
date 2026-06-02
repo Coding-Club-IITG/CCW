@@ -13,7 +13,7 @@ const UPLOAD_DIR =
 
 export const POST = createImageUploadHandler({
   uploadDir: UPLOAD_DIR,
-  urlPrefix: "/uploads/projects",
+  urlPrefix: "/api/projects/assets",
   maxSize: 5 * 1024 * 1024,
   logPrefix: "[Project Upload]",
 });

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import BackLink from "@/components/shared/BackLink";
 import { deleteEvent } from "@/lib/actions/admin/events";
-import { IST_OFFSET_MS } from "@/lib/constants";
+import { getEventStatus } from "@/lib/eventStatus";
+import type { EventRecurrenceType } from "@/lib/constants";
 import styles from "./AdminEvents.module.scss";
 
 interface EventItem {
@@ -13,6 +14,8 @@ interface EventItem {
   startDate: string;
   endDate?: string;
   module?: string;
+  recurrenceType?: string;
+  recurrenceCount?: number;
 }
 
 function formatEventDate(startDate: string, endDate?: string) {
@@ -36,30 +39,6 @@ function formatEventDate(startDate: string, endDate?: string) {
     formatOptions,
   );
   return `${formattedStart} - ${formattedEnd}`;
-}
-
-function getDateKey(date: string) {
-  return new Date(date).toISOString().slice(0, 10);
-}
-
-function getTodayISTDateKey() {
-  return new Date(Date.now() + IST_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-function getEventStatus(startDate: string, endDate?: string) {
-  const today = getTodayISTDateKey();
-  const start = getDateKey(startDate);
-  const end = endDate ? getDateKey(endDate) : start;
-
-  if (today < start) {
-    return "Upcoming";
-  }
-
-  if (today <= end) {
-    return "Ongoing";
-  }
-
-  return "Completed";
 }
 
 export default function AdminEventsPage() {
@@ -133,7 +112,12 @@ export default function AdminEventsPage() {
       ) : (
         <div className={styles.list}>
           {events.map((event) => {
-            const status = getEventStatus(event.startDate, event.endDate);
+            const status = getEventStatus(
+              event.startDate,
+              event.endDate,
+              event.recurrenceType as EventRecurrenceType | undefined,
+              event.recurrenceCount,
+            );
 
             return (
               <div key={event._id} className={styles.item}>
