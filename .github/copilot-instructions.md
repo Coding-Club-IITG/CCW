@@ -1,6 +1,6 @@
 # Coding Practices for CCW
 
-<!-- MAINTENANCE: Update this file when adding/removing models, components, routes, jobs, or changing architectural patterns. Keep it focused on conventions, patterns, and gotchas — not exhaustive inventories (read the source for those). -->
+<!-- MAINTENANCE: Update this file when adding/removing models, components, routes, jobs, or changing architectural patterns. Keep it focused on conventions, patterns, and gotchas - not exhaustive inventories (read the source for those). -->
 
 **CCW** (Coding Club Website) is the public-facing website and member workspace for Coding Club IIT Guwahati. It serves both as the club's public presence and as an authenticated internal platform for members.
 
@@ -33,7 +33,7 @@ Colors defined in `src/styles/colors.scss` (dark default on `:root`, light on `[
 
 ### CSS Modules
 
-- `.module.scss` files only — no global classes or CSS-in-JS.
+- `.module.scss` files only - no global classes or CSS-in-JS.
 - Import mixins: `@use "@/styles/mixins" as *;`
 - Semantic camelCase class names (`.featureCard`, `.sidebarNav`)
 - Tokens: `border-radius: 12px` cards / `6px` badges, `0.15s ease` transitions, `rem` spacing
@@ -45,7 +45,7 @@ Shared types defined in `src/lib/constants.ts`. Models re-export them. Never def
 
 ### Display Names
 
-Always use `getDisplayName(name, pizzaCount)` from `src/lib/utils.ts` — never render `user.name` directly. Include `pizza_count` in DB projections.
+Always use `getDisplayName(name, pizzaCount)` from `src/lib/utils.ts` - never render `user.name` directly. Include `pizza_count` in DB projections.
 
 ### Reuse Components
 
@@ -53,7 +53,7 @@ Check `src/components/shared/` (PlatformTabs, LinkCard, BackLink, Icons), `leade
 
 ### Client vs Server
 
-Server components are default. Client components need `"use client"`. Keep client components small — push data fetching to server components/actions.
+Server components are default. Client components need `"use client"`. Keep client components small - push data fetching to server components/actions.
 
 ### Check Before Creating
 
@@ -65,7 +65,7 @@ Before writing any new component, style, constant, or utility, search the codeba
 
 - **Server:** `auth.api.getSession({ headers: await headers() })` from `@/lib/auth`
 - **Client:** `useSession()`, `signIn()`, `signOut()` from `@/lib/auth-client`
-- **Route protection:** `src/proxy.ts` — redirects unauthed from `/internal/*`, `/admin/*` to `/`; logged-in on `/` → `/internal/dashboard`
+- **Route protection:** `src/proxy.ts` - redirects unauthed from `/internal/*`, `/admin/*` to `/`; logged-in on `/` → `/internal/dashboard`
 
 **Role hierarchy** (`src/lib/roles.ts`):
 
@@ -175,9 +175,9 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 ## 10. Key Gotchas
 
 1. **Mongoose model tree-shaking:** In actions using `populate()`, import all referenced models. Use `[Model].forEach(m => m?.init?.())` pattern.
-2. **Transactions:** MongoDB uses replica set — use transactions where beneficial.
+2. **Transactions:** MongoDB uses replica set - use transactions where beneficial.
 3. **Redis resilience:** Agenda Redis channel has error listeners; worker survives Redis blips via MongoDB polling fallback.
-4. **`moduleRoles` type mismatch:** JSON string in better-auth session vs array in Mongoose — always use `parseModuleRoles()` from `src/lib/roles.ts`.
+4. **`moduleRoles` type mismatch:** JSON string in better-auth session vs array in Mongoose - always use `parseModuleRoles()` from `src/lib/roles.ts`.
 5. **File upload limit:** 50MB (`next.config.mjs` serverActions.bodySizeLimit).
 6. **Theme:** Dark default. No SSR theme detection. Toggle writes `data-theme` attr + localStorage.
 7. **No middleware.ts:** Route protection is `src/proxy.ts`, in newer versions of Next.js.

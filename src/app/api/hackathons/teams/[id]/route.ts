@@ -90,7 +90,7 @@ export async function PATCH(
 
       if (team.members.length >= maxMembers) {
         return NextResponse.json(
-          { error: "Cannot open team — max members reached." },
+          { error: "Cannot open team - max members reached." },
           { status: 400 },
         );
       }

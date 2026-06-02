@@ -88,6 +88,16 @@
   color: var(--foreground-strong);
 }
 
+.role {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.125rem;
+}
+
 .bio {
   margin-top: 0.5rem;
   font-size: 0.8125rem;

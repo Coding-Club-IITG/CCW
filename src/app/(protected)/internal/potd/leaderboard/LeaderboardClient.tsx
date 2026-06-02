@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 import styles from "../Lists.module.scss";
+import PlatformTabs from "@/components/shared/PlatformTabs";
 import { type LeaderboardEntry } from "@/lib/actions/potd";
 
 type Tab = "weekly" | "monthly";
+
+const TABS = [
+  { key: "weekly", label: "Past 1 Week" },
+  { key: "monthly", label: "Past 1 Month" },
+];
 
 type Props = {
   initialWeekly: LeaderboardEntry[];
@@ -26,32 +32,15 @@ export default function LeaderboardClient({
         <p>Rankings based on Problem of the Day performance.</p>
       </div>
 
-      <div className={styles.tabs}>
-        <button
-          className={`${styles.tab} ${activeTab === "weekly" ? styles.active : ""}`}
-          onClick={() => setActiveTab("weekly")}
-        >
-          Past 1 Week
-        </button>
-        <button
-          className={`${styles.tab} ${activeTab === "monthly" ? styles.active : ""}`}
-          onClick={() => setActiveTab("monthly")}
-        >
-          Past 1 Month
-        </button>
-      </div>
+      <PlatformTabs
+        tabs={TABS}
+        activeTab={activeTab}
+        onTabChange={(key) => setActiveTab(key as Tab)}
+      />
 
       <div className={styles.tableContainer}>
         {data.length === 0 ? (
-          <p
-            style={{
-              padding: "2rem",
-              textAlign: "center",
-              color: "var(--muted)",
-            }}
-          >
-            No data yet - start solving!
-          </p>
+          <p className={styles.emptyState}>No data yet - start solving!</p>
         ) : (
           <table className={styles.table}>
             <thead>
@@ -59,8 +48,8 @@ export default function LeaderboardClient({
                 <th>Rank</th>
                 <th>Member</th>
                 <th>Points</th>
-                <th>Current Streak</th>
                 <th>Solved</th>
+                <th className={styles.separatorCol}>Streak</th>
               </tr>
             </thead>
             <tbody>
@@ -109,7 +98,8 @@ export default function LeaderboardClient({
                           {user.totalPoints.toLocaleString()}
                         </span>
                       </td>
-                      <td>
+                      <td className={styles.subText}>{user.totalSolved}</td>
+                      <td className={styles.separatorCol}>
                         {user.currentStreak > 0 ? (
                           <span className={styles.streak}>
                             🔥 {user.currentStreak}
@@ -118,7 +108,6 @@ export default function LeaderboardClient({
                           "-"
                         )}
                       </td>
-                      <td className={styles.subText}>{user.totalSolved}</td>
                     </tr>
                   );
                 });

@@ -2,8 +2,8 @@
  * File Access Control utilities
  *
  * Permission tiers (in order of privilege):
- *  1. Global File Admins (Secretary / OC) - full control over every file.
- *  2. Club Admins (+ Core Team)           - can upload; manage their own uploads
+ *  1. Global File Admins (Secretary / OC)  - full control over every file.
+ *  2. Admins (+ Core Team)                 - can upload; manage their own uploads
  *                                            and files in modules where they are Head.
  *  3. Module Heads                         - can upload; manage files whose
  *                                            uploaderModule matches one of their modules.

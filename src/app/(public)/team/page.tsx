@@ -1,6 +1,11 @@
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
-import { MODULES } from "@/lib/constants";
+import {
+  LEADERSHIP_ROLES,
+  LeadershipRole,
+  MODULES,
+  TEAM_ROLES,
+} from "@/lib/constants";
 import { getDisplayName, logger } from "@/lib/utils";
 import styles from "./Team.module.scss";
 
@@ -14,7 +19,13 @@ interface TeamMember {
   pizza_count?: number;
 }
 
-function MemberCard({ member }: { member: TeamMember }) {
+function MemberCard({
+  member,
+  showRole,
+}: {
+  member: TeamMember;
+  showRole?: boolean;
+}) {
   const displayName = getDisplayName(member.name, member.pizza_count);
   return (
     <div className={styles.card}>
@@ -27,6 +38,7 @@ function MemberCard({ member }: { member: TeamMember }) {
       ) : (
         <div className={styles.avatar}>{member.name.charAt(0)}</div>
       )}
+      {showRole && <span className={styles.role}>{member.role}</span>}
       <h2 className={styles.name}>{displayName}</h2>
       {member.bio && <p className={styles.bio}>{member.bio}</p>}
     </div>
@@ -40,7 +52,7 @@ export default async function TeamPage() {
   try {
     await dbConnect();
     const users = await User.find({
-      role: { $in: ["Secretary", "OC", "Head"] },
+      role: { $in: TEAM_ROLES },
       email: { $ne: "codingclub@iitg.ac.in" },
     })
       .select("name image role moduleRoles bio pizza_count")
@@ -51,10 +63,13 @@ export default async function TeamPage() {
     fetchError = true;
   }
 
-  const leadership = teamMembers.filter(
-    (m) => m.role === "Secretary" || m.role === "OC",
-  );
-
+  const leadership = teamMembers
+    .filter((m) => m.role !== "Head")
+    .sort(
+      (a, b) =>
+        LEADERSHIP_ROLES.indexOf(a.role as LeadershipRole) -
+        LEADERSHIP_ROLES.indexOf(b.role as LeadershipRole),
+    );
   const heads = teamMembers.filter((m) => m.role === "Head");
   const moduleGroups = MODULES.map((moduleName) => ({
     module: moduleName,
@@ -81,7 +96,7 @@ export default async function TeamPage() {
           <h2 className={styles.sectionTitle}>Leadership</h2>
           <div className={styles.grid}>
             {leadership.map((member, index) => (
-              <MemberCard key={member._id || index} member={member} />
+              <MemberCard key={member._id || index} member={member} showRole />
             ))}
           </div>
         </section>
@@ -89,7 +104,7 @@ export default async function TeamPage() {
 
       {moduleGroups.map((group) => (
         <section key={group.module} className={styles.section}>
-          <h2 className={styles.sectionTitle}>{group.module}</h2>
+          <h2 className={styles.sectionTitle}>{group.module} Heads</h2>
           <div className={styles.grid}>
             {group.members.map((member, index) => (
               <MemberCard key={member._id || index} member={member} />

@@ -15,13 +15,13 @@ export type ModuleName = (typeof MODULES)[number];
 export const PROJECT_MODULES = [...MODULES, "General"] as const;
 export type ProjectModuleName = (typeof PROJECT_MODULES)[number];
 
-export const GLOBAL_ROLES = [
-  "Secretary",
-  "OC",
-  "Head",
-  "Core Team",
-  "Member",
-] as const;
+export const LEADERSHIP_ROLES = ["Secretary", "OC", "Projects Head"] as const;
+export type LeadershipRole = (typeof LEADERSHIP_ROLES)[number];
+
+export const TEAM_ROLES = [...LEADERSHIP_ROLES, "Head"] as const;
+export type TeamRole = (typeof TEAM_ROLES)[number];
+
+export const GLOBAL_ROLES = [...TEAM_ROLES, "Core Team", "Member"] as const;
 export type GlobalRole = (typeof GLOBAL_ROLES)[number];
 
 export const MODULE_ROLES = [
