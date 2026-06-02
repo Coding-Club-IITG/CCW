@@ -45,13 +45,53 @@ function getTodayISTDateKey(): string {
   return new Date(Date.now() + IST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+function computeEffectiveEndDate(
+  startDate: Date | string,
+  recurrenceType?: EventRecurrenceType,
+  recurrenceCount?: number,
+): Date {
+  const start = new Date(startDate);
+  const count = recurrenceCount ?? 1;
+
+  switch (recurrenceType) {
+    case "daily":
+      start.setDate(start.getDate() + count - 1);
+      break;
+    case "weekly":
+      start.setDate(start.getDate() + (count - 1) * 7);
+      break;
+    case "biweekly":
+      start.setDate(start.getDate() + (count - 1) * 14);
+      break;
+    case "monthly":
+      start.setMonth(start.getMonth() + count - 1);
+      break;
+    default:
+      break;
+  }
+
+  return start;
+}
+
 function getEventStatus(
   startDate: Date | string,
   endDate?: Date | string | null,
+  recurrenceType?: EventRecurrenceType,
+  recurrenceCount?: number,
 ): EventStatus {
   const today = getTodayISTDateKey();
   const start = getDateKey(startDate);
-  const end = endDate ? getDateKey(endDate) : start;
+
+  let end: string;
+  if (endDate) {
+    end = getDateKey(endDate);
+  } else if (recurrenceType && recurrenceType !== "none") {
+    end = getDateKey(
+      computeEffectiveEndDate(startDate, recurrenceType, recurrenceCount),
+    );
+  } else {
+    end = start;
+  }
 
   if (today < start) {
     return EVENT_STATUSES[0];
@@ -93,7 +133,12 @@ export async function getEvents() {
     const serializedEvents = JSON.parse(JSON.stringify(events)).map(
       (event: any) => ({
         ...event,
-        status: getEventStatus(event.startDate, event.endDate),
+        status: getEventStatus(
+          event.startDate,
+          event.endDate,
+          event.recurrenceType,
+          event.recurrenceCount,
+        ),
       }),
     );
 

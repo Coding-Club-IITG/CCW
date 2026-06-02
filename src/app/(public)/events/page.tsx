@@ -10,12 +10,56 @@ import Event, { type IEvent } from "@/models/Event";
 import StatusBadge from "@/components/shared/StatusBadge";
 import styles from "./Events.module.scss";
 
-function getEventStatus(startDate: Date, endDate?: Date): EventStatus {
+function computeEffectiveEndDate(
+  startDate: Date,
+  recurrenceType?: EventRecurrenceType,
+  recurrenceCount?: number,
+): Date {
+  const start = new Date(startDate);
+  const count = recurrenceCount ?? 1;
+
+  switch (recurrenceType) {
+    case "daily":
+      start.setDate(start.getDate() + count - 1);
+      break;
+    case "weekly":
+      start.setDate(start.getDate() + (count - 1) * 7);
+      break;
+    case "biweekly":
+      start.setDate(start.getDate() + (count - 1) * 14);
+      break;
+    case "monthly":
+      start.setMonth(start.getMonth() + count - 1);
+      break;
+    default:
+      break;
+  }
+
+  return start;
+}
+
+function getEventStatus(
+  startDate: Date,
+  endDate?: Date,
+  recurrenceType?: EventRecurrenceType,
+  recurrenceCount?: number,
+): EventStatus {
   const now = new Date(Date.now() + IST_OFFSET_MS);
   const start = new Date(new Date(startDate).getTime() + IST_OFFSET_MS);
-  const end = endDate
-    ? new Date(new Date(endDate).getTime() + IST_OFFSET_MS)
-    : null;
+
+  let end: Date;
+  if (endDate) {
+    end = new Date(new Date(endDate).getTime() + IST_OFFSET_MS);
+  } else if (recurrenceType && recurrenceType !== "none") {
+    const effectiveEnd = computeEffectiveEndDate(
+      startDate,
+      recurrenceType,
+      recurrenceCount,
+    );
+    end = new Date(effectiveEnd.getTime() + IST_OFFSET_MS);
+  } else {
+    end = start;
+  }
 
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const eventStart = new Date(
@@ -23,9 +67,7 @@ function getEventStatus(startDate: Date, endDate?: Date): EventStatus {
     start.getMonth(),
     start.getDate(),
   );
-  const eventEnd = end
-    ? new Date(end.getFullYear(), end.getMonth(), end.getDate())
-    : eventStart;
+  const eventEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
 
   if (todayStart < eventStart) return "Upcoming";
   if (todayStart > eventEnd) return "Completed";
@@ -35,7 +77,7 @@ function getEventStatus(startDate: Date, endDate?: Date): EventStatus {
 function formatEventDate(startDate: Date, endDate?: Date): string {
   const start = formatDate(startDate);
   if (!endDate) return start;
-  return `${start} – ${formatDate(endDate)}`;
+  return `${start} - ${formatDate(endDate)}`;
 }
 
 function getRecurrenceLabel(
@@ -85,7 +127,12 @@ export default async function EventsPage() {
       ) : (
         <div className={styles.grid}>
           {events.map((event) => {
-            const status = getEventStatus(event.startDate, event.endDate);
+            const status = getEventStatus(
+              event.startDate,
+              event.endDate,
+              (event as any).recurrenceType,
+              (event as any).recurrenceCount,
+            );
             const recurrenceLabel = getRecurrenceLabel(
               (event as any).recurrenceType,
               (event as any).recurrenceCount,

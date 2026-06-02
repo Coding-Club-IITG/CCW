@@ -143,7 +143,7 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 
 ## 7. POTD System
 
-- Time windows in IST: main (00:00–23:59:59) + grace (until 02:00 next day)
+- Time windows in IST: main (00:00-23:59:59) + grace (until 02:00 next day)
 - Points: rating-based + streak bonus in main window; 50% in grace; 0 after
 - Submission processing in MongoDB transactions (`src/lib/potd/submit.ts`)
 - Statuses: `Pending` → `Accepted` / `Late` / `NotSolved`

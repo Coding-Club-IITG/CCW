@@ -56,7 +56,7 @@ export default async function EventDetailPage({ params }: Props) {
 
   const status = getEventStatus(event.startDate, event.endDate);
   const dateStr = event.endDate
-    ? `${formatDate(event.startDate)} – ${formatDate(event.endDate)}`
+    ? `${formatDate(event.startDate)} - ${formatDate(event.endDate)}`
     : formatDate(event.startDate);
 
   const recurrenceType = (event as any).recurrenceType as
