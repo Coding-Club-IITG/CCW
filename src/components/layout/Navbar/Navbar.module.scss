@@ -183,7 +183,9 @@
   }
 
   .userMenuItem {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     width: 100%;
     text-align: left;
     padding: 0.4rem 0.75rem;

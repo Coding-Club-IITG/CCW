@@ -54,11 +54,6 @@ export default async function DashboardPage() {
           title="Hackathon Finder"
           description="Find active hackathons and build your team."
         />
-        <LinkCard
-          href="/blog"
-          title="Blog"
-          description="Read the latest posts from the Coding Club community."
-        />
       </div>
     </div>
   );

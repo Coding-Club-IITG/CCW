@@ -2,9 +2,11 @@
 
 import { auth } from "@/lib/auth";
 import {
+  EVENT_RECURRENCE_TYPES,
   EVENT_STATUSES,
   IST_OFFSET_MS,
   PROJECT_MODULES,
+  type EventRecurrenceType,
   type EventStatus,
 } from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
@@ -140,6 +142,11 @@ export async function createEvent(formData: FormData) {
     const endDateInput = getString(formData, "endDate");
     const module = getString(formData, "module");
     const tags = parseTags(getString(formData, "tags"));
+    const recurrenceType = getString(formData, "recurrenceType") || "none";
+    const recurrenceCountStr = getString(formData, "recurrenceCount");
+    const recurrenceCount = recurrenceCountStr
+      ? Math.max(1, Math.min(52, Number(recurrenceCountStr) || 1))
+      : 1;
 
     if (!title || !description || !poster || !startDateInput) {
       return {
@@ -167,6 +174,12 @@ export async function createEvent(formData: FormData) {
       !PROJECT_MODULES.includes(module as (typeof PROJECT_MODULES)[number])
     ) {
       return { success: false as const, error: "Invalid module selected." };
+    }
+
+    if (
+      !EVENT_RECURRENCE_TYPES.includes(recurrenceType as EventRecurrenceType)
+    ) {
+      return { success: false as const, error: "Invalid recurrence type." };
     }
 
     const startDate = parseDateInput(startDateInput);
@@ -199,6 +212,8 @@ export async function createEvent(formData: FormData) {
       endDate,
       module: module || undefined,
       tags,
+      recurrenceType,
+      recurrenceCount,
     });
 
     logger.info("[Admin Events] Created event", {
@@ -234,6 +249,11 @@ export async function updateEvent(id: string, formData: FormData) {
     const endDateInput = getString(formData, "endDate");
     const module = getString(formData, "module");
     const tags = parseTags(getString(formData, "tags"));
+    const recurrenceType = getString(formData, "recurrenceType") || "none";
+    const recurrenceCountStr = getString(formData, "recurrenceCount");
+    const recurrenceCount = recurrenceCountStr
+      ? Math.max(1, Math.min(52, Number(recurrenceCountStr) || 1))
+      : 1;
 
     if (!title || !description || !poster || !startDateInput) {
       return {
@@ -261,6 +281,12 @@ export async function updateEvent(id: string, formData: FormData) {
       !PROJECT_MODULES.includes(module as (typeof PROJECT_MODULES)[number])
     ) {
       return { success: false as const, error: "Invalid module selected." };
+    }
+
+    if (
+      !EVENT_RECURRENCE_TYPES.includes(recurrenceType as EventRecurrenceType)
+    ) {
+      return { success: false as const, error: "Invalid recurrence type." };
     }
 
     const startDate = parseDateInput(startDateInput);
@@ -295,6 +321,8 @@ export async function updateEvent(id: string, formData: FormData) {
         endDate,
         module: module || undefined,
         tags,
+        recurrenceType,
+        recurrenceCount,
       },
       { new: true },
     ).lean();

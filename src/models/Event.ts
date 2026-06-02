@@ -1,5 +1,10 @@
 import mongoose, { Schema, Document } from "mongoose";
-import { PROJECT_MODULES, ProjectModuleName } from "@/lib/constants";
+import {
+  EVENT_RECURRENCE_TYPES,
+  PROJECT_MODULES,
+  type EventRecurrenceType,
+  type ProjectModuleName,
+} from "@/lib/constants";
 
 export interface IEvent extends Document {
   title: string;
@@ -10,6 +15,8 @@ export interface IEvent extends Document {
   endDate?: Date;
   module?: ProjectModuleName;
   tags: string[];
+  recurrenceType: EventRecurrenceType;
+  recurrenceCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +34,12 @@ const EventSchema: Schema = new Schema(
       enum: [...PROJECT_MODULES],
     },
     tags: { type: [String], default: [] },
+    recurrenceType: {
+      type: String,
+      enum: [...EVENT_RECURRENCE_TYPES],
+      default: "none",
+    },
+    recurrenceCount: { type: Number, default: 1, min: 1 },
   },
   { timestamps: true },
 );

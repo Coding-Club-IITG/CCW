@@ -27,13 +27,23 @@ function getString(formData: FormData, key: string): string {
 }
 
 function parseMonthInput(value: string): Date | null {
-  const match = value.match(/^(\d{4})-(\d{2})$/);
-  if (!match) {
+  // Accept YYYY-MM (native input[type=month]) or MM/YYYY (manual entry)
+  let year: number;
+  let month: number;
+
+  const isoMatch = value.match(/^(\d{4})-(\d{2})$/);
+  const slashMatch = value.match(/^(\d{1,2})\/(\d{4})$/);
+
+  if (isoMatch) {
+    year = Number(isoMatch[1]);
+    month = Number(isoMatch[2]);
+  } else if (slashMatch) {
+    month = Number(slashMatch[1]);
+    year = Number(slashMatch[2]);
+  } else {
     return null;
   }
 
-  const year = Number(match[1]);
-  const month = Number(match[2]);
   if (month < 1 || month > 12) {
     return null;
   }

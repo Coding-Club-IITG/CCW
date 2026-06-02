@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
-import { IST_OFFSET_MS, type EventStatus } from "@/lib/constants";
+import {
+  IST_OFFSET_MS,
+  type EventRecurrenceType,
+  type EventStatus,
+} from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
 import { formatDate, logger } from "@/lib/utils";
 import Event, { type IEvent } from "@/models/Event";
@@ -55,6 +59,39 @@ export default async function EventDetailPage({ params }: Props) {
     ? `${formatDate(event.startDate)} – ${formatDate(event.endDate)}`
     : formatDate(event.startDate);
 
+  const recurrenceType = (event as any).recurrenceType as
+    | EventRecurrenceType
+    | undefined;
+  const recurrenceCount = (event as any).recurrenceCount as number | undefined;
+
+  function getOccurrenceDates(): Date[] {
+    if (!recurrenceType || recurrenceType === "none") return [];
+    const count = recurrenceCount || 1;
+    const dates: Date[] = [];
+    const start = new Date(event!.startDate);
+    for (let i = 0; i < count; i++) {
+      const d = new Date(start);
+      switch (recurrenceType) {
+        case "daily":
+          d.setDate(d.getDate() + i);
+          break;
+        case "weekly":
+          d.setDate(d.getDate() + i * 7);
+          break;
+        case "biweekly":
+          d.setDate(d.getDate() + i * 14);
+          break;
+        case "monthly":
+          d.setMonth(d.getMonth() + i);
+          break;
+      }
+      dates.push(d);
+    }
+    return dates;
+  }
+
+  const occurrences = getOccurrenceDates();
+
   return (
     <div className={styles.container}>
       <BackLink href="/events" label="All Events" />
@@ -72,6 +109,16 @@ export default async function EventDetailPage({ params }: Props) {
         </div>
         <h1 className={styles.title}>{event.title}</h1>
         <span className={styles.date}>{dateStr}</span>
+        {occurrences.length > 0 && (
+          <div className={styles.occurrences}>
+            <span className={styles.occurrenceLabel}>Occurs on:</span>
+            <ul className={styles.occurrenceList}>
+              {occurrences.map((date, i) => (
+                <li key={i}>{formatDate(date)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className={styles.content}>

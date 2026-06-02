@@ -15,11 +15,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  // If logged in and trying to access home, send to dashboard
-  if (session && pathname === "/") {
-    return NextResponse.redirect(new URL("/internal/dashboard", request.url));
-  }
-
   return NextResponse.next();
 }
 

@@ -1,0 +1,72 @@
+@use "@/styles/mixins" as *;
+
+.footer {
+  border-top: 1px solid var(--border);
+  background: var(--background-secondary);
+  padding: 1.5rem 1.5rem;
+  margin-top: auto;
+}
+
+.content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.brand {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--foreground-strong);
+}
+
+.address {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.copyright {
+  font-size: 0.75rem;
+  color: var(--muted-light);
+  margin-top: 0.15rem;
+}
+
+.socials {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.socialLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: color 0.15s ease;
+  padding: 0.375rem;
+  border-radius: 6px;
+
+  &:hover {
+    color: var(--primary);
+  }
+}
+
+@media (max-width: 600px) {
+  .content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .left {
+    align-items: center;
+  }
+}

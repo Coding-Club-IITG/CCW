@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import ImageUpload from "@/components/shared/ImageUpload";
-import { PROJECT_MODULES } from "@/lib/constants";
+import { PROJECT_MODULES, EVENT_RECURRENCE_TYPES } from "@/lib/constants";
 import { updateEvent } from "@/lib/actions/admin/events";
 import styles from "../new/EventForm.module.scss";
 
@@ -19,6 +19,8 @@ interface EventData {
   endDate?: string;
   module?: string;
   tags: string[];
+  recurrenceType?: string;
+  recurrenceCount?: number;
 }
 
 export default function EditEventPage({
@@ -36,6 +38,8 @@ export default function EditEventPage({
   const [endDate, setEndDate] = useState("");
   const [module, setModule] = useState("");
   const [tags, setTags] = useState("");
+  const [recurrenceType, setRecurrenceType] = useState("none");
+  const [recurrenceCount, setRecurrenceCount] = useState("1");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,6 +66,8 @@ export default function EditEventPage({
         setEndDate(event.endDate ? event.endDate.slice(0, 10) : "");
         setModule(event.module || "");
         setTags(event.tags?.join(", ") || "");
+        setRecurrenceType(event.recurrenceType || "none");
+        setRecurrenceCount(String(event.recurrenceCount || 1));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load event.");
       } finally {
@@ -90,6 +96,10 @@ export default function EditEventPage({
     if (endDate) formData.set("endDate", endDate);
     if (module) formData.set("module", module);
     if (tags) formData.set("tags", tags);
+    formData.set("recurrenceType", recurrenceType);
+    if (recurrenceType !== "none") {
+      formData.set("recurrenceCount", recurrenceCount);
+    }
 
     const result = await updateEvent(id, formData);
     if (result.success) {
@@ -201,6 +211,38 @@ export default function EditEventPage({
               placeholder="Comma-separated tags"
             />
           </div>
+        </div>
+
+        <div className={styles.row}>
+          <div className={styles.field}>
+            <label className={styles.label}>Recurrence</label>
+            <select
+              value={recurrenceType}
+              onChange={(event) => setRecurrenceType(event.target.value)}
+              className={styles.select}
+            >
+              {EVENT_RECURRENCE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type === "none"
+                    ? "One-time event"
+                    : type.charAt(0).toUpperCase() + type.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+          {recurrenceType !== "none" && (
+            <div className={styles.field}>
+              <label className={styles.label}>Number of Occurrences</label>
+              <input
+                type="number"
+                value={recurrenceCount}
+                onChange={(event) => setRecurrenceCount(event.target.value)}
+                className={styles.input}
+                min={1}
+                max={52}
+              />
+            </div>
+          )}
         </div>
 
         <div className={styles.field}>

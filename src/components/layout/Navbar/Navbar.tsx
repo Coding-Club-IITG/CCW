@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useSession, signIn, signOut } from "@/lib/auth-client";
 import { useState, useRef, useEffect } from "react";
-import { useThemeStore } from "@/lib/theme-store";
+import { useThemeStore } from "@/lib/store/theme";
+import { useViewModeStore } from "@/lib/store/view-mode";
 import { isAdmin } from "@/lib/roles";
 import { getDisplayName } from "@/lib/utils";
 import { Moon, Sun } from "lucide-react";
+import { IconSwitchView } from "@/components/shared/Icons";
 import NotificationBell from "./NotificationBell";
 import styles from "./Navbar.module.scss";
 
@@ -32,11 +34,28 @@ function UserAvatar({
   return <span className={styles.avatarInitials}>{initials}</span>;
 }
 
+const PUBLIC_LINKS = [
+  { href: "/", label: "Home" },
+  { href: "/blog", label: "Blog" },
+  { href: "/events", label: "Events" },
+  { href: "/projects", label: "Projects" },
+  { href: "/team", label: "Team" },
+];
+
+const INTERNAL_LINKS = [
+  { href: "/internal/dashboard", label: "Dashboard" },
+  { href: "/internal/files", label: "Files" },
+  { href: "/internal/cp", label: "CP" },
+  { href: "/internal/potd", label: "POTD" },
+  { href: "/internal/hackathons", label: "Hackathons" },
+];
+
 export default function Navbar() {
   const { data: session, isPending } = useSession();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { theme, toggleTheme } = useThemeStore();
+  const { viewMode, toggleViewMode } = useViewModeStore();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -61,11 +80,14 @@ export default function Navbar() {
       }
     | undefined;
 
+  const showInternal = !!session && viewMode === "internal";
+  const navLinks = showInternal ? INTERNAL_LINKS : PUBLIC_LINKS;
+
   return (
     <nav className={styles.navbar}>
       <div className={styles.leftSection}>
         <Link
-          href={session ? "/internal/dashboard" : "/"}
+          href={showInternal ? "/internal/dashboard" : "/"}
           className={styles.logo}
         >
           CC IITG
@@ -79,39 +101,37 @@ export default function Navbar() {
         </button>
       </div>
       <div className={styles.navLinks}>
+        {navLinks.map(({ href, label }) => (
+          <Link key={href} href={href}>
+            {label}
+          </Link>
+        ))}
+        {showInternal && <NotificationBell />}
         {session ? (
-          <>
-            <Link href="/internal/dashboard">Dashboard</Link>
-            <Link href="/internal/files">Files</Link>
-            <Link href="/internal/cp">CP</Link>
-            <Link href="/internal/potd">POTD</Link>
-            <Link href="/internal/hackathons">Hackathons</Link>
-            <Link href="/blog">Blog</Link>
-            <NotificationBell />
-            <div className={styles.avatarWrapper} ref={menuRef}>
-              <button
-                className={styles.avatarButton}
-                onClick={() => setMenuOpen(!menuOpen)}
-                aria-label="User menu"
-                type="button"
-              >
-                <UserAvatar name={user?.name} image={user?.image} />
-              </button>
-              {menuOpen && (
-                <div className={styles.userMenu}>
-                  <div className={styles.userMenuHeader}>
-                    <span className={styles.userMenuName}>
-                      {getDisplayName(user?.name || "User", user?.pizza_count)}
-                    </span>
-                    <span className={styles.userMenuEmail}>
-                      {user?.email || ""}
-                    </span>
+          <div className={styles.avatarWrapper} ref={menuRef}>
+            <button
+              className={styles.avatarButton}
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="User menu"
+              type="button"
+            >
+              <UserAvatar name={user?.name} image={user?.image} />
+            </button>
+            {menuOpen && (
+              <div className={styles.userMenu}>
+                <div className={styles.userMenuHeader}>
+                  <span className={styles.userMenuName}>
+                    {getDisplayName(user?.name || "User", user?.pizza_count)}
+                  </span>
+                  <span className={styles.userMenuEmail}>
+                    {showInternal ? user?.email || "" : "Viewing as public"}
+                  </span>
+                  {showInternal && (
                     <span className={styles.userMenuRole}>
                       {user?.role || "Member"}
                       {user?.moduleRoles && user.moduleRoles.length > 0 && (
                         <>
-                          {" "}
-                          ·{" "}
+                          {" · "}
                           {user.moduleRoles
                             .map(
                               (mr: any) =>
@@ -121,60 +141,67 @@ export default function Navbar() {
                         </>
                       )}
                     </span>
-                  </div>
-                  <div className={styles.userMenuDivider} />
-                  <Link
-                    href="/internal/profile"
-                    className={styles.userMenuItem}
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Profile
-                  </Link>
-                  {isAdmin(user?.role) && (
+                  )}
+                </div>
+                <div className={styles.userMenuDivider} />
+                {showInternal && (
+                  <>
                     <Link
-                      href="/admin"
+                      href="/internal/profile"
                       className={styles.userMenuItem}
                       onClick={() => setMenuOpen(false)}
                     >
-                      Administration
+                      Profile
                     </Link>
-                  )}
-                  <button
-                    className={styles.userMenuLogout}
-                    onClick={async () => {
-                      setMenuOpen(false);
-                      await signOut();
-                      window.location.href = "/";
-                    }}
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
+                    {isAdmin(user?.role) && (
+                      <Link
+                        href="/admin"
+                        className={styles.userMenuItem}
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        Administration
+                      </Link>
+                    )}
+                  </>
+                )}
+                <button
+                  className={styles.userMenuItem}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    toggleViewMode();
+                  }}
+                >
+                  <IconSwitchView width={14} height={14} />
+                  {showInternal ? "Public View" : "Internal View"}
+                </button>
+                <button
+                  className={styles.userMenuLogout}
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    await signOut();
+                    window.location.href = "/";
+                  }}
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
-          <>
-            <Link href="/">Home</Link>
-            <Link href="/blog">Blog</Link>
-            <Link href="/events">Events</Link>
-            <Link href="/projects">Projects</Link>
-            <Link href="/team">Team</Link>
-            <button
-              disabled={isLoggingIn || isPending}
-              onClick={async () => {
-                setIsLoggingIn(true);
-                await signIn.social({
-                  provider: "microsoft",
-                  callbackURL: "/internal/dashboard",
-                  errorCallbackURL: "/?error=unauthorized",
-                });
-              }}
-              className={styles.authButton}
-            >
-              {isLoggingIn ? "Redirecting..." : "Login"}
-            </button>
-          </>
+          <button
+            disabled={isLoggingIn || isPending}
+            onClick={async () => {
+              setIsLoggingIn(true);
+              await signIn.social({
+                provider: "microsoft",
+                callbackURL: "/internal/dashboard",
+                errorCallbackURL: "/?error=unauthorized",
+              });
+            }}
+            className={styles.authButton}
+          >
+            {isLoggingIn ? "Redirecting..." : "Login"}
+          </button>
         )}
       </div>
     </nav>

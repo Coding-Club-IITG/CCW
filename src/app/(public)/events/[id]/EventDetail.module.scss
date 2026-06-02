@@ -54,6 +54,33 @@
   color: var(--muted);
 }
 
+.occurrences {
+  margin-top: 0.75rem;
+}
+
+.occurrenceLabel {
+  font-size: 0.8rem;
+  color: var(--muted-light);
+  font-weight: 500;
+}
+
+.occurrenceList {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+
+  li {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    background: var(--surface-2);
+    border-radius: 6px;
+    color: var(--text);
+  }
+}
+
 .content {
   border-top: 1px solid var(--border);
   padding-top: 1.5rem;

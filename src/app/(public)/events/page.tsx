@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { IST_OFFSET_MS, type EventStatus } from "@/lib/constants";
+import {
+  IST_OFFSET_MS,
+  type EventRecurrenceType,
+  type EventStatus,
+} from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
 import { formatDate, logger } from "@/lib/utils";
 import Event, { type IEvent } from "@/models/Event";
@@ -32,6 +36,19 @@ function formatEventDate(startDate: Date, endDate?: Date): string {
   const start = formatDate(startDate);
   if (!endDate) return start;
   return `${start} – ${formatDate(endDate)}`;
+}
+
+function getRecurrenceLabel(
+  recurrenceType?: EventRecurrenceType,
+  recurrenceCount?: number,
+): string | null {
+  if (!recurrenceType || recurrenceType === "none") return null;
+  const count = recurrenceCount || 1;
+  const typeLabel =
+    recurrenceType === "biweekly"
+      ? "Every 2 weeks"
+      : `${recurrenceType.charAt(0).toUpperCase() + recurrenceType.slice(1)}`;
+  return `${typeLabel} · ${count} occurrence${count > 1 ? "s" : ""}`;
 }
 
 export default async function EventsPage() {
@@ -69,6 +86,10 @@ export default async function EventsPage() {
         <div className={styles.grid}>
           {events.map((event) => {
             const status = getEventStatus(event.startDate, event.endDate);
+            const recurrenceLabel = getRecurrenceLabel(
+              (event as any).recurrenceType,
+              (event as any).recurrenceCount,
+            );
 
             return (
               <Link
@@ -97,6 +118,9 @@ export default async function EventsPage() {
                   <span className={styles.date}>
                     {formatEventDate(event.startDate, event.endDate)}
                   </span>
+                  {recurrenceLabel && (
+                    <span className={styles.recurrence}>{recurrenceLabel}</span>
+                  )}
                 </div>
               </Link>
             );

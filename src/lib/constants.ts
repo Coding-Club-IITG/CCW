@@ -37,6 +37,15 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 export const EVENT_STATUSES = ["Upcoming", "Ongoing", "Completed"] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
+export const EVENT_RECURRENCE_TYPES = [
+  "none",
+  "daily",
+  "weekly",
+  "biweekly",
+  "monthly",
+] as const;
+export type EventRecurrenceType = (typeof EVENT_RECURRENCE_TYPES)[number];
+
 /* CP Platforms */
 
 export const PLATFORMS = ["codeforces", "atcoder"] as const;
