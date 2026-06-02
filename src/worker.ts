@@ -4,7 +4,7 @@ import { syncCodeforcesRatings } from "./lib/jobs/cfSync";
 import { syncAtCoderRatings } from "./lib/jobs/acSync";
 import { syncPOTDSubmissions } from "./lib/jobs/potdSync";
 import { syncContests } from "./lib/jobs/contestSync";
-import { cleanupOrphanedBlogImages } from "./lib/jobs/blogImageCleanup";
+import { cleanupOrphanedImages } from "./lib/jobs/imageCleanup";
 import { sendHackathonDeadlineReminders } from "./lib/jobs/hackathonReminder";
 import { sendPOTDReminders } from "./lib/jobs/potdReminder";
 import { logger } from "./lib/utils";
@@ -33,8 +33,8 @@ async function run() {
     await syncContests();
   });
 
-  agenda.define("cleanup-blog-images", async () => {
-    await cleanupOrphanedBlogImages();
+  agenda.define("cleanup-images", async () => {
+    await cleanupOrphanedImages();
   });
 
   agenda.define("hackathon-deadline-reminders", async () => {
@@ -60,8 +60,8 @@ async function run() {
   // Schedule contest sync every 3 hours
   await agenda.every("3 hours", "sync-contests");
 
-  // Schedule blog image orphan cleanup weekly (every Sunday at 3:00 AM IST)
-  await agenda.every("0 30 21 * * 0", "cleanup-blog-images");
+  // Schedule image orphan cleanup weekly (every Sunday at 3:00 AM IST)
+  await agenda.every("0 30 21 * * 0", "cleanup-images");
 
   // Schedule hackathon deadline reminders every hour
   await agenda.every("1 hour", "hackathon-deadline-reminders");

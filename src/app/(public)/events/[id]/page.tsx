@@ -76,9 +76,11 @@ export default async function EventDetailPage({ params }: Props) {
     <div className={styles.container}>
       <BackLink href="/events" label="All Events" />
 
-      <div className={styles.posterWrapper}>
-        <img src={event.poster} alt={event.title} className={styles.poster} />
-      </div>
+      {event.poster && (
+        <div className={styles.posterWrapper}>
+          <img src={event.poster} alt={event.title} className={styles.poster} />
+        </div>
+      )}
 
       <div className={styles.header}>
         <div className={styles.badges}>

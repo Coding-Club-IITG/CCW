@@ -77,13 +77,15 @@ export default async function EventsPage() {
                 href={`/events/${String(event._id)}`}
                 className={styles.card}
               >
-                <div className={styles.posterWrapper}>
-                  <img
-                    src={event.poster}
-                    alt={event.title}
-                    className={styles.poster}
-                  />
-                </div>
+                {event.poster && (
+                  <div className={styles.posterWrapper}>
+                    <img
+                      src={event.poster}
+                      alt={event.title}
+                      className={styles.poster}
+                    />
+                  </div>
+                )}
                 <div className={styles.cardContent}>
                   <div className={styles.badges}>
                     <StatusBadge status={status} />

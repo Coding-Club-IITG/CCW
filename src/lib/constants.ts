@@ -155,3 +155,43 @@ export const BLOG_TAGS = [
   "Announcement",
 ] as const;
 export type BlogTag = (typeof BLOG_TAGS)[number];
+
+// Image upload constants
+export const ALLOWED_IMAGE_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".avif",
+  ".svg",
+] as const;
+export type ImageExtension = (typeof ALLOWED_IMAGE_EXTENSIONS)[number];
+
+export const ALLOWED_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+  "image/svg+xml",
+] as const;
+export type ImageMimeType = (typeof ALLOWED_IMAGE_MIME_TYPES)[number];
+
+export const IMAGE_EXTENSION_TO_MIME: Record<ImageExtension, ImageMimeType> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".svg": "image/svg+xml",
+};
+
+/**
+ * Regex fragment matching allowed image extensions
+ * For use in filename validation
+ * */
+export const IMAGE_EXTENSIONS_REGEX_FRAGMENT = ALLOWED_IMAGE_EXTENSIONS.map(
+  (e) => e.slice(1),
+).join("|");

@@ -268,6 +268,7 @@ export async function createEvent(formData: FormData) {
     });
 
     revalidatePath("/admin/events");
+    revalidatePath("/events");
 
     return {
       success: true as const,
@@ -384,6 +385,8 @@ export async function updateEvent(id: string, formData: FormData) {
 
     revalidatePath("/admin/events");
     revalidatePath(`/admin/events/${id}`);
+    revalidatePath("/events");
+    revalidatePath(`/events/${id}`);
 
     return {
       success: true as const,
@@ -414,6 +417,7 @@ export async function deleteEvent(id: string) {
     });
 
     revalidatePath("/admin/events");
+    revalidatePath("/events");
 
     return { success: true as const };
   } catch (err) {

@@ -9,15 +9,10 @@ import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import crypto from "crypto";
-
-const ALLOWED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/avif",
-  "image/svg+xml",
-];
+import {
+  ALLOWED_IMAGE_MIME_TYPES,
+  ALLOWED_IMAGE_EXTENSIONS,
+} from "@/lib/constants";
 
 interface UploadOptions {
   /** Directory to store uploaded files */
@@ -67,11 +62,12 @@ export function createImageUploadHandler(options: UploadOptions) {
         );
       }
 
-      if (!ALLOWED_TYPES.includes(file.type)) {
+      if (
+        !(ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(file.type)
+      ) {
         return NextResponse.json(
           {
-            error:
-              "Only image files are allowed (JPEG, PNG, GIF, WebP, AVIF, SVG).",
+            error: "Not a supported image file format",
           },
           { status: 400 },
         );
@@ -91,6 +87,15 @@ export function createImageUploadHandler(options: UploadOptions) {
       }
 
       const ext = path.extname(file.name).toLowerCase() || ".png";
+      if (!(ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(ext)) {
+        return NextResponse.json(
+          {
+            error:
+              "Only image files are allowed (JPEG, PNG, GIF, WebP, AVIF, SVG).",
+          },
+          { status: 400 },
+        );
+      }
       const filename = `${crypto.randomBytes(16).toString("hex")}${ext}`;
       const buffer = Buffer.from(await file.arrayBuffer());
       await writeFile(path.join(uploadDir, filename), buffer);
