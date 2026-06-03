@@ -7,14 +7,13 @@ import {
   Edit2,
   Eye,
   Download,
-  X,
-  Search,
   FileIcon,
   AlertCircle,
 } from "lucide-react";
+import Pagination from "@/components/shared/Pagination";
+import SearchInput from "@/components/shared/SearchInput";
 import type { CurrentUser, FileEntry, UserBasic } from "./types";
 import { formatBytes, formatDate, canManageFile, aclSummary } from "./utils";
-import Pagination from "@/components/shared/Pagination";
 import FileViewer from "./FileViewer";
 import UploadModal from "./UploadModal";
 import EditModal from "./EditModal";
@@ -143,20 +142,12 @@ export default function FilesClient({ currentUser }: Props) {
 
       {/* Toolbar */}
       <div className={styles.toolbar}>
-        <div className={styles.searchBox}>
-          <Search size={14} />
-          <input
-            type="text"
-            placeholder="Search files…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery("")}>
-              <X size={13} />
-            </button>
-          )}
-        </div>
+        <SearchInput
+          placeholder="Search files…"
+          value={searchQuery}
+          onChange={setSearchQuery}
+          className={styles.searchBox}
+        />
 
         <div className={styles.folderTabs}>
           {folders.map((folder) => (

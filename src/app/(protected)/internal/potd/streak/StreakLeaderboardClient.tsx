@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import SearchInput from "@/components/shared/SearchInput";
 import styles from "../Lists.module.scss";
 import { type StreakEntry } from "@/lib/actions/potd";
 
@@ -12,8 +13,19 @@ type Props = {
 
 export default function StreakLeaderboardClient({ initialData }: Props) {
   const [sortParam, setSortParam] = useState<StreakTab>("current");
+  const [search, setSearch] = useState("");
 
-  const sortedData = [...initialData].sort((a, b) => {
+  const filteredData = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return initialData;
+    return initialData.filter((user) => {
+      const name = user.name.toLowerCase();
+      const handle = user.handle?.toLowerCase() ?? "";
+      return name.includes(query) || handle.includes(query);
+    });
+  }, [initialData, search]);
+
+  const sortedData = [...filteredData].sort((a, b) => {
     const valA = sortParam === "current" ? a.currentStreak : a.longestStreak;
     const valB = sortParam === "current" ? b.currentStreak : b.longestStreak;
     if (valB !== valA) return valB - valA;
@@ -46,9 +58,17 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
         </div>
       </div>
 
+      <SearchInput
+        placeholder="Search by name or handle..."
+        value={search}
+        onChange={setSearch}
+      />
+
       {sortedData.length === 0 ? (
-        <p style={{ color: "var(--muted)", padding: "2rem 0" }}>
-          No streak data yet - start solving!
+        <p className={styles.emptyState}>
+          {search
+            ? "No matching members found."
+            : "No streak data yet - start solving!"}
         </p>
       ) : (
         <div className={styles.tableContainer}>

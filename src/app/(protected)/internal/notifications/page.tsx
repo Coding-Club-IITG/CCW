@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { IconExternalLink } from "@/components/shared/Icons";
 import Pagination from "@/components/shared/Pagination";
+import SearchInput from "@/components/shared/SearchInput";
 import styles from "./Notifications.module.scss";
 
 interface Notification {
@@ -22,15 +23,21 @@ export default function NotificationsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     setLoading(true);
     fetchNotifications();
-  }, [page]);
+  }, [page, search]);
 
   async function fetchNotifications() {
     try {
-      const res = await fetch(`/api/notifications?page=${page}&limit=30`);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: "30",
+      });
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/notifications?${params}`);
       const data = await res.json();
       setNotifications(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
@@ -56,6 +63,15 @@ export default function NotificationsPage() {
     }
   }
 
+  async function clearAllRead() {
+    try {
+      await fetch("/api/notifications", { method: "DELETE" });
+      fetchNotifications();
+    } catch {
+      // silent
+    }
+  }
+
   async function markRead(id: string) {
     try {
       await fetch("/api/notifications", {
@@ -72,6 +88,11 @@ export default function NotificationsPage() {
     }
   }
 
+  function handleSearch(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -83,11 +104,20 @@ export default function NotificationsPage() {
         </p>
       </header>
 
-      {unreadCount > 0 && (
-        <button className={styles.btnSecondary} onClick={markAllRead}>
-          Mark all as read
+      <div className={styles.actions}>
+        <SearchInput
+          placeholder="Search notifications..."
+          onSearch={handleSearch}
+        />
+        {unreadCount > 0 && (
+          <button className={styles.btnSecondary} onClick={markAllRead}>
+            Mark all as read
+          </button>
+        )}
+        <button className={styles.btnSecondary} onClick={clearAllRead}>
+          Clear all read
         </button>
-      )}
+      </div>
 
       {loading ? (
         <p className={styles.muted}>Loading...</p>

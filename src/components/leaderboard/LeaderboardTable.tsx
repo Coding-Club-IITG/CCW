@@ -13,6 +13,7 @@ type Props<T> = {
   data: T[];
   getKey: (item: T, index: number) => string;
   emptyMessage?: string;
+  toolbar?: React.ReactNode;
 };
 
 export default function LeaderboardTable<T>({
@@ -22,6 +23,7 @@ export default function LeaderboardTable<T>({
   data,
   getKey,
   emptyMessage = "No data available.",
+  toolbar,
 }: Props<T>) {
   return (
     <div className={styles.container}>
@@ -29,6 +31,8 @@ export default function LeaderboardTable<T>({
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
+
+      {toolbar && <div className={styles.toolbar}>{toolbar}</div>}
 
       <div className={styles.tableContainer}>
         {data.length === 0 ? (

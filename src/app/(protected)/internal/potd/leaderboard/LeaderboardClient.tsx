@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import styles from "../Lists.module.scss";
+import { useMemo, useState } from "react";
+import SearchInput from "@/components/shared/SearchInput";
 import PlatformTabs from "@/components/shared/PlatformTabs";
 import { type LeaderboardEntry } from "@/lib/actions/potd";
+import styles from "../Lists.module.scss";
 
 type Tab = "weekly" | "monthly";
 
@@ -22,8 +23,23 @@ export default function LeaderboardClient({
   initialMonthly,
 }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("weekly");
+  const [search, setSearch] = useState("");
 
   const data = activeTab === "weekly" ? initialWeekly : initialMonthly;
+  const filteredData = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return data;
+    }
+
+    return data.filter((user) => {
+      const name = user.name.toLowerCase();
+      const handle = user.handle?.toLowerCase() ?? "";
+
+      return name.includes(query) || handle.includes(query);
+    });
+  }, [data, search]);
 
   return (
     <div className={styles.container}>
@@ -38,9 +54,19 @@ export default function LeaderboardClient({
         onTabChange={(key) => setActiveTab(key as Tab)}
       />
 
+      <SearchInput
+        placeholder="Search by name or handle..."
+        value={search}
+        onChange={setSearch}
+      />
+
       <div className={styles.tableContainer}>
-        {data.length === 0 ? (
-          <p className={styles.emptyState}>No data yet - start solving!</p>
+        {filteredData.length === 0 ? (
+          <p className={styles.emptyState}>
+            {data.length === 0
+              ? "No data yet - start solving!"
+              : "No matching members found."}
+          </p>
         ) : (
           <table className={styles.table}>
             <thead>
@@ -54,20 +80,23 @@ export default function LeaderboardClient({
             </thead>
             <tbody>
               {(() => {
-                // Dense ranking: same rank if tied on both points AND streak
                 const ranks: number[] = [];
-                data.forEach((user, i) => {
+
+                filteredData.forEach((user, i) => {
                   if (i === 0) {
                     ranks.push(1);
                     return;
                   }
-                  const prev = data[i - 1];
+
+                  const prev = filteredData[i - 1];
                   const tied =
                     prev.totalPoints === user.totalPoints &&
                     prev.currentStreak === user.currentStreak;
+
                   ranks.push(tied ? ranks[i - 1] : i + 1);
                 });
-                return data.map((user, index) => {
+
+                return filteredData.map((user, index) => {
                   const rank = ranks[index];
                   let rankClass = "";
                   if (rank === 1) rankClass = styles.top1;

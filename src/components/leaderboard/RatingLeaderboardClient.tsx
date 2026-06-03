@@ -6,6 +6,7 @@ import LeaderboardTable, {
   leaderboardStyles as styles,
 } from "@/components/leaderboard/LeaderboardTable";
 import PlatformTabs from "@/components/shared/PlatformTabs";
+import SearchInput from "@/components/shared/SearchInput";
 import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROFILE_URLS } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
 
@@ -32,8 +33,20 @@ export default function RatingLeaderboardClient({
   acEntries,
 }: Props) {
   const [platform, setPlatform] = useState<Platform>("codeforces");
+  const [search, setSearch] = useState("");
 
   const entries = platform === "codeforces" ? cfEntries : acEntries;
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredEntries = normalizedSearch
+    ? entries.filter((entry) => {
+        const name = entry.name.toLowerCase();
+        const handle = entry.handle.toLowerCase();
+
+        return (
+          name.includes(normalizedSearch) || handle.includes(normalizedSearch)
+        );
+      })
+    : entries;
 
   const columns: Column<RatingLeaderboardEntry>[] = [
     {
@@ -103,9 +116,16 @@ export default function RatingLeaderboardClient({
         title={`${PLATFORM_DISPLAY_NAMES[platform]} Leaderboard`}
         description="Current standings of coding club members."
         columns={columns}
-        data={entries}
+        data={filteredEntries}
         getKey={(item) => item.id}
         emptyMessage="No data available yet. Ratings sync every 6 hours."
+        toolbar={
+          <SearchInput
+            placeholder="Search by name or handle"
+            value={search}
+            onChange={setSearch}
+          />
+        }
       />
     </div>
   );

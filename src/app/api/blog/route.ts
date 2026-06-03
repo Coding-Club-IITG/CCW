@@ -15,17 +15,22 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 12 });
     const tag = searchParams.get("tag")?.trim() || null;
+    const searchQuery = searchParams.get("search")?.trim() || null;
 
     const cacheKey = buildCacheKey("blog", {
       page,
       limit,
       tag: tag || undefined,
+      search: searchQuery || undefined,
     });
 
     const result = await cachedFetch(cacheKey, CACHE_TTLS.BLOG, async () => {
       const filter: Record<string, any> = { status: "published" };
       if (tag) {
         filter.tags = tag;
+      }
+      if (searchQuery) {
+        filter.title = { $regex: searchQuery, $options: "i" };
       }
 
       const [posts, total, availableTags] = await Promise.all([

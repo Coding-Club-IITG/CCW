@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import SearchInput from "@/components/shared/SearchInput";
 import { formatDate } from "@/lib/utils";
 import {
   IconUsers,
@@ -26,6 +27,7 @@ interface Hackathon {
 export default function HackathonsPage() {
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetch("/api/hackathons")
@@ -34,6 +36,24 @@ export default function HackathonsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const filteredHackathons = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) return hackathons;
+
+    return hackathons.filter((hackathon) => {
+      const matchesName = hackathon.name.toLowerCase().includes(query);
+      const matchesOrganization = hackathon.organization
+        .toLowerCase()
+        .includes(query);
+      const matchesSkills = hackathon.skills.some((skill) =>
+        skill.toLowerCase().includes(query),
+      );
+
+      return matchesName || matchesOrganization || matchesSkills;
+    });
+  }, [hackathons, search]);
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -41,13 +61,23 @@ export default function HackathonsPage() {
         <p>Find active hackathons and build your dream team.</p>
       </header>
 
+      <div className={styles.searchWrapper}>
+        <SearchInput
+          placeholder="Search by name, organization, or skill"
+          value={search}
+          onChange={setSearch}
+        />
+      </div>
+
       {loading ? (
         <p className={styles.muted}>Loading hackathons...</p>
       ) : hackathons.length === 0 ? (
         <p className={styles.muted}>No active hackathons right now.</p>
+      ) : filteredHackathons.length === 0 ? (
+        <p className={styles.muted}>No hackathons match your search.</p>
       ) : (
         <div className={styles.grid}>
-          {hackathons.map((h) => (
+          {filteredHackathons.map((h) => (
             <Link
               key={h._id}
               href={`/internal/hackathons/${h._id}`}

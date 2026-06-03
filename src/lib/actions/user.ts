@@ -37,19 +37,40 @@ async function checkAdmin() {
   }
 }
 
-export async function getUsers(page = 1, limit = 50) {
+export async function getUsers(page = 1, limit = 50, search = "") {
   try {
     const session = await checkAdmin();
     if (!session) return { success: false as const, error: "Unauthorized" };
     await dbConnect();
 
-    const cacheKey = buildCacheKey("users:admin", { page, limit });
+    const normalizedSearch = search.trim();
+    const escapedSearch = normalizedSearch.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&",
+    );
+    const filter = normalizedSearch
+      ? {
+          $or: [
+            { name: { $regex: escapedSearch, $options: "i" } },
+            { email: { $regex: escapedSearch, $options: "i" } },
+          ],
+        }
+      : {};
+    const cacheKey = buildCacheKey("users:admin", {
+      page,
+      limit,
+      search: normalizedSearch || undefined,
+    });
     const skip = (page - 1) * limit;
 
     const result = await cachedFetch(cacheKey, CACHE_TTLS.USERS, async () => {
       const [users, total] = await Promise.all([
-        User.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-        User.countDocuments({}),
+        User.find(filter)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        User.countDocuments(filter),
       ]);
       return { users: JSON.parse(JSON.stringify(users)), total };
     });

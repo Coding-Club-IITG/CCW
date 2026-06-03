@@ -55,6 +55,21 @@
   }
 }
 
+.toolbar {
+  margin-bottom: 1rem;
+}
+
+.searchInput {
+  max-width: 24rem;
+}
+
+.loadingState {
+  padding: 2rem;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.875rem;
+}
+
 .tableContainer {
   overflow-x: auto;
   border: 1px solid var(--border);

@@ -49,7 +49,7 @@ Always use `getDisplayName(name, pizzaCount)` from `src/lib/utils.ts` - never re
 
 ### Reuse Components
 
-Check `src/components/shared/` (PlatformTabs, LinkCard, BackLink, Icons, Pagination), `leaderboard/` (LeaderboardTable), `blog/` (BlogCard, TagBadge, MarkdownRenderer) before creating new UI.
+Check `src/components/shared/` (PlatformTabs, LinkCard, BackLink, Icons, Pagination, SearchInput), `leaderboard/` (LeaderboardTable), `blog/` (BlogCard, TagBadge, MarkdownRenderer) before creating new UI.
 
 ### Client vs Server
 
@@ -69,7 +69,7 @@ Before writing any new component, style, constant, or utility, search the codeba
 
 **Role hierarchy** (`src/lib/roles.ts`):
 
-- `Secretary / OC` → Global admins (full access)
+- `Secretary / OC / Projects Head` → Global admins (full access)
 - `Head` → Module-level admin (file upload, manage module files)
 - `Core Team` → Can set POTD problems
 - `Member` → Standard access (subject to per-resource ACLs)
@@ -139,6 +139,8 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 
 **Current jobs:** `sync-cf-ratings` (6h), `sync-ac-ratings` (6h), `sync-contests` (3h), `sync-potd-submissions` (daily 2AM IST), `potd-reminders` (hourly), `hackathon-deadline-reminders` (hourly), `cleanup-blog-images` (weekly).
 
+**TTL Indexes:** Notifications auto-expire after 30 days via MongoDB TTL index on `createdAt`. No background job needed.
+
 ---
 
 ## 7. POTD System
@@ -159,7 +161,7 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 
 ---
 
-## 8.5. Pagination & Caching (`src/lib/pagination.ts`, `src/lib/cache.ts`)
+## 9. Pagination & Caching (`src/lib/pagination.ts`, `src/lib/cache.ts`)
 
 ### Pagination
 
@@ -171,7 +173,7 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 
 ### Redis Caching
 
-- Use `cachedFetch<T>(key, ttlSeconds, fetchFn)` for all cacheable reads — never inline `redis.get/set`
+- Use `cachedFetch<T>(key, ttlSeconds, fetchFn)` for all cacheable reads - never inline `redis.get/set`
 - Use `buildCacheKey(prefix, params)` for deterministic keys: `ccw:<prefix>:<sorted-params>`
 - Use `invalidateCache(prefix)` after mutations to clear `ccw:<prefix>:*` keys
 - TTLs in `CACHE_TTLS` constant: TEAM (6h), CONTESTS (3h), CF_PROBLEMSET (6h), EVENTS/PROJECTS/LEADERBOARDS (5min), BLOG/FILES/USERS (2min), POTD (2min), HACKATHONS (5min)
@@ -179,14 +181,14 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 
 ---
 
-## 9. Code Style
+## 10. Code Style
 
 - **Imports:** `@/` alias. Group: external → `@/lib` → `@/models` → `@/components` → relative
 - **Models:** `export default`. **Actions/Constants:** named exports
 - **Dates:** IST via `IST_OFFSET_MS`. Display via `formatDate()` with `"en-IN"` locale
 - **Logging:** `logger.info/warn/error/debug` from `@/lib/utils` (prefixed `[CCW]`)
 - **DB:** `await dbConnect()` at start of any server function. `await getRedis()` for raw Redis access
-- **Caching:** Use `cachedFetch(key, ttl, fn)` from `@/lib/cache` — never inline `redis.get/set`. Call `invalidateCache(prefix)` in mutation handlers
+- **Caching:** Use `cachedFetch(key, ttl, fn)` from `@/lib/cache` - never inline `redis.get/set`. Call `invalidateCache(prefix)` in mutation handlers
 - **Pagination:** Use `parsePagination(searchParams)` + `paginatedResponse(data, total, page, limit)` from `@/lib/pagination` for all list endpoints
 - **Env:** Import `./lib/env` first in standalone entry points. See `.env.example` for required vars
 - **Validation:** Server-side validation with early returns; never trust client alone
@@ -194,7 +196,7 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 
 ---
 
-## 10. Key Gotchas
+## 11. Key Gotchas
 
 1. **Mongoose model tree-shaking:** In actions using `populate()`, import all referenced models. Use `[Model].forEach(m => m?.init?.())` pattern.
 2. **Transactions:** MongoDB uses replica set - use transactions where beneficial.

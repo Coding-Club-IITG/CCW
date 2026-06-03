@@ -3,7 +3,7 @@
 }
 
 .header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 
   h1 {
     font-size: 1.5rem;
@@ -33,11 +33,18 @@
   font-size: 0.8125rem;
   cursor: pointer;
   transition: background 0.15s ease;
-  margin-bottom: 1rem;
 
   &:hover {
     background: var(--btn-secondary-bg-hover);
   }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
 
 .list {

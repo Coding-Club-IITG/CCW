@@ -3,7 +3,7 @@
 }
 
 .header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 
   h1 {
     font-size: 1.5rem;
@@ -22,6 +22,10 @@
 .muted {
   color: var(--muted);
   font-size: 0.875rem;
+}
+
+.searchWrapper {
+  margin-bottom: 1rem;
 }
 
 .error {

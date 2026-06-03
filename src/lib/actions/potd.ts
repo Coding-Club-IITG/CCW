@@ -378,6 +378,7 @@ export type PastProblemEntry = {
 export async function getPastProblems(
   page = 1,
   limit = 30,
+  search?: string,
 ): Promise<{
   ok: boolean;
   data?: PastProblemEntry[];
@@ -389,7 +390,12 @@ export async function getPastProblems(
 
   await dbConnect();
 
-  const cacheKey = buildCacheKey("potd:past", { page, limit });
+  const normalizedSearch = search?.trim() ?? "";
+  const cacheKey = buildCacheKey("potd:past", {
+    page,
+    limit,
+    search: normalizedSearch,
+  });
   const skip = (page - 1) * limit;
 
   const result = await cachedFetch(
@@ -397,13 +403,33 @@ export async function getPastProblems(
     CACHE_TTLS.LEADERBOARDS,
     async () => {
       const now = new Date();
+      const challengeQuery: Record<string, unknown> = {
+        graceEnd: { $lt: now },
+      };
+
+      if (normalizedSearch) {
+        const escapedSearch = normalizedSearch.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&",
+        );
+        const matchingProblemIds = await Problem.find({
+          name: { $regex: new RegExp(escapedSearch, "i") },
+        }).distinct("_id");
+
+        if (matchingProblemIds.length === 0) {
+          return { data: [] as PastProblemEntry[], total: 0 };
+        }
+
+        challengeQuery.problem = { $in: matchingProblemIds };
+      }
+
       const [challenges, total] = await Promise.all([
-        DailyChallenge.find({ graceEnd: { $lt: now } })
+        DailyChallenge.find(challengeQuery)
           .sort({ windowStart: -1, difficulty: 1 })
           .skip(skip)
           .limit(limit)
           .populate("problem"),
-        DailyChallenge.countDocuments({ graceEnd: { $lt: now } }),
+        DailyChallenge.countDocuments(challengeQuery),
       ]);
 
       const challengeIds = challenges.map((c: any) => c._id);

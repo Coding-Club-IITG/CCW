@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import SearchInput from "@/components/shared/SearchInput";
 import BlogCard from "@/components/blog/BlogCard";
 import TagBadge from "@/components/blog/TagBadge";
 import styles from "./Blog.module.scss";
@@ -26,19 +27,21 @@ export default function BlogPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     fetchPosts();
-  }, [activeTag, page]);
+  }, [activeTag, search, page]);
 
   const fetchPosts = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: "12" });
       if (activeTag) params.set("tag", activeTag);
+      if (search) params.set("search", search);
 
       const res = await fetch(`/api/blog?${params}`);
       const data = await res.json();
@@ -59,6 +62,11 @@ export default function BlogPage() {
     setPage(1);
   };
 
+  const handleSearch = (value: string) => {
+    setSearch(value.trim());
+    setPage(1);
+  };
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -66,6 +74,11 @@ export default function BlogPage() {
         <p className={styles.subtitle}>
           Insights, tutorials, and updates from the Coding Club IITG community.
         </p>
+        <SearchInput
+          placeholder="Search posts by title"
+          onSearch={handleSearch}
+          className={styles.searchInput}
+        />
       </header>
 
       {availableTags.length > 0 && (
@@ -85,7 +98,11 @@ export default function BlogPage() {
         <div className={styles.loading}>Loading posts...</div>
       ) : posts.length === 0 ? (
         <div className={styles.empty}>
-          <p>No posts found{activeTag ? ` for "${activeTag}"` : ""}.</p>
+          <p>
+            No posts found
+            {activeTag ? ` for tag "${activeTag}"` : ""}
+            {search ? `${activeTag ? " and" : " for"} search "${search}"` : ""}.
+          </p>
         </div>
       ) : (
         <>

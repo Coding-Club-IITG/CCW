@@ -24,6 +24,10 @@
   }
 }
 
+.toolbar {
+  margin-top: -0.5rem;
+}
+
 .tableContainer {
   @include card;
   padding: 0;

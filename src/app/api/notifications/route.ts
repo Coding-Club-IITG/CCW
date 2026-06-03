@@ -28,6 +28,12 @@ export async function GET(request: NextRequest) {
       filter.read = false;
     }
 
+    const searchQuery = searchParams.get("search");
+    if (searchQuery) {
+      const regex = { $regex: searchQuery, $options: "i" };
+      filter.$or = [{ title: regex }, { message: regex }];
+    }
+
     const [notifications, total, unreadCount] = await Promise.all([
       Notification.find(filter)
         .sort({ createdAt: -1 })
@@ -44,6 +50,31 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("[Notifications] GET error:", err);
+    return NextResponse.json(
+      { error: "Internal server error." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = session.user as any;
+    await dbConnect();
+
+    const result = await Notification.deleteMany({
+      userId: user.id,
+      read: true,
+    });
+
+    return NextResponse.json({ success: true, deleted: result.deletedCount });
+  } catch (err) {
+    console.error("[Notifications] DELETE error:", err);
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
