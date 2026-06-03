@@ -54,7 +54,7 @@ export default function FilesClient({ currentUser }: Props) {
         setError(data.error ?? "Failed to load files.");
         return;
       }
-      setFiles(data.data || []);
+      setFiles(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
     } catch {
       setError("Network error. Please try again.");

@@ -42,7 +42,7 @@ export default function BlogPage() {
 
       const res = await fetch(`/api/blog?${params}`);
       const data = await res.json();
-      setPosts(data.posts || []);
+      setPosts(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
       if (data.availableTags) {
         setAvailableTags(data.availableTags);

@@ -58,7 +58,7 @@ export default function BlogEditor({
   useEffect(() => {
     fetch("/api/users")
       .then((res) => res.json())
-      .then((data) => setAllUsers(data.users || []))
+      .then((data) => setAllUsers(data.items || []))
       .catch(() => {});
   }, []);
 

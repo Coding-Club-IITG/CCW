@@ -136,7 +136,7 @@ export default function HackathonDetailPage({
       const res = await fetch("/api/hackathons/requests");
       const data = await res.json();
       setMyInvites(
-        (data.requests || []).filter(
+        (data.items || []).filter(
           (r: HackathonRequest) =>
             r.type === "invite" && r.status === "pending",
         ),
@@ -358,7 +358,7 @@ export default function HackathonDetailPage({
         `/api/hackathons/users?q=${encodeURIComponent(q)}`,
       );
       const data = await res.json();
-      setSearchResults(data.users || []);
+      setSearchResults(data.items || []);
     } catch {
       setSearchResults([]);
     }
@@ -369,7 +369,7 @@ export default function HackathonDetailPage({
     try {
       const res = await fetch(`/api/hackathons/requests?teamId=${teamId}`);
       const data = await res.json();
-      setPendingRequests(data.requests || []);
+      setPendingRequests(data.items || []);
       setRequestUsers(data.users || {});
     } catch {
       // silent

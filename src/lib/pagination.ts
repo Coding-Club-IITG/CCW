@@ -22,7 +22,7 @@ export type PaginationMeta = {
 };
 
 export type PaginatedResult<T> = {
-  data: T[];
+  items: T[];
   pagination: PaginationMeta;
 };
 
@@ -56,7 +56,7 @@ export function paginatedResponse<T>(
 ): PaginatedResult<T> {
   const totalPages = Math.ceil(total / limit);
   return {
-    data,
+    items: data,
     pagination: {
       page,
       limit,

@@ -61,7 +61,7 @@ export default function AdminEventsPage() {
       const res = await fetch(`/api/admin/events?page=${page}&limit=20`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch events.");
-      setEvents(data.data || []);
+      setEvents(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch events.");

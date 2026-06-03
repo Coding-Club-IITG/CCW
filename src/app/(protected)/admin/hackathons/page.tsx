@@ -50,7 +50,7 @@ export default function AdminHackathonsPage() {
       setError("");
       const res = await fetch(`/api/admin/hackathons?page=${page}&limit=20`);
       const data = await res.json();
-      setHackathons(data.data || []);
+      setHackathons(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
     } catch {
       setError("Failed to fetch hackathons.");

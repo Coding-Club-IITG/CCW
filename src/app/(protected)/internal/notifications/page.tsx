@@ -32,7 +32,7 @@ export default function NotificationsPage() {
     try {
       const res = await fetch(`/api/notifications?page=${page}&limit=30`);
       const data = await res.json();
-      setNotifications(data.data || []);
+      setNotifications(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
       setUnreadCount(data.unreadCount ?? 0);
     } catch {

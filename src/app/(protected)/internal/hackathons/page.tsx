@@ -30,7 +30,7 @@ export default function HackathonsPage() {
   useEffect(() => {
     fetch("/api/hackathons")
       .then((res) => res.json())
-      .then((data) => setHackathons(data.hackathons || []))
+      .then((data) => setHackathons(data.items || []))
       .finally(() => setLoading(false));
   }, []);
 

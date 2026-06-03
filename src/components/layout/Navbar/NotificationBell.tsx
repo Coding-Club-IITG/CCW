@@ -43,7 +43,7 @@ export default function NotificationBell() {
       if (!res.ok) return;
       const data = await res.json();
       setUnreadCount(data.unreadCount || 0);
-      setNotifications((data.notifications || []).slice(0, 5));
+      setNotifications((data.items || []).slice(0, 5));
     } catch {
       // silent
     }

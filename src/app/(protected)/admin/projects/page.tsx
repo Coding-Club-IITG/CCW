@@ -45,7 +45,7 @@ export default function AdminProjectsPage() {
         throw new Error(data.error || "Failed to fetch projects.");
       }
 
-      setProjects(data.data || []);
+      setProjects(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
     } catch (err) {
       setError(
