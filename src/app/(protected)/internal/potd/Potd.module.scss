@@ -207,6 +207,18 @@
   text-decoration: none;
 }
 
+.solveLink {
+  text-align: center;
+  text-decoration: none;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border-color: var(--btn-primary-bg);
+
+  &:hover {
+    background: var(--btn-primary-bg-hover);
+  }
+}
+
 .syncDisabled {
   opacity: 0.5;
   cursor: not-allowed;

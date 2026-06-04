@@ -195,3 +195,77 @@ export const IMAGE_EXTENSION_TO_MIME: Record<ImageExtension, ImageMimeType> = {
 export const IMAGE_EXTENSIONS_REGEX_FRAGMENT = ALLOWED_IMAGE_EXTENSIONS.map(
   (e) => e.slice(1),
 ).join("|");
+
+/* Code Runner */
+
+export const CODE_RUNNER_LANGUAGES = ["cpp", "python"] as const;
+export type CodeRunnerLanguage = (typeof CODE_RUNNER_LANGUAGES)[number];
+
+export const CODE_RUNNER_LANGUAGE_LABELS: Record<CodeRunnerLanguage, string> = {
+  cpp: "C++",
+  python: "Python",
+};
+
+export const CODE_RUNNER_DEFAULT_CODE: Record<CodeRunnerLanguage, string> = {
+  cpp: `#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    
+    return 0;
+}
+`,
+  python: `import sys
+input = sys.stdin.readline
+
+`,
+};
+
+export const CODE_RUNNER_TIMEOUT_MS: Record<CodeRunnerLanguage, number> = {
+  cpp: 10000,
+  python: 15000,
+};
+
+export type TestCase = {
+  id: string;
+  input: string;
+  expectedOutput: string;
+  isCustom?: boolean;
+};
+
+export type TestResultStatus = "pass" | "fail" | "error" | "tle";
+
+export type TestResult = {
+  testCaseId: string;
+  status: TestResultStatus;
+  actualOutput: string;
+  error?: string;
+  executionTimeMs?: number;
+};
+
+export type ExecutionResult = {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  executionTimeMs: number;
+  timedOut?: boolean;
+};
+
+export type ProblemData = {
+  title: string;
+  platform: Platform;
+  contestId: string;
+  problemIndex: string;
+  url: string;
+};
+
+export type WasmLoadState = "idle" | "downloading" | "ready" | "error";
+
+export type WasmLoadStatus = {
+  state: WasmLoadState;
+  progress: number;
+  message: string;
+};

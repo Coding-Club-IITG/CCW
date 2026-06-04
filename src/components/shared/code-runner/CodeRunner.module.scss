@@ -1,0 +1,312 @@
+@use "@/styles/mixins" as *;
+
+// Language selector
+.languageSelector {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.langBtn {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--surface);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    background: var(--surface-hover);
+    color: var(--foreground-strong);
+  }
+
+  &:not(:last-child) {
+    border-right: 1px solid var(--border);
+  }
+}
+
+.langBtnActive {
+  background: var(--surface-hover);
+  color: var(--foreground-strong);
+  font-weight: 600;
+}
+
+// Test case panel
+.testCasePanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.testCaseTabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.testCaseTab {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+
+  &:hover {
+    color: var(--foreground-strong);
+  }
+}
+
+.testCaseTabActive {
+  color: var(--tab-active-text);
+  font-weight: 600;
+  border-bottom-color: var(--tab-active-border);
+}
+
+.testCaseStatusIcon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.passIcon {
+  color: var(--success-text);
+}
+
+.failIcon {
+  color: var(--error-text);
+}
+
+.removeTestCase {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--error);
+    background: var(--error-bg);
+  }
+}
+
+.addTestCaseBtn {
+  padding: 0.375rem 0.625rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+
+  &:hover {
+    color: var(--primary);
+  }
+}
+
+.testCaseField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  textarea,
+  pre {
+    font-family:
+      ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    color: var(--foreground);
+    resize: vertical;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    margin: 0;
+  }
+
+  textarea {
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--focus-ring);
+    }
+  }
+}
+
+.testCaseContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+// Run button header
+.runnerHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.runBtn {
+  @include btn-primary;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 110px;
+}
+
+.animatedDots {
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+}
+
+.resultSummary {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.allPass {
+  color: var(--success-text);
+}
+
+.someFail {
+  color: var(--error-text);
+}
+
+.resultTime {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.outputPass {
+  border-color: var(--success-border) !important;
+}
+
+.outputFail {
+  border-color: var(--error-border-light) !important;
+}
+
+.outputError {
+  border-color: var(--warning-border) !important;
+  color: var(--error-text) !important;
+}
+
+// WASM loader
+.wasmLoader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.wasmLoaderIcon {
+  width: 32px;
+  height: 32px;
+  color: var(--primary);
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.wasmLoaderReady .wasmLoaderIcon {
+  animation: none;
+  color: var(--success);
+}
+
+.wasmMessage {
+  font-size: 0.875rem;
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.wasmNote {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.wasmProgressBar {
+  width: 100%;
+  max-width: 280px;
+  height: 4px;
+  background: var(--surface-secondary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.wasmProgressFill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.wasmError {
+  color: var(--error-text);
+  font-size: 0.8125rem;
+}
+
+// Editor wrapper
+.editorWrapper {
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  position: relative;
+}
+
+.editorLoading {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--background);
+  color: var(--muted);
+  font-size: 0.875rem;
+}

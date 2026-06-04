@@ -6,6 +6,7 @@ import { updateProfile } from "@/lib/actions/user";
 import { requestHandleVerification } from "@/lib/actions/cp-verification";
 import { getCPStatus } from "@/lib/actions/cp-status";
 import ImageUpload from "@/components/shared/ImageUpload";
+import { IconCheck } from "@/components/shared/Icons";
 import styles from "./ProfileForm.module.scss";
 
 export default function ProfileForm() {
@@ -220,7 +221,9 @@ export default function ProfileForm() {
               placeholder="Eg. tourist"
             />
             {cfVerified && formData.codeforcesId === savedCodeforcesId && (
-              <span className={styles.verifiedBadge}>Verified ✓</span>
+              <span className={styles.verifiedBadge}>
+                Verified <IconCheck width="12" height="12" />
+              </span>
             )}
           </div>
 
@@ -296,7 +299,9 @@ export default function ProfileForm() {
               placeholder="Eg. chokudai"
             />
             {acVerified && formData.atcoderId === savedAtcoderId && (
-              <span className={styles.verifiedBadge}>Verified ✓</span>
+              <span className={styles.verifiedBadge}>
+                Verified <IconCheck width="12" height="12" />
+              </span>
             )}
           </div>
 

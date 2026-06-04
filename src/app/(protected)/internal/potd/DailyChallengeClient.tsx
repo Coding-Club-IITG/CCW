@@ -373,6 +373,12 @@ function ProblemCard({
       <div className={styles.actionArea}>
         {isVerified ? (
           <>
+            <Link
+              href={`/internal/solve?platform=${platform}&contestId=${problem.contestId}&problemIndex=${problem.problemIndex}&title=${encodeURIComponent(problem.name)}&challengeId=${entry.challengeId}`}
+              className={`${styles.syncBtn} ${styles.solveLink}`}
+            >
+              Solve
+            </Link>
             <a
               href={problemUrl}
               target="_blank"

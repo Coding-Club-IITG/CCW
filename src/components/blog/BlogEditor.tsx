@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import ImageUpload from "@/components/shared/ImageUpload";
 import TagBadge from "./TagBadge";
+import { IconX } from "@/components/shared/Icons";
 import { BLOG_TAGS, BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import styles from "./BlogEditor.module.scss";
 
@@ -168,7 +169,7 @@ export default function BlogEditor({
                   onClick={() => removeAuthor(a.userId)}
                   aria-label={`Remove ${a.name}`}
                 >
-                  ×
+                  <IconX width="12" height="12" />
                 </button>
               </span>
             ))}
