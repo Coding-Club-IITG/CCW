@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
+import type { OnMount } from "@monaco-editor/react";
 
 import type { CodeRunnerLanguage } from "@/lib/constants";
 import { CODE_RUNNER_DEFAULT_CODE } from "@/lib/constants";
@@ -19,8 +20,49 @@ type Props = {
 export default function CodeEditor({ language, value, onChange }: Props) {
   const [mounted, setMounted] = useState(false);
 
-  const handleMount = useCallback(() => {
+  const handleMount = useCallback<OnMount>((editorInstance, monaco) => {
     setMounted(true);
+    const { KeyMod, KeyCode } = monaco;
+
+    // Ctrl+/ - Open command palette
+    editorInstance.addAction({
+      id: "open-command-palette",
+      label: "Open Command Palette",
+      keybindings: [KeyMod.CtrlCmd | KeyCode.Slash],
+      run: (ed) => {
+        ed.trigger("keyboard", "editor.action.quickCommand", null);
+      },
+    });
+
+    // Ctrl+D - Delete current line
+    editorInstance.addAction({
+      id: "delete-line",
+      label: "Delete Line",
+      keybindings: [KeyMod.CtrlCmd | KeyCode.KeyD],
+      run: (ed) => {
+        ed.trigger("keyboard", "editor.action.deleteLines", null);
+      },
+    });
+
+    // Ctrl+' - Toggle line comment
+    editorInstance.addAction({
+      id: "add-comment-line",
+      label: "Toggle Line Comment",
+      keybindings: [KeyMod.CtrlCmd | KeyCode.Quote],
+      run: (ed) => {
+        ed.trigger("keyboard", "editor.action.commentLine", null);
+      },
+    });
+
+    // Ctrl+Shift+' - Remove line comment
+    editorInstance.addAction({
+      id: "remove-comment-line",
+      label: "Remove Line Comment",
+      keybindings: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Quote],
+      run: (ed) => {
+        ed.trigger("keyboard", "editor.action.removeCommentLine", null);
+      },
+    });
   }, []);
 
   const monacoLanguage = language === "cpp" ? "cpp" : "python";

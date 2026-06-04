@@ -29,7 +29,7 @@ export default async function Home({ searchParams }: Props) {
           Explore Projects
         </Link>
         <Link href="/events" className={styles.secondaryBtn}>
-          Upcoming Events
+          Club Events
         </Link>
         <Link href="/team" className={styles.secondaryBtn}>
           Meet the Team
