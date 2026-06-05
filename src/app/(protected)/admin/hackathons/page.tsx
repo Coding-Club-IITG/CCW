@@ -25,6 +25,7 @@ export default function AdminHackathonsPage() {
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
@@ -60,49 +61,77 @@ export default function AdminHackathonsPage() {
     }
   }
 
-  async function handleCreate(e: React.FormEvent) {
+  function resetForm() {
+    setName("");
+    setOrganization("");
+    setMinMembers(1);
+    setMaxMembers(4);
+    setSkills("");
+    setWebsiteUrl("");
+    setDeadline("");
+    setDescription("");
+    setEditingId(null);
+  }
+
+  function handleEdit(h: Hackathon) {
+    setName(h.name);
+    setOrganization(h.organization);
+    setMinMembers(h.minMembers);
+    setMaxMembers(h.maxMembers);
+    setSkills(h.skills.join(", "));
+    setWebsiteUrl(h.websiteUrl);
+    setDeadline(h.deadline ? h.deadline.slice(0, 16) : "");
+    setDescription(h.description || "");
+    setEditingId(h._id);
+    setShowForm(true);
+    setError("");
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
 
+    const payload = {
+      name,
+      organization,
+      minMembers,
+      maxMembers,
+      skills: skills
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      websiteUrl,
+      deadline,
+      description,
+    };
+
     try {
-      const res = await fetch("/api/admin/hackathons", {
-        method: "POST",
+      const url = editingId
+        ? `/api/admin/hackathons/${editingId}`
+        : "/api/admin/hackathons";
+      const method = editingId ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          organization,
-          minMembers,
-          maxMembers,
-          skills: skills
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
-          websiteUrl,
-          deadline,
-          description,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || "Failed to create hackathon.");
+        setError(
+          data.error ||
+            `Failed to ${editingId ? "update" : "create"} hackathon.`,
+        );
         return;
       }
 
-      // Reset form and refresh
-      setName("");
-      setOrganization("");
-      setMinMembers(1);
-      setMaxMembers(4);
-      setSkills("");
-      setWebsiteUrl("");
-      setDeadline("");
-      setDescription("");
+      resetForm();
       setShowForm(false);
       fetchHackathons();
     } catch {
-      setError("Failed to create hackathon.");
+      setError(`Failed to ${editingId ? "update" : "create"} hackathon.`);
     } finally {
       setSubmitting(false);
     }
@@ -129,7 +158,15 @@ export default function AdminHackathonsPage() {
       <div className={styles.actions}>
         <button
           className={styles.btnPrimary}
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              resetForm();
+              setShowForm(false);
+            } else {
+              resetForm();
+              setShowForm(true);
+            }
+          }}
         >
           {showForm ? "Cancel" : "+ New Hackathon"}
         </button>
@@ -138,7 +175,10 @@ export default function AdminHackathonsPage() {
       {error && <p className={styles.error}>{error}</p>}
 
       {showForm && (
-        <form className={styles.form} onSubmit={handleCreate}>
+        <form className={styles.form} onSubmit={handleSubmit}>
+          <h2 className={styles.sectionTitle}>
+            {editingId ? "Edit Hackathon" : "Create Hackathon"}
+          </h2>
           <div className={styles.formGrid}>
             <div className={styles.field}>
               <label>Name *</label>
@@ -223,7 +263,13 @@ export default function AdminHackathonsPage() {
             className={styles.btnPrimary}
             disabled={submitting}
           >
-            {submitting ? "Creating..." : "Create Hackathon"}
+            {submitting
+              ? editingId
+                ? "Saving..."
+                : "Creating..."
+              : editingId
+                ? "Save Changes"
+                : "Create Hackathon"}
           </button>
         </form>
       )}
@@ -269,6 +315,12 @@ export default function AdminHackathonsPage() {
                   </div>
                 )}
                 <div className={styles.cardActions}>
+                  <button
+                    className={styles.btnSecondary}
+                    onClick={() => handleEdit(h)}
+                  >
+                    Edit
+                  </button>
                   <button
                     className={styles.btnSecondary}
                     onClick={() => router.push(`/admin/hackathons/${h._id}`)}
