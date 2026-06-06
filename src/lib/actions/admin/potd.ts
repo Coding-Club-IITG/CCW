@@ -53,7 +53,8 @@ export async function setDailyProblem(
   problemId: string,
   difficulty: "Easy" | "Medium" | "Hard",
   platform: Platform = "codeforces",
-): Promise<{ ok: boolean; error?: string }> {
+  force: boolean = false,
+): Promise<{ ok: boolean; error?: string; reuse?: boolean }> {
   const session = await checkAdmin();
   if (!session) return { ok: false, error: "Forbidden" };
 
@@ -122,11 +123,12 @@ export async function setDailyProblem(
       const previousUsage = await DailyChallenge.findOne({
         problem: existingProblem._id,
       });
-      if (previousUsage) {
+      if (previousUsage && !force) {
         const usedDate = windowStartToISTDateStr(previousUsage.windowStart);
         return {
           ok: false,
-          error: `This problem was already used for a POTD on ${usedDate}`,
+          reuse: true,
+          error: `This problem was already used for a POTD on ${usedDate}. Set it again?`,
         };
       }
     }
@@ -185,11 +187,12 @@ export async function setDailyProblem(
       const previousUsage = await DailyChallenge.findOne({
         problem: existingProblem._id,
       });
-      if (previousUsage) {
+      if (previousUsage && !force) {
         const usedDate = windowStartToISTDateStr(previousUsage.windowStart);
         return {
           ok: false,
-          error: `This problem was already used for a POTD on ${usedDate}`,
+          reuse: true,
+          error: `This problem was already used for a POTD on ${usedDate}. Set it again?`,
         };
       }
     }

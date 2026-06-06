@@ -98,7 +98,7 @@ export default function SetProblemClient() {
     setFormError(null);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (force: boolean = false) => {
     if (!formData.date || !formData.problemId || !formData.difficulty) {
       setFormError("All fields are required.");
       return;
@@ -127,8 +127,19 @@ export default function SetProblemClient() {
         formData.problemId,
         formData.difficulty,
         formData.platform,
+        force,
       );
       if (!result.ok) {
+        if (result.reuse) {
+          if (
+            confirm(
+              result.error ?? "This problem was already used. Set it again?",
+            )
+          ) {
+            await handleSave(true);
+          }
+          return;
+        }
         setFormError(result.error ?? "Failed to save problem");
         return;
       }
@@ -347,7 +358,7 @@ export default function SetProblemClient() {
               </button>
               <button
                 className={styles.saveBtn}
-                onClick={handleSave}
+                onClick={() => handleSave()}
                 disabled={isSaving}
               >
                 {isSaving ? "Saving..." : "Fetch & Save"}
