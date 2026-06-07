@@ -27,6 +27,14 @@ The official web platform for Coding Club IITG.
    ```
 2. Fill in all the variables
 
+## Docker Setup
+
+You can use Docker Compose to start the required services (MongoDB and Redis):
+
+```bash
+docker compose up -d
+```
+
 ## Getting Started
 
 1. **Install dependencies:**
