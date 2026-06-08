@@ -83,6 +83,54 @@ export async function getUserSubmissions(
   return response.data.result;
 }
 
+const CF_PAGE_SIZE = 1000;
+const CF_MAX_PAGES = 20; // Safety cap: up to 20k submissions
+const CF_PAGE_DELAY_MS = 1100; // Stay under ~1 req/s limit when paging
+
+/**
+ * Fetch ALL of a user's submissions newer than 'sinceMs'
+ */
+export async function getUserSubmissionsSince(
+  handle: string,
+  sinceMs: number,
+  timeoutMs: number = 10_000,
+): Promise<CFSubmission[]> {
+  const sinceSeconds = Math.floor(sinceMs / 1000);
+  const collected: CFSubmission[] = [];
+  let from = 1;
+
+  for (let page = 0; page < CF_MAX_PAGES; page++) {
+    if (page > 0) {
+      await new Promise((resolve) => setTimeout(resolve, CF_PAGE_DELAY_MS));
+    }
+
+    const response = await axios.get(
+      `${CF_API_BASE}/user.status?handle=${encodeURIComponent(handle)}&from=${from}&count=${CF_PAGE_SIZE}`,
+      { timeout: timeoutMs },
+    );
+
+    if (response.data.status !== "OK") {
+      throw new Error(
+        `Codeforces API error: ${response.data.comment || "Unknown"}`,
+      );
+    }
+
+    const batch: CFSubmission[] = response.data.result;
+    if (batch.length === 0) break;
+
+    collected.push(...batch);
+
+    // Submissions are newest-first - the last element is the oldest in the batch
+    const oldest = batch[batch.length - 1];
+    if (oldest.creationTimeSeconds < sinceSeconds) break;
+    if (batch.length < CF_PAGE_SIZE) break;
+
+    from += CF_PAGE_SIZE;
+  }
+
+  return collected;
+}
+
 /**
  * Fetch all problems from the problemset, optionally filtered
  */

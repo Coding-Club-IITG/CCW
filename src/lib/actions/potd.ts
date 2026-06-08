@@ -1,9 +1,9 @@
 "use server";
 
+import mongoose from "mongoose";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import axios from "axios";
 import dbConnect from "@/lib/mongodb";
 import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache";
 import { getRedis } from "@/lib/redis";
@@ -23,6 +23,7 @@ import { DIFFICULTY_ORDER } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
 import { processSubmission } from "@/lib/potd/submit";
 import { getUserSubmissions } from "@/lib/platforms/atcoder";
+import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
 
 // Types
 
@@ -130,9 +131,64 @@ export async function getTodayChallenge(): Promise<{
   };
 }
 
-// Sync My Submission
+// Mark Challenge Opened
 
-const CF_SUBMISSIONS_COUNT = 200;
+/**
+ * Seed a Pending POTDSubmission when the user opens/starts a challenge
+ *
+ * This guarantees the end-of-day cron has a record to evaluate even if the
+ * user never manually syncs.
+ */
+export async function markChallengeOpened(
+  challengeId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) return { ok: false, error: "Unauthorized" };
+
+  const userId = session.user.id;
+  const user = session.user as any;
+
+  if (!challengeId || !mongoose.isValidObjectId(challengeId))
+    return { ok: false, error: "Invalid challenge" };
+
+  await dbConnect();
+
+  const challenge =
+    await DailyChallenge.findById(challengeId).populate("problem");
+  if (!challenge) return { ok: false, error: "Challenge not found" };
+
+  const now = new Date();
+  if (now < challenge.windowStart || now > challenge.graceEnd)
+    return { ok: false, error: "Challenge is not active" };
+
+  const problem = challenge.problem as any;
+  const platform: Platform = problem?.platform || "codeforces";
+
+  const cpUser = await CPUser.findOne({ userId });
+  if (platform === "codeforces") {
+    if (!user.codeforcesId || !cpUser?.cfVerified)
+      return { ok: false, error: "Codeforces handle not verified" };
+  } else {
+    if (!user.atcoderId || !cpUser?.acVerified)
+      return { ok: false, error: "AtCoder handle not verified" };
+  }
+
+  try {
+    await POTDSubmission.updateOne(
+      { userId, challengeId },
+      { $setOnInsert: { userId, challengeId, status: "Pending" } },
+      { upsert: true },
+    );
+    return { ok: true };
+  } catch (err: any) {
+    // Duplicate-key from a concurrent upsert is fine - the record exists
+    if (err?.code === 11000) return { ok: true };
+    logger.error("[markChallengeOpened] Error", { err });
+    return { ok: false, error: "Failed to register challenge" };
+  }
+}
+
+// Sync My Submission
 
 /**
  * Manually sync the current user's submission against today's challenge
@@ -242,13 +298,11 @@ export async function syncMySubmission(challengeId: string): Promise<{
         };
       }
 
-      const cfUrl = `https://codeforces.com/api/user.status?handle=${encodeURIComponent(user.codeforcesId)}&from=1&count=${CF_SUBMISSIONS_COUNT}`;
       try {
-        const { data } = await axios.get(cfUrl, { timeout: 10_000 });
-        if (data.status !== "OK") {
-          return { ok: false, error: "Codeforces API returned an error" };
-        }
-        platformSubs = data.result;
+        platformSubs = await getUserSubmissionsSince(
+          user.codeforcesId,
+          challenge.windowStart.getTime(),
+        );
       } catch (err) {
         logger.warn("[syncMySubmission] CF API error", { err });
         return { ok: false, error: "Failed to reach Codeforces API" };

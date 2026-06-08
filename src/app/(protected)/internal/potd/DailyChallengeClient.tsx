@@ -5,6 +5,7 @@ import Link from "next/link";
 import styles from "./Potd.module.scss";
 import {
   syncMySubmission,
+  markChallengeOpened,
   type TodayChallengeData,
   type ChallengeEntry,
 } from "@/lib/actions/potd";
@@ -174,6 +175,35 @@ export default function DailyChallengeClient({
     }
   };
 
+  // Seed a Pending submission server-side when the user opens/starts a problem
+  const handleOpen = (challengeId: string) => {
+    const entry = data?.challenges.find((c) => c.challengeId === challengeId);
+    const status = entry?.mySubmission?.status;
+    // Skip if already finalized or already registered as Pending
+    if (status && status !== "none") return;
+    void markChallengeOpened(challengeId).then((res) => {
+      if (res.ok) {
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            challenges: prev.challenges.map((c) =>
+              c.challengeId === challengeId && c.mySubmission?.status === "none"
+                ? {
+                    ...c,
+                    mySubmission: {
+                      ...c.mySubmission,
+                      status: "Pending",
+                    },
+                  }
+                : c,
+            ),
+          };
+        });
+      }
+    });
+  };
+
   const isInGrace =
     data &&
     isClient &&
@@ -276,6 +306,7 @@ export default function DailyChallengeClient({
           cooldown={cooldowns[entry.challengeId] ?? 0}
           syncError={syncErrors[entry.challengeId] ?? null}
           onSync={() => handleSync(entry.challengeId)}
+          onOpen={() => handleOpen(entry.challengeId)}
         />
       ))}
     </div>
@@ -292,6 +323,7 @@ function ProblemCard({
   cooldown,
   syncError,
   onSync,
+  onOpen,
 }: {
   entry: ChallengeEntry;
   cfVerified: boolean;
@@ -300,6 +332,7 @@ function ProblemCard({
   cooldown: number;
   syncError: string | null;
   onSync: () => void;
+  onOpen: () => void;
 }) {
   const { problem, mySubmission, difficulty, platform } = entry;
   const myStatus = mySubmission?.status ?? "none";
@@ -376,6 +409,7 @@ function ProblemCard({
             <Link
               href={`/internal/solve?platform=${platform}&contestId=${problem.contestId}&problemIndex=${problem.problemIndex}&title=${encodeURIComponent(problem.name)}&challengeId=${entry.challengeId}`}
               className={`${styles.syncBtn} ${styles.solveLink}`}
+              onClick={onOpen}
             >
               Solve
             </Link>
@@ -384,6 +418,7 @@ function ProblemCard({
               target="_blank"
               rel="noreferrer"
               className={`${styles.syncBtn} ${styles.openProblemLink}`}
+              onClick={onOpen}
             >
               Open Problem
             </a>

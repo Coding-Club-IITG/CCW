@@ -1,4 +1,3 @@
-import axios from "axios";
 import dbConnect from "@/lib/mongodb";
 import { getRedis } from "@/lib/redis";
 import CPUser from "@/models/CPUser";
@@ -10,10 +9,12 @@ import {
   getUserSubmissions,
   isAtCoderAPIReachable,
 } from "@/lib/platforms/atcoder";
-import { isCodeforcesAPIReachable } from "@/lib/platforms/codeforces";
+import {
+  isCodeforcesAPIReachable,
+  getUserSubmissionsSince,
+} from "@/lib/platforms/codeforces";
 import type { Platform } from "@/lib/constants";
 
-const CF_SUBMISSIONS_COUNT = 200;
 const HEALTH_CHECK_RETRIES = 3;
 const HEALTH_CHECK_DELAY_MS = 10_000; // 10s between retries
 const INTER_USER_DELAY_MS = 2_100; // CF allows about 1 request/s, so use 2.1s to prevent ban
@@ -100,13 +101,10 @@ async function syncPendingSubmissions(challenge: any): Promise<void> {
       let subs: any[] = [];
 
       if (platform === "codeforces") {
-        const cfUrl = `https://codeforces.com/api/user.status?handle=${encodeURIComponent(handle)}&from=1&count=${CF_SUBMISSIONS_COUNT}`;
-        const { data } = await axios.get(cfUrl, { timeout: 10_000 });
-        if (data.status !== "OK") {
-          logger.warn(`[potd-sync] CF API bad status for ${handle}`);
-          continue;
-        }
-        subs = data.result;
+        subs = await getUserSubmissionsSince(
+          handle,
+          challenge.windowStart.getTime(),
+        );
       } else {
         const windowStartEpoch = Math.floor(
           challenge.windowStart.getTime() / 1000,

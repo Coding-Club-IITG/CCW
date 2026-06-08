@@ -27,6 +27,7 @@ import {
 } from "@/lib/potd/utils";
 import { processSubmission } from "@/lib/potd/submit";
 import { getProblemById } from "@/lib/platforms/atcoder";
+import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
 
 async function checkAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -421,9 +422,10 @@ export async function forceSyncUser(
   let subs: any[] = [];
   try {
     if (platform === "codeforces") {
-      const cfUrl = `https://codeforces.com/api/user.status?handle=${encodeURIComponent(targetUser.codeforcesId)}&from=1&count=200`;
-      const { data } = await axios.get(cfUrl, { timeout: 10_000 });
-      if (data.status === "OK") subs = data.result;
+      subs = await getUserSubmissionsSince(
+        targetUser.codeforcesId,
+        challenge.windowStart.getTime(),
+      );
     } else {
       const { getUserSubmissions } = await import("@/lib/platforms/atcoder");
       const windowStartEpoch = Math.floor(
