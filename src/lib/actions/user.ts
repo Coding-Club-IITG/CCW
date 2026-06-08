@@ -328,29 +328,29 @@ export async function updateProfile(data: {
     }
 
     const codeforcesId = data.codeforcesId?.trim() || "";
-    if (codeforcesId.length > 50 || !/^[\w-]*$/.test(codeforcesId)) {
+    if (codeforcesId.length > 50 || !/^[\w.-]*$/.test(codeforcesId)) {
       return {
         success: false as const,
         error:
-          "Codeforces ID must be 50 characters or fewer and contain only letters, numbers, underscores, or hyphens.",
+          "Codeforces ID must be 50 characters or fewer and contain only letters, numbers, underscores, hyphens, or periods.",
       };
     }
 
     const atcoderId = data.atcoderId?.trim() || "";
-    if (atcoderId.length > 50 || !/^[\w-]*$/.test(atcoderId)) {
+    if (atcoderId.length > 50 || !/^[\w.-]*$/.test(atcoderId)) {
       return {
         success: false as const,
         error:
-          "AtCoder ID must be 50 characters or fewer and contain only letters, numbers, underscores, or hyphens.",
+          "AtCoder ID must be 50 characters or fewer and contain only letters, numbers, underscores, hyphens, or periods.",
       };
     }
 
     const githubId = data.githubId?.trim() || "";
-    if (githubId.length > 50 || !/^[\w-]*$/.test(githubId)) {
+    if (githubId.length > 50 || !/^[\w.-]*$/.test(githubId)) {
       return {
         success: false as const,
         error:
-          "GitHub ID must be 50 characters or fewer and contain only letters, numbers, underscores, or hyphens.",
+          "GitHub ID must be 50 characters or fewer and contain only letters, numbers, underscores, hyphens, or periods.",
       };
     }
 
