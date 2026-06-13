@@ -7,6 +7,7 @@ node_modules/
 
 # Debug
 .log*
+backup
 
 # NextJS
 .next/

@@ -90,8 +90,8 @@ async function migrate() {
           (s) => s.challengeId.toString() === challenge._id.toString(),
         );
 
-        // Determine platform from challenge
-        const platform = (challenge as any).platform || "codeforces";
+        // Determine platform
+        const platform = (challenge.problem as any).platform || "codeforces";
 
         // Mock submissions format as expected by processSubmission
         const subs: any[] = [];

@@ -19,6 +19,9 @@ const HEALTH_CHECK_RETRIES = 3;
 const HEALTH_CHECK_DELAY_MS = 10_000; // 10s between retries
 const INTER_USER_DELAY_MS = 2_100; // CF allows about 1 request/s, so use 2.1s to prevent ban
 
+// Only reset streaks for days whose grace ended within this lookback window
+const STREAK_RESET_LOOKBACK_MS = 50 * 60 * 60 * 1000; // ~2 days + margin
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -240,11 +243,13 @@ export async function syncPOTDSubmissions(): Promise<void> {
     }
   }
 
-  // Reset streaks for each day that hasn't been processed yet
+  // Reset streaks for each recently-ended day that hasn't been processed yet
   // Group challenges by windowStart and process chronologically to handle
   // cron outages where multiple days need streak resets.
   const dayGroups = new Map<number, any[]>();
   for (const c of challenges) {
+    const graceEndMs = (c.graceEnd as Date).getTime();
+    if (now.getTime() - graceEndMs > STREAK_RESET_LOOKBACK_MS) continue;
     const key = (c.windowStart as Date).getTime();
     if (!dayGroups.has(key)) dayGroups.set(key, []);
     dayGroups.get(key)!.push(c);
