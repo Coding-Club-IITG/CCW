@@ -51,17 +51,17 @@ async function run() {
   // Schedule the CF ratings sync every 6 hours
   await agenda.every("6 hours", "sync-cf-ratings");
 
-  // Schedule the AC ratings sync every 6 hours (offset by 3h from CF)
+  // Schedule the AC ratings sync every 6 hours
   await agenda.every("6 hours", "sync-ac-ratings");
 
-  // Schedule POTD sync at 2:00 AM IST, after grace window close
-  await agenda.every("0 30 20 * * *", "sync-potd-submissions");
+  // Schedule POTD sync daily at 2:05 AM IST, after grace window close
+  await agenda.every("0 5 2 * * *", "sync-potd-submissions");
 
   // Schedule contest sync every 3 hours
   await agenda.every("3 hours", "sync-contests");
 
-  // Schedule image orphan cleanup weekly (every Sunday at 3:00 AM IST)
-  await agenda.every("0 30 21 * * 0", "cleanup-images");
+  // Schedule image orphan cleanup weekly, Sunday 3:00 AM IST
+  await agenda.every("0 0 3 * * 0", "cleanup-images");
 
   // Schedule hackathon deadline reminders every hour
   await agenda.every("1 hour", "hackathon-deadline-reminders");
