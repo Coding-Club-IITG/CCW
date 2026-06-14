@@ -27,6 +27,7 @@ import {
   groupChallengesByDay,
   backfillSolvedAt,
   resetAllStats,
+  reconcileAllStats,
   resetSubmissionStatuses,
   replayUser,
   platformOf,
@@ -169,6 +170,9 @@ async function main() {
     if ((i + 1) % 10 === 0) console.log(`  ...${i + 1}/${allCp.length}`);
   }
   console.log("Replay complete.");
+
+  const reconciled = await reconcileAllStats();
+  console.log(`Reconciled aggregate totals for ${reconciled} users.`);
 
   console.log("Verifying...");
   await verifyConsistency();

@@ -121,6 +121,47 @@ export async function resetAllStats(): Promise<void> {
 }
 
 /**
+ * Reconcile additive POTD totals for every user against the sum of their finalized submissions
+ */
+export async function reconcileAllStats(): Promise<number> {
+  const agg = await POTDSubmission.aggregate([
+    { $match: { status: { $in: ["Accepted", "Late"] } } },
+    {
+      $group: {
+        _id: "$userId",
+        pts: { $sum: "$pointsAwarded" },
+        solved: { $sum: 1 },
+      },
+    },
+  ]);
+  const truth = new Map<string, { pts: number; solved: number }>();
+  for (const a of agg as any[])
+    truth.set(a._id.toString(), { pts: a.pts, solved: a.solved });
+
+  const cpUsers = await CPUser.find(
+    {},
+    "userId potdTotalPoints potdTotalSolved",
+  );
+  let fixed = 0;
+  for (const cp of cpUsers as any[]) {
+    const want = truth.get(cp.userId.toString()) ?? { pts: 0, solved: 0 };
+    if (cp.potdTotalPoints !== want.pts || cp.potdTotalSolved !== want.solved) {
+      await CPUser.updateOne(
+        { userId: cp.userId },
+        {
+          $set: {
+            potdTotalPoints: want.pts,
+            potdTotalSolved: want.solved,
+          },
+        },
+      );
+      fixed++;
+    }
+  }
+  return fixed;
+}
+
+/**
  * Reset POTDSubmission scoring state to a clean pre-evaluation slate while
  * KEEPING 'solvedAt' (source of truth)
  */
