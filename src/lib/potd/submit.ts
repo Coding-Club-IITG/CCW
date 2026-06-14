@@ -219,3 +219,55 @@ function getSubmissionTime(submission: any, platform: Platform): Date {
     return new Date(submission.epoch_second * 1000);
   }
 }
+
+/**
+ * Find timestamp of the earliest accepted solve for a problem within the valid window (main + grace)
+ */
+export function findEarliestAcceptedSolveTime(
+  submissions: any[],
+  problem: any,
+  windowStart: Date,
+  graceEnd: Date,
+  platform: Platform,
+): Date | null {
+  const acceptedSub = findAcceptedSubmission(
+    submissions,
+    problem,
+    windowStart,
+    platform,
+    graceEnd,
+  );
+  return acceptedSub ? getSubmissionTime(acceptedSub, platform) : null;
+}
+
+/**
+ * Build the minimal platform-shaped submission array that processSubmission
+ * expects, given a known solve time
+ */
+export function buildMockSubmissions(
+  problem: any,
+  platform: Platform,
+  solvedAt: Date | null,
+): any[] {
+  if (!solvedAt) return [];
+  if (platform === "codeforces") {
+    return [
+      {
+        verdict: "OK",
+        problem: {
+          contestId: problem.contestId,
+          index: problem.problemIndex,
+        },
+        creationTimeSeconds: Math.floor(solvedAt.getTime() / 1000),
+      },
+    ];
+  }
+  return [
+    {
+      result: "AC",
+      problem_id: problem.problemIndex,
+      contest_id: problem.contestId,
+      epoch_second: Math.floor(solvedAt.getTime() / 1000),
+    },
+  ];
+}

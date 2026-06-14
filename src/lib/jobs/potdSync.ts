@@ -5,14 +5,9 @@ import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
 import { logger } from "@/lib/utils";
 import { processSubmission } from "@/lib/potd/submit";
-import {
-  getUserSubmissions,
-  isAtCoderAPIReachable,
-} from "@/lib/platforms/atcoder";
-import {
-  isCodeforcesAPIReachable,
-  getUserSubmissionsSince,
-} from "@/lib/platforms/codeforces";
+import { fetchUserSubmissions, streakResetGuardKey } from "@/lib/potd/recompute";
+import { isAtCoderAPIReachable } from "@/lib/platforms/atcoder";
+import { isCodeforcesAPIReachable } from "@/lib/platforms/codeforces";
 import type { Platform } from "@/lib/constants";
 
 const HEALTH_CHECK_RETRIES = 3;
@@ -101,19 +96,11 @@ async function syncPendingSubmissions(challenge: any): Promise<void> {
     }
 
     try {
-      let subs: any[] = [];
-
-      if (platform === "codeforces") {
-        subs = await getUserSubmissionsSince(
-          handle,
-          challenge.windowStart.getTime(),
-        );
-      } else {
-        const windowStartEpoch = Math.floor(
-          challenge.windowStart.getTime() / 1000,
-        );
-        subs = await getUserSubmissions(handle, windowStartEpoch);
-      }
+      const subs = await fetchUserSubmissions(
+        handle,
+        platform,
+        challenge.windowStart.getTime(),
+      );
 
       await processSubmission(user._id, challenge, cpUser, subs, platform);
     } catch (err) {
@@ -258,7 +245,7 @@ export async function syncPOTDSubmissions(): Promise<void> {
   const sortedDays = Array.from(dayGroups.keys()).sort((a, b) => a - b);
   for (const dayKey of sortedDays) {
     const dayChallenges = dayGroups.get(dayKey)!;
-    const resetKey = `potd:streak_reset:${dayKey}`;
+    const resetKey = streakResetGuardKey(dayKey);
     const alreadyReset = await redis.get(resetKey);
     if (alreadyReset) continue;
 

@@ -26,8 +26,8 @@ import {
   windowStartToISTDateStr,
 } from "@/lib/potd/utils";
 import { processSubmission } from "@/lib/potd/submit";
+import { fetchUserSubmissions } from "@/lib/potd/recompute";
 import { getProblemById } from "@/lib/platforms/atcoder";
-import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
 
 async function checkAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -419,20 +419,18 @@ export async function forceSyncUser(
       return { ok: false, error: "User's AtCoder handle not verified" };
   }
 
+  const handle =
+    platform === "codeforces"
+      ? targetUser.codeforcesId
+      : targetUser.atcoderId;
+
   let subs: any[] = [];
   try {
-    if (platform === "codeforces") {
-      subs = await getUserSubmissionsSince(
-        targetUser.codeforcesId,
-        challenge.windowStart.getTime(),
-      );
-    } else {
-      const { getUserSubmissions } = await import("@/lib/platforms/atcoder");
-      const windowStartEpoch = Math.floor(
-        challenge.windowStart.getTime() / 1000,
-      );
-      subs = await getUserSubmissions(targetUser.atcoderId, windowStartEpoch);
-    }
+    subs = await fetchUserSubmissions(
+      handle,
+      platform,
+      challenge.windowStart.getTime(),
+    );
   } catch (err) {
     logger.warn("[forceSyncUser] API error", { err });
     return { ok: false, error: `Failed to reach ${platform} API` };
