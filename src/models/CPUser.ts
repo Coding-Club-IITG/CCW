@@ -106,6 +106,10 @@ const CPUserSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    solvedProblems: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true },
 );
