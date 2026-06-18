@@ -14,7 +14,13 @@ export async function getRedis(): Promise<RedisClientType> {
   if (!connectPromise) {
     connectPromise = redisClient
       .connect()
-      .then(() => {
+      .then(async () => {
+        try {
+          await redisClient.configSet("maxmemory-policy", "noeviction");
+          await redisClient.configSet("notify-keyspace-events", "KEA");
+        } catch (configErr) {
+          logger.warn("Failed to set Redis configurations programmatically:", configErr);
+        }
         return redisClient as RedisClientType;
       })
       .catch((err) => {

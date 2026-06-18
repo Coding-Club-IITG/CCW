@@ -1,5 +1,23 @@
 import mongoose from "mongoose";
 
+const SolvedProblemSchema = new mongoose.Schema(
+  {
+    problemId: {
+      type: String,
+      required: true,
+    },
+    rating: {
+      type: Number,
+      default: 0,
+    },
+    solvedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
+
 const CPUserSchema = new mongoose.Schema(
   {
     userId: {
@@ -107,7 +125,7 @@ const CPUserSchema = new mongoose.Schema(
       default: 0,
     },
     solvedProblems: {
-      type: [String],
+      type: [SolvedProblemSchema],
       default: [],
     },
   },
@@ -121,6 +139,9 @@ CPUserSchema.index(
 CPUserSchema.index(
   { acHandle: 1 },
   { unique: true, partialFilterExpression: { acHandle: { $gt: "" } } },
+);
+CPUserSchema.index(
+  { "solvedProblems.problemId": 1 }
 );
 
 export default mongoose.models.CPUser ||
