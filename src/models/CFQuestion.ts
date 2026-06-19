@@ -7,7 +7,6 @@ export interface ICFQuestion extends Document {
   name: string;
   rating?: number;
   tags: string[];
-  points?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,9 +42,6 @@ const CFQuestionSchema = new Schema<ICFQuestion>(
         index: true,
       },
     ],
-    points: {
-      type: Number,
-    },
   },
   { timestamps: true }
 );

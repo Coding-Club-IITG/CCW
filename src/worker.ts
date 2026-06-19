@@ -9,12 +9,36 @@ import { sendHackathonDeadlineReminders } from "./lib/jobs/hackathonReminder";
 import { sendPOTDReminders } from "./lib/jobs/potdReminder";
 import { logger } from "./lib/utils";
 import dbConnect from "./lib/mongodb";
+import { cfSyncWorker } from "./lib/workers/cfSyncWorker";
+import { reconciliationWorker } from "./lib/workers/reconciliationWorker";
+import { cfSyncQueue } from "./lib/bullmq";
+import CFQuestion from "./models/CFQuestion";
 
 async function run() {
-  logger.info("[Worker] Starting standalone background worker...");
+  logger.info("[Worker] Starting standalone background worker (Agenda + BullMQ)...");
 
   // Ensure DB is connected
   await dbConnect();
+
+  // Schedule BullMQ repeatable Codeforces problem sync (Runs nightly at 2:00 AM)
+  await cfSyncQueue.add(
+    "nightly-cf-problem-sync",
+    {},
+    {
+      repeat: {
+        pattern: "0 2 * * *",
+      },
+      jobId: "nightly-cf-problem-sync",
+    }
+  );
+  logger.info("[Worker] Scheduled nightly Codeforces problem sync repeatable job.");
+
+  // If database is empty, trigger immediate full ingest
+  const cfQuestionCount = await CFQuestion.countDocuments();
+  if (cfQuestionCount === 0) {
+    logger.info("[Worker] CFQuestion database is empty. Triggering immediate full ingest...");
+    await cfSyncQueue.add("nightly-cf-problem-sync", { isFirstRun: true });
+  }
 
   // Define jobs
   agenda.define("sync-cf-ratings", async () => {
@@ -73,8 +97,17 @@ async function run() {
 
   // Graceful shutdown
   async function graceful() {
-    logger.info("[Worker] Stopping agenda...");
-    await agenda.stop();
+    logger.info("[Worker] Stopping agenda and BullMQ workers...");
+    try {
+      await Promise.all([
+        agenda.stop(),
+        cfSyncWorker.close(),
+        reconciliationWorker.close(),
+      ]);
+      logger.info("[Worker] All services stopped successfully.");
+    } catch (err) {
+      logger.error("[Worker] Error during graceful shutdown:", err);
+    }
     process.exit(0);
   }
 
