@@ -21,7 +21,7 @@ export const connection: ConnectionOptions = {
 };
 
 // Create cf_sync_queue: limiter: { max: 2, duration: 1000 }, defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 } }
-// Note: limiter is configured on the Worker 
+// Note: limiter is configured on the worker
 export const cfSyncQueue = new Queue("cf_sync_queue", {
   connection,
   defaultJobOptions: {

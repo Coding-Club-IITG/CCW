@@ -13,6 +13,7 @@ import { cfSyncWorker } from "./lib/workers/cfSyncWorker";
 import { reconciliationWorker } from "./lib/workers/reconciliationWorker";
 import { cfSyncQueue } from "./lib/bullmq";
 import CFQuestion from "./models/CFQuestion";
+import { startPresenceKeyspaceListener } from "./lib/presenceListener";
 
 async function run() {
   logger.info("[Worker] Starting standalone background worker (Agenda + BullMQ)...");
@@ -20,7 +21,10 @@ async function run() {
   // Ensure DB is connected
   await dbConnect();
 
-  // Schedule BullMQ repeatable Codeforces problem sync (Runs nightly at 2:00 AM)
+  // Start Redis keyspace notifications listener for presence tracking
+  await startPresenceKeyspaceListener();
+
+  // BullMq sync runs at 2
   await cfSyncQueue.add(
     "nightly-cf-problem-sync",
     {},
@@ -33,7 +37,7 @@ async function run() {
   );
   logger.info("[Worker] Scheduled nightly Codeforces problem sync repeatable job.");
 
-  // If database is empty, trigger immediate full ingest
+
   const cfQuestionCount = await CFQuestion.countDocuments();
   if (cfQuestionCount === 0) {
     logger.info("[Worker] CFQuestion database is empty. Triggering immediate full ingest...");

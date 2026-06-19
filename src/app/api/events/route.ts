@@ -4,6 +4,7 @@ import { getRedis } from "@/lib/redis";
 import dbConnect from "@/lib/mongodb";
 import ContestRoom from "@/models/ContestRoom";
 import { logger } from "@/lib/utils";
+import { publishRoom } from "@/lib/sse";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,9 @@ export async function GET(request: NextRequest) {
   const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
   const activeRooms = isValidObjectId
     ? await ContestRoom.find({
-        participants: userId,
-        status: "active",
-      }).lean()
+      participants: userId,
+      status: "active",
+    }).lean()
     : [];
 
   const redis = await getRedis();
@@ -37,6 +38,13 @@ export async function GET(request: NextRequest) {
     const presenceKey = `room:${roomId}:presence:${userId}`;
     await redis.set(presenceKey, "online");
     await redis.persist(presenceKey);
+
+    // Remove the offline tracker key since the user is now online
+    const offlineSentKey = `room:${roomId}:presence:${userId}:offline_sent`;
+    await redis.del(offlineSentKey);
+
+    // Publish online status
+    await publishRoom(roomId, { type: "presence.online", userId });
   }
 
   const channels = [`events:user:${userId}`];
@@ -68,6 +76,13 @@ export async function GET(request: NextRequest) {
         const roomId = room._id.toString();
         const presenceKey = `room:${roomId}:presence:${userId}`;
         await redis.expire(presenceKey, 90);
+
+        // Track that we sent the offline event immediately on disconnect
+        const offlineSentKey = `room:${roomId}:presence:${userId}:offline_sent`;
+        await redis.set(offlineSentKey, "1", { EX: 120 });
+
+        // Publish offline status
+        await publishRoom(roomId, { type: "presence.offline", userId });
       }
     } catch (err) {
       logger.error("[SSE] Error setting presence expiration:", err);
