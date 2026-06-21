@@ -172,3 +172,28 @@ Scheduled and tracked in the standalone worker (Agenda / BullMQ):
 > [!NOTE]
 > User profiles under the `CPUser` model and their corresponding `solvedProblems` lists are planned to be updated during the user registration process, which will be implemented later in **Stage 6A**.
 
+## 6. Cooldown UI Contract
+
+The synchronization endpoint `POST /api/contests/sync` enforces a strict 60-second cooldown per user via the Redis key `ratelimit:sync:<userId>`. 
+The server is always authoritative for this rate limit. The frontend client may mirror this 60s countdown in the UI (e.g., disabling the Sync button and showing a timer), but it must gracefully handle HTTP 429 responses if the server-side limit is still active.
+
+## 7. Internal Event Shape (`sync.detected`)
+
+When the CF Sync Engine successfully validates an Accepted (AC) submission matching the validation matrix, it emits the internal `sync.detected` event.
+
+* **Payload Shape:**
+  ```json
+  {
+    "type": "sync.detected",
+    "roomId": "string",
+    "userId": "string",
+    "teamId": "string",
+    "problemId": "string",
+    "cfSubmissionId": 123456789,
+    "cfTimestamp": 1690000000000,
+    "verdict": "OK",
+    "pointsAwarded": null
+  }
+  ```
+* **Note:** `pointsAwarded` is initially `null`. The Room Engine (Stage 3) consumes this event, assigns the correct score based on time and penalties, and then broadcasts the finalized points to the contest streams.
+
