@@ -3,7 +3,9 @@ import { connection } from "../bullmq";
 import { logger } from "../utils";
 import { syncCodeforcesProblems } from "../jobs/cfProblemSync";
 import { fetchCodeforcesUserStatus } from "../cf-api";
-import { publishUser } from "../sse";
+import { publishUser, publishRoom } from "../sse";
+import { getRedis } from "../redis";
+import { reconciliationQueue } from "../bullmq";
 import dbConnect from "../mongodb";
 import ContestRoom from "../../models/ContestRoom";
 import CustomContest from "../../models/CustomContest";
@@ -130,10 +132,90 @@ export const cfSyncWorker = new Worker(
             pointsAwarded: null, // Stage 3 fills this
           };
 
+          const redis = await getRedis();
+          const state = await redis.hGetAll(`room:${roomId}:state`);
+          let isAdvanceTriggered = false;
+
+          if (state && state.status === "active") {
+            const currentProblemIndex = parseInt(state.currentProblem || "0", 10);
+            const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
+            const problems = problemsRaw.map(p => JSON.parse(p));
+            const currentProblem = problems[currentProblemIndex];
+
+            if (currentProblem && currentProblem.problemId === problemId) {
+              const points = currentProblem.points || 100;
+              const cfTimestamp = matchedSubmission.creationTimeSeconds * 1000;
+              const startTime = parseInt(state.startTime || "0", 10);
+              const solveMs = cfTimestamp - startTime;
+
+              await redis.zIncrBy(`room:${roomId}:scores`, points, teamId);
+              await redis.zAdd(`room:${roomId}:solve_times`, { score: solveMs, value: teamId });
+              
+              const submissionObj = {
+                userId,
+                teamId,
+                problemId,
+                cfSubmissionId: matchedSubmission.id,
+                verdict: "OK",
+                points,
+                solveMs
+              };
+              await redis.xAdd(`room:${roomId}:submissions`, "*", { data: JSON.stringify(submissionObj) });
+
+              eventPayload.pointsAwarded = points;
+              isAdvanceTriggered = true;
+
+              const newProblemIndex = currentProblemIndex + 1;
+              await redis.hIncrBy(`room:${roomId}:state`, "currentProblem", 1);
+
+              if (newProblemIndex === problems.length) {
+                await redis.hSet(`room:${roomId}:state`, { status: "completed" });
+                
+                const finalScores: Record<string, number> = {};
+                const teams = await redis.sMembers(`room:${roomId}:teams`);
+                for (const tId of teams) {
+                  const score = await redis.zScore(`room:${roomId}:scores`, tId);
+                  finalScores[tId] = score || 0;
+                }
+                
+                await publishRoom(roomId, {
+                  type: "room.end",
+                  finalScores,
+                  duration: Date.now() - startTime
+                });
+
+                await reconciliationQueue.add(
+                  "room_completed",
+                  { roomId, contestId: state.contestId, trigger: "completed" },
+                  { jobId: `completed:${roomId}` }
+                );
+              } else {
+                const nextProblem = problems[newProblemIndex];
+                nextProblem.revealedAt = Date.now();
+                await redis.lSet(`room:${roomId}:problems`, newProblemIndex, JSON.stringify(nextProblem));
+
+                await publishRoom(roomId, {
+                  type: "room.advance",
+                  solvedBy: { userId, teamId },
+                  problemIndex: newProblemIndex,
+                  nextProblem
+                });
+
+                const scores: Record<string, number> = {};
+                const teams = await redis.sMembers(`room:${roomId}:teams`);
+                for (const tId of teams) {
+                  const score = await redis.zScore(`room:${roomId}:scores`, tId);
+                  scores[tId] = score || 0;
+                }
+                await publishRoom(roomId, { type: "room.score", scores });
+              }
+            }
+          }
+
           await publishUser(userId, eventPayload);
           
-          // Assuming Stage 3 will listen on some internal bus or BullMQ. For now, we'll log it.
           logger.info(`[cfSyncWorker] Valid AC detected for ${cfHandle} on ${problemId}. emitted sync.detected.`);
+
         } else {
           const failVerdict = hasSubmissionForProblem ? bestVerdict : "not_found";
           logger.info(`[cfSyncWorker] Validation failed for ${cfHandle} on ${problemId}. Verdict: ${failVerdict}`);

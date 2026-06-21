@@ -1,6 +1,7 @@
 import { getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
 import { publishRoom } from "@/lib/sse";
+import { reconciliationQueue } from "@/lib/bullmq";
 
 export async function startPresenceKeyspaceListener() {
   logger.info("[PresenceListener] Starting Redis keyspace notification listener...");
@@ -29,8 +30,36 @@ export async function startPresenceKeyspaceListener() {
       logger.info(`[PresenceListener] Presence expired for user ${userId} in room ${roomId}.`);
 
       try {
-        // Trigger auto-forfeit stub (log only for now)
-        logger.info(`[PresenceListener] AUTO-FORFEIT STUB: User ${userId} auto-forfeited in room ${roomId} due to inactivity.`);
+        // Trigger auto-forfeit 
+        logger.info(`[PresenceListener] User ${userId} auto-forfeited in room ${roomId} due to inactivity.`);
+        
+        const state = await redis.hGetAll(`room:${roomId}:state`);
+        if (state && state.status === "active") {
+          await redis.hSet(`room:${roomId}:state`, { forfeitFlag: "true" });
+          
+          await reconciliationQueue.add(
+            "room_forfeit",
+            { roomId, contestId: state.contestId, trigger: "forfeit", forfeitedUserId: userId },
+            { jobId: `forfeit:${roomId}:${userId}` }
+          );
+
+          // Need teamId. Find it from the sets
+          const teams = await redis.sMembers(`room:${roomId}:teams`);
+          let userTeamId = null;
+          for (const tId of teams) {
+            const isMember = await redis.sIsMember(`team:${tId}:users`, userId);
+            if (isMember) {
+              userTeamId = tId;
+              break;
+            }
+          }
+
+          await publishRoom(roomId, {
+            type: "room.player_forfeited",
+            userId,
+            teamId: userTeamId
+          });
+        }
 
         // Check if offline event has been sent
         const offlineSentKey = `room:${roomId}:presence:${userId}:offline_sent`;

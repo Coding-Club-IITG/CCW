@@ -19,8 +19,8 @@ const User = mongoose.models.User || mongoose.model("User", UserSchema);
 async function seed() {
   await mongoose.connect(MONGODB_URI!);
   const devUser = {
-    name: "Coding Club IITG",
-    email: "codingclub@iitg.ac.in",
+    name: "Ronit Sonawane",
+    email: "k.sonawane@iitg.ac.in",
     role: "Secretary",
     moduleRoles: [],
     emailVerified: true,
