@@ -7,6 +7,7 @@ import { publishUser } from "../sse";
 import dbConnect from "../mongodb";
 import ContestRoom from "../../models/ContestRoom";
 import CustomContest from "../../models/CustomContest";
+import mongoose from "mongoose";
 
 // Optional: cache a pause timer to avoid repeated pausing when circuit breaker trips
 let isCircuitBreakerOpen = false;
@@ -27,11 +28,23 @@ export const cfSyncWorker = new Worker(
       try {
         await dbConnect();
         
+        if (!mongoose.Types.ObjectId.isValid(roomId)) {
+          logger.warn(`[cfSyncWorker] Invalid roomId format: ${roomId}`);
+          await publishUser(userId, { verdict: "invalid", reason: "invalid_room_id" });
+          return;
+        }
+
         // 1. Fetch Room and Contest to get timestamps
         const room = await ContestRoom.findById(roomId).lean();
         if (!room) {
           logger.warn(`[cfSyncWorker] Room ${roomId} not found for sync.`);
           await publishUser(userId, { verdict: "invalid", reason: "room_not_found" });
+          return;
+        }
+
+        if (!room.contestId || !mongoose.Types.ObjectId.isValid(room.contestId)) {
+          logger.warn(`[cfSyncWorker] Invalid or missing contestId in room ${roomId}.`);
+          await publishUser(userId, { verdict: "invalid", reason: "invalid_contest_id" });
           return;
         }
 
