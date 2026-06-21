@@ -20,7 +20,7 @@ async function seed() {
   await mongoose.connect(MONGODB_URI!);
   const devUser = {
     name: "Coding Club IITG",
-    email: "h.rohit@iitg.ac.in",
+    email: "codingclub@iitg.ac.in",
     role: "Secretary",
     moduleRoles: [],
     emailVerified: true,
