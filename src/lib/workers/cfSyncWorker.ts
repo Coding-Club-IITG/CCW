@@ -150,11 +150,11 @@ export const cfSyncWorker = new Worker(
   }
 );
 
-cfSyncWorker.on("completed", (job) => {
+cfSyncWorker.on("completed", (job: Job) => {
   logger.info(`[cfSyncWorker] Job ${job.id} completed successfully`);
 });
 
-cfSyncWorker.on("failed", async (job, err) => {
+cfSyncWorker.on("failed", async (job: Job | undefined, err: Error) => {
   logger.error(`[cfSyncWorker] Job ${job?.id} failed with error: ${err.message}`, err);
   
   if (job?.name === "cf_sync" && job.attemptsMade >= (job.opts.attempts || 3)) {
