@@ -83,14 +83,21 @@ export const cfSyncWorker = new Worker(
         // 3. Validation Matrix
         let isValid = false;
         let matchedSubmission = null;
+        let hasSubmissionForProblem = false;
+        let bestVerdict = "not_found";
 
         for (const sub of submissions) {
-          const subProblemId = `${sub.problem.contestId}${sub.problem.index}`;
+          const subProblemId = `${sub.problem.contestId || ""}${sub.problem.index}`;
           const subTimestamp = sub.creationTimeSeconds * 1000;
-          const subVerdict = sub.verdict;
+          const subVerdict = sub.verdict || "UNKNOWN";
 
           // Check if it's the right problem
           if (subProblemId.toUpperCase() === problemId.toUpperCase()) {
+            hasSubmissionForProblem = true;
+            if (subVerdict !== "OK") {
+              bestVerdict = subVerdict;
+            }
+
             // Check handle match
             const authorHandle = sub.author.members.some(
               (m: any) => m.handle.toLowerCase() === cfHandle.toLowerCase()
@@ -123,17 +130,14 @@ export const cfSyncWorker = new Worker(
             pointsAwarded: null, // Stage 3 fills this
           };
 
-          // Wait, emit internal sync.detected event (consumed by Room engine in Stage 3)
-          // For now, publish to the user stream as required.
           await publishUser(userId, eventPayload);
           
-          // To consume internally, we could publish to a local event emitter or Redis queue.
-          // The issue says: "emit the internal sync.detected event... Also publish sync.detected to events:user:<userId>"
           // Assuming Stage 3 will listen on some internal bus or BullMQ. For now, we'll log it.
           logger.info(`[cfSyncWorker] Valid AC detected for ${cfHandle} on ${problemId}. emitted sync.detected.`);
         } else {
-          logger.info(`[cfSyncWorker] Validation failed or WA for ${cfHandle} on ${problemId}.`);
-          await publishUser(userId, { type: "sync.failed", verdict: "WA" });
+          const failVerdict = hasSubmissionForProblem ? bestVerdict : "not_found";
+          logger.info(`[cfSyncWorker] Validation failed for ${cfHandle} on ${problemId}. Verdict: ${failVerdict}`);
+          await publishUser(userId, { type: "sync.failed", verdict: failVerdict });
         }
       } catch (error: any) {
         logger.error(`[cfSyncWorker] Error processing cf_sync for user ${userId}:`, error.message);
