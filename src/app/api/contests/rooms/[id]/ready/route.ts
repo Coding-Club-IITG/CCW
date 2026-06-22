@@ -6,7 +6,7 @@ import dbConnect from "@/lib/mongodb";
 import { publishRoom } from "@/lib/sse";
 import { reconciliationQueue } from "@/lib/bullmq";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     let userId = "";
 
@@ -59,12 +59,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           startTime: now.toString()
         });
 
-        // Reveal problem[0]
+        // Reveal problem(s) based on mode
         const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
-        if (problemsRaw.length > 0) {
-          const firstProblem = JSON.parse(problemsRaw[0]);
-          firstProblem.revealedAt = now;
-          await redis.lSet(`room:${roomId}:problems`, 0, JSON.stringify(firstProblem));
+        if (state.type === "arena") {
+          for (let i = 0; i < problemsRaw.length; i++) {
+            const p = JSON.parse(problemsRaw[i]);
+            p.revealedAt = now;
+            await redis.lSet(`room:${roomId}:problems`, i, JSON.stringify(p));
+          }
+        } else {
+          if (problemsRaw.length > 0) {
+            const firstProblem = JSON.parse(problemsRaw[0]);
+            firstProblem.revealedAt = now;
+            await redis.lSet(`room:${roomId}:problems`, 0, JSON.stringify(firstProblem));
+          }
         }
 
         room.status = "active";

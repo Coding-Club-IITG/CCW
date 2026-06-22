@@ -116,15 +116,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Set room:<id>:state Hash
-    await redis.hSet(`room:${roomId}:state`, {
+    const stateObj: any = {
       status: "waiting",
-      type: "blitz",
-      currentProblem: 0,
+      type: contest.mode || "blitz",
       startTime: "",
-      timeLimit: contest.durationSeconds,
+      timeLimit: contest.durationSeconds.toString(),
       contestId: contestId.toString(),
       readyCount: 0
-    });
+    };
+    if (contest.mode !== "arena") {
+      stateObj.currentProblem = 0;
+    }
+    await redis.hSet(`room:${roomId}:state`, stateObj);
 
     // Write room:<id>:teams Set
     await redis.sAdd(`room:${roomId}:teams`, [createdTeams[0]._id.toString(), createdTeams[1]._id.toString()]);

@@ -14,8 +14,8 @@ if (!db) {
 }
 
 export const auth = betterAuth({
-  database: mongodbAdapter(db, {
-    client,
+  database: mongodbAdapter(db as any, {
+    client: client as any,
   }),
 
   secret: process.env.AUTH_SECRET,

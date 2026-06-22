@@ -4,7 +4,7 @@ import { logger } from "../utils";
 import { syncCodeforcesProblems } from "../jobs/cfProblemSync";
 import { fetchCodeforcesUserStatus } from "../cf-api";
 import { publishUser, publishRoom } from "../sse";
-import { getRedis } from "../redis";
+import { getRedis, claimProblem } from "../redis";
 import { reconciliationQueue } from "../bullmq";
 import dbConnect from "../mongodb";
 import ContestRoom from "../../models/ContestRoom";
@@ -137,77 +137,150 @@ export const cfSyncWorker = new Worker(
           let isAdvanceTriggered = false;
 
           if (state && state.status === "active") {
-            const currentProblemIndex = parseInt(state.currentProblem || "0", 10);
             const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
             const problems = problemsRaw.map(p => JSON.parse(p));
-            const currentProblem = problems[currentProblemIndex];
 
-            if (currentProblem && currentProblem.problemId === problemId) {
-              const points = currentProblem.points || 100;
-              const cfTimestamp = matchedSubmission.creationTimeSeconds * 1000;
-              const startTime = parseInt(state.startTime || "0", 10);
-              const solveMs = cfTimestamp - startTime;
+            if (state.type === "arena") {
+              const targetProblem = problems.find((p: any) => p.problemId === problemId);
+              if (targetProblem) {
+                const points = targetProblem.points || 100;
+                const cfTimestamp = matchedSubmission.creationTimeSeconds * 1000;
+                const startTime = parseInt(state.startTime || "0", 10);
 
-              await redis.zIncrBy(`room:${roomId}:scores`, points, teamId);
-              await redis.zAdd(`room:${roomId}:solve_times`, { score: solveMs, value: teamId });
-              
-              const submissionObj = {
-                userId,
-                teamId,
-                problemId,
-                cfSubmissionId: matchedSubmission.id,
-                verdict: "OK",
-                points,
-                solveMs
-              };
-              await redis.xAdd(`room:${roomId}:submissions`, "*", { data: JSON.stringify(submissionObj) });
-
-              eventPayload.pointsAwarded = points;
-              isAdvanceTriggered = true;
-
-              const newProblemIndex = currentProblemIndex + 1;
-              await redis.hIncrBy(`room:${roomId}:state`, "currentProblem", 1);
-
-              if (newProblemIndex === problems.length) {
-                await redis.hSet(`room:${roomId}:state`, { status: "completed" });
-                
-                const finalScores: Record<string, number> = {};
-                const teams = await redis.sMembers(`room:${roomId}:teams`);
-                for (const tId of teams) {
-                  const score = await redis.zScore(`room:${roomId}:scores`, tId);
-                  finalScores[tId] = score || 0;
-                }
-                
-                await publishRoom(roomId, {
-                  type: "room.end",
-                  finalScores,
-                  duration: Date.now() - startTime
-                });
-
-                await reconciliationQueue.add(
-                  "room_completed",
-                  { roomId, contestId: state.contestId, trigger: "completed" },
-                  { jobId: `completed:${roomId}` }
+                const claimResult = await claimProblem(
+                  redis,
+                  `room:${roomId}:locks`,
+                  problemId,
+                  teamId,
+                  cfTimestamp
                 );
-              } else {
-                const nextProblem = problems[newProblemIndex];
-                nextProblem.revealedAt = Date.now();
-                await redis.lSet(`room:${roomId}:problems`, newProblemIndex, JSON.stringify(nextProblem));
 
-                await publishRoom(roomId, {
-                  type: "room.advance",
-                  solvedBy: { userId, teamId },
-                  problemIndex: newProblemIndex,
-                  nextProblem
-                });
+                if (claimResult === "claimed" || claimResult.startsWith("reclaimed|")) {
+                  if (claimResult.startsWith("reclaimed|")) {
+                    const oldTeamId = claimResult.split("|")[1];
+                    await redis.zIncrBy(`room:${roomId}:scores`, -points, oldTeamId);
+                  }
+                  
+                  await redis.zIncrBy(`room:${roomId}:scores`, points, teamId);
+                  const solveMs = cfTimestamp - startTime;
+                  await redis.zAdd(`room:${roomId}:solve_times`, { score: solveMs, value: teamId });
+                  
+                  const submissionObj = {
+                    userId,
+                    teamId,
+                    problemId,
+                    cfSubmissionId: matchedSubmission.id,
+                    verdict: "OK",
+                    points,
+                    solveMs
+                  };
+                  await redis.xAdd(`room:${roomId}:submissions`, "*", { data: JSON.stringify(submissionObj) });
 
-                const scores: Record<string, number> = {};
-                const teams = await redis.sMembers(`room:${roomId}:teams`);
-                for (const tId of teams) {
-                  const score = await redis.zScore(`room:${roomId}:scores`, tId);
-                  scores[tId] = score || 0;
+                  eventPayload.pointsAwarded = points;
+                  
+                  await publishRoom(roomId, {
+                    type: "room.locked",
+                    problemId,
+                    claimedBy: teamId,
+                    timestamp: cfTimestamp
+                  });
+                  
+                  const scores: Record<string, number> = {};
+                  const teams = await redis.sMembers(`room:${roomId}:teams`);
+                  for (const tId of teams) {
+                    const score = await redis.zScore(`room:${roomId}:scores`, tId);
+                    scores[tId] = score || 0;
+                  }
+                  await publishRoom(roomId, { type: "room.score", scores });
+                  
+                  const lockCount = await redis.hLen(`room:${roomId}:locks`);
+                  if (lockCount === problems.length) {
+                    await redis.hSet(`room:${roomId}:state`, { status: "completed" });
+                    await publishRoom(roomId, {
+                      type: "room.end",
+                      finalScores: scores,
+                      duration: Date.now() - startTime
+                    });
+
+                    await reconciliationQueue.add(
+                      "room_completed",
+                      { roomId, contestId: state.contestId, trigger: "completed" },
+                      { jobId: `completed:${roomId}` }
+                    );
+                  }
                 }
-                await publishRoom(roomId, { type: "room.score", scores });
+              }
+            } else {
+              const currentProblemIndex = parseInt(state.currentProblem || "0", 10);
+              const currentProblem = problems[currentProblemIndex];
+
+              if (currentProblem && currentProblem.problemId === problemId) {
+                const points = currentProblem.points || 100;
+                const cfTimestamp = matchedSubmission.creationTimeSeconds * 1000;
+                const startTime = parseInt(state.startTime || "0", 10);
+                const solveMs = cfTimestamp - startTime;
+
+                await redis.zIncrBy(`room:${roomId}:scores`, points, teamId);
+                await redis.zAdd(`room:${roomId}:solve_times`, { score: solveMs, value: teamId });
+                
+                const submissionObj = {
+                  userId,
+                  teamId,
+                  problemId,
+                  cfSubmissionId: matchedSubmission.id,
+                  verdict: "OK",
+                  points,
+                  solveMs
+                };
+                await redis.xAdd(`room:${roomId}:submissions`, "*", { data: JSON.stringify(submissionObj) });
+
+                eventPayload.pointsAwarded = points;
+                isAdvanceTriggered = true;
+
+                const newProblemIndex = currentProblemIndex + 1;
+                await redis.hIncrBy(`room:${roomId}:state`, "currentProblem", 1);
+
+                if (newProblemIndex === problems.length) {
+                  await redis.hSet(`room:${roomId}:state`, { status: "completed" });
+                  
+                  const finalScores: Record<string, number> = {};
+                  const teams = await redis.sMembers(`room:${roomId}:teams`);
+                  for (const tId of teams) {
+                    const score = await redis.zScore(`room:${roomId}:scores`, tId);
+                    finalScores[tId] = score || 0;
+                  }
+                  
+                  await publishRoom(roomId, {
+                    type: "room.end",
+                    finalScores,
+                    duration: Date.now() - startTime
+                  });
+
+                  await reconciliationQueue.add(
+                    "room_completed",
+                    { roomId, contestId: state.contestId, trigger: "completed" },
+                    { jobId: `completed:${roomId}` }
+                  );
+                } else {
+                  const nextProblem = problems[newProblemIndex];
+                  nextProblem.revealedAt = Date.now();
+                  await redis.lSet(`room:${roomId}:problems`, newProblemIndex, JSON.stringify(nextProblem));
+
+                  await publishRoom(roomId, {
+                    type: "room.advance",
+                    solvedBy: { userId, teamId },
+                    problemIndex: newProblemIndex,
+                    nextProblem
+                  });
+
+                  const scores: Record<string, number> = {};
+                  const teams = await redis.sMembers(`room:${roomId}:teams`);
+                  for (const tId of teams) {
+                    const score = await redis.zScore(`room:${roomId}:scores`, tId);
+                    scores[tId] = score || 0;
+                  }
+                  await publishRoom(roomId, { type: "room.score", scores });
+                }
               }
             }
           }

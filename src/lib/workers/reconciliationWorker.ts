@@ -4,6 +4,7 @@ import { logger } from "../utils";
 import { getRedis } from "../redis";
 import dbConnect from "../mongodb";
 import ContestRoom from "../../models/ContestRoom";
+import { publishRoom } from "../sse";
 import ContestProblemSet from "../../models/ContestProblemSet";
 import ContestTeam from "../../models/ContestTeam";
 import ContestSubmission from "../../models/ContestSubmission"; // Make sure to create this model if not exists
@@ -90,6 +91,18 @@ export const reconciliationWorker = new Worker(
 
     // 4. Finalise ContestProblemSet (e.g. tracking who solved what) - stubbed for now if schema doesn't fully support
     
+    // Publish room.end if triggered by timeout or forfeit (meaning it didn't end naturally in cfSyncWorker)
+    if (trigger === "timeout" || trigger === "forfeit") {
+      const stateObj = await redis.hGetAll(`room:${roomId}:state`);
+      const startTime = parseInt(stateObj.startTime || "0", 10);
+      await publishRoom(roomId, {
+        type: "room.end",
+        finalScores: teamScores,
+        duration: Date.now() - startTime
+      });
+      await redis.hSet(`room:${roomId}:state`, { status: "completed" });
+    }
+
     // 5. Clean up Redis
     const keys = await redis.keys(`room:${roomId}:*`);
     if (keys.length > 0) {
