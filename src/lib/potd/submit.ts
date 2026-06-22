@@ -38,7 +38,6 @@ function findAcceptedSubmission(
       (s: any) =>
         s.result === "AC" &&
         s.problem_id === problem.problemIndex &&
-        s.contest_id === problem.contestId &&
         s.epoch_second >= windowStartEpoch &&
         s.epoch_second <= graceEndEpoch,
     );
