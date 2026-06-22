@@ -2,8 +2,8 @@
  * POTD Recalc for a single user on a particular day
  *
  * Use when a user solved a challenge but forgot to open/sync it.
- * Re-fetches that user's platform submissions from '--date' to the present, then
- * replays user's full history so their points and streaks are corrected.
+ * Re-fetches that user's platform submissions from '--date' to the present,
+ * records their solvedAt, then deterministically recomputes their points and streaks.
  *
  *   pnpm tsx scripts/potd-recalc-user.ts --user tourist --date 2026-06-12
  *   pnpm tsx scripts/potd-recalc-user.ts --user <cfHandle|acHandle|userId> --date 2026-06-12 --execute
@@ -24,13 +24,10 @@ import {
 import {
   fetchUserSubmissions,
   getFinalizedChallenges,
-  groupChallengesByDay,
   backfillSolvedAt,
-  resetUserStats,
-  resetSubmissionStatuses,
-  replayUser,
   platformOf,
 } from "../src/lib/potd/recompute";
+import { buildTimeline, recomputeUser } from "../src/lib/potd/finalize";
 import {
   computeWindowTimes,
   windowStartToISTDateStr,
@@ -82,9 +79,9 @@ async function main() {
     `Resolved: ${user.name || userId} (cf=${user.codeforcesId || "-"}${cpUser.cfVerified ? "✓" : ""}, ac=${user.atcoderId || "-"}${cpUser.acVerified ? "✓" : ""})`,
   );
 
+  const now = new Date();
   const fromWindowStart = computeWindowTimes(date).windowStart.getTime();
-  const challenges = (await getFinalizedChallenges()) as any[];
-  const { daysMap, sortedDays } = groupChallengesByDay(challenges);
+  const challenges = (await getFinalizedChallenges(now)) as any[];
 
   const toRefetch = challenges.filter(
     (c) => (c.windowStart as Date).getTime() >= fromWindowStart,
@@ -129,18 +126,13 @@ async function main() {
   await doPlatform("codeforces", user.codeforcesId, !!cpUser.cfVerified);
   await doPlatform("atcoder", user.atcoderId, !!cpUser.acVerified);
 
-  // Full replay for this user only (cumulative streaks)
-  console.log(
-    "Resetting this user's stats + submission statuses, then replaying...",
-  );
-  await resetUserStats(userId);
-  await resetSubmissionStatuses({ userId });
-  await replayUser(userId, daysMap, sortedDays);
+  console.log("Recomputing this user from solve facts...");
+  const { days } = await buildTimeline(now);
+  await recomputeUser(userId, days, now);
 
-  // Report the anchored day's outcome + new totals
-  const dayChallengeIds = (daysMap.get(fromWindowStart) || []).map(
-    (c) => c._id,
-  );
+  const dayChallengeIds = challenges
+    .filter((c) => (c.windowStart as Date).getTime() === fromWindowStart)
+    .map((c) => c._id);
   if (dayChallengeIds.length > 0) {
     const daySubs = await POTDSubmission.find({
       userId,

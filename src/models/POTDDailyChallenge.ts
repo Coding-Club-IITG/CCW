@@ -22,12 +22,19 @@ const DailyChallengeSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    finalizedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );
 
 // Each difficulty level can appear at most once per day
 DailyChallengeSchema.index({ windowStart: 1, difficulty: 1 }, { unique: true });
+
+// Find unfinalized days past their grace window
+DailyChallengeSchema.index({ graceEnd: 1, finalizedAt: 1 });
 
 export default mongoose.models.DailyChallenge ||
   mongoose.model("DailyChallenge", DailyChallengeSchema);

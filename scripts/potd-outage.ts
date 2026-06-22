@@ -2,8 +2,8 @@
  * POTD Outage Recovery script
  *
  * Given the day BEFORE the outage started (or the first affected day),
- * this re-fetches every verified user's real CF/AC submissions from that day
- * to present, then replays the full history so cumulative streaks are correct.
+ * this re-fetches every verified user's real CF/AC submissions from that day to present,
+ * records their solvedAt (ground truth), then recomputes everyone's scoring deterministically.
  *
  *   pnpm tsx scripts/potd-outage.ts --from 2026-06-10            # dry run
  *   pnpm tsx scripts/potd-outage.ts --from 2026-06-10 --execute  # apply
@@ -24,14 +24,14 @@ import {
 import {
   fetchUserSubmissions,
   getFinalizedChallenges,
-  groupChallengesByDay,
   backfillSolvedAt,
-  resetAllStats,
-  reconcileAllStats,
-  resetSubmissionStatuses,
-  replayUser,
   platformOf,
 } from "../src/lib/potd/recompute";
+import {
+  buildTimeline,
+  recomputeUsers,
+  markPastDaysFinalized,
+} from "../src/lib/potd/finalize";
 import { computeWindowTimes } from "../src/lib/potd/utils";
 import type { Platform } from "../src/lib/constants";
 
@@ -56,13 +56,13 @@ async function main() {
   );
   await connect();
 
+  const now = new Date();
   const fromWindowStart = computeWindowTimes(from).windowStart.getTime();
 
-  const challenges = (await getFinalizedChallenges()) as any[];
+  const challenges = (await getFinalizedChallenges(now)) as any[];
   const toRefetch = challenges.filter(
     (c) => (c.windowStart as Date).getTime() >= fromWindowStart,
   );
-  const { daysMap, sortedDays } = groupChallengesByDay(challenges);
 
   // Split the re-fetch set by platform
   const cfChallenges = toRefetch.filter((c) => platformOf(c) === "codeforces");
@@ -70,7 +70,7 @@ async function main() {
 
   console.log(
     `Finalized challenges: ${challenges.length} total; ${toRefetch.length} to re-fetch from ${from} ` +
-      `(CF=${cfChallenges.length}, AC=${acChallenges.length}) across ${sortedDays.length} replay days.`,
+      `(CF=${cfChallenges.length}, AC=${acChallenges.length}).`,
   );
 
   // Build verified-user -> handle maps
@@ -159,28 +159,24 @@ async function main() {
   );
   await runPlatform(acTargets, acHandle, acChallenges, "atcoder", AC_DELAY_MS);
 
-  // Chronological replay
-  console.log("\nResetting all stats + submission statuses, then replaying...");
-  await resetAllStats();
-  await resetSubmissionStatuses();
-
-  const allCp = await CPUser.find();
+  console.log("\nRecomputing all users from solve facts...");
+  const { days } = await buildTimeline(now);
+  const allCp = (await CPUser.find({}, "userId").lean()) as any[];
   for (let i = 0; i < allCp.length; i++) {
-    await replayUser((allCp[i] as any).userId, daysMap, sortedDays);
-    if ((i + 1) % 10 === 0) console.log(`  ...${i + 1}/${allCp.length}`);
+    await recomputeUsers([allCp[i].userId], days, now);
+    if ((i + 1) % 25 === 0) console.log(`  ...${i + 1}/${allCp.length}`);
   }
-  console.log("Replay complete.");
 
-  const reconciled = await reconcileAllStats();
-  console.log(`Reconciled aggregate totals for ${reconciled} users.`);
+  const marked = await markPastDaysFinalized(now);
+  console.log(
+    `Recompute complete. Marked ${marked} past challenges finalized.`,
+  );
 
   console.log("Verifying...");
   await verifyConsistency();
 
   await disconnect();
-  console.log(
-    "\nDone. Remember to set streak-reset guards and restart the worker (see scripts/potd-set-guards.ts).",
-  );
+  console.log("\nDone. You can restart the worker now.");
 }
 
 main().catch((err) => {

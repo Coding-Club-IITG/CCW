@@ -21,7 +21,7 @@ import POTDSubmission from "@/models/POTDSubmission";
 import { logger, getDisplayName } from "@/lib/utils";
 import { DIFFICULTY_ORDER } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
-import { processSubmission } from "@/lib/potd/submit";
+import { syncUserChallenge } from "@/lib/potd/finalize";
 import { getUserSubmissions } from "@/lib/platforms/atcoder";
 import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
 
@@ -323,10 +323,9 @@ export async function syncMySubmission(challengeId: string): Promise<{
       }
     }
 
-    const { status: newStatus, pointsAwarded } = await processSubmission(
+    const { status: newStatus, pointsAwarded } = await syncUserChallenge(
       userId,
       challenge,
-      cpUser,
       platformSubs,
       platform,
     );

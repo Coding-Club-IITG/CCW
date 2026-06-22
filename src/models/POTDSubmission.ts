@@ -13,10 +13,10 @@ const POTDSubmissionSchema = new mongoose.Schema(
       required: true,
     },
     // Lifecycle:
-    //   Pending   -> not yet verified by manual sync or cron
-    //   Accepted  -> solved within main OR grace window (points > 0, streak++)
-    //   Late      -> solved after graceEnd (0 points, streak unaffected)
-    //   NotSolved -> cron confirmed no solve after grace + health-check cycle
+    //   Pending   -> not yet finalized (day still live, or awaiting sync)
+    //   Accepted  -> solved within the main window: full points + streak increment
+    //   Late      -> solved within the grace windowL 50% points, streak preserved (no increment)
+    //   NotSolved -> finalized with no qualifying solve: 0 points, streak resets
     status: {
       type: String,
       enum: ["Pending", "Accepted", "Late", "NotSolved"],
@@ -25,6 +25,7 @@ const POTDSubmissionSchema = new mongoose.Schema(
     solvedInGrace: { type: Boolean, default: false },
     pointsAwarded: { type: Number, default: 0 },
     solvedAt: { type: Date, default: null }, // CF submission timestamp (UTC)
+    streakAtSolve: { type: Number, default: 0 }, // Streak the user was carrying on challenge day
     lastCheckedAt: { type: Date, default: null },
   },
   { timestamps: true },
@@ -33,7 +34,7 @@ const POTDSubmissionSchema = new mongoose.Schema(
 // Ensure one record per (user, challenge) pair
 POTDSubmissionSchema.index({ userId: 1, challengeId: 1 }, { unique: true });
 
-// For cron: quickly fetch Pending submissions for a challenge
+// Fetch Pending submissions for a challenge
 POTDSubmissionSchema.index({ challengeId: 1, status: 1 });
 
 // For leaderboard aggregation

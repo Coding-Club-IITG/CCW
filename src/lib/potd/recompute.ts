@@ -6,24 +6,12 @@ import POTDSubmission from "@/models/POTDSubmission";
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import Problem from "@/models/POTDProblem";
-import {
-  processSubmission,
-  findEarliestAcceptedSolveTime,
-  buildMockSubmissions,
-} from "@/lib/potd/submit";
+import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
 import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
 import { getUserSubmissions as getAtcoderSubmissions } from "@/lib/platforms/atcoder";
 import type { Platform } from "@/lib/constants";
 
 void Problem;
-
-/**
- * Redis key marking that the end-of-day streak reset has already run for the
- * day starting at 'windowStartMs'
- */
-export const STREAK_RESET_GUARD_PREFIX = "potd:streak_reset";
-export const streakResetGuardKey = (windowStartMs: number): string =>
-  `${STREAK_RESET_GUARD_PREFIX}:${windowStartMs}`;
 
 /**
  * Fetch a user's submissions from the relevant platform, from 'windowStartMs' onward
@@ -171,53 +159,4 @@ export async function resetSubmissionStatuses(
   await POTDSubmission.updateMany(filter, {
     $set: { status: "Pending", pointsAwarded: 0, solvedInGrace: false },
   });
-}
-
-/**
- * Replay one user's entire finalized history chronologically, recomputing
- * status/points/streaks from their stored 'solvedAt' values
- */
-export async function replayUser(
-  userId: any,
-  daysMap: Map<number, any[]>,
-  sortedDays: number[],
-  now: Date = new Date(),
-): Promise<void> {
-  const userSubs = await POTDSubmission.find({ userId });
-  const byChallenge = new Map<string, any>();
-  for (const s of userSubs) byChallenge.set(s.challengeId.toString(), s);
-
-  for (const day of sortedDays) {
-    const dayChallenges = daysMap.get(day)!;
-    let solvedAnyToday = false;
-
-    for (const challenge of dayChallenges) {
-      const platform = platformOf(challenge);
-      const sub = byChallenge.get(challenge._id.toString());
-      const mocks = buildMockSubmissions(
-        challenge.problem as any,
-        platform,
-        sub?.solvedAt ?? null,
-      );
-
-      // Re-fetch so processSubmission sees the running (already-updated) streak
-      const latest = await CPUser.findOne({ userId });
-      const r = await processSubmission(
-        userId.toString(),
-        challenge,
-        latest,
-        mocks,
-        platform,
-        now,
-      );
-      if (r.status === "Accepted" || r.status === "Late") solvedAnyToday = true;
-    }
-
-    if (!solvedAnyToday) {
-      const latest = await CPUser.findOne({ userId });
-      if (latest && latest.potdCurrentStreak > 0) {
-        await CPUser.updateOne({ userId }, { $set: { potdCurrentStreak: 0 } });
-      }
-    }
-  }
 }
