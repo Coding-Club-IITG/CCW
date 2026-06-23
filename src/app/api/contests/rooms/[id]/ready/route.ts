@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getRedis } from "@/lib/redis";
 import ContestRoom from "@/models/ContestRoom";
+import ContestTeam from "@/models/ContestTeam";
 import dbConnect from "@/lib/mongodb";
 import { publishRoom } from "@/lib/sse";
 import { reconciliationQueue } from "@/lib/bullmq";
+import { logger } from "@/lib/utils";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -40,19 +42,47 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Room is not waiting" }, { status: 400 });
     }
 
-    // Use a Redis set to track unique users who are ready
+    // Determine which team this user belongs to
+    const teams = await redis.sMembers(`room:${roomId}:teams`);
+    let userTeamId: string | null = null;
+    for (const tId of teams) {
+      const isMember = await redis.sIsMember(`team:${tId}:users`, userId);
+      if (isMember) {
+        userTeamId = tId;
+        break;
+      }
+    }
+
+    if (!userTeamId) {
+      return NextResponse.json({ error: "User is not part of any team" }, { status: 403 });
+    }
+
+    // Mark user as ready
     const readyAdded = await redis.sAdd(`room:${roomId}:ready_users`, userId);
     
     if (readyAdded) {
-      const readyCount = await redis.sCard(`room:${roomId}:ready_users`);
-      await redis.hSet(`room:${roomId}:state`, { readyCount });
+      // Check if this user's entire team is ready
+      const teamMembers = await redis.sMembers(`team:${userTeamId}:users`);
+      const readyMembers = [];
+      for (const memberId of teamMembers) {
+        const isReady = await redis.sIsMember(`room:${roomId}:ready_users`, memberId);
+        if (isReady) {
+          readyMembers.push(memberId);
+        }
+      }
 
-      // Assuming 1v1 for now (2 participants total)
-      // For teams, we might check room.participants.length
-      const totalParticipants = room.participants.length;
+      const teamReady = readyMembers.length === teamMembers.length;
+      if (teamReady) {
+        logger.info(`[Ready] Team ${userTeamId} is fully ready in room ${roomId}`);
+        await redis.sAdd(`room:${roomId}:teams_ready`, userTeamId);
+      }
 
-      if (readyCount === totalParticipants) {
-        // Room start (Task 4)
+      // Check if all teams are ready
+      const teamsReady = await redis.sMembers(`room:${roomId}:teams_ready`);
+      const allTeamsReady = teamsReady.length === teams.length;
+
+      if (allTeamsReady) {
+        // Room start
         const now = Date.now();
         await redis.hSet(`room:${roomId}:state`, {
           status: "active",
@@ -82,7 +112,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const updatedProblems = await redis.lRange(`room:${roomId}:problems`, 0, -1);
 
         // Fetch scores
-        const teams = await redis.sMembers(`room:${roomId}:teams`);
         const scores: Record<string, number> = {};
         for (const tId of teams) {
           const score = await redis.zScore(`room:${roomId}:scores`, tId);
@@ -103,8 +132,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         await reconciliationQueue.add(
           "room_timeout",
           { roomId, contestId: state.contestId, trigger: "timeout" },
-          { delay: timeLimitSecs * 1000, jobId: `timeout:${roomId}` }
+          { delay: timeLimitSecs * 1000, jobId: `timeout-${roomId}` }
         );
+      } else if (!teamReady) {
+        // Set a timeout for this team to become ready (60s)
+        const readyTimeoutKey = `ready_timeout:${roomId}:${userTeamId}`;
+        const timeoutSet = await redis.set(readyTimeoutKey, "1", { EX: 60, NX: true });
+        
+        if (timeoutSet) {
+          // Timeout was just set, schedule a job to check if team became ready
+          await reconciliationQueue.add(
+            "team_ready_timeout",
+            { roomId, teamId: userTeamId },
+            { delay: 60000, jobId: `ready-timeout-${roomId}-${userTeamId}` }
+          );
+        }
       }
     }
 

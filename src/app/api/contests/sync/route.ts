@@ -27,6 +27,23 @@ export async function POST(request: NextRequest) {
     }
 
     const redis = await getRedis();
+    
+    // Resolve teamId if not provided: check which team contains this userId
+    let resolvedTeamId = teamId;
+    if (!resolvedTeamId) {
+      const teams = await redis.sMembers(`room:${roomId}:teams`);
+      for (const tId of teams) {
+        const isMember = await redis.sIsMember(`team:${tId}:users`, userId);
+        if (isMember) {
+          resolvedTeamId = tId;
+          break;
+        }
+      }
+      if (!resolvedTeamId) {
+        return NextResponse.json({ error: "User is not part of any team in this room" }, { status: 403 });
+      }
+    }
+
     const rateLimitKey = `ratelimit:sync:${userId}`;
 
     // 1. Check ratelimit
@@ -39,7 +56,7 @@ export async function POST(request: NextRequest) {
     await redis.set(rateLimitKey, "1", { EX: 60 });
 
     // 3. Enqueue job
-    const jobData = { roomId, userId, teamId, cfHandle, problemId };
+    const jobData = { roomId, userId, teamId: resolvedTeamId, cfHandle, problemId };
     const job = await cfSyncQueue.add("cf_sync", jobData);
 
     // Approximate position

@@ -14,8 +14,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { contestId, teams } = body;
 
-    if (!contestId || !teams || !Array.isArray(teams) || teams.length !== 2) {
+    if (!contestId || !teams || !Array.isArray(teams) || teams.length < 2) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+
+    // Validate team sizes: each team must have 1 or 3 members
+    const teamSizes = teams.map((t: any) => t.members.length);
+    const validSizes = teamSizes.every((size: number) => size === 1 || size === 3);
+    const consistentSizes = teamSizes.every((size: number) => size === teamSizes[0]);
+
+    if (!validSizes || !consistentSizes) {
+      return NextResponse.json(
+        { 
+          error: "Invalid team sizes",
+          details: "Each team must have 1 or 3 members, and all teams must have the same size"
+        },
+        { status: 400 }
+      );
     }
 
     await dbConnect();
@@ -73,6 +88,7 @@ export async function POST(req: NextRequest) {
     // Write stub ContestProblemSet
     const problemSet = new ContestProblemSet({
       contestId: contest._id,
+      roomId: room._id,
       problems: availableProblems.map(p => ({
         platform: "codeforces",
         problemId: p.problemId,
@@ -83,12 +99,14 @@ export async function POST(req: NextRequest) {
     });
 
     // Create teams in MongoDB
+    const teamSize = teamSizes[0]; // Already validated that all sizes are equal
     const createdTeams = [];
     for (const t of teams) {
       const team = new ContestTeam({
         roomId: room._id,
         name: t.name,
         members: t.members,
+        teamSize,
         score: 0
       });
       await team.save();
@@ -130,7 +148,7 @@ export async function POST(req: NextRequest) {
     await redis.hSet(`room:${roomId}:state`, stateObj);
 
     // Write room:<id>:teams Set
-    await redis.sAdd(`room:${roomId}:teams`, [createdTeams[0]._id.toString(), createdTeams[1]._id.toString()]);
+    await redis.sAdd(`room:${roomId}:teams`, createdTeams.map(t => t._id.toString()));
 
     // Write team:<teamId>:meta and team:<teamId>:users
     for (const t of createdTeams) {

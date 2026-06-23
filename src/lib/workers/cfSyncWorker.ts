@@ -57,6 +57,15 @@ export const cfSyncWorker = new Worker(
           return;
         }
 
+        // Verify userId is part of the team
+        const redis = await getRedis();
+        const isTeamMember = await redis.sIsMember(`team:${teamId}:users`, userId);
+        if (!isTeamMember) {
+          logger.warn(`[cfSyncWorker] User ${userId} is not a member of team ${teamId} in room ${roomId}.`);
+          await publishUser(userId, { verdict: "invalid", reason: "not_team_member" });
+          return;
+        }
+
         const lowerTimestamp = contest.startTime.getTime();
         // Add a small grace period (e.g., 5 minutes) or just use endTime
         const upperTimestamp = contest.endTime.getTime() + 5 * 60 * 1000;
@@ -172,7 +181,8 @@ export const cfSyncWorker = new Worker(
                     cfSubmissionId: matchedSubmission.id,
                     verdict: "OK",
                     points,
-                    solveMs
+                    solveMs,
+                    cfTimestamp
                   };
                   await redis.xAdd(`room:${roomId}:submissions`, "*", { data: JSON.stringify(submissionObj) });
 
@@ -230,7 +240,8 @@ export const cfSyncWorker = new Worker(
                   cfSubmissionId: matchedSubmission.id,
                   verdict: "OK",
                   points,
-                  solveMs
+                  solveMs,
+                  cfTimestamp
                 };
                 await redis.xAdd(`room:${roomId}:submissions`, "*", { data: JSON.stringify(submissionObj) });
 

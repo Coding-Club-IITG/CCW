@@ -13,11 +13,68 @@ export const reconciliationWorker = new Worker(
   "reconciliation_queue",
   async (job: Job) => {
     logger.info(`[reconciliationWorker] Processing job ${job.id} (name: ${job.name})`, job.data);
-    const { roomId, contestId, trigger, forfeitedUserId } = job.data;
+    const { roomId, contestId, trigger, forfeitedUserId, teamId } = job.data;
     const redis = await getRedis();
     await dbConnect();
 
-    // 1. Determine winner
+    // Handle team ready timeout
+    if (job.name === "team_ready_timeout") {
+      const state = await redis.hGetAll(`room:${roomId}:state`);
+      
+      // Only process if room is still waiting
+      if (state && state.status === "waiting") {
+        const teamMembers = await redis.sMembers(`team:${teamId}:users`);
+        const readyMembers = [];
+        for (const memberId of teamMembers) {
+          const isReady = await redis.sIsMember(`room:${roomId}:ready_users`, memberId);
+          if (isReady) {
+            readyMembers.push(memberId);
+          }
+        }
+
+        const allReady = readyMembers.length === teamMembers.length;
+        if (!allReady) {
+          // Team is not ready within 60s, withdraw the entire team
+          logger.info(`[reconciliationWorker] Team ${teamId} not ready within 60s, withdrawing from room ${roomId}`);
+          
+          // Remove team from room and mark participants as withdrawn
+          await redis.sRem(`room:${roomId}:teams`, teamId);
+          await redis.del(`team:${teamId}:users`);
+          await redis.del(`team:${teamId}:meta`);
+          
+          // Remove team members from participants
+          for (const memberId of teamMembers) {
+            await redis.sRem(`room:${roomId}:ready_users`, memberId);
+          }
+
+          // Publish withdrawal event
+          await publishRoom(roomId, {
+            type: "team.withdrawn",
+            teamId,
+            reason: "ready_timeout"
+          });
+
+          // If no teams are left or only one team, end the room
+          const remainingTeams = await redis.sMembers(`room:${roomId}:teams`);
+          if (remainingTeams.length === 0 || remainingTeams.length === 1) {
+            await redis.hSet(`room:${roomId}:state`, { status: "completed" });
+            const teamScores: Record<string, number> = {};
+            for (const tId of remainingTeams) {
+              const score = await redis.zScore(`room:${roomId}:scores`, tId);
+              teamScores[tId] = score || 0;
+            }
+            await publishRoom(roomId, {
+              type: "room.end",
+              finalScores: teamScores,
+              reason: "team_withdrawal"
+            });
+          }
+        }
+      }
+      return;
+    }
+
+    // Original reconciliation logic continues below
     const teams = await redis.sMembers(`room:${roomId}:teams`);
     let winnerId = null;
     let maxScore = -1;
@@ -81,10 +138,12 @@ export const reconciliationWorker = new Worker(
         userId: data.userId,
         teamId: data.teamId,
         problemId: data.problemId,
-        cfSubmissionId: data.cfSubmissionId,
+        platform: "codeforces",
+        submissionId: data.cfSubmissionId,
         verdict: data.verdict,
         points: data.points,
-        solveMs: data.solveMs
+        solveMs: data.solveMs,
+        submittedAt: new Date(data.cfTimestamp || Date.now())
       });
       await submission.save();
     }

@@ -11,6 +11,7 @@ export interface ISelectedProblem {
 
 export interface IContestProblemSet extends Document {
   contestId: mongoose.Types.ObjectId;
+  roomId?: mongoose.Types.ObjectId;
   problems: ISelectedProblem[];
   createdAt: Date;
   updatedAt: Date;
@@ -31,8 +32,13 @@ const ContestProblemSetSchema = new Schema<IContestProblemSet>(
       type: Schema.Types.ObjectId,
       ref: "CustomContest",
       required: true,
-      unique: true,
       index: true,
+    },
+    roomId: {
+      type: Schema.Types.ObjectId,
+      ref: "ContestRoom",
+      index: true,
+      sparse: true,
     },
     problems: [SelectedProblemSchema],
   },
