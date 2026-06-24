@@ -15,6 +15,7 @@ export interface IContestPreset extends Document {
   bulkProblemCount?: number;
   // Mode B (Fine-tuned)
   problemSlots?: IProblemSlot[];
+  archived?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +49,7 @@ const ContestPresetSchema = new Schema<IContestPreset>(
     bulkProblemCount: { type: Number },
     // Mode B
     problemSlots: [ProblemSlotSchema],
+    archived: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

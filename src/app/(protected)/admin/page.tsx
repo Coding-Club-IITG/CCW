@@ -40,6 +40,16 @@ export default async function AdminPage() {
           title="Send Notifications"
           description="Broadcast announcements to all members or specific modules."
         />
+        <LinkCard
+          href="/admin/contests/presets"
+          title="Contest Presets"
+          description="Manage presets, platforms, and problem selections for contests."
+        />
+        <LinkCard
+          href="/admin/contests/new"
+          title="Create Tournament"
+          description="Build new knockout tournament brackets and set up registration deadlines."
+        />
       </div>
     </div>
   );

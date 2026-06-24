@@ -9,6 +9,10 @@ export interface IContestStanding extends Document {
   rank?: number;
   problemsSolved: number;
   solvedTimes: Map<string, Date>;
+  wins?: number;
+  losses?: number;
+  draws?: number;
+  eliminated?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +31,10 @@ const ContestStandingSchema = new Schema<IContestStanding>(
       of: Date,
       default: new Map(),
     },
+    wins: { type: Number, default: 0 },
+    losses: { type: Number, default: 0 },
+    draws: { type: Number, default: 0 },
+    eliminated: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

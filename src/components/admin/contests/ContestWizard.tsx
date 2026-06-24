@@ -1,0 +1,178 @@
+"use client";
+
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { validateStep, createBracketContest } from "@/lib/actions/admin/contests";
+import Step1BasicInfo from "./steps/Step1BasicInfo";
+import Step2Registration from "./steps/Step2Registration";
+import Step3MatchPreset from "./steps/Step3MatchPreset";
+import Step4BracketSettings from "./steps/Step4BracketSettings";
+import Step5Preview from "./steps/Step5Preview";
+import styles from "./ContestWizard.module.scss";
+
+interface ContestWizardProps {
+  presets: any[];
+}
+
+export default function ContestWizard({ presets }: ContestWizardProps) {
+  const router = useRouter();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    mode: "blitz",
+    teamSize: 1,
+    registrationType: "open",
+    deadline: "",
+    maxParticipants: 8,
+    presetId: "",
+    thirdPlacePlayoff: false,
+    seedingMethod: "cf_rating",
+  });
+
+  const steps = [
+    { number: 1, title: "Basic Info" },
+    { number: 2, title: "Registration" },
+    { number: 3, title: "Match Preset" },
+    { number: 4, title: "Bracket Settings" },
+    { number: 5, title: "Preview" },
+  ];
+
+  function updateFields(fields: Partial<typeof formData>) {
+    setFormData((prev) => ({ ...prev, ...fields }));
+    // Clear errors for fields as they are edited
+    const updatedErrors = { ...errors };
+    Object.keys(fields).forEach((key) => {
+      delete updatedErrors[key];
+    });
+    setErrors(updatedErrors);
+  }
+
+  async function handleNext() {
+    setIsSubmitting(true);
+    try {
+      const result = await validateStep(currentStep, formData);
+      if (!result.valid) {
+        setErrors(result.errors);
+      } else {
+        setErrors({});
+        setCurrentStep((prev) => prev + 1);
+      }
+    } catch (err: any) {
+      alert(err.message || "Validation failed");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function handleBack() {
+    if (currentStep > 1) {
+      setCurrentStep((prev) => prev - 1);
+      setErrors({});
+    }
+  }
+
+  async function handleCreate() {
+    setIsSubmitting(true);
+    try {
+      const result = await createBracketContest(formData);
+      if ("error" in result) {
+        alert(result.error);
+      } else {
+        alert("Contest created successfully!");
+        router.push(`/admin`);
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to create contest");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className={styles.wizardContainer}>
+      <h1 className={styles.wizardTitle}>Create Bracket Tournament</h1>
+
+      {/* Progress Tracker */}
+      <div className={styles.progressTracker}>
+        {steps.map((step, index) => (
+          <React.Fragment key={step.number}>
+            <div
+              className={`${styles.step} ${currentStep === step.number ? styles.active : ""} ${
+                currentStep > step.number ? styles.completed : ""
+              }`}
+            >
+              <div className={styles.circle}>{step.number}</div>
+              <div className={styles.label}>{step.title}</div>
+            </div>
+            {index < steps.length - 1 && (
+              <div className={`${styles.line} ${currentStep > step.number ? styles.completedLine : ""}`} />
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Step Content */}
+      <div className={styles.stepContent}>
+        {currentStep === 1 && (
+          <Step1BasicInfo
+            name={formData.name}
+            description={formData.description}
+            mode={formData.mode}
+            teamSize={formData.teamSize}
+            updateFields={updateFields}
+            errors={errors}
+          />
+        )}
+        {currentStep === 2 && (
+          <Step2Registration
+            registrationType={formData.registrationType}
+            deadline={formData.deadline}
+            maxParticipants={formData.maxParticipants}
+            updateFields={updateFields}
+            errors={errors}
+          />
+        )}
+        {currentStep === 3 && (
+          <Step3MatchPreset
+            presets={presets}
+            selectedPresetId={formData.presetId}
+            updateFields={updateFields}
+            errors={errors}
+          />
+        )}
+        {currentStep === 4 && (
+          <Step4BracketSettings
+            thirdPlacePlayoff={formData.thirdPlacePlayoff}
+            seedingMethod={formData.seedingMethod}
+            updateFields={updateFields}
+            errors={errors}
+          />
+        )}
+        {currentStep === 5 && <Step5Preview formData={formData} presets={presets} />}
+      </div>
+
+      {/* Controls */}
+      <div className={styles.wizardControls}>
+        {currentStep > 1 && (
+          <button onClick={handleBack} className={styles.backButton} disabled={isSubmitting}>
+            Back
+          </button>
+        )}
+        <div style={{ flex: 1 }} />
+        {currentStep < 5 ? (
+          <button onClick={handleNext} className={styles.nextButton} disabled={isSubmitting}>
+            {isSubmitting ? "Validating..." : "Next"}
+          </button>
+        ) : (
+          <button onClick={handleCreate} className={styles.createButton} disabled={isSubmitting}>
+            {isSubmitting ? "Creating..." : "Create Tournament"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

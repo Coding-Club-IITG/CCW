@@ -15,6 +15,7 @@ export interface IContestRoom extends Document {
   currentRoundId?: mongoose.Types.ObjectId;
   currentProblemIndex: number;
   firstSolvers: IFirstSolver[];
+  bracketPosition?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +42,7 @@ const ContestRoomSchema = new Schema<IContestRoom>(
     currentRoundId: { type: Schema.Types.ObjectId, ref: "ContestRound" },
     currentProblemIndex: { type: Number, required: true, default: 0 },
     firstSolvers: { type: [FirstSolverSchema], default: [] },
+    bracketPosition: { type: String, default: null },
   },
   { timestamps: true }
 );

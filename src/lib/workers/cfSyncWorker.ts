@@ -24,6 +24,13 @@ export const cfSyncWorker = new Worker(
       return;
     }
 
+    if (job.name === "solved_prefetch") {
+      const { cfHandle } = job.data;
+      const { prefetchUserSolvedHistory } = require("../cf-api");
+      await prefetchUserSolvedHistory(cfHandle);
+      return;
+    }
+
     if (job.name === "cf_sync") {
       const { roomId, userId, teamId, cfHandle, problemId } = job.data;
       
