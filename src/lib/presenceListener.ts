@@ -40,7 +40,7 @@ export async function startPresenceKeyspaceListener() {
           await reconciliationQueue.add(
             "room_forfeit",
             { roomId, contestId: state.contestId, trigger: "forfeit", forfeitedUserId: userId },
-            { jobId: `forfeit:${roomId}:${userId}` }
+            { jobId: `forfeit-${roomId}-${userId}` }
           );
 
           // Need teamId. Find it from the sets

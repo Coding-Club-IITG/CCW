@@ -222,7 +222,7 @@ export const cfSyncWorker = new Worker(
                     await reconciliationQueue.add(
                       "room_completed",
                       { roomId, contestId: state.contestId, trigger: "completed" },
-                      { jobId: `completed:${roomId}` }
+                      { jobId: `completed-${roomId}` }
                     );
                   }
                 }
@@ -277,7 +277,7 @@ export const cfSyncWorker = new Worker(
                   await reconciliationQueue.add(
                     "room_completed",
                     { roomId, contestId: state.contestId, trigger: "completed" },
-                    { jobId: `completed:${roomId}` }
+                    { jobId: `completed-${roomId}` }
                   );
                 } else {
                   const nextProblem = problems[newProblemIndex];

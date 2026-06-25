@@ -8,6 +8,7 @@ export interface IProblemSlot {
 export interface IRegistration {
   userId: mongoose.Types.ObjectId;
   cfHandle: string;
+  teamName?: string;
   registeredAt: Date;
 }
 
@@ -46,6 +47,8 @@ export interface ICustomContest extends Document {
   registrations?: IRegistration[];
   registrationSettings?: IRegistrationSettings;
   bracketSettings?: IBracketSettings;
+  winner?: mongoose.Types.ObjectId;
+  winnerName?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -58,6 +61,7 @@ const ProblemSlotSchema = new Schema<IProblemSlot>({
 const RegistrationSchema = new Schema<IRegistration>({
   userId: { type: Schema.Types.ObjectId, ref: "CPUser", required: true },
   cfHandle: { type: String, required: true },
+  teamName: { type: String },
   registeredAt: { type: Date, default: Date.now },
 });
 
@@ -118,6 +122,8 @@ const CustomContestSchema = new Schema<ICustomContest>(
     registrations: [RegistrationSchema],
     registrationSettings: RegistrationSettingsSchema,
     bracketSettings: BracketSettingsSchema,
+    winner: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
+    winnerName: { type: String },
   },
   { timestamps: true }
 );

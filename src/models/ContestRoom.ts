@@ -9,7 +9,7 @@ export interface IFirstSolver {
 export interface IContestRoom extends Document {
   contestId: mongoose.Types.ObjectId;
   name: string;
-  status: "waiting" | "active" | "ended";
+  status: "waiting" | "active" | "ended" | "pending";
   participants: mongoose.Types.ObjectId[];
   teams: mongoose.Types.ObjectId[];
   currentRoundId?: mongoose.Types.ObjectId;
@@ -33,7 +33,7 @@ const ContestRoomSchema = new Schema<IContestRoom>(
     status: {
       type: String,
       required: true,
-      enum: ["waiting", "active", "ended"],
+      enum: ["waiting", "active", "ended", "pending"],
       default: "waiting",
       index: true,
     },

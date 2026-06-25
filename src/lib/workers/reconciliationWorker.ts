@@ -4,10 +4,12 @@ import { logger } from "../utils";
 import { getRedis } from "../redis";
 import dbConnect from "../mongodb";
 import ContestRoom from "../../models/ContestRoom";
+import ContestRound from "../../models/ContestRound";
+import CustomContest from "../../models/CustomContest";
 import { publishRoom } from "../sse";
 import ContestProblemSet from "../../models/ContestProblemSet";
 import ContestTeam from "../../models/ContestTeam";
-import ContestSubmission from "../../models/ContestSubmission"; // Make sure to create this model if not exists
+import ContestSubmission from "../../models/ContestSubmission";
 
 export const reconciliationWorker = new Worker(
   "reconciliation_queue",
@@ -125,6 +127,26 @@ export const reconciliationWorker = new Worker(
         await ContestTeam.findByIdAndUpdate(tId, { score: teamScores[tId] });
       }
       await room.save();
+    }
+
+    // 2.5 Bracket advancement hook for knockout contests
+    if (contestId && winnerId) {
+      try {
+        const contest = await CustomContest.findById(contestId).lean();
+        if (contest && contest.format === "bracket") {
+          const { advanceWinner, checkRoundCompletion } = await import("../bracket");
+          await advanceWinner(roomId, contestId, winnerId);
+
+          if (room && room.currentRoundId) {
+            const roundDoc = await ContestRound.findById(room.currentRoundId).lean();
+            if (roundDoc) {
+              await checkRoundCompletion(contestId, roundDoc.roundNumber);
+            }
+          }
+        }
+      } catch (err) {
+        logger.error(`[reconciliationWorker] Bracket advancement error for room ${roomId}:`, err);
+      }
     }
 
     // 3. Write ContestSubmission records

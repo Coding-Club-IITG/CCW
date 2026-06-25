@@ -121,12 +121,13 @@ export async function POST(
         }
       }
 
-      // Push all members to registration list
+      // Push all members to registration list with team grouping
       const updatedRegs = [...registrations];
       for (const u of cpUsers) {
         updatedRegs.push({
           userId: u.userId,
           cfHandle: u.cfHandle,
+          teamName,
           registeredAt: new Date(),
         });
       }
