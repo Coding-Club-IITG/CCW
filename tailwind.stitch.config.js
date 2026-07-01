@@ -2,7 +2,11 @@
 module.exports = {
   content: [
     "./src/lib/components/ContestListingClient.tsx",
-    "./src/lib/components/BlitzRoomClient.tsx"
+    "./src/lib/components/BlitzRoomClient.tsx",
+    "./src/lib/components/ArenaRoomClient.tsx",
+    "./src/lib/components/BracketRoomClient.tsx",
+    "./src/lib/components/MatchHistoryClient.tsx",
+    "./src/lib/components/PostMatchResultClient.tsx"
   ],
   corePlugins: {
     preflight: false,

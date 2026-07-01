@@ -171,7 +171,15 @@ export default function ContestListingClient({
             {/* Past Contests (List View) */}
             {completed.length > 0 && (
               <section>
-                <h2 className="text-2xl font-headline-lg font-semibold text-on-surface mb-6 border-b border-outline-variant pb-2">Completed</h2>
+                <div className="flex justify-between items-center mb-6 border-b border-outline-variant pb-2">
+                  <h2 className="text-2xl font-headline-lg font-semibold text-on-surface">Completed</h2>
+                  <Link href="/internal/contests/history">
+                    <button className="px-4 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-full font-label-sm text-label-sm hover:border-primary transition-colors flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px]">history</span>
+                      View History
+                    </button>
+                  </Link>
+                </div>
                 <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">

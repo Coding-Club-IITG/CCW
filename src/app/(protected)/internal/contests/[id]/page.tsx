@@ -1,5 +1,7 @@
 import { getContestById } from "@/lib/actions/contests";
 import BlitzRoomClient from "@/lib/components/BlitzRoomClient";
+import ArenaRoomClient from "@/lib/components/ArenaRoomClient";
+import BracketRoomClient from "@/lib/components/BracketRoomClient";
 import { notFound } from "next/navigation";
 
 export default async function ContestRoomPage({ params }: { params: Promise<{ id: string }> }) {
@@ -10,10 +12,18 @@ export default async function ContestRoomPage({ params }: { params: Promise<{ id
     notFound();
   }
 
-  // Only Blitz room is implemented currently
-  if (contest.mode !== "blitz") {
-    notFound();
+  if (contest.mode === "blitz") {
+    return <BlitzRoomClient contest={contest} />;
   }
 
-  return <BlitzRoomClient contest={contest} />;
+  if (contest.format === "bracket" || contest.mode === "knockout") {
+    return <BracketRoomClient contest={contest} />;
+  }
+
+  if (contest.mode === "arena") {
+    return <ArenaRoomClient contest={contest} />;
+  }
+
+  // Other formats are not fully implemented yet
+  notFound();
 }

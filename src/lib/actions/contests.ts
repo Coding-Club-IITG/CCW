@@ -113,3 +113,45 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
     return null;
   }
 }
+
+import { revalidatePath } from "next/cache";
+
+export async function registerForContest(contestId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    const userId = session?.user?.id;
+    if (!userId) return { success: false, message: "Unauthorized" };
+
+    await dbConnect();
+    const cpUser = await CPUser.findOne({ userId });
+    if (!cpUser) return { success: false, message: "CP Profile not found" };
+
+    const contest = await CustomContest.findById(contestId);
+    if (!contest) return { success: false, message: "Contest not found" };
+
+    if (contest.status !== "registration") {
+      return { success: false, message: "Contest is not open for registration" };
+    }
+
+    const isAlreadyRegistered = contest.registrations?.some((r: any) => r.userId.toString() === cpUser._id.toString());
+    if (isAlreadyRegistered) {
+      return { success: false, message: "Already registered" };
+    }
+
+    if (!contest.registrations) contest.registrations = [];
+    contest.registrations.push({
+      userId: cpUser._id,
+      cfHandle: cpUser.cfHandle || "unknown",
+      registeredAt: new Date(),
+    });
+
+    await contest.save();
+    
+    // Revalidate the contests listing page
+    revalidatePath("/internal/contests");
+    return { success: true, message: "Successfully registered" };
+  } catch (error) {
+    console.error("Registration error:", error);
+    return { success: false, message: "Internal server error" };
+  }
+}
