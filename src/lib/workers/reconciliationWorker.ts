@@ -130,17 +130,68 @@ export const reconciliationWorker = new Worker(
     }
 
     // 2.5 Bracket advancement hook for knockout contests
-    if (contestId && winnerId) {
+    if (contestId) {
       try {
         const contest = await CustomContest.findById(contestId).lean();
         if (contest && contest.format === "bracket") {
-          const { advanceWinner, checkRoundCompletion } = await import("../bracket");
-          await advanceWinner(roomId, contestId, winnerId);
+          // Update ContestStanding and Redis standings for each team
+          const ContestStanding = (await import("../../models/ContestStanding")).default;
+          
+          for (const tId of teams) {
+            const isWinner = tId === winnerId;
+            const teamDoc = await ContestTeam.findById(tId).lean();
+            
+            if (teamDoc && teamDoc.members) {
+              for (const userId of teamDoc.members) {
+                let standing = await ContestStanding.findOne({
+                  contestId,
+                  userId,
+                });
+                
+                if (!standing) {
+                  standing = new ContestStanding({
+                    roomId,
+                    contestId,
+                    userId,
+                    teamId: tId,
+                    score: 0,
+                    problemsSolved: 0,
+                    wins: 0,
+                    losses: 0,
+                    eliminated: false
+                  });
+                }
+                
+                standing.roomId = roomId;
+                standing.teamId = tId;
+                standing.score += (teamScores[tId] || 0);
+                
+                if (isWinner) {
+                  standing.wins = (standing.wins || 0) + 1;
+                } else if (winnerId) {
+                  // Only count as a loss if there is a definitive winner
+                  standing.losses = (standing.losses || 0) + 1;
+                  standing.eliminated = true;
+                }
+                
+                await standing.save();
+              }
+            }
+            
+            if (isWinner) {
+              await redis.zIncrBy(`contest:${contestId}:standings`, 1, tId);
+            }
+          }
 
-          if (room && room.currentRoundId) {
-            const roundDoc = await ContestRound.findById(room.currentRoundId).lean();
-            if (roundDoc) {
-              await checkRoundCompletion(contestId, roundDoc.roundNumber);
+          if (winnerId) {
+            const { advanceWinner, checkRoundCompletion } = await import("../bracket");
+            await advanceWinner(roomId, contestId, winnerId);
+
+            if (room && room.currentRoundId) {
+              const roundDoc = await ContestRound.findById(room.currentRoundId).lean();
+              if (roundDoc) {
+                await checkRoundCompletion(contestId, roundDoc.roundNumber);
+              }
             }
           }
         }

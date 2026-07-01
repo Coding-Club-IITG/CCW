@@ -385,6 +385,8 @@ export async function checkRoundCompletion(contestId: string, roundNumber: numbe
       logger.info(`[Bracket] Round ${roundNumber} complete. Advancing to round ${roundNumber + 1}`);
     } else {
       logger.info(`[Bracket] Contest ${contestId} fully completed.`);
+      const keys = await redis.keys(`contest:${contestId}:*`);
+      if (keys.length > 0) await redis.del(keys);
     }
   } finally {
     await redis.del(lockKey);
