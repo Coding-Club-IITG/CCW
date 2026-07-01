@@ -113,58 +113,48 @@ async function seed() {
 
     const now = new Date();
     
-    // 1. Active Arena Contest
-    const arenaContest = await CustomContest.create({
-      name: "Weekend CodeSprint #42",
-      description: "Div 1 & Div 2 Rated",
-      creatorId: createdDevUser._id,
-      startTime: now,
-      endTime: new Date(now.getTime() + 2 * 60 * 60 * 1000), // 2 hours later
-      durationSeconds: 2 * 60 * 60,
-      format: "solo-tournament",
-      mode: "arena",
-      status: "active",
-      problemSelectionMode: "bulk",
-      registrations: Array.from({ length: 342 }).map((_, i) => ({
-        userId: createdDevUser._id, // Just using dummy user ID for count
-        cfHandle: `dummy${i}`,
-        registeredAt: now,
-      })),
-    });
+    const dummyContests = [
+      // Active Contests
+      { name: "Weekend CodeSprint #42", description: "Div 1 & Div 2 Rated", format: "solo-tournament", mode: "arena", status: "active", offsetStart: -1, offsetEnd: 1, duration: 2 },
+      { name: "Global Algorithm Arena", description: "All Divisions", format: "solo-tournament", mode: "arena", status: "active", offsetStart: -0.5, offsetEnd: 2.5, duration: 3 },
+      { name: "Speed Coding Series: Trees", description: "Fast-paced 1v1 on Trees", format: "1v1", mode: "blitz", status: "active", offsetStart: -0.2, offsetEnd: 0.8, duration: 1 },
+      { name: "Monthly Knockout Phase 1", description: "Bracket tournament matches ongoing", format: "bracket", mode: "arena", status: "active", offsetStart: -10, offsetEnd: 10, duration: 24 },
+      
+      // Upcoming (registration)
+      { name: "Algorithmic Blitz: Graphs", description: "Graph theory strictly.", format: "1v1", mode: "blitz", status: "registration", offsetStart: 24, offsetEnd: 25, duration: 1 },
+      { name: "Dynamic Programming Dash", description: "1v1 on DP", format: "1v1", mode: "blitz", status: "registration", offsetStart: 48, offsetEnd: 49, duration: 1 },
+      { name: "Freshman Welcome Arena", description: "For first years", format: "solo-tournament", mode: "arena", status: "registration", offsetStart: 72, offsetEnd: 74, duration: 2 },
+      { name: "IITG Master Championship", description: "The premier tournament.", format: "bracket", mode: "arena", status: "registration", offsetStart: 120, offsetEnd: 144, duration: 24 },
+      
+      // Completed (past)
+      { name: "CodeSprint #41", description: "Div 1 & Div 2 Rated", format: "solo-tournament", mode: "arena", status: "completed", offsetStart: -48, offsetEnd: -46, duration: 2 },
+      { name: "CodeSprint #40", description: "Div 2 Rated", format: "solo-tournament", mode: "arena", status: "completed", offsetStart: -200, offsetEnd: -198, duration: 2 },
+      { name: "Blitz Series #5", description: "Math & Number Theory", format: "1v1", mode: "blitz", status: "completed", offsetStart: -100, offsetEnd: -99, duration: 1 },
+      { name: "Blitz Series #4", description: "Greedy Algorithms", format: "1v1", mode: "blitz", status: "completed", offsetStart: -150, offsetEnd: -149, duration: 1 },
+      { name: "Spring Knockout 2026", description: "The spring classic tournament", format: "bracket", mode: "arena", status: "completed", offsetStart: -500, offsetEnd: -450, duration: 24 },
+    ];
 
-    // 2. Upcoming Blitz Contest
-    const blitzContest = await CustomContest.create({
-      name: "Algorithmic Blitz: Graphs",
-      description: "A fast-paced 60-minute contest focusing strictly on graph theory and pathfinding algorithms.",
-      creatorId: createdDevUser._id,
-      startTime: new Date(now.getTime() + 24 * 60 * 60 * 1000), // Tomorrow
-      endTime: new Date(now.getTime() + 25 * 60 * 60 * 1000),
-      durationSeconds: 60 * 60,
-      format: "1v1",
-      mode: "blitz",
-      status: "registration",
-      problemSelectionMode: "bulk",
-      registrations: [],
-    });
+    for (const data of dummyContests) {
+      await CustomContest.create({
+        name: data.name,
+        description: data.description,
+        creatorId: createdDevUser._id,
+        startTime: new Date(now.getTime() + data.offsetStart * 60 * 60 * 1000),
+        endTime: new Date(now.getTime() + data.offsetEnd * 60 * 60 * 1000),
+        durationSeconds: data.duration * 60 * 60,
+        format: data.format,
+        mode: data.mode,
+        status: data.status,
+        problemSelectionMode: "bulk",
+        registrations: Array.from({ length: Math.floor(Math.random() * 500) }).map((_, i) => ({
+          userId: createdDevUser._id,
+          cfHandle: `dummy${i}`,
+          registeredAt: now,
+        })),
+      });
+    }
 
-    // 3. Upcoming Knockout (Bracket) Contest
-    const knockoutContest = await CustomContest.create({
-      name: "IITG Master Championship",
-      description: "The premier monthly tournament. 1v1 knockout stages to crown the ultimate coder of the month.",
-      creatorId: createdDevUser._id,
-      startTime: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000), // In 14 days
-      endTime: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000),
-      durationSeconds: 24 * 60 * 60, // 24 hours total for bracket
-      format: "bracket",
-      mode: "arena", // Mode isn't perfectly applicable to bracket but schema requires it
-      status: "registration",
-      problemSelectionMode: "bulk",
-      registrations: [
-        { userId: createdDevUser._id, cfHandle: "dummy1", registeredAt: now }
-      ],
-    });
-
-    console.log("✅ Seeded Arena, Blitz, and Knockout custom contests");
+    console.log(`✅ Seeded ${dummyContests.length} custom contests of various combinations`);
 
     console.log("\n✨ Seed completed successfully!");
     console.log("\nTest User IDs (use these in your tests):");
