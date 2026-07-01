@@ -1,6 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./src/lib/components/ContestListingClient.tsx"],
+  content: [
+    "./src/lib/components/ContestListingClient.tsx",
+    "./src/lib/components/BlitzRoomClient.tsx"
+  ],
   corePlugins: {
     preflight: false,
   },

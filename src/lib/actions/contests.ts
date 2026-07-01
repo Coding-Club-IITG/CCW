@@ -74,3 +74,42 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
 
   return { active, upcoming, completed };
 }
+
+export async function getContestById(id: string): Promise<ContestListingItem | null> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const userId = session?.user?.id;
+
+  await dbConnect();
+  
+  let cpUserId = null;
+  if (userId) {
+    const cpUser = await CPUser.findOne({ userId }).lean();
+    if (cpUser) {
+      cpUserId = cpUser._id.toString();
+    }
+  }
+
+  try {
+    const contest = await CustomContest.findById(id).lean();
+    if (!contest) return null;
+
+    const isRegistered = cpUserId ? (contest.registrations || []).some((r: any) => r.userId.toString() === cpUserId) : false;
+    
+    return {
+      _id: contest._id.toString(),
+      name: contest.name,
+      description: contest.description || "",
+      startTime: contest.startTime || null,
+      durationSeconds: contest.durationSeconds || null,
+      format: contest.format,
+      mode: contest.mode,
+      status: contest.status,
+      registeredCount: (contest.registrations || []).length,
+      participantsCount: (contest.registrations || []).length,
+      isRegistered,
+    };
+  } catch (error) {
+    console.error("Error fetching contest by id:", error);
+    return null;
+  }
+}
