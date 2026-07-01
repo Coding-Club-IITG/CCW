@@ -17,6 +17,7 @@ export type ContestListingItem = {
   status: string;
   registeredCount: number;
   isRegistered: boolean;
+  participantsCount: number;
 };
 
 export async function getContestListing(): Promise<{ active: ContestListingItem[], upcoming: ContestListingItem[], completed: ContestListingItem[] }> {
@@ -53,6 +54,7 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
       mode: contest.mode,
       status: contest.status,
       registeredCount: (contest.registrations || []).length,
+      participantsCount: (contest.registrations || []).length,
       isRegistered,
     };
     

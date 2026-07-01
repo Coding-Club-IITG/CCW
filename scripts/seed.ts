@@ -107,39 +107,70 @@ async function seed() {
       console.log(`✅ Seeded test user:`, testUser.email);
     }
 
-    // Create a sample custom contest with all required fields
+    // Clear existing custom contests
+    await CustomContest.deleteMany({});
+    console.log("✅ Cleared existing custom contests");
+
     const now = new Date();
-    const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours later
     
-    const sampleContest = {
-      name: "Test Contest 1",
+    // 1. Active Arena Contest
+    const arenaContest = await CustomContest.create({
+      name: "Weekend CodeSprint #42",
+      description: "Div 1 & Div 2 Rated",
       creatorId: createdDevUser._id,
       startTime: now,
-      endTime: endTime,
-      durationSeconds: 2 * 60 * 60, // 2 hours
+      endTime: new Date(now.getTime() + 2 * 60 * 60 * 1000), // 2 hours later
+      durationSeconds: 2 * 60 * 60,
+      format: "solo-tournament",
+      mode: "arena",
+      status: "active",
+      problemSelectionMode: "bulk",
+      registrations: Array.from({ length: 342 }).map((_, i) => ({
+        userId: createdDevUser._id, // Just using dummy user ID for count
+        cfHandle: `dummy${i}`,
+        registeredAt: now,
+      })),
+    });
+
+    // 2. Upcoming Blitz Contest
+    const blitzContest = await CustomContest.create({
+      name: "Algorithmic Blitz: Graphs",
+      description: "A fast-paced 60-minute contest focusing strictly on graph theory and pathfinding algorithms.",
+      creatorId: createdDevUser._id,
+      startTime: new Date(now.getTime() + 24 * 60 * 60 * 1000), // Tomorrow
+      endTime: new Date(now.getTime() + 25 * 60 * 60 * 1000),
+      durationSeconds: 60 * 60,
       format: "1v1",
       mode: "blitz",
-      status: "draft",
+      status: "registration",
       problemSelectionMode: "bulk",
-      bulkPlatform: "codeforces",
-      bulkRatingMin: 800,
-      bulkRatingMax: 1200,
-      bulkProblemCount: 3,
-    };
-    
-    const createdContest = await CustomContest.findOneAndUpdate(
-      { name: sampleContest.name },
-      sampleContest,
-      { upsert: true, returnDocument: "after" }
-    );
-    console.log("✅ Seeded sample custom contest:", createdContest._id.toString());
+      registrations: [],
+    });
+
+    // 3. Upcoming Knockout (Bracket) Contest
+    const knockoutContest = await CustomContest.create({
+      name: "IITG Master Championship",
+      description: "The premier monthly tournament. 1v1 knockout stages to crown the ultimate coder of the month.",
+      creatorId: createdDevUser._id,
+      startTime: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000), // In 14 days
+      endTime: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000),
+      durationSeconds: 24 * 60 * 60, // 24 hours total for bracket
+      format: "bracket",
+      mode: "arena", // Mode isn't perfectly applicable to bracket but schema requires it
+      status: "registration",
+      problemSelectionMode: "bulk",
+      registrations: [
+        { userId: createdDevUser._id, cfHandle: "dummy1", registeredAt: now }
+      ],
+    });
+
+    console.log("✅ Seeded Arena, Blitz, and Knockout custom contests");
 
     console.log("\n✨ Seed completed successfully!");
     console.log("\nTest User IDs (use these in your tests):");
     createdTestUsers.forEach((user, i) => {
       console.log(`  User ${i + 1} (${user.email}): ${user._id.toString()}`);
     });
-    console.log(`\nSample Contest ID: ${createdContest._id.toString()}`);
 
     await mongoose.disconnect();
   } catch (error) {
