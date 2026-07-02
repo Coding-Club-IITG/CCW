@@ -3,7 +3,11 @@
 import Link from "next/link";
 import "@/styles/stitch.css";
 
-export default function PostMatchResultClient({ contestId }: { contestId: string }) {
+export default function PostMatchResultClient({ contestId, from }: { contestId: string; from?: string }) {
+  const isFromListing = from === "listing";
+  const backHref = isFromListing ? "/internal/contests" : "/internal/contests/history";
+  const backText = isFromListing ? "Back to Contest Listing" : "Back to Match History";
+
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Inter:wght@400&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
@@ -24,9 +28,9 @@ export default function PostMatchResultClient({ contestId }: { contestId: string
         
         <main className="flex-1 w-full max-w-container-max-width mx-auto px-margin-mobile md:px-margin-desktop py-[32px] flex flex-col gap-[48px] overflow-y-auto">
           {/* Breadcrumb */}
-          <Link href="/internal/contests/history" className="flex items-center gap-2 text-on-surface-variant hover:text-on-surface transition-colors w-fit">
+          <Link href={backHref} className="flex items-center gap-2 text-on-surface-variant hover:text-on-surface transition-colors w-fit">
             <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-            <span className="font-label-sm text-label-sm uppercase tracking-wider">Back to History</span>
+            <span className="font-label-sm text-label-sm uppercase tracking-wider">{backText}</span>
           </Link>
 
           {/* Hero Section */}

@@ -1,9 +1,79 @@
 "use client";
 
-import { useState } from "react";
-import type { ContestListingItem } from "@/lib/actions/contests";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { registerForContest, type ContestListingItem } from "@/lib/actions/contests";
 import Link from "next/link";
 import "@/styles/stitch.css";
+
+function RegisterButton({ contestId, disabledOverride = false }: { contestId: string, disabledOverride?: boolean }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async () => {
+    setLoading(true);
+    try {
+      const res = await registerForContest(contestId);
+      if (!res.success) {
+        alert(res.message);
+      }
+    } catch (e) {
+      alert("An error occurred while registering.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button 
+      onClick={handleRegister} 
+      disabled={loading || disabledOverride}
+      className={`px-3 py-1.5 border rounded font-label-sm text-[13px] transition-all duration-200 flex items-center justify-center h-[32px] ${
+        disabledOverride 
+          ? "border-outline-variant text-outline-variant cursor-not-allowed bg-surface-variant/30 opacity-70" 
+          : "border-primary/40 bg-primary/10 text-primary hover:bg-primary hover:border-primary hover:text-on-primary hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:opacity-50"
+      }`}
+    >
+      {loading ? "Registering..." : (disabledOverride ? "Closed" : "Register")}
+    </button>
+  );
+}
+
+function CountdownTimer({ startTime, durationSeconds }: { startTime: Date | null, durationSeconds: number | null }) {
+  const [timeLeft, setTimeLeft] = useState("--:--:--");
+
+  useEffect(() => {
+    if (!startTime || !durationSeconds) {
+      setTimeLeft("--:--:--");
+      return;
+    }
+
+    const endTime = new Date(startTime).getTime() + durationSeconds * 1000;
+
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      const diff = endTime - now;
+
+      if (diff <= 0) {
+        setTimeLeft("00:00:00");
+        return;
+      }
+
+      const h = Math.floor(diff / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setTimeLeft(
+        `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+      );
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [startTime, durationSeconds]);
+
+  return <div className="text-on-surface font-label-sm font-medium text-lg tracking-wider">{timeLeft}</div>;
+}
 
 type FormatFilter = "all" | "blitz" | "arena" | "bracket";
 
@@ -16,6 +86,7 @@ export default function ContestListingClient({
   upcoming: ContestListingItem[];
   completed: ContestListingItem[];
 }) {
+  const router = useRouter();
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
 
   const filterByFormat = (contest: ContestListingItem) => {
@@ -40,6 +111,7 @@ export default function ContestListingClient({
         .stitch-container ::-webkit-scrollbar-track { background: #131313; }
         .stitch-container ::-webkit-scrollbar-thumb { background: #353534; border-radius: 4px; }
         .stitch-container ::-webkit-scrollbar-thumb:hover { background: #40493d; }
+        .hover-sharp-shadow:hover { box-shadow: 0px 0px 12px 1px rgba(136, 217, 130, 0.6) !important; }
       `}</style>
 
       <div className="flex flex-col flex-1 overflow-hidden dark stitch-container w-full h-full min-h-[calc(100vh-64px)] bg-background">
@@ -48,8 +120,12 @@ export default function ContestListingClient({
           <div className="max-w-container-max-width mx-auto">
             {/* Header & Filters */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
-              <div>
+              <div className="flex items-center gap-4">
                 <h1 className="font-headline-lg text-headline-lg font-bold text-on-surface mb-2">Contests</h1>
+                <Link href="/internal/contests/schedule-test" className="flex items-center gap-2 px-3 py-1.5 bg-primary-container text-on-primary-container rounded-lg font-label-sm text-[12px] hover:brightness-110 transition-all mb-2">
+                  <span className="material-symbols-outlined text-[16px]">build</span>
+                  Schedule Dummy
+                </Link>
               </div>
               <div className="flex flex-wrap gap-3">
                 <button 
@@ -90,7 +166,7 @@ export default function ContestListingClient({
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Active Contest Card */}
                   {active.map(contest => (
-                    <div key={contest._id} className="bg-surface-container border border-primary/30 rounded-xl p-6 relative overflow-hidden group hover:border-primary transition-colors">
+                    <div key={contest._id} className="hover-sharp-shadow bg-surface-container border border-primary/30 rounded-xl p-6 relative overflow-hidden group hover:border-primary hover:-translate-y-1 transition-all duration-300">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10 group-hover:bg-primary/10 transition-colors"></div>
                       <div className="flex justify-between items-start mb-4">
                         <div>
@@ -99,7 +175,7 @@ export default function ContestListingClient({
                           <p className="text-on-surface-variant text-sm">{contest.description || "Div 1 & Div 2 Rated"}</p>
                         </div>
                         <div className="text-right">
-                          <div className="text-on-surface font-label-sm font-medium text-lg tracking-wider">01:45:22</div>
+                          <CountdownTimer startTime={contest.startTime} durationSeconds={contest.durationSeconds} />
                           <div className="text-on-surface-variant text-xs">Remaining</div>
                         </div>
                       </div>
@@ -109,16 +185,24 @@ export default function ContestListingClient({
                       </div>
                       <div className="flex items-center justify-between mt-auto">
                         {contest.isRegistered ? (
-                          <div className="flex items-center gap-2 text-primary font-medium text-sm font-label-sm">
-                            <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                            Registered
-                          </div>
+                          <>
+                            <div className="flex items-center gap-2 text-primary font-medium text-sm font-label-sm">
+                              <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                              Registered
+                            </div>
+                            <Link href={`/internal/contests/${contest._id}`}>
+                              <button className="px-6 py-2 bg-primary-container text-on-primary-container rounded font-label-sm hover:brightness-110 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(30,70,32,0.5)] active:translate-y-0 transition-all duration-200">Join room</button>
+                            </Link>
+                          </>
                         ) : (
-                          <div className="text-on-surface-variant font-label-sm text-sm">Not registered</div>
+                          <>
+                            <div className="text-on-surface-variant font-label-sm text-sm">Not registered</div>
+                            <div className="px-4 py-2 border border-outline-variant/50 bg-surface-variant/30 text-on-surface-variant/80 rounded font-label-sm flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0">
+                              <span className="material-symbols-outlined !text-[16px] leading-none opacity-80">pending</span>
+                              In Progress
+                            </div>
+                          </>
                         )}
-                        <Link href={`/internal/contests/${contest._id}`}>
-                          <button className="px-6 py-2 bg-primary-container text-on-primary-container rounded font-label-sm hover:brightness-110 transition-all shadow-[0_0_15px_rgba(46,125,50,0.3)]">Join room</button>
-                        </Link>
                       </div>
                     </div>
                   ))}
@@ -133,33 +217,53 @@ export default function ContestListingClient({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Upcoming Card */}
                   {upcoming.map(contest => (
-                    <div key={contest._id} className="bg-surface-container border border-outline-variant rounded-xl p-6 hover:border-outline transition-colors flex flex-col h-full">
+                    <div key={contest._id} className="hover-sharp-shadow bg-surface-container border border-outline-variant rounded-xl p-6 relative overflow-hidden group hover:border-primary/50 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
                       <div className="flex justify-between items-start mb-4">
                         <span className="inline-block px-2 py-1 bg-surface-variant text-on-surface-variant font-label-sm text-[12px] rounded capitalize">{contest.format === "bracket" ? "Knockout" : contest.mode === "arena" ? "Arena" : contest.mode === "blitz" ? "Blitz" : contest.format} Format</span>
                         <span className="text-xs font-label-sm text-on-surface-variant bg-surface px-2 py-1 rounded border border-outline-variant">
-                          {contest.startTime ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(contest.startTime)) : "TBD"}
+                          {contest.startTime ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(contest.startTime)) : "TBD"}
                         </span>
                       </div>
                       <h3 className="text-lg font-bold text-on-surface mb-2">{contest.name}</h3>
                       <p className="text-on-surface-variant text-sm mb-6 flex-grow">{contest.description || "A fast-paced contest focusing on critical algorithmic concepts."}</p>
-                      <div className="flex items-center justify-between mt-auto pt-4 border-t border-outline-variant/50">
+                      <div className="flex items-center justify-between mt-auto pt-4 border-t border-outline-variant/50 w-full gap-2">
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-sm text-on-surface-variant flex items-center gap-1 whitespace-nowrap">
+                            <span className="material-symbols-outlined text-[16px] shrink-0">group</span>
+                            <span className="truncate">{contest.participantsCount || 0} Registered</span>
+                          </span>
+                          {contest.registrationDeadline ? (
+                            <span className="text-xs font-label-sm text-error/90 flex items-center gap-1 whitespace-nowrap">
+                              <span className="material-symbols-outlined text-[14px] shrink-0">timer</span>
+                              <span className="truncate">Closes: {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(contest.registrationDeadline))}</span>
+                            </span>
+                          ) : (
+                            <span className="text-xs font-label-sm text-on-surface-variant flex items-center gap-1 whitespace-nowrap">
+                              <span className="material-symbols-outlined text-[14px] shrink-0">timer_off</span>
+                              <span className="truncate">Deadline not specified</span>
+                            </span>
+                          )}
+                        </div>
+
                         {contest.isRegistered ? (
-                          <>
-                            <div className="flex items-center gap-2 text-primary font-medium text-sm font-label-sm">
-                              <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                          (contest.registrationDeadline && new Date() > new Date(contest.registrationDeadline)) ? (
+                            <div className="px-3 py-1.5 border border-outline-variant/50 bg-surface-variant/30 text-primary/70 rounded font-label-sm text-[13px] flex items-center justify-center gap-1 transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]">
+                              <span className="material-symbols-outlined !text-[14px] leading-none" style={{ fontSize: '14px' }}>check_circle</span>
                               Registered
                             </div>
-                            <Link href={`/internal/contests/${contest._id}`}>
-                              <button className="px-4 py-2 border border-outline-variant text-on-surface-variant rounded font-label-sm hover:text-on-surface hover:border-outline transition-colors">Details</button>
-                            </Link>
-                          </>
+                          ) : (
+                            <div className="px-3 py-1.5 border border-primary/40 bg-primary/10 text-primary rounded font-label-sm text-[13px] flex items-center justify-center gap-1 transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]">
+                              <span className="material-symbols-outlined !text-[14px] leading-none" style={{ fontSize: '14px' }}>check_circle</span>
+                              Registered
+                            </div>
+                          )
                         ) : (
-                          <>
-                            <span className="text-sm text-on-surface-variant">{contest.participantsCount || 0} Registered</span>
-                            <Link href={`/internal/contests/${contest._id}`}>
-                              <button className="px-4 py-2 border border-primary text-primary rounded font-label-sm hover:bg-primary/10 transition-colors">Register</button>
-                            </Link>
-                          </>
+                          <div className="shrink-0">
+                            <RegisterButton 
+                              contestId={contest._id} 
+                              disabledOverride={contest.registrationDeadline ? new Date() > new Date(contest.registrationDeadline) : false} 
+                            />
+                          </div>
                         )}
                       </div>
                     </div>
@@ -193,9 +297,9 @@ export default function ContestListingClient({
                       </thead>
                       <tbody className="text-sm">
                         {completed.map(contest => (
-                          <tr key={contest._id} className="border-b border-outline-variant/50 hover:bg-surface-variant/30 transition-colors cursor-pointer group hover:bg-primary/5" role="button">
+                          <tr key={contest._id} onClick={() => router.push(`/internal/contests/rooms/${contest._id}/result?from=listing`)} className="border-b border-outline-variant/50 hover:bg-surface-container-high hover:scale-[1.01] hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group" role="button">
                             <td className="p-4 text-on-surface font-medium">
-                              <Link href={`/internal/contests/${contest._id}`} className="block w-full">{contest.name}</Link>
+                              <span className="block w-full">{contest.name}</span>
                             </td>
                             <td className="p-4 text-on-surface-variant">
                               {contest.startTime ? new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit", year: "numeric" }).format(new Date(contest.startTime)) : "-"}

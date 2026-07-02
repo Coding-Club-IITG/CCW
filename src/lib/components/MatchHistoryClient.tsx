@@ -132,7 +132,7 @@ export default function MatchHistoryClient({ history }: { history: ContestListin
 
                   {/* Right: CTA */}
                   <div className="flex items-center justify-end md:w-[150px]">
-                    <Link href={`/internal/contests/rooms/${contest._id}/result`}>
+                    <Link href={`/internal/contests/rooms/${contest._id}/result?from=history`}>
                       <button className="bg-surface-container-highest border border-outline-variant hover:border-primary hover:text-primary text-on-surface font-label-sm text-label-sm px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2">
                         Results
                         <span className="material-symbols-outlined text-[16px]">arrow_forward</span>

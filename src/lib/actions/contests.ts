@@ -18,6 +18,7 @@ export type ContestListingItem = {
   registeredCount: number;
   isRegistered: boolean;
   participantsCount: number;
+  registrationDeadline: Date | null;
 };
 
 export async function getContestListing(): Promise<{ active: ContestListingItem[], upcoming: ContestListingItem[], completed: ContestListingItem[] }> {
@@ -56,13 +57,29 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
       registeredCount: (contest.registrations || []).length,
       participantsCount: (contest.registrations || []).length,
       isRegistered,
+      registrationDeadline: contest.registrationSettings?.deadline || null,
     };
     
-    if (contest.status === "active") {
+    let computedStatus = contest.status;
+    const now = new Date();
+    if (contest.status === "completed" || contest.status === "active") {
+      computedStatus = contest.status;
+    } else if (contest.startTime && contest.endTime) {
+      if (now >= contest.startTime && now <= contest.endTime) {
+        computedStatus = "active";
+      } else if (now > contest.endTime) {
+        computedStatus = "completed";
+      } else if (now < contest.startTime) {
+        computedStatus = "registration";
+      }
+    }
+    item.status = computedStatus;
+
+    if (computedStatus === "active") {
       active.push(item);
-    } else if (contest.status === "registration") {
+    } else if (computedStatus === "registration") {
       upcoming.push(item);
-    } else if (contest.status === "completed") {
+    } else if (computedStatus === "completed") {
       completed.push(item);
     }
   }
@@ -95,6 +112,20 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
 
     const isRegistered = cpUserId ? (contest.registrations || []).some((r: any) => r.userId.toString() === cpUserId) : false;
     
+    let computedStatus = contest.status;
+    const now = new Date();
+    if (contest.status === "completed" || contest.status === "active") {
+      computedStatus = contest.status;
+    } else if (contest.startTime && contest.endTime) {
+      if (now >= contest.startTime && now <= contest.endTime) {
+        computedStatus = "active";
+      } else if (now > contest.endTime) {
+        computedStatus = "completed";
+      } else if (now < contest.startTime) {
+        computedStatus = "registration";
+      }
+    }
+
     return {
       _id: contest._id.toString(),
       name: contest.name,
@@ -103,10 +134,11 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
       durationSeconds: contest.durationSeconds || null,
       format: contest.format,
       mode: contest.mode,
-      status: contest.status,
+      status: computedStatus,
       registeredCount: (contest.registrations || []).length,
       participantsCount: (contest.registrations || []).length,
       isRegistered,
+      registrationDeadline: contest.registrationSettings?.deadline || null,
     };
   } catch (error) {
     console.error("Error fetching contest by id:", error);

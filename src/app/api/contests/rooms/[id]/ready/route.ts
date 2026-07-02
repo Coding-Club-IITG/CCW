@@ -57,10 +57,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "User is not part of any team" }, { status: 403 });
     }
 
-    // Mark user as ready
     const readyAdded = await redis.sAdd(`room:${roomId}:ready_users`, userId);
     
     if (readyAdded) {
+      // Publish individual ready state
+      await publishRoom(roomId, {
+        type: "room.user_ready",
+        roomId,
+        userId
+      });
+
       // Check if this user's entire team is ready
       const teamMembers = await redis.sMembers(`team:${userTeamId}:users`);
       const readyMembers = [];
