@@ -4,7 +4,7 @@ import { IProblemSlot } from "./CustomContest";
 export interface IContestPreset extends Document {
   name: string;
   description?: string;
-  format?: "1v1" | "solo-tournament" | "team-tournament" | "bracket";
+  format?: "1v1" | "solo-tournament" | "team-tournament" | "bracket" | "free-for-all";
   mode?: "blitz" | "arena";
   durationSeconds?: number;
   problemSelectionMode?: "bulk" | "fine-tuned";
@@ -31,7 +31,7 @@ const ContestPresetSchema = new Schema<IContestPreset>(
     description: { type: String },
     format: {
       type: String,
-      enum: ["1v1", "solo-tournament", "team-tournament", "bracket"],
+      enum: ["1v1", "solo-tournament", "team-tournament", "bracket", "free-for-all"],
     },
     mode: {
       type: String,

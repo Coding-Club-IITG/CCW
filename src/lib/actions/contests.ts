@@ -5,12 +5,15 @@ import { headers } from "next/headers";
 import dbConnect from "@/lib/mongodb";
 import CustomContest from "@/models/CustomContest";
 import CPUser from "@/models/CPUser";
+import ContestRoom from "@/models/ContestRoom";
+import ContestTeam from "@/models/ContestTeam";
 
 export type ContestListingItem = {
   _id: string;
   name: string;
   description: string;
   startTime: Date | null;
+  endTime?: Date | null;
   durationSeconds: number | null;
   format: string;
   mode: string;
@@ -19,6 +22,10 @@ export type ContestListingItem = {
   isRegistered: boolean;
   participantsCount: number;
   registrationDeadline: Date | null;
+  userScore?: number;
+  opponentScore?: number;
+  otherScores?: number[];
+  isVictory?: boolean;
 };
 
 export async function getContestListing(): Promise<{ active: ContestListingItem[], upcoming: ContestListingItem[], completed: ContestListingItem[] }> {
@@ -50,6 +57,7 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
       name: contest.name,
       description: contest.description || "",
       startTime: contest.startTime || null,
+      endTime: contest.endTime || null,
       durationSeconds: contest.durationSeconds || null,
       format: contest.format,
       mode: contest.mode,
@@ -80,6 +88,20 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
     } else if (computedStatus === "registration") {
       upcoming.push(item);
     } else if (computedStatus === "completed") {
+      if (userId) {
+        const room = await ContestRoom.findOne({ contestId: contest._id, participants: userId }).lean();
+        if (room) {
+          const teams = await ContestTeam.find({ roomId: room._id }).lean();
+          const userTeam = teams.find((t: any) => t.members.some((m: any) => m.toString() === userId));
+          if (userTeam) {
+            item.userScore = userTeam.score || 0;
+            const otherTeams = teams.filter((t: any) => t._id.toString() !== userTeam._id.toString());
+            item.opponentScore = otherTeams.length > 0 ? Math.max(...otherTeams.map((t: any) => t.score || 0)) : 0;
+            item.otherScores = otherTeams.map((t: any) => t.score || 0).sort((a, b) => b - a);
+            item.isVictory = item.userScore >= item.opponentScore;
+          }
+        }
+      }
       completed.push(item);
     }
   }
@@ -131,6 +153,7 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
       name: contest.name,
       description: contest.description || "",
       startTime: contest.startTime || null,
+      endTime: contest.endTime || null,
       durationSeconds: contest.durationSeconds || null,
       format: contest.format,
       mode: contest.mode,

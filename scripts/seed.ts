@@ -44,8 +44,6 @@ const ContestSchema = new mongoose.Schema({
   bulkRatingMin: Number,
   bulkRatingMax: Number,
   bulkProblemCount: Number,
-  registrationSettings: Object,
-  registrations: Array,
 });
 
 const CustomContest = mongoose.models.CustomContest || 
@@ -63,24 +61,11 @@ async function seed() {
       role: "Secretary",
       moduleRoles: [],
       emailVerified: true,
-      codeforces_handle: "ronits2407",
     };
     const createdDevUser = await User.findOneAndUpdate({ email: devUser.email }, devUser, {
       upsert: true,
       returnDocument: "after",
     });
-    
-    // Create corresponding CPUser document for dev user
-    await CPUser.findOneAndUpdate(
-      { userId: createdDevUser._id },
-      {
-        userId: createdDevUser._id,
-        cfHandle: devUser.codeforces_handle,
-        cfRating: 1500,
-        solvedProblems: [],
-      },
-      { upsert: true, returnDocument: "after" }
-    );
     console.log("✅ Seeded dev user:", devUser.email);
 
     // Seed 6 test users
@@ -122,75 +107,39 @@ async function seed() {
       console.log(`✅ Seeded test user:`, testUser.email);
     }
 
-    // Clear existing data (keep dev user)
-    await User.deleteMany({ email: { $ne: devUser.email } });
-    await CPUser.deleteMany({ userId: { $ne: createdDevUser._id } });
-    await CustomContest.deleteMany({});
-    
-    // Attempt to clear rooms and teams if they exist
-    const ContestRoom = mongoose.models.ContestRoom || mongoose.model("ContestRoom", new mongoose.Schema({}), "contest_rooms");
-    const ContestTeam = mongoose.models.ContestTeam || mongoose.model("ContestTeam", new mongoose.Schema({}), "contest_teams");
-    await ContestRoom.deleteMany({});
-    await ContestTeam.deleteMany({});
-    
-    console.log("✅ Cleared existing data (kept dev user)");
-
+    // Create a sample custom contest with all required fields
     const now = new Date();
+    const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours later
     
-    const dummyContests = [
-      // --- ACTIVE CONTESTS ---
-      // Started recently
-      { name: "Global Algorithm Arena", description: "Currently running contest.", format: "solo-tournament", mode: "arena", status: "active", offsetMinutesStart: -5, offsetMinutesEnd: 55, duration: 1, deadlineMinutes: 5 },
-      
-      // --- UPCOMING CONTESTS ---
-      // Starts in 3 minutes -> Registration still OPEN (deadline is 1 min before start, i.e., in 2 mins)
-      { name: "Upcoming - Open", description: "Registration closes in 2 mins.", format: "solo-tournament", mode: "arena", status: "registration", offsetMinutesStart: 3, offsetMinutesEnd: 63, duration: 1, deadlineMinutes: 1 },
-      
-      // Starts in 1 minute -> Registration CLOSED (deadline was 2 mins before start, i.e., passed 1 min ago)
-      { name: "Upcoming - Closed", description: "Registration closed. Starts in 1 min!", format: "1v1", mode: "blitz", status: "registration", offsetMinutesStart: 1, offsetMinutesEnd: 61, duration: 1, deadlineMinutes: 2 },
-      
-      // Starts in 2 minutes -> Registration CLOSED (deadline was 3 mins before start, passed 1 min ago)
-      { name: "Upcoming - Closed 2", description: "Starts in 2 minutes.", format: "1v1", mode: "blitz", status: "registration", offsetMinutesStart: 2, offsetMinutesEnd: 62, duration: 1, deadlineMinutes: 3 },
-
-      // --- COMPLETED CONTESTS ---
-      // Early Finish: started 30 mins ago, mathematically has 30 mins left, but explicitly completed in DB
-      { name: "Sudden Death Arena (Early Finish)", description: "Ended prematurely by admin.", format: "1v1", mode: "arena", status: "completed", offsetMinutesStart: -30, offsetMinutesEnd: 30, duration: 1, deadlineMinutes: 5 },
-    ];
-
-    for (const data of dummyContests) {
-      const startTime = new Date(now.getTime() + data.offsetMinutesStart * 60 * 1000);
-      const endTime = new Date(now.getTime() + data.offsetMinutesEnd * 60 * 1000);
-      await CustomContest.create({
-        name: data.name,
-        description: data.description,
-        creatorId: createdDevUser._id,
-        startTime: startTime,
-        endTime: endTime,
-        durationSeconds: data.duration * 60 * 60,
-        format: data.format,
-        mode: data.mode,
-        status: data.status,
-        problemSelectionMode: "bulk",
-        registrationSettings: {
-          type: "open",
-          deadline: new Date(startTime.getTime() - 1000 * 60 * data.deadlineMinutes),
-          maxParticipants: 100,
-        },
-        registrations: Array.from({ length: Math.floor(Math.random() * 500) }).map((_, i) => ({
-          userId: createdDevUser._id,
-          cfHandle: `dummy${i}`,
-          registeredAt: now,
-        })),
-      });
-    }
-
-    console.log(`✅ Seeded ${dummyContests.length} custom contests of various combinations`);
+    const sampleContest = {
+      name: "Test Contest 1",
+      creatorId: createdDevUser._id,
+      startTime: now,
+      endTime: endTime,
+      durationSeconds: 2 * 60 * 60, // 2 hours
+      format: "1v1",
+      mode: "blitz",
+      status: "draft",
+      problemSelectionMode: "bulk",
+      bulkPlatform: "codeforces",
+      bulkRatingMin: 800,
+      bulkRatingMax: 1200,
+      bulkProblemCount: 3,
+    };
+    
+    const createdContest = await CustomContest.findOneAndUpdate(
+      { name: sampleContest.name },
+      sampleContest,
+      { upsert: true, returnDocument: "after" }
+    );
+    console.log("✅ Seeded sample custom contest:", createdContest._id.toString());
 
     console.log("\n✨ Seed completed successfully!");
     console.log("\nTest User IDs (use these in your tests):");
     createdTestUsers.forEach((user, i) => {
       console.log(`  User ${i + 1} (${user.email}): ${user._id.toString()}`);
     });
+    console.log(`\nSample Contest ID: ${createdContest._id.toString()}`);
 
     await mongoose.disconnect();
   } catch (error) {

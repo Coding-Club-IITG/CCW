@@ -16,6 +16,7 @@ export type BracketSnapshot = {
   currentRound: number;
   totalRounds: number;
   nodes: BracketNode[];
+  teamsMap?: Record<string, { name: string }>;
 };
 
 export const ROUND_NAMES: Record<number, string> = {

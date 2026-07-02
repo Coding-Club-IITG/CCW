@@ -77,6 +77,10 @@ export const reconciliationWorker = new Worker(
     }
 
     // Original reconciliation logic continues below
+    if (job.name !== "room_completion" && job.name !== "room_timeout" && job.name !== "room_forfeit") {
+      return;
+    }
+
     const teams = await redis.sMembers(`room:${roomId}:teams`);
     let winnerId = null;
     let maxScore = -1;
@@ -236,10 +240,15 @@ export const reconciliationWorker = new Worker(
     }
 
     // 5. Clean up Redis
-    const keys = await redis.keys(`room:${roomId}:*`);
-    if (keys.length > 0) {
-      await redis.del(keys);
-    }
+    setTimeout(async () => {
+      try {
+        const redisForCleanup = await getRedis();
+        const keys = await redisForCleanup.keys(`room:${roomId}:*`);
+        if (keys.length > 0) {
+          await redisForCleanup.del(keys);
+        }
+      } catch(e) {}
+    }, 5000);
 
     logger.info(`[reconciliationWorker] Finished job ${job.id} for room ${roomId}`);
   },

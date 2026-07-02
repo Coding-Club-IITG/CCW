@@ -19,7 +19,11 @@ export default function BlitzRoomClient({
   userId,
   cfHandle,
   teams,
-  initialReadyUserIds = []
+  initialReadyUserIds = [],
+  initialMatchState = "waiting",
+  initialProblems = [],
+  initialScores = {},
+  initialProblemIndex = 0
 }: {
   contest: ContestListingItem;
   roomId: string;
@@ -29,14 +33,18 @@ export default function BlitzRoomClient({
   cfHandle?: string;
   teams?: any[];
   initialReadyUserIds?: string[];
+  initialMatchState?: "waiting" | "active" | "completed";
+  initialProblems?: any[];
+  initialScores?: Record<string, number>;
+  initialProblemIndex?: number;
 }) {
   const router = useRouter();
   
-  const [matchState, setMatchState] = useState<"waiting" | "active" | "completed">("waiting");
+  const [matchState, setMatchState] = useState<"waiting" | "active" | "completed">(initialMatchState);
   const [showMatchStartedModal, setShowMatchStartedModal] = useState(false);
-  const [problems, setProblems] = useState<any[]>([]);
-  const [currentProblemIndex, setCurrentProblemIndex] = useState(0);
-  const [scores, setScores] = useState<Record<string, number>>({});
+  const [problems, setProblems] = useState<any[]>(initialProblems);
+  const [currentProblemIndex, setCurrentProblemIndex] = useState(initialProblemIndex);
+  const [scores, setScores] = useState<Record<string, number>>(initialScores);
   const [readyUserIds, setReadyUserIds] = useState<Set<string>>(new Set(initialReadyUserIds));
   const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
   const [syncing, setSyncing] = useState(false);
@@ -55,14 +63,19 @@ export default function BlitzRoomClient({
   
   const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
 
+  const handleEventRef = useRef<any>(null);
+  useEffect(() => {
+    handleEventRef.current = handleEvent;
+  });
+
   useEffect(() => {
     const eventSource = new EventSource("/api/events");
     
     eventSource.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.payload) {
-          handleEvent(data.payload);
+        if (data.payload && handleEventRef.current) {
+          handleEventRef.current(data.payload);
         }
       } catch (err) {}
     };
@@ -97,7 +110,8 @@ export default function BlitzRoomClient({
           return arr;
         });
         setAnimationKey(k => k + 1);
-        addActivity("check_circle", `Team ${payload.solvedBy.teamId === teamId ? 'Alpha' : 'Beta'} solved a problem!`, "Just now", "text-primary");
+        const solverName = teams?.find(t => t._id === payload.solvedBy.teamId)?.name || (payload.solvedBy.teamId === teamId ? 'Your Team' : 'Opponent');
+        addActivity("check_circle", `${solverName} solved a problem!`, "Just now", "text-primary");
         break;
       case "room.score":
         setScores(payload.scores);
@@ -166,7 +180,7 @@ export default function BlitzRoomClient({
       body: JSON.stringify({
         roomId,
         teamId,
-        cfHandle: cfHandle || "dummy0", // Use real handle if available, otherwise fallback
+        cfHandle: cfHandle,
         problemId: activeProblem.problemId
       })
     });
@@ -232,13 +246,23 @@ export default function BlitzRoomClient({
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4 font-headline-lg text-[24px]">
-              <span className="text-primary">Team Alpha</span>
-              <span className="text-on-surface font-bold">{Object.values(scores)[0] || 0} pts</span>
-              <span className="text-outline-variant font-body-md text-body-md">VS</span>
-              <span className="text-secondary font-bold">{Object.values(scores)[1] || 0} pts</span>
-              <span className="text-on-surface-variant">Team Beta</span>
-            </div>
+            {teams && teams.length >= 2 ? (
+              <div className="flex items-center gap-4 font-headline-lg text-[24px]">
+                <span className="text-primary">{teams[0].name}</span>
+                <span className="text-on-surface font-bold">{scores[teams[0]._id] || 0} pts</span>
+                <span className="text-outline-variant font-body-md text-body-md">VS</span>
+                <span className="text-secondary font-bold">{scores[teams[1]._id] || 0} pts</span>
+                <span className="text-on-surface-variant">{teams[1].name}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4 font-headline-lg text-[24px]">
+                <span className="text-primary">Team 1</span>
+                <span className="text-on-surface font-bold">{Object.values(scores)[0] || 0} pts</span>
+                <span className="text-outline-variant font-body-md text-body-md">VS</span>
+                <span className="text-secondary font-bold">{Object.values(scores)[1] || 0} pts</span>
+                <span className="text-on-surface-variant">Team 2</span>
+              </div>
+            )}
           </div>
         </header>
 
@@ -355,6 +379,7 @@ export default function BlitzRoomClient({
                         onClick={handleSync}
                         disabled={syncing || matchState !== 'active' || syncCooldown > 0}
                         className="flex items-center gap-2 px-8 bg-primary-container text-on-primary-container rounded-lg font-label-sm text-label-sm font-bold transition-all cyber-glow py-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100 hover:brightness-110"
+                        style={{ cursor: (syncing || matchState !== 'active' || syncCooldown > 0) ? 'not-allowed' : 'pointer' }}
                       >
                         <span className={`material-symbols-outlined ${syncing ? 'animate-spin' : ''}`}>
                           {syncCooldown > 0 && !syncing ? 'hourglass_empty' : 'sync'}
@@ -440,8 +465,17 @@ export default function BlitzRoomClient({
             </div>
             <p className="font-body-md text-on-surface-variant mb-6">
               Final Scores: <br/>
-              <strong className="text-primary text-lg">Team Alpha: {Object.values(scores)[0] || 0}</strong><br/>
-              <strong className="text-secondary text-lg">Team Beta: {Object.values(scores)[1] || 0}</strong>
+              {teams && teams.length >= 2 ? (
+                <>
+                  <strong className="text-primary text-lg">{teams[0].name}: {scores[teams[0]._id] || 0}</strong><br/>
+                  <strong className="text-secondary text-lg">{teams[1].name}: {scores[teams[1]._id] || 0}</strong>
+                </>
+              ) : (
+                <>
+                  <strong className="text-primary text-lg">Team 1: {Object.values(scores)[0] || 0}</strong><br/>
+                  <strong className="text-secondary text-lg">Team 2: {Object.values(scores)[1] || 0}</strong>
+                </>
+              )}
             </p>
             <button 
               onClick={() => router.push(`/internal/contests/rooms/${roomId}/result`)}

@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { ContestListingItem } from "@/lib/actions/contests";
 import "@/styles/stitch.css";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { BracketSnapshot, BracketNode, getRoundName } from "@/types/bracket";
+import { useRouter } from "next/navigation";
 
 export default function BracketRoomClient({ contest }: { contest: ContestListingItem }) {
+  const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isDown, setIsDown] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -14,7 +17,48 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
   const [scrollTop, setScrollTop] = useState(0);
   
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState<string | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<BracketNode | null>(null);
+
+  const [snapshot, setSnapshot] = useState<BracketSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch initial bracket
+  useEffect(() => {
+    fetch(`/api/contests/${contest._id}/bracket/generate`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.bracket) {
+          setSnapshot(data.bracket);
+        } else {
+          setSnapshot(data);
+        }
+        setLoading(false);
+      })
+      .catch(e => {
+        console.error(e);
+        setLoading(false);
+      });
+  }, [contest._id]);
+
+  // Subscribe to SSE
+  useEffect(() => {
+    const eventSource = new EventSource(`/api/events`);
+    
+    eventSource.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.payload && data.payload.type === "contest.bracket_update") {
+          setSnapshot(data.payload as BracketSnapshot);
+          if (selectedMatch) {
+            const updatedMatch = data.payload.nodes.find((n: BracketNode) => n.roomId === selectedMatch.roomId);
+            if (updatedMatch) setSelectedMatch(updatedMatch);
+          }
+        }
+      } catch (err) {}
+    };
+
+    return () => eventSource.close();
+  }, [selectedMatch]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!scrollRef.current) return;
@@ -39,10 +83,79 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
     scrollRef.current.scrollTop = scrollTop - walkY;
   };
 
-  const openMatchDetails = (matchId: string) => {
-    setSelectedMatch(matchId);
+  const openMatchDetails = (match: BracketNode) => {
+    setSelectedMatch(match);
     setSidebarOpen(true);
   };
+
+  if (loading || !snapshot) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  const { totalRounds, nodes, teamsMap = {} } = snapshot;
+
+  const matchWidth = 280;
+  const matchHeight = 110;
+  const colGap = 80;
+  const rowGap = 40;
+
+  // Calculate positions for nodes
+  const nodePositions = new Map<string, { x: number, y: number }>();
+  
+  // First, map nodes by round and matchIndex
+  const nodesByRound: Record<number, BracketNode[]> = {};
+  for (let r = 1; r <= totalRounds; r++) {
+    nodesByRound[r] = [];
+  }
+  nodes.forEach(n => {
+    if (nodesByRound[n.roundNumber]) {
+      nodesByRound[n.roundNumber].push(n);
+    }
+  });
+
+  // Sort nodes in each round by matchIndex
+  for (let r = 1; r <= totalRounds; r++) {
+    nodesByRound[r].sort((a, b) => a.matchIndex - b.matchIndex);
+  }
+
+  // Calculate Y positions bottom-up or top-down
+  // Round 1 Y positions:
+  const round1Count = Math.pow(2, totalRounds - 1);
+  for (let i = 0; i < round1Count; i++) {
+    const node = nodesByRound[1].find(n => n.matchIndex === i);
+    const x = 0;
+    const y = i * (matchHeight + rowGap);
+    if (node) nodePositions.set(node.roomId, { x, y });
+  }
+
+  // Calculate subsequent rounds
+  for (let r = 2; r <= totalRounds; r++) {
+    const prevRoundNodes = nodesByRound[r - 1];
+    const matchCount = Math.pow(2, totalRounds - r);
+    for (let i = 0; i < matchCount; i++) {
+      const node = nodesByRound[r].find(n => n.matchIndex === i);
+      const x = (r - 1) * (matchWidth + colGap);
+      
+      const child1 = prevRoundNodes.find(n => n.matchIndex === i * 2);
+      const child2 = prevRoundNodes.find(n => n.matchIndex === i * 2 + 1);
+      
+      let y = 0;
+      if (child1 && child2 && nodePositions.has(child1.roomId) && nodePositions.has(child2.roomId)) {
+        y = (nodePositions.get(child1.roomId)!.y + nodePositions.get(child2.roomId)!.y) / 2;
+      } else if (child1 && nodePositions.has(child1.roomId)) {
+        y = nodePositions.get(child1.roomId)!.y; // Bypass
+      }
+      
+      if (node) nodePositions.set(node.roomId, { x, y });
+    }
+  }
+
+  const canvasWidth = totalRounds * matchWidth + (totalRounds - 1) * colGap + 200;
+  const canvasHeight = round1Count * (matchHeight + rowGap) + 100;
 
   return (
     <>
@@ -65,7 +178,6 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
         
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
-          {/* TopAppBar (Contextual for this view) */}
           <header className="flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 w-full bg-background border-b border-outline-variant z-10 shrink-0">
             <div className="flex gap-4 flex-col items-start">
               <div className="flex items-center gap-4 mb-4">
@@ -73,14 +185,13 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
                   <span className="material-symbols-outlined text-sm">arrow_back</span>
                   <span className="font-label-sm text-label-sm">Back to Contests</span>
                 </Link>
-                <div className="h-6 w-px bg-outline-variant mx-2 hidden md:block"></div>
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                   <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg font-bold text-on-surface">{contest.name}</h2>
                   <span className="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-2 py-1 rounded-sm ml-2">Knockout</span>
                 </div>
-                <p className="text-on-surface-variant font-body-md text-sm mt-1">Contests • Round of 16 • Live</p>
+                <p className="text-on-surface-variant font-body-md text-sm mt-1">Status: {snapshot.status}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -88,13 +199,9 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
                 <span className="w-2 h-2 rounded-full bg-error animate-pulse"></span>
                 <span className="font-label-sm text-label-sm text-on-surface-variant">Live SSE Active</span>
               </div>
-              <button className="text-on-surface-variant hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container-low">
-                <span className="material-symbols-outlined">refresh</span>
-              </button>
             </div>
           </header>
 
-          {/* Bracket Canvas */}
           <div 
             className="flex-1 overflow-auto bracket-scroll relative bg-surface-container-lowest p-8 cursor-grab active:cursor-grabbing" 
             ref={scrollRef}
@@ -103,261 +210,125 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
             onMouseUp={handleMouseUp}
             onMouseMove={handleMouseMove}
           >
-            {/* Live Update Notice Mobile */}
-            <div className="sm:hidden absolute top-4 right-4 flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant z-10 shadow-md">
-              <span className="w-2 h-2 rounded-full bg-error animate-pulse"></span>
-              <span className="font-label-sm text-label-sm text-on-surface-variant text-xs">Live</span>
-            </div>
-
-            {/* SVG Bracket Structure */}
-            <div className="min-w-[1200px] h-[800px] relative">
+            <div className="relative" style={{ width: canvasWidth, height: canvasHeight }}>
+              {/* Draw SVG Connectors */}
               <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
-                {/* Quarter Finals to Semi Finals Connectors */}
-                <path className="connector-line active" d="M 280 100 L 320 100 L 320 200 L 360 200"></path>
-                <path className="connector-line" d="M 280 300 L 320 300 L 320 200 L 360 200"></path>
-                <path className="connector-line active" d="M 280 500 L 320 500 L 320 600 L 360 600"></path>
-                <path className="connector-line" d="M 280 700 L 320 700 L 320 600 L 360 600"></path>
-                {/* Semi Finals to Final Connectors */}
-                <path className="connector-line active" d="M 640 200 L 680 200 L 680 400 L 720 400"></path>
-                <path className="connector-line" d="M 640 600 L 680 600 L 680 400 L 720 400"></path>
+                {nodes.map(node => {
+                  const pos = nodePositions.get(node.roomId);
+                  if (!pos || node.roundNumber === totalRounds) return null;
+                  
+                  const nextRoundNode = nodesByRound[node.roundNumber + 1]?.find(n => n.matchIndex === Math.floor(node.matchIndex / 2));
+                  const nextPos = nextRoundNode ? nodePositions.get(nextRoundNode.roomId) : null;
+                  
+                  if (!nextPos) return null;
+
+                  const startX = pos.x + matchWidth;
+                  const startY = pos.y + matchHeight / 2;
+                  const endX = nextPos.x;
+                  const endY = nextPos.y + matchHeight / 2;
+                  const midX = startX + colGap / 2;
+
+                  const isActive = node.status === 'completed' && nextRoundNode.status !== 'completed';
+
+                  return (
+                    <path 
+                      key={`path-${node.roomId}`}
+                      className={`connector-line ${isActive ? 'active' : ''}`} 
+                      d={`M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`} 
+                    />
+                  );
+                })}
               </svg>
 
-              {/* Grid Layout for Nodes */}
-              <div className="absolute inset-0 flex" style={{ zIndex: 1 }}>
-                {/* Round 1 (Quarter Finals) */}
-                <div className="flex flex-col justify-around w-[280px] pr-8">
-                  {/* Match 1 */}
-                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={() => openMatchDetails('m1')}>
-                    <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">Match 1</span>
-                      <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">Final</span>
-                    </div>
-                    <div className="p-2 space-y-1">
-                      <div className="flex justify-between items-center p-2 rounded bg-surface-variant border-l-2 border-primary">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">AL</div>
-                          <span className="font-label-sm text-sm text-on-surface">AlexChen</span>
-                        </div>
-                        <span className="font-label-sm font-bold text-primary">300</span>
-                      </div>
-                      <div className="flex justify-between items-center p-2 rounded">
-                        <div className="flex items-center gap-2 opacity-50">
-                          <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">SJ</div>
-                          <span className="font-label-sm text-sm text-on-surface-variant">SarahJ</span>
-                        </div>
-                        <span className="font-label-sm text-on-surface-variant opacity-50">150</span>
-                      </div>
-                    </div>
-                  </div>
+              {/* Draw Match Nodes */}
+              {nodes.map(node => {
+                const pos = nodePositions.get(node.roomId);
+                if (!pos) return null;
 
-                  {/* Match 2 */}
-                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={() => openMatchDetails('m2')}>
-                    <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">Match 2</span>
-                      <span className="font-label-sm text-[10px] bg-surface-bright text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider">Live</span>
-                    </div>
-                    <div className="p-2 space-y-1">
-                      <div className="flex justify-between items-center p-2 rounded bg-surface-variant">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-tertiary-container flex items-center justify-center text-xs font-bold text-on-tertiary-container">DP</div>
-                          <span className="font-label-sm text-sm text-on-surface">DavidP</span>
-                        </div>
-                        <span className="font-label-sm font-bold text-on-surface">120</span>
-                      </div>
-                      <div className="flex justify-between items-center p-2 rounded">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">MK</div>
-                          <span className="font-label-sm text-sm text-on-surface">MayaK</span>
-                        </div>
-                        <span className="font-label-sm text-on-surface">95</span>
-                      </div>
-                    </div>
-                  </div>
+                const team1Name = node.teams[0] ? (teamsMap[node.teams[0]]?.name || "Unknown") : "TBD";
+                const team2Name = node.teams[1] ? (teamsMap[node.teams[1]]?.name || "Unknown") : "TBD";
+                const isBye = node.status === 'bye';
 
-                  {/* Match 3 */}
-                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={() => openMatchDetails('m3')}>
-                    <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">Match 3</span>
-                      <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">Final</span>
-                    </div>
-                    <div className="p-2 space-y-1">
-                      <div className="flex justify-between items-center p-2 rounded bg-surface-variant border-l-2 border-primary">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">RK</div>
-                          <span className="font-label-sm text-sm text-on-surface">RahulK</span>
-                        </div>
-                        <span className="font-label-sm font-bold text-primary">450</span>
-                      </div>
-                      <div className="flex justify-between items-center p-2 rounded">
-                        <div className="flex items-center gap-2 opacity-50">
-                          <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">JL</div>
-                          <span className="font-label-sm text-sm text-on-surface-variant">JaneL</span>
-                        </div>
-                        <span className="font-label-sm text-on-surface-variant opacity-50">400</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Match 4 */}
-                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={() => openMatchDetails('m4')}>
-                    <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">Match 4</span>
-                      <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Upcoming</span>
-                    </div>
-                    <div className="p-2 space-y-1">
-                      <div className="flex justify-between items-center p-2 rounded">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">TC</div>
-                          <span className="font-label-sm text-sm text-on-surface">TomC</span>
-                        </div>
-                        <span className="font-label-sm text-on-surface-variant">-</span>
-                      </div>
-                      <div className="flex justify-between items-center p-2 rounded">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">ES</div>
-                          <span className="font-label-sm text-sm text-on-surface">EmmaS</span>
-                        </div>
-                        <span className="font-label-sm text-on-surface-variant">-</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Round 2 (Semi Finals) */}
-                <div className="flex flex-col justify-around w-[280px] pl-8 pr-8 ml-[80px]">
-                  {/* Match 5 */}
-                  <div className="bg-surface-container border border-primary rounded-lg overflow-hidden shadow-[0_0_15px_rgba(46,125,50,0.2)] cursor-pointer" onClick={() => openMatchDetails('m5')}>
-                    <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">Semi-Final 1</span>
-                      <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> Live
+                return (
+                  <div 
+                    key={node.roomId}
+                    className="absolute bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer"
+                    style={{ left: pos.x, top: pos.y, width: matchWidth, height: matchHeight, zIndex: 1 }}
+                    onClick={() => openMatchDetails(node)}
+                  >
+                    <div className="flex justify-between items-center px-3 py-1.5 border-b border-outline-variant bg-surface-container-high">
+                      <span className="font-label-sm text-label-sm text-on-surface-variant">Match {node.matchIndex + 1}</span>
+                      <span className={`font-label-sm text-[10px] px-2 py-0.5 rounded uppercase tracking-wider ${node.status === 'active' ? 'bg-error text-on-error' : 'bg-surface-bright text-on-surface-variant'}`}>
+                        {node.status}
                       </span>
                     </div>
                     <div className="p-2 space-y-1">
-                      <div className="flex justify-between items-center p-2 rounded bg-surface-variant border-l-2 border-primary">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">AL</div>
-                          <span className="font-label-sm text-sm text-on-surface">AlexChen</span>
-                        </div>
-                        <span className="font-label-sm font-bold text-primary">210</span>
+                      <div className={`flex justify-between items-center p-1.5 rounded ${node.winner === node.teams[0] ? 'bg-surface-variant border-l-2 border-primary' : ''}`}>
+                        <span className="font-label-sm text-sm text-on-surface truncate pr-2">{team1Name}</span>
+                        {!isBye && <span className={`font-label-sm font-bold ${node.winner === node.teams[0] ? 'text-primary' : 'text-on-surface'}`}>{node.scores[0]}</span>}
                       </div>
-                      <div className="flex justify-between items-center p-2 rounded">
-                        <div className="flex items-center gap-2">
-                          <span className="font-label-sm text-sm text-on-surface-variant italic">TBD (Match 2 Winner)</span>
-                        </div>
-                        <span className="font-label-sm text-on-surface-variant">-</span>
+                      <div className={`flex justify-between items-center p-1.5 rounded ${node.winner === node.teams[1] ? 'bg-surface-variant border-l-2 border-primary' : ''}`}>
+                        <span className="font-label-sm text-sm text-on-surface truncate pr-2">{team2Name}</span>
+                        {!isBye && <span className={`font-label-sm font-bold ${node.winner === node.teams[1] ? 'text-primary' : 'text-on-surface'}`}>{node.scores[1]}</span>}
                       </div>
                     </div>
                   </div>
-
-                  {/* Match 6 */}
-                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden opacity-60 hover:opacity-100 transition-opacity cursor-not-allowed">
-                    <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">Semi-Final 2</span>
-                      <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Waiting</span>
-                    </div>
-                    <div className="p-2 space-y-1">
-                      <div className="flex justify-between items-center p-2 rounded">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">RK</div>
-                          <span className="font-label-sm text-sm text-on-surface">RahulK</span>
-                        </div>
-                        <span className="font-label-sm text-on-surface-variant">-</span>
-                      </div>
-                      <div className="flex justify-between items-center p-2 rounded">
-                        <div className="flex items-center gap-2">
-                          <span className="font-label-sm text-sm text-on-surface-variant italic">TBD (Match 4 Winner)</span>
-                        </div>
-                        <span className="font-label-sm text-on-surface-variant">-</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Round 3 (Finals) */}
-                <div className="flex flex-col justify-center w-[280px] pl-8 ml-[80px]">
-                  {/* Match 7 (Grand Final) */}
-                  <div className="bg-surface-container border-2 border-outline-variant rounded-lg overflow-hidden opacity-50 relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-transparent to-surface-variant pointer-events-none"></div>
-                    <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high relative z-10">
-                      <span className="font-label-sm text-label-sm text-on-surface font-bold flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[16px] text-tertiary">emoji_events</span>
-                        Grand Final
-                      </span>
-                    </div>
-                    <div className="p-4 space-y-3 relative z-10">
-                      <div className="flex justify-between items-center p-3 rounded bg-surface-lowest border border-outline-variant border-dashed">
-                        <span className="font-label-sm text-sm text-on-surface-variant italic">Winner SF 1</span>
-                      </div>
-                      <div className="flex justify-center">
-                        <span className="font-label-sm text-xs text-on-surface-variant">VS</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 rounded bg-surface-lowest border border-outline-variant border-dashed">
-                        <span className="font-label-sm text-sm text-on-surface-variant italic">Winner SF 2</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
         </main>
 
-        {/* Sidebar Overlay */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity" onClick={() => setSidebarOpen(false)}></div>
-        )}
-        
-        <aside className={`fixed top-0 right-0 h-full w-[400px] bg-surface-container-low border-l border-outline-variant z-[60] transition-transform duration-300 ease-in-out flex flex-col shadow-2xl ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="flex items-center justify-between p-6 border-b border-outline-variant bg-surface-container-high">
-            <div className="flex flex-col">
-              <span className="font-label-sm text-xs text-primary tracking-widest uppercase">Match 1</span>
-              <h3 className="font-headline-lg text-xl font-bold text-on-surface">Match Details</h3>
+        {/* Right Sidebar - Match Details */}
+        {sidebarOpen && selectedMatch && (
+          <aside className="w-[320px] md:w-[380px] bg-surface-container-low border-l border-outline-variant h-full absolute right-0 top-0 z-20 flex flex-col shadow-2xl modal-animate shrink-0">
+            <div className="flex justify-between items-center p-4 border-b border-outline-variant bg-surface-container">
+              <div>
+                <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface">Match {selectedMatch.matchIndex + 1}</h3>
+                <p className="font-label-sm text-label-sm text-on-surface-variant">{getRoundName(selectedMatch.roundNumber, totalRounds)}</p>
+              </div>
+              <button 
+                onClick={() => setSidebarOpen(false)}
+                className="text-on-surface-variant hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container-high"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
             </div>
-            <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-surface-variant rounded-full transition-colors text-on-surface-variant hover:text-on-surface">
-              <span className="material-symbols-outlined">close</span>
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6 space-y-8">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-surface-container rounded-lg border border-outline-variant">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center font-bold text-on-secondary-container">AL</div>
-                  <span className="font-label-sm text-sm">AlexChen</span>
-                  <span className="text-2xl font-bold text-primary">300</span>
+            
+            <div className="p-6 flex-1 overflow-y-auto">
+              {/* Versus Display */}
+              <div className="flex flex-col items-center gap-4 py-6 bg-surface-container rounded-xl border border-outline-variant mb-6 relative overflow-hidden">
+                <div className="text-center z-10 w-full px-4">
+                  <p className="font-label-lg text-lg text-on-surface font-bold truncate">
+                    {selectedMatch.teams[0] ? (teamsMap[selectedMatch.teams[0]]?.name || "Unknown") : "TBD"}
+                  </p>
+                  <p className="font-headline-lg text-primary mt-1">{selectedMatch.scores[0]}</p>
                 </div>
-                <div className="text-on-surface-variant font-label-sm">VS</div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-12 h-12 rounded-full bg-surface-bright flex items-center justify-center font-bold text-on-surface-variant">SJ</div>
-                  <span className="font-label-sm text-sm">SarahJ</span>
-                  <span className="text-2xl font-bold">150</span>
+                
+                <div className="bg-surface-container-high px-4 py-1 rounded-full border border-outline-variant z-10">
+                  <span className="font-label-sm font-bold text-on-surface-variant">VS</span>
+                </div>
+                
+                <div className="text-center z-10 w-full px-4">
+                  <p className="font-headline-lg text-secondary mb-1">{selectedMatch.scores[1]}</p>
+                  <p className="font-label-lg text-lg text-on-surface font-bold truncate">
+                    {selectedMatch.teams[1] ? (teamsMap[selectedMatch.teams[1]]?.name || "Unknown") : "TBD"}
+                  </p>
                 </div>
               </div>
-            </div>
-            <div>
-              <h4 className="font-label-sm text-xs text-on-surface-variant uppercase tracking-widest mb-4 border-b border-outline-variant pb-2">Execution Log</h4>
-              <div className="space-y-2 font-label-sm text-xs">
-                <div className="flex justify-between p-2 bg-surface-container-lowest border-l-2 border-primary">
-                  <span className="text-on-surface">Binary Tree Inversion</span>
-                  <span className="text-primary">Solved 14m 32s</span>
-                </div>
-                <div className="flex justify-between p-2 bg-surface-container-lowest border-l-2 border-error">
-                  <span className="text-on-surface">Network Flow Max</span>
-                  <span className="text-error">Failed (TLE)</span>
-                </div>
-                <div className="flex justify-between p-2 bg-surface-container-lowest border-l-2 border-outline-variant opacity-50">
-                  <span className="text-on-surface">Quantum Logic</span>
-                  <span className="text-on-surface-variant">Pending</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="p-6 border-t border-outline-variant bg-surface-container-high flex flex-col gap-3">
-            <button className="w-full py-3 bg-primary text-on-primary font-label-sm rounded font-bold hover:opacity-90 transition-opacity">ENTER ROOM</button>
-            <button className="w-full py-3 border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-variant transition-colors">SPECTATE</button>
-          </div>
-        </aside>
 
+              <div className="mt-8 space-y-4">
+                <button 
+                  onClick={() => router.push(`/internal/contests/rooms/${selectedMatch.roomId}`)}
+                  className="w-full py-3 bg-primary hover:bg-primary/90 text-on-primary rounded-lg font-label-md text-label-md transition-colors font-bold uppercase tracking-wide flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined">login</span>
+                  ENTER ROOM
+                </button>
+              </div>
+            </div>
+          </aside>
+        )}
       </div>
     </>
   );

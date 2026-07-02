@@ -3,24 +3,224 @@
 import Link from "next/link";
 import { ContestListingItem } from "@/lib/actions/contests";
 import "@/styles/stitch.css";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 
-export default function ArenaRoomClient({ contest }: { contest: ContestListingItem }) {
+interface EventPayload {
+  type: string;
+  [key: string]: any;
+}
+
+export default function ArenaRoomClient({
+  contest,
+  roomId,
+  roomName,
+  teamId,
+  userId,
+  cfHandle,
+  teams,
+  initialReadyUserIds = [],
+  initialMatchState = "waiting",
+  initialProblems = [],
+  initialScores = {},
+  initialLocks = {},
+  initialStartTime,
+  initialTimeLimit
+}: {
+  contest: ContestListingItem;
+  roomId: string;
+  roomName: string;
+  teamId: string;
+  userId: string;
+  cfHandle?: string;
+  teams?: any[];
+  initialReadyUserIds?: string[];
+  initialMatchState?: "waiting" | "active" | "completed";
+  initialProblems?: any[];
+  initialScores?: Record<string, number>;
+  initialLocks?: Record<string, string>;
+  initialStartTime?: number;
+  initialTimeLimit?: number;
+}) {
+  const router = useRouter();
+
+  const [matchState, setMatchState] = useState<"waiting" | "active" | "completed">(initialMatchState);
+  const [problems, setProblems] = useState<any[]>(initialProblems);
+  const [scores, setScores] = useState<Record<string, number>>(initialScores);
+  const [locks, setLocks] = useState<Record<string, string>>(initialLocks);
+  const [readyUserIds, setReadyUserIds] = useState<Set<string>>(new Set(initialReadyUserIds));
+  const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
+  
+  const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
+
+  const handleEventRef = useRef<any>(null);
+  useEffect(() => {
+    handleEventRef.current = handleEvent;
+  });
+
+  const [syncCooldown, setSyncCooldown] = useState(0);
+  const [activityFeed, setActivityFeed] = useState<any[]>([]);
+  
+  const [startTime, setStartTime] = useState<number | undefined>(initialStartTime);
+  const [timeLimit, setTimeLimit] = useState<number | undefined>(initialTimeLimit);
   const [timeLeft, setTimeLeft] = useState<string>("00:00");
 
   useEffect(() => {
-    let totalSeconds = contest.durationSeconds || 45 * 60 + 32;
+    if (syncCooldown > 0) {
+      const timer = setInterval(() => setSyncCooldown(prev => prev - 1), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [syncCooldown]);
+
+  useEffect(() => {
+    if (matchState !== "active" || !startTime || !timeLimit) {
+      if (matchState === "completed") {
+        setTimeLeft("00:00");
+      } else {
+        // Fallback or waiting state
+        setTimeLeft(timeLimit ? `${Math.floor(timeLimit / 60).toString().padStart(2, '0')}:${(timeLimit % 60).toString().padStart(2, '0')}` : "00:00");
+      }
+      return;
+    }
+    
+    const endMs = startTime + (timeLimit * 1000);
     
     const interval = setInterval(() => {
-      if (totalSeconds <= 0) return;
-      totalSeconds--;
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      setTimeLeft(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      const nowMs = Date.now();
+      const diffSecs = Math.floor((endMs - nowMs) / 1000);
+      if (diffSecs <= 0) {
+        setTimeLeft("00:00");
+        clearInterval(interval);
+        return;
+      }
+      const m = Math.floor(diffSecs / 60);
+      const s = diffSecs % 60;
+      setTimeLeft(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [contest]);
+  }, [matchState, startTime, timeLimit]);
+
+  useEffect(() => {
+    const eventSource = new EventSource(`/api/events?roomId=${roomId}`);
+    
+    eventSource.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.payload && handleEventRef.current) {
+          handleEventRef.current(data.payload);
+        }
+      } catch (err) {}
+    };
+
+    return () => eventSource.close();
+  }, [roomId]);
+
+  const handleEvent = (payload: EventPayload) => {
+    switch (payload.type) {
+      case "room.state_sync":
+        setMatchState(payload.state.status);
+        if (payload.state.startTime) setStartTime(parseInt(payload.state.startTime));
+        if (payload.state.timeLimit) setTimeLimit(parseInt(payload.state.timeLimit));
+        if (payload.problems) setProblems(payload.problems);
+        if (payload.scores) setScores(payload.scores);
+        if (payload.locks) setLocks(payload.locks);
+        if (payload.state.status === "active") {
+          addActivity("info", "Arena match started! Good luck.", "Just now");
+        }
+        break;
+      case "room.locked": {
+        const existingLock = locks[payload.problemId];
+        const tName = teams?.find(t => t._id === payload.claimedBy)?.name || "Unknown Team";
+        const pName = problems.find(p => p.problemId === payload.problemId)?.name || payload.problemId;
+        
+        if (existingLock && existingLock.split('|')[0] !== payload.claimedBy) {
+           addActivity("gavel", `CRITICAL: ${tName} RECLAIMED ${pName}!`, "Just now", "text-error");
+        } else {
+           addActivity("lock", `${tName} claimed ${pName}`, "Just now", "text-primary");
+        }
+        
+        setLocks(prev => ({ ...prev, [payload.problemId]: `${payload.claimedBy}|${payload.timestamp}` }));
+        break;
+      }
+      case "room.score":
+        setScores(payload.scores);
+        break;
+      case "room.end":
+        setMatchState("completed");
+        if (payload.finalScores) setScores(payload.finalScores);
+        break;
+      case "sync.queued":
+        if (payload.problemId) {
+          setSyncingMap(prev => ({ ...prev, [payload.problemId]: true }));
+        }
+        addActivity("sync", "Submission queued for verification...", "Just now", "text-secondary");
+        break;
+      case "sync.detected":
+        if (payload.problemId) {
+          setSyncingMap(prev => ({ ...prev, [payload.problemId]: false }));
+        }
+        if (payload.verdict === "OK") {
+          addActivity("check_circle", `Valid AC detected! +${payload.pointsAwarded || 100} pts`, "Just now", "text-primary");
+        } else {
+          addActivity("error", `Submission failed: ${payload.verdict}`, "Just now", "text-error");
+        }
+        break;
+      case "sync.failed":
+        if (payload.problemId) {
+          setSyncingMap(prev => ({ ...prev, [payload.problemId]: false }));
+        }
+        addActivity("error", `Sync failed: ${payload.reason || payload.verdict || "Unknown error"}`, "Just now", "text-error");
+        break;
+      case "room.user_ready":
+        setReadyUserIds(prev => {
+          const newSet = new Set(prev);
+          newSet.add(payload.userId);
+          return newSet;
+        });
+        if (payload.userId === userId) {
+          setIsReady(true);
+        }
+        break;
+      case "presence.online":
+        addActivity("person", `User connected.`, "Just now", "text-secondary");
+        break;
+      case "presence.offline":
+        addActivity("person_off", `User disconnected.`, "Just now", "text-on-surface-variant");
+        break;
+    }
+  };
+
+  const addActivity = (icon: string, text: string, time: string, color: string = "text-on-surface") => {
+    setActivityFeed(prev => [{ icon, text, time, color, id: Date.now() + Math.random() }, ...prev].slice(0, 15));
+  };
+
+  const handleReady = async () => {
+    setIsReady(true);
+    await fetch(`/api/contests/rooms/${roomId}/ready`, { method: "POST" });
+  };
+
+  const handleSync = async (problemId: string) => {
+    if (syncingMap[problemId] || matchState !== "active" || syncCooldown > 0) return;
+    
+    setSyncingMap(prev => ({ ...prev, [problemId]: true }));
+    setSyncCooldown(60);
+    
+    const res = await fetch("/api/contests/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roomId,
+        teamId,
+        cfHandle: cfHandle || "dummy0",
+        problemId
+      })
+    });
+    
+    if (!res.ok) {
+      setSyncingMap(prev => ({ ...prev, [problemId]: false }));
+    }
+  };
 
   return (
     <>
@@ -33,6 +233,24 @@ export default function ArenaRoomClient({ contest }: { contest: ContestListingIt
           .scroll-hide::-webkit-scrollbar { display: none; }
           .scroll-hide { -ms-overflow-style: none; scrollbar-width: none; }
           .bg-pattern { background-image: radial-gradient(rgba(136, 217, 130, 0.05) 1px, transparent 1px); background-size: 24px 24px; }
+          @keyframes slide-in {
+            0% { opacity: 0; transform: translateX(20px); }
+            100% { opacity: 1; transform: translateX(0); }
+          }
+          .problem-transition { animation: slide-in 0.4s ease-out forwards; }
+          @keyframes loading-dots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75%, 100% { content: '...'; }
+          }
+          .animated-dots::after {
+            content: '';
+            animation: loading-dots 1.5s infinite;
+            display: inline-block;
+            width: 20px;
+            text-align: left;
+          }
         `}</style>
         <div className="absolute inset-0 bg-pattern opacity-30 pointer-events-none"></div>
         
@@ -45,22 +263,22 @@ export default function ArenaRoomClient({ contest }: { contest: ContestListingIt
           </div>
           
           {/* Compact HUD */}
-          <header className="flex justify-between items-center bg-surface-container-low border border-outline-variant p-4 rounded-xl cyber-glow">
+          <header className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-container-low border border-outline-variant p-4 rounded-xl cyber-glow gap-4">
             <div className="flex items-center gap-4">
               <h1 className="font-headline-lg text-[20px] text-on-surface tracking-tight">{contest.name}</h1>
-              <div className="flex items-center gap-2 px-3 py-1 bg-surface-container border border-primary/30 rounded-full text-primary font-label-sm text-xs uppercase tracking-wider">
-                <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                {contest.status === 'active' ? 'LIVE MATCH' : 'UPCOMING'}
+              <div className={`flex items-center gap-2 px-3 py-1 bg-surface-container border rounded-full font-label-sm text-xs uppercase tracking-wider ${matchState === 'active' ? 'border-primary/30 text-primary' : 'border-outline-variant text-on-surface-variant'}`}>
+                {matchState === 'active' && <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>}
+                {matchState === 'active' ? 'LIVE MATCH' : matchState === 'completed' ? 'MATCH OVER' : 'WAITING FOR PLAYERS'}
               </div>
             </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-4 font-headline-lg text-[24px]">
-                <span className="text-primary">Team Alpha</span>
-                <span className="text-on-surface font-bold">350</span>
-                <span className="text-outline-variant font-body-md text-body-md">VS</span>
-                <span className="text-on-surface font-bold">150</span>
-                <span className="text-error">Team Beta</span>
-              </div>
+            <div className="flex flex-wrap items-center gap-4 font-headline-lg text-[24px]">
+              {teams?.map((t, idx) => (
+                <div key={t._id} className="flex items-center gap-2">
+                  <span className={`${t._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'} truncate max-w-[150px]`}>{t.name}</span>
+                  <span className="text-on-surface font-bold">{scores[t._id] || 0}</span>
+                  {idx < (teams.length || 0) - 1 && <span className="text-outline-variant font-body-md text-sm mx-2">VS</span>}
+                </div>
+              ))}
             </div>
             <div className="flex items-center gap-3 bg-surface-container py-2 px-4 border border-outline-variant rounded-lg">
               <span className="material-symbols-outlined text-primary">timer</span>
@@ -75,171 +293,206 @@ export default function ArenaRoomClient({ contest }: { contest: ContestListingIt
               <div className="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex flex-col gap-4 h-full overflow-y-auto scroll-hide">
                 <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest sticky top-0 bg-surface-container-low z-10 pb-2 border-b border-outline-variant/50">Active Roster</h2>
                 
-                <div className="flex flex-col gap-2">
-                  <span className="font-label-sm text-[10px] text-primary uppercase tracking-widest pb-1 mb-1">Team Alpha</span>
-                  <div className="flex items-center gap-3 p-2 rounded bg-surface-variant/30 hover:bg-surface-variant/50 transition-colors border-l-2 border-primary">
-                    <img alt="UserA" className="w-6 h-6 rounded-full border border-primary" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSXBNIEm7AbEAFeoK2JA3WZItzjFAaFxuzs3MqObfgBKNyQtx3_xrLhR1Af0LBpXeFM6aqvaUDp14Qz_QV2sh1lZ_Wm5gc1jIXa4UgTWQr9ftBjrD0KDqXWrmNDMHkgEJTew0-AJdOOEq7AE9v926CtKMIZXiJzr2SVPzNqF5BsIaE30L4CzuYpKsH5sgdtxjkbKeKkk7FduqF4sYxOFzO_1FFh9GbAjFf6YgyTCC7ipq4gWPManLlfko7nCHtT4cMxEX9FbG1UWKb" />
-                    <span className="font-label-sm text-sm text-on-surface flex-1">UserA</span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
-                  </div>
-                  <div className="flex items-center gap-3 p-2 rounded bg-surface-variant/30 hover:bg-surface-variant/50 transition-colors border-l-2 border-primary">
-                    <div className="w-6 h-6 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center text-[10px] font-label-sm">UB</div>
-                    <span className="font-label-sm text-sm text-on-surface flex-1">UserB</span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
-                  </div>
-                  <div className="flex items-center gap-3 p-2 rounded bg-surface-variant/30 hover:bg-surface-variant/50 transition-colors border-l-2 border-primary">
-                    <div className="w-6 h-6 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center text-[10px] font-label-sm">UC</div>
-                    <span className="font-label-sm text-sm text-on-surface flex-1">UserC</span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
-                  </div>
-                </div>
+                {teams?.map((team) => (
+                  <div key={team._id} className="flex flex-col gap-2 mt-4 first:mt-0">
+                    <span className={`font-label-sm text-[10px] uppercase tracking-widest pb-1 mb-1 ${team._id === teamId ? 'text-primary' : 'text-secondary'}`}>
+                      {team.name}
+                    </span>
+                    {team.members.map((member: any) => {
+                      const memberIsReady = readyUserIds.has(member.id);
+                      const borderColor = memberIsReady ? 'border-primary' : 'border-error';
+                      const bgColor = memberIsReady ? 'bg-primary/20' : 'bg-error/20';
+                      const iconColor = memberIsReady ? 'text-primary' : 'text-error';
+                      const dotColor = memberIsReady ? 'bg-primary' : 'bg-error';
 
-                <div className="flex flex-col gap-2 mt-4">
-                  <span className="font-label-sm text-[10px] text-error uppercase tracking-widest pb-1 mb-1">Team Beta</span>
-                  <div className="flex items-center gap-3 p-2 rounded bg-surface-variant/10 opacity-70 border-l-2 border-error">
-                    <img alt="UserD" className="w-6 h-6 rounded-full border border-error" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANi0TM4Lf0A3E8_pEIIiorBQdMDeqM0aTIlGp0lftVg6lzF436Xtq9Fpkce_iqeZNVWN1VDtPYKi4BUzzDAeOC2Sk2e-xRunrM2OFV9bUgf0OtqZr__gXTw08-PJUkA8wWB7AJYTMatkvqJhZ-gKNQAqu7ls2QuJHuoh4rRrUHxYKEOBKYGbQNPw7GJq948D5m0rYZJU8bEfvrzpkBJ7Xoct3SfQ4GhwXRPkSrn-kNaKNtMc0m4Ohsfs8TBsJV5L5INpIgFnQxvTwl" />
-                    <span className="font-label-sm text-sm text-on-surface flex-1">UserD</span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-error"></div>
+                      return (
+                        <div key={member.id} className={`flex items-center gap-3 p-2 rounded bg-surface-variant/30 transition-colors border-l-2 ${borderColor}`}>
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${bgColor}`}>
+                            <span className={`material-symbols-outlined text-xs ${iconColor}`}>person</span>
+                          </div>
+                          <span className="font-label-sm text-sm text-on-surface flex-1 truncate">
+                            {member.name} {member.id === userId && "(You)"}
+                          </span>
+                          <div className={`w-2 h-2 rounded-full ${dotColor}`}></div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex items-center gap-3 p-2 rounded bg-surface-variant/10 opacity-70 border-l-2 border-error">
-                    <div className="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center text-[10px] font-label-sm text-error">UE</div>
-                    <span className="font-label-sm text-sm text-on-surface flex-1">UserE</span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-error"></div>
-                  </div>
-                  <div className="flex items-center gap-3 p-2 rounded bg-surface/50 opacity-40 border-l-2 border-outline-variant grayscale">
-                    <span className="material-symbols-outlined text-outline-variant text-lg">person_off</span>
-                    <span className="font-label-sm text-sm text-on-surface-variant flex-1 line-through">UserF</span>
-                    <span className="font-label-sm text-[10px] text-outline-variant">FF</span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
             {/* Center Stage - Problem Grid */}
             <div className="lg:col-span-2 flex flex-col h-full overflow-hidden">
-              <div className="flex-1 flex flex-col bg-surface-container-low border border-outline-variant rounded-xl p-6 overflow-y-auto scroll-hide">
-                <div className="flex justify-between items-center mb-6 sticky top-0 bg-surface-container-low z-20 pb-2 border-b border-outline-variant/50">
-                  <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">Problem Grid</h2>
-                  <button className="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-4 py-2 rounded border border-primary hover:bg-primary hover:text-on-primary transition-all flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm">sync</span>
-                    Sync Submission
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-max">
-                  {/* Claimed by My Team (Alpha) */}
-                  <div className="bg-surface border-2 border-primary p-5 rounded-lg flex flex-col gap-4 cyber-glow relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-2 opacity-10">
-                      <span className="material-symbols-outlined text-6xl text-primary">check_circle</span>
+              <div className="flex-1 flex flex-col bg-surface-container-low border border-outline-variant rounded-xl p-6 overflow-y-auto scroll-hide relative">
+                
+                {matchState === "waiting" ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                    <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6 cyber-glow">
+                      <span className="material-symbols-outlined text-6xl text-primary animate-pulse">groups</span>
                     </div>
-                    <div className="flex justify-between items-start z-10">
-                      <span className="font-label-sm text-label-sm bg-primary-container text-on-primary-container px-2 py-1 rounded">1200</span>
-                      <span className="material-symbols-outlined text-on-surface-variant">code</span>
-                    </div>
-                    <div className="z-10">
-                      <h3 className="font-label-sm text-label-sm text-on-surface mb-1 truncate">Matrix Rotation</h3>
-                      <p className="text-xs text-on-surface-variant font-label-sm">Codeforces</p>
-                    </div>
-                    <div className="mt-auto pt-4 border-t border-outline-variant flex items-center gap-3 z-10">
-                      <img alt="UserA" className="w-6 h-6 rounded-full border border-primary" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDetlu1CNB-5yYt5_i6meFY01MZSZ2bsYm3DaoLiwClcLkwt1X-2e8R5iFXnUNy5lEHstd_pn7sSPyUkaIvluI2CENtWGLqSs-DkEkPsuaODbMGvm3VYyDa02fYhQWzKMJCcfqp13-YNFfHk4rr7sMSm_JW4WLAmjh2QMxsmaSdmv-wsLCSaTBxPW50b01Kfs_erHLoCewcHCoFBl_31JyRsS2P3LUa3Xr7OKhYY4CnyilxcmGGFbGp88Nc0WzZoeCs9_4TVn_UlguR" />
-                      <div className="flex flex-col">
-                        <span className="font-label-sm text-xs text-primary">UserA</span>
-                        <span className="text-[10px] text-on-surface-variant font-label-sm">Solved 2m ago</span>
-                      </div>
-                    </div>
+                    <h2 className="text-3xl font-bold mb-4 text-on-surface">Waiting for Players</h2>
+                    <p className="text-on-surface-variant mb-8 max-w-md text-lg">
+                      The arena is being prepared. Review your strategy—the match begins when all teams are ready.
+                    </p>
+                    <button 
+                      onClick={handleReady}
+                      disabled={isReady}
+                      className="w-full max-w-sm px-8 py-4 bg-primary-container text-white border border-primary/50 rounded-lg font-label-sm font-bold tracking-widest uppercase text-lg transition-all duration-300 shadow-[0_4px_20px_rgba(46,125,50,0.4)] hover:shadow-[0_0_25px_rgba(46,125,50,0.7)] disabled:opacity-50"
+                      style={{ cursor: isReady ? 'default' : 'pointer' }}
+                    >
+                      {isReady ? <span className="animated-dots">Ready! Waiting on others</span> : "I am Ready"}
+                    </button>
                   </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center mb-6 sticky top-0 bg-surface-container-low z-20 pb-2 border-b border-outline-variant/50">
+                      <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">Problem Grid</h2>
+                    </div>
 
-                  {/* Claimed by Opponent (Beta) */}
-                  <div className="bg-surface border border-error p-5 rounded-lg flex flex-col gap-4 relative overflow-hidden group cursor-help opacity-75" title="Reclaimable if submitted earlier!">
-                    <div className="absolute top-0 right-0 p-2 opacity-10">
-                      <span className="material-symbols-outlined text-6xl text-error">lock</span>
-                    </div>
-                    <div className="flex justify-between items-start z-10">
-                      <span className="font-label-sm text-label-sm bg-error-container text-on-error-container px-2 py-1 rounded border border-error/30">1400</span>
-                      <span className="material-symbols-outlined text-error">lock</span>
-                    </div>
-                    <div className="z-10">
-                      <h3 className="font-label-sm text-label-sm text-on-surface mb-1 truncate">Graph Traversal</h3>
-                      <p className="text-xs text-on-surface-variant font-label-sm">Codeforces</p>
-                    </div>
-                    <div className="mt-auto pt-4 border-t border-outline-variant/30 flex items-center gap-3 z-10">
-                      <img alt="UserD" className="w-6 h-6 rounded-full border border-error" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_CYM6X9a4fcHkKvQuwQ5oazQdY8WntNMOM8QX5i_8O-BLZkhGCCp8NBYAm454Sj_TiOxtsLOJ0IP5Mv3iMclRJPlGSz-zKwbsyXyYqhnlF96XU8TFQOdvOFjI591CYv-Jwj-mOjHCLURSgoOuZRfENxCtLLo-JVjdAXopS6PPF4YLu_5rRkTyXJCkTl5qPWnJEsKzdVa5UK0gsTIS8NBWsM38bRKN86Jv1fWXFcbK49Y0Db0p6WkXWEUkMdLsFKChPadjgnqun_AP" />
-                      <div className="flex flex-col">
-                        <span className="font-label-sm text-xs text-error">UserD</span>
-                        <span className="text-[10px] text-on-surface-variant font-label-sm">Locked</span>
-                      </div>
-                    </div>
-                  </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-max pb-4">
+                      {problems.map((prob) => {
+                        const lockVal = locks[prob.problemId];
+                        const isClaimed = !!lockVal;
+                        let claimedByMe = false;
+                        let claimedByWhoName = "Unknown";
+                        
+                        if (isClaimed) {
+                          const [cTeamId, cTimestamp] = lockVal.split('|');
+                          claimedByMe = (cTeamId === teamId);
+                          claimedByWhoName = teams?.find(t => t._id === cTeamId)?.name || "Unknown";
+                        }
 
-                  {/* Unclaimed */}
-                  <div className="bg-surface border border-outline-variant p-5 rounded-lg flex flex-col gap-4 hover:border-primary/50 transition-colors cursor-pointer group">
-                    <div className="flex justify-between items-start">
-                      <span className="font-label-sm text-label-sm bg-surface-variant text-on-surface px-2 py-1 rounded">1600</span>
-                      <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">code</span>
-                    </div>
-                    <div>
-                      <h3 className="font-label-sm text-label-sm text-on-surface mb-1 truncate">Greedy Scheduler</h3>
-                      <p className="text-xs text-on-surface-variant font-label-sm">Codeforces</p>
-                    </div>
-                    <div className="mt-auto pt-4 border-t border-outline-variant flex items-center justify-between">
-                      <span className="font-label-sm text-xs text-on-surface-variant">Unclaimed</span>
-                      <span className="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors text-sm">play_arrow</span>
-                    </div>
-                  </div>
+                        // Colors & Styling
+                        const borderColor = isClaimed ? (claimedByMe ? 'border-primary' : 'border-error') : 'border-outline-variant hover:border-primary/50';
+                        const bgColor = isClaimed ? (claimedByMe ? 'bg-surface' : 'bg-surface opacity-75') : 'bg-surface';
+                        const glow = isClaimed && claimedByMe ? 'cyber-glow' : '';
+                        const badgeBg = isClaimed ? (claimedByMe ? 'bg-primary-container text-on-primary-container' : 'bg-error-container text-on-error-container') : 'bg-surface-variant text-on-surface';
+                        const isSyncing = syncingMap[prob.problemId];
 
-                  {/* More Unclaimed */}
-                  <div className="bg-surface border border-outline-variant p-5 rounded-lg flex flex-col gap-4 hover:border-primary/50 transition-colors cursor-pointer group">
-                    <div className="flex justify-between items-start">
-                      <span className="font-label-sm text-label-sm bg-surface-variant text-on-surface px-2 py-1 rounded">1800</span>
-                      <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">code</span>
+                        return (
+                          <div key={prob.problemId} className={`${bgColor} border-2 ${borderColor} p-5 rounded-lg flex flex-col gap-4 relative overflow-hidden group ${glow} transition-colors`}>
+                            {isClaimed && (
+                              <div className="absolute top-0 right-0 p-2 opacity-10">
+                                <span className={`material-symbols-outlined text-6xl ${claimedByMe ? 'text-primary' : 'text-error'}`}>
+                                  {claimedByMe ? 'check_circle' : 'lock'}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-start z-10">
+                              <span className={`font-label-sm text-label-sm px-2 py-1 rounded ${badgeBg}`}>{prob.rating}</span>
+                              <span className={`material-symbols-outlined ${isClaimed ? (claimedByMe ? 'text-primary' : 'text-error') : 'text-on-surface-variant group-hover:text-primary'}`}>
+                                {isClaimed ? (claimedByMe ? 'code' : 'lock') : 'code'}
+                              </span>
+                            </div>
+                            <div className="z-10">
+                              <h3 className="font-label-sm text-label-sm text-on-surface mb-1 truncate" title={prob.name}>{prob.name}</h3>
+                              <p className="text-xs text-primary font-label-sm font-bold">{prob.points || 100} pts</p>
+                            </div>
+                            
+                            <div className="mt-auto pt-4 border-t border-outline-variant/50 flex flex-wrap items-center justify-between gap-3 z-10">
+                               {isClaimed ? (
+                                 <div className="flex items-center gap-2 max-w-[50%]">
+                                   <div className={`flex flex-col ${claimedByMe ? 'text-primary' : 'text-error'}`}>
+                                     <span className="font-label-sm text-xs truncate" title={claimedByWhoName}>{claimedByWhoName}</span>
+                                     <span className="text-[10px] opacity-80 font-label-sm">Locked</span>
+                                   </div>
+                                 </div>
+                               ) : (
+                                 <span className="font-label-sm text-xs text-on-surface-variant">Unclaimed</span>
+                               )}
+                               
+                               <div className="flex items-center gap-2 ml-auto">
+                                 <a 
+                                    href={`https://codeforces.com/contest/${prob.problemId.replace(/[^0-9]/g, '')}/problem/${prob.problemId.replace(/[0-9]/g, '')}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="p-2 rounded bg-surface-variant hover:bg-outline-variant text-on-surface transition-colors flex items-center justify-center"
+                                    title="Open in Codeforces"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                  </a>
+                                 <button 
+                                    onClick={() => handleSync(prob.problemId)}
+                                    disabled={isClaimed || isSyncing || matchState !== 'active' || syncCooldown > 0}
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded font-label-sm text-xs transition-colors ${
+                                      (isClaimed || isSyncing || matchState !== 'active' || syncCooldown > 0) ? 'bg-surface-variant text-outline opacity-50 cursor-not-allowed' : 'bg-primary-container text-on-primary-container hover:brightness-110 shadow-sm'
+                                    }`}
+                                  >
+                                    <span className={`material-symbols-outlined text-[14px] ${isSyncing ? 'animate-spin' : ''}`}>
+                                      {isSyncing ? 'sync' : syncCooldown > 0 ? 'hourglass_empty' : 'sync'}
+                                    </span>
+                                    {isSyncing ? 'Syncing' : syncCooldown > 0 ? `${syncCooldown}s` : 'Sync'}
+                                 </button>
+                               </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div>
-                      <h3 className="font-label-sm text-label-sm text-on-surface mb-1 truncate">Dynamic Programming IV</h3>
-                      <p className="text-xs text-on-surface-variant font-label-sm">Codeforces</p>
-                    </div>
-                    <div className="mt-auto pt-4 border-t border-outline-variant flex items-center justify-between">
-                      <span className="font-label-sm text-xs text-on-surface-variant">Unclaimed</span>
-                    </div>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Right Sidebar (Activity Log) */}
             <div className="lg:col-span-1 flex flex-col h-full overflow-hidden">
               <div className="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex flex-col h-full overflow-hidden relative">
-                <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-4 sticky top-0 bg-surface-container-low z-10 pb-2 border-b border-outline-variant/50">Activity Log</h2>
-                <div className="flex flex-col gap-3 overflow-y-auto scroll-hide font-label-sm text-xs h-full">
-                  <div className="flex gap-2 text-on-surface">
-                    <span className="text-primary opacity-70">[10:42]</span>
-                    <span className="text-primary">UserA</span>
-                    <span className="text-on-surface-variant">claimed</span>
-                    <span>Matrix Rotation</span>
-                  </div>
-                  <div className="flex flex-col gap-1 text-on-surface bg-primary/10 p-2 rounded border-l-2 border-primary">
-                    <div className="flex gap-2">
-                      <span className="text-primary opacity-70">[10:40]</span>
-                      <span className="text-primary font-bold">CRITICAL:</span>
-                    </div>
-                    <div>
-                      <span>Team Alpha</span>
-                      <span className="text-primary mx-1">RECLAIMED</span>
-                      <span>Graph Traversal from Team Beta!</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 text-on-surface-variant opacity-70">
-                    <span className="text-outline-variant">[10:35]</span>
-                    <span>UserF (Team Beta) disconnected</span>
-                  </div>
-                  <div className="flex gap-2 text-on-surface-variant">
-                    <span className="text-outline-variant">[10:00]</span>
-                    <span>Match initialized</span>
-                  </div>
+                <div className="sticky top-0 bg-surface-container-low z-10 pb-2 border-b border-outline-variant/50 mb-4">
+                  <h2 className="font-label-sm text-label-sm text-on-surface font-bold flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">rss_feed</span>
+                    Activity Feed
+                  </h2>
+                </div>
+                <div className="flex flex-col gap-4 overflow-y-auto scroll-hide font-label-sm text-label-sm h-full pb-4">
+                  {activityFeed.length === 0 ? (
+                    <p className="text-on-surface-variant text-center mt-4">No activity yet.</p>
+                  ) : (
+                    activityFeed.map(act => (
+                      <div key={act.id} className="flex gap-3 problem-transition">
+                        <div className="mt-1"><span className={`material-symbols-outlined ${act.color} text-sm`}>{act.icon}</span></div>
+                        <div className="flex-1 overflow-hidden">
+                          <p className={`text-on-surface break-words ${act.icon === 'gavel' ? 'font-bold text-error' : ''}`}>{act.text}</p>
+                          <span className="text-on-surface-variant text-[11px]">{act.time}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </main>
+        
+        {/* Match Over Overlay Modal */}
+        {matchState === 'completed' && (
+          <div className="fixed bottom-gutter right-gutter z-50 problem-transition" style={{ bottom: '24px', right: '24px' }}>
+            <div className="bg-surface-container-highest border border-primary/30 rounded-xl p-6 shadow-2xl w-80 relative overflow-hidden cyber-glow">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-secondary"></div>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-3xl">emoji_events</span>
+                  <h3 className="font-headline-lg-mobile text-[24px] font-bold text-on-surface">Match Over!</h3>
+                </div>
+              </div>
+              <div className="font-body-md text-on-surface-variant mb-6 flex flex-col gap-1">
+                <span className="mb-2">Final Scores:</span>
+                {teams?.map(t => (
+                  <div key={t._id} className="flex justify-between items-center bg-surface-container p-2 rounded">
+                    <strong className={t._id === teamId ? 'text-primary' : 'text-on-surface'}>{t.name}</strong>
+                    <span className="font-bold">{scores[t._id] || 0} pts</span>
+                  </div>
+                ))}
+              </div>
+              <button 
+                onClick={() => router.push(`/internal/contests/rooms/${roomId}/result`)}
+                className="w-full py-2 bg-primary-container hover:brightness-110 text-on-primary-container rounded-lg font-label-sm text-label-sm transition-colors font-bold"
+              >
+                View Match Results
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

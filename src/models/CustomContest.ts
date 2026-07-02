@@ -30,7 +30,7 @@ export interface ICustomContest extends Document {
   startTime?: Date;
   endTime?: Date;
   durationSeconds?: number;
-  format: "1v1" | "solo-tournament" | "team-tournament" | "bracket";
+  format: "1v1" | "solo-tournament" | "team-tournament" | "bracket" | "free-for-all";
   mode: "blitz" | "arena";
   status: "draft" | "registration" | "active" | "completed";
   teamSize?: number;
@@ -87,7 +87,7 @@ const CustomContestSchema = new Schema<ICustomContest>(
     format: {
       type: String,
       required: true,
-      enum: ["1v1", "solo-tournament", "team-tournament", "bracket"],
+      enum: ["1v1", "solo-tournament", "team-tournament", "bracket", "free-for-all"],
     },
     mode: {
       type: String,

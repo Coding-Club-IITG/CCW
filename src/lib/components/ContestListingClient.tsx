@@ -297,7 +297,7 @@ export default function ContestListingClient({
                       </thead>
                       <tbody className="text-sm">
                         {completed.map(contest => (
-                          <tr key={contest._id} onClick={() => router.push(`/internal/contests/rooms/${contest._id}/result?from=listing`)} className="border-b border-outline-variant/50 hover:bg-surface-container-high hover:scale-[1.01] hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group" role="button">
+                          <tr key={contest._id} onClick={() => router.push(`/internal/contests/${contest._id}?from=listing`)} className="border-b border-outline-variant/50 hover:bg-surface-container-high hover:scale-[1.01] hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group" role="button">
                             <td className="p-4 text-on-surface font-medium">
                               <span className="block w-full">{contest.name}</span>
                             </td>
