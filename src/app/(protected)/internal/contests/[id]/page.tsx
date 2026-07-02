@@ -89,7 +89,8 @@ export default async function ContestRoomPage({ params }: { params: Promise<{ id
     await redis.disconnect();
     
     const cpUser = await CPUser.findOne({ userId }).lean();
-    const cfHandle = cpUser?.cfHandle || "dummy0";
+    const userDoc = await User.findById(userId).lean();
+    const cfHandle = cpUser?.cfHandle || userDoc?.codeforcesId || "dummy0";
 
     return <BlitzRoomClient contest={contest} roomId={roomId} roomName={roomName} teamId={teamId} userId={userId} cfHandle={cfHandle} teams={populatedTeams} initialReadyUserIds={readyUserIds} />;
   }

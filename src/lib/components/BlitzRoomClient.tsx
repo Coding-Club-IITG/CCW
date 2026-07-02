@@ -33,10 +33,10 @@ export default function BlitzRoomClient({
   const router = useRouter();
   
   const [matchState, setMatchState] = useState<"waiting" | "active" | "completed">("waiting");
+  const [showMatchStartedModal, setShowMatchStartedModal] = useState(false);
   const [problems, setProblems] = useState<any[]>([]);
   const [currentProblemIndex, setCurrentProblemIndex] = useState(0);
   const [scores, setScores] = useState<Record<string, number>>({});
-  const [timeLeft, setTimeLeft] = useState(60);
   const [readyUserIds, setReadyUserIds] = useState<Set<string>>(new Set(initialReadyUserIds));
   const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
   const [syncing, setSyncing] = useState(false);
@@ -72,24 +72,20 @@ export default function BlitzRoomClient({
     };
   }, []);
 
-  useEffect(() => {
-    if (matchState !== "active") return;
-    
-    const interval = setInterval(() => {
-      setTimeLeft(prev => Math.max(0, prev - 1));
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [matchState, currentProblemIndex]);
+
 
   const handleEvent = (payload: EventPayload) => {
     switch (payload.type) {
       case "room.state_sync":
-        setMatchState(payload.state.status);
+        setMatchState(prev => {
+          if (prev !== "active" && payload.state.status === "active") {
+            setShowMatchStartedModal(true);
+          }
+          return payload.state.status;
+        });
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
         if (payload.state.status === "active") {
-          setTimeLeft(60);
           addActivity("info", "Match started! Good luck.", "Just now");
         }
         break;
@@ -100,7 +96,6 @@ export default function BlitzRoomClient({
           arr[payload.problemIndex] = payload.nextProblem;
           return arr;
         });
-        setTimeLeft(60);
         setAnimationKey(k => k + 1);
         addActivity("check_circle", `Team ${payload.solvedBy.teamId === teamId ? 'Alpha' : 'Beta'} solved a problem!`, "Just now", "text-primary");
         break;
@@ -183,12 +178,6 @@ export default function BlitzRoomClient({
     }
   };
 
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
   const activeProblem = problems[currentProblemIndex] || { name: "Loading...", rating: 0 };
   const totalProblems = problems.length || 5;
 
@@ -250,10 +239,6 @@ export default function BlitzRoomClient({
               <span className="text-secondary font-bold">{Object.values(scores)[1] || 0} pts</span>
               <span className="text-on-surface-variant">Team Beta</span>
             </div>
-          </div>
-          <div className="flex items-center gap-3 bg-surface-container py-2 px-4 border border-outline-variant rounded-lg">
-            <span className="material-symbols-outlined text-error animate-pulse-slow">timer</span>
-            <span className="font-label-sm text-label-sm text-error font-bold tracking-widest">{formatTime(timeLeft)}</span>
           </div>
         </header>
 
@@ -386,10 +371,15 @@ export default function BlitzRoomClient({
           {/* Right Sidebar (Activity Log) */}
           <div className="lg:col-span-1 flex flex-col h-full overflow-hidden">
             <div className="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex flex-col h-full overflow-hidden relative">
-              <h2 className="font-label-sm text-label-sm text-on-surface font-bold flex items-center gap-2 mb-4 sticky top-0 bg-surface-container-low z-10 pb-2 border-b border-outline-variant/50">
-                <span className="material-symbols-outlined text-primary">rss_feed</span>
-                Activity Feed
-              </h2>
+              <div className="sticky top-0 bg-surface-container-low z-10 pb-2 border-b border-outline-variant/50 mb-4">
+                <h2 className="font-label-sm text-label-sm text-on-surface font-bold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">rss_feed</span>
+                  Activity Feed
+                </h2>
+                <p className="text-[10px] text-on-surface-variant mt-1 opacity-75">
+                  Logs since last refresh. May disappear on reload.
+                </p>
+              </div>
               <div className="flex flex-col gap-4 overflow-y-auto scroll-hide font-label-sm text-label-sm h-full">
                 {activityFeed.length === 0 ? (
                   <p className="text-on-surface-variant text-center mt-4">No activity yet.</p>
@@ -410,9 +400,33 @@ export default function BlitzRoomClient({
         </div>
       </main>
       
+      {/* Match Started Overlay Modal */}
+      {showMatchStartedModal && (
+        <div className="fixed bottom-gutter right-gutter z-50 problem-transition" style={{ bottom: '24px', right: '24px' }}>
+          <div className="bg-surface-container-highest border border-primary/30 rounded-xl p-6 shadow-2xl w-80 relative overflow-hidden cyber-glow mb-4">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-secondary"></div>
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-3xl">play_arrow</span>
+                <h3 className="font-headline-lg-mobile text-[24px] font-bold text-on-surface">Match Started!</h3>
+              </div>
+            </div>
+            <p className="font-body-md text-on-surface-variant mb-6">
+              The first problem has been revealed. Good luck!
+            </p>
+            <button 
+              onClick={() => setShowMatchStartedModal(false)}
+              className="w-full py-2 bg-primary-container hover:brightness-110 text-on-primary-container rounded-lg font-label-sm text-label-sm transition-colors font-bold"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Match Over Overlay Modal */}
       {matchState === 'completed' && (
-        <div className="fixed bottom-gutter right-gutter z-50 problem-transition">
+        <div className="fixed bottom-gutter right-gutter z-50 problem-transition" style={{ bottom: '24px', right: '24px' }}>
           <div className="bg-surface-container-highest border border-primary/30 rounded-xl p-6 shadow-2xl w-80 relative overflow-hidden cyber-glow">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-secondary"></div>
             <div className="flex items-start justify-between mb-4">

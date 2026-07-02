@@ -63,11 +63,24 @@ async function seed() {
       role: "Secretary",
       moduleRoles: [],
       emailVerified: true,
+      codeforces_handle: "ronits2407",
     };
     const createdDevUser = await User.findOneAndUpdate({ email: devUser.email }, devUser, {
       upsert: true,
       returnDocument: "after",
     });
+    
+    // Create corresponding CPUser document for dev user
+    await CPUser.findOneAndUpdate(
+      { userId: createdDevUser._id },
+      {
+        userId: createdDevUser._id,
+        cfHandle: devUser.codeforces_handle,
+        cfRating: 1500,
+        solvedProblems: [],
+      },
+      { upsert: true, returnDocument: "after" }
+    );
     console.log("✅ Seeded dev user:", devUser.email);
 
     // Seed 6 test users
