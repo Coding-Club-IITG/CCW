@@ -60,7 +60,7 @@ export default async function MatchRoomPage({
 
   if (room.status === "ended" || room.status === "completed") {
     const { redirect } = await import("next/navigation");
-    redirect(`/internal/contests/rooms/${roomId}/result${from ? \`?from=\${from}\` : ''}`);
+    redirect(`/internal/contests/rooms/${roomId}/result${from ? `?from=${from}` : ''}`);
   }
 
   const team = await ContestTeam.findOne({
@@ -101,7 +101,7 @@ export default async function MatchRoomPage({
         id: mId.toString(),
         name: u ? u.name : "Unknown Player",
         handle: cp?.cfHandle || u?.name || "Unknown",
-        avatar: u?.image || cp?.cfAvatar || \`https://ui-avatars.com/api/?name=\${encodeURIComponent(u?.name || "U")}&background=random\`
+        avatar: u?.image || cp?.cfAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u ? u.name : "Unknown")}&background=random`
       };
     })
   }));
@@ -109,9 +109,9 @@ export default async function MatchRoomPage({
   const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
   const redis = createClient({ url: REDIS_URL });
   await redis.connect();
-  const readyUserIds = await redis.sMembers(\`room:\${roomId}:ready_users\`);
+  const readyUserIds = await redis.sMembers(`room:${roomId}:ready_users`);
   
-  const stateObj = await redis.hGetAll(\`room:\${roomId}:state\`);
+  const stateObj = await redis.hGetAll(`room:${roomId}:state`);
   const status = (stateObj?.status as any) || room.status || "waiting";
   
   let initialProblems = [];
@@ -119,17 +119,17 @@ export default async function MatchRoomPage({
   let initialLocks: Record<string, string> = {};
   
   if (status === "active" || status === "completed") {
-    const problemsRaw = await redis.lRange(\`room:\${roomId}:problems\`, 0, -1);
+    const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
     initialProblems = problemsRaw.map(p => JSON.parse(p));
     
     for (const t of populatedTeams) {
-      const s = await redis.zScore(\`room:\${roomId}:scores\`, t._id);
+      const s = await redis.zScore(`room:${roomId}:scores`, t._id);
       initialScores[t._id] = s ? parseFloat(s.toString()) : 0;
     }
 
     const m = contest.mode || "blitz";
     if (m === "arena") {
-      initialLocks = await redis.hGetAll(\`room:\${roomId}:locks\`);
+      initialLocks = await redis.hGetAll(`room:${roomId}:locks`);
     }
   }
   

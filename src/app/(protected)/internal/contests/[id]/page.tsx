@@ -64,6 +64,10 @@ export default async function ContestRoomPage({
     }
   }
 
+  if (contest.format === "bracket" || contest.mode === "knockout") {
+    return <BracketRoomClient contest={contest} />;
+  }
+
   if (contest.mode === "blitz" || contest.mode === "arena") {
     if (!room || !teamId) {
       return (
@@ -168,10 +172,6 @@ export default async function ContestRoomPage({
         />
       );
     }
-  }
-
-  if (contest.format === "bracket" || contest.mode === "knockout") {
-    return <BracketRoomClient contest={contest} />;
   }
 
   // Other formats are not fully implemented yet

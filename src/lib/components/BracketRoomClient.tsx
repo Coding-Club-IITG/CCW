@@ -39,9 +39,15 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
     scrollRef.current.scrollTop = scrollTop - walkY;
   };
 
-  const openMatchDetails = (matchId: string) => {
+  const openMatchDetails = (e: React.MouseEvent, matchId: string) => {
+    e.stopPropagation();
     setSelectedMatch(matchId);
     setSidebarOpen(true);
+  };
+
+  const closeSidebar = () => {
+    setSelectedMatch(null);
+    setSidebarOpen(false);
   };
 
   return (
@@ -102,6 +108,7 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
             onMouseLeave={handleMouseLeave}
             onMouseUp={handleMouseUp}
             onMouseMove={handleMouseMove}
+            onClick={closeSidebar}
           >
             {/* Live Update Notice Mobile */}
             <div className="sm:hidden absolute top-4 right-4 flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant z-10 shadow-md">
@@ -127,7 +134,7 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
                 {/* Round 1 (Quarter Finals) */}
                 <div className="flex flex-col justify-around w-[280px] pr-8">
                   {/* Match 1 */}
-                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={() => openMatchDetails('m1')}>
+                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={(e) => openMatchDetails(e, 'm1')}>
                     <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
                       <span className="font-label-sm text-label-sm text-on-surface-variant">Match 1</span>
                       <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">Final</span>
@@ -151,7 +158,7 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
                   </div>
 
                   {/* Match 2 */}
-                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={() => openMatchDetails('m2')}>
+                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={(e) => openMatchDetails(e, 'm2')}>
                     <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
                       <span className="font-label-sm text-label-sm text-on-surface-variant">Match 2</span>
                       <span className="font-label-sm text-[10px] bg-surface-bright text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider">Live</span>
@@ -175,7 +182,7 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
                   </div>
 
                   {/* Match 3 */}
-                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={() => openMatchDetails('m3')}>
+                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={(e) => openMatchDetails(e, 'm3')}>
                     <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
                       <span className="font-label-sm text-label-sm text-on-surface-variant">Match 3</span>
                       <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">Final</span>
@@ -199,7 +206,7 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
                   </div>
 
                   {/* Match 4 */}
-                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={() => openMatchDetails('m4')}>
+                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer" onClick={(e) => openMatchDetails(e, 'm4')}>
                     <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
                       <span className="font-label-sm text-label-sm text-on-surface-variant">Match 4</span>
                       <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Upcoming</span>
@@ -226,7 +233,7 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
                 {/* Round 2 (Semi Finals) */}
                 <div className="flex flex-col justify-around w-[280px] pl-8 pr-8 ml-[80px]">
                   {/* Match 5 */}
-                  <div className="bg-surface-container border border-primary rounded-lg overflow-hidden shadow-[0_0_15px_rgba(46,125,50,0.2)] cursor-pointer" onClick={() => openMatchDetails('m5')}>
+                  <div className="bg-surface-container border border-primary rounded-lg overflow-hidden shadow-[0_0_15px_rgba(46,125,50,0.2)] cursor-pointer" onClick={(e) => openMatchDetails(e, 'm5')}>
                     <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
                       <span className="font-label-sm text-label-sm text-on-surface-variant">Semi-Final 1</span>
                       <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
@@ -251,7 +258,7 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
                   </div>
 
                   {/* Match 6 */}
-                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden opacity-60 hover:opacity-100 transition-opacity cursor-not-allowed">
+                  <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onClick={(e) => openMatchDetails(e, 'm6')}>
                     <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
                       <span className="font-label-sm text-label-sm text-on-surface-variant">Semi-Final 2</span>
                       <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Waiting</span>
@@ -302,13 +309,11 @@ export default function BracketRoomClient({ contest }: { contest: ContestListing
             </div>
           </div>
         </main>
-
-        {/* Sidebar Overlay */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity" onClick={() => setSidebarOpen(false)}></div>
-        )}
         
-        <aside className={`fixed top-0 right-0 h-full w-[400px] bg-surface-container-low border-l border-outline-variant z-[60] transition-transform duration-300 ease-in-out flex flex-col shadow-2xl ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <aside 
+          className="fixed top-0 right-0 h-full w-[400px] bg-surface-container-low border-l border-outline-variant z-[60] transition-transform duration-300 ease-in-out flex flex-col shadow-2xl"
+          style={{ transform: sidebarOpen ? 'translateX(0)' : 'translateX(100%)' }}
+        >
           <div className="flex items-center justify-between p-6 border-b border-outline-variant bg-surface-container-high">
             <div className="flex flex-col">
               <span className="font-label-sm text-xs text-primary tracking-widest uppercase">Match 1</span>
