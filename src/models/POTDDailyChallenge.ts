@@ -26,6 +26,10 @@ const DailyChallengeSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    streakPreserved: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );
