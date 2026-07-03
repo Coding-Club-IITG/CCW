@@ -58,11 +58,14 @@ export default async function PostMatchResultPage({
       score: t.score || 0,
       members: users.filter(u => t.members?.some((m: any) => m.toString() === u._id.toString())).map(u => {
         const cpUser = cpUsers.find(cp => cp.userId?.toString() === u._id.toString());
+        let avatarUrl = u.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "U")}&background=random`;
+        if (avatarUrl.startsWith("//")) avatarUrl = `https:${avatarUrl}`;
+        
         return {
           id: u._id.toString(),
           name: u.name || "Unknown User",
           handle: cpUser?.cfHandle || u.name || "Unknown User",
-          avatar: u.image || cpUser?.cfAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "U")}&background=random`
+          avatar: avatarUrl
         };
       })
     };
@@ -126,10 +129,13 @@ export default async function PostMatchResultPage({
     const mvpTeam = processedTeams.find(t => t.members.some(m => m.id === mvp));
     if (mvpUser && mvpTeam) {
       const cpUser = cpUsers.find(cp => cp.userId?.toString() === mvp);
+      let mvpAvatar = mvpUser.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(mvpUser.name || "U")}&background=random`;
+      if (mvpAvatar.startsWith("//")) mvpAvatar = `https:${mvpAvatar}`;
+      
       mvpDetails = {
         userId: mvpUser._id.toString(),
         name: cpUser?.cfHandle || mvpUser.name || "Unknown User",
-        avatar: mvpUser.image || cpUser?.cfAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(mvpUser.name || "U")}&background=random`,
+        avatar: mvpAvatar,
         teamName: mvpTeam.name,
         contribution: maxUserScore
       };
@@ -137,7 +143,15 @@ export default async function PostMatchResultPage({
   }
   
   let durationStr = "0m 0s";
-  if (contest.startTime && contest.endTime) {
+  if (room.startedAt && room.endedAt) {
+    const diffMs = new Date(room.endedAt).getTime() - new Date(room.startedAt).getTime();
+    if (diffMs > 0) {
+      const totalSeconds = Math.floor(diffMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      durationStr = `${minutes}m ${seconds}s`;
+    }
+  } else if (contest.startTime && contest.endTime) {
     const diffMs = new Date(contest.endTime).getTime() - new Date(contest.startTime).getTime();
     if (diffMs > 0) {
       const totalSeconds = Math.floor(diffMs / 1000);

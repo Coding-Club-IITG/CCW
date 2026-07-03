@@ -78,6 +78,10 @@ export const reconciliationWorker = new Worker(
 
     // Original reconciliation logic continues below
     const teams = await redis.sMembers(`room:${roomId}:teams`);
+    if (teams.length === 0) {
+      logger.info(`[reconciliationWorker] No teams found in Redis for room ${roomId}. Room likely already processed. Skipping.`);
+      return;
+    }
     let winnerId = null;
     let maxScore = -1;
     let minSolveTime = Infinity;
@@ -120,6 +124,7 @@ export const reconciliationWorker = new Worker(
     const room = await ContestRoom.findById(roomId);
     if (room) {
       room.status = "ended";
+      room.endedAt = new Date();
       // We don't have an explicit winner field in IContestRoom schema according to Stage 1, 
       // but if we do, we could set it. The prompt says: "Write final ContestRoom (scores, winner, endTime, trigger)."
       // Let's assume we update the team scores.

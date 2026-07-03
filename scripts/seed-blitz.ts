@@ -159,7 +159,8 @@ async function seed() {
 
     // Problems
     const problems = [
-      { problemId: "2236A", name: "Games on the Train", rating: 800, points: 100 }
+      { problemId: "2236A", name: "Games on the Train", rating: 800, points: 100 },
+      { problemId: "2232C1", name: "Seating arrangement easy version", rating: 800, points: 200 }
     ];
 
     // Push problems to Redis now (at registration close) so they exist when the match actually starts
