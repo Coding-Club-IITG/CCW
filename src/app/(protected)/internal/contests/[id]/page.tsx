@@ -118,6 +118,18 @@ export default async function ContestRoomPage({
     await redis.connect();
     const readyUserIds = await redis.sMembers(`room:${roomId}:ready_users`);
     
+    // Check online presence for all members
+    const initialOnlineUserIds = [userId];
+    for (const mId of allMemberIds) {
+      const idStr = mId.toString();
+      if (idStr !== userId) {
+        const isOnline = await redis.exists(`room:${roomId}:presence:${idStr}`);
+        if (isOnline) {
+          initialOnlineUserIds.push(idStr);
+        }
+      }
+    }
+    
     // Fetch current state from Redis
     const stateObj = await redis.hGetAll(`room:${roomId}:state`);
     const status = (stateObj?.status as any) || room.status || "waiting";
@@ -157,6 +169,7 @@ export default async function ContestRoomPage({
           cfHandle={cfHandle} 
           teams={populatedTeams} 
           initialReadyUserIds={readyUserIds}
+          initialOnlineUserIds={initialOnlineUserIds}
           initialMatchState={status}
           initialProblems={initialProblems}
           initialScores={initialScores}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import "@/styles/stitch.css";
+
 import { ContestListingItem } from "@/lib/actions/contests";
 
 export default function MatchHistoryClient({ history }: { history: ContestListingItem[] }) {

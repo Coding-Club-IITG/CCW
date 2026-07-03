@@ -2,38 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { registerForContest, type ContestListingItem } from "@/lib/actions/contests";
+import { type ContestListingItem } from "@/lib/actions/contests";
 import Link from "next/link";
-import "@/styles/stitch.css";
 
-function RegisterButton({ contestId, disabledOverride = false }: { contestId: string, disabledOverride?: boolean }) {
-  const [loading, setLoading] = useState(false);
+import CreateRoomModal from "./CreateRoomModal";
+import RegisterContestModal from "./RegisterContestModal";
 
-  const handleRegister = async () => {
-    setLoading(true);
-    try {
-      const res = await registerForContest(contestId);
-      if (!res.success) {
-        alert(res.message);
-      }
-    } catch (e) {
-      alert("An error occurred while registering.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
+function RegisterButton({ contestId, teamSize, onRegisterClick, disabledOverride = false }: { contestId: string, teamSize: number, onRegisterClick: (id: string, size: number) => void, disabledOverride?: boolean }) {
   return (
     <button 
-      onClick={handleRegister} 
-      disabled={loading || disabledOverride}
+      onClick={() => onRegisterClick(contestId, teamSize)} 
+      disabled={disabledOverride}
       className={`px-3 py-1.5 border rounded font-label-sm text-[13px] transition-all duration-200 flex items-center justify-center h-[32px] ${
         disabledOverride 
           ? "border-outline-variant text-outline-variant cursor-not-allowed bg-surface-variant/30 opacity-70" 
           : "border-primary/40 bg-primary/10 text-primary hover:bg-primary hover:border-primary hover:text-on-primary hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:opacity-50"
       }`}
     >
-      {loading ? "Registering..." : (disabledOverride ? "Closed" : "Register")}
+      {disabledOverride ? "Closed" : "Register"}
     </button>
   );
 }
@@ -88,6 +75,17 @@ export default function ContestListingClient({
 }) {
   const router = useRouter();
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [registerModalData, setRegisterModalData] = useState<{isOpen: boolean, contestId: string, teamSize: number, viewOnly: boolean}>({isOpen: false, contestId: "", teamSize: 1, viewOnly: false});
+  const handleRegisterClick = (id: string, size: number, viewOnly: boolean = false) => setRegisterModalData({isOpen: true, contestId: id, teamSize: size, viewOnly});
+
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
+
+  const isPastDeadline = (deadline?: Date | string | null) => {
+    if (!isMounted || !deadline) return false;
+    return new Date() > new Date(deadline);
+  };
 
   const [localActive, setLocalActive] = useState<ContestListingItem[]>(initialActive);
   const [localUpcoming, setLocalUpcoming] = useState<ContestListingItem[]>(initialUpcoming);
@@ -140,6 +138,16 @@ export default function ContestListingClient({
   const upcoming = localUpcoming.filter(filterByFormat);
   const completed = initialCompleted.filter(filterByFormat);
 
+  const getFormatDisplay = (format?: string) => {
+    switch(format) {
+      case "1v1": return "1v1 Match";
+      case "solo-tournament": return "Solo Tournament";
+      case "team-tournament": return "Team Tournament";
+      case "bracket": return "Knockout Bracket";
+      default: return format ? format.replace("-", " ") : "Standard";
+    }
+  };
+
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -155,44 +163,48 @@ export default function ContestListingClient({
         .hover-sharp-shadow:hover { box-shadow: 0px 0px 12px 1px rgba(136, 217, 130, 0.6) !important; }
       `}</style>
 
-      <div className="flex flex-col flex-1 overflow-hidden dark stitch-container w-full h-full min-h-[calc(100vh-64px)] bg-background">
-        {/* Main Content */}
+      <div className="flex flex-col flex-1 overflow-hidden dark stitch-container w-full h-full min-h-[calc(100vh-64px)] bg-background relative">
+        {showCreateModal && (
+          <CreateRoomModal isOpen={true} onClose={() => setShowCreateModal(false)} />
+        )}
         <main className="flex-1 overflow-y-auto p-margin-mobile md:p-margin-desktop w-full">
           <div className="max-w-container-max-width mx-auto">
             {/* Header & Filters */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
+            <div className="flex flex-col md:flex-row justify-between items-start mb-10 gap-6">
               <div className="flex items-center gap-4">
-                <h1 className="font-headline-lg text-headline-lg font-bold text-on-surface mb-2">Contests</h1>
-                <Link href="/internal/contests/schedule-test" className="flex items-center gap-2 px-3 py-1.5 bg-primary-container text-on-primary-container rounded-lg font-label-sm text-[12px] hover:brightness-110 transition-all mb-2">
-                  <span className="material-symbols-outlined text-[16px]">build</span>
-                  Schedule Dummy
-                </Link>
+                <h1 className="font-headline-lg text-headline-lg font-bold text-on-surface mb-2 mt-1">Contests</h1>
               </div>
-              <div className="flex flex-wrap gap-3">
-                <button 
-                  onClick={() => setFormatFilter("all")}
-                  className={formatFilter === "all" ? "px-4 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-full font-label-sm text-label-sm hover:border-primary transition-colors flex items-center gap-2" : "px-4 py-2 bg-surface border border-outline-variant text-on-surface-variant rounded-full font-label-sm text-label-sm hover:border-primary hover:text-on-surface transition-colors"}
-                >
-                  {formatFilter === "all" && <span className="material-symbols-outlined text-[18px]">filter_list</span>}
-                  All Formats
-                </button>
-                <button 
-                  onClick={() => setFormatFilter("blitz")}
-                  className={formatFilter === "blitz" ? "px-4 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-full font-label-sm text-label-sm hover:border-primary transition-colors flex items-center gap-2" : "px-4 py-2 bg-surface border border-outline-variant text-on-surface-variant rounded-full font-label-sm text-label-sm hover:border-primary hover:text-on-surface transition-colors"}
-                >
-                  Blitz
-                </button>
-                <button 
-                  onClick={() => setFormatFilter("arena")}
-                  className={formatFilter === "arena" ? "px-4 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-full font-label-sm text-label-sm hover:border-primary transition-colors flex items-center gap-2" : "px-4 py-2 bg-surface border border-outline-variant text-on-surface-variant rounded-full font-label-sm text-label-sm hover:border-primary hover:text-on-surface transition-colors"}
-                >
-                  Arena
-                </button>
-                <button 
-                  onClick={() => setFormatFilter("bracket")}
-                  className={formatFilter === "bracket" ? "px-4 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-full font-label-sm text-label-sm hover:border-primary transition-colors flex items-center gap-2" : "px-4 py-2 bg-surface border border-outline-variant text-on-surface-variant rounded-full font-label-sm text-label-sm hover:border-primary hover:text-on-surface transition-colors"}
-                >
-                  Knockout
+              <div className="flex flex-col items-start md:items-end gap-4 w-full md:w-auto">
+                <div className="flex flex-wrap gap-3">
+                  <button 
+                    onClick={() => setFormatFilter("all")}
+                    className={formatFilter === "all" ? "px-4 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-full font-label-sm text-label-sm hover:border-primary transition-colors flex items-center gap-2" : "px-4 py-2 bg-surface border border-outline-variant text-on-surface-variant rounded-full font-label-sm text-label-sm hover:border-primary hover:text-on-surface transition-colors"}
+                  >
+                    {formatFilter === "all" && <span className="material-symbols-outlined text-[18px]">filter_list</span>}
+                    All Formats
+                  </button>
+                  <button 
+                    onClick={() => setFormatFilter("blitz")}
+                    className={formatFilter === "blitz" ? "px-4 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-full font-label-sm text-label-sm hover:border-primary transition-colors flex items-center gap-2" : "px-4 py-2 bg-surface border border-outline-variant text-on-surface-variant rounded-full font-label-sm text-label-sm hover:border-primary hover:text-on-surface transition-colors"}
+                  >
+                    Blitz
+                  </button>
+                  <button 
+                    onClick={() => setFormatFilter("arena")}
+                    className={formatFilter === "arena" ? "px-4 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-full font-label-sm text-label-sm hover:border-primary transition-colors flex items-center gap-2" : "px-4 py-2 bg-surface border border-outline-variant text-on-surface-variant rounded-full font-label-sm text-label-sm hover:border-primary hover:text-on-surface transition-colors"}
+                  >
+                    Arena
+                  </button>
+                  <button 
+                    onClick={() => setFormatFilter("bracket")}
+                    className={formatFilter === "bracket" ? "px-4 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-full font-label-sm text-label-sm hover:border-primary transition-colors flex items-center gap-2" : "px-4 py-2 bg-surface border border-outline-variant text-on-surface-variant rounded-full font-label-sm text-label-sm hover:border-primary hover:text-on-surface transition-colors"}
+                  >
+                    Knockout
+                  </button>
+                </div>
+                <button onClick={() => setShowCreateModal(true)} className="px-4 py-1.5 bg-transparent border border-dashed border-primary text-primary rounded font-label-sm text-[13px] hover:bg-primary/10 transition-all flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  Create a room
                 </button>
               </div>
             </div>
@@ -209,11 +221,11 @@ export default function ContestListingClient({
                   {active.map(contest => (
                     <div key={contest._id} className="hover-sharp-shadow bg-surface-container border border-primary/30 rounded-xl p-6 relative overflow-hidden group hover:border-primary hover:-translate-y-1 transition-all duration-300">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10 group-hover:bg-primary/10 transition-colors"></div>
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <span className="inline-block px-2 py-1 bg-primary/10 text-primary font-label-sm text-[12px] rounded mb-2 capitalize">{contest.format === "bracket" ? "Knockout" : contest.mode === "arena" ? "Arena" : contest.mode === "blitz" ? "Blitz" : contest.format} Format</span>
-                          <h3 className="text-xl font-bold text-on-surface mb-1">{contest.name}</h3>
-                          <p className="text-on-surface-variant text-sm">{contest.description || "Div 1 & Div 2 Rated"}</p>
+                      <div className="flex justify-between items-start mb-4 gap-2">
+                        <div className="min-w-0">
+                          <span className="inline-block px-2 py-1 bg-primary/10 text-primary font-label-sm text-[12px] rounded mb-2 capitalize whitespace-nowrap">{contest.mode} Mode • {getFormatDisplay(contest.format)}</span>
+                          <h3 className="text-xl font-bold text-on-surface mb-1 truncate">{contest.name}</h3>
+                          <p className="text-on-surface-variant text-sm">{contest.description || "Competitive programming match"}</p>
                         </div>
                         <div className="text-right">
                           <CountdownTimer startTime={contest.startTime} durationSeconds={contest.durationSeconds} />
@@ -254,56 +266,83 @@ export default function ContestListingClient({
             {/* Upcoming Contests */}
             {upcoming.length > 0 && (
               <section className="mb-12">
-                <h2 className="text-2xl font-headline-lg font-semibold text-on-surface mb-6 border-b border-outline-variant pb-2">Upcoming</h2>
+                <div className="flex justify-between items-center mb-6 border-b border-outline-variant pb-2">
+                  <h2 className="text-2xl font-headline-lg font-semibold text-on-surface">Upcoming</h2>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Upcoming Card */}
                   {upcoming.map(contest => (
                     <div key={contest._id} className="hover-sharp-shadow bg-surface-container border border-outline-variant rounded-xl p-6 relative overflow-hidden group hover:border-primary/50 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
-                      <div className="flex justify-between items-start mb-4">
-                        <span className="inline-block px-2 py-1 bg-surface-variant text-on-surface-variant font-label-sm text-[12px] rounded capitalize">{contest.format === "bracket" ? "Knockout" : contest.mode === "arena" ? "Arena" : contest.mode === "blitz" ? "Blitz" : contest.format} Format</span>
-                        <span className="text-xs font-label-sm text-on-surface-variant bg-surface px-2 py-1 rounded border border-outline-variant">
+                      <div className="flex flex-wrap justify-between items-start mb-4 gap-2">
+                        <span className="inline-block px-2 py-1 bg-surface-variant text-on-surface-variant font-label-sm text-[12px] rounded capitalize whitespace-nowrap">{contest.mode} Mode • {getFormatDisplay(contest.format)}</span>
+                        <span className="text-xs font-label-sm text-on-surface-variant bg-surface px-2 py-1 rounded border border-outline-variant whitespace-nowrap">
                           {contest.startTime ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(contest.startTime)) : "TBD"}
                         </span>
                       </div>
                       <h3 className="text-lg font-bold text-on-surface mb-2">{contest.name}</h3>
-                      <p className="text-on-surface-variant text-sm mb-6 flex-grow">{contest.description || "A fast-paced contest focusing on critical algorithmic concepts."}</p>
-                      <div className="flex items-center justify-between mt-auto pt-4 border-t border-outline-variant/50 w-full gap-2">
-                        <div className="flex flex-col gap-1 min-w-0">
+                      <p className="text-on-surface-variant text-sm mb-6 flex-grow">{contest.description || "A competitive programming match focusing on algorithms and data structures."}</p>
+                      <div className="flex flex-wrap items-center justify-between mt-auto pt-4 border-t border-outline-variant/50 w-full gap-4">
+                        <div className="flex flex-col gap-1">
                           <span className="text-sm text-on-surface-variant flex items-center gap-1 whitespace-nowrap">
                             <span className="material-symbols-outlined text-[16px] shrink-0">group</span>
-                            <span className="truncate">{contest.participantsCount || 0} Registered</span>
+                            <span>{contest.participantsCount || 0} Registered</span>
                           </span>
                           {contest.registrationDeadline ? (
                             <span className="text-xs font-label-sm text-error/90 flex items-center gap-1 whitespace-nowrap">
                               <span className="material-symbols-outlined text-[14px] shrink-0">timer</span>
-                              <span className="truncate">Closes: {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(contest.registrationDeadline))}</span>
+                              <span>Closes: {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(contest.registrationDeadline))}</span>
                             </span>
                           ) : (
                             <span className="text-xs font-label-sm text-on-surface-variant flex items-center gap-1 whitespace-nowrap">
                               <span className="material-symbols-outlined text-[14px] shrink-0">timer_off</span>
-                              <span className="truncate">Deadline not specified</span>
+                              <span>Deadline not specified</span>
                             </span>
                           )}
                         </div>
 
                         {contest.isRegistered ? (
-                          (contest.registrationDeadline && new Date() > new Date(contest.registrationDeadline)) ? (
-                            <div className="px-3 py-1.5 border border-outline-variant/50 bg-surface-variant/30 text-primary/70 rounded font-label-sm text-[13px] flex items-center justify-center gap-1 transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]">
-                              <span className="material-symbols-outlined !text-[14px] leading-none" style={{ fontSize: '14px' }}>check_circle</span>
-                              Registered
+                          isPastDeadline(contest.registrationDeadline) ? (
+                            <div className="flex items-center gap-2 ml-auto">
+                              <div className="text-primary/70 font-medium text-sm font-label-sm flex items-center gap-1 shrink-0">
+                                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                <span className="hidden sm:inline">Registered</span>
+                              </div>
+                              <button 
+                                onClick={() => handleRegisterClick(contest._id, contest.teamSize || 1, true)} 
+                                className="px-3 py-1.5 border border-outline-variant/50 bg-surface-variant/30 text-primary/70 hover:bg-surface-variant hover:text-primary rounded font-label-sm text-[13px] transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]"
+                              >
+                                View Registrations
+                              </button>
                             </div>
                           ) : (
-                            <div className="px-3 py-1.5 border border-primary/40 bg-primary/10 text-primary rounded font-label-sm text-[13px] flex items-center justify-center gap-1 transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]">
-                              <span className="material-symbols-outlined !text-[14px] leading-none" style={{ fontSize: '14px' }}>check_circle</span>
-                              Registered
+                            <div className="flex items-center gap-2 ml-auto">
+                              <div className="text-primary font-medium text-sm font-label-sm flex items-center gap-1 shrink-0">
+                                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                <span className="hidden sm:inline">Registered</span>
+                              </div>
+                              <button 
+                                onClick={() => handleRegisterClick(contest._id, contest.teamSize || 1, true)} 
+                                className="px-3 py-1.5 border border-primary/40 bg-primary/10 text-primary hover:bg-primary hover:text-on-primary rounded font-label-sm text-[13px] transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]"
+                              >
+                                View / Modify
+                              </button>
                             </div>
                           )
                         ) : (
-                          <div className="shrink-0">
-                            <RegisterButton 
-                              contestId={contest._id} 
-                              disabledOverride={contest.registrationDeadline ? new Date() > new Date(contest.registrationDeadline) : false} 
-                            />
+                          <div className="shrink-0 ml-auto">
+                            {contest.registeredCount >= contest.maxParticipants ? (
+                              <div className="px-3 py-1.5 border border-outline-variant/50 bg-surface-variant/30 text-on-surface-variant/70 rounded font-label-sm text-[13px] flex items-center justify-center gap-1 transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]">
+                                <span className="material-symbols-outlined !text-[14px] leading-none" style={{ fontSize: '14px' }}>block</span>
+                                Full
+                              </div>
+                            ) : (
+                              <RegisterButton 
+                                contestId={contest._id} 
+                                teamSize={contest.teamSize || 1}
+                                onRegisterClick={handleRegisterClick}
+                                disabledOverride={isPastDeadline(contest.registrationDeadline)} 
+                              />
+                            )}
                           </div>
                         )}
                       </div>
@@ -345,7 +384,7 @@ export default function ContestListingClient({
                             <td className="p-4 text-on-surface-variant">
                               {contest.startTime ? new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit", year: "numeric" }).format(new Date(contest.startTime)) : "-"}
                             </td>
-                            <td className="p-4"><span className="px-2 py-1 bg-surface-variant text-on-surface-variant rounded text-xs font-label-sm capitalize">{contest.format === "bracket" ? "Knockout" : contest.mode === "arena" ? "Arena" : contest.mode === "blitz" ? "Blitz" : contest.format}</span></td>
+                            <td className="p-4"><span className="px-2 py-1 bg-surface-variant text-on-surface-variant rounded text-xs font-label-sm capitalize">{getFormatDisplay(contest.format)}</span></td>
                             <td className="p-4 text-on-surface-variant">{contest.participantsCount || 0}</td>
                           </tr>
                         ))}
@@ -361,10 +400,12 @@ export default function ContestListingClient({
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <span className="material-symbols-outlined text-[64px] text-on-surface-variant/50 mb-4">event_busy</span>
                 <h3 className="text-xl font-bold text-on-surface mb-2">No contests found</h3>
-                <p className="text-on-surface-variant">There are no contests matching your selected format.</p>
+                <p className="text-on-surface-variant mb-6">There are no contests matching your selected format.</p>
               </div>
             )}
           </div>
+          
+          <RegisterContestModal isOpen={registerModalData.isOpen} onClose={() => setRegisterModalData({...registerModalData, isOpen: false})} contestId={registerModalData.contestId} teamSize={registerModalData.teamSize} viewOnly={registerModalData.viewOnly} />
         </main>
       </div>
     </>

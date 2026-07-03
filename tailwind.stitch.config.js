@@ -6,7 +6,9 @@ module.exports = {
     "./src/lib/components/ArenaRoomClient.tsx",
     "./src/lib/components/BracketRoomClient.tsx",
     "./src/lib/components/MatchHistoryClient.tsx",
-    "./src/lib/components/PostMatchResultClient.tsx"
+    "./src/lib/components/PostMatchResultClient.tsx",
+    "./src/lib/components/CreateBlitzModal.tsx",
+    "./src/lib/components/RegisterContestModal.tsx"
   ],
   corePlugins: {
     preflight: false,

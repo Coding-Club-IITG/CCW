@@ -54,29 +54,7 @@ export default async function PostMatchResultPage({
   const users = await User.find({ _id: { $in: userIds } }).lean();
   const cpUsers = await CPUser.find({ userId: { $in: userIds } }).lean();
   
-  // 3. Process match data
-  const processedTeams = teams.map(t => {
-    return {
-      id: t._id.toString(),
-      name: t.name || "Unknown Team",
-      score: t.score || 0,
-      members: users.filter(u => t.members?.some((m: any) => m.toString() === u._id.toString())).map(u => {
-        const cpUser = cpUsers.find(cp => cp.userId?.toString() === u._id.toString());
-        let avatarUrl = u.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "U")}&background=random`;
-        if (avatarUrl.startsWith("//")) avatarUrl = `https:${avatarUrl}`;
-        
-        return {
-          id: u._id.toString(),
-          name: u.name || "Unknown User",
-          handle: cpUser?.cfHandle || u.name || "Unknown User",
-          avatar: avatarUrl
-        };
-      })
-    };
-  });
-  
-  processedTeams.sort((a, b) => b.score - a.score);
-
+  // 3. Process problems first to calculate user contributions
   let processedProblems: any[] = [];
   if (problemSet && problemSet.problems) {
     processedProblems = problemSet.problems.map((p: any) => {
@@ -86,15 +64,21 @@ export default async function PostMatchResultPage({
       
       let solverDetails = null;
       if (firstSub) {
-        const solverTeam = processedTeams.find(t => t.id === firstSub.teamId?.toString());
-        const solverUser = solverTeam?.members.find(m => m.id === firstSub.userId?.toString());
-        if (solverTeam && solverUser) {
+        const solverTeamId = firstSub.teamId?.toString();
+        const solverUserId = firstSub.userId?.toString();
+        const u = users.find(u => u._id.toString() === solverUserId);
+        const cp = cpUsers.find(cp => cp.userId?.toString() === solverUserId);
+        const t = teams.find(t => t._id.toString() === solverTeamId);
+        
+        if (t && u) {
+          let avatarUrl = u.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "U")}&background=random`;
+          if (avatarUrl.startsWith("//")) avatarUrl = `https:${avatarUrl}`;
           solverDetails = {
-            userId: solverUser.id,
-            userName: solverUser.handle || solverUser.name,
-            userAvatar: solverUser.avatar,
-            teamId: solverTeam.id,
-            teamName: solverTeam.name,
+            userId: u._id.toString(),
+            userName: cp?.cfHandle || u.name,
+            userAvatar: avatarUrl,
+            teamId: t._id.toString(),
+            teamName: t.name,
             solveMs: firstSub.solveMs || 0
           };
         }
@@ -111,13 +95,39 @@ export default async function PostMatchResultPage({
     });
   }
 
+  // 4. Calculate user scores
   const userScores: Record<string, number> = {};
   for (const prob of processedProblems) {
     if (prob.solved && prob.solver) {
       userScores[prob.solver.userId] = (userScores[prob.solver.userId] || 0) + prob.points;
     }
   }
+
+  // 5. Process teams with member contributions
+  const processedTeams = teams.map(t => {
+    return {
+      id: t._id.toString(),
+      name: t.name || "Unknown Team",
+      score: t.score || 0,
+      members: users.filter(u => t.members?.some((m: any) => m.toString() === u._id.toString())).map(u => {
+        const cpUser = cpUsers.find(cp => cp.userId?.toString() === u._id.toString());
+        let avatarUrl = u.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "U")}&background=random`;
+        if (avatarUrl.startsWith("//")) avatarUrl = `https:${avatarUrl}`;
+        
+        return {
+          id: u._id.toString(),
+          name: u.name || "Unknown User",
+          handle: cpUser?.cfHandle || u.name || "Unknown User",
+          avatar: avatarUrl,
+          contribution: userScores[u._id.toString()] || 0
+        };
+      })
+    };
+  });
   
+  processedTeams.sort((a, b) => b.score - a.score);
+
+  // 6. Unique MVP
   let mvp = null;
   let maxUserScore = 0;
   for (const [userId, score] of Object.entries(userScores)) {
@@ -174,6 +184,7 @@ export default async function PostMatchResultPage({
     mvp: mvpDetails,
     isKnockout: contest.format === "bracket",
     contestId: contest._id.toString(),
+    terminationReason: room.terminationReason,
   };
   
   return <PostMatchResultClient matchData={matchData} currentUserId={currentUserId} from={unwrappedSearch?.from} />;

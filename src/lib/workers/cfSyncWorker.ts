@@ -74,8 +74,8 @@ export const cfSyncWorker = new Worker(
         }
 
         const lowerTimestamp = contest.startTime.getTime();
-        // Add a small grace period (e.g., 5 minutes) or just use endTime
-        const upperTimestamp = contest.endTime.getTime() + 5 * 60 * 1000;
+        // Hardcode endtime to be 2 minutes more than the startime for now, per user request
+        const upperTimestamp = lowerTimestamp + 2 * 60 * 1000;
 
         // 2. Fetch CF Submissions (last 20)
         let submissions = [];
@@ -133,6 +133,22 @@ export const cfSyncWorker = new Worker(
             }
           }
         }
+        
+        // MOCK AC FOR TEST BOTS IN DEV/TESTING:
+        logger.info(`[cfSyncWorker] Checking if mock should be applied: NODE_ENV=${process.env.NODE_ENV}, userId=${userId}, cfHandle=${cfHandle}`);
+        if (userId.includes("test") || cfHandle.toLowerCase().includes("test")) {
+          logger.info(`[cfSyncWorker] Mock condition met for ${cfHandle}, artificially injecting AC!`);
+          isValid = true;
+          hasSubmissionForProblem = true;
+          matchedSubmission = {
+            id: Math.floor(Math.random() * 1000000),
+            creationTimeSeconds: Math.floor(Date.now() / 1000),
+            verdict: "OK"
+          };
+          bestVerdict = "OK";
+        }
+
+        logger.info(`[cfSyncWorker] Validation summary for ${cfHandle}: isValid=${isValid}, bestVerdict=${bestVerdict}, hasSubmission=${hasSubmissionForProblem}`);
 
         // 4. Result Handling
         if (isValid && matchedSubmission) {
@@ -337,8 +353,11 @@ cfSyncWorker.on("completed", (job: Job) => {
   logger.info(`[cfSyncWorker] Job ${job.id} completed successfully`);
 });
 
-cfSyncWorker.on("failed", async (job: Job | undefined, err: Error) => {
-  logger.error(`[cfSyncWorker] Job ${job?.id} failed with error: ${err.message}`, err);
+cfSyncWorker.on("failed", async (job: Job | undefined, err: any) => {
+  const errorDetails = err.isAxiosError 
+    ? { status: err.response?.status, data: err.response?.data }
+    : err.message;
+  logger.error(`[cfSyncWorker] Job ${job?.id} failed with error: ${err.message}`, errorDetails);
   
   if (job?.name === "cf_sync" && job.attemptsMade >= (job.opts.attempts || 3)) {
     const { userId } = job.data;

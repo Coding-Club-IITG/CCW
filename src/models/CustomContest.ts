@@ -2,7 +2,8 @@ import mongoose, { Schema, type Document } from "mongoose";
 
 export interface IProblemSlot {
   platform: string;
-  rating: number;
+  rating?: number;
+  problemId?: string;
 }
 
 export interface IRegistration {
@@ -30,12 +31,12 @@ export interface ICustomContest extends Document {
   startTime?: Date;
   endTime?: Date;
   durationSeconds?: number;
-  format: "1v1" | "solo-tournament" | "team-tournament" | "bracket" | "free-for-all";
+  format: "1v1" | "solo-tournament" | "team-tournament" | "bracket";
   mode: "blitz" | "arena";
   status: "draft" | "registration" | "active" | "completed";
   teamSize?: number;
   presetId?: mongoose.Types.ObjectId;
-  problemSelectionMode: "bulk" | "fine-tuned";
+  problemSelectionMode: "bulk" | "fine-tuned" | "test";
   // Mode A (Bulk)
   bulkPlatform?: string;
   bulkRatingMin?: number;
@@ -55,7 +56,8 @@ export interface ICustomContest extends Document {
 
 const ProblemSlotSchema = new Schema<IProblemSlot>({
   platform: { type: String, required: true },
-  rating: { type: Number, required: true },
+  rating: { type: Number },
+  problemId: { type: String },
 });
 
 const RegistrationSchema = new Schema<IRegistration>({
@@ -87,7 +89,7 @@ const CustomContestSchema = new Schema<ICustomContest>(
     format: {
       type: String,
       required: true,
-      enum: ["1v1", "solo-tournament", "team-tournament", "bracket", "free-for-all"],
+      enum: ["1v1", "solo-tournament", "team-tournament", "bracket"],
     },
     mode: {
       type: String,
@@ -109,7 +111,7 @@ const CustomContestSchema = new Schema<ICustomContest>(
     problemSelectionMode: {
       type: String,
       required: true,
-      enum: ["bulk", "fine-tuned"],
+      enum: ["bulk", "fine-tuned", "test"],
     },
     // Mode A
     bulkPlatform: { type: String },

@@ -19,6 +19,177 @@ export const reconciliationWorker = new Worker(
     const redis = await getRedis();
     await dbConnect();
 
+
+    // Handle checking contest start
+    if (job.name === "check_start" || trigger === "check_start") {
+      const contest = await CustomContest.findById(contestId);
+      if (!contest) return;
+
+      // Group registrations into teams
+      const teamsMap = new Map<string, string[]>();
+      const regs = contest.registrations || [];
+      for (const r of regs) {
+        const tName = r.teamName || r.cfHandle || r.userId.toString();
+        if (!teamsMap.has(tName)) {
+          teamsMap.set(tName, []);
+        }
+        teamsMap.get(tName)?.push(r.userId.toString());
+      }
+
+      // Determine required team size
+      const requiredTeamSize = contest.format === "team-tournament" ? (contest.teamSize || 3) : 1;
+
+      // Filter teams to only those that meet the exact required size
+      const validTeams = Array.from(teamsMap.entries()).filter(([name, members]) => members.length === requiredTeamSize);
+
+      if (validTeams.length < 2) {
+        logger.info(`[reconciliationWorker] Contest ${contestId} did not meet minimum registration requirements. Canceling.`);
+        await CustomContest.findByIdAndDelete(contestId);
+        
+        // Notify creator
+        const Notification = (await import("../../models/Notification")).default;
+        const CPUser = (await import("../../models/CPUser")).default;
+        const creator = await CPUser.findById(contest.creatorId);
+        if (creator && creator.userId) {
+          await Notification.create({
+            userId: creator.userId,
+            type: "announcement",
+            title: "Contest Cancelled",
+            message: `Your contest '${contest.name}' was cancelled due to insufficient registrations.`,
+            link: "/internal/contests"
+          });
+        }
+        return;
+      }
+
+      // Provision room
+      // Since room creation logic is in api/contests/rooms/route.ts, we'll replicate the core of it here 
+      // or HTTP POST to it if possible. Replicating the core logic is safer to avoid HTTP loopbacks.
+      const CFQuestion = (await import("../../models/CFQuestion")).default;
+      const CPUser = (await import("../../models/CPUser")).default;
+      const ContestProblemSet = (await import("../../models/ContestProblemSet")).default;
+      const ContestTeam = (await import("../../models/ContestTeam")).default;
+      const ContestRoom = (await import("../../models/ContestRoom")).default;
+
+      const problemCount = contest.bulkProblemCount || 3;
+      const minRating = contest.bulkRatingMin || 800;
+      const maxRating = contest.bulkRatingMax || 1200;
+
+      const allUserIds = validTeams.flatMap(t => t[1]);
+      const users = await CPUser.find({ userId: { $in: allUserIds } });
+      const solvedProblemIds = new Set<string>();
+      for (const user of users) {
+        if (user.solvedProblems) {
+          for (const sp of user.solvedProblems) {
+            solvedProblemIds.add(sp.problemId);
+          }
+        }
+      }
+
+      let availableProblems: any[] = [];
+      if (contest.problemSelectionMode === "test") {
+        availableProblems = [
+          { problemId: "4A", name: "Watermelon", rating: 800 },
+          { problemId: "1A", name: "Theatre Square", rating: 1000 },
+          { problemId: "158A", name: "Next Round", rating: 800 }
+        ].slice(0, problemCount || 2);
+      } else {
+        availableProblems = await CFQuestion.aggregate([
+          {
+            $match: {
+              rating: { $gte: minRating, $lte: maxRating },
+              problemId: { $nin: Array.from(solvedProblemIds) }
+            }
+          },
+          { $sample: { size: problemCount } }
+        ]);
+      }
+
+      if (availableProblems.length < problemCount) {
+        logger.warn(`[reconciliationWorker] Insufficient problems for contest ${contestId}. Creating anyway with fewer problems.`);
+      }
+
+      const room = new ContestRoom({
+        contestId: contest._id,
+        name: `Room for ${contest.name}`,
+        status: "waiting",
+        participants: allUserIds,
+        currentProblemIndex: 0,
+        firstSolvers: []
+      });
+
+      const problemSet = new ContestProblemSet({
+        contestId: contest._id,
+        roomId: room._id,
+        problems: availableProblems.map((p: any) => ({
+          platform: "codeforces",
+          problemId: p.problemId,
+          name: p.name,
+          rating: p.rating,
+          points: 100
+        }))
+      });
+
+      const teamSize = contest.teamSize || 1;
+      const createdTeams = [];
+      for (const t of validTeams) {
+        const team = new ContestTeam({
+          roomId: room._id,
+          name: t[0],
+          members: t[1],
+          teamSize,
+          score: 0
+        });
+        await team.save();
+        createdTeams.push(team);
+      }
+      room.teams = createdTeams.map((t: any) => t._id);
+
+      await room.save();
+      await problemSet.save();
+
+      const newRoomId = room._id.toString();
+
+      const redisProblems = availableProblems.map((p: any) => JSON.stringify({
+        problemId: p.problemId,
+        name: p.name,
+        rating: p.rating,
+        revealedAt: null
+      }));
+      await redis.del(`room:${newRoomId}:problems`);
+      if (redisProblems.length > 0) {
+        await redis.rPush(`room:${newRoomId}:problems`, redisProblems);
+      }
+
+      const stateObj: any = {
+        status: "waiting",
+        type: contest.mode || "blitz",
+        startTime: "",
+        timeLimit: (contest.durationSeconds || 3600).toString(),
+        contestId: contestId.toString(),
+        readyCount: 0
+      };
+      if (contest.mode !== "arena") {
+        stateObj.currentProblem = 0;
+      }
+      await redis.hSet(`room:${newRoomId}:state`, stateObj);
+      await redis.sAdd(`room:${newRoomId}:teams`, createdTeams.map((t: any) => t._id.toString()));
+
+      for (const t of createdTeams) {
+        const tId = t._id.toString();
+        await redis.hSet(`team:${tId}:meta`, { name: t.name, score: 0 });
+        await redis.sAdd(`team:${tId}:users`, t.members.map((m: any) => m.toString()));
+      }
+
+      await redis.sAdd(`contest:${contestId}:rooms`, newRoomId);
+
+      contest.status = "active";
+      await contest.save();
+
+      logger.info(`[reconciliationWorker] Successfully provisioned room ${newRoomId} for contest ${contestId}`);
+      return;
+    }
+
     // Handle team ready timeout
     if (job.name === "team_ready_timeout") {
       const state = await redis.hGetAll(`room:${roomId}:state`);
@@ -76,6 +247,43 @@ export const reconciliationWorker = new Worker(
       return;
     }
 
+    // Handle mid-match disconnect timeout
+    if (job.name === "mid_match_disconnect_timeout") {
+      const { userId: disconnectedUserId } = job.data;
+      
+      // Check if user is still offline
+      const presenceKey = `room:${roomId}:presence:${disconnectedUserId}`;
+      const isOnline = await redis.exists(presenceKey);
+      const state = await redis.hGetAll(`room:${roomId}:state`);
+      
+      if (!isOnline && state && state.status === "active") {
+        logger.info(`[reconciliationWorker] User ${disconnectedUserId} disconnected for too long in room ${roomId}. Forfeiting.`);
+        // Find which team this user belongs to
+        const allTeams = await redis.sMembers(`room:${roomId}:teams`);
+        let forfeitedTeamId = null;
+        for (const tId of allTeams) {
+          const isMember = await redis.sIsMember(`team:${tId}:users`, disconnectedUserId);
+          if (isMember) {
+            forfeitedTeamId = tId;
+            break;
+          }
+        }
+        
+        if (forfeitedTeamId) {
+          // Trigger a forfeit for this team, declare the other team the winner
+          trigger = "forfeit";
+          forfeitedUserId = disconnectedUserId;
+          // We will let the original reconciliation logic below handle the `trigger === "forfeit"` ending procedure
+        } else {
+          return;
+        }
+      } else {
+        // User came back online, or room is no longer active. Ignore.
+        logger.info(`[reconciliationWorker] mid_match_disconnect_timeout ignored for ${disconnectedUserId} (isOnline=${isOnline}, status=${state?.status})`);
+        return;
+      }
+    }
+
     // Original reconciliation logic continues below
     const teams = await redis.sMembers(`room:${roomId}:teams`);
     if (teams.length === 0) {
@@ -124,6 +332,9 @@ export const reconciliationWorker = new Worker(
     const room = await ContestRoom.findById(roomId);
     if (room) {
       room.status = "ended";
+      if (trigger === "forfeit") room.terminationReason = "disconnect";
+      else if (trigger === "timeout") room.terminationReason = "timeout";
+      
       // We don't have an explicit winner field in IContestRoom schema according to Stage 1, 
       // but if we do, we could set it. The prompt says: "Write final ContestRoom (scores, winner, endTime, trigger)."
       // Let's assume we update the team scores.
@@ -266,7 +477,8 @@ export const reconciliationWorker = new Worker(
       await publishRoom(roomId, {
         type: "room.end",
         finalScores: teamScores,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
+        reason: trigger === "forfeit" ? "disconnect" : "timeout"
       });
       await redis.hSet(`room:${roomId}:state`, { status: "completed" });
     }

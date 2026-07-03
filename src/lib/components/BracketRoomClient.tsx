@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ContestListingItem } from "@/lib/actions/contests";
-import "@/styles/stitch.css";
+
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { BracketSnapshot, BracketNode, getRoundName } from "@/types/bracket";
 import { useRouter } from "next/navigation";

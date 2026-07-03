@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ContestListingItem } from "@/lib/actions/contests";
-import "@/styles/stitch.css";
+
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
@@ -20,6 +20,7 @@ export default function BlitzRoomClient({
   cfHandle,
   teams,
   initialReadyUserIds = [],
+  initialOnlineUserIds = [],
   initialMatchState = "waiting",
   initialProblems = [],
   initialScores = {},
@@ -34,6 +35,7 @@ export default function BlitzRoomClient({
   cfHandle?: string;
   teams?: any[];
   initialReadyUserIds?: string[];
+  initialOnlineUserIds?: string[];
   initialMatchState?: "waiting" | "active" | "completed";
   initialProblems?: any[];
   initialScores?: Record<string, number>;
@@ -48,6 +50,7 @@ export default function BlitzRoomClient({
   const [currentProblemIndex, setCurrentProblemIndex] = useState(initialProblemIndex);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
   const [readyUserIds, setReadyUserIds] = useState<Set<string>>(new Set(initialReadyUserIds));
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set(initialOnlineUserIds || [userId])); // Track online users
   const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
   const [syncing, setSyncing] = useState(false);
   const [syncCooldown, setSyncCooldown] = useState(0);
@@ -84,7 +87,7 @@ export default function BlitzRoomClient({
   }, [initialMatchState, roomId, router]);
 
   useEffect(() => {
-    const eventSource = new EventSource("/api/events");
+    const eventSource = new EventSource(`/api/events?roomId=${roomId}`);
     
     eventSource.onmessage = (e) => {
       try {
@@ -164,13 +167,42 @@ export default function BlitzRoomClient({
           addActivity("error", `Sync failed: ${payload.reason || "Unknown error"}`, "Just now", "text-error");
         }
         break;
-      case "presence.online":
-        addActivity("person", `User connected.`, "Just now", "text-secondary");
+      case "presence.online": {
+        const uName = getMemberName(payload.userId);
+        setOnlineUserIds(prev => {
+          const newSet = new Set(prev);
+          newSet.add(payload.userId);
+          return newSet;
+        });
+        addActivity("person", `${uName} connected.`, "Just now", "text-secondary");
         break;
-      case "presence.offline":
-        addActivity("person_off", `User disconnected.`, "Just now", "text-error");
+      }
+      case "presence.offline": {
+        const uName = getMemberName(payload.userId);
+        setOnlineUserIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(payload.userId);
+          return newSet;
+        });
+        setReadyUserIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(payload.userId);
+          return newSet;
+        });
+        addActivity("person_off", `${uName} disconnected.`, "Just now", "text-error");
         break;
+      }
     }
+  };
+
+  const getMemberName = (uid: string) => {
+    if (!teams) return "Unknown";
+    for (const t of teams) {
+      for (const m of t.members) {
+        if (m.id === uid) return m.name;
+      }
+    }
+    return uid === userId ? "You" : "Unknown";
   };
 
   const addActivity = (icon: string, text: string, time: string, color: string = "text-on-surface") => {
@@ -287,16 +319,18 @@ export default function BlitzRoomClient({
                   </span>
                   {team.members.map((member: any) => {
                     const memberIsReady = readyUserIds.has(member.id);
-                    const borderColor = memberIsReady ? 'border-primary' : 'border-error';
-                    const bgColor = memberIsReady ? 'bg-primary/20' : 'bg-error/20';
-                    const iconColor = memberIsReady ? 'text-primary' : 'text-error';
+                    const memberIsOnline = onlineUserIds.has(member.id);
+                    
+                    const borderColor = memberIsReady ? 'border-primary' : (!memberIsOnline ? 'border-error' : 'border-transparent');
                     const dotColor = memberIsReady ? 'bg-primary' : 'bg-error';
 
                     return (
                       <div key={member.id} className={`flex items-center gap-3 p-2 rounded bg-surface-variant/30 hover:bg-surface-variant/50 transition-colors border-l-2 ${borderColor}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${bgColor}`}>
-                          <span className={`material-symbols-outlined text-xs ${iconColor}`}>person</span>
-                        </div>
+                        <img 
+                          src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "U")}&background=random`} 
+                          alt={member.name} 
+                          className={`w-6 h-6 rounded-full object-cover border ${memberIsOnline ? 'border-primary/50' : 'border-error/50 grayscale'}`} 
+                        />
                         <span className="font-label-sm text-sm text-on-surface flex-1">
                           {member.name} {member.id === userId && "(You)"}
                         </span>

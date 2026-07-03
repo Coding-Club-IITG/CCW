@@ -5,6 +5,7 @@ import dbConnect from "@/lib/mongodb";
 import ContestRoom from "@/models/ContestRoom";
 import { logger } from "@/lib/utils";
 import { publishRoom } from "@/lib/sse";
+import { reconciliationQueue } from "@/lib/bullmq";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const roomIdFromQuery = request.nextUrl.searchParams.get("roomId");
+  const roomIdFromQuery = request.nextUrl.searchParams.get("roomId") || request.nextUrl.searchParams.get("rooms");
   if (roomIdFromQuery && /^[0-9a-fA-F]{24}$/.test(roomIdFromQuery)) {
     const roomChannel = `events:room:${roomIdFromQuery}`;
     if (!channels.includes(roomChannel)) {
@@ -76,9 +77,12 @@ export async function GET(request: NextRequest) {
 
   let isClosed = false;
 
+  let intervalId: NodeJS.Timeout | null = null;
+
   const cleanup = async () => {
     if (isClosed) return;
     isClosed = true;
+    if (intervalId) clearInterval(intervalId);
 
     try {
       await subscriber.unsubscribe();
@@ -99,24 +103,45 @@ export async function GET(request: NextRequest) {
 
         // Publish offline status
         await publishRoom(roomId, { type: "presence.offline", userId });
+
+        // Queue a mid-match disconnect timeout for 10 minutes (600,000 ms)
+        await reconciliationQueue.add(
+          "mid_match_disconnect_timeout",
+          { roomId, userId, contestId: room.contestId.toString(), trigger: "disconnect" },
+          { delay: 600000, jobId: `disconnect-timeout-${roomId}-${userId}-${Date.now()}` }
+        );
       }
     } catch (err) {
       logger.error("[SSE] Error setting presence expiration:", err);
     }
   };
 
+  request.signal.addEventListener("abort", () => {
+    cleanup();
+  });
+
   const stream = new ReadableStream({
     async start(controller) {
       const sendEvent = (event: string, data: any) => {
         if (isClosed) return;
-        const formatted = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-        controller.enqueue(new TextEncoder().encode(formatted));
+        try {
+          const formatted = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          controller.enqueue(new TextEncoder().encode(formatted));
+        } catch (e) {
+          cleanup();
+        }
       };
+
+      intervalId = setInterval(() => {
+        sendEvent("ping", { time: Date.now() });
+      }, 15000);
 
       sendEvent("connected", {
         userId,
         subscribedChannels: channels,
       });
+
+      console.log(`[SSE] Client ${userId} connected. Subscribing to channels:`, channels);
 
       try {
         await subscriber.subscribe(channels, (message, channel) => {

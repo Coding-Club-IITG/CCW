@@ -16,6 +16,7 @@ export interface IContestRoom extends Document {
   currentProblemIndex: number;
   firstSolvers: IFirstSolver[];
   bracketPosition?: string | null;
+  terminationReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +44,7 @@ const ContestRoomSchema = new Schema<IContestRoom>(
     currentProblemIndex: { type: Number, required: true, default: 0 },
     firstSolvers: { type: [FirstSolverSchema], default: [] },
     bracketPosition: { type: String, default: null },
+    terminationReason: { type: String },
   },
   { timestamps: true }
 );
