@@ -145,7 +145,7 @@ export default async function ContestRoomPage({
           initialMatchState={status}
           initialProblems={initialProblems}
           initialScores={initialScores}
-          initialProblemIndex={room.currentProblemIndex || 0}
+          initialProblemIndex={stateObj?.currentProblem ? parseInt(stateObj.currentProblem) : (room.currentProblemIndex || 0)}
         />
       );
     } else if (contest.mode === "arena") {

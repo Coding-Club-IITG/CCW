@@ -63,15 +63,12 @@ export default function BlitzRoomClient({
   
   const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
 
-  // Auto-redirect to results page when match ends
+  // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
   useEffect(() => {
-    if (matchState === "completed") {
-      const timer = setTimeout(() => {
-        router.push(`/internal/contests/rooms/${roomId}/result`);
-      }, 3000);
-      return () => clearTimeout(timer);
+    if (initialMatchState === "completed") {
+      router.replace(`/internal/contests/rooms/${roomId}/result`);
     }
-  }, [matchState, roomId, router]);
+  }, [initialMatchState, roomId, router]);
 
   useEffect(() => {
     const eventSource = new EventSource("/api/events");
