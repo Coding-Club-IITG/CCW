@@ -55,6 +55,22 @@ export async function GET(request: NextRequest) {
     channels.push(`events:contest:${contestId}`);
   }
 
+  const contestIdFromQuery = request.nextUrl.searchParams.get("contestId");
+  if (contestIdFromQuery && /^[0-9a-fA-F]{24}$/.test(contestIdFromQuery)) {
+    const contestChannel = `events:contest:${contestIdFromQuery}`;
+    if (!channels.includes(contestChannel)) {
+      channels.push(contestChannel);
+    }
+  }
+
+  const roomIdFromQuery = request.nextUrl.searchParams.get("roomId");
+  if (roomIdFromQuery && /^[0-9a-fA-F]{24}$/.test(roomIdFromQuery)) {
+    const roomChannel = `events:room:${roomIdFromQuery}`;
+    if (!channels.includes(roomChannel)) {
+      channels.push(roomChannel);
+    }
+  }
+
   const subscriber = redis.duplicate();
   await subscriber.connect();
 

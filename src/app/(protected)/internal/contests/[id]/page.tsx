@@ -18,10 +18,10 @@ export default async function ContestRoomPage({
   searchParams
 }: { 
   params: Promise<{ id: string }>,
-  searchParams: Promise<{ from?: string }>
+  searchParams: Promise<{ from?: string; matchRoomId?: string }>
 }) {
   const { id } = await params;
-  const { from } = await searchParams;
+  const { from, matchRoomId } = await searchParams;
   const contest = await getContestById(id);
 
   if (!contest) {
@@ -39,11 +39,13 @@ export default async function ContestRoomPage({
   const userId = session.user.id;
   await dbConnect();
 
+  // If matchRoomId is specified (bracket "Enter Room"), load that specific room
+  const roomQuery = matchRoomId
+    ? { _id: matchRoomId, contestId: contest._id }
+    : { contestId: contest._id, participants: userId };
+
   // Find the active/waiting room for this user in this contest
-  const room = await ContestRoom.findOne({
-    contestId: contest._id,
-    participants: userId
-  }).lean();
+  const room = await ContestRoom.findOne(roomQuery).lean();
 
   let teamId = null;
   let roomId = null;
@@ -51,6 +53,11 @@ export default async function ContestRoomPage({
 
   if (room) {
     if (room.status === "ended" || room.status === "completed") {
+      // For bracket, ended rooms go back to bracket viewer
+      if (matchRoomId && (contest.format === "bracket" || contest.mode === "knockout")) {
+        const { redirect } = await import("next/navigation");
+        redirect(`/internal/contests/${id}`);
+      }
       const { redirect } = await import("next/navigation");
       redirect(`/internal/contests/rooms/${room._id.toString()}/result${from ? `?from=${from}` : ''}`);
     }
@@ -65,9 +72,10 @@ export default async function ContestRoomPage({
     }
   }
 
-  if (contest.format === "bracket" || contest.mode === "knockout") {
+  // Bracket format: show bracket viewer (unless entering a specific match room)
+  if ((contest.format === "bracket" || contest.mode === "knockout") && !matchRoomId) {
     const bracketSnapshot = await getBracketSnapshot(contest._id.toString());
-    return <BracketRoomClient contest={contest} initialSnapshot={bracketSnapshot} />;
+    return <BracketRoomClient contest={contest} initialSnapshot={bracketSnapshot} userId={userId} />;
   }
 
   if (contest.mode === "blitz" || contest.mode === "arena") {

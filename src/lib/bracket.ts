@@ -260,7 +260,11 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
   const contest = await CustomContest.findById(contestId);
   if (!contest || contest.format !== "bracket") return;
 
-  const currentRound = room.currentRoundId as unknown as { _id: string; roundNumber: number };
+  let currentRound = room.currentRoundId as any;
+  if (currentRound && typeof currentRound.roundNumber !== 'number') {
+    currentRound = await ContestRound.findById(currentRound);
+  }
+  
   if (!currentRound) return;
 
   const bracketPos = room.bracketPosition;
@@ -414,11 +418,13 @@ export async function getBracketSnapshot(contestId: string): Promise<BracketSnap
         room.teams.map((tId: ObjectId) => ContestTeam.findById(tId))
       );
       const teamIds: [string | null, string | null] = [null, null];
+      const teamNames: [string | null, string | null] = [null, null];
       const scores: [number, number] = [0, 0];
 
       for (let i = 0; i < Math.min(teams.length, 2); i++) {
         if (teams[i]) {
           teamIds[i] = toStr(teams[i]!._id);
+          teamNames[i] = teams[i]!.name || null;
           scores[i] = teams[i]!.score;
         }
       }
@@ -440,6 +446,7 @@ export async function getBracketSnapshot(contestId: string): Promise<BracketSnap
         roundNumber: round.roundNumber,
         matchIndex: rooms.indexOf(room),
         teams: teamIds,
+        teamNames,
         scores,
         status,
         winner,

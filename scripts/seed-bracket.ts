@@ -38,6 +38,30 @@ const ContestSchema = new mongoose.Schema({
 }, { strict: false });
 const CustomContest = mongoose.models.CustomContest || mongoose.model("CustomContest", ContestSchema, "custom_contests");
 
+const ContestRoomSchema = new mongoose.Schema({
+  contestId: mongoose.Schema.Types.ObjectId,
+  name: String,
+  status: String,
+  participants: Array,
+  teams: [mongoose.Schema.Types.ObjectId],
+  currentRoundId: mongoose.Schema.Types.ObjectId,
+  currentProblemIndex: Number,
+  firstSolvers: Array,
+  bracketPosition: String,
+}, { strict: false });
+const ContestRoom = mongoose.models.ContestRoom || mongoose.model("ContestRoom", ContestRoomSchema, "contest_rooms");
+
+const ContestTeamSchema = new mongoose.Schema({
+  roomId: mongoose.Schema.Types.ObjectId,
+  name: String,
+  members: [mongoose.Schema.Types.ObjectId],
+  teamSize: Number,
+  score: Number,
+  contestId: mongoose.Schema.Types.ObjectId,
+  roundId: mongoose.Schema.Types.ObjectId,
+}, { strict: false });
+const ContestTeam = mongoose.models.ContestTeam || mongoose.model("ContestTeam", ContestTeamSchema, "contest_teams");
+
 async function seed() {
   try {
     await mongoose.connect(MONGODB_URI!);
@@ -47,7 +71,10 @@ async function seed() {
     await redis.connect();
     console.log("✅ Connected to Redis");
 
-    // Upsert users
+    // Upsert users with realistic handles
+    const handles = ["AlexChen", "SarahJ", "DavidP", "MayaK", "RahulK", "JaneL", "TomC", "ronits2407"];
+    const ratings = [2100, 1900, 1800, 1750, 2000, 1650, 1500, 1850];
+
     const devUser = await User.findOneAndUpdate(
       { email: "k.sonawane@iitg.ac.in" },
       { name: "Coding Club IITG", email: "k.sonawane@iitg.ac.in", role: "Secretary" },
@@ -55,12 +82,12 @@ async function seed() {
     );
     await CPUser.findOneAndUpdate(
       { userId: devUser._id },
-      { userId: devUser._id, cfHandle: "dev_handle", cfRating: 2000 },
+      { userId: devUser._id, cfHandle: handles[0], cfRating: ratings[0] },
       { upsert: true }
     );
-    
-    const testUsers = [];
-    for (let i = 1; i <= 6; i++) {
+
+    const allUsers = [devUser];
+    for (let i = 1; i < 8; i++) {
       const u = await User.findOneAndUpdate(
         { email: `testuser${i}@test.com` },
         { name: `Test User ${i}`, email: `testuser${i}@test.com`, role: "Member" },
@@ -68,36 +95,36 @@ async function seed() {
       );
       await CPUser.findOneAndUpdate(
         { userId: u._id },
-        { userId: u._id, cfHandle: `test_handle_${i}`, cfRating: 1500 - (i * 100) },
+        { userId: u._id, cfHandle: handles[i], cfRating: ratings[i] },
         { upsert: true }
       );
-      testUsers.push(u);
+      allUsers.push(u);
     }
 
-    // We now have 7 users in total (devUser + 6 testUsers). 
-    // This will force exactly 1 bye (8 slots total)
+    console.log(`\n👥 Created ${allUsers.length} users: ${handles.join(', ')}`);
 
     const now = new Date();
     const waitSeconds = 5;
-    const registrationDeadline = new Date(now.getTime() + waitSeconds * 1000); 
-    const startTime = new Date(registrationDeadline.getTime() + 5 * 1000); 
+    const registrationDeadline = new Date(now.getTime() + waitSeconds * 1000);
+    const startTime = new Date(registrationDeadline.getTime());
+    const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
 
-    const registrations = [devUser, ...testUsers].map(u => ({
+    const registrations = allUsers.map((u, i) => ({
       userId: u._id,
-      cfHandle: u.email === "k.sonawane@iitg.ac.in" ? "dev_handle" : `test_handle_${testUsers.indexOf(u)+1}`,
-      teamName: u.name,
-      registeredAt: now
+      cfHandle: handles[i],
+      teamName: handles[i],
+      registeredAt: new Date(now.getTime() - 1000)
     }));
 
     const contest = await CustomContest.create({
-      name: "Grand Knockout Championship",
-      description: "A 7-player bracket testing null rooms",
+      name: "Winter Code Fest '26",
+      description: "An 8-player bracket with mixed match states",
       creatorId: devUser._id,
-      startTime: startTime,
-      endTime: new Date(startTime.getTime() + 60 * 60 * 1000), // 1 hour
+      startTime,
+      endTime,
       format: "bracket",
-      mode: "arena", // doesn't matter for the bracket generation, but useful
-      status: "registration", 
+      mode: "arena",
+      status: "registration", // Registration phase
       teamSize: 1,
       problemSelectionMode: "bulk",
       registrationSettings: {
@@ -105,37 +132,128 @@ async function seed() {
         deadline: registrationDeadline,
         maxParticipants: 100,
       },
-      registrations: registrations
+      registrations,
     });
 
-    console.log(`\n⏳ Knockout Tournament created! ID: ${contest._id}`);
-    console.log(`Waiting ${waitSeconds} seconds to simulate registration closing...`);
+    console.log(`\n🏆 Contest created: ${contest._id}`);
+    console.log(`⏳ Waiting ${waitSeconds} seconds to simulate registration period...`);
     
+    // Simulate Worker Wait (Wait for registration to close)
     await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000));
-    
-    console.log(`\n⚙️  Worker activated! Registration deadline passed.`);
-    console.log(`Generating Bracket...`);
-    
+    console.log(`\n⚙️  Worker activated! Registration deadline passed. Starting contest and generating bracket...`);
+
+    // Worker logic: update contest status to active
     await CustomContest.updateOne({ _id: contest._id }, { $set: { status: "active" } });
-    
-    const { generateBracket } = await import("../src/lib/bracket");
+
+    // Generate bracket manually for full control over states
+    const { generateBracket, getBracketSnapshot } = await import("../src/lib/bracket");
     const snapshot = await generateBracket(contest._id.toString());
 
-    console.log(`\n🔍 [DEBUG] Backend Bracket Snapshot Generated`);
-    console.log(`- Total Rounds: ${snapshot.totalRounds}`);
-    console.log(`- Total Nodes: ${snapshot.nodes.length}`);
-    console.log(`\n🔍 [DEBUG] Initial Match States (Round 1):`);
-    snapshot.nodes.filter((n: any) => n.roundNumber === 1).forEach((node: any) => {
-      console.log(`Room: ${node.roomId} | Teams: ${node.teams.join(' vs ')} | Status: ${node.status}`);
+    // Now manually update rooms to create mixed states:
+    // Round 1 has 4 matches → make Match 1 = COMPLETED (AlexChen wins), Match 2 = ACTIVE (live), Match 3 = COMPLETED, Match 4 = UPCOMING
+    const round1Rooms = await ContestRoom.find({
+      contestId: contest._id,
+      bracketPosition: { $regex: /^0-/ }
+    }).sort({ bracketPosition: 1 });
+
+    console.log(`📦 Round 1 rooms: ${round1Rooms.length}`);
+
+    // Match 1 (0-0): COMPLETED — team 0 wins with 300, team 1 has 150
+    if (round1Rooms[0]) {
+      const room = round1Rooms[0];
+      const teams = await ContestTeam.find({ _id: { $in: room.teams } });
+      if (teams.length >= 2) {
+        await ContestTeam.findByIdAndUpdate(teams[0]._id, { score: 300 });
+        await ContestTeam.findByIdAndUpdate(teams[1]._id, { score: 150 });
+        await ContestRoom.findByIdAndUpdate(room._id, { status: "ended" });
+        console.log(`  ✅ Match 1: ${teams[0].name} (300) beats ${teams[1].name} (150) — COMPLETED`);
+      }
+    }
+
+    // Match 2 (0-1): ACTIVE — both teams have live scores
+    if (round1Rooms[1]) {
+      const room = round1Rooms[1];
+      const teams = await ContestTeam.find({ _id: { $in: room.teams } });
+      if (teams.length >= 2) {
+        await ContestTeam.findByIdAndUpdate(teams[0]._id, { score: 120 });
+        await ContestTeam.findByIdAndUpdate(teams[1]._id, { score: 95 });
+        await ContestRoom.findByIdAndUpdate(room._id, { status: "active" });
+        console.log(`  🔴 Match 2: ${teams[0].name} (120) vs ${teams[1].name} (95) — ACTIVE/LIVE`);
+      }
+    }
+
+    // Match 3 (0-2): COMPLETED — team wins with 450 vs 400
+    if (round1Rooms[2]) {
+      const room = round1Rooms[2];
+      const teams = await ContestTeam.find({ _id: { $in: room.teams } });
+      if (teams.length >= 2) {
+        await ContestTeam.findByIdAndUpdate(teams[0]._id, { score: 450 });
+        await ContestTeam.findByIdAndUpdate(teams[1]._id, { score: 400 });
+        await ContestRoom.findByIdAndUpdate(room._id, { status: "ended" });
+        console.log(`  ✅ Match 3: ${teams[0].name} (450) beats ${teams[1].name} (400) — COMPLETED`);
+      }
+    }
+
+    // Match 4 (0-3): WAITING (upcoming) — no scores yet
+    if (round1Rooms[3]) {
+      const room = round1Rooms[3];
+      const teams = await ContestTeam.find({ _id: { $in: room.teams } });
+      if (teams.length >= 2) {
+        console.log(`  ⏳ Match 4: ${teams[0].name} vs ${teams[1].name} — UPCOMING`);
+      }
+    }
+
+    // Get and advance winners for completed matches into semis
+    // Match 1 winner → Semi 1
+    if (round1Rooms[0]) {
+      const teams = await ContestTeam.find({ _id: { $in: round1Rooms[0].teams } });
+      if (teams[0]) {
+        const { advanceWinner } = await import("../src/lib/bracket");
+        await advanceWinner(round1Rooms[0]._id.toString(), contest._id.toString(), teams[0]._id.toString());
+        console.log(`  ➡️  Advanced ${teams[0].name} to Semi-Final 1`);
+      }
+    }
+
+    // Match 3 winner → Semi 2
+    if (round1Rooms[2]) {
+      const teams = await ContestTeam.find({ _id: { $in: round1Rooms[2].teams } });
+      if (teams[0]) {
+        const { advanceWinner } = await import("../src/lib/bracket");
+        await advanceWinner(round1Rooms[2]._id.toString(), contest._id.toString(), teams[0]._id.toString());
+        console.log(`  ➡️  Advanced ${teams[0].name} to Semi-Final 2`);
+      }
+    }
+
+    // Make Semi-Final 1 ACTIVE (it has AlexChen advanced + waiting for Match 2 winner)
+    const semi1Rooms = await ContestRoom.find({
+      contestId: contest._id,
+      bracketPosition: "1-0"
     });
-    console.log(`\n🔍 [DEBUG] Future Matches (Round 2+):`);
-    snapshot.nodes.filter((n: any) => n.roundNumber > 1).forEach((node: any) => {
-      console.log(`Round ${node.roundNumber} - Room: ${node.roomId} | Status: ${node.status}`);
+    if (semi1Rooms[0]) {
+      const semiTeams = await ContestTeam.find({ _id: { $in: semi1Rooms[0].teams } });
+      if (semiTeams.length >= 1) {
+        await ContestTeam.findByIdAndUpdate(semiTeams[0]._id, { score: 210 });
+      }
+      console.log(`  🔴 Semi-Final 1: ${semiTeams[0]?.name || 'TBD'} (210) vs TBD — ACTIVE`);
+    }
+
+    // Refresh the snapshot and publish
+    const finalSnapshot = await getBracketSnapshot(contest._id.toString());
+
+    console.log(`\n🔍 [DEBUG] Final Bracket Snapshot:`);
+    console.log(`  Total Rounds: ${finalSnapshot.totalRounds}`);
+    console.log(`  Total Nodes: ${finalSnapshot.nodes.length}`);
+    console.log(`  Current Round: ${finalSnapshot.currentRound}`);
+    console.log(`\n🔍 [DEBUG] All Match States:`);
+    finalSnapshot.nodes.forEach((node: any) => {
+      const t1 = node.teamNames?.[0] || 'TBD';
+      const t2 = node.teamNames?.[1] || 'TBD';
+      console.log(`  Round ${node.roundNumber} Match ${node.matchIndex + 1}: ${t1} (${node.scores[0]}) vs ${t2} (${node.scores[1]}) | Status: ${node.status} | Winner: ${node.winner || 'none'}`);
     });
 
     console.log(`\n✨ Bracket Seed completed successfully!`);
     console.log(`🔗 Go to: /internal/contests/${contest._id}`);
-    
+
     await mongoose.disconnect();
     await redis.disconnect();
   } catch (error) {

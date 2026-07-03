@@ -5,6 +5,7 @@ export type BracketNode = {
   roundNumber: number;
   matchIndex: number;
   teams: [string | null, string | null];
+  teamNames: [string | null, string | null];
   scores: [number, number];
   status: "pending" | "active" | "completed" | "bye";
   winner: string | null;
