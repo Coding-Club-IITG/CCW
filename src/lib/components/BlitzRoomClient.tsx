@@ -58,6 +58,17 @@ export default function BlitzRoomClient({
       return () => clearInterval(timer);
     }
   }, [syncCooldown]);
+
+  useEffect(() => {
+    const lastSyncStr = localStorage.getItem(`sync_${roomId}_${userId}`);
+    if (lastSyncStr) {
+      const lastSync = parseInt(lastSyncStr, 10);
+      const elapsed = (Date.now() - lastSync) / 1000;
+      if (elapsed < 60 && elapsed > 0) {
+        setSyncCooldown(Math.ceil(60 - elapsed));
+      }
+    }
+  }, [roomId, userId]);
   
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
   
@@ -187,6 +198,8 @@ export default function BlitzRoomClient({
     });
     
     setSyncCooldown(60); // Apply frontend cooldown directly
+    localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
+    
     if (!res.ok) {
       // If it failed immediately (e.g. 429), turn off syncing spinner since SSE won't fire
       setSyncing(false);

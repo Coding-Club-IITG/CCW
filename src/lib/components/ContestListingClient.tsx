@@ -89,14 +89,55 @@ export default function ContestListingClient({
   const router = useRouter();
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
 
+  const [localActive, setLocalActive] = useState<ContestListingItem[]>(initialActive);
+  const [localUpcoming, setLocalUpcoming] = useState<ContestListingItem[]>(initialUpcoming);
+
+  useEffect(() => {
+    setLocalActive(initialActive);
+    setLocalUpcoming(initialUpcoming);
+  }, [initialActive, initialUpcoming]);
+
+  useEffect(() => {
+    if (localUpcoming.length === 0) return;
+    
+    const timer = setInterval(() => {
+      const now = Date.now();
+      
+      setLocalUpcoming(prevUpcoming => {
+        const transferring = prevUpcoming.filter(c => c.startTime && new Date(c.startTime).getTime() <= now);
+        if (transferring.length > 0) {
+          // Safe to call another state setter here because we are in an effect callback,
+          // BUT React 18 strict mode might execute updaters twice. 
+          // To be safe, we schedule it out of the pure function using setTimeout
+          setTimeout(() => {
+            setLocalActive(prevActive => {
+              const newActive = [...transferring];
+              for (const item of prevActive) {
+                if (!newActive.some(x => x._id === item._id)) {
+                  newActive.push(item);
+                }
+              }
+              return newActive;
+            });
+          }, 0);
+          
+          return prevUpcoming.filter(c => !transferring.some(t => t._id === c._id));
+        }
+        return prevUpcoming;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [localUpcoming.length]);
+
   const filterByFormat = (contest: ContestListingItem) => {
     if (formatFilter === "all") return true;
     if (formatFilter === "bracket") return contest.format === "bracket";
     return contest.mode === formatFilter && contest.format !== "bracket";
   };
 
-  const active = initialActive.filter(filterByFormat);
-  const upcoming = initialUpcoming.filter(filterByFormat);
+  const active = localActive.filter(filterByFormat);
+  const upcoming = localUpcoming.filter(filterByFormat);
   const completed = initialCompleted.filter(filterByFormat);
 
   return (

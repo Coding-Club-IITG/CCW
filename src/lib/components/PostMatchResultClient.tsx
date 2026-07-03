@@ -42,10 +42,12 @@ export type MatchData = {
   isKnockout: boolean;
 };
 
-export default function PostMatchResultClient({ matchData, from }: { matchData: MatchData; from?: string }) {
+export default function PostMatchResultClient({ matchData, currentUserId, from }: { matchData: MatchData; currentUserId?: string; from?: string }) {
   const isFromListing = from === "listing";
   const backHref = isFromListing ? "/internal/contests" : "/internal/contests/history";
   const backText = isFromListing ? "Back to Contest Listing" : "Back to Match History";
+  
+  const currentUserTeam = matchData.teams.find(t => t.members.some(m => m.id === currentUserId));
 
   return (
     <>
@@ -196,34 +198,34 @@ export default function PostMatchResultClient({ matchData, from }: { matchData: 
                   </thead>
                   <tbody className="divide-y divide-outline-variant/50">
                     {matchData.problems.length > 0 ? matchData.problems.map((prob) => {
-                      let isWinnerTeam = false;
-                      if (prob.solved && matchData.teams.length > 0) {
-                        isWinnerTeam = prob.solver?.teamId === matchData.teams[0].id;
+                      let isUserTeam = false;
+                      if (prob.solved && currentUserTeam) {
+                        isUserTeam = prob.solver?.teamId === currentUserTeam.id;
                       }
 
                       return (
                         <tr key={prob.id} className={`transition-colors ${prob.solved ? 'hover:bg-surface-container-high/50' : 'opacity-60 hover:opacity-80'}`}>
                           <td className="p-[16px]">
                             <div className="flex items-center gap-3">
-                              <div className={`w-2 h-8 rounded-full ${prob.solved ? (isWinnerTeam ? 'bg-primary' : 'bg-error opacity-70') : 'bg-outline-variant'}`}></div>
+                              <div className={`w-2 h-8 rounded-full ${prob.solved ? (isUserTeam ? 'bg-primary' : 'bg-error opacity-70') : 'bg-outline-variant'}`}></div>
                               <div>
                                 <div className={`font-body-md text-body-md font-bold text-on-surface ${!prob.solved ? 'line-through decoration-outline-variant' : ''}`}>{prob.name}</div>
-                                <div className={`font-label-sm text-label-sm flex items-center gap-1 mt-1 ${prob.solved ? (isWinnerTeam ? 'text-primary' : 'text-error') : 'text-on-surface-variant'}`}>
+                                <div className={`font-label-sm text-label-sm flex items-center gap-1 mt-1 ${prob.solved ? (isUserTeam ? 'text-primary' : 'text-error') : 'text-on-surface-variant'}`}>
                                   <span className="material-symbols-outlined text-[14px]">
-                                    {prob.solved ? 'check_circle' : 'lock'}
+                                    {prob.solved ? (isUserTeam ? 'check_circle' : 'cancel') : 'lock'}
                                   </span>
-                                  {prob.solved ? 'Solved' : (matchData.roomType.includes("Arena") ? 'Locked' : 'Unsolved')}
+                                  {prob.solved ? `Solved by ${prob.solver?.teamName}` : 'Unsolved'}
                                 </div>
                               </div>
                             </div>
                           </td>
-                          <td className={`p-[16px] font-label-sm text-label-sm ${prob.solved ? (isWinnerTeam ? 'text-secondary' : 'text-error') : 'text-on-surface-variant'}`}>
+                          <td className={`p-[16px] font-label-sm text-label-sm ${prob.solved ? (isUserTeam ? 'text-secondary' : 'text-error') : 'text-on-surface-variant'}`}>
                             {prob.rating || '--'}
                           </td>
                           <td className="p-[16px]">
                             {prob.solved && prob.solver ? (
                               <div className="flex items-center gap-2">
-                                <img alt={prob.solver.userName} className={`w-6 h-6 rounded-full object-cover border ${isWinnerTeam ? 'border-primary' : 'border-error grayscale'}`} src={prob.solver.userAvatar}/>
+                                <img alt={prob.solver.userName} className={`w-6 h-6 rounded-full object-cover border ${isUserTeam ? 'border-primary' : 'border-error grayscale'}`} src={prob.solver.userAvatar}/>
                                 <span className="font-body-md text-body-md text-on-surface">{prob.solver.userName}</span>
                               </div>
                             ) : (

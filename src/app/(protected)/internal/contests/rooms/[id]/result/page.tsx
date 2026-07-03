@@ -7,6 +7,8 @@ import ContestTeam from "@/models/ContestTeam";
 import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestSubmission from "@/models/ContestSubmission";
 import CPUser from "@/models/CPUser";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export default async function PostMatchResultPage({ 
   params,
@@ -17,6 +19,8 @@ export default async function PostMatchResultPage({
 }) {
   const unwrappedParams = await params;
   const unwrappedSearch = await searchParams;
+  const session = await auth.api.getSession({ headers: await headers() });
+  const currentUserId = session?.user?.id || "";
   
   await dbConnect();
   const roomId = unwrappedParams.id;
@@ -143,15 +147,7 @@ export default async function PostMatchResultPage({
   }
   
   let durationStr = "0m 0s";
-  if (room.startedAt && room.endedAt) {
-    const diffMs = new Date(room.endedAt).getTime() - new Date(room.startedAt).getTime();
-    if (diffMs > 0) {
-      const totalSeconds = Math.floor(diffMs / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      durationStr = `${minutes}m ${seconds}s`;
-    }
-  } else if (contest.startTime && contest.endTime) {
+  if (contest.startTime && contest.endTime) {
     const diffMs = new Date(contest.endTime).getTime() - new Date(contest.startTime).getTime();
     if (diffMs > 0) {
       const totalSeconds = Math.floor(diffMs / 1000);
@@ -171,7 +167,7 @@ export default async function PostMatchResultPage({
 
   const matchData = {
     roomId: roomId,
-    roomType: contest.roomFormat === "arena" ? "Arena Format" : "Blitz Format",
+    roomType: contest.mode === "arena" ? "Arena Format" : "Blitz Format",
     duration: durationStr,
     teams: processedTeams,
     problems: processedProblems,
@@ -179,5 +175,5 @@ export default async function PostMatchResultPage({
     isKnockout: contest.format === "bracket",
   };
   
-  return <PostMatchResultClient matchData={matchData} from={unwrappedSearch?.from} />;
+  return <PostMatchResultClient matchData={matchData} currentUserId={currentUserId} from={unwrappedSearch?.from} />;
 }

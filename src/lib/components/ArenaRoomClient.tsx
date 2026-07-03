@@ -67,6 +67,24 @@ export default function ArenaRoomClient({
   }, [syncCooldown]);
 
   useEffect(() => {
+    const lastSyncStr = localStorage.getItem(`sync_${roomId}_${userId}`);
+    if (lastSyncStr) {
+      const lastSync = parseInt(lastSyncStr, 10);
+      const elapsed = (Date.now() - lastSync) / 1000;
+      if (elapsed < 60 && elapsed > 0) {
+        setSyncCooldown(Math.ceil(60 - elapsed));
+      }
+    }
+  }, [roomId, userId]);
+
+  // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
+  useEffect(() => {
+    if (initialMatchState === "completed" || initialMatchState === "ended") {
+      router.replace(`/internal/contests/rooms/${roomId}/result`);
+    }
+  }, [initialMatchState, roomId, router]);
+
+  useEffect(() => {
     if (matchState !== "active" || !startTime || !timeLimit) {
       if (matchState === "completed") {
         setTimeLeft("00:00");
@@ -94,6 +112,11 @@ export default function ArenaRoomClient({
     return () => clearInterval(interval);
   }, [matchState, startTime, timeLimit]);
 
+  const stateRef = useRef({ locks, problems, teams, userId });
+  useEffect(() => {
+    stateRef.current = { locks, problems, teams, userId };
+  }, [locks, problems, teams, userId]);
+
   useEffect(() => {
     const eventSource = new EventSource(`/api/events?roomId=${roomId}`);
     
@@ -107,7 +130,7 @@ export default function ArenaRoomClient({
     };
 
     return () => eventSource.close();
-  }, [roomId, teams, problems, locks]); // Added dependencies to ensure closures have latest state
+  }, [roomId]); // Removed dynamic dependencies to prevent SSE disconnections
 
   const handleEvent = (payload: EventPayload) => {
     switch (payload.type) {
@@ -123,9 +146,9 @@ export default function ArenaRoomClient({
         }
         break;
       case "room.locked": {
-        const existingLock = locks[payload.problemId];
-        const tName = teams?.find(t => t._id === payload.claimedBy)?.name || "Unknown Team";
-        const pName = problems.find(p => p.problemId === payload.problemId)?.name || payload.problemId;
+        const existingLock = stateRef.current.locks[payload.problemId];
+        const tName = stateRef.current.teams?.find(t => t._id === payload.claimedBy)?.name || "Unknown Team";
+        const pName = stateRef.current.problems.find(p => p.problemId === payload.problemId)?.name || payload.problemId;
         
         if (existingLock && existingLock.split('|')[0] !== payload.claimedBy) {
            addActivity("gavel", `CRITICAL: ${tName} RECLAIMED ${pName}!`, "Just now", "text-error");
@@ -171,7 +194,7 @@ export default function ArenaRoomClient({
           newSet.add(payload.userId);
           return newSet;
         });
-        if (payload.userId === userId) {
+        if (payload.userId === stateRef.current.userId) {
           setIsReady(true);
         }
         break;
@@ -205,10 +228,13 @@ export default function ArenaRoomClient({
       body: JSON.stringify({
         roomId,
         teamId,
-        cfHandle: cfHandle || "dummy0",
-        problemId
+        cfHandle: cfHandle || "dummy0", // Use real handle if available, otherwise fallback
+        problemId: problemId
       })
     });
+    
+    setSyncCooldown(60); // Apply frontend cooldown directly
+    localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
     
     if (!res.ok) {
       setSyncingMap(prev => ({ ...prev, [problemId]: false }));
@@ -412,10 +438,10 @@ export default function ArenaRoomClient({
                                       (isClaimed || isSyncing || matchState !== 'active' || syncCooldown > 0) ? 'bg-surface-variant text-outline opacity-50 cursor-not-allowed' : 'bg-primary-container text-on-primary-container hover:brightness-110 shadow-sm'
                                     }`}
                                   >
-                                    <span className={`material-symbols-outlined text-[14px] ${isSyncing ? 'animate-spin' : ''}`}>
-                                      {isSyncing ? 'sync' : syncCooldown > 0 ? 'hourglass_empty' : 'sync'}
+                                    <span className={`material-symbols-outlined text-[14px] ${isSyncing && !isClaimed ? 'animate-spin' : ''}`}>
+                                      {isClaimed ? 'lock' : isSyncing ? 'sync' : syncCooldown > 0 ? 'hourglass_empty' : 'sync'}
                                     </span>
-                                    {isSyncing ? 'Syncing' : syncCooldown > 0 ? `${syncCooldown}s` : 'Sync'}
+                                    {isClaimed ? 'Locked' : isSyncing ? 'Syncing' : syncCooldown > 0 ? `${syncCooldown}s` : 'Sync'}
                                  </button>
                                </div>
                             </div>

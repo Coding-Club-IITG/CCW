@@ -112,7 +112,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
 
         room.status = "active";
-        room.startedAt = new Date(now);
         await room.save();
 
         const updatedState = await redis.hGetAll(`room:${roomId}:state`);

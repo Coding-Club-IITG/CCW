@@ -1,4 +1,7 @@
-"use client";
+import fs from "fs";
+import path from "path";
+
+const content = `"use client";
 
 import Link from "next/link";
 import { ContestListingItem } from "@/lib/actions/contests";
@@ -52,18 +55,18 @@ function MatchCardNode({ data }: { data: any }) {
       );
     }
     
-    const teamName = `Team ${teamId.slice(-4)}`;
+    const teamName = \`Team \${teamId.slice(-4)}\`;
     const initials = getInitials(teamName);
     
     return (
-      <div className={`flex justify-between items-center p-2 rounded ${isWinner ? 'bg-surface-variant border-l-2 border-primary' : opacityClass}`}>
+      <div className={\`flex justify-between items-center p-2 rounded \${isWinner ? 'bg-surface-variant border-l-2 border-primary' : opacityClass}\`}>
         <div className="flex items-center gap-2">
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isWinner ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-bright text-on-surface-variant'}`}>
+          <div className={\`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold \${isWinner ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-bright text-on-surface-variant'}\`}>
             {initials}
           </div>
-          <span className={`font-label-sm text-sm ${isWinner ? 'text-on-surface' : 'text-on-surface-variant'}`}>{teamName}</span>
+          <span className={\`font-label-sm text-sm \${isWinner ? 'text-on-surface' : 'text-on-surface-variant'}\`}>{teamName}</span>
         </div>
-        <span className={`font-label-sm ${isWinner ? 'font-bold text-primary' : 'text-on-surface-variant opacity-50'}`}>{score}</span>
+        <span className={\`font-label-sm \${isWinner ? 'font-bold text-primary' : 'text-on-surface-variant opacity-50'}\`}>{score}</span>
       </div>
     );
   };
@@ -163,7 +166,7 @@ export default function BracketRoomClient({ contest, initialSnapshot }: { contes
           if (parentNode) {
             const isActiveEdge = node.status === "completed" && node.winner !== null;
             flowEdges.push({
-              id: `edge-${node.roomId}-${parentNode.roomId}`,
+              id: \`edge-\${node.roomId}-\${parentNode.roomId}\`,
               source: node.roomId,
               target: parentNode.roomId,
               type: 'step',
@@ -186,53 +189,27 @@ export default function BracketRoomClient({ contest, initialSnapshot }: { contes
     <>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hanken+Grotesk:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
       <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-      <div className="flex flex-col overflow-hidden relative dark stitch-container bg-background w-full text-on-surface font-body-md selection:bg-primary-container selection:text-on-primary-container" style={{ height: 'calc(100vh - 64px)' }}>
+      <div className="fixed inset-0 top-[64px] dark stitch-container bg-background text-on-surface font-body-md selection:bg-primary-container selection:text-on-primary-container z-0 flex flex-col">
         
         {/* Main Header Area (Kept Intact) */}
-        <header className="flex-none flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 bg-background border-b border-outline-variant z-10 w-full">
-          <div className="flex gap-4 flex-col items-start">
-            <div className="flex items-center gap-4 mb-2">
+        <header className="flex-none h-[80px] flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 bg-background border-b border-outline-variant z-10 w-full">
+          <div className="flex gap-4 flex-col items-start w-full">
+            <div className="flex items-center gap-4">
               <Link href="/internal/contests" className="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-highest px-3 py-1.5 rounded border border-outline-variant hover:border-primary">
                 <span className="material-symbols-outlined text-sm">arrow_back</span>
                 <span className="font-label-sm text-label-sm">Back to Contests</span>
               </Link>
               <div className="h-6 w-px bg-outline-variant mx-2 hidden md:block"></div>
-            </div>
-            <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg font-bold text-on-surface">{contest.name}</h2>
-                <span className="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-2 py-1 rounded-sm ml-2">Knockout</span>
+                <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg font-bold text-on-surface leading-none">{contest.name}</h2>
+                <span className="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-2 py-1 rounded-sm ml-2 leading-none">Knockout</span>
               </div>
-              <p className="text-on-surface-variant font-body-md text-sm mt-1">Live Bracket Visualization</p>
             </div>
           </div>
         </header>
 
         {/* React Flow Canvas */}
-        <div className="flex-1 w-full relative min-h-0 h-full" onClick={closeSidebar}>
-          <style>{`
-            .react-flow__controls {
-              box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
-              border-radius: 8px !important;
-              overflow: hidden !important;
-            }
-            .react-flow__controls-button {
-              background-color: var(--surface-container-high) !important;
-              border-bottom: 1px solid var(--outline-variant) !important;
-              color: var(--on-surface) !important;
-              transition: background-color 0.2s ease, color 0.2s ease !important;
-            }
-            .react-flow__controls-button:hover {
-              background-color: var(--surface-variant) !important;
-              color: var(--primary) !important;
-            }
-            .react-flow__controls-button svg {
-              fill: currentColor !important;
-            }
-            .react-flow__controls-button:last-child {
-              border-bottom: none !important;
-            }
-          `}</style>
+        <div className="flex-1 w-full relative" onClick={closeSidebar}>
           <ReactFlow 
             nodes={nodes} 
             edges={edges} 
@@ -243,15 +220,16 @@ export default function BracketRoomClient({ contest, initialSnapshot }: { contes
             maxZoom={2}
             className="bg-surface-container-lowest"
             proOptions={{ hideAttribution: true }}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={false}
           >
             <Background color="#333" gap={16} />
-            <Controls className="!bg-surface-container-high !border-outline-variant !rounded-lg overflow-hidden shadow-md" showInteractive={false} />
+            <Controls className="!bg-surface-container !border-outline-variant !text-on-surface" />
           </ReactFlow>
         </div>
       </div>
     </>
   );
 }
+`;
+
+fs.writeFileSync(path.resolve("src/lib/components/BracketRoomClient.tsx"), content);
+console.log("Updated BracketRoomClient.tsx with React Flow!");

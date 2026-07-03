@@ -11,6 +11,7 @@ import ContestTeam from "@/models/ContestTeam";
 import User from "@/models/User";
 import CPUser from "@/models/CPUser";
 import { createClient } from "redis";
+import { getBracketSnapshot } from "@/lib/bracket";
 
 export default async function ContestRoomPage({ 
   params,
@@ -62,6 +63,11 @@ export default async function ContestRoomPage({
     if (team) {
       teamId = team._id.toString();
     }
+  }
+
+  if (contest.format === "bracket" || contest.mode === "knockout") {
+    const bracketSnapshot = await getBracketSnapshot(contest._id.toString());
+    return <BracketRoomClient contest={contest} initialSnapshot={bracketSnapshot} />;
   }
 
   if (contest.mode === "blitz" || contest.mode === "arena") {
@@ -170,9 +176,6 @@ export default async function ContestRoomPage({
     }
   }
 
-  if (contest.format === "bracket" || contest.mode === "knockout") {
-    return <BracketRoomClient contest={contest} />;
-  }
 
   // Other formats are not fully implemented yet
   notFound();
