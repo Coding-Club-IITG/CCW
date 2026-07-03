@@ -40,12 +40,20 @@ export type MatchData = {
     contribution: number;
   } | null;
   isKnockout: boolean;
+  contestId?: string;
 };
 
 export default function PostMatchResultClient({ matchData, currentUserId, from }: { matchData: MatchData; currentUserId?: string; from?: string }) {
-  const isFromListing = from === "listing";
-  const backHref = isFromListing ? "/internal/contests" : "/internal/contests/history";
-  const backText = isFromListing ? "Back to Contest Listing" : "Back to Match History";
+  let backHref = "/internal/contests/history";
+  let backText = "Back to Match History";
+  
+  if (from === "listing") {
+    backHref = "/internal/contests";
+    backText = "Back to Contest Listing";
+  } else if (from === "bracket" && matchData.contestId) {
+    backHref = `/internal/contests/${matchData.contestId}`;
+    backText = "Back to Bracket Canvas";
+  }
   
   const currentUserTeam = matchData.teams.find(t => t.members.some(m => m.id === currentUserId));
 

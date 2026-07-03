@@ -75,7 +75,8 @@ export default async function ContestRoomPage({
   // Bracket format: show bracket viewer (unless entering a specific match room)
   if ((contest.format === "bracket" || contest.mode === "knockout") && !matchRoomId) {
     const bracketSnapshot = await getBracketSnapshot(contest._id.toString());
-    return <BracketRoomClient contest={contest} initialSnapshot={bracketSnapshot} userId={userId} />;
+    const userTeam = await ContestTeam.findOne({ contestId: contest._id, members: userId }).lean();
+    return <BracketRoomClient contest={contest} initialSnapshot={bracketSnapshot} userId={userId} currentUserTeamId={userTeam ? userTeam._id.toString() : null} />;
   }
 
   if (contest.mode === "blitz" || contest.mode === "arena") {
@@ -160,6 +161,7 @@ export default async function ContestRoomPage({
           initialProblems={initialProblems}
           initialScores={initialScores}
           initialProblemIndex={stateObj?.currentProblem ? parseInt(stateObj.currentProblem) : (room.currentProblemIndex || 0)}
+          from={from}
         />
       );
     } else if (contest.mode === "arena") {
@@ -179,6 +181,7 @@ export default async function ContestRoomPage({
           initialLocks={initialLocks}
           initialStartTime={stateObj?.startTime ? parseInt(stateObj.startTime) : undefined}
           initialTimeLimit={stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined}
+          from={from}
         />
       );
     }

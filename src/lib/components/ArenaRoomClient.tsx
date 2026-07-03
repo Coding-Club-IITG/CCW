@@ -25,7 +25,8 @@ export default function ArenaRoomClient({
   initialScores = {},
   initialLocks = {},
   initialStartTime,
-  initialTimeLimit
+  initialTimeLimit,
+  from
 }: {
   contest: ContestListingItem;
   roomId: string;
@@ -41,6 +42,7 @@ export default function ArenaRoomClient({
   initialLocks?: Record<string, string>;
   initialStartTime?: number;
   initialTimeLimit?: number;
+  from?: string;
 }) {
   const router = useRouter();
 
@@ -276,8 +278,8 @@ export default function ArenaRoomClient({
         {/* Main Content Canvas */}
         <main className="flex-1 flex flex-col h-full overflow-hidden p-6 gap-6 relative z-10 max-w-container-max-width mx-auto w-full">
           <div className="flex items-center">
-            <Link href="/internal/contests" className="flex items-center gap-2 px-3 py-1.5 text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 rounded-lg transition-all font-label-sm text-label-sm uppercase tracking-wider">
-              <span className="material-symbols-outlined text-[18px]">arrow_back</span>Back to Contests
+            <Link href={from === 'bracket' ? `/internal/contests/${contest._id}` : "/internal/contests"} className="flex items-center gap-2 px-3 py-1.5 text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 rounded-lg transition-all font-label-sm text-label-sm uppercase tracking-wider">
+              <span className="material-symbols-outlined text-[18px]">arrow_back</span>{from === 'bracket' ? 'Back to Bracket Canvas' : 'Back to Contests'}
             </Link>
           </div>
           

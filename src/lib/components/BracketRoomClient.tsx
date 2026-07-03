@@ -25,6 +25,128 @@ function getInitials(name: string) {
   return name.substring(0, 2).toUpperCase();
 }
 
+function TeamSlot({ tid, tname, fallback }: { tid: string | null, tname: string | null, fallback: string }) {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  const style = {
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    transform: isHovered ? 'scale(1.02) translateY(-1px)' : 'scale(1) translateY(0)',
+    boxShadow: isHovered ? '0 4px 6px -1px rgba(0, 0, 0, 0.2)' : 'none',
+    backgroundColor: isHovered ? 'var(--md-sys-color-surface-container-highest, #333)' : undefined,
+  };
+
+  if (tid && tname) {
+    return (
+      <div 
+        className="flex justify-between items-center p-3 rounded bg-surface-container-lowest border border-outline-variant"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={style}
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">{getInitials(tname)}</div>
+          <span className="font-label-sm text-sm text-on-surface">{tname}</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div 
+      className="flex justify-between items-center p-3 rounded bg-surface-container-lowest border border-outline-variant border-dashed"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={style}
+    >
+      <span className="font-label-sm text-sm text-on-surface-variant italic">{fallback}</span>
+    </div>
+  );
+}
+
+function TeamRow({ tid, tname, score, isWinner, isLoser, isActive }: { tid: string | null, tname: string | null, score: number, isWinner: boolean, isLoser: boolean, isActive: boolean }) {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  const style = {
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    transform: isHovered ? 'scale(1.02) translateY(-1px)' : 'scale(1) translateY(0)',
+    boxShadow: isHovered ? '0 4px 6px -1px rgba(0, 0, 0, 0.2)' : 'none',
+    backgroundColor: isHovered ? 'var(--md-sys-color-surface-container-highest, #333)' : undefined,
+  };
+
+  if (!tid || !tname) {
+    return (
+      <div 
+        className="flex justify-between items-center p-2 rounded"
+        onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}
+        style={style}
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-label-sm text-sm text-on-surface-variant italic">TBD</span>
+        </div>
+        <span className="font-label-sm text-on-surface-variant">-</span>
+      </div>
+    );
+  }
+  const ini = getInitials(tname);
+  if (isWinner) {
+    return (
+      <div 
+        className="flex justify-between items-center p-2 rounded bg-surface-variant border-l-2 border-primary"
+        onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}
+        style={style}
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">{ini}</div>
+          <span className="font-label-sm text-sm text-on-surface">{tname}</span>
+        </div>
+        <span className="font-label-sm font-bold text-primary">{score}</span>
+      </div>
+    );
+  }
+  if (isLoser) {
+    return (
+      <div 
+        className="flex justify-between items-center p-2 rounded"
+        onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}
+        style={style}
+      >
+        <div className="flex items-center gap-2 opacity-50">
+          <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">{ini}</div>
+          <span className="font-label-sm text-sm text-on-surface-variant">{tname}</span>
+        </div>
+        <span className="font-label-sm text-on-surface-variant opacity-50">{score}</span>
+      </div>
+    );
+  }
+  if (isActive) {
+    return (
+      <div 
+        className="flex justify-between items-center p-2 rounded bg-surface-variant"
+        onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}
+        style={style}
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">{ini}</div>
+          <span className="font-label-sm text-sm text-on-surface">{tname}</span>
+        </div>
+        <span className="font-label-sm font-bold text-on-surface">{score}</span>
+      </div>
+    );
+  }
+  return (
+    <div 
+      className="flex justify-between items-center p-2 rounded"
+      onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}
+      style={style}
+    >
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">{ini}</div>
+        <span className="font-label-sm text-sm text-on-surface">{tname}</span>
+      </div>
+      <span className="font-label-sm text-on-surface-variant">{score === 0 ? '-' : score}</span>
+    </div>
+  );
+}
+
 // ── Grand Final Node ──────────────────────────────────────────────
 function GrandFinalNode({ data }: { data: any }) {
   const { node, openMatchDetails } = data;
@@ -33,32 +155,19 @@ function GrandFinalNode({ data }: { data: any }) {
   const n1 = node.teamNames?.[0], n2 = node.teamNames?.[1];
   const isCompleted = node.status === "completed";
   const isActive = node.status === "active";
-
-  const slot = (tid: string | null, tname: string | null, fallback: string) => {
-    if (tid && tname) {
-      return (
-        <div className="flex justify-between items-center p-3 rounded bg-surface-container-lowest border border-outline-variant">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">{getInitials(tname)}</div>
-            <span className="font-label-sm text-sm text-on-surface">{tname}</span>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="flex justify-between items-center p-3 rounded bg-surface-container-lowest border border-outline-variant border-dashed">
-        <span className="font-label-sm text-sm text-on-surface-variant italic">{fallback}</span>
-      </div>
-    );
-  };
-
   return (
     <div
-      className={`bg-surface-container border-2 rounded-lg overflow-hidden relative w-[280px] cursor-pointer ${!t1 && !t2 ? 'opacity-50' : ''} ${isHovered ? 'border-primary' : 'border-outline-variant'}`}
+      className={`bg-surface-container border-2 rounded-lg overflow-hidden relative w-[280px] cursor-pointer ${!t1 && !t2 ? 'opacity-50' : ''}`}
       onClick={(e) => { e.stopPropagation(); if (openMatchDetails) openMatchDetails(e, node); }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      style={{ transition: 'all 0.2s ease-in-out' }}
+      style={{ 
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: isHovered ? 'scale(1.03)' : 'scale(1)',
+        boxShadow: isHovered ? '0 0 20px rgba(136, 217, 130, 0.4), 0 10px 15px -3px rgba(0, 0, 0, 0.5)' : 'none',
+        borderColor: isHovered ? 'var(--md-sys-color-primary, #88d982)' : 'var(--md-sys-color-outline-variant, #40493d)',
+        zIndex: isHovered ? 50 : 1,
+      }}
     >
       <Handle type="target" position={Position.Left} className="!opacity-0 !w-px !h-px !border-none !bg-transparent" />
       <div className="absolute inset-0 bg-gradient-to-br from-transparent to-surface-variant pointer-events-none" />
@@ -75,9 +184,9 @@ function GrandFinalNode({ data }: { data: any }) {
         }
       </div>
       <div className="p-4 space-y-3 relative z-10">
-        {slot(t1, n1, "Winner SF 1")}
+        <TeamSlot tid={t1} tname={n1} fallback="Winner SF 1" />
         <div className="flex justify-center"><span className="font-label-sm text-xs text-on-surface-variant">VS</span></div>
-        {slot(t2, n2, "Winner SF 2")}
+        <TeamSlot tid={t2} tname={n2} fallback="Winner SF 2" />
       </div>
       <Handle type="source" position={Position.Right} className="!opacity-0 !w-px !h-px !border-none !bg-transparent" />
     </div>
@@ -113,81 +222,24 @@ function MatchCardNode({ data }: { data: any }) {
         ? <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Bye</span>
         : <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Upcoming</span>;
 
-  const teamRow = (tid: string | null, tname: string | null, score: number, isWinner: boolean, isLoser: boolean) => {
-    if (!tid || !tname) {
-      return (
-        <div className="flex justify-between items-center p-2 rounded">
-          <div className="flex items-center gap-2">
-            <span className="font-label-sm text-sm text-on-surface-variant italic">TBD</span>
-          </div>
-          <span className="font-label-sm text-on-surface-variant">-</span>
-        </div>
-      );
-    }
-    const ini = getInitials(tname);
-    if (isWinner) {
-      return (
-        <div className="flex justify-between items-center p-2 rounded bg-surface-variant border-l-2 border-primary">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">{ini}</div>
-            <span className="font-label-sm text-sm text-on-surface">{tname}</span>
-          </div>
-          <span className="font-label-sm font-bold text-primary">{score}</span>
-        </div>
-      );
-    }
-    if (isLoser) {
-      return (
-        <div className="flex justify-between items-center p-2 rounded">
-          <div className="flex items-center gap-2 opacity-50">
-            <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">{ini}</div>
-            <span className="font-label-sm text-sm text-on-surface-variant">{tname}</span>
-          </div>
-          <span className="font-label-sm text-on-surface-variant opacity-50">{score}</span>
-        </div>
-      );
-    }
-    if (isActive) {
-      return (
-        <div className="flex justify-between items-center p-2 rounded bg-surface-variant">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">{ini}</div>
-            <span className="font-label-sm text-sm text-on-surface">{tname}</span>
-          </div>
-          <span className="font-label-sm font-bold text-on-surface">{score}</span>
-        </div>
-      );
-    }
-    return (
-      <div className="flex justify-between items-center p-2 rounded">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">{ini}</div>
-          <span className="font-label-sm text-sm text-on-surface">{tname}</span>
-        </div>
-        <span className="font-label-sm text-on-surface-variant">{score === 0 ? '-' : score}</span>
-      </div>
-    );
-  };
-
-  let containerClass = "bg-surface-container border rounded-lg overflow-hidden cursor-pointer w-[280px]";
-  
-  if (isActive) {
-    containerClass += " border-primary shadow-[0_0_15px_rgba(46,125,50,0.2)]";
-  } else if (isCompleted) {
-    containerClass += ` ${isHovered ? 'border-primary' : 'border-outline-variant'}`;
-  } else if (isPending) {
-    containerClass += ` ${isHovered ? 'opacity-100 border-outline-variant' : 'opacity-60 border-outline-variant'}`;
-  } else {
-    containerClass += ` ${isHovered ? 'border-primary' : 'border-outline-variant'}`;
-  }
-
   return (
     <div 
-      className={containerClass} 
+      className="bg-surface-container border-2 rounded-lg overflow-hidden cursor-pointer w-[280px]"
       onClick={(e) => { e.stopPropagation(); if (openMatchDetails) openMatchDetails(e, node); }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      style={{ transition: 'all 0.2s ease-in-out' }}
+      style={{ 
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: isHovered ? 'scale(1.03)' : 'scale(1)',
+        boxShadow: isHovered 
+          ? '0 0 20px rgba(136, 217, 130, 0.4), 0 10px 15px -3px rgba(0, 0, 0, 0.5)' 
+          : (isActive ? '0 0 15px rgba(46,125,50,0.3)' : 'none'),
+        borderColor: isHovered 
+          ? 'var(--md-sys-color-primary, #88d982)' 
+          : (isActive ? 'var(--md-sys-color-primary, #88d982)' : 'var(--md-sys-color-outline-variant, #40493d)'),
+        opacity: (isPending && !isHovered) ? 0.6 : 1,
+        zIndex: isHovered ? 50 : 1,
+      }}
     >
       <Handle type="target" position={Position.Left} className="!opacity-0 !w-px !h-px !border-none !bg-transparent" />
       <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
@@ -195,8 +247,8 @@ function MatchCardNode({ data }: { data: any }) {
         {badge}
       </div>
       <div className="p-2 space-y-1">
-        {teamRow(t1, n1, node.scores[0], t1Win, t1Lose)}
-        {teamRow(t2, n2, node.scores[1], t2Win, t2Lose)}
+        <TeamRow tid={t1} tname={n1} score={node.scores[0]} isWinner={t1Win} isLoser={t1Lose} isActive={isActive} />
+        <TeamRow tid={t2} tname={n2} score={node.scores[1]} isWinner={t2Win} isLoser={t2Lose} isActive={isActive} />
       </div>
       <Handle type="source" position={Position.Right} className="!opacity-0 !w-px !h-px !border-none !bg-transparent" />
     </div>
@@ -211,15 +263,21 @@ function MatchSidePanel({
   totalRounds,
   onClose,
   contestId,
+  data,
 }: {
   node: BracketNode | null;
   totalRounds: number;
   onClose: () => void;
   contestId: string;
+  data?: { currentUserTeamId?: string | null };
 }) {
   const router = useRouter();
   const [prevNode, setPrevNode] = useState<BracketNode | null>(node);
   const [displayNode, setDisplayNode] = useState<BracketNode | null>(node);
+  
+  // Accept currentUserTeamId to determine if the user is a participant
+  const { currentUserTeamId } = data || {};
+  const isParticipant = currentUserTeamId && displayNode?.teams.includes(currentUserTeamId);
 
   if (node !== prevNode) {
     setPrevNode(node);
@@ -230,13 +288,17 @@ function MatchSidePanel({
 
   const handleEnterRoom = () => {
     if (!displayNode?.roomId) return;
-    // Navigate to contest page with the specific matchRoomId so it renders the match client
-    router.push(`/internal/contests/${contestId}?matchRoomId=${displayNode.roomId}`);
+    router.push(`/internal/contests/${contestId}?matchRoomId=${displayNode.roomId}&from=bracket`);
   };
 
   const handleSpectate = () => {
     if (!displayNode?.roomId) return;
-    router.push(`/internal/contests/${contestId}?matchRoomId=${displayNode.roomId}&spectate=true`);
+    router.push(`/internal/contests/${contestId}?matchRoomId=${displayNode.roomId}&spectate=true&from=bracket`);
+  };
+
+  const handleViewResults = () => {
+    if (!displayNode?.roomId) return;
+    router.push(`/internal/contests/rooms/${displayNode.roomId}/result?from=bracket`);
   };
 
   const t1 = displayNode?.teams[0], t2 = displayNode?.teams[1];
@@ -366,7 +428,20 @@ function MatchSidePanel({
 
         {/* Sidebar Footer — action buttons */}
         <div className="p-6 border-t border-outline-variant bg-surface-container-high flex flex-col gap-3 shrink-0">
-          {(isActive || isCompleted) && displayNode?.roomId && (
+          
+          {/* COMPLETED STATUS */}
+          {isCompleted && displayNode?.roomId && (
+            <button
+              onClick={handleViewResults}
+              className="w-full py-3 bg-primary text-on-primary font-label-sm rounded font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[18px]">leaderboard</span>
+              VIEW RESULTS
+            </button>
+          )}
+
+          {/* ACTIVE STATUS */}
+          {isActive && displayNode?.roomId && isParticipant && (
             <button
               onClick={handleEnterRoom}
               className="w-full py-3 bg-primary text-on-primary font-label-sm rounded font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
@@ -375,7 +450,7 @@ function MatchSidePanel({
               ENTER ROOM
             </button>
           )}
-          {(isActive) && displayNode?.roomId && (
+          {isActive && displayNode?.roomId && !isParticipant && (
             <button
               onClick={handleSpectate}
               className="w-full py-3 border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-variant transition-colors flex items-center justify-center gap-2"
@@ -384,11 +459,23 @@ function MatchSidePanel({
               SPECTATE
             </button>
           )}
-          {isPending && (
+
+          {/* PENDING / WAITING STATUS */}
+          {(isPending || displayNode?.status === 'waiting') && isParticipant && displayNode?.roomId && (
+            <button
+              onClick={handleEnterRoom}
+              className="w-full py-3 bg-primary text-on-primary font-label-sm rounded font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[18px]">login</span>
+              ENTER ROOM (WAITING)
+            </button>
+          )}
+          {(isPending || displayNode?.status === 'waiting') && !isParticipant && (
             <div className="text-center font-label-sm text-xs text-on-surface-variant py-2">
-              This match hasn't started yet. Check back soon.
+              Waiting for the participants to get ready...
             </div>
           )}
+
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -403,7 +490,7 @@ function MatchSidePanel({
 }
 
 // ── Main Component ────────────────────────────────────────────────
-export default function BracketRoomClient({ contest, initialSnapshot, userId }: { contest: ContestListingItem; initialSnapshot: BracketSnapshot; userId?: string }) {
+export default function BracketRoomClient({ contest, initialSnapshot, userId, currentUserTeamId }: { contest: ContestListingItem; initialSnapshot: BracketSnapshot; userId?: string; currentUserTeamId?: string | null }) {
   const [selectedNode, setSelectedNode] = useState<BracketNode | null>(null);
   const [snapshot, setSnapshot] = useState<BracketSnapshot>(initialSnapshot);
   const headerRef = useRef<HTMLElement>(null);
@@ -608,6 +695,7 @@ export default function BracketRoomClient({ contest, initialSnapshot, userId }: 
         totalRounds={snapshot.totalRounds}
         onClose={closeSidebar}
         contestId={contest._id.toString()}
+        data={{ currentUserTeamId }}
       />
     </>
   );

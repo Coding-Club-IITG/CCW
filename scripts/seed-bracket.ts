@@ -72,8 +72,8 @@ async function seed() {
     console.log("✅ Connected to Redis");
 
     // Upsert users with realistic handles
-    const handles = ["AlexChen", "SarahJ", "DavidP", "MayaK", "RahulK", "JaneL", "TomC", "ronits2407"];
-    const ratings = [2100, 1900, 1800, 1750, 2000, 1650, 1500, 1850];
+    const handles = ["AlexChen", "SarahJ", "DavidP", "MayaK", "RahulK", "JaneL", "TomC"];
+    const ratings = [2100, 1900, 1800, 1750, 2000, 1650, 1500];
 
     const devUser = await User.findOneAndUpdate(
       { email: "k.sonawane@iitg.ac.in" },
@@ -87,7 +87,7 @@ async function seed() {
     );
 
     const allUsers = [devUser];
-    for (let i = 1; i < 8; i++) {
+    for (let i = 1; i < 7; i++) {
       const u = await User.findOneAndUpdate(
         { email: `testuser${i}@test.com` },
         { name: `Test User ${i}`, email: `testuser${i}@test.com`, role: "Member" },
@@ -149,6 +149,27 @@ async function seed() {
     const { generateBracket, getBracketSnapshot } = await import("../src/lib/bracket");
     const snapshot = await generateBracket(contest._id.toString());
 
+    // Helper to mock Redis state for Arena format
+    const mockArenaRoomState = async (roomId: string, status: string, teams: any[], score1: number, score2: number) => {
+      await redis.hSet(`room:${roomId}:state`, {
+        status: status === "ended" ? "completed" : status,
+        startTime: Date.now().toString(),
+        timeLimit: "3600",
+      });
+      const dummyProblem = {
+        id: "dummy1", name: "A. Watermelon", rating: 800, url: "https://codeforces.com/problemset/problem/4/A", contestId: 4, index: "A", points: 100
+      };
+      await redis.del(`room:${roomId}:problems`);
+      await redis.rPush(`room:${roomId}:problems`, JSON.stringify(dummyProblem));
+      
+      if (teams.length >= 1 && teams[0]) {
+        await redis.zAdd(`room:${roomId}:scores`, [{ score: score1, value: teams[0]._id.toString() }]);
+      }
+      if (teams.length >= 2 && teams[1]) {
+        await redis.zAdd(`room:${roomId}:scores`, [{ score: score2, value: teams[1]._id.toString() }]);
+      }
+    };
+
     // Now manually update rooms to create mixed states:
     // Round 1 has 4 matches → make Match 1 = COMPLETED (AlexChen wins), Match 2 = ACTIVE (live), Match 3 = COMPLETED, Match 4 = UPCOMING
     const round1Rooms = await ContestRoom.find({
@@ -166,6 +187,7 @@ async function seed() {
         await ContestTeam.findByIdAndUpdate(teams[0]._id, { score: 300 });
         await ContestTeam.findByIdAndUpdate(teams[1]._id, { score: 150 });
         await ContestRoom.findByIdAndUpdate(room._id, { status: "ended" });
+        await mockArenaRoomState(room._id.toString(), "ended", teams, 300, 150);
         console.log(`  ✅ Match 1: ${teams[0].name} (300) beats ${teams[1].name} (150) — COMPLETED`);
       }
     }
@@ -178,6 +200,7 @@ async function seed() {
         await ContestTeam.findByIdAndUpdate(teams[0]._id, { score: 120 });
         await ContestTeam.findByIdAndUpdate(teams[1]._id, { score: 95 });
         await ContestRoom.findByIdAndUpdate(room._id, { status: "active" });
+        await mockArenaRoomState(room._id.toString(), "active", teams, 120, 95);
         console.log(`  🔴 Match 2: ${teams[0].name} (120) vs ${teams[1].name} (95) — ACTIVE/LIVE`);
       }
     }
@@ -190,6 +213,7 @@ async function seed() {
         await ContestTeam.findByIdAndUpdate(teams[0]._id, { score: 450 });
         await ContestTeam.findByIdAndUpdate(teams[1]._id, { score: 400 });
         await ContestRoom.findByIdAndUpdate(room._id, { status: "ended" });
+        await mockArenaRoomState(room._id.toString(), "ended", teams, 450, 400);
         console.log(`  ✅ Match 3: ${teams[0].name} (450) beats ${teams[1].name} (400) — COMPLETED`);
       }
     }
@@ -233,6 +257,8 @@ async function seed() {
       const semiTeams = await ContestTeam.find({ _id: { $in: semi1Rooms[0].teams } });
       if (semiTeams.length >= 1) {
         await ContestTeam.findByIdAndUpdate(semiTeams[0]._id, { score: 210 });
+        await ContestRoom.findByIdAndUpdate(semi1Rooms[0]._id, { status: "active" });
+        await mockArenaRoomState(semi1Rooms[0]._id.toString(), "active", semiTeams, 210, 0);
       }
       console.log(`  🔴 Semi-Final 1: ${semiTeams[0]?.name || 'TBD'} (210) vs TBD — ACTIVE`);
     }
