@@ -73,10 +73,7 @@ export const cfSyncWorker = new Worker(
           return;
         }
 
-        const state = await redis.hGetAll(`room:${roomId}:state`);
-        const roomStartTimeMs = state?.startTime ? parseInt(state.startTime, 10) : contest.startTime.getTime();
-
-        const lowerTimestamp = roomStartTimeMs;
+        const lowerTimestamp = contest.startTime.getTime();
         // Add a small grace period (e.g., 5 minutes) or just use endTime
         const upperTimestamp = contest.endTime.getTime() + 5 * 60 * 1000;
 
@@ -152,6 +149,7 @@ export const cfSyncWorker = new Worker(
           };
 
           const redis = await getRedis();
+          const state = await redis.hGetAll(`room:${roomId}:state`);
           let isAdvanceTriggered = false;
 
           if (state && state.status === "active") {
