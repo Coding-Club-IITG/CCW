@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const activeRooms = isValidObjectId
     ? await ContestRoom.find({
       participants: userId,
-      status: { $in: ["active", "waiting"] },
+      status: "active",
     }).lean()
     : [];
 

@@ -94,10 +94,10 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
           const teams = await ContestTeam.find({ roomId: room._id }).lean();
           const userTeam = teams.find((t: any) => t.members.some((m: any) => m.toString() === userId));
           if (userTeam) {
-            item.userScore = userTeam.score || 0;
+            item.userScore = userTeam.score;
             const otherTeams = teams.filter((t: any) => t._id.toString() !== userTeam._id.toString());
-            item.opponentScore = otherTeams.length > 0 ? Math.max(...otherTeams.map((t: any) => t.score || 0)) : 0;
-            item.otherScores = otherTeams.map((t: any) => t.score || 0).sort((a, b) => b - a);
+            item.opponentScore = otherTeams.length > 0 ? Math.max(...otherTeams.map((t: any) => t.score)) : 0;
+            item.otherScores = otherTeams.map((t: any) => t.score).sort((a, b) => b - a);
             item.isVictory = item.userScore >= item.opponentScore;
           }
         }

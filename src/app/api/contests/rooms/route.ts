@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
         problemId: p.problemId,
         name: p.name,
         rating: p.rating,
-        points: p.rating || 100
+        points: 100
       }))
     });
 

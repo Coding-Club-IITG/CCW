@@ -448,19 +448,7 @@ export async function getBracketSnapshot(contestId: string): Promise<BracketSnap
     }
   }
 
-  const allTeams = await ContestTeam.find({ contestId }).lean();
-  const teamsMap: Record<string, { name: string }> = {};
-  for (const t of allTeams) {
-    teamsMap[toStr(t._id)] = { name: t.name || `Team ${toStr(t._id).slice(-4)}` };
-  }
-
-  return {
-    contestId,
-    currentRound,
-    totalRounds,
-    nodes,
-    teamsMap,
-  };
+  return { contestId, currentRound, totalRounds, nodes };
 }
 
 export async function processWalkover(

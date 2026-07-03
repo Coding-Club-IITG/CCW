@@ -52,12 +52,6 @@ export default function ArenaRoomClient({
   const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
   
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
-
-  const handleEventRef = useRef<any>(null);
-  useEffect(() => {
-    handleEventRef.current = handleEvent;
-  });
-
   const [syncCooldown, setSyncCooldown] = useState(0);
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
   
@@ -90,7 +84,6 @@ export default function ArenaRoomClient({
       const diffSecs = Math.floor((endMs - nowMs) / 1000);
       if (diffSecs <= 0) {
         setTimeLeft("00:00");
-        clearInterval(interval);
         return;
       }
       const m = Math.floor(diffSecs / 60);
@@ -107,14 +100,14 @@ export default function ArenaRoomClient({
     eventSource.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.payload && handleEventRef.current) {
-          handleEventRef.current(data.payload);
+        if (data.payload) {
+          handleEvent(data.payload);
         }
       } catch (err) {}
     };
 
     return () => eventSource.close();
-  }, [roomId]);
+  }, [roomId, teams, problems, locks]); // Added dependencies to ensure closures have latest state
 
   const handleEvent = (payload: EventPayload) => {
     switch (payload.type) {

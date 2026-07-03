@@ -63,19 +63,14 @@ export default function BlitzRoomClient({
   
   const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
 
-  const handleEventRef = useRef<any>(null);
-  useEffect(() => {
-    handleEventRef.current = handleEvent;
-  });
-
   useEffect(() => {
     const eventSource = new EventSource("/api/events");
     
     eventSource.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.payload && handleEventRef.current) {
-          handleEventRef.current(data.payload);
+        if (data.payload) {
+          handleEvent(data.payload);
         }
       } catch (err) {}
     };
@@ -110,8 +105,7 @@ export default function BlitzRoomClient({
           return arr;
         });
         setAnimationKey(k => k + 1);
-        const solverName = teams?.find(t => t._id === payload.solvedBy.teamId)?.name || (payload.solvedBy.teamId === teamId ? 'Your Team' : 'Opponent');
-        addActivity("check_circle", `${solverName} solved a problem!`, "Just now", "text-primary");
+        addActivity("check_circle", `Team ${payload.solvedBy.teamId === teamId ? 'Alpha' : 'Beta'} solved a problem!`, "Just now", "text-primary");
         break;
       case "room.score":
         setScores(payload.scores);
@@ -180,7 +174,7 @@ export default function BlitzRoomClient({
       body: JSON.stringify({
         roomId,
         teamId,
-        cfHandle: cfHandle,
+        cfHandle: cfHandle || "dummy0", // Use real handle if available, otherwise fallback
         problemId: activeProblem.problemId
       })
     });
@@ -246,23 +240,13 @@ export default function BlitzRoomClient({
             </div>
           </div>
           <div className="flex items-center gap-6">
-            {teams && teams.length >= 2 ? (
-              <div className="flex items-center gap-4 font-headline-lg text-[24px]">
-                <span className="text-primary">{teams[0].name}</span>
-                <span className="text-on-surface font-bold">{scores[teams[0]._id] || 0} pts</span>
-                <span className="text-outline-variant font-body-md text-body-md">VS</span>
-                <span className="text-secondary font-bold">{scores[teams[1]._id] || 0} pts</span>
-                <span className="text-on-surface-variant">{teams[1].name}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-4 font-headline-lg text-[24px]">
-                <span className="text-primary">Team 1</span>
-                <span className="text-on-surface font-bold">{Object.values(scores)[0] || 0} pts</span>
-                <span className="text-outline-variant font-body-md text-body-md">VS</span>
-                <span className="text-secondary font-bold">{Object.values(scores)[1] || 0} pts</span>
-                <span className="text-on-surface-variant">Team 2</span>
-              </div>
-            )}
+            <div className="flex items-center gap-4 font-headline-lg text-[24px]">
+              <span className="text-primary">Team Alpha</span>
+              <span className="text-on-surface font-bold">{Object.values(scores)[0] || 0} pts</span>
+              <span className="text-outline-variant font-body-md text-body-md">VS</span>
+              <span className="text-secondary font-bold">{Object.values(scores)[1] || 0} pts</span>
+              <span className="text-on-surface-variant">Team Beta</span>
+            </div>
           </div>
         </header>
 
@@ -465,17 +449,8 @@ export default function BlitzRoomClient({
             </div>
             <p className="font-body-md text-on-surface-variant mb-6">
               Final Scores: <br/>
-              {teams && teams.length >= 2 ? (
-                <>
-                  <strong className="text-primary text-lg">{teams[0].name}: {scores[teams[0]._id] || 0}</strong><br/>
-                  <strong className="text-secondary text-lg">{teams[1].name}: {scores[teams[1]._id] || 0}</strong>
-                </>
-              ) : (
-                <>
-                  <strong className="text-primary text-lg">Team 1: {Object.values(scores)[0] || 0}</strong><br/>
-                  <strong className="text-secondary text-lg">Team 2: {Object.values(scores)[1] || 0}</strong>
-                </>
-              )}
+              <strong className="text-primary text-lg">Team Alpha: {Object.values(scores)[0] || 0}</strong><br/>
+              <strong className="text-secondary text-lg">Team Beta: {Object.values(scores)[1] || 0}</strong>
             </p>
             <button 
               onClick={() => router.push(`/internal/contests/rooms/${roomId}/result`)}

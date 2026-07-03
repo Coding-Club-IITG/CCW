@@ -77,10 +77,6 @@ export const reconciliationWorker = new Worker(
     }
 
     // Original reconciliation logic continues below
-    if (job.name !== "room_completion" && job.name !== "room_timeout" && job.name !== "room_forfeit") {
-      return;
-    }
-
     const teams = await redis.sMembers(`room:${roomId}:teams`);
     let winnerId = null;
     let maxScore = -1;
@@ -131,6 +127,23 @@ export const reconciliationWorker = new Worker(
         await ContestTeam.findByIdAndUpdate(tId, { score: teamScores[tId] });
       }
       await room.save();
+
+      // Approach 1: Global Backend Aggregation for CustomContest
+      if (contestId) {
+        const totalRooms = await ContestRoom.countDocuments({ contestId });
+        const endedRooms = await ContestRoom.countDocuments({ 
+          contestId, 
+          status: { $in: ["ended", "completed"] } 
+        });
+        
+        if (totalRooms > 0 && totalRooms === endedRooms) {
+          await CustomContest.findByIdAndUpdate(contestId, { 
+            status: "completed",
+            endTime: new Date() // Force end time to now since match finished dynamically
+          });
+          logger.info(`[reconciliationWorker] All rooms ended. Marked contest ${contestId} as completed.`);
+        }
+      }
     }
 
     // 2.5 Bracket advancement hook for knockout contests
@@ -225,8 +238,23 @@ export const reconciliationWorker = new Worker(
       await submission.save();
     }
 
-    // 4. Finalise ContestProblemSet (e.g. tracking who solved what) - stubbed for now if schema doesn't fully support
-    
+    // 4. Finalise ContestProblemSet
+    const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
+    if (problemsRaw.length > 0) {
+      const problems = problemsRaw.map(p => JSON.parse(p));
+      const problemSet = new ContestProblemSet({
+        contestId,
+        roomId,
+        problems: problems.map((p: any) => ({
+          platform: "codeforces",
+          problemId: p.problemId,
+          name: p.name || p.problemId,
+          rating: p.rating || 0,
+          points: p.points || 100
+        }))
+      });
+      await problemSet.save();
+    }
     // Publish room.end if triggered by timeout or forfeit (meaning it didn't end naturally in cfSyncWorker)
     if (trigger === "timeout" || trigger === "forfeit") {
       const stateObj = await redis.hGetAll(`room:${roomId}:state`);
@@ -240,15 +268,10 @@ export const reconciliationWorker = new Worker(
     }
 
     // 5. Clean up Redis
-    setTimeout(async () => {
-      try {
-        const redisForCleanup = await getRedis();
-        const keys = await redisForCleanup.keys(`room:${roomId}:*`);
-        if (keys.length > 0) {
-          await redisForCleanup.del(keys);
-        }
-      } catch(e) {}
-    }, 5000);
+    const keys = await redis.keys(`room:${roomId}:*`);
+    if (keys.length > 0) {
+      await redis.del(keys);
+    }
 
     logger.info(`[reconciliationWorker] Finished job ${job.id} for room ${roomId}`);
   },
