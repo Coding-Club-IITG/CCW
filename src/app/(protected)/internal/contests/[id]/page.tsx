@@ -22,7 +22,7 @@ export default async function ContestRoomPage({
   params: Promise<{ id: string }>,
   searchParams: Promise<{ from?: string; matchRoomId?: string }>
 }) {
-  const { id } = await params;
+  const { id } = await params;w
   const { from, matchRoomId } = await searchParams;
   const contest = await getContestById(id);
 

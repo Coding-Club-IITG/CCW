@@ -94,6 +94,10 @@ export const reconciliationWorker = new Worker(
         return;
       }
 
+      // Transition to provisioning before potentially slow problem selection logic
+      contest.status = "provisioning";
+      await contest.save();
+
       // Provision room
       // Since room creation logic is in api/contests/rooms/route.ts, we'll replicate the core of it here 
       // or HTTP POST to it if possible. Replicating the core logic is safer to avoid HTTP loopbacks.
@@ -113,6 +117,20 @@ export const reconciliationWorker = new Worker(
           { problemId: "1A", name: "Theatre Square", rating: 1000 },
           { problemId: "158A", name: "Next Round", rating: 800 }
         ].slice(0, problemCount || 2);
+      } else if (contest.problemSelectionMode === "fine-tuned") {
+        const slots = contest.problemSlots || [];
+        const slotIds = slots.map((s: any) => s.problemId).filter(Boolean);
+        const questions = await CFQuestion.find({ problemId: { $in: slotIds } });
+        
+        for (const slot of slots) {
+          if (!slot.problemId) continue;
+          const q = questions.find(q => q.problemId === slot.problemId);
+          if (q) {
+            availableProblems.push({ problemId: q.problemId, name: q.name, rating: q.rating });
+          } else {
+            availableProblems.push({ problemId: slot.problemId, name: `Problem ${slot.problemId}`, rating: 0 });
+          }
+        }
       } else {
         availableProblems = await CFQuestion.aggregate([
           {
@@ -202,9 +220,6 @@ export const reconciliationWorker = new Worker(
       }
 
       await redis.sAdd(`contest:${contestId}:rooms`, newRoomId);
-
-      contest.status = "provisioning";
-      await contest.save();
 
       // Schedule the job to open the room at the configured startTime
       // Fire ROOM_PRE_START_SECONDS before startTime so the room is "waiting" by the time
@@ -333,27 +348,9 @@ export const reconciliationWorker = new Worker(
       // Write final scores to MongoDB
       const completedRoom = await ContestRoom.findById(roomId);
       if (completedRoom) {
-        completedRoom.status = "ended";
         for (const tId of completedTeams) {
           const score = await redis.zScore(`room:${roomId}:scores`, tId);
           await ContestTeam.findByIdAndUpdate(tId, { score: score || 0 });
-        }
-        await completedRoom.save();
-
-        // Mark contest completed if all rooms ended
-        if (contestId) {
-          const totalRooms = await ContestRoom.countDocuments({ contestId });
-          const endedRooms = await ContestRoom.countDocuments({
-            contestId,
-            status: { $in: ["ended", "completed"] }
-          });
-          if (totalRooms > 0 && totalRooms === endedRooms) {
-            await CustomContest.findByIdAndUpdate(contestId, {
-              status: "completed",
-              endTime: new Date()
-            });
-            logger.info(`[reconciliationWorker] room_completed: all rooms ended. Marked contest ${contestId} as completed.`);
-          }
         }
       }
 
@@ -375,6 +372,28 @@ export const reconciliationWorker = new Worker(
           submittedAt: new Date(data.cfTimestamp || Date.now())
         });
         await submission.save();
+      }
+
+      // Finally, update the room status to "ended" so the frontend can safely query the complete database
+      if (completedRoom) {
+        completedRoom.status = "ended";
+        await completedRoom.save();
+
+        // Mark contest completed if all rooms ended
+        if (contestId) {
+          const totalRooms = await ContestRoom.countDocuments({ contestId });
+          const endedRooms = await ContestRoom.countDocuments({
+            contestId,
+            status: { $in: ["ended", "completed"] }
+          });
+          if (totalRooms > 0 && totalRooms === endedRooms) {
+            await CustomContest.findByIdAndUpdate(contestId, {
+              status: "completed",
+              endTime: new Date()
+            });
+            logger.info(`[reconciliationWorker] room_completed: all rooms ended. Marked contest ${contestId} as completed.`);
+          }
+        }
       }
 
       // Clean up Redis (room-scoped, team-scoped, and contest-scoped)
@@ -500,7 +519,6 @@ export const reconciliationWorker = new Worker(
     // 2. Write to MongoDB
     const room = await ContestRoom.findById(roomId);
     if (room) {
-      room.status = "ended";
       if (trigger === "forfeit") room.terminationReason = "disconnect";
       else if (trigger === "timeout") room.terminationReason = "timeout";
       
@@ -509,24 +527,6 @@ export const reconciliationWorker = new Worker(
       // Let's assume we update the team scores.
       for (const tId of teams) {
         await ContestTeam.findByIdAndUpdate(tId, { score: teamScores[tId] });
-      }
-      await room.save();
-
-      // Approach 1: Global Backend Aggregation for CustomContest
-      if (contestId) {
-        const totalRooms = await ContestRoom.countDocuments({ contestId });
-        const endedRooms = await ContestRoom.countDocuments({ 
-          contestId, 
-          status: { $in: ["ended", "completed"] } 
-        });
-        
-        if (totalRooms > 0 && totalRooms === endedRooms) {
-          await CustomContest.findByIdAndUpdate(contestId, { 
-            status: "completed",
-            endTime: new Date() // Force end time to now since match finished dynamically
-          });
-          logger.info(`[reconciliationWorker] All rooms ended. Marked contest ${contestId} as completed.`);
-        }
       }
     }
 
@@ -638,6 +638,29 @@ export const reconciliationWorker = new Worker(
         }))
       });
       await problemSet.save();
+    }
+
+    // 5. Finalise Room Status
+    if (room) {
+      room.status = "ended";
+      await room.save();
+
+      // Approach 1: Global Backend Aggregation for CustomContest
+      if (contestId) {
+        const totalRooms = await ContestRoom.countDocuments({ contestId });
+        const endedRooms = await ContestRoom.countDocuments({ 
+          contestId, 
+          status: { $in: ["ended", "completed"] } 
+        });
+        
+        if (totalRooms > 0 && totalRooms === endedRooms) {
+          await CustomContest.findByIdAndUpdate(contestId, { 
+            status: "completed",
+            endTime: new Date() // Force end time to now since match finished dynamically
+          });
+          logger.info(`[reconciliationWorker] All rooms ended. Marked contest ${contestId} as completed.`);
+        }
+      }
     }
     // Publish room.end if triggered by timeout or forfeit (meaning it didn't end naturally in cfSyncWorker)
     if (trigger === "timeout" || trigger === "forfeit") {

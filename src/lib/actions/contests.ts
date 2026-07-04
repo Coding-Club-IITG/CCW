@@ -373,14 +373,14 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
         contest.status = "registration";
         await contest.save();
       }
+      
+      // Schedule the check_start job at the registration deadline
+      const delay = Math.max(0, deadlineTime - Date.now());
+      await reconciliationQueue.add("check_start", { contestId: contest._id.toString() }, { delay });
     } else {
-      contest.status = "draft";
-      await contest.save();
+      // For closed matches, directly invoke check_start job immediately
+      await reconciliationQueue.add("check_start", { contestId: contest._id.toString() }, { delay: 0 });
     }
-
-    // Schedule the check_start job
-    const delay = Math.max(0, deadlineTime - Date.now());
-    await reconciliationQueue.add("check_start", { contestId: contest._id.toString() }, { delay });
 
     revalidatePath("/internal/contests");
     return { success: true };

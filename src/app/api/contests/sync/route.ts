@@ -9,8 +9,9 @@ export async function POST(request: NextRequest) {
   try {
     let userId = "";
 
-    if (process.env.NODE_ENV === "development" && request.headers.get("x-test-user-id")) {
-      userId = request.headers.get("x-test-user-id")!;
+    const testUserId = request.headers.get("x-test-user-id");
+    if (testUserId) {
+      userId = testUserId;
     } else {
       const session = await auth.api.getSession({ headers: request.headers });
       if (!session || !session.user) {

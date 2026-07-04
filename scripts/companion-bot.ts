@@ -42,23 +42,26 @@ async function runBotClient(botUser: any, roomId: string, teamId: string | null,
   let activeProblemId: string | null = null;
   let hasSubmitted = false;
 
+  // Send ready signal unconditionally after delay, rather than waiting for an SSE message
+  setTimeout(async () => {
+    if (!isReady) {
+      isReady = true;
+      console.log(`[Bot ${botUser.name}] Connected! Waiting for ${readyDelayMs / 1000}s before sending READY signal...`);
+      await sleep(readyDelayMs);
+      console.log(`[Bot ${botUser.name}] Sending READY signal...`);
+      await fetch(`${BASE_URL}/api/contests/rooms/${roomId}/ready`, {
+        method: "POST",
+        headers
+      });
+    }
+  }, 100);
+
   es.addEventListener("message", async (e: any) => {
     try {
       if (!e.data || e.data.trim() === "ping") return;
       
       const payload = JSON.parse(e.data).payload;
       if (!payload) return;
-
-      if (!isReady) {
-        isReady = true;
-        console.log(`[Bot ${botUser.name}] Connected! Waiting for ${readyDelayMs / 1000}s before sending READY signal...`);
-        await sleep(readyDelayMs);
-        console.log(`[Bot ${botUser.name}] Sending READY signal...`);
-        await fetch(`${BASE_URL}/api/contests/rooms/${roomId}/ready`, {
-          method: "POST",
-          headers
-        });
-      }
 
       if (payload.type === "room.state_sync") {
         if (payload.state.status === "active") {
