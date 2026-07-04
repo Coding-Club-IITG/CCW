@@ -6,6 +6,7 @@ import { validateStep, createBracketContest } from "@/lib/actions/admin/contests
 import Step1BasicInfo from "./steps/Step1BasicInfo";
 import Step2Registration from "./steps/Step2Registration";
 import Step3MatchPreset from "./steps/Step3MatchPreset";
+import Step3aFineTuned from "./steps/Step3aFineTuned";
 import Step4BracketSettings from "./steps/Step4BracketSettings";
 import Step5Preview from "./steps/Step5Preview";
 import styles from "./ContestWizard.module.scss";
@@ -29,17 +30,23 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     deadline: "",
     maxParticipants: 8,
     presetId: "",
+    problemSlots: [] as { platform: string; problemId: string; roundNumber: number }[],
     thirdPlacePlayoff: false,
     seedingMethod: "cf_rating",
   });
 
+  const selectedPreset = presets.find((p) => p._id === formData.presetId);
+  const isFineTuned = selectedPreset?.problemSelectionMode === "fine-tuned";
+
   const steps = [
-    { number: 1, title: "Basic Info" },
-    { number: 2, title: "Registration" },
-    { number: 3, title: "Match Preset" },
-    { number: 4, title: "Bracket Settings" },
-    { number: 5, title: "Preview" },
+    { number: 1, id: "basic", title: "Basic Info" },
+    { number: 2, id: "reg", title: "Registration" },
+    { number: 3, id: "preset", title: "Match Preset" },
+    ...(isFineTuned ? [{ number: 4, id: "problems", title: "Round Problems" }] : []),
+    { number: isFineTuned ? 5 : 4, id: "settings", title: "Bracket Settings" },
+    { number: isFineTuned ? 6 : 5, id: "preview", title: "Preview" },
   ];
+  const maxStep = steps.length;
 
   function updateFields(fields: Partial<typeof formData>) {
     setFormData((prev) => ({ ...prev, ...fields }));
@@ -117,7 +124,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
 
       {/* Step Content */}
       <div className={styles.stepContent}>
-        {currentStep === 1 && (
+        {steps[currentStep - 1]?.id === "basic" && (
           <Step1BasicInfo
             name={formData.name}
             description={formData.description}
@@ -127,7 +134,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
             errors={errors}
           />
         )}
-        {currentStep === 2 && (
+        {steps[currentStep - 1]?.id === "reg" && (
           <Step2Registration
             registrationType={formData.registrationType}
             deadline={formData.deadline}
@@ -136,7 +143,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
             errors={errors}
           />
         )}
-        {currentStep === 3 && (
+        {steps[currentStep - 1]?.id === "preset" && (
           <Step3MatchPreset
             presets={presets}
             selectedPresetId={formData.presetId}
@@ -144,7 +151,16 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
             errors={errors}
           />
         )}
-        {currentStep === 4 && (
+        {steps[currentStep - 1]?.id === "problems" && (
+          <Step3aFineTuned
+            maxParticipants={formData.maxParticipants}
+            problemSlots={formData.problemSlots}
+            updateFields={updateFields}
+            errors={errors}
+            preset={selectedPreset}
+          />
+        )}
+        {steps[currentStep - 1]?.id === "settings" && (
           <Step4BracketSettings
             thirdPlacePlayoff={formData.thirdPlacePlayoff}
             seedingMethod={formData.seedingMethod}
@@ -152,7 +168,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
             errors={errors}
           />
         )}
-        {currentStep === 5 && <Step5Preview formData={formData} presets={presets} />}
+        {steps[currentStep - 1]?.id === "preview" && <Step5Preview formData={formData} presets={presets} />}
       </div>
 
       {/* Controls */}
@@ -163,7 +179,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
           </button>
         )}
         <div style={{ flex: 1 }} />
-        {currentStep < 5 ? (
+        {currentStep < maxStep ? (
           <button onClick={handleNext} className={styles.nextButton} disabled={isSubmitting}>
             {isSubmitting ? "Validating..." : "Next"}
           </button>
