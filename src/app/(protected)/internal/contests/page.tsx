@@ -21,6 +21,9 @@ export default async function ContestsPage() {
     presets = JSON.parse(JSON.stringify(presetsJson));
   }
 
+  const deadlineMinutesStr = process.env.REGISTRATION_DEADLINE_MINUTES || "1";
+  const deadlineMinutes = parseInt(deadlineMinutesStr, 10);
+
   return (
     <ContestListingClient 
       active={active} 
@@ -28,6 +31,7 @@ export default async function ContestsPage() {
       completed={completed} 
       isAdmin={admin}
       presets={presets}
+      deadlineMinutes={deadlineMinutes}
     />
   );
 }

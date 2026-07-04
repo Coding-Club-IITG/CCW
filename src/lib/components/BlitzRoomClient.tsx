@@ -307,11 +307,21 @@ export default function BlitzRoomClient({
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-4 font-headline-lg text-[24px]">
-              <span className="text-primary">Team Alpha</span>
-              <span className="text-on-surface font-bold">{Object.values(scores)[0] || 0} pts</span>
-              <span className="text-outline-variant font-body-md text-body-md">VS</span>
-              <span className="text-secondary font-bold">{Object.values(scores)[1] || 0} pts</span>
-              <span className="text-on-surface-variant">Team Beta</span>
+              {teams && teams.length >= 2 ? (
+                <>
+                  <span className={teams[0]._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'}>{teams[0].name}</span>
+                  <span className="text-on-surface font-bold">{scores[teams[0]._id] || 0} pts</span>
+                  <span className="text-outline-variant font-body-md text-body-md">VS</span>
+                  <span className="text-on-surface font-bold">{scores[teams[1]._id] || 0} pts</span>
+                  <span className={teams[1]._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'}>{teams[1].name}</span>
+                </>
+              ) : teams?.map((t, idx) => (
+                <span key={t._id} className="flex items-center gap-2">
+                  <span className={t._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'}>{t.name}</span>
+                  <span className="text-on-surface font-bold">{scores[t._id] || 0} pts</span>
+                  {idx < (teams.length - 1) && <span className="text-outline-variant font-body-md text-body-md mx-1">VS</span>}
+                </span>
+              ))}
             </div>
           </div>
         </header>

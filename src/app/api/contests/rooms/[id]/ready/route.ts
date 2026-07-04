@@ -4,6 +4,7 @@ import { getRedis } from "@/lib/redis";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import dbConnect from "@/lib/mongodb";
+import CustomContest from "@/models/CustomContest";
 import { publishRoom } from "@/lib/sse";
 import { reconciliationQueue } from "@/lib/bullmq";
 import { logger } from "@/lib/utils";
@@ -115,6 +116,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         room.actualStartTime = new Date(now);
         await room.save();
 
+        if (state.contestId) {
+          const contest = await CustomContest.findById(state.contestId);
+          if (contest) {
+            contest.status = "active";
+            await contest.save();
+          }
+        }
+
         const updatedState = await redis.hGetAll(`room:${roomId}:state`);
         const updatedProblems = await redis.lRange(`room:${roomId}:problems`, 0, -1);
 
@@ -141,19 +150,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           { roomId, contestId: state.contestId, trigger: "timeout" },
           { delay: timeLimitSecs * 1000, jobId: `timeout-${roomId}` }
         );
-      } else if (!teamReady) {
-        // Set a timeout for this team to become ready (60s)
-        const readyTimeoutKey = `ready_timeout:${roomId}:${userTeamId}`;
-        const timeoutSet = await redis.set(readyTimeoutKey, "1", { EX: 60, NX: true });
-        
-        if (timeoutSet) {
-          // Timeout was just set, schedule a job to check if team became ready
-          await reconciliationQueue.add(
-            "team_ready_timeout",
-            { roomId, teamId: userTeamId },
-            { delay: 60000, jobId: `ready-timeout-${roomId}-${userTeamId}` }
-          );
-        }
       }
     }
 

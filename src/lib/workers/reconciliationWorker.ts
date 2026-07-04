@@ -10,6 +10,9 @@ import { publishRoom } from "../sse";
 import ContestProblemSet from "../../models/ContestProblemSet";
 import ContestTeam from "../../models/ContestTeam";
 import ContestSubmission from "../../models/ContestSubmission";
+import Notification from "../../models/Notification";
+import CPUser from "../../models/CPUser";
+import CFQuestion from "../../models/CFQuestion";
 
 export const reconciliationWorker = new Worker(
   "reconciliation_queue",
@@ -58,8 +61,6 @@ export const reconciliationWorker = new Worker(
         await CustomContest.findByIdAndDelete(contestId);
         
         // Notify creator
-        const Notification = (await import("../../models/Notification")).default;
-        const CPUser = (await import("../../models/CPUser")).default;
         const creator = await CPUser.findById(contest.creatorId);
         if (creator && creator.userId) {
           await Notification.create({
@@ -80,8 +81,6 @@ export const reconciliationWorker = new Worker(
         await CustomContest.findByIdAndDelete(contestId);
         
         // Notify creator
-        const Notification = (await import("../../models/Notification")).default;
-        const CPUser = (await import("../../models/CPUser")).default;
         const creator = await CPUser.findById(contest.creatorId);
         if (creator && creator.userId) {
           await Notification.create({
@@ -98,11 +97,6 @@ export const reconciliationWorker = new Worker(
       // Provision room
       // Since room creation logic is in api/contests/rooms/route.ts, we'll replicate the core of it here 
       // or HTTP POST to it if possible. Replicating the core logic is safer to avoid HTTP loopbacks.
-      const CFQuestion = (await import("../../models/CFQuestion")).default;
-      const CPUser = (await import("../../models/CPUser")).default;
-      const ContestProblemSet = (await import("../../models/ContestProblemSet")).default;
-      const ContestTeam = (await import("../../models/ContestTeam")).default;
-      const ContestRoom = (await import("../../models/ContestRoom")).default;
 
       const problemCount = contest.bulkProblemCount || 3;
       const minRating = contest.bulkRatingMin || 800;
@@ -110,14 +104,7 @@ export const reconciliationWorker = new Worker(
 
       const allUserIds = validTeams.flatMap(t => t[1]);
       const users = await CPUser.find({ userId: { $in: allUserIds } });
-      const solvedProblemIds = new Set<string>();
-      for (const user of users) {
-        if (user.solvedProblems) {
-          for (const sp of user.solvedProblems) {
-            solvedProblemIds.add(sp.problemId);
-          }
-        }
-      }
+      const solvedProblemIds = new Set<string>(users.flatMap(u => (u.solvedProblems || []).map((sp: any) => sp.problemId)));
 
       let availableProblems: any[] = [];
       if (contest.problemSelectionMode === "test") {
@@ -145,7 +132,7 @@ export const reconciliationWorker = new Worker(
       const room = new ContestRoom({
         contestId: contest._id,
         name: `Room for ${contest.name}`,
-        status: "waiting",
+        status: "pending", // Room is hidden until startTime
         participants: allUserIds,
         currentProblemIndex: 0,
         firstSolvers: []
@@ -195,9 +182,9 @@ export const reconciliationWorker = new Worker(
       }
 
       const stateObj: any = {
-        status: "waiting",
+        status: "pending",
         type: contest.mode || "blitz",
-        startTime: "",
+        startTime: "", // Empty for now, set when all ready
         timeLimit: (contest.durationSeconds || 3600).toString(),
         contestId: contestId.toString(),
         readyCount: 0
@@ -216,19 +203,194 @@ export const reconciliationWorker = new Worker(
 
       await redis.sAdd(`contest:${contestId}:rooms`, newRoomId);
 
-      contest.status = "active";
+      contest.status = "provisioning";
       await contest.save();
 
-      // Schedule the timeout job based on the contest's duration
-      const timeoutMs = (contest.durationSeconds || 3600) * 1000;
+      // Schedule the job to open the room at the configured startTime
+      // Fire ROOM_PRE_START_SECONDS before startTime so the room is "waiting" by the time
+      // the client-side timer triggers at startTime — prevents a "No Room Found" race condition.
       const { reconciliationQueue } = await import("../bullmq");
+      const startTimeMs = contest.startTime ? contest.startTime.getTime() : Date.now();
+      const preStartSeconds = parseInt(process.env.ROOM_PRE_START_SECONDS || "5", 10);
+      const delayToStart = Math.max(0, startTimeMs - Date.now() - preStartSeconds * 1000);
+
       await reconciliationQueue.add(
-        "timeout",
-        { roomId: newRoomId, contestId: contestId.toString(), trigger: "timeout" },
-        { delay: timeoutMs, jobId: `timeout-${newRoomId}` }
+        "start_waiting_room",
+        { roomId: newRoomId, contestId: contestId.toString(), trigger: "start_waiting_room" },
+        { delay: delayToStart, jobId: `start-waiting-${newRoomId}` }
       );
 
-      logger.info(`[reconciliationWorker] Successfully provisioned room ${newRoomId} for contest ${contestId}. Scheduled timeout in ${timeoutMs}ms.`);
+      logger.info(`[reconciliationWorker] Successfully provisioned room ${newRoomId}. Scheduled start_waiting_room in ${delayToStart}ms (${preStartSeconds}s before startTime).`);
+      return;
+    }
+
+    // Handle starting the waiting room (making it visible to users)
+    if (job.name === "start_waiting_room" || trigger === "start_waiting_room") {
+      const contest = await CustomContest.findById(contestId);
+      const room = await ContestRoom.findById(roomId);
+      if (!contest || !room) return;
+
+      room.status = "waiting";
+      await room.save();
+
+      if (contest.status !== "active") {
+        contest.status = "active";
+        await contest.save();
+      }
+
+      await redis.hSet(`room:${roomId}:state`, { status: "waiting" });
+
+      // Publish SSE event that room is now waiting
+      await publishRoom(roomId, {
+        type: "room.state_sync",
+        roomId,
+        state: await redis.hGetAll(`room:${roomId}:state`)
+      });
+
+      logger.info(`[reconciliationWorker] Room ${roomId} is now waiting for players.`);
+
+      // Schedule a ready_timeout to cancel if players don't ready up in time
+      const timeoutMins = parseInt(process.env.ROOM_READY_TIMEOUT_MINUTES || "5", 10);
+      const { reconciliationQueue } = await import("../bullmq");
+      await reconciliationQueue.add(
+        "ready_timeout",
+        { roomId, contestId: contestId.toString() },
+        { delay: timeoutMins * 60000, jobId: `ready-timeout-${roomId}` }
+      );
+      
+      return;
+    }
+
+    // Handle ready timeout (if not all players clicked ready within grace period)
+    if (job.name === "ready_timeout") {
+      const state = await redis.hGetAll(`room:${roomId}:state`);
+      
+      // If room is still waiting, it means not everyone clicked ready
+      if (state && state.status === "waiting") {
+        logger.info(`[reconciliationWorker] Room ${roomId} ready timeout hit. Canceling contest.`);
+
+        // Collect team IDs before any deletion so we can clean up team-scoped Redis keys
+        const teamIds = await redis.sMembers(`room:${roomId}:teams`);
+        
+        // Fetch contest before deleting to get creatorId
+        const c = await CustomContest.findById(contestId).lean();
+        if (c) {
+          // Notify creator
+          const creator = await CPUser.findById(c.creatorId);
+          if (creator && creator.userId) {
+            await Notification.create({
+              userId: creator.userId,
+              type: "announcement",
+              title: "Contest Cancelled",
+              message: `Your contest '${c.name}' was cancelled because players didn't click Ready in time.`,
+              link: "/internal/contests"
+            });
+          }
+        }
+        
+        // Remove room/contest data to abort
+        await CustomContest.findByIdAndDelete(contestId);
+        await ContestRoom.findByIdAndDelete(roomId);
+        
+        // Clean up room-scoped Redis keys
+        const keys = await redis.keys(`room:${roomId}:*`);
+        if (keys.length > 0) {
+          await redis.del(keys);
+        }
+
+        // Clean up team-scoped Redis keys (not covered by room:${roomId}:* pattern)
+        for (const tId of teamIds) {
+          await redis.del(`team:${tId}:meta`);
+          await redis.del(`team:${tId}:users`);
+        }
+
+        // Clean up contest-scoped Redis key
+        if (contestId) {
+          await redis.del(`contest:${contestId}:rooms`);
+        }
+
+        await publishRoom(roomId, {
+          type: "room.end",
+          reason: "ready_timeout"
+        });
+      }
+      return;
+    }
+
+    // Handle natural room completion (all problems solved/locked in cfSyncWorker)
+    // This handler is intentionally lean: it does NOT create a new ContestProblemSet
+    // (one was already created during provisioning). It only finalises scores and cleans up.
+    if (job.name === "room_completed") {
+      logger.info(`[reconciliationWorker] Handling room_completed for room ${roomId}`);
+
+      // Fetch teams from Redis before cleanup
+      const completedTeams = await redis.sMembers(`room:${roomId}:teams`);
+      if (completedTeams.length === 0) {
+        logger.info(`[reconciliationWorker] room_completed: no teams found in Redis for room ${roomId}. Already processed?`);
+        return;
+      }
+
+      // Write final scores to MongoDB
+      const completedRoom = await ContestRoom.findById(roomId);
+      if (completedRoom) {
+        completedRoom.status = "ended";
+        for (const tId of completedTeams) {
+          const score = await redis.zScore(`room:${roomId}:scores`, tId);
+          await ContestTeam.findByIdAndUpdate(tId, { score: score || 0 });
+        }
+        await completedRoom.save();
+
+        // Mark contest completed if all rooms ended
+        if (contestId) {
+          const totalRooms = await ContestRoom.countDocuments({ contestId });
+          const endedRooms = await ContestRoom.countDocuments({
+            contestId,
+            status: { $in: ["ended", "completed"] }
+          });
+          if (totalRooms > 0 && totalRooms === endedRooms) {
+            await CustomContest.findByIdAndUpdate(contestId, {
+              status: "completed",
+              endTime: new Date()
+            });
+            logger.info(`[reconciliationWorker] room_completed: all rooms ended. Marked contest ${contestId} as completed.`);
+          }
+        }
+      }
+
+      // Write ContestSubmission records from Redis stream
+      const completedSubs = await redis.xRange(`room:${roomId}:submissions`, "-", "+");
+      for (const sub of completedSubs) {
+        const data = JSON.parse(sub.message.data);
+        const submission = new ContestSubmission({
+          roomId,
+          contestId,
+          userId: data.userId,
+          teamId: data.teamId,
+          problemId: data.problemId,
+          platform: "codeforces",
+          submissionId: data.cfSubmissionId,
+          verdict: data.verdict,
+          points: data.points,
+          solveMs: data.solveMs,
+          submittedAt: new Date(data.cfTimestamp || Date.now())
+        });
+        await submission.save();
+      }
+
+      // Clean up Redis (room-scoped, team-scoped, and contest-scoped)
+      const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
+      if (completedRoomKeys.length > 0) {
+        await redis.del(completedRoomKeys);
+      }
+      for (const tId of completedTeams) {
+        await redis.del(`team:${tId}:meta`);
+        await redis.del(`team:${tId}:users`);
+      }
+      if (contestId) {
+        await redis.del(`contest:${contestId}:rooms`);
+      }
+
+      logger.info(`[reconciliationWorker] room_completed: finished cleanup for room ${roomId}.`);
       return;
     }
 
@@ -253,62 +415,6 @@ export const reconciliationWorker = new Worker(
       return;
     }
 
-    // Handle team ready timeout
-    if (job.name === "team_ready_timeout") {
-      const state = await redis.hGetAll(`room:${roomId}:state`);
-      
-      // Only process if room is still waiting
-      if (state && state.status === "waiting") {
-        const teamMembers = await redis.sMembers(`team:${teamId}:users`);
-        const readyMembers = [];
-        for (const memberId of teamMembers) {
-          const isReady = await redis.sIsMember(`room:${roomId}:ready_users`, memberId);
-          if (isReady) {
-            readyMembers.push(memberId);
-          }
-        }
-
-        const allReady = readyMembers.length === teamMembers.length;
-        if (!allReady) {
-          // Team is not ready within 60s, withdraw the entire team
-          logger.info(`[reconciliationWorker] Team ${teamId} not ready within 60s, withdrawing from room ${roomId}`);
-          
-          // Remove team from room and mark participants as withdrawn
-          await redis.sRem(`room:${roomId}:teams`, teamId);
-          await redis.del(`team:${teamId}:users`);
-          await redis.del(`team:${teamId}:meta`);
-          
-          // Remove team members from participants
-          for (const memberId of teamMembers) {
-            await redis.sRem(`room:${roomId}:ready_users`, memberId);
-          }
-
-          // Publish withdrawal event
-          await publishRoom(roomId, {
-            type: "team.withdrawn",
-            teamId,
-            reason: "ready_timeout"
-          });
-
-          // If no teams are left or only one team, end the room
-          const remainingTeams = await redis.sMembers(`room:${roomId}:teams`);
-          if (remainingTeams.length === 0 || remainingTeams.length === 1) {
-            await redis.hSet(`room:${roomId}:state`, { status: "completed" });
-            const teamScores: Record<string, number> = {};
-            for (const tId of remainingTeams) {
-              const score = await redis.zScore(`room:${roomId}:scores`, tId);
-              teamScores[tId] = score || 0;
-            }
-            await publishRoom(roomId, {
-              type: "room.end",
-              finalScores: teamScores,
-              reason: "team_withdrawal"
-            });
-          }
-        }
-      }
-      return;
-    }
 
     // Handle mid-match disconnect timeout
     if (job.name === "mid_match_disconnect_timeout") {

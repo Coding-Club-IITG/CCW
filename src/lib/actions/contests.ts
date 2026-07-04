@@ -28,7 +28,7 @@ export type ContestListingItem = {
   userScore?: number;
   opponentScore?: number;
   otherScores?: number[];
-  isVictory?: boolean;
+  result?: "victory" | "tie" | "loss";
   roomStatus?: string;
   actualStartTime?: Date | null;
 };
@@ -38,7 +38,7 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
   const userId = session?.user?.id;
 
   await dbConnect();
-  
+
   let cpUserId = null;
   if (userId) {
     const cpUser = await CPUser.findOne({ userId }).lean();
@@ -48,7 +48,7 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
   }
 
   const contests = await CustomContest.find({
-    status: { $in: ["draft", "registration", "active", "completed"] },
+    status: { $in: ["draft", "registration", "provisioning", "active", "completed"] },
   }).lean();
 
   const active: ContestListingItem[] = [];
@@ -75,32 +75,10 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
       maxParticipants: contest.registrationSettings?.maxParticipants || 999,
       registrationType: contest.registrationSettings?.type,
     };
-    
-    let computedStatus = contest.status;
-    const now = new Date();
-    if (contest.status === "completed" || contest.status === "active" || contest.status === "draft") {
-      computedStatus = contest.status;
-    } else if (contest.startTime && contest.endTime) {
-      if (now >= contest.startTime && now <= contest.endTime) {
-        computedStatus = "active";
-      } else if (now > contest.endTime) {
-        computedStatus = "completed";
-      } else if (now < contest.startTime) {
-        computedStatus = "registration";
-      }
-    }
-    
-    if (computedStatus === "active" && userId) {
-      const room = await ContestRoom.findOne({ contestId: contest._id, participants: userId }).lean();
-      if (room) {
-        item.roomStatus = room.status;
-        item.actualStartTime = room.actualStartTime || null;
-      }
-    }
 
-    item.status = computedStatus;
+    const status = contest.status;
 
-    if (computedStatus === "active") {
+    if (status === "active") {
       if (userId) {
         const room = await ContestRoom.findOne({ contestId: contest._id, participants: userId }).lean();
         if (room) {
@@ -109,9 +87,9 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
         }
       }
       active.push(item);
-    } else if (computedStatus === "registration" || computedStatus === "draft") {
+    } else if (["registration", "draft", "provisioning"].includes(status)) {
       upcoming.push(item);
-    } else if (computedStatus === "completed") {
+    } else if (status === "completed") {
       if (userId) {
         const room = await ContestRoom.findOne({ contestId: contest._id, participants: userId }).lean();
         if (room) {
@@ -122,14 +100,16 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
             const otherTeams = teams.filter((t: any) => t._id.toString() !== userTeam._id.toString());
             item.opponentScore = otherTeams.length > 0 ? Math.max(...otherTeams.map((t: any) => t.score)) : 0;
             item.otherScores = otherTeams.map((t: any) => t.score).sort((a: number, b: number) => b - a);
-            item.isVictory = (item.userScore ?? 0) >= (item.opponentScore ?? 0);
+            const us = item.userScore ?? 0;
+            const op = item.opponentScore ?? 0;
+            item.result = us > op ? "victory" : us === op ? "tie" : "loss";
           }
         }
       }
       completed.push(item);
     }
   }
-  
+
   // Sort
   active.sort((a, b) => (a.startTime && b.startTime) ? a.startTime.getTime() - b.startTime.getTime() : 0);
   upcoming.sort((a, b) => (a.startTime && b.startTime) ? a.startTime.getTime() - b.startTime.getTime() : 0);
@@ -143,7 +123,7 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
   const userId = session?.user?.id;
 
   await dbConnect();
-  
+
   let cpUserId = null;
   if (userId) {
     const cpUser = await CPUser.findOne({ userId }).lean();
@@ -157,10 +137,10 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
     if (!contest) return null;
 
     const isRegistered = userId ? (contest.registrations || []).some((r: any) => r.userId.toString() === userId) : false;
-    
+
     let computedStatus = contest.status;
     const now = new Date();
-    if (contest.status === "completed" || contest.status === "active" || contest.status === "draft") {
+    if (["completed", "active", "draft", "provisioning"].includes(contest.status)) {
       computedStatus = contest.status;
     } else if (contest.startTime && contest.endTime) {
       if (now >= contest.startTime && now <= contest.endTime) {
@@ -245,7 +225,7 @@ export async function registerForContest(contestId: string, teamName?: string): 
     });
 
     await contest.save();
-    
+
     // Revalidate the contests listing page
     revalidatePath("/internal/contests");
     return { success: true, message: "Successfully registered" };
@@ -308,7 +288,7 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
       throw new Error("REGISTRATION_DEADLINE_MINUTES must be a valid number.");
     }
     const deadline = new Date(start.getTime() - deadlineMinutes * 60000);
-    
+
     // Validate start time is at least 2 minutes from now (1 min registration + 1 min buffer)
     if (start.getTime() < Date.now() + 2 * 60000 - 5000) { // 5s grace period
       return { success: false, error: "Start time must be strictly at least 2 minutes ahead of current time" };
@@ -316,7 +296,7 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
 
     // Format-specific backend validations and overrides
     let { maxParticipants, teamSize, format } = data;
-    
+
     if (format === "1v1") {
       teamSize = 1;
       maxParticipants = 2;
@@ -374,7 +354,7 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
     const now = Date.now();
     const regStartTime = data.registrationStartTime ? new Date(data.registrationStartTime).getTime() : now;
     const deadlineTime = contest.registrationSettings!.deadline!.getTime();
-    
+
     // Validate registration starts before it ends (only for open registration)
     if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
       await CustomContest.findByIdAndDelete(contest._id);
@@ -385,8 +365,8 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
       // If registration is in the future, schedule start_registration
       if (regStartTime > now) {
         await reconciliationQueue.add(
-          "start_registration", 
-          { contestId: contest._id.toString() }, 
+          "start_registration",
+          { contestId: contest._id.toString() },
           { delay: regStartTime - now }
         );
       } else {
@@ -448,7 +428,7 @@ export async function unregisterFromContest(contestId: string): Promise<{ succes
     if (!userId) return { success: false, message: "Unauthorized" };
 
     await dbConnect();
-    
+
     const contest = await CustomContest.findById(contestId);
     if (!contest) return { success: false, message: "Contest not found" };
 
@@ -466,7 +446,7 @@ export async function unregisterFromContest(contestId: string): Promise<{ succes
     }
 
     await contest.save();
-    
+
     revalidatePath("/internal/contests");
     return { success: true, message: "Successfully unregistered" };
   } catch (error) {

@@ -70,12 +70,14 @@ export default function ContestListingClient({
   completed: initialCompleted,
   isAdmin = false,
   presets = [],
+  deadlineMinutes = 1,
 }: {
   active: ContestListingItem[];
   upcoming: ContestListingItem[];
   completed: ContestListingItem[];
   isAdmin?: boolean;
   presets?: any[];
+  deadlineMinutes?: number;
 }) {
   const router = useRouter();
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
@@ -83,12 +85,18 @@ export default function ContestListingClient({
   const [registerModalData, setRegisterModalData] = useState<{isOpen: boolean, contestId: string, teamSize: number, viewOnly: boolean}>({isOpen: false, contestId: "", teamSize: 1, viewOnly: false});
   const handleRegisterClick = (id: string, size: number, viewOnly: boolean = false) => setRegisterModalData({isOpen: true, contestId: id, teamSize: size, viewOnly});
 
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
   const isPastDeadline = (deadline?: Date | string | null) => {
     if (!isMounted || !deadline) return false;
-    return new Date() > new Date(deadline);
+    return now > new Date(deadline).getTime();
   };
 
   const [localActive, setLocalActive] = useState<ContestListingItem[]>(initialActive);
@@ -106,14 +114,21 @@ export default function ContestListingClient({
       const now = Date.now();
       
       setLocalUpcoming(prevUpcoming => {
-        const transferring = prevUpcoming.filter(c => c.startTime && new Date(c.startTime).getTime() <= now);
+        const transferring = prevUpcoming.filter(c => {
+          const transitionTime = c.startTime;
+          return transitionTime && new Date(transitionTime).getTime() <= now;
+        });
         if (transferring.length > 0) {
           // Safe to call another state setter here because we are in an effect callback,
           // BUT React 18 strict mode might execute updaters twice. 
           // To be safe, we schedule it out of the pure function using setTimeout
           setTimeout(() => {
             setLocalActive(prevActive => {
-              const newActive = [...transferring];
+              const newActive: ContestListingItem[] = [...transferring].map(c => ({
+                ...c,
+                status: "active",
+                roomStatus: "waiting"
+              }));
               for (const item of prevActive) {
                 if (!newActive.some(x => x._id === item._id)) {
                   newActive.push(item);
@@ -169,7 +184,7 @@ export default function ContestListingClient({
 
       <div className="flex flex-col flex-1 overflow-hidden dark stitch-container w-full h-full min-h-[calc(100vh-64px)] bg-background relative">
         {showCreateModal && (
-          <CreateRoomModal isOpen={true} onClose={() => setShowCreateModal(false)} isAdmin={isAdmin} presets={presets} />
+          <CreateRoomModal isOpen={true} onClose={() => setShowCreateModal(false)} isAdmin={isAdmin} presets={presets} deadlineMinutes={deadlineMinutes} />
         )}
         <main className="flex-1 overflow-y-auto p-margin-mobile md:p-margin-desktop w-full">
           <div className="max-w-container-max-width mx-auto">
@@ -314,7 +329,7 @@ export default function ContestListingClient({
                         </div>
 
                         {contest.isRegistered ? (
-                          isPastDeadline(contest.registrationDeadline) ? (
+                          isPastDeadline(contest.registrationDeadline) || contest.status === "provisioning" ? (
                             <div className="flex items-center gap-2 ml-auto">
                               <div className="text-primary/70 font-medium text-sm font-label-sm flex items-center gap-1 shrink-0">
                                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
@@ -358,17 +373,19 @@ export default function ContestListingClient({
                               >
                                 View Registrations
                               </button>
-                            ) : contest.registeredCount >= contest.maxParticipants ? (
-                              <div className="px-3 py-1.5 border border-outline-variant/50 bg-surface-variant/30 text-on-surface-variant/70 rounded font-label-sm text-[13px] flex items-center justify-center gap-1 transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]">
-                                <span className="material-symbols-outlined !text-[14px] leading-none" style={{ fontSize: '14px' }}>block</span>
-                                Full
-                              </div>
+                            ) : contest.registeredCount >= contest.maxParticipants || isPastDeadline(contest.registrationDeadline) || contest.status === "provisioning" ? (
+                              <button 
+                                onClick={() => handleRegisterClick(contest._id, contest.teamSize || 1, true)} 
+                                className="px-3 py-1.5 border border-outline-variant/50 bg-surface-variant/30 text-primary/70 hover:bg-surface-variant hover:text-primary rounded font-label-sm text-[13px] transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]"
+                              >
+                                View Registrations
+                              </button>
                             ) : (
                               <RegisterButton 
                                 contestId={contest._id} 
                                 teamSize={contest.teamSize || 1}
                                 onRegisterClick={handleRegisterClick}
-                                disabledOverride={isPastDeadline(contest.registrationDeadline)} 
+                                disabledOverride={false} 
                               />
                             )}
                           </div>

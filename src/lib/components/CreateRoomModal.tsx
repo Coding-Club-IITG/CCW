@@ -17,7 +17,7 @@ const getRatingColor = (rating: number | undefined) => {
   return '#ff0000';
 };
 
-export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, presets = [] }: { isOpen: boolean; onClose: () => void; isAdmin?: boolean; presets?: any[] }) {
+export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, presets = [], deadlineMinutes = 1 }: { isOpen: boolean; onClose: () => void; isAdmin?: boolean; presets?: any[]; deadlineMinutes?: number }) {
   const router = useRouter();
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
@@ -149,17 +149,12 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
       }
     }
     
-    const isTeamsUI = formData.teamSize === 3 || formData.format === "solo-tournament";
-    const perTeamLimit = formData.format === "solo-tournament" ? 1 : formData.teamSize;
+    const isTeamsUI = true;
+    const perTeamLimit = formData.teamSize;
     if (isTeamsUI) {
       const maxTeamsAllowed = Math.floor(formData.maxParticipants / perTeamLimit);
       if (manualTeams.length > maxTeamsAllowed) {
          setMaxPartError(`Cannot be less than currently registered teams (${manualTeams.length}).`);
-         return;
-      }
-    } else {
-      if (registeredUsers.length > formData.maxParticipants) {
-         setMaxPartError(`Cannot be less than currently registered participants (${registeredUsers.length}).`);
          return;
       }
     }
@@ -172,15 +167,18 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
   const isTeamSizeLocked = ["1v1", "solo-tournament", "team-tournament"].includes(formData.format);
   const isMaxPartLocked = formData.format === "1v1";
 
-  const useTeamsUI = formData.teamSize === 3 || formData.format === "solo-tournament";
-  const membersPerTeamLimit = formData.format === "solo-tournament" ? 1 : formData.teamSize;
+  const useTeamsUI = true;
+  const membersPerTeamLimit = formData.teamSize;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const start = new Date(formData.startTime);
-    if (start.getTime() < Date.now() + 2 * 60000 - 5000) {
-      alert("Start time (Deadline) must be at least 2 minutes ahead of the current time (to allow for the 1-minute registration deadline plus a 1-minute buffer).");
+    // Dynamic check based on environment variable passed down from server.
+    // E.g., if deadlineMinutes is 1, minimum wait is (1 + 1) = 2 mins.
+    const requiredBufferMinutes = deadlineMinutes + 1;
+    if (start.getTime() < Date.now() + requiredBufferMinutes * 60000 - 5000) {
+      alert(`Start time (Deadline) must be at least ${requiredBufferMinutes} minutes ahead of the current time (to allow for the ${deadlineMinutes}-minute registration deadline plus a 1-minute buffer).`);
       return;
     }
 
@@ -212,22 +210,21 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
     
     let finalRegisteredUsers = formData.registrationType === "closed" ? registeredUsers : [];
     if (formData.registrationType === "closed") {
-      if (useTeamsUI) {
-        for (const team of manualTeams) {
-          if (team.members.length !== membersPerTeamLimit) {
-            alert(`Team "${team.name}" does not have exactly ${membersPerTeamLimit} member(s).`);
-            return;
-          }
-        }
-        finalRegisteredUsers = manualTeams.flatMap(team => 
-          team.members.map(member => ({ ...member, teamName: team.name }))
-        );
-      } else if (formData.format === "1v1") {
-        if (registeredUsers.length !== 2) {
-          alert("1v1 format requires exactly 2 participants.");
+      for (const team of manualTeams) {
+        if (team.members.length !== membersPerTeamLimit) {
+          alert(`Team "${team.name}" does not have exactly ${membersPerTeamLimit} member(s).`);
           return;
         }
       }
+      if (formData.format === "1v1") {
+        if (manualTeams.length !== 2) {
+          alert("1v1 format requires exactly 2 participants (2 teams of 1).");
+          return;
+        }
+      }
+      finalRegisteredUsers = manualTeams.flatMap(team => 
+        team.members.map(member => ({ ...member, teamName: team.name }))
+      );
     }
 
     if (formData.format === "bracket") {
@@ -247,7 +244,6 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
         if (res.error) {
           alert(res.error);
         } else {
-          alert("Bracket tournament created successfully!");
           onClose();
           router.refresh();
         }
@@ -270,7 +266,6 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
       if (res.error) {
         alert(res.error);
       } else {
-        alert("Room created successfully!");
         onClose();
         router.refresh();
       }
@@ -359,6 +354,49 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
       [newUsers[index + 1], newUsers[index]] = [newUsers[index], newUsers[index + 1]];
       return newUsers;
     });
+  };
+
+  const [draggedTeamIndex, setDraggedTeamIndex] = useState<number | null>(null);
+  const [dragOverTeamIndex, setDragOverTeamIndex] = useState<number | null>(null);
+
+  const handleTeamDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedTeamIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/html", e.currentTarget.innerHTML);
+  };
+
+  const handleTeamDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (draggedTeamIndex !== null && draggedTeamIndex !== index) {
+      setDragOverTeamIndex(index);
+    }
+  };
+
+  const handleTeamDragLeave = () => {
+    setDragOverTeamIndex(null);
+  };
+
+  const handleTeamDragEnd = () => {
+    setDraggedTeamIndex(null);
+    setDragOverTeamIndex(null);
+  };
+
+  const handleTeamDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedTeamIndex === null || draggedTeamIndex === index) {
+      handleTeamDragEnd();
+      return;
+    }
+    
+    setManualTeams(prev => {
+      const result = [...prev];
+      const [removed] = result.splice(draggedTeamIndex, 1);
+      result.splice(index, 0, removed);
+      return result;
+    });
+    
+    handleTeamDragEnd();
   };
 
   const renderProblemConfiguration = () => (
@@ -551,6 +589,19 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow"
+              />
+            </div>
+
+            <div className="flex flex-col gap-unit">
+              <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="room-description">Description (Optional)</label>
+              <textarea
+                id="room-description"
+                spellCheck={false}
+                placeholder="Enter room description"
+                value={formData.description}
+                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow resize-none h-[80px]"
+                maxLength={500}
               />
             </div>
 

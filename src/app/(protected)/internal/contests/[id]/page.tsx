@@ -83,13 +83,32 @@ export default async function ContestRoomPage({
 
   if (contest.mode === "blitz" || contest.mode === "arena") {
     if (!room || !teamId) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full p-8 text-center text-on-surface">
-          <span className="material-symbols-outlined text-6xl text-error mb-4">error</span>
-          <h1 className="text-2xl font-bold mb-2">No Room Found</h1>
-          <p className="text-on-surface-variant">You have not been assigned to a match room for this contest yet.</p>
-        </div>
-      );
+      if (contest.status === "completed") {
+        return (
+          <div className="flex flex-col items-center justify-center h-full p-8 text-center text-on-surface">
+            <span className="material-symbols-outlined text-6xl text-error mb-4">event_busy</span>
+            <h1 className="text-2xl font-bold mb-2">Contest Cancelled</h1>
+            <p className="text-on-surface-variant">This contest was cancelled (likely due to not enough players).</p>
+          </div>
+        );
+      } else if (["draft", "registration", "provisioning"].includes(contest.status)) {
+        return (
+          <div className="flex flex-col items-center justify-center h-full p-8 text-center text-on-surface">
+            <span className="material-symbols-outlined text-6xl text-primary animate-spin mb-4">hourglass_empty</span>
+            <h1 className="text-2xl font-bold mb-2">Match is Preparing</h1>
+            <p className="text-on-surface-variant">The rooms are currently being provisioned. Please wait...</p>
+            <meta httpEquiv="refresh" content="5" />
+          </div>
+        );
+      } else {
+        return (
+          <div className="flex flex-col items-center justify-center h-full p-8 text-center text-on-surface">
+            <span className="material-symbols-outlined text-6xl text-error mb-4">error</span>
+            <h1 className="text-2xl font-bold mb-2">No Room Found</h1>
+            <p className="text-on-surface-variant">You have not been assigned to a match room for this contest yet.</p>
+          </div>
+        );
+      }
     }
     const teams = await ContestTeam.find({ roomId: room._id }).lean();
     const allMemberIds = teams.flatMap(t => t.members);

@@ -20,9 +20,10 @@ export default function MatchHistoryClient({ history }: { history: ContestListin
     
     // outcome filter
     if (outcomeFilter !== "Outcome: All") {
-      const isVictory = contest.isVictory ?? false;
-      if (outcomeFilter === "Victory" && !isVictory) return false;
-      if (outcomeFilter === "Defeat" && isVictory) return false;
+      const result = contest.result;
+      if (outcomeFilter === "Victory" && result !== "victory") return false;
+      if (outcomeFilter === "Defeat" && result !== "loss") return false;
+      if (outcomeFilter === "Tie" && result !== "tie") return false;
     }
     
     // date filter
@@ -88,6 +89,7 @@ export default function MatchHistoryClient({ history }: { history: ContestListin
                 <select value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value)} className="appearance-none bg-surface-container-highest border border-outline-variant text-on-surface font-label-sm text-label-sm rounded-lg py-2 pl-4 pr-10 hover:bg-surface-variant transition-colors focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
                   <option>Outcome: All</option>
                   <option>Victory</option>
+                  <option>Tie</option>
                   <option>Defeat</option>
                 </select>
                 <span className="material-symbols-outlined absolute right-3 text-on-surface-variant pointer-events-none text-[18px]">expand_more</span>
@@ -114,19 +116,26 @@ export default function MatchHistoryClient({ history }: { history: ContestListin
           {/* Match History List */}
           <div className="flex flex-col gap-4">
             {filteredHistory.map((contest) => {
-              const isVictory = contest.isVictory ?? false;
+              const result = contest.result;
+              const isVictory = result === "victory";
+              const isTie = result === "tie";
               const outcomeScore = contest.userScore ?? 0;
               const otherScores = contest.otherScores && contest.otherScores.length > 0 
                 ? contest.otherScores 
                 : [contest.opponentScore ?? 0];
               
+              // Border and badge colors based on three-state result
+              const borderClass = isVictory ? 'border-l-primary' : isTie ? 'border-l-tertiary' : 'border-l-outline opacity-90';
+              
               return (
-                <div key={contest._id} className={`group bg-surface-container-low border-y border-r border-l-4 border-outline-variant ${isVictory ? 'border-l-primary' : 'border-l-outline opacity-90'} rounded-xl p-gutter flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:bg-surface-container transition-colors duration-200`}>
+                <div key={contest._id} className={`group bg-surface-container-low border-y border-r border-l-4 border-outline-variant ${borderClass} rounded-xl p-gutter flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:bg-surface-container transition-colors duration-200`}>
                   {/* Left: Info */}
                   <div className="flex-1 flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       {isVictory ? (
                         <span className="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-2 py-0.5 rounded">VICTORY</span>
+                      ) : isTie ? (
+                        <span className="bg-tertiary-container text-on-tertiary-container font-label-sm text-label-sm px-2 py-0.5 rounded">TIE</span>
                       ) : (
                         <span className="bg-surface-variant text-on-surface font-label-sm text-label-sm px-2 py-0.5 rounded border border-outline">DEFEAT</span>
                       )}
@@ -169,11 +178,11 @@ export default function MatchHistoryClient({ history }: { history: ContestListin
                   {/* Middle: Score */}
                   <div className="flex items-center justify-center min-w-[200px]">
                     <div className="text-center flex items-baseline gap-4">
-                      <span className={`font-headline-lg text-headline-lg ${isVictory ? 'text-primary' : 'text-on-surface-variant opacity-70'}`}>{outcomeScore}</span>
+                      <span className={`font-headline-lg text-headline-lg ${isVictory ? 'text-primary' : isTie ? 'text-tertiary' : 'text-on-surface-variant opacity-70'}`}>{outcomeScore}</span>
                       {otherScores.map((score, idx) => (
                         <div key={idx} className="flex items-baseline gap-4">
                           <span className="font-body-md text-body-md text-outline-variant">-</span>
-                          <span className={`font-headline-lg text-headline-lg ${!isVictory && score > outcomeScore ? 'text-on-surface' : 'text-on-surface-variant opacity-70'}`}>{score}</span>
+                          <span className={`font-headline-lg text-headline-lg ${!isVictory && !isTie && score > outcomeScore ? 'text-on-surface' : 'text-on-surface-variant opacity-70'}`}>{score}</span>
                         </div>
                       ))}
                     </div>

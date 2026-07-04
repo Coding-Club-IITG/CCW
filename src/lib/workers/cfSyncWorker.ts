@@ -72,20 +72,14 @@ export const cfSyncWorker = new Worker(
           return;
         }
 
-        const lowerTimestamp = contest.startTime.getTime();
+        const lowerTimestamp = room.actualStartTime
+          ? room.actualStartTime.getTime()
+          : contest.startTime.getTime();
         // Add a 2-minute grace period after the match ends for late submissions to process
         const upperTimestamp = lowerTimestamp + ((contest.durationSeconds || 3600) * 1000) + 120000;
 
         // 2. Fetch CF Submissions (last 20)
-        let submissions = [];
-        try {
-          submissions = await fetchCodeforcesUserStatus(cfHandle, 20);
-        } catch (error: any) {
-          if (error.response?.status === 429) {
-            logger.warn(`[cfSyncWorker] CF API rate limited (429). Relying on BullMQ retry.`);
-          }
-          throw error;
-        }
+        const submissions = await fetchCodeforcesUserStatus(cfHandle, 20);
 
         // 3. Validation Matrix
         let isValid = false;
@@ -331,6 +325,7 @@ export const cfSyncWorker = new Worker(
   },
   {
     connection,
+    concurrency: 1, // Serialize cf_sync jobs to prevent Blitz concurrent-solve race condition
     limiter: {
       max: 2,
       duration: 1000,

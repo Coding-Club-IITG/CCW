@@ -35,7 +35,7 @@ export interface ICustomContest extends Document {
   durationSeconds?: number;
   format: "1v1" | "solo-tournament" | "team-tournament" | "bracket";
   mode: "blitz" | "arena";
-  status: "draft" | "registration" | "active" | "completed";
+  status: "draft" | "registration" | "provisioning" | "active" | "completed";
   teamSize?: number;
   presetId?: mongoose.Types.ObjectId;
   problemSelectionMode: "bulk" | "fine-tuned" | "test";
@@ -103,7 +103,7 @@ const CustomContestSchema = new Schema<ICustomContest>(
     status: {
       type: String,
       required: true,
-      enum: ["draft", "registration", "active", "completed"],
+      enum: ["draft", "registration", "provisioning", "active", "completed"],
       default: "draft",
       index: true,
     },
