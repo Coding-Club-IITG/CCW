@@ -25,8 +25,7 @@ export default function BlitzRoomClient({
   initialProblems = [],
   initialScores = {},
   initialProblemIndex = 0,
-  from,
-  isSpectator,
+  from
 }: {
   contest: ContestListingItem;
   roomId: string;
@@ -42,7 +41,6 @@ export default function BlitzRoomClient({
   initialScores?: Record<string, number>;
   initialProblemIndex?: number;
   from?: string;
-  isSpectator?: boolean;
 }) {
   const router = useRouter();
   
@@ -292,16 +290,8 @@ export default function BlitzRoomClient({
       <div className="absolute inset-0 bg-pattern opacity-30 pointer-events-none"></div>
       
       <main className="flex-1 flex flex-col h-full overflow-hidden p-6 gap-6 relative z-10 max-w-container-max-width mx-auto w-full">
-        <div className="flex gap-4 items-center">
-          {isSpectator && (
-            <span className="text-secondary font-label-sm uppercase tracking-widest px-3 py-1 bg-secondary-container rounded text-on-secondary-container">
-              Spectating
-            </span>
-          )}
-          <Link
-            href={from === 'bracket' ? `/internal/contests/${contest._id}` : `/internal/contests`}
-            className="flex items-center gap-2 px-3 py-1.5 text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 rounded-lg transition-all font-label-sm text-label-sm uppercase tracking-wider"
-          >
+        <div className="flex items-center">
+          <Link href={from === 'bracket' ? `/internal/contests/${contest._id}` : "/internal/contests"} className="flex items-center gap-2 px-3 py-1.5 text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 rounded-lg transition-all font-label-sm text-label-sm uppercase tracking-wider">
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>{from === 'bracket' ? 'Back to Bracket Canvas' : 'Back to Contests'}
           </Link>
         </div>
@@ -379,21 +369,14 @@ export default function BlitzRoomClient({
                   <p className="text-on-surface-variant mb-8 max-w-md text-lg">
                     The arena is being prepared. Review your strategy—the match begins when all teams are ready.
                   </p>
-                  {matchState === 'waiting' && !isSpectator && (
-                    <button
-                      onClick={handleReady}
-                      className={`px-8 py-3 rounded-full font-label-lg font-bold transition-all ${
-                        isReady 
-                          ? 'bg-secondary-container text-on-secondary-container shadow-[0_0_15px_rgba(var(--md-sys-color-secondary-container),0.4)]' 
-                          : 'bg-primary text-on-primary hover:opacity-90 shadow-lg hover:shadow-xl shadow-primary/20'
-                      }`}
-                    >
-                      {isReady ? "READY" : "I AM READY"}
-                    </button>
-                  )}
-                  {matchState === 'waiting' && isSpectator && (
-                    <div className="text-on-surface-variant font-label-md">Waiting for players to be ready...</div>
-                  )}
+                  <button 
+                    onClick={handleReady}
+                    disabled={isReady}
+                    className="w-full max-w-sm px-8 py-4 bg-primary-container text-white border border-primary/50 rounded-lg font-label-sm font-bold tracking-widest uppercase text-lg transition-all duration-300 shadow-[0_4px_20px_rgba(46,125,50,0.4)] hover:shadow-[0_0_25px_rgba(46,125,50,0.7)] hover:-translate-y-1 hover:brightness-110 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none disabled:hover:brightness-100"
+                    style={{ cursor: isReady ? 'default' : 'pointer' }}
+                  >
+                    {isReady ? <span className="animated-dots">Ready! Waiting on others</span> : "I am Ready"}
+                  </button>
                 </div>
               ) : (
                 <>
@@ -444,24 +427,17 @@ export default function BlitzRoomClient({
                         <span className="material-symbols-outlined">open_in_new</span>
                         Open in Codeforces
                       </a>
-                      {!isSpectator && (
-                        <button 
-                          className={`w-full py-2.5 rounded font-label-md font-bold transition-all flex items-center justify-center gap-2 ${
-                            (syncing || matchState !== 'active' || syncCooldown > 0)
-                              ? 'bg-surface-container-highest text-on-surface-variant opacity-50' 
-                              : 'bg-primary text-on-primary hover:opacity-90 shadow-lg shadow-primary/20'
-                          }`}
-                          onClick={handleSync}
-                          disabled={syncing || matchState !== 'active' || syncCooldown > 0}
-                          title={syncCooldown > 0 ? `Wait ${syncCooldown}s before syncing again` : ""}
-                          style={{ cursor: (syncing || matchState !== 'active' || syncCooldown > 0) ? 'not-allowed' : 'pointer' }}
-                        >
-                          <span className={`material-symbols-outlined ${syncing ? 'animate-spin' : ''}`}>
-                            {syncCooldown > 0 && !syncing ? 'hourglass_empty' : 'sync'}
-                          </span>
-                          {syncing ? "Syncing..." : syncCooldown > 0 ? `Wait ${syncCooldown}s` : "Sync Submission"}
-                        </button>
-                      )}
+                      <button 
+                        onClick={handleSync}
+                        disabled={syncing || matchState !== 'active' || syncCooldown > 0}
+                        className="flex items-center gap-2 px-8 bg-primary-container text-on-primary-container rounded-lg font-label-sm text-label-sm font-bold transition-all cyber-glow py-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100 hover:brightness-110"
+                        style={{ cursor: (syncing || matchState !== 'active' || syncCooldown > 0) ? 'not-allowed' : 'pointer' }}
+                      >
+                        <span className={`material-symbols-outlined ${syncing ? 'animate-spin' : ''}`}>
+                          {syncCooldown > 0 && !syncing ? 'hourglass_empty' : 'sync'}
+                        </span>
+                        {syncing ? "Syncing..." : syncCooldown > 0 ? `Wait ${syncCooldown}s` : "Sync Submission"}
+                      </button>
                     </div>
                   </div>
                 </>
