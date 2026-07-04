@@ -228,14 +228,14 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
                     >
                       <div className="flex items-center justify-between gap-4 flex-wrap">
                         <div className="flex items-center gap-4 flex-1">
-                          <div className={`w-1.5 h-10 rounded-full ${prob.solved ? (isUserTeam ? 'bg-primary' : 'bg-error') : 'bg-outline-variant'}`}></div>
+                          <div className={`w-1.5 h-10 rounded-full ${prob.solved ? (isUserTeam ? 'bg-primary' : 'bg-outline-variant') : 'bg-outline-variant'}`}></div>
                           <div className="flex flex-col">
                             <span className={`font-body-md font-bold text-on-surface ${!prob.solved ? 'line-through decoration-outline-variant/70 text-on-surface-variant' : ''}`}>
-                              {prob.name}
+                              {prob.id} - {prob.name}
                             </span>
-                            <div className={`font-label-sm text-[12px] flex items-center gap-1 mt-1 ${prob.solved ? (isUserTeam ? 'text-primary' : 'text-error/80') : 'text-on-surface-variant'}`}>
+                            <div className={`font-label-sm text-[12px] flex items-center gap-1 mt-1 ${prob.solved ? (isUserTeam ? 'text-primary' : 'text-on-surface-variant') : 'text-on-surface-variant'}`}>
                               <span className="material-symbols-outlined text-[14px]">
-                                {prob.solved ? (isUserTeam ? 'check_circle' : 'cancel') : 'lock'}
+                                {prob.solved ? (isUserTeam ? 'check_circle' : 'lock') : 'lock'}
                               </span>
                               {prob.solved ? `Solved by ${prob.solver?.teamName}` : 'Unsolved'}
                             </div>
@@ -245,7 +245,7 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
                         <div className="flex items-center gap-6 text-right shrink-0">
                           <div className="flex flex-col items-end">
                             <span className="font-label-sm text-[11px] text-on-surface-variant uppercase">Rating</span>
-                            <span className={`font-body-md font-medium ${prob.solved ? (isUserTeam ? 'text-primary' : 'text-error') : 'text-on-surface-variant'}`}>
+                            <span className={`font-body-md font-medium ${prob.solved ? (isUserTeam ? 'text-primary' : 'text-on-surface-variant') : 'text-on-surface-variant'}`}>
                               {prob.rating || '--'}
                             </span>
                           </div>

@@ -28,6 +28,8 @@ export type ContestListingItem = {
   opponentScore?: number;
   otherScores?: number[];
   isVictory?: boolean;
+  roomStatus?: string;
+  actualStartTime?: Date | null;
 };
 
 export async function getContestListing(): Promise<{ active: ContestListingItem[], upcoming: ContestListingItem[], completed: ContestListingItem[] }> {
@@ -85,9 +87,25 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
         computedStatus = "registration";
       }
     }
+    
+    if (computedStatus === "active" && userId) {
+      const room = await ContestRoom.findOne({ contestId: contest._id, participants: userId }).lean();
+      if (room) {
+        item.roomStatus = room.status;
+        item.actualStartTime = room.actualStartTime || null;
+      }
+    }
+
     item.status = computedStatus;
 
     if (computedStatus === "active") {
+      if (userId) {
+        const room = await ContestRoom.findOne({ contestId: contest._id, participants: userId }).lean();
+        if (room) {
+          item.roomStatus = room.status;
+          item.actualStartTime = room.actualStartTime || null;
+        }
+      }
       active.push(item);
     } else if (computedStatus === "registration") {
       upcoming.push(item);

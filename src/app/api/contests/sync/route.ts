@@ -47,13 +47,15 @@ export async function POST(request: NextRequest) {
     const rateLimitKey = `ratelimit:sync:${userId}`;
 
     // 1. Check ratelimit
-    const isRateLimited = await redis.exists(rateLimitKey);
-    if (isRateLimited) {
-      return NextResponse.json({ error: "Rate limit exceeded. Please wait 60 seconds." }, { status: 429 });
-    }
+    if (process.env.NODE_ENV !== "development") {
+      const isRateLimited = await redis.exists(rateLimitKey);
+      if (isRateLimited) {
+        return NextResponse.json({ error: "Rate limit exceeded. Please wait 60 seconds." }, { status: 429 });
+      }
 
-    // 2. Set ratelimit (60s TTL)
-    await redis.set(rateLimitKey, "1", { EX: 60 });
+      // 2. Set ratelimit (60s TTL)
+      await redis.set(rateLimitKey, "1", { EX: 60 });
+    }
 
     // 3. Enqueue job
     const jobData = { roomId, userId, teamId: resolvedTeamId, cfHandle, problemId };
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
     await redis.expire(syncStateKey, 3600);
 
     // 5. Publish event to user
-    await publishUser(userId, { type: "sync.queued", position });
+    await publishUser(userId, { type: "sync.queued", position, problemId });
 
     // 6. Return 202
     return NextResponse.json({ queued: true }, { status: 202 });

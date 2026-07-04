@@ -227,9 +227,18 @@ export default function ContestListingClient({
                           <h3 className="text-xl font-bold text-on-surface mb-1 truncate">{contest.name}</h3>
                           <p className="text-on-surface-variant text-sm">{contest.description || "Competitive programming match"}</p>
                         </div>
-                        <div className="text-right">
-                          <CountdownTimer startTime={contest.startTime} durationSeconds={contest.durationSeconds} />
-                          <div className="text-on-surface-variant text-xs">Remaining</div>
+                        <div className="text-right flex flex-col justify-center items-end">
+                          {contest.isRegistered && contest.roomStatus === "waiting" ? (
+                            <>
+                              <div className="text-on-surface font-label-sm font-medium text-lg tracking-wider text-secondary animate-pulse">Waiting...</div>
+                              <div className="text-on-surface-variant text-xs">For players to ready up</div>
+                            </>
+                          ) : (
+                            <>
+                              <CountdownTimer startTime={contest.actualStartTime || contest.startTime} durationSeconds={contest.durationSeconds} />
+                              <div className="text-on-surface-variant text-xs">Remaining</div>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-4 mb-6 text-sm text-on-surface-variant">

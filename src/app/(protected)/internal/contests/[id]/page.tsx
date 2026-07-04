@@ -13,6 +13,8 @@ import CPUser from "@/models/CPUser";
 import { createClient } from "redis";
 import { getBracketSnapshot } from "@/lib/bracket";
 
+export const dynamic = "force-dynamic";
+
 export default async function ContestRoomPage({ 
   params,
   searchParams
@@ -188,6 +190,7 @@ export default async function ContestRoomPage({
           cfHandle={cfHandle} 
           teams={populatedTeams} 
           initialReadyUserIds={readyUserIds}
+          initialOnlineUserIds={initialOnlineUserIds}
           initialMatchState={status}
           initialProblems={initialProblems}
           initialScores={initialScores}

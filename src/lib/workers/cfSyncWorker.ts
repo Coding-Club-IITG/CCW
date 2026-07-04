@@ -136,7 +136,7 @@ export const cfSyncWorker = new Worker(
         
         // MOCK AC FOR TEST BOTS IN DEV/TESTING:
         logger.info(`[cfSyncWorker] Checking if mock should be applied: NODE_ENV=${process.env.NODE_ENV}, userId=${userId}, cfHandle=${cfHandle}`);
-        if (userId.includes("test") || cfHandle.toLowerCase().includes("test")) {
+        if (process.env.NODE_ENV === "development" || userId.includes("test") || cfHandle.toLowerCase().includes("test")) {
           logger.info(`[cfSyncWorker] Mock condition met for ${cfHandle}, artificially injecting AC!`);
           isValid = true;
           hasSubmissionForProblem = true;
@@ -332,7 +332,7 @@ export const cfSyncWorker = new Worker(
         } else {
           const failVerdict = hasSubmissionForProblem ? bestVerdict : "not_found";
           logger.info(`[cfSyncWorker] Validation failed for ${cfHandle} on ${problemId}. Verdict: ${failVerdict}`);
-          await publishUser(userId, { type: "sync.failed", verdict: failVerdict });
+          await publishUser(userId, { type: "sync.failed", verdict: failVerdict, problemId });
         }
       } catch (error: any) {
         logger.error(`[cfSyncWorker] Error processing cf_sync for user ${userId}:`, error.message);

@@ -20,6 +20,7 @@ export default function ArenaRoomClient({
   cfHandle,
   teams,
   initialReadyUserIds = [],
+  initialOnlineUserIds = [],
   initialMatchState = "waiting",
   initialProblems = [],
   initialScores = {},
@@ -35,11 +36,12 @@ export default function ArenaRoomClient({
   userId: string;
   cfHandle?: string;
   teams?: any[];
-  initialReadyUserIds?: string[];
   initialMatchState?: "waiting" | "active" | "completed";
   initialProblems?: any[];
   initialScores?: Record<string, number>;
   initialLocks?: Record<string, string>;
+  initialReadyUserIds?: string[];
+  initialOnlineUserIds?: string[];
   initialStartTime?: number;
   initialTimeLimit?: number;
   from?: string;
@@ -51,6 +53,7 @@ export default function ArenaRoomClient({
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
   const [locks, setLocks] = useState<Record<string, string>>(initialLocks);
   const [readyUserIds, setReadyUserIds] = useState<Set<string>>(new Set(initialReadyUserIds));
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set(initialOnlineUserIds || [userId])); // Track online users
   const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
   
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
@@ -85,6 +88,16 @@ export default function ArenaRoomClient({
       router.replace(`/internal/contests/rooms/${roomId}/result`);
     }
   }, [initialMatchState, roomId, router]);
+
+  // Also redirect dynamically if the match completes while connected
+  useEffect(() => {
+    if (matchState === "completed" && initialMatchState !== "completed" && initialMatchState !== "ended") {
+      const t = setTimeout(() => {
+        router.replace(`/internal/contests/rooms/${roomId}/result`);
+      }, 2000);
+      return () => clearTimeout(t);
+    }
+  }, [matchState, initialMatchState, roomId, router]);
 
   useEffect(() => {
     if (matchState !== "active" || !startTime || !timeLimit) {
@@ -153,9 +166,9 @@ export default function ArenaRoomClient({
         const pName = stateRef.current.problems.find(p => p.problemId === payload.problemId)?.name || payload.problemId;
         
         if (existingLock && existingLock.split('|')[0] !== payload.claimedBy) {
-           addActivity("gavel", `CRITICAL: ${tName} RECLAIMED ${pName}!`, "Just now", "text-error");
+           addActivity("gavel", `CRITICAL: ${tName} RECLAIMED ${payload.problemId} - ${pName}!`, "Just now", "text-error");
         } else {
-           addActivity("lock", `${tName} claimed ${pName}`, "Just now", "text-primary");
+           addActivity("lock", `${tName} solved ${payload.problemId} - ${pName}`, "Just now", "text-primary");
         }
         
         setLocks(prev => ({ ...prev, [payload.problemId]: `${payload.claimedBy}|${payload.timestamp}` }));
@@ -200,13 +213,42 @@ export default function ArenaRoomClient({
           setIsReady(true);
         }
         break;
-      case "presence.online":
-        addActivity("person", `User connected.`, "Just now", "text-secondary");
+      case "presence.online": {
+        const uName = getMemberName(payload.userId);
+        setOnlineUserIds(prev => {
+          const newSet = new Set(prev);
+          newSet.add(payload.userId);
+          return newSet;
+        });
+        addActivity("person", `${uName} connected.`, "Just now", "text-secondary");
         break;
-      case "presence.offline":
-        addActivity("person_off", `User disconnected.`, "Just now", "text-on-surface-variant");
+      }
+      case "presence.offline": {
+        const uName = getMemberName(payload.userId);
+        setOnlineUserIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(payload.userId);
+          return newSet;
+        });
+        setReadyUserIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(payload.userId);
+          return newSet;
+        });
+        addActivity("person_off", `${uName} disconnected.`, "Just now", "text-error");
         break;
+      }
     }
+  };
+
+  const getMemberName = (uid: string) => {
+    if (!teams) return "Unknown";
+    for (const t of teams) {
+      for (const m of t.members) {
+        if (m.id === uid) return m.name;
+      }
+    }
+    return uid === userId ? "You" : "Unknown";
   };
 
   const addActivity = (icon: string, text: string, time: string, color: string = "text-on-surface") => {
@@ -221,8 +263,8 @@ export default function ArenaRoomClient({
   const handleSync = async (problemId: string) => {
     if (syncingMap[problemId] || matchState !== "active" || syncCooldown > 0) return;
     
-    setSyncingMap(prev => ({ ...prev, [problemId]: true }));
-    setSyncCooldown(60);
+    const cooldown = process.env.NODE_ENV === "development" ? 5 : 60;
+    setSyncCooldown(cooldown);
     
     const res = await fetch("/api/contests/sync", {
       method: "POST",
@@ -235,7 +277,7 @@ export default function ArenaRoomClient({
       })
     });
     
-    setSyncCooldown(60); // Apply frontend cooldown directly
+    setSyncCooldown(cooldown); // Apply frontend cooldown directly
     localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
     
     if (!res.ok) {
@@ -321,16 +363,18 @@ export default function ArenaRoomClient({
                     </span>
                     {team.members.map((member: any) => {
                       const memberIsReady = readyUserIds.has(member.id);
-                      const borderColor = memberIsReady ? 'border-primary' : 'border-error';
-                      const bgColor = memberIsReady ? 'bg-primary/20' : 'bg-error/20';
-                      const iconColor = memberIsReady ? 'text-primary' : 'text-error';
-                      const dotColor = memberIsReady ? 'bg-primary' : 'bg-error';
+                      const memberIsOnline = onlineUserIds.has(member.id);
+                      
+                      const borderColor = memberIsReady ? 'border-primary' : (!memberIsOnline ? 'border-error' : 'border-transparent');
+                      const dotColor = memberIsReady ? 'bg-primary' : (!memberIsOnline ? 'bg-error' : 'bg-transparent border border-outline-variant');
 
                       return (
-                        <div key={member.id} className={`flex items-center gap-3 p-2 rounded bg-surface-variant/30 transition-colors border-l-2 ${borderColor}`}>
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${bgColor}`}>
-                            <span className={`material-symbols-outlined text-xs ${iconColor}`}>person</span>
-                          </div>
+                        <div key={member.id} className={`flex items-center gap-3 p-2 rounded bg-surface-variant/30 hover:bg-surface-variant/50 transition-colors border-l-2 ${borderColor}`}>
+                          <img 
+                            src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "U")}&background=random`} 
+                            alt={member.name} 
+                            className={`w-6 h-6 rounded-full object-cover border ${memberIsOnline ? 'border-primary/50' : 'border-error/50 grayscale'}`} 
+                          />
                           <span className="font-label-sm text-sm text-on-surface flex-1 truncate">
                             {member.name} {member.id === userId && "(You)"}
                           </span>
@@ -407,7 +451,7 @@ export default function ArenaRoomClient({
                               </span>
                             </div>
                             <div className="z-10">
-                              <h3 className="font-label-sm text-label-sm text-on-surface mb-1 truncate" title={prob.name}>{prob.name}</h3>
+                              <h3 className="font-label-sm text-label-sm text-on-surface mb-1 truncate" title={prob.name}>{prob.problemId ? `${prob.problemId} - ` : ''}{prob.name}</h3>
                               <p className="text-xs text-primary font-label-sm font-bold">{prob.points || 100} pts</p>
                             </div>
                             

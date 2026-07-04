@@ -32,8 +32,11 @@ async function sleep(ms: number) {
 // ---------------------------------------------------------
 // SSE BOT CLIENT
 // ---------------------------------------------------------
-async function runBotClient(botUser: any, roomId: string, contestId: string, teamId: string | null) {
-  const headers = { "x-test-user-id": botUser._id.toString() };
+async function runBotClient(botUser: any, roomId: string, contestId: string, teamId: string | null, mode: string, targetProblemIds?: string[]) {
+  const headers = { 
+    "x-test-user-id": botUser._id.toString(),
+    "Content-Type": "application/json"
+  };
   
   const es = new EventSource(`${BASE_URL}/api/events?roomId=${roomId}`, {
     fetch: (url, init) => fetch(url, { ...init, headers: { ...init?.headers, ...headers } } as any)
@@ -63,26 +66,55 @@ async function runBotClient(botUser: any, roomId: string, contestId: string, tea
 
       if (payload.type === "room.state_sync") {
         if (payload.state.status === "active") {
-          activeProblemId = payload.problems[payload.state.currentProblem || 0]?.problemId;
-          
-          if (activeProblemId && !hasSubmitted) {
-            hasSubmitted = true;
-            // Wait 10-25s before simulating correct submission
-            const delay = Math.floor(Math.random() * 15000) + 10000;
-            console.log(`[Bot ${botUser.name}] Problem revealed! Simulating solving for ${delay/1000}s...`);
-            await sleep(delay);
+          if (mode === "arena") {
+            if (!hasSubmitted) {
+              hasSubmitted = true;
+              console.log(`[Bot ${botUser.name}] Arena match active! Simulating solves for ${payload.problems.length} problems...`);
+              payload.problems.forEach((p: any, idx: number) => {
+                if (targetProblemIds && targetProblemIds.length > 0 && !targetProblemIds.includes(p.problemId)) return;
+                const delay = Math.floor(Math.random() * 20000) + 15000 + (idx * 20000);
+                setTimeout(async () => {
+                  if (!isReady) return; // simple check if match is still on
+                  console.log(`[Bot ${botUser.name}] Submitting correct solution for ${p.problemId}...`);
+                  await fetch(`${BASE_URL}/api/contests/sync`, {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify({
+                      roomId,
+                      teamId: teamId || undefined,
+                      cfHandle: `testhandle_${botUser.name.replace(/\s+/g, "")}`,
+                      problemId: p.problemId
+                    })
+                  });
+                }, delay);
+              });
+            }
+          } else {
+            activeProblemId = payload.problems[payload.state.currentProblem || 0]?.problemId;
             
-            console.log(`[Bot ${botUser.name}] Submitting correct solution for ${activeProblemId}...`);
-            await fetch(`${BASE_URL}/api/contests/sync`, {
-              method: "POST",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                roomId,
-                teamId: teamId || undefined,
-                cfHandle: `testhandle_${botUser.name.replace(/\s+/g, "")}`,
-                problemId: activeProblemId
-              })
-            });
+            if (activeProblemId && !hasSubmitted) {
+              if (targetProblemIds && targetProblemIds.length > 0 && !targetProblemIds.includes(activeProblemId)) {
+                // Skip if not in target list
+              } else {
+                hasSubmitted = true;
+              // Wait 10-25s before simulating correct submission
+              const delay = Math.floor(Math.random() * 15000) + 10000;
+              console.log(`[Bot ${botUser.name}] Problem revealed! Simulating solving for ${delay/1000}s...`);
+              await sleep(delay);
+              
+              console.log(`[Bot ${botUser.name}] Submitting correct solution for ${activeProblemId}...`);
+              await fetch(`${BASE_URL}/api/contests/sync`, {
+                method: "POST",
+                headers,
+                body: JSON.stringify({
+                  roomId,
+                  teamId: teamId || undefined,
+                  cfHandle: `testhandle_${botUser.name.replace(/\s+/g, "")}`,
+                  problemId: activeProblemId
+                })
+              });
+            }
+          }
           }
         }
       }
@@ -92,7 +124,10 @@ async function runBotClient(botUser: any, roomId: string, contestId: string, tea
         hasSubmitted = false;
         
         if (activeProblemId) {
-          hasSubmitted = true;
+          if (targetProblemIds && targetProblemIds.length > 0 && !targetProblemIds.includes(activeProblemId)) {
+            // Skip
+          } else {
+            hasSubmitted = true;
           const delay = Math.floor(Math.random() * 15000) + 10000;
           console.log(`[Bot ${botUser.name}] New Problem! Simulating solving for ${delay/1000}s...`);
           await sleep(delay);
@@ -109,6 +144,7 @@ async function runBotClient(botUser: any, roomId: string, contestId: string, tea
             })
           });
         }
+      }
       }
       
     } catch (err) {}
@@ -152,7 +188,10 @@ async function main() {
     }
 
     const duration = 2; // Fixed to 2 minutes for tests
-    const problemSelectionMode = "testing";
+    const problemSelectionMode = "test";
+
+    const targetIdsStr = await askQuestion("Target Problem IDs for Bots to solve (comma-separated, leave blank for auto): ");
+    const targetProblemIds = targetIdsStr.trim() ? targetIdsStr.split(',').map(id => id.trim()) : undefined;
 
     console.log(`\n⏳ Connecting to DB...`);
     await mongoose.connect(MONGODB_URI!);
@@ -189,24 +228,33 @@ async function main() {
           verifiedAt: new Date()
         });
       }
+      
       botUsers.push(u);
     }
 
     // 2. Create Contest Document
     const joinCode = crypto.randomBytes(3).toString("hex").substring(0, 6);
     
-    // Calculate start time: 20s from now
-    const startTime = new Date(Date.now() + 20000);
+    const regDelayStr = await askQuestion("How many seconds should the registration period remain open? (default 60): ");
+    const regDelay = parseInt(regDelayStr) || 60;
+    
+    // Start time = Registration Period + 60s Buffer (for check_start worker which runs 1 minute before start)
+    const startTime = new Date(Date.now() + ((regDelay + 60) * 1000));
 
     const contestDoc = await CustomContest.create({
-      title: `Test Blade ${mode.toUpperCase()} [${format}]`,
+      name: `Test Blade ${mode.toUpperCase()} [${format}]`,
+      description: "Automated test blade contest",
       mode,
       format,
       visibility: "public",
       joinCode,
       startTime,
-      duration,
+      endTime: new Date(startTime.getTime() + duration * 60000),
+      durationSeconds: duration * 60,
       problemSelectionMode,
+      bulkProblemCount: 3,
+      bulkRatingMin: 800,
+      bulkRatingMax: 1200,
       minRating: 0,
       maxRating: 4000,
       maxParticipants: maxContestants,
@@ -214,6 +262,11 @@ async function main() {
       allowSpectators: true,
       creatorId: devUser._id.toString(),
       status: "registration", // MUST BE REGISTRATION FOR WORKER
+      registrationSettings: {
+        type: "open",
+        deadline: new Date(startTime.getTime() - 60000),
+        maxParticipants: maxContestants
+      },
       registrations: []
     });
 
@@ -229,45 +282,36 @@ async function main() {
       }
     });
     
-    await queue.add("check_start", { contestId: contestDoc._id.toString() }, { delay: 1000 });
+    await queue.add("check_start", { contestId: contestDoc._id.toString() }, { delay: regDelay * 1000 });
     console.log(`✅ Queued 'check_start' event for room creation!`);
     
-    // 3. Register Bots AND Dev User
-    console.log(`\n▶️  Registering Participants...`);
+    // 3. Register Bots
+    console.log(`\n▶️  Registering Bots...`);
     const registrations = [];
     
-    // Register Dev User First
-    registrations.push({
-      userId: devUser._id.toString(),
-      cfHandle: `dev_handle`, // Doesn't matter since it won't be used for API if it's the actual human
-      teamName: format === "team-tournament" ? "Team Dev" : devUser.name,
-      registeredAt: new Date()
-    });
-    console.log(`  -> Auto-registered DEV USER to '${format === "team-tournament" ? "Team Dev" : "Solo"}'`);
-    
     if (format === "team-tournament") {
-      // Dev user took 1 slot in Team Dev, so Team Dev needs (teamSize - 1) bots.
       let currentTeamNum = 1;
-      let currentTeamCount = 1; // Start at 1 because dev user is already in Team 1
+      let currentTeamCount = 0; 
       
       for (let i = 0; i < botUsers.length; i++) {
         const bot = botUsers[i];
+        const tName = `Team Bot ${currentTeamNum}`;
         
-        let tName = "";
-        if (currentTeamNum === 1) {
-          tName = "Team Dev";
-          currentTeamCount++;
-          if (currentTeamCount >= teamSize) {
+        currentTeamCount++;
+        if (currentTeamNum === 1 && currentTeamCount >= teamSize - 1) { // Leave 1 slot open in first team
+            registrations.push({
+              userId: bot._id.toString(),
+              cfHandle: `testhandle_${bot.name.replace(/\s+/g, "")}`,
+              teamName: tName,
+              registeredAt: new Date()
+            });
+            console.log(`  -> Registered ${bot.name} to '${tName}' (leaving 1 slot for you)`);
             currentTeamNum++;
             currentTeamCount = 0;
-          }
-        } else {
-          tName = `Team Enemy ${currentTeamNum - 1}`;
-          currentTeamCount++;
-          if (currentTeamCount >= teamSize) {
+            continue;
+        } else if (currentTeamCount >= teamSize) {
             currentTeamNum++;
             currentTeamCount = 0;
-          }
         }
         
         registrations.push({
@@ -292,9 +336,10 @@ async function main() {
     }
     
     await CustomContest.updateOne({ _id: contestDoc._id }, { $set: { registrations } });
-    console.log(`✅ Registration complete. You have been AUTO-REGISTERED so the room can be provisioned instantly!`);
-    console.log(`\nOnce the room is created below, go straight to:`);
-    console.log(`${BASE_URL}/internal/contests/${contestDoc._id}`);
+    console.log(`✅ Bots are registered. Waiting for YOU to manually register via the UI.`);
+    console.log(`\nGo straight to:`);
+    console.log(`${BASE_URL}/internal/contests`);
+    console.log(`And register for '${contestDoc.name}' within the next ${regDelay} seconds!`);
     
     // 4. Poll for Room Creation
     console.log(`\n⏳ Waiting for Agenda to create the room (happens exactly at start time)...`);
@@ -335,7 +380,7 @@ async function main() {
 
     const botPromises = botUsers.map(bot => {
       const tId = teamMap[bot._id.toString()] || null;
-      return runBotClient(bot, roomId!, contestDoc._id.toString(), tId);
+      return runBotClient(bot, roomId!, contestDoc._id.toString(), tId, mode, targetProblemIds);
     });
 
     console.log(`⏳ Bots are alive. Waiting for match to end...`);

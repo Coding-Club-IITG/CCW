@@ -104,11 +104,12 @@ export async function GET(request: NextRequest) {
         // Publish offline status
         await publishRoom(roomId, { type: "presence.offline", userId });
 
-        // Queue a mid-match disconnect timeout for 10 minutes (600,000 ms)
+        // Queue a mid-match disconnect timeout for 10 minutes (600,000 ms) in prod, 10s in dev
+        const timeoutDelay = process.env.NODE_ENV === "development" ? 10000 : 600000;
         await reconciliationQueue.add(
           "mid_match_disconnect_timeout",
           { roomId, userId, contestId: room.contestId.toString(), trigger: "disconnect" },
-          { delay: 600000, jobId: `disconnect-timeout-${roomId}-${userId}-${Date.now()}` }
+          { delay: timeoutDelay, jobId: `disconnect-timeout-${roomId}-${userId}-${Date.now()}` }
         );
       }
     } catch (err) {

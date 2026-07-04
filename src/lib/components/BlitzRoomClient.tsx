@@ -86,6 +86,16 @@ export default function BlitzRoomClient({
     }
   }, [initialMatchState, roomId, router]);
 
+  // Also redirect dynamically if the match completes while connected
+  useEffect(() => {
+    if (matchState === "completed" && initialMatchState !== "completed") {
+      const t = setTimeout(() => {
+        router.replace(`/internal/contests/rooms/${roomId}/result`);
+      }, 2000);
+      return () => clearTimeout(t);
+    }
+  }, [matchState, initialMatchState, roomId, router]);
+
   useEffect(() => {
     const eventSource = new EventSource(`/api/events?roomId=${roomId}`);
     
@@ -128,7 +138,8 @@ export default function BlitzRoomClient({
           return arr;
         });
         setAnimationKey(k => k + 1);
-        addActivity("check_circle", `Team ${payload.solvedBy.teamId === teamId ? 'Alpha' : 'Beta'} solved a problem!`, "Just now", "text-primary");
+        const solverName = getMemberName(payload.solvedBy.userId);
+        addActivity("check_circle", `${solverName} solved a problem!`, "Just now", "text-primary");
         break;
       case "room.score":
         setScores(payload.scores);
@@ -231,7 +242,8 @@ export default function BlitzRoomClient({
       })
     });
     
-    setSyncCooldown(60); // Apply frontend cooldown directly
+    const cooldown = process.env.NODE_ENV === "development" ? 5 : 60;
+    setSyncCooldown(cooldown); // Apply frontend cooldown directly
     localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
     
     if (!res.ok) {
@@ -392,7 +404,7 @@ export default function BlitzRoomClient({
                       <span className="material-symbols-outlined text-9xl">code_blocks</span>
                     </div>
                     <div className="z-10 mb-4">
-                      <h1 className="font-headline-lg-mobile md:font-headline-lg text-[32px] md:text-[40px] font-bold text-on-surface mb-2">{activeProblem.name}</h1>
+                      <h1 className="font-headline-lg-mobile md:font-headline-lg text-[32px] md:text-[40px] font-bold text-on-surface mb-2">{activeProblem.problemId ? `${activeProblem.problemId} - ` : ''}{activeProblem.name}</h1>
                       <div className="flex items-center gap-4 font-label-sm text-label-sm text-on-surface-variant">
                         <span className="flex items-center gap-1 bg-surface-variant text-on-surface px-2 py-1 rounded">
                           <span className="material-symbols-outlined text-[16px]">bar_chart</span>
