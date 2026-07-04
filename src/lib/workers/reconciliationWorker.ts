@@ -50,8 +50,30 @@ export const reconciliationWorker = new Worker(
       // Determine required team size
       const requiredTeamSize = contest.format === "team-tournament" ? (contest.teamSize || 3) : 1;
 
-      // Filter teams to only those that meet the exact required size
-      const validTeams = Array.from(teamsMap.entries()).filter(([name, members]) => members.length === requiredTeamSize);
+      // Check if any team doesn't meet the required size
+      const invalidTeams = Array.from(teamsMap.entries()).filter(([name, members]) => members.length !== requiredTeamSize);
+
+      if (invalidTeams.length > 0) {
+        logger.info(`[reconciliationWorker] Contest ${contestId} has incomplete teams. Canceling.`);
+        await CustomContest.findByIdAndDelete(contestId);
+        
+        // Notify creator
+        const Notification = (await import("../../models/Notification")).default;
+        const CPUser = (await import("../../models/CPUser")).default;
+        const creator = await CPUser.findById(contest.creatorId);
+        if (creator && creator.userId) {
+          await Notification.create({
+            userId: creator.userId,
+            type: "announcement",
+            title: "Contest Cancelled",
+            message: `Your contest '${contest.name}' was cancelled because some registered teams were incomplete.`,
+            link: "/internal/contests"
+          });
+        }
+        return;
+      }
+      
+      const validTeams = Array.from(teamsMap.entries());
 
       if (validTeams.length < 2) {
         logger.info(`[reconciliationWorker] Contest ${contestId} did not meet minimum registration requirements. Canceling.`);
@@ -197,7 +219,16 @@ export const reconciliationWorker = new Worker(
       contest.status = "active";
       await contest.save();
 
-      logger.info(`[reconciliationWorker] Successfully provisioned room ${newRoomId} for contest ${contestId}`);
+      // Schedule the timeout job based on the contest's duration
+      const timeoutMs = (contest.durationSeconds || 3600) * 1000;
+      const { reconciliationQueue } = await import("../bullmq");
+      await reconciliationQueue.add(
+        "timeout",
+        { roomId: newRoomId, contestId: contestId.toString(), trigger: "timeout" },
+        { delay: timeoutMs, jobId: `timeout-${newRoomId}` }
+      );
+
+      logger.info(`[reconciliationWorker] Successfully provisioned room ${newRoomId} for contest ${contestId}. Scheduled timeout in ${timeoutMs}ms.`);
       return;
     }
 

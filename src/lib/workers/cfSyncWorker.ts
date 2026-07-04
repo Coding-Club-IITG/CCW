@@ -11,8 +11,7 @@ import ContestRoom from "../../models/ContestRoom";
 import CustomContest from "../../models/CustomContest";
 import mongoose from "mongoose";
 
-// Optional: cache a pause timer to avoid repeated pausing when circuit breaker trips
-let isCircuitBreakerOpen = false;
+// Circuit breaker removed, relying on BullMQ job-level retries
 
 export const cfSyncWorker = new Worker(
   "cf_sync_queue",
@@ -74,8 +73,8 @@ export const cfSyncWorker = new Worker(
         }
 
         const lowerTimestamp = contest.startTime.getTime();
-        // Hardcode endtime to be 2 minutes more than the startime for now, per user request
-        const upperTimestamp = lowerTimestamp + 2 * 60 * 1000;
+        // Add a 2-minute grace period after the match ends for late submissions to process
+        const upperTimestamp = lowerTimestamp + ((contest.durationSeconds || 3600) * 1000) + 120000;
 
         // 2. Fetch CF Submissions (last 20)
         let submissions = [];
@@ -83,17 +82,7 @@ export const cfSyncWorker = new Worker(
           submissions = await fetchCodeforcesUserStatus(cfHandle, 20);
         } catch (error: any) {
           if (error.response?.status === 429) {
-            logger.warn(`[cfSyncWorker] CF API rate limited (429). Pausing queue for 30s.`);
-            if (!isCircuitBreakerOpen) {
-              isCircuitBreakerOpen = true;
-              // Pause the worker for 30s, this is a BullMQ feature
-              cfSyncWorker.pause();
-              setTimeout(() => {
-                cfSyncWorker.resume();
-                isCircuitBreakerOpen = false;
-              }, 30000);
-            }
-            throw error; // Let BullMQ retry
+            logger.warn(`[cfSyncWorker] CF API rate limited (429). Relying on BullMQ retry.`);
           }
           throw error;
         }

@@ -263,7 +263,7 @@ export default function ArenaRoomClient({
   const handleSync = async (problemId: string) => {
     if (syncingMap[problemId] || matchState !== "active" || syncCooldown > 0) return;
     
-    const cooldown = process.env.NODE_ENV === "development" ? 5 : 60;
+    const cooldown = parseInt(process.env.NEXT_PUBLIC_SYNC_COOLDOWN || "60", 10);
     setSyncCooldown(cooldown);
     
     const res = await fetch("/api/contests/sync", {

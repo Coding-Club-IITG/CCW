@@ -242,7 +242,7 @@ export default function BlitzRoomClient({
       })
     });
     
-    const cooldown = process.env.NODE_ENV === "development" ? 5 : 60;
+    const cooldown = parseInt(process.env.NEXT_PUBLIC_SYNC_COOLDOWN || "60", 10);
     setSyncCooldown(cooldown); // Apply frontend cooldown directly
     localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
     

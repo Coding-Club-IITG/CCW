@@ -44,6 +44,9 @@ export async function GET(request: NextRequest) {
     const offlineSentKey = `room:${roomId}:presence:${userId}:offline_sent`;
     await redis.del(offlineSentKey);
 
+    // Clear any pending disconnect timeout jobs
+    await reconciliationQueue.remove(`disconnect-timeout-${roomId}-${userId}`);
+
     // Publish online status
     await publishRoom(roomId, { type: "presence.online", userId });
   }
@@ -109,7 +112,7 @@ export async function GET(request: NextRequest) {
         await reconciliationQueue.add(
           "mid_match_disconnect_timeout",
           { roomId, userId, contestId: room.contestId.toString(), trigger: "disconnect" },
-          { delay: timeoutDelay, jobId: `disconnect-timeout-${roomId}-${userId}-${Date.now()}` }
+          { delay: timeoutDelay, jobId: `disconnect-timeout-${roomId}-${userId}` }
         );
       }
     } catch (err) {
