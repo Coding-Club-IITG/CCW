@@ -15,10 +15,21 @@ export const reconciliationWorker = new Worker(
   "reconciliation_queue",
   async (job: Job) => {
     logger.info(`[reconciliationWorker] Processing job ${job.id} (name: ${job.name})`, job.data);
-    const { roomId, contestId, trigger, forfeitedUserId, teamId } = job.data;
+    let { roomId, contestId, trigger, forfeitedUserId, teamId } = job.data;
     const redis = await getRedis();
     await dbConnect();
 
+
+    // Handle starting registration for scheduled brackets
+    if (job.name === "start_registration" || trigger === "start_registration") {
+      const contest = await CustomContest.findById(contestId);
+      if (contest && contest.status === "draft") {
+        contest.status = "registration";
+        await contest.save();
+        logger.info(`[reconciliationWorker] Started registration for contest ${contestId}`);
+      }
+      return;
+    }
 
     // Handle checking contest start
     if (job.name === "check_start" || trigger === "check_start") {
@@ -187,6 +198,27 @@ export const reconciliationWorker = new Worker(
       await contest.save();
 
       logger.info(`[reconciliationWorker] Successfully provisioned room ${newRoomId} for contest ${contestId}`);
+      return;
+    }
+
+    // Handle ending registration for brackets
+    if (job.name === "end_registration" || trigger === "end_registration") {
+      const contest = await CustomContest.findById(contestId);
+      if (!contest || contest.format !== "bracket") return;
+      
+      // Flip status to active so generateBracket can run
+      contest.status = "active";
+      await contest.save();
+      logger.info(`[reconciliationWorker] Ended registration for bracket contest ${contestId}. Generating bracket...`);
+      
+      try {
+        const { generateBracket } = await import("../bracket");
+        await generateBracket(contestId);
+        
+
+      } catch (err: any) {
+        logger.error(`[reconciliationWorker] Error generating bracket for ${contestId}:`, err);
+      }
       return;
     }
 
