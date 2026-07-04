@@ -45,6 +45,7 @@ export default function ArenaRoomClient({
   initialStartTime?: number;
   initialTimeLimit?: number;
   from?: string;
+  isSpectator?: boolean;
 }) {
   const router = useRouter();
 
@@ -84,14 +85,14 @@ export default function ArenaRoomClient({
 
   // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
   useEffect(() => {
-    if (initialMatchState === "completed" || initialMatchState === "ended") {
+    if (initialMatchState === "completed") {
       router.replace(`/internal/contests/rooms/${roomId}/result`);
     }
   }, [initialMatchState, roomId, router]);
 
   // Also redirect dynamically if the match completes while connected
   useEffect(() => {
-    if (matchState === "completed" && initialMatchState !== "completed" && initialMatchState !== "ended") {
+    if (matchState === "completed" && initialMatchState !== "completed") {
       const t = setTimeout(() => {
         router.replace(`/internal/contests/rooms/${roomId}/result`);
       }, 2000);
@@ -319,7 +320,12 @@ export default function ArenaRoomClient({
         
         {/* Main Content Canvas */}
         <main className="flex-1 flex flex-col h-full overflow-hidden p-6 gap-6 relative z-10 max-w-container-max-width mx-auto w-full">
-          <div className="flex items-center">
+          <div className="flex gap-4 items-center">
+            {isSpectator && (
+              <span className="text-secondary font-label-sm uppercase tracking-widest px-3 py-1 bg-secondary-container rounded text-on-secondary-container">
+                Spectating
+              </span>
+            )}
             <Link href={from === 'bracket' ? `/internal/contests/${contest._id}` : "/internal/contests"} className="flex items-center gap-2 px-3 py-1.5 text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 rounded-lg transition-all font-label-sm text-label-sm uppercase tracking-wider">
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>{from === 'bracket' ? 'Back to Bracket Canvas' : 'Back to Contests'}
             </Link>
@@ -400,14 +406,19 @@ export default function ArenaRoomClient({
                     <p className="text-on-surface-variant mb-8 max-w-md text-lg">
                       The arena is being prepared. Review your strategy—the match begins when all teams are ready.
                     </p>
-                    <button 
-                      onClick={handleReady}
-                      disabled={isReady}
-                      className="w-full max-w-sm px-8 py-4 bg-primary-container text-white border border-primary/50 rounded-lg font-label-sm font-bold tracking-widest uppercase text-lg transition-all duration-300 shadow-[0_4px_20px_rgba(46,125,50,0.4)] hover:shadow-[0_0_25px_rgba(46,125,50,0.7)] disabled:opacity-50"
-                      style={{ cursor: isReady ? 'default' : 'pointer' }}
-                    >
-                      {isReady ? <span className="animated-dots">Ready! Waiting on others</span> : "I am Ready"}
-                    </button>
+                    {matchState === 'waiting' && !isSpectator && (
+                      <button 
+                        onClick={handleReady}
+                        disabled={isReady}
+                        className="w-full max-w-sm px-8 py-4 bg-primary-container text-white border border-primary/50 rounded-lg font-label-sm font-bold tracking-widest uppercase text-lg transition-all duration-300 shadow-[0_4px_20px_rgba(46,125,50,0.4)] hover:shadow-[0_0_25px_rgba(46,125,50,0.7)] disabled:opacity-50"
+                        style={{ cursor: isReady ? 'default' : 'pointer' }}
+                      >
+                        {isReady ? <span className="animated-dots">Ready! Waiting on others</span> : "I am Ready"}
+                      </button>
+                    )}
+                    {matchState === 'waiting' && isSpectator && (
+                      <div className="text-on-surface-variant font-label-md">Waiting for players to be ready...</div>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -477,18 +488,20 @@ export default function ArenaRoomClient({
                                   >
                                     <span className="material-symbols-outlined text-sm">open_in_new</span>
                                   </a>
-                                 <button 
-                                    onClick={() => handleSync(prob.problemId)}
-                                    disabled={isClaimed || isSyncing || matchState !== 'active' || syncCooldown > 0}
-                                    className={`flex items-center gap-1 px-3 py-1.5 rounded font-label-sm text-xs transition-colors ${
-                                      (isClaimed || isSyncing || matchState !== 'active' || syncCooldown > 0) ? 'bg-surface-variant text-outline opacity-50 cursor-not-allowed' : 'bg-primary-container text-on-primary-container hover:brightness-110 shadow-sm'
-                                    }`}
-                                  >
-                                    <span className={`material-symbols-outlined text-[14px] ${isSyncing && !isClaimed ? 'animate-spin' : ''}`}>
-                                      {isClaimed ? 'lock' : isSyncing ? 'sync' : syncCooldown > 0 ? 'hourglass_empty' : 'sync'}
-                                    </span>
-                                    {isClaimed ? 'Locked' : isSyncing ? 'Syncing' : syncCooldown > 0 ? `${syncCooldown}s` : 'Sync'}
-                                 </button>
+                                 {!isSpectator && (
+                                   <button 
+                                      onClick={() => handleSync(prob.problemId)}
+                                      disabled={isClaimed || isSyncing || matchState !== 'active' || syncCooldown > 0}
+                                      className={`flex items-center gap-1 px-3 py-1.5 rounded font-label-sm text-xs transition-colors ${
+                                        (isClaimed || isSyncing || matchState !== 'active' || syncCooldown > 0) ? 'bg-surface-variant text-outline opacity-50 cursor-not-allowed' : 'bg-primary-container text-on-primary-container hover:brightness-110 shadow-sm'
+                                      }`}
+                                    >
+                                      <span className={`material-symbols-outlined text-[14px] ${isSyncing && !isClaimed ? 'animate-spin' : ''}`}>
+                                        {isClaimed ? 'lock' : isSyncing ? 'sync' : syncCooldown > 0 ? 'hourglass_empty' : 'sync'}
+                                      </span>
+                                      {isClaimed ? 'Locked' : isSyncing ? 'Syncing' : syncCooldown > 0 ? `${syncCooldown}s` : 'Sync'}
+                                   </button>
+                                 )}
                                </div>
                             </div>
                           </div>

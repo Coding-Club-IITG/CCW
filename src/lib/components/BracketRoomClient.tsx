@@ -460,17 +460,24 @@ function MatchSidePanel({
             </button>
           )}
 
-          {/* PENDING / WAITING STATUS */}
-          {(isPending || displayNode?.status === 'waiting') && isParticipant && displayNode?.roomId && (
+          {/* PENDING STATUS */}
+          {isPending && (
+            <div className="text-center font-label-sm text-xs text-on-surface-variant py-2">
+              Status: Pending. Teams to be decided.
+            </div>
+          )}
+
+          {/* WAITING STATUS */}
+          {displayNode?.status === 'waiting' && isParticipant && displayNode?.roomId && (
             <button
               onClick={handleEnterRoom}
               className="w-full py-3 bg-primary text-on-primary font-label-sm rounded font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined text-[18px]">login</span>
-              ENTER ROOM (WAITING)
+              ENTER ROOM
             </button>
           )}
-          {(isPending || displayNode?.status === 'waiting') && !isParticipant && (
+          {displayNode?.status === 'waiting' && !isParticipant && (
             <div className="text-center font-label-sm text-xs text-on-surface-variant py-2">
               Waiting for the participants to get ready...
             </div>
@@ -681,7 +688,7 @@ export default function BracketRoomClient({ contest, initialSnapshot, userId, cu
             nodesConnectable={false}
             elementsSelectable={true}
             onPaneClick={closeSidebar}
-            onNodeClick={(e, node) => openMatchDetails(e as any, node.data.node)}
+            onNodeClick={(e, node) => openMatchDetails(e as any, node.data.node as any)}
           >
             <Background color="#40493d" gap={20} size={1} />
             <Controls showInteractive={false} />

@@ -177,6 +177,7 @@ export default async function ContestRoomPage({
           initialScores={initialScores}
           initialProblemIndex={stateObj?.currentProblem ? parseInt(stateObj.currentProblem) : (room.currentProblemIndex || 0)}
           from={from}
+          isSpectator={searchParams?.spectate === 'true'}
         />
       );
     } else if (contest.mode === "arena") {
@@ -198,6 +199,7 @@ export default async function ContestRoomPage({
           initialStartTime={stateObj?.startTime ? parseInt(stateObj.startTime) : undefined}
           initialTimeLimit={stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined}
           from={from}
+          isSpectator={searchParams?.spectate === 'true'}
         />
       );
     }
