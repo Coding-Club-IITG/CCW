@@ -127,6 +127,14 @@ export async function createBracketContest(data: any) {
   }
 
   try {
+    const deadlineStr = process.env.REGISTRATION_DEADLINE_MINUTES;
+    if (!deadlineStr) {
+      throw new Error("REGISTRATION_DEADLINE_MINUTES is not set in environment variables.");
+    }
+    const deadlineMinutes = parseInt(deadlineStr, 10);
+    if (isNaN(deadlineMinutes)) {
+      throw new Error("REGISTRATION_DEADLINE_MINUTES must be a valid number.");
+    }
     const contest = await CustomContest.create({
       name: data.name.trim(),
       description: data.description?.trim(),
@@ -142,16 +150,17 @@ export async function createBracketContest(data: any) {
       bulkRatingMax: bulkRatingMax,
       bulkProblemCount: bulkProblemCount,
       problemSlots: problemSlots,
-      registrations: (data.invitedUsers || []).map((u: any) => ({
+      registrations: (data.registeredUsers || []).map((u: any) => ({
         userId: new mongoose.Types.ObjectId(u.id),
         cfHandle: u.cfHandle,
+        teamName: u.teamName,
         registeredAt: new Date(),
       })),
       startTime: new Date(data.startTime),
       registrationSettings: {
         type: data.registrationType,
         startTime: data.registrationStartTime ? new Date(data.registrationStartTime) : undefined,
-        deadline: new Date(new Date(data.startTime).getTime() - 60000), // strictly 1 minute before
+        deadline: new Date(new Date(data.startTime).getTime() - deadlineMinutes * 60000), // strictly before based on ENV
         maxParticipants: Number(data.maxParticipants),
       },
       bracketSettings: {
@@ -228,7 +237,8 @@ export async function searchVerifiedUsers(query: string) {
 
   await dbConnect();
   
-  const users = await User.find({ name: { $regex: query, $options: "i" } })
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const users = await User.find({ name: { $regex: escapedQuery, $options: "i" } })
     .select("_id name image")
     .limit(20)
     .lean();

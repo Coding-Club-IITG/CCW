@@ -4,6 +4,7 @@ export interface IProblemSlot {
   platform: string;
   rating?: number;
   problemId?: string;
+  roundNumber?: number;
 }
 
 export interface IRegistration {
@@ -15,6 +16,7 @@ export interface IRegistration {
 
 export interface IRegistrationSettings {
   type: "open" | "closed";
+  startTime?: Date;
   deadline: Date;
   maxParticipants: number;
 }
@@ -58,6 +60,7 @@ const ProblemSlotSchema = new Schema<IProblemSlot>({
   platform: { type: String, required: true },
   rating: { type: Number },
   problemId: { type: String },
+  roundNumber: { type: Number },
 });
 
 const RegistrationSchema = new Schema<IRegistration>({
@@ -69,6 +72,7 @@ const RegistrationSchema = new Schema<IRegistration>({
 
 const RegistrationSettingsSchema = new Schema<IRegistrationSettings>({
   type: { type: String, enum: ["open", "closed"], required: true },
+  startTime: { type: Date },
   deadline: { type: Date, required: true },
   maxParticipants: { type: Number, required: true, min: 2 },
 });

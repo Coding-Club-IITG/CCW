@@ -24,6 +24,7 @@ export type ContestListingItem = {
   participantsCount: number;
   maxParticipants: number;
   registrationDeadline: Date | null;
+  registrationType?: string;
   userScore?: number;
   opponentScore?: number;
   otherScores?: number[];
@@ -47,7 +48,7 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
   }
 
   const contests = await CustomContest.find({
-    status: { $in: ["registration", "active", "completed"] },
+    status: { $in: ["draft", "registration", "active", "completed"] },
   }).lean();
 
   const active: ContestListingItem[] = [];
@@ -72,11 +73,12 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
       isRegistered,
       registrationDeadline: contest.registrationSettings?.deadline || null,
       maxParticipants: contest.registrationSettings?.maxParticipants || 999,
+      registrationType: contest.registrationSettings?.type,
     };
     
     let computedStatus = contest.status;
     const now = new Date();
-    if (contest.status === "completed" || contest.status === "active") {
+    if (contest.status === "completed" || contest.status === "active" || contest.status === "draft") {
       computedStatus = contest.status;
     } else if (contest.startTime && contest.endTime) {
       if (now >= contest.startTime && now <= contest.endTime) {
@@ -107,7 +109,7 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
         }
       }
       active.push(item);
-    } else if (computedStatus === "registration") {
+    } else if (computedStatus === "registration" || computedStatus === "draft") {
       upcoming.push(item);
     } else if (computedStatus === "completed") {
       if (userId) {
@@ -158,7 +160,7 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
     
     let computedStatus = contest.status;
     const now = new Date();
-    if (contest.status === "completed" || contest.status === "active") {
+    if (contest.status === "completed" || contest.status === "active" || contest.status === "draft") {
       computedStatus = contest.status;
     } else if (contest.startTime && contest.endTime) {
       if (now >= contest.startTime && now <= contest.endTime) {
@@ -186,6 +188,7 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
       isRegistered,
       registrationDeadline: contest.registrationSettings?.deadline || null,
       maxParticipants: contest.registrationSettings?.maxParticipants || 999,
+      registrationType: contest.registrationSettings?.type,
     };
   } catch (error) {
     console.error("Error fetching contest by id:", error);
@@ -296,8 +299,15 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
     if (!cpUser) return { success: false, error: "CP Profile not found" };
 
     const start = new Date(data.startTime);
-    // Registration deadline is 1 minute before start time
-    const deadline = new Date(start.getTime() - 1 * 60000);
+    const deadlineStr = process.env.REGISTRATION_DEADLINE_MINUTES;
+    if (!deadlineStr) {
+      throw new Error("REGISTRATION_DEADLINE_MINUTES is not set in environment variables.");
+    }
+    const deadlineMinutes = parseInt(deadlineStr, 10);
+    if (isNaN(deadlineMinutes)) {
+      throw new Error("REGISTRATION_DEADLINE_MINUTES must be a valid number.");
+    }
+    const deadline = new Date(start.getTime() - deadlineMinutes * 60000);
     
     // Validate start time is at least 2 minutes from now (1 min registration + 1 min buffer)
     if (start.getTime() < Date.now() + 2 * 60000 - 5000) { // 5s grace period
@@ -316,7 +326,7 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
     } else if (format === "team-tournament") {
       teamSize = 3;
       if (maxParticipants < 6) return { success: false, error: "Team battles require at least 6 participants." };
-      if (maxParticipants % 3 !== 0) return { success: false, error: "Team battle participants must be a multiple of 3." };
+      maxParticipants = maxParticipants - (maxParticipants % 3);
     }
 
     let problemSlots: any[] = [];
@@ -334,7 +344,7 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
       startTime: start,
       format: format,
       mode: data.mode || "blitz",
-      status: "registration",
+      status: "draft",
       teamSize: teamSize,
       problemSelectionMode: data.problemSelectionMode,
       bulkPlatform: "codeforces",
@@ -343,26 +353,53 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
       bulkProblemCount: data.bulkProblemCount,
       problemSlots: problemSlots.length > 0 ? problemSlots : undefined,
       registrationSettings: {
-        type: "open",
+        type: data.registrationType || "open",
+        startTime: data.registrationStartTime ? new Date(data.registrationStartTime) : undefined,
         deadline: deadline,
         maxParticipants: maxParticipants,
       },
-      registrations: []
+      registrations: (data.registeredUsers || []).map((u: any) => ({
+        userId: new mongoose.Types.ObjectId(u.id),
+        cfHandle: u.cfHandle,
+        teamName: u.teamName,
+        registeredAt: new Date(),
+      }))
     });
 
-    if (data.selfRegister) {
-      contest.registrations.push({
-        userId: cpUser.userId,
-        cfHandle: cpUser.cfHandle || "unknown",
-        teamName: data.selfTeamName || cpUser.cfHandle || "unknown",
-        registeredAt: new Date(),
-      });
-    }
+
 
     await contest.save();
 
+    // Handle scheduling based on registrationStartTime and deadline
+    const now = Date.now();
+    const regStartTime = data.registrationStartTime ? new Date(data.registrationStartTime).getTime() : now;
+    const deadlineTime = contest.registrationSettings!.deadline!.getTime();
+    
+    // Validate registration starts before it ends (only for open registration)
+    if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
+      await CustomContest.findByIdAndDelete(contest._id);
+      return { success: false, error: "Registration start time must be before the deadline." };
+    }
+
+    if (data.registrationType !== "closed") {
+      // If registration is in the future, schedule start_registration
+      if (regStartTime > now) {
+        await reconciliationQueue.add(
+          "start_registration", 
+          { contestId: contest._id.toString() }, 
+          { delay: regStartTime - now }
+        );
+      } else {
+        contest.status = "registration";
+        await contest.save();
+      }
+    } else {
+      contest.status = "draft";
+      await contest.save();
+    }
+
     // Schedule the check_start job
-    const delay = Math.max(0, deadline.getTime() - Date.now());
+    const delay = Math.max(0, deadlineTime - Date.now());
     await reconciliationQueue.add("check_start", { contestId: contest._id.toString() }, { delay });
 
     revalidatePath("/internal/contests");

@@ -9,7 +9,7 @@ import CreateRoomModal from "./CreateRoomModal";
 import RegisterContestModal from "./RegisterContestModal";
 
 
-function RegisterButton({ contestId, teamSize, onRegisterClick, disabledOverride = false }: { contestId: string, teamSize: number, onRegisterClick: (id: string, size: number) => void, disabledOverride?: boolean }) {
+function RegisterButton({ contestId, teamSize, onRegisterClick, disabledOverride = false, label }: { contestId: string, teamSize: number, onRegisterClick: (id: string, size: number) => void, disabledOverride?: boolean, label?: string }) {
   return (
     <button 
       onClick={() => onRegisterClick(contestId, teamSize)} 
@@ -20,7 +20,7 @@ function RegisterButton({ contestId, teamSize, onRegisterClick, disabledOverride
           : "border-primary/40 bg-primary/10 text-primary hover:bg-primary hover:border-primary hover:text-on-primary hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:opacity-50"
       }`}
     >
-      {disabledOverride ? "Closed" : "Register"}
+      {label || (disabledOverride ? "Closed" : "Register")}
     </button>
   );
 }
@@ -68,10 +68,14 @@ export default function ContestListingClient({
   active: initialActive,
   upcoming: initialUpcoming,
   completed: initialCompleted,
+  isAdmin = false,
+  presets = [],
 }: {
   active: ContestListingItem[];
   upcoming: ContestListingItem[];
   completed: ContestListingItem[];
+  isAdmin?: boolean;
+  presets?: any[];
 }) {
   const router = useRouter();
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
@@ -165,7 +169,7 @@ export default function ContestListingClient({
 
       <div className="flex flex-col flex-1 overflow-hidden dark stitch-container w-full h-full min-h-[calc(100vh-64px)] bg-background relative">
         {showCreateModal && (
-          <CreateRoomModal isOpen={true} onClose={() => setShowCreateModal(false)} />
+          <CreateRoomModal isOpen={true} onClose={() => setShowCreateModal(false)} isAdmin={isAdmin} presets={presets} />
         )}
         <main className="flex-1 overflow-y-auto p-margin-mobile md:p-margin-desktop w-full">
           <div className="max-w-container-max-width mx-auto">
@@ -339,7 +343,22 @@ export default function ContestListingClient({
                           )
                         ) : (
                           <div className="shrink-0 ml-auto">
-                            {contest.registeredCount >= contest.maxParticipants ? (
+                            {contest.status === "draft" && contest.registrationType !== "closed" ? (
+                                <RegisterButton 
+                                  contestId={contest._id} 
+                                  teamSize={contest.teamSize || 1}
+                                  onRegisterClick={handleRegisterClick}
+                                  disabledOverride={true}
+                                  label="Upcoming Registration"
+                                />
+                            ) : contest.registrationType === "closed" ? (
+                              <button 
+                                onClick={() => handleRegisterClick(contest._id, contest.teamSize || 1, true)} 
+                                className="px-3 py-1.5 border border-outline-variant/50 bg-surface-variant/30 text-primary/70 hover:bg-surface-variant hover:text-primary rounded font-label-sm text-[13px] transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]"
+                              >
+                                View Registrations
+                              </button>
+                            ) : contest.registeredCount >= contest.maxParticipants ? (
                               <div className="px-3 py-1.5 border border-outline-variant/50 bg-surface-variant/30 text-on-surface-variant/70 rounded font-label-sm text-[13px] flex items-center justify-center gap-1 transition-all duration-200 whitespace-nowrap shrink-0 h-[32px]">
                                 <span className="material-symbols-outlined !text-[14px] leading-none" style={{ fontSize: '14px' }}>block</span>
                                 Full
@@ -386,7 +405,7 @@ export default function ContestListingClient({
                       </thead>
                       <tbody className="text-sm">
                         {completed.map(contest => (
-                          <tr key={contest._id} onClick={() => router.push(`/internal/contests/${contest._id}?from=listing`)} className="border-b border-outline-variant/50 hover:bg-surface-container-high hover:scale-[1.01] hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group" role="button">
+                          <tr key={contest._id} onClick={() => router.push(`/internal/contests/${contest._id}?from=listing`)} className="border-b border-outline-variant/50 hover:bg-surface-container-high hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group" role="button">
                             <td className="p-4 text-on-surface font-medium">
                               <span className="block w-full">{contest.name}</span>
                             </td>
