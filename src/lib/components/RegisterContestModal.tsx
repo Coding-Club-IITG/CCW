@@ -15,6 +15,7 @@ export default function RegisterContestModal({ isOpen, onClose, contestId, teamS
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
   const [format, setFormat] = useState<string>("unknown");
+  const [isDeadlinePassed, setIsDeadlinePassed] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -40,6 +41,7 @@ export default function RegisterContestModal({ isOpen, onClose, contestId, teamS
           if (res.success) {
             setRegistrations(res.registrations || []);
             setFormat(res.format || "unknown");
+            setIsDeadlinePassed(res.isDeadlinePassed || false);
           }
           setLoadingRegistrations(false);
         });
@@ -316,14 +318,16 @@ export default function RegisterContestModal({ isOpen, onClose, contestId, teamS
           <div className="flex justify-between items-center gap-4 px-gutter py-4 bg-surface-container-highest border-t border-outline-variant/60">
             {viewOnly ? (
               <>
-                <button
-                  className="px-4 py-2 rounded-DEFAULT font-label-sm text-label-sm text-error/80 border border-error/30 hover:bg-error/10 hover:text-error transition-all focus:outline-none disabled:opacity-50"
-                  type="button"
-                  onClick={handleUnregister}
-                  disabled={loading}
-                >
-                  {loading ? "Leaving..." : "Leave Contest"}
-                </button>
+                {!isDeadlinePassed && (
+                  <button
+                    className="px-4 py-2 rounded-DEFAULT font-label-sm text-label-sm text-error/80 border border-error/30 hover:bg-error/10 hover:text-error transition-all focus:outline-none disabled:opacity-50"
+                    type="button"
+                    onClick={handleUnregister}
+                    disabled={loading}
+                  >
+                    {loading ? "Leaving..." : "Leave Contest"}
+                  </button>
+                )}
                 <button
                   className="px-6 py-2 rounded-DEFAULT bg-primary-container text-on-primary-container font-label-sm text-label-sm border border-primary/20 hover:bg-primary hover:text-on-primary transition-all focus:outline-none"
                   type="button"

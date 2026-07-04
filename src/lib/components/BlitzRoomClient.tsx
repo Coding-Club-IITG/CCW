@@ -25,7 +25,8 @@ export default function BlitzRoomClient({
   initialProblems = [],
   initialScores = {},
   initialProblemIndex = 0,
-  from
+  from,
+  syncCooldownSeconds = 60
 }: {
   contest: ContestListingItem;
   roomId: string;
@@ -41,6 +42,7 @@ export default function BlitzRoomClient({
   initialScores?: Record<string, number>;
   initialProblemIndex?: number;
   from?: string;
+  syncCooldownSeconds?: number;
 }) {
   const router = useRouter();
   
@@ -69,11 +71,11 @@ export default function BlitzRoomClient({
     if (lastSyncStr) {
       const lastSync = parseInt(lastSyncStr, 10);
       const elapsed = (Date.now() - lastSync) / 1000;
-      if (elapsed < 60 && elapsed > 0) {
-        setSyncCooldown(Math.ceil(60 - elapsed));
+      if (elapsed < syncCooldownSeconds && elapsed > 0) {
+        setSyncCooldown(Math.ceil(syncCooldownSeconds - elapsed));
       }
     }
-  }, [roomId, userId]);
+  }, [roomId, userId, syncCooldownSeconds]);
   
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
   
@@ -242,8 +244,7 @@ export default function BlitzRoomClient({
       })
     });
     
-    const cooldown = parseInt(process.env.NEXT_PUBLIC_SYNC_COOLDOWN || "60", 10);
-    setSyncCooldown(cooldown); // Apply frontend cooldown directly
+    setSyncCooldown(syncCooldownSeconds);
     localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
     
     if (!res.ok) {

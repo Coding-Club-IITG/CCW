@@ -27,7 +27,8 @@ export default function ArenaRoomClient({
   initialLocks = {},
   initialStartTime,
   initialTimeLimit,
-  from
+  from,
+  syncCooldownSeconds = 60
 }: {
   contest: ContestListingItem;
   roomId: string;
@@ -45,6 +46,7 @@ export default function ArenaRoomClient({
   initialStartTime?: number;
   initialTimeLimit?: number;
   from?: string;
+  syncCooldownSeconds?: number;
 }) {
   const router = useRouter();
 
@@ -76,8 +78,8 @@ export default function ArenaRoomClient({
     if (lastSyncStr) {
       const lastSync = parseInt(lastSyncStr, 10);
       const elapsed = (Date.now() - lastSync) / 1000;
-      if (elapsed < 60 && elapsed > 0) {
-        setSyncCooldown(Math.ceil(60 - elapsed));
+      if (elapsed < syncCooldownSeconds && elapsed > 0) {
+        setSyncCooldown(Math.ceil(syncCooldownSeconds - elapsed));
       }
     }
   }, [roomId, userId]);
@@ -263,8 +265,7 @@ export default function ArenaRoomClient({
   const handleSync = async (problemId: string) => {
     if (syncingMap[problemId] || matchState !== "active" || syncCooldown > 0) return;
     
-    const cooldown = parseInt(process.env.NEXT_PUBLIC_SYNC_COOLDOWN || "60", 10);
-    setSyncCooldown(cooldown);
+    setSyncCooldown(syncCooldownSeconds);
     
     const res = await fetch("/api/contests/sync", {
       method: "POST",

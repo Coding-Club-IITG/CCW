@@ -409,10 +409,13 @@ export async function getContestRegistrations(contestId: string) {
       image: imageMap[r.userId.toString()] || null
     }));
 
+    const isDeadlinePassed = contest.registrationSettings?.deadline ? new Date() > new Date(contest.registrationSettings.deadline) : false;
+
     return {
       success: true,
       format: contest.format,
       teamSize: contest.teamSize,
+      isDeadlinePassed,
       registrations: JSON.parse(JSON.stringify(populatedRegistrations)),
     };
   } catch (error) {

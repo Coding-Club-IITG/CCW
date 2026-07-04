@@ -22,7 +22,7 @@ export default async function ContestRoomPage({
   params: Promise<{ id: string }>,
   searchParams: Promise<{ from?: string; matchRoomId?: string }>
 }) {
-  const { id } = await params;w
+  const { id } = await params;
   const { from, matchRoomId } = await searchParams;
   const contest = await getContestById(id);
 
@@ -178,6 +178,8 @@ export default async function ContestRoomPage({
     const cpUser = cpUserMap.get(userId);
     const userDoc = userMap.get(userId);
     const cfHandle = cpUser?.cfHandle || userDoc?.codeforcesId || "dummy0";
+    
+    const syncCooldown = parseInt(process.env.NEXT_PUBLIC_SYNC_COOLDOWN || process.env.SYNC_COOLDOWN || "60", 10);
 
     if (contest.mode === "blitz") {
       return (
@@ -196,6 +198,7 @@ export default async function ContestRoomPage({
           initialScores={initialScores}
           initialProblemIndex={stateObj?.currentProblem ? parseInt(stateObj.currentProblem) : (room.currentProblemIndex || 0)}
           from={from}
+          syncCooldownSeconds={syncCooldown}
         />
       );
     } else if (contest.mode === "arena") {
@@ -217,6 +220,7 @@ export default async function ContestRoomPage({
           initialStartTime={stateObj?.startTime ? parseInt(stateObj.startTime) : undefined}
           initialTimeLimit={stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined}
           from={from}
+          syncCooldownSeconds={syncCooldown}
         />
       );
     }
