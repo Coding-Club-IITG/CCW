@@ -25,7 +25,8 @@ export default function BlitzRoomClient({
   initialProblems = [],
   initialScores = {},
   initialProblemIndex = 0,
-  from
+  from,
+  isSpectator,
 }: {
   contest: ContestListingItem;
   roomId: string;
@@ -286,6 +287,8 @@ export default function BlitzRoomClient({
           display: inline-block;
           width: 20px;
           text-align: left;
+        }
+      `}</style>
       <div className="absolute inset-0 bg-pattern opacity-30 pointer-events-none"></div>
       
       <main className="flex-1 flex flex-col h-full overflow-hidden p-6 gap-6 relative z-10 max-w-container-max-width mx-auto w-full">

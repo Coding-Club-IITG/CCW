@@ -20,10 +20,10 @@ export default async function ContestRoomPage({
   searchParams
 }: { 
   params: Promise<{ id: string }>,
-  searchParams: Promise<{ from?: string; matchRoomId?: string }>
+  searchParams: Promise<{ from?: string; matchRoomId?: string; spectate?: string }>
 }) {
   const { id } = await params;
-  const { from, matchRoomId } = await searchParams;
+  const { from, matchRoomId, spectate } = await searchParams;
   const contest = await getContestById(id);
 
   if (!contest) {
@@ -177,7 +177,7 @@ export default async function ContestRoomPage({
           initialScores={initialScores}
           initialProblemIndex={stateObj?.currentProblem ? parseInt(stateObj.currentProblem) : (room.currentProblemIndex || 0)}
           from={from}
-          isSpectator={searchParams?.spectate === 'true'}
+          isSpectator={spectate === 'true'}
         />
       );
     } else if (contest.mode === "arena") {
@@ -199,7 +199,7 @@ export default async function ContestRoomPage({
           initialStartTime={stateObj?.startTime ? parseInt(stateObj.startTime) : undefined}
           initialTimeLimit={stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined}
           from={from}
-          isSpectator={searchParams?.spectate === 'true'}
+          isSpectator={spectate === 'true'}
         />
       );
     }

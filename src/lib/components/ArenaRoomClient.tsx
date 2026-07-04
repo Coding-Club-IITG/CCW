@@ -27,7 +27,8 @@ export default function ArenaRoomClient({
   initialLocks = {},
   initialStartTime,
   initialTimeLimit,
-  from
+  from,
+  isSpectator,
 }: {
   contest: ContestListingItem;
   roomId: string;

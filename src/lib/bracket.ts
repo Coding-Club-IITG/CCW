@@ -26,8 +26,24 @@ export async function generateBracket(contestId: string) {
   if (!contest) throw new Error("Contest not found");
   if (contest.format !== "bracket") throw new Error("Contest is not a bracket format");
   if (contest.status !== "active") throw new Error("Contest must be in 'active' status to generate bracket");
-  if (!contest.registrations || contest.registrations.length < 2)
-    throw new Error("Need at least 2 registrations to generate a bracket");
+  if (!contest.registrations || contest.registrations.length < 2) {
+    logger.info(`[Bracket] Contest ${contestId} did not meet minimum registration requirements. Canceling.`);
+    await CustomContest.findByIdAndDelete(contestId);
+
+    const Notification = (await import("../models/Notification")).default;
+    const CPUser = (await import("../models/CPUser")).default;
+    const creator = await CPUser.findById(contest.creatorId);
+    if (creator && creator.userId) {
+      await Notification.create({
+        userId: creator.userId,
+        type: "announcement",
+        title: "Tournament Cancelled",
+        message: `Your bracket tournament '${contest.name}' was cancelled due to insufficient registrations.`,
+        link: "/internal/contests"
+      });
+    }
+    return null;
+  }
 
   const existingRooms = await ContestRoom.countDocuments({ contestId });
   if (existingRooms > 0) throw new Error("Bracket already generated for this contest");
@@ -87,6 +103,24 @@ export async function generateBracket(contestId: string) {
   const allRoomIds: string[] = [];
   let roundIndex = 0;
 
+  const CFQuestion = (await import("../models/CFQuestion")).default;
+  const ContestProblemSet = (await import("../models/ContestProblemSet")).default;
+  const problemCount = contest.bulkProblemCount || 3;
+  const minRating = contest.bulkRatingMin || 800;
+  const maxRating = contest.bulkRatingMax || 1200;
+
+  let bulkProblemPool: any[] = [];
+  if (contest.problemSelectionMode === "bulk") {
+    const totalRooms = bracketSize - 1;
+    const totalProblemsNeeded = totalRooms * problemCount;
+    bulkProblemPool = await CFQuestion.aggregate([
+      { $match: { rating: { $gte: minRating, $lte: maxRating } } },
+      { $sample: { size: totalProblemsNeeded } }
+    ]);
+  }
+  let fineTunedPool = [...(contest.problemSlots || [])];
+
+
   for (const round of rounds) {
     const matchesInRound = Math.pow(2, totalRounds - roundIndex - 1);
     const roundRooms: mongoose.Types.ObjectId[] = [];
@@ -144,8 +178,55 @@ export async function generateBracket(contestId: string) {
       room.teams = teamIds.filter(Boolean) as mongoose.Types.ObjectId[];
       await room.save();
 
+      let assignedProblems: any[] = [];
+      if (contest.problemSelectionMode === "fine-tuned") {
+        const roundSlots = fineTunedPool.filter((p: any) => p.roundNumber === (roundIndex + 1));
+        const toAssign = roundSlots.slice(0, problemCount);
+        assignedProblems = toAssign;
+        // Remove used problems from the pool
+        toAssign.forEach((a) => {
+          const idx = fineTunedPool.findIndex((p) => p.problemId === a.problemId);
+          if (idx !== -1) fineTunedPool.splice(idx, 1);
+        });
+      } else if (contest.problemSelectionMode === "bulk") {
+        assignedProblems = bulkProblemPool.splice(0, problemCount);
+      } else if (contest.problemSelectionMode === "test") {
+        assignedProblems = [
+          { problemId: "4A", name: "Watermelon", rating: 800 },
+          { problemId: "1A", name: "Theatre Square", rating: 1000 },
+          { problemId: "158A", name: "Next Round", rating: 800 },
+        ].slice(0, problemCount);
+      }
+
+      if (assignedProblems.length > 0) {
+        const problemSet = new ContestProblemSet({
+          contestId: contest._id,
+          roomId: room._id,
+          problems: assignedProblems.map((p: any) => ({
+            platform: "codeforces",
+            problemId: p.problemId,
+            name: p.name || p.problemId,
+            rating: p.rating || 0,
+            points: 100,
+          })),
+        });
+        await problemSet.save();
+
+        const redisProblems = assignedProblems.map((p: any) =>
+          JSON.stringify({
+            problemId: p.problemId,
+            name: p.name || p.problemId,
+            rating: p.rating || 0,
+            revealedAt: null,
+          })
+        );
+        await redis.del(`room:${room._id}:problems`);
+        await redis.rPush(`room:${room._id}:problems`, redisProblems);
+      }
+
       roundRooms.push(room._id);
       allRoomIds.push(toStr(room._id));
+
 
       if (isBye && !hasNoTeams) {
         const winnerTeam = teamIds[0] || teamIds[1];
@@ -237,11 +318,29 @@ async function seedTeamToRound(
   const targetRoom = rooms[matchIndex];
   if (!targetRoom) return;
 
-  await ContestRoom.findByIdAndUpdate(targetRoom._id, {
-    $addToSet: { teams: teamId },
+  const oldTeam = await ContestTeam.findById(teamId);
+  if (!oldTeam) return;
+
+  const newTeam = await ContestTeam.create({
+    roomId: targetRoom._id,
+    name: oldTeam.name,
+    members: oldTeam.members,
+    teamSize: oldTeam.teamSize,
+    score: 0,
+    contestId: contestId,
+    roundId: roundId,
   });
 
-  await ContestTeam.findByIdAndUpdate(teamId, { roomId: targetRoom._id });
+  await ContestRoom.findByIdAndUpdate(targetRoom._id, {
+    $addToSet: { teams: newTeam._id },
+  });
+
+  const updatedRoom = await ContestRoom.findById(targetRoom._id);
+  if (updatedRoom && updatedRoom.teams.length === 2) {
+    updatedRoom.status = "waiting";
+    await updatedRoom.save();
+    logger.info(`[Bracket] Room ${targetRoom._id} is now ready with 2 teams`);
+  }
 }
 
 export async function advanceWinner(roomId: string, contestId: string, winnerTeamId: string | null) {
@@ -306,10 +405,25 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
     return;
   }
 
-  await ContestRoom.findByIdAndUpdate(nextRoom._id, {
-    $addToSet: { teams: new mongoose.Types.ObjectId(winnerTeamId) },
+  const winnerTeamDoc = await ContestTeam.findById(winnerTeamId);
+  if (!winnerTeamDoc) {
+    logger.warn(`[Bracket] Winner team ${winnerTeamId} not found`);
+    return;
+  }
+
+  const newTeam = await ContestTeam.create({
+    roomId: nextRoom._id,
+    name: winnerTeamDoc.name,
+    members: winnerTeamDoc.members,
+    teamSize: winnerTeamDoc.teamSize,
+    score: 0,
+    contestId: contest._id,
+    roundId: nextRound._id
   });
-  await ContestTeam.findByIdAndUpdate(winnerTeamId, { roomId: nextRoom._id, roundId: nextRound._id });
+
+  await ContestRoom.findByIdAndUpdate(nextRoom._id, {
+    $addToSet: { teams: newTeam._id },
+  });
 
   const updatedRoom = await ContestRoom.findById(nextRoom._id);
   if (updatedRoom && updatedRoom.teams.length === 2) {

@@ -468,7 +468,7 @@ function MatchSidePanel({
           )}
 
           {/* WAITING STATUS */}
-          {displayNode?.status === 'waiting' && isParticipant && displayNode?.roomId && (
+          {(displayNode?.status as string) === 'waiting' && isParticipant && displayNode?.roomId && (
             <button
               onClick={handleEnterRoom}
               className="w-full py-3 bg-primary text-on-primary font-label-sm rounded font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
@@ -477,7 +477,7 @@ function MatchSidePanel({
               ENTER ROOM
             </button>
           )}
-          {displayNode?.status === 'waiting' && !isParticipant && (
+          {(displayNode?.status as string) === 'waiting' && !isParticipant && (
             <div className="text-center font-label-sm text-xs text-on-surface-variant py-2">
               Waiting for the participants to get ready...
             </div>
