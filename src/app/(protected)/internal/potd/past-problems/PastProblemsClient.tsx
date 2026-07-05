@@ -2,13 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import SearchInput from "@/components/shared/SearchInput";
+import Pagination from "@/components/shared/Pagination";
 import { getPastProblems, type PastProblemEntry } from "@/lib/actions/potd";
 import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROBLEM_URLS } from "@/lib/constants";
 import { windowStartToISTDateStr } from "@/lib/potd/utils";
 import styles from "../Lists.module.scss";
 
+const PAGE_SIZE = 30;
+
 type Props = {
   initialPastProblems: PastProblemEntry[];
+  initialTotal: number;
 };
 
 const DIFFICULTY_CLASS_NAMES: Record<PastProblemEntry["difficulty"], string> = {
@@ -17,9 +21,16 @@ const DIFFICULTY_CLASS_NAMES: Record<PastProblemEntry["difficulty"], string> = {
   Hard: styles.difficultyHard,
 };
 
-export default function PastProblemsClient({ initialPastProblems }: Props) {
+export default function PastProblemsClient({
+  initialPastProblems,
+  initialTotal,
+}: Props) {
   const [pastProblems, setPastProblems] = useState(initialPastProblems);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(
+    Math.max(1, Math.ceil(initialTotal / PAGE_SIZE)),
+  );
   const [isLoading, setIsLoading] = useState(false);
   const hasMountedRef = useRef(false);
   const requestIdRef = useRef(0);
@@ -33,11 +44,14 @@ export default function PastProblemsClient({ initialPastProblems }: Props) {
     const requestId = ++requestIdRef.current;
     setIsLoading(true);
 
-    void getPastProblems(1, 30, search)
+    void getPastProblems(page, PAGE_SIZE, search)
       .then((result) => {
         if (requestIdRef.current !== requestId) return;
         if (result.ok) {
           setPastProblems(result.data ?? []);
+          setTotalPages(
+            Math.max(1, Math.ceil((result.total ?? 0) / PAGE_SIZE)),
+          );
         }
       })
       .finally(() => {
@@ -45,7 +59,7 @@ export default function PastProblemsClient({ initialPastProblems }: Props) {
           setIsLoading(false);
         }
       });
-  }, [search]);
+  }, [search, page]);
 
   return (
     <div className={styles.container}>
@@ -57,7 +71,10 @@ export default function PastProblemsClient({ initialPastProblems }: Props) {
       <div className={styles.headerActions}>
         <SearchInput
           placeholder="Search past problems..."
-          onSearch={(value) => setSearch(value.trim())}
+          onSearch={(value) => {
+            setSearch(value.trim());
+            setPage(1);
+          }}
           className={styles.searchInput}
         />
         {isLoading ? <p className={styles.subText}>Searching...</p> : null}
@@ -132,6 +149,8 @@ export default function PastProblemsClient({ initialPastProblems }: Props) {
           </table>
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }

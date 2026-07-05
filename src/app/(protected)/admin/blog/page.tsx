@@ -38,7 +38,7 @@ export default function AdminBlogPage() {
     try {
       const res = await fetch(`/api/admin/blog?page=${page}&limit=20`);
       const json = await res.json();
-      setPosts(json.data || []);
+      setPosts(json.items || []);
       setTotalPages(json.pagination?.totalPages || 1);
     } catch {
       setPosts([]);

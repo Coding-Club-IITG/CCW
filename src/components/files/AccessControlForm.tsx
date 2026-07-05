@@ -9,12 +9,13 @@ import styles from "./FilesClient.module.scss";
 interface Props {
   value: AccessControl;
   onChange: (acl: AccessControl) => void;
-  users: UserBasic[];
 }
 
-export default function AccessControlForm({ value, onChange, users }: Props) {
+export default function AccessControlForm({ value, onChange }: Props) {
   const [userSearch, setUserSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [results, setResults] = useState<UserBasic[]>([]);
+  const [userCache, setUserCache] = useState<Record<string, UserBasic>>({});
   const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,6 +28,65 @@ export default function AccessControlForm({ value, onChange, users }: Props) {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  // Debounced server-side search
+  useEffect(() => {
+    const q = userSearch.trim();
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/users?search=${encodeURIComponent(q)}&limit=8`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const items: UserBasic[] = data.items || [];
+        setResults(items);
+        setUserCache((prev) => {
+          const next = { ...prev };
+          for (const u of items) next[u._id] = u;
+          return next;
+        });
+      } catch {
+        if (!cancelled) setResults([]);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [userSearch]);
+
+  // Resolve names for already-selected users not yet in the cache
+  useEffect(() => {
+    const missing = value.allowedUsers.filter((id) => !userCache[id]);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/users?ids=${encodeURIComponent(missing.join(","))}`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const additions: Record<string, UserBasic> = {};
+        for (const u of (data.items || []) as UserBasic[]) additions[u._id] = u;
+        if (Object.keys(additions).length > 0)
+          setUserCache((prev) => ({ ...prev, ...additions }));
+      } catch {
+        // Non-critical
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [value.allowedUsers, userCache]);
+
   function toggleArr<T extends string>(
     arr: T[],
     item: T,
@@ -38,14 +98,13 @@ export default function AccessControlForm({ value, onChange, users }: Props) {
     onChange({ ...value, [key]: next });
   }
 
-  const filteredUsers = users.filter(
-    (u) =>
-      !value.allowedUsers.includes(u._id) &&
-      (u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-        u.email.toLowerCase().includes(userSearch.toLowerCase())),
+  const availableResults = results.filter(
+    (u) => !value.allowedUsers.includes(u._id),
   );
 
-  const selectedUsers = users.filter((u) => value.allowedUsers.includes(u._id));
+  const selectedUsers = value.allowedUsers
+    .map((id) => userCache[id])
+    .filter((u): u is UserBasic => Boolean(u));
 
   return (
     <div className={styles.aclForm}>
@@ -176,28 +235,30 @@ export default function AccessControlForm({ value, onChange, users }: Props) {
                   onFocus={() => setShowDropdown(true)}
                 />
               </div>
-              {showDropdown && userSearch && filteredUsers.length > 0 && (
-                <div className={styles.userDropdown}>
-                  {filteredUsers.slice(0, 8).map((u) => (
-                    <button
-                      key={u._id}
-                      type="button"
-                      className={styles.userDropdownItem}
-                      onClick={() => {
-                        onChange({
-                          ...value,
-                          allowedUsers: [...value.allowedUsers, u._id],
-                        });
-                        setUserSearch("");
-                        setShowDropdown(false);
-                      }}
-                    >
-                      <strong>{u.name}</strong>
-                      <span>{u.email}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              {showDropdown &&
+                userSearch.trim().length >= 2 &&
+                availableResults.length > 0 && (
+                  <div className={styles.userDropdown}>
+                    {availableResults.map((u) => (
+                      <button
+                        key={u._id}
+                        type="button"
+                        className={styles.userDropdownItem}
+                        onClick={() => {
+                          onChange({
+                            ...value,
+                            allowedUsers: [...value.allowedUsers, u._id],
+                          });
+                          setUserSearch("");
+                          setShowDropdown(false);
+                        }}
+                      >
+                        <strong>{u.name}</strong>
+                        <span>{u.email}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
             </div>
           </div>
         </>

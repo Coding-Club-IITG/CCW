@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
-import type { CurrentUser, FileEntry, UserBasic } from "./types";
+import type { CurrentUser, FileEntry } from "./types";
 import { formatBytes, formatDate, canManageFile, aclSummary } from "./utils";
 import FileViewer from "./FileViewer";
 import UploadModal from "./UploadModal";
@@ -26,7 +26,6 @@ interface Props {
 export default function FilesClient({ currentUser }: Props) {
   // Data
   const [files, setFiles] = useState<FileEntry[]>([]);
-  const [users, setUsers] = useState<UserBasic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -62,20 +61,9 @@ export default function FilesClient({ currentUser }: Props) {
     }
   }, [page]);
 
-  const fetchUsers = useCallback(async () => {
-    if (!currentUser.canUpload) return;
-    try {
-      const res = await fetch("/api/users");
-      if (res.ok) setUsers((await res.json()).users);
-    } catch {
-      // Not critical
-    }
-  }, [currentUser.canUpload]);
-
   useEffect(() => {
     fetchFiles();
-    fetchUsers();
-  }, [fetchFiles, fetchUsers]);
+  }, [fetchFiles]);
 
   // Delete
 
@@ -314,7 +302,6 @@ export default function FilesClient({ currentUser }: Props) {
         <UploadModal
           currentUser={currentUser}
           existingFolders={existingFolders}
-          users={users}
           onSuccess={() => {
             setShowUpload(false);
             fetchFiles();
@@ -327,7 +314,6 @@ export default function FilesClient({ currentUser }: Props) {
         <EditModal
           file={editFile}
           existingFolders={existingFolders}
-          users={users}
           onSuccess={() => {
             setEditFile(null);
             fetchFiles();

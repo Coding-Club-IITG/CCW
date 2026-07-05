@@ -52,16 +52,38 @@ export default function BlogEditor({
   const [authors, setAuthors] = useState<BlogAuthor[]>(
     initialData?.authors || [],
   );
-  const [allUsers, setAllUsers] = useState<{ _id: string; name: string }[]>([]);
+  const [authorSearch, setAuthorSearch] = useState("");
+  const [authorResults, setAuthorResults] = useState<
+    { _id: string; name: string }[]
+  >([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Debounced server-side member search for the author picker
   useEffect(() => {
-    fetch("/api/users")
-      .then((res) => res.json())
-      .then((data) => setAllUsers(data.items || []))
-      .catch(() => {});
-  }, []);
+    const q = authorSearch.trim();
+    if (q.length < 2) {
+      setAuthorResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/users?search=${encodeURIComponent(q)}&limit=8`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setAuthorResults(data.items || []);
+      } catch {
+        if (!cancelled) setAuthorResults([]);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [authorSearch]);
 
   const toggleTag = (tag: string) => {
     setTags((prev) =>
@@ -86,9 +108,11 @@ export default function BlogEditor({
 
   const addAuthor = (userId: string) => {
     if (authors.some((a) => a.userId === userId)) return;
-    const user = allUsers.find((u) => u._id === userId);
+    const user = authorResults.find((u) => u._id === userId);
     if (user) {
       setAuthors((prev) => [...prev, { userId: user._id, name: user.name }]);
+      setAuthorSearch("");
+      setAuthorResults([]);
     }
   };
 
@@ -120,8 +144,8 @@ export default function BlogEditor({
     }
   };
 
-  // Users not yet added as authors
-  const availableUsers = allUsers.filter(
+  // Search results not yet added as authors
+  const availableUsers = authorResults.filter(
     (u) => !authors.some((a) => a.userId === u._id),
   );
 
@@ -175,6 +199,13 @@ export default function BlogEditor({
             ))}
           </div>
         )}
+        <input
+          type="text"
+          className={styles.input}
+          value={authorSearch}
+          onChange={(e) => setAuthorSearch(e.target.value)}
+          placeholder="Search members by name or email to add as author…"
+        />
         {availableUsers.length > 0 && (
           <select
             className={styles.select}
