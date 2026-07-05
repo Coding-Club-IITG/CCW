@@ -9,6 +9,8 @@ import ContestSubmission from "@/models/ContestSubmission";
 import CPUser from "@/models/CPUser";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { isAdmin, parseModuleRoles } from "@/lib/roles";
+import { redirect } from "next/navigation";
 
 export default async function PostMatchResultPage({ 
   params,
@@ -20,6 +22,18 @@ export default async function PostMatchResultPage({
   const unwrappedParams = await params;
   const unwrappedSearch = await searchParams;
   const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect("/");
+
+  const userRole = session?.user?.role as string | undefined;
+  const admin = isAdmin(userRole);
+  
+  const moduleRoles = parseModuleRoles((session.user as any)?.moduleRoles);
+  const isSoftwareDev = moduleRoles.some((mr) => mr.module === "Software Development");
+  
+  if (!admin && !isSoftwareDev) {
+    redirect("/internal/dashboard");
+  }
+
   const currentUserId = session?.user?.id || "";
   
   await dbConnect();

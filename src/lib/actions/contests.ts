@@ -7,6 +7,7 @@ import CustomContest from "@/models/CustomContest";
 import CPUser from "@/models/CPUser";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
+import { isAdmin, parseModuleRoles } from "@/lib/roles";
 
 export type ContestListingItem = {
   teamSize?: number;
@@ -184,6 +185,14 @@ export async function registerForContest(contestId: string, teamName?: string): 
     const userId = session?.user?.id;
     if (!userId) return { success: false, message: "Unauthorized" };
 
+    const user = session.user as any;
+    const admin = isAdmin(user.role);
+    const moduleRoles = parseModuleRoles(user.moduleRoles);
+    const isSoftwareDev = moduleRoles.some((mr) => mr.module === "Software Development");
+    if (!admin && !isSoftwareDev) {
+      return { success: false, message: "Forbidden: Software Development module only" };
+    }
+
     await dbConnect();
     const cpUser = await CPUser.findOne({ userId });
     if (!cpUser) return { success: false, message: "CP Profile not found" };
@@ -273,6 +282,14 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
     if (!userId) return { success: false, error: "Unauthorized" };
+
+    const user = session.user as any;
+    const admin = isAdmin(user.role);
+    const moduleRoles = parseModuleRoles(user.moduleRoles);
+    const isSoftwareDev = moduleRoles.some((mr) => mr.module === "Software Development");
+    if (!admin && !isSoftwareDev) {
+      return { success: false, error: "Forbidden: Software Development module only" };
+    }
 
     await dbConnect();
     const cpUser = await CPUser.findOne({ userId });
@@ -430,6 +447,14 @@ export async function unregisterFromContest(contestId: string): Promise<{ succes
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
     if (!userId) return { success: false, message: "Unauthorized" };
+
+    const user = session.user as any;
+    const admin = isAdmin(user.role);
+    const moduleRoles = parseModuleRoles(user.moduleRoles);
+    const isSoftwareDev = moduleRoles.some((mr) => mr.module === "Software Development");
+    if (!admin && !isSoftwareDev) {
+      return { success: false, message: "Forbidden: Software Development module only" };
+    }
 
     await dbConnect();
 
