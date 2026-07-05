@@ -57,7 +57,7 @@ async function seed() {
     // Seed main dev user
     const devUser = {
       name: "Coding Club IITG",
-      email: "k.sonawane@iitg.ac.in",
+      email: "codingclub@iitg.ac.in",
       role: "Secretary",
       moduleRoles: [],
       emailVerified: true,
