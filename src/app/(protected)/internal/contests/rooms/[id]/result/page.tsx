@@ -30,13 +30,7 @@ export default async function PostMatchResultPage({
     notFound();
   }
   
-  // 1. Retry loop to wait for reconciliation worker (fixes race condition)
-  let retries = 0;
-  while (room && room.status !== "ended" && retries < 10) {
-    await new Promise(r => setTimeout(r, 500));
-    room = await ContestRoom.findById(roomId).lean();
-    retries++;
-  }
+  const isProcessing = room.status !== "ended";
 
   const contest = await getContestById(room.contestId.toString());
   if (!contest) {
@@ -186,6 +180,7 @@ export default async function PostMatchResultPage({
     contestId: contest._id.toString(),
     terminationReason: room.terminationReason,
     format: contest.format,
+    isProcessing,
   };
   
   return <PostMatchResultClient matchData={matchData} currentUserId={currentUserId} from={unwrappedSearch?.from} />;

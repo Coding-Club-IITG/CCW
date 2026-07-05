@@ -34,25 +34,30 @@ async function initBracketRoomRedis(
   durationSeconds = 3600,
   contestId: string
 ) {
-  await redis.hSet(`room:${roomId}:state`, {
-    status: "waiting",
-    type: mode,
-    startTime: "",
-    timeLimit: durationSeconds.toString(),
-    readyCount: "0",
-    contestId: contestId,
-  });
-  const teamIds = teamDocs.map(t => toStr(t._id));
-  if (teamIds.length > 0) {
-    await redis.sAdd(`room:${roomId}:teams`, teamIds);
-  }
-  for (const team of teamDocs) {
-    const tId = toStr(team._id);
-    await redis.hSet(`team:${tId}:meta`, { name: team.name, score: "0" });
-    const memberStrs = team.members.map(m => toStr(m));
-    if (memberStrs.length > 0) {
-      await redis.sAdd(`team:${tId}:users`, memberStrs);
+  try {
+    await redis.hSet(`room:${roomId}:state`, {
+      status: "waiting",
+      type: mode,
+      startTime: "",
+      timeLimit: durationSeconds.toString(),
+      readyCount: "0",
+      contestId: contestId,
+    });
+    const teamIds = teamDocs.map(t => toStr(t._id));
+    if (teamIds.length > 0) {
+      await redis.sAdd(`room:${roomId}:teams`, teamIds);
     }
+    for (const team of teamDocs) {
+      const tId = toStr(team._id);
+      await redis.hSet(`team:${tId}:meta`, { name: team.name, score: "0" });
+      const memberStrs = team.members.map(m => toStr(m));
+      if (memberStrs.length > 0) {
+        await redis.sAdd(`team:${tId}:users`, memberStrs);
+      }
+    }
+  } catch (err) {
+    logger.error(`[Bracket] Failed to init Redis for room ${roomId}`, err);
+    throw err;
   }
 }
 
@@ -252,8 +257,13 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
             revealedAt: null,
           })
         );
-        await redis.del(`room:${room._id}:problems`);
-        await redis.rPush(`room:${room._id}:problems`, redisProblems);
+        try {
+          await redis.del(`room:${room._id}:problems`);
+          await redis.rPush(`room:${room._id}:problems`, redisProblems);
+        } catch (err) {
+          logger.error(`[Bracket] Failed to push problems to Redis for room ${room._id}`, err);
+          throw err;
+        }
       }
 
       if (roundIndex === 0 && roomStatus === "waiting") {
@@ -294,13 +304,18 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
     roundIndex++;
   }
 
-  await redis.hSet(`contest:${contestId}:meta`, {
-    format: "knockout",
-    currentRound: "1",
-    status: "provisioning",
-  });
-  if (allRoomIds.length > 0) {
-    await redis.sAdd(`contest:${contestId}:rooms`, allRoomIds);
+  try {
+    await redis.hSet(`contest:${contestId}:meta`, {
+      format: "knockout",
+      currentRound: "1",
+      status: "provisioning",
+    });
+    if (allRoomIds.length > 0) {
+      await redis.sAdd(`contest:${contestId}:rooms`, allRoomIds);
+    }
+  } catch (err) {
+    logger.error(`[Bracket] Failed to set contest meta in Redis for ${contestId}`, err);
+    throw err;
   }
 
   const snapshot = await getBracketSnapshot(contestId);

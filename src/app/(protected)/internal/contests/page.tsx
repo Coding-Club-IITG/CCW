@@ -18,7 +18,14 @@ export default async function ContestsPage() {
     const presetsJson = await ContestPreset.find({ archived: { $ne: true } })
       .sort({ name: 1 })
       .lean();
-    presets = JSON.parse(JSON.stringify(presetsJson));
+    presets = presetsJson.map((preset: any) => {
+      const doc = { ...preset };
+      if (doc._id) doc._id = doc._id.toString();
+      if (doc.createdAt) doc.createdAt = doc.createdAt.toISOString();
+      if (doc.updatedAt) doc.updatedAt = doc.updatedAt.toISOString();
+      // Stringify sub-object IDs if needed, but the main error is _id and dates.
+      return doc;
+    });
   }
 
   const deadlineMinutesStr = process.env.REGISTRATION_DEADLINE_MINUTES || "1";

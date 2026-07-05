@@ -6,16 +6,18 @@ import { ContestListingItem } from "@/lib/actions/contests";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { BracketSnapshot, BracketNode, getRoundName } from "@/types/bracket";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
-  ReactFlow,
-  Background,
-  Controls,
   Handle,
   Position,
-  Node,
-  Edge,
+  type Node,
+  type Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+
+const ReactFlow = dynamic(() => import('@xyflow/react').then(mod => mod.ReactFlow), { ssr: false });
+const Background = dynamic(() => import('@xyflow/react').then(mod => mod.Background), { ssr: false });
+const Controls = dynamic(() => import('@xyflow/react').then(mod => mod.Controls), { ssr: false });
 
 // ── Helpers ───────────────────────────────────────────────────────
 function getInitials(name: string) {

@@ -24,7 +24,9 @@ export default function Step3aFineTuned({
   const totalRounds = Math.log2(bracketSize);
 
   // Initialize inputs from existing problemSlots if any
+  const hasInitialized = React.useRef(false);
   useEffect(() => {
+    if (hasInitialized.current) return;
     const inputs: Record<number, string> = {};
     for (let r = 1; r <= totalRounds; r++) {
       const roundProblems = problemSlots.filter(p => p.roundNumber === r).map(p => p.problemId);
@@ -35,7 +37,8 @@ export default function Step3aFineTuned({
       }
     }
     setRoundInputs(inputs);
-  }, []);
+    hasInitialized.current = true;
+  }, [problemSlots, totalRounds]);
 
   const handleInputChange = (roundNum: number, value: string) => {
     const newInputs = { ...roundInputs, [roundNum]: value };

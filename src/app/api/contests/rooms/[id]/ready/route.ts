@@ -151,6 +151,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           { roomId, contestId: state.contestId, trigger: "timeout" },
           { delay: timeLimitSecs * 1000, jobId: `timeout-${roomId}` }
         );
+      } else if (!teamReady) {
+        // Find format safely
+        let format = "unknown";
+        if (state.contestId) {
+          const contest = await CustomContest.findById(state.contestId);
+          if (contest) format = contest.format;
+        }
+
+        if (format !== "bracket") {
+          // Set a timeout for this team to become ready (60s)
+          const readyTimeoutKey = `ready_timeout:${roomId}:${userTeamId}`;
+          const timeoutSet = await redis.set(readyTimeoutKey, "1", { EX: 60, NX: true });
+          
+          if (timeoutSet) {
+            // Timeout was just set, schedule a job to check if team became ready
+            await reconciliationQueue.add(
+              "team_ready_timeout",
+              { roomId, teamId: userTeamId, contestId: state.contestId },
+              { delay: 60000, jobId: `ready-timeout-${roomId}-${userTeamId}` }
+            );
+          }
+        }
       }
     }
 

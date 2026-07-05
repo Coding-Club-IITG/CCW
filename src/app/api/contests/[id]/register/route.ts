@@ -33,10 +33,7 @@ export async function POST(
       return NextResponse.json({ error: "Contest not found" }, { status: 404 });
     }
 
-    // TODO: Revert this back to registration only being available for knockout contests
-    // if (contest.format !== "bracket") {
-    //   return NextResponse.json({ error: "Registration only available for knockout contests" }, { status: 400 });
-    // }
+
 
     if (contest.status !== "registration") {
       return NextResponse.json({ error: "Contest not accepting registrations" }, { status: 400 });
@@ -124,7 +121,7 @@ export async function POST(
         {
           _id: id,
           "registrations.userId": { $nin: memberIds.map((mid: string) => new mongoose.Types.ObjectId(mid)) },
-          $expr: { $lt: [{ $size: { $ifNull: ["$registrations", []] } }, regSettings.maxParticipants - 2] }
+          $expr: { $lt: [{ $size: { $ifNull: ["$registrations", []] } }, regSettings.maxParticipants - (contest.teamSize - 1)] }
         },
         {
           $push: {

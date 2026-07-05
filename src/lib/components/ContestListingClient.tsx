@@ -486,11 +486,11 @@ function UpcomingCountdownTimer({ startTime }: { startTime: Date | string | null
       const s = Math.floor((diff % (1000 * 60)) / 1000);
 
       if (d > 0) {
-        setTimeLeft(`In ${d}d ${h}h ${m}m`);
+        setTimeLeft(`in ${d}d ${h}h ${m}m`);
       } else if (h > 0) {
-        setTimeLeft(`In ${h}h ${m}m ${s}s`);
+        setTimeLeft(`in ${h}h ${m}m ${s}s`);
       } else {
-        setTimeLeft(`In ${m}m ${s}s`);
+        setTimeLeft(`in ${m}m ${s}s`);
       }
     };
 
@@ -503,8 +503,7 @@ function UpcomingCountdownTimer({ startTime }: { startTime: Date | string | null
 
   return (
     <span className="text-[11px] font-label-sm text-primary bg-primary/10 px-2 py-0.5 rounded flex items-center gap-1 border border-primary/20 whitespace-nowrap font-bold h-fit">
-      <span className="material-symbols-outlined text-[12px]">schedule</span>
-      {timeLeft}
+      Starts <span className="material-symbols-outlined text-[12px]">schedule</span> {timeLeft}
     </span>
   );
 }

@@ -48,7 +48,13 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
   const maxStep = steps.length;
 
   function updateFields(fields: Partial<typeof formData>) {
-    setFormData((prev) => ({ ...prev, ...fields }));
+    setFormData((prev) => {
+      let newProblemSlots = prev.problemSlots;
+      if (fields.presetId !== undefined && fields.presetId !== prev.presetId) {
+        newProblemSlots = [];
+      }
+      return { ...prev, ...fields, problemSlots: fields.problemSlots ?? newProblemSlots };
+    });
     // Clear errors for fields as they are edited
     const updatedErrors = { ...errors };
     Object.keys(fields).forEach((key) => {

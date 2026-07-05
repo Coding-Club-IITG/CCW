@@ -139,12 +139,22 @@ export default async function ContestRoomPage({
     
     // Check online presence for all members
     const initialOnlineUserIds = [userId];
+    const presenceKeysToFetch: string[] = [];
+    const membersToFetch: string[] = [];
+    
     for (const mId of allMemberIds) {
       const idStr = mId.toString();
       if (idStr !== userId) {
-        const isOnline = await redis.exists(`room:${roomId}:presence:${idStr}`);
-        if (isOnline) {
-          initialOnlineUserIds.push(idStr);
+        presenceKeysToFetch.push(`room:${roomId}:presence:${idStr}`);
+        membersToFetch.push(idStr);
+      }
+    }
+    
+    if (presenceKeysToFetch.length > 0) {
+      const presenceResults = await redis.mGet(presenceKeysToFetch);
+      for (let i = 0; i < presenceResults.length; i++) {
+        if (presenceResults[i]) {
+          initialOnlineUserIds.push(membersToFetch[i]);
         }
       }
     }
@@ -159,7 +169,13 @@ export default async function ContestRoomPage({
     
     if (status === "active" || status === "completed") {
       const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
-      initialProblems = problemsRaw.map(p => JSON.parse(p));
+      initialProblems = problemsRaw.map(p => {
+        try {
+          return JSON.parse(p);
+        } catch (e) {
+          return null;
+        }
+      }).filter(Boolean);
       
       for (const t of populatedTeams) {
         const s = await redis.zScore(`room:${roomId}:scores`, t._id);

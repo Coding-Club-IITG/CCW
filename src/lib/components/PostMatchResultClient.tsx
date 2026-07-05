@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 
 export type MatchData = {
@@ -44,6 +46,7 @@ export type MatchData = {
   contestId?: string;
   terminationReason?: string;
   format?: string;
+  isProcessing?: boolean;
 };
 
 export default function PostMatchResultClient({ matchData, currentUserId, from }: { matchData: MatchData; currentUserId?: string; from?: string }) {
@@ -56,6 +59,28 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
   } else if (from === "bracket" && matchData.contestId) {
     backHref = `/internal/contests/${matchData.contestId}`;
     backText = "Back to Bracket Canvas";
+  }
+  
+  const router = useRouter();
+
+  useEffect(() => {
+    if (matchData.isProcessing) {
+      const interval = setInterval(() => {
+        router.refresh();
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [matchData.isProcessing, router]);
+
+  if (matchData.isProcessing) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-screen bg-background text-on-background relative dark stitch-container">
+        <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Inter:wght@400&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+        <span className="material-symbols-outlined text-[48px] animate-spin text-primary">sync</span>
+        <p className="mt-4 font-body-md text-on-surface-variant animate-pulse">Calculating match results...</p>
+      </div>
+    );
   }
   
   const currentUserTeam = matchData.teams.find(t => t.members.some(m => m.id === currentUserId));

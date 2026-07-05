@@ -29,17 +29,26 @@ export default function MatchHistoryClient({ history }: { history: ContestListin
     // date filter
     if (startDate) {
       if (!contest.startTime) return false;
-      if (new Date(contest.startTime).getTime() < new Date(startDate).getTime()) return false;
+      const [y, m, d] = startDate.split('-');
+      const startOfDay = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 0, 0, 0, 0);
+      if (new Date(contest.startTime).getTime() < startOfDay.getTime()) return false;
     }
     if (endDate) {
       if (!contest.startTime) return false;
-      const endOfDay = new Date(endDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      const [y, m, d] = endDate.split('-');
+      const endOfDay = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 23, 59, 59, 999);
       if (new Date(contest.startTime).getTime() > endOfDay.getTime()) return false;
     }
     
     return true;
   });
+
+  filteredHistory.sort((a, b) => {
+    const timeA = a.startTime ? new Date(a.startTime).getTime() : 0;
+    const timeB = b.startTime ? new Date(b.startTime).getTime() : 0;
+    return timeB - timeA;
+  });
+
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@100..900&family=Inter:wght@100..900&family=JetBrains+Mono:wght@100..900&display=swap" rel="stylesheet" />

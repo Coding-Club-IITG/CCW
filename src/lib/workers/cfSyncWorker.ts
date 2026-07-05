@@ -110,21 +110,7 @@ export const cfSyncWorker = new Worker(
           }
         }
         
-        // MOCK AC FOR TEST BOTS IN DEV/TESTING:
-        logger.info(`[cfSyncWorker] Checking if mock should be applied: NODE_ENV=${process.env.NODE_ENV}, userId=${userId}, cfHandle=${cfHandle}`);
-        if (process.env.NODE_ENV === "development" || userId.includes("test") || cfHandle.toLowerCase().includes("test")) {
-          logger.info(`[cfSyncWorker] Mock condition met for ${cfHandle}, artificially injecting AC!`);
-          isValid = true;
-          hasSubmissionForProblem = true;
-          matchedSubmission = {
-            id: Math.floor(Math.random() * 1000000),
-            creationTimeSeconds: Math.floor(Date.now() / 1000),
-            verdict: "OK"
-          };
-          bestVerdict = "OK";
-        }
 
-        logger.info(`[cfSyncWorker] Validation summary for ${cfHandle}: isValid=${isValid}, bestVerdict=${bestVerdict}, hasSubmission=${hasSubmissionForProblem}`);
 
         // 4. Result Handling
         if (isValid && matchedSubmission) {

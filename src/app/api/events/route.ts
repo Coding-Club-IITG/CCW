@@ -221,9 +221,11 @@ export async function GET(request: NextRequest) {
         }
       };
 
-      intervalId = setInterval(() => {
-        sendEvent("ping", { time: Date.now() });
-      }, 15000);
+      if (!isClosed) {
+        intervalId = setInterval(() => {
+          sendEvent("ping", { time: Date.now() });
+        }, 15000);
+      }
 
       sendEvent("connected", {
         userId,
