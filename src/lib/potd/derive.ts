@@ -11,6 +11,7 @@ export interface DeriveChallenge {
   windowEndMs: number;
   graceEndMs: number;
   rating: number;
+  streakPreserved?: boolean;
 }
 
 /** One scoring day: all challenges that share the same windowStart */
@@ -153,10 +154,13 @@ export function deriveUserState(
 
     // Apply the day-level streak transition
     const dayOver = day.challenges.every((c) => nowMs > c.graceEndMs);
+    const dayStreakPreserved = day.challenges.some((c) => c.streakPreserved);
     if (solvedMain) {
       streak = streakEntering + 1;
     } else if (solvedGrace) {
       streak = streakEntering; // preserved, no increment
+    } else if (dayStreakPreserved) {
+      streak = streakEntering; // preserved due to outage exemption
     } else if (dayOver) {
       streak = 0; // finalized miss
     } // else: live day, unsolved -> leave streak untouched

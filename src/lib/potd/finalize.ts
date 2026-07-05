@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
+import POTDOutage from "@/models/POTDOutage";
+import { windowStartToISTDateStr } from "@/lib/potd/utils";
 import { logger } from "@/lib/utils";
 import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
 import { fetchUserSubmissions } from "@/lib/potd/recompute";
@@ -43,6 +45,9 @@ export async function buildTimeline(now: Date = new Date()): Promise<{
     .sort({ windowStart: 1, difficulty: 1 })
     .populate("problem");
 
+  const outages = await POTDOutage.find({}).lean();
+  const outageDates = new Set(outages.map((o: any) => o.date));
+
   const deriveChallenges: DeriveChallenge[] = [];
   const challengeDocs = new Map<string, any>();
   for (const c of challenges as any[]) {
@@ -50,12 +55,17 @@ export async function buildTimeline(now: Date = new Date()): Promise<{
     if (!problem) continue; // problem deleted, skip defensively
     const id = c._id.toString();
     challengeDocs.set(id, c);
+
+    const dateStr = windowStartToISTDateStr(c.windowStart);
+    const isExempt = outageDates.has(dateStr);
+
     deriveChallenges.push({
       challengeId: id,
       windowStartMs: (c.windowStart as Date).getTime(),
       windowEndMs: (c.windowEnd as Date).getTime(),
       graceEndMs: (c.graceEnd as Date).getTime(),
       rating: problem.rating ?? 0,
+      streakPreserved: isExempt,
     });
   }
 
