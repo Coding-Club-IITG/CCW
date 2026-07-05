@@ -1,12 +1,24 @@
 /**
- * POTD Streak Freeze & Recovery Script
+ * POTD Streak Freeze & Invalidation Script
  *
- * Thin CLI client wrapper around registerStreakFreeze core logic.
- * Registers an outage date in the POTDOutage collection and triggers
- * user recomputations so that streaks are preserved on that day.
+ * Use Case:
+ *   When the platform/database goes down and we could NOT share the daily challenge
+ *   questions, meaning the majority of users had no way of knowing or solving the problem.
  *
+ * Difference from potd-outage.ts:
+ *   - potd-outage.ts: Used when the platform was down but we still managed to share the
+ *     questions beforehand. It backfills solved times for those who solved the problem
+ *     on CF/AC, but resets streaks to 0 for everyone who did not.
+ *   - potd-streak-freeze.ts: Used when we could NOT share the questions. It registers
+ *     the date in the POTDOutage collection. Users who solved the problem (e.g., by
+ *     coincidence beforehand) still get points and streak increments, while everyone else's
+ *     streaks are safely preserved/frozen at their previous value instead of reset to 0.
+ *
+ * Usage:
  *   pnpm tsx scripts/potd-streak-freeze.ts --date 2026-07-01            # dry run
  *   pnpm tsx scripts/potd-streak-freeze.ts --date 2026-07-01 --execute  # apply
+ *
+ * Stop ccw-worker before running so the cron does not race this script.
  */
 
 import {
