@@ -168,6 +168,61 @@ const CF_DELAY_MS = 2_100;
 const AC_DELAY_MS = 1_100;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+interface BackfillOptions {
+  targets: any[];
+  handleMap: Map<string, string>;
+  challenges: any[];
+  platform: Platform;
+  delayMs: number;
+  fromWindowStart: number;
+}
+
+/**
+ * Shared helper to poll external platforms and record solves to MongoDB
+ */
+async function runPlatformBackfill({
+  targets,
+  handleMap,
+  challenges,
+  platform,
+  delayMs,
+  fromWindowStart,
+}: BackfillOptions): Promise<void> {
+  if (challenges.length === 0) return;
+  console.log(`\nBackfilling ${platform} submissions...`);
+  for (let i = 0; i < targets.length; i++) {
+    const userId = targets[i].userId;
+    const handle = handleMap.get(userId.toString())!;
+    let subs: any[] = [];
+    let ok = false;
+    for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+      try {
+        subs = await fetchUserSubmissions(handle, platform, fromWindowStart);
+        ok = true;
+      } catch (e: any) {
+        console.log(
+          `  [${platform} ${i + 1}/${targets.length}] ${handle} attempt ${attempt} failed: ${e?.message}`
+        );
+        if (attempt < 3) await sleep(3000);
+      }
+    }
+    if (!ok) {
+      console.log(
+        `  [${platform} ${i + 1}/${targets.length}] ${handle} - skipped`
+      );
+      await sleep(delayMs);
+      continue;
+    }
+    const solved = await backfillSolvedAt(userId, challenges, subs, platform);
+    if (solved > 0 || (i + 1) % 10 === 0) {
+      console.log(
+        `  [${platform} ${i + 1}/${targets.length}] ${handle}: ${solved} solves`
+      );
+    }
+    await sleep(delayMs);
+  }
+}
+
 /**
  * Core orchestration logic for registering an outage and freezing streaks for a day
  */
@@ -240,57 +295,24 @@ export async function registerStreakFreeze(
     { upsert: true }
   );
 
-  // Backfill solvedAt from platform data for that day
-  const runPlatform = async (
-    targets: any[],
-    handleMap: Map<string, string>,
-    chs: any[],
-    platform: Platform,
-    delayMs: number
-  ) => {
-    if (chs.length === 0) return;
-    console.log(`\nBackfilling ${platform} submissions...`);
-    for (let i = 0; i < targets.length; i++) {
-      const userId = targets[i].userId;
-      const handle = handleMap.get(userId.toString())!;
-      let subs: any[] = [];
-      let ok = false;
-      for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
-        try {
-          subs = await fetchUserSubmissions(handle, platform, fromWindowStart);
-          ok = true;
-        } catch (e: any) {
-          console.log(
-            `  [${platform} ${i + 1}/${targets.length}] ${handle} attempt ${attempt} failed: ${e?.message}`
-          );
-          if (attempt < 3) await sleep(3000);
-        }
-      }
-      if (!ok) {
-        console.log(
-          `  [${platform} ${i + 1}/${targets.length}] ${handle} - skipped`
-        );
-        await sleep(delayMs);
-        continue;
-      }
-      const solved = await backfillSolvedAt(userId, chs, subs, platform);
-      if (solved > 0 || (i + 1) % 10 === 0) {
-        console.log(
-          `  [${platform} ${i + 1}/${targets.length}] ${handle}: ${solved} solves`
-        );
-      }
-      await sleep(delayMs);
-    }
-  };
+  // Backfill solvedAt using shared platform helper
+  await runPlatformBackfill({
+    targets: cfTargets,
+    handleMap: cfHandle,
+    challenges: cfChallenges,
+    platform: "codeforces",
+    delayMs: CF_DELAY_MS,
+    fromWindowStart,
+  });
 
-  await runPlatform(
-    cfTargets,
-    cfHandle,
-    cfChallenges,
-    "codeforces",
-    CF_DELAY_MS
-  );
-  await runPlatform(acTargets, acHandle, acChallenges, "atcoder", AC_DELAY_MS);
+  await runPlatformBackfill({
+    targets: acTargets,
+    handleMap: acHandle,
+    challenges: acChallenges,
+    platform: "atcoder",
+    delayMs: AC_DELAY_MS,
+    fromWindowStart,
+  });
 
   console.log("\nRecomputing all users scoring timeline & streaks...");
   
@@ -298,6 +320,105 @@ export async function registerStreakFreeze(
   const { buildTimeline, recomputeUsers } = await import("./finalize");
   
   const now = new Date();
+  const { days } = await buildTimeline(now);
+  const allCp = (await CPUser.find({}, "userId").lean()) as any[];
+  const userIds = allCp.map((c) => c.userId);
+  
+  for (let i = 0; i < userIds.length; i++) {
+    await recomputeUsers([userIds[i]], days, now);
+    if ((i + 1) % 25 === 0) console.log(`  ...${i + 1}/${userIds.length}`);
+  }
+}
+
+/**
+ * Core orchestration logic for running outage recovery from a start date
+ */
+export async function recoverOutage(
+  fromDateStr: string,
+  execute: boolean,
+): Promise<void> {
+  const now = new Date();
+  const windowTimes = computeWindowTimes(fromDateStr);
+  const fromWindowStart = windowTimes.windowStart.getTime();
+
+  // Find all challenges from that date onward
+  const challenges = (await getFinalizedChallenges(now)) as any[];
+  const toRefetch = challenges.filter(
+    (c) => (c.windowStart as Date).getTime() >= fromWindowStart,
+  );
+
+  console.log(
+    `Finalized challenges: ${challenges.length} total; ${toRefetch.length} to re-fetch from ${fromDateStr}.`
+  );
+
+  if (toRefetch.length === 0) {
+    console.log(`No challenges found from date ${fromDateStr} onward.`);
+    return;
+  }
+
+  // Split challenges by platform
+  const cfChallenges = toRefetch.filter((c) => platformOf(c) === "codeforces");
+  const acChallenges = toRefetch.filter((c) => platformOf(c) === "atcoder");
+
+  // Build verified-user -> handle maps
+  const cpUsers = (await CPUser.find(
+    {},
+    "userId cfVerified acVerified",
+  ).lean()) as any[];
+  const userDocs = (await User.find(
+    {},
+    "_id codeforcesId atcoderId",
+  ).lean()) as any[];
+
+  const cfHandle = new Map<string, string>();
+  const acHandle = new Map<string, string>();
+  for (const u of userDocs) {
+    if (u.codeforcesId) cfHandle.set(u._id.toString(), u.codeforcesId);
+    if (u.atcoderId) acHandle.set(u._id.toString(), u.atcoderId);
+  }
+
+  const cfTargets = cpUsers.filter(
+    (c) => c.cfVerified && cfHandle.has(c.userId.toString()),
+  );
+  const acTargets = cpUsers.filter(
+    (c) => c.acVerified && acHandle.has(c.userId.toString()),
+  );
+
+  console.log(
+    `Verified targets for polling -> CF: ${cfTargets.length}, AC: ${acTargets.length}`
+  );
+
+  if (!execute) {
+    console.log(
+      "\nDry run complete. No database changes were made. Re-run with --execute to apply."
+    );
+    return;
+  }
+
+  // Backfill solvedAt using shared platform helper
+  await runPlatformBackfill({
+    targets: cfTargets,
+    handleMap: cfHandle,
+    challenges: cfChallenges,
+    platform: "codeforces",
+    delayMs: CF_DELAY_MS,
+    fromWindowStart,
+  });
+
+  await runPlatformBackfill({
+    targets: acTargets,
+    handleMap: acHandle,
+    challenges: acChallenges,
+    platform: "atcoder",
+    delayMs: AC_DELAY_MS,
+    fromWindowStart,
+  });
+
+  console.log("\nRecomputing all users scoring timeline & streaks...");
+  
+  // Break circular dependency by dynamic importing
+  const { buildTimeline, recomputeUsers } = await import("./finalize");
+  
   const { days } = await buildTimeline(now);
   const allCp = (await CPUser.find({}, "userId").lean()) as any[];
   const userIds = allCp.map((c) => c.userId);
