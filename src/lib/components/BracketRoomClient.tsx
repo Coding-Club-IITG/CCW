@@ -25,27 +25,48 @@ function getInitials(name: string) {
   return name.substring(0, 2).toUpperCase();
 }
 
-function TeamSlot({ tid, tname, fallback }: { tid: string | null, tname: string | null, fallback: string }) {
+function TeamSlot({ tid, tname, timage, fallback, isWinner }: { tid: string | null, tname: string | null, timage?: string | null, fallback: string, isWinner?: boolean }) {
   const [isHovered, setIsHovered] = useState(false);
   
   const style = {
     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
     transform: isHovered ? 'scale(1.02) translateY(-1px)' : 'scale(1) translateY(0)',
-    boxShadow: isHovered ? '0 4px 6px -1px rgba(0, 0, 0, 0.2)' : 'none',
-    backgroundColor: isHovered ? 'var(--md-sys-color-surface-container-highest, #333)' : undefined,
+    boxShadow: isHovered ? '0 4px 6px -1px rgba(0, 0, 0, 0.2)' : (isWinner ? '0 0 10px rgba(255, 215, 0, 0.2)' : 'none'),
+    backgroundColor: isHovered ? 'var(--md-sys-color-surface-container-highest, #333)' : (isWinner ? 'rgba(255, 215, 0, 0.05)' : undefined),
+    borderColor: isWinner ? 'rgba(255, 215, 0, 0.5)' : undefined,
   };
 
   if (tid && tname) {
     return (
       <div 
-        className="flex justify-between items-center p-3 rounded bg-surface-container-lowest border border-outline-variant"
+        className={`flex justify-between items-center p-3 rounded bg-surface-container-lowest border ${isWinner ? '' : 'border-outline-variant'} relative`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         style={style}
       >
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">{getInitials(tname)}</div>
-          <span className="font-label-sm text-sm text-on-surface">{tname}</span>
+        <div className="flex items-center gap-2 relative">
+          {timage ? (
+            <img src={timage} alt={tname} className="w-6 h-6 rounded-full object-cover" />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">{getInitials(tname)}</div>
+          )}
+          <span className={`font-label-sm text-sm ${isWinner ? 'text-on-surface font-bold' : 'text-on-surface'}`}>{tname}</span>
+          {isWinner && (
+            <span 
+              className="material-symbols-outlined absolute"
+              style={{
+                color: '#FFD700',
+                left: '100%',
+                marginLeft: '6px',
+                top: '-10px',
+                transform: 'rotate(15deg) scale(1.4)',
+                filter: 'drop-shadow(0px 3px 4px rgba(0,0,0,0.4))',
+                zIndex: 20
+              }}
+            >
+              emoji_events
+            </span>
+          )}
         </div>
       </div>
     );
@@ -62,7 +83,7 @@ function TeamSlot({ tid, tname, fallback }: { tid: string | null, tname: string 
   );
 }
 
-function TeamRow({ tid, tname, score, isWinner, isLoser, isActive }: { tid: string | null, tname: string | null, score: number, isWinner: boolean, isLoser: boolean, isActive: boolean }) {
+function TeamRow({ tid, tname, timage, score, isWinner, isLoser, isActive }: { tid: string | null, tname: string | null, timage?: string | null, score: number, isWinner: boolean, isLoser: boolean, isActive: boolean }) {
   const [isHovered, setIsHovered] = useState(false);
   
   const style = {
@@ -87,6 +108,15 @@ function TeamRow({ tid, tname, score, isWinner, isLoser, isActive }: { tid: stri
     );
   }
   const ini = getInitials(tname);
+  
+  const renderAvatar = (isWinnerState?: boolean, isActiveState?: boolean) => {
+    if (timage) {
+      return <img src={timage} alt={tname} className="w-6 h-6 rounded-full object-cover" />;
+    }
+    const bgClass = isWinnerState || isActiveState ? 'bg-secondary-container text-on-secondary-container font-bold' : 'bg-surface-bright text-on-surface-variant';
+    return <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${bgClass}`}>{ini}</div>;
+  };
+
   if (isWinner) {
     return (
       <div 
@@ -95,7 +125,7 @@ function TeamRow({ tid, tname, score, isWinner, isLoser, isActive }: { tid: stri
         style={style}
       >
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">{ini}</div>
+          {renderAvatar(true, false)}
           <span className="font-label-sm text-sm text-on-surface">{tname}</span>
         </div>
         <span className="font-label-sm font-bold text-primary">{score}</span>
@@ -110,7 +140,7 @@ function TeamRow({ tid, tname, score, isWinner, isLoser, isActive }: { tid: stri
         style={style}
       >
         <div className="flex items-center gap-2 opacity-50">
-          <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">{ini}</div>
+          {renderAvatar(false, false)}
           <span className="font-label-sm text-sm text-on-surface-variant">{tname}</span>
         </div>
         <span className="font-label-sm text-on-surface-variant opacity-50">{score}</span>
@@ -125,7 +155,7 @@ function TeamRow({ tid, tname, score, isWinner, isLoser, isActive }: { tid: stri
         style={style}
       >
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">{ini}</div>
+          {renderAvatar(false, true)}
           <span className="font-label-sm text-sm text-on-surface">{tname}</span>
         </div>
         <span className="font-label-sm font-bold text-on-surface">{score}</span>
@@ -139,7 +169,7 @@ function TeamRow({ tid, tname, score, isWinner, isLoser, isActive }: { tid: stri
       style={style}
     >
       <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-full bg-surface-bright flex items-center justify-center text-xs text-on-surface-variant">{ini}</div>
+        {renderAvatar(false, false)}
         <span className="font-label-sm text-sm text-on-surface">{tname}</span>
       </div>
       <span className="font-label-sm text-on-surface-variant">{score === 0 ? '-' : score}</span>
@@ -155,6 +185,7 @@ function GrandFinalNode({ data }: { data: any }) {
   const n1 = node.teamNames?.[0], n2 = node.teamNames?.[1];
   const isCompleted = node.status === "completed";
   const isActive = node.status === "active";
+  const isWaiting = node.status === "waiting";
   return (
     <div
       className={`bg-surface-container border-2 rounded-lg overflow-hidden relative w-[280px] cursor-pointer ${!t1 && !t2 ? 'opacity-50' : ''}`}
@@ -164,8 +195,8 @@ function GrandFinalNode({ data }: { data: any }) {
       style={{ 
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: isHovered ? 'scale(1.03)' : 'scale(1)',
-        boxShadow: isHovered ? '0 0 20px rgba(136, 217, 130, 0.4), 0 10px 15px -3px rgba(0, 0, 0, 0.5)' : 'none',
-        borderColor: isHovered ? 'var(--md-sys-color-primary, #88d982)' : 'var(--md-sys-color-outline-variant, #40493d)',
+        boxShadow: isHovered ? '0 0 20px rgba(136, 217, 130, 0.4), 0 10px 15px -3px rgba(0, 0, 0, 0.5)' : (isActive ? '0 0 15px rgba(46,125,50,0.3)' : isWaiting ? '0 0 15px rgba(220,170,50,0.3)' : 'none'),
+        borderColor: isHovered ? 'var(--md-sys-color-primary, #88d982)' : (isActive ? 'var(--md-sys-color-primary, #88d982)' : isWaiting ? 'var(--md-sys-color-secondary, #d9b882)' : 'var(--md-sys-color-outline-variant, #40493d)'),
         zIndex: isHovered ? 50 : 1,
       }}
     >
@@ -177,16 +208,18 @@ function GrandFinalNode({ data }: { data: any }) {
           Grand Final
         </span>
         {isCompleted
-          ? <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">Final</span>
+          ? <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">Completed</span>
           : isActive
             ? <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> Live</span>
-            : <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Waiting</span>
+            : isWaiting
+              ? <span className="font-label-sm text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" /> Waiting</span>
+              : <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Upcoming</span>
         }
       </div>
       <div className="p-4 space-y-3 relative z-10">
-        <TeamSlot tid={t1} tname={n1} fallback="Winner SF 1" />
+        <TeamSlot tid={t1} tname={n1} timage={node.teamImages?.[0]} fallback="Winner SF 1" isWinner={isCompleted && node.winner === t1} />
         <div className="flex justify-center"><span className="font-label-sm text-xs text-on-surface-variant">VS</span></div>
-        <TeamSlot tid={t2} tname={n2} fallback="Winner SF 2" />
+        <TeamSlot tid={t2} tname={n2} timage={node.teamImages?.[1]} fallback="Winner SF 2" isWinner={isCompleted && node.winner === t2} />
       </div>
       <Handle type="source" position={Position.Right} className="!opacity-0 !w-px !h-px !border-none !bg-transparent" />
     </div>
@@ -203,7 +236,8 @@ function MatchCardNode({ data }: { data: any }) {
   const isBye = node.status === "bye";
   const isCompleted = node.status === "completed";
   const isActive = node.status === "active";
-  const isPending = !isCompleted && !isActive && !isBye;
+  const isWaiting = node.status === "waiting";
+  const isPending = !isCompleted && !isActive && !isWaiting && !isBye;
 
   const roundName = getRoundName(node.roundNumber, totalRounds);
   const matchLabel = `${roundName === "Final" || roundName.startsWith("Semi") ? roundName.replace("s", "") : roundName} ${node.matchIndex + 1}`;
@@ -218,9 +252,11 @@ function MatchCardNode({ data }: { data: any }) {
     ? <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">Final</span>
     : isActive
       ? <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> Live</span>
-      : isBye
-        ? <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Bye</span>
-        : <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Upcoming</span>;
+      : isWaiting
+        ? <span className="font-label-sm text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" /> Waiting</span>
+        : isBye
+          ? <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Bye</span>
+          : <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">Upcoming</span>;
 
   return (
     <div 
@@ -233,10 +269,10 @@ function MatchCardNode({ data }: { data: any }) {
         transform: isHovered ? 'scale(1.03)' : 'scale(1)',
         boxShadow: isHovered 
           ? '0 0 20px rgba(136, 217, 130, 0.4), 0 10px 15px -3px rgba(0, 0, 0, 0.5)' 
-          : (isActive ? '0 0 15px rgba(46,125,50,0.3)' : 'none'),
+          : (isActive ? '0 0 15px rgba(46,125,50,0.3)' : isWaiting ? '0 0 15px rgba(220,170,50,0.3)' : 'none'),
         borderColor: isHovered 
           ? 'var(--md-sys-color-primary, #88d982)' 
-          : (isActive ? 'var(--md-sys-color-primary, #88d982)' : 'var(--md-sys-color-outline-variant, #40493d)'),
+          : (isActive ? 'var(--md-sys-color-primary, #88d982)' : isWaiting ? 'var(--md-sys-color-secondary, #d9b882)' : 'var(--md-sys-color-outline-variant, #40493d)'),
         opacity: (isPending && !isHovered) ? 0.6 : 1,
         zIndex: isHovered ? 50 : 1,
       }}
@@ -247,8 +283,8 @@ function MatchCardNode({ data }: { data: any }) {
         {badge}
       </div>
       <div className="p-2 space-y-1">
-        <TeamRow tid={t1} tname={n1} score={node.scores[0]} isWinner={t1Win} isLoser={t1Lose} isActive={isActive} />
-        <TeamRow tid={t2} tname={n2} score={node.scores[1]} isWinner={t2Win} isLoser={t2Lose} isActive={isActive} />
+        <TeamRow tid={t1} tname={n1} timage={node.teamImages?.[0]} score={node.scores[0]} isWinner={t1Win} isLoser={t1Lose} isActive={isActive} />
+        <TeamRow tid={t2} tname={n2} timage={node.teamImages?.[1]} score={node.scores[1]} isWinner={t2Win} isLoser={t2Lose} isActive={isActive} />
       </div>
       <Handle type="source" position={Position.Right} className="!opacity-0 !w-px !h-px !border-none !bg-transparent" />
     </div>
@@ -291,10 +327,6 @@ function MatchSidePanel({
     router.push(`/internal/contests/${contestId}?matchRoomId=${displayNode.roomId}&from=bracket`);
   };
 
-  const handleSpectate = () => {
-    if (!displayNode?.roomId) return;
-    router.push(`/internal/contests/${contestId}?matchRoomId=${displayNode.roomId}&spectate=true&from=bracket`);
-  };
 
   const handleViewResults = () => {
     if (!displayNode?.roomId) return;
@@ -450,15 +482,7 @@ function MatchSidePanel({
               ENTER ROOM
             </button>
           )}
-          {isActive && displayNode?.roomId && !isParticipant && (
-            <button
-              onClick={handleSpectate}
-              className="w-full py-3 border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-variant transition-colors flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[18px]">visibility</span>
-              SPECTATE
-            </button>
-          )}
+
 
           {/* PENDING STATUS */}
           {isPending && (

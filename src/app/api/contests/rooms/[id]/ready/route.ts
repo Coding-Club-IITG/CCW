@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     let userId = "";
 
     const testUserId = req.headers.get("x-test-user-id");
-    if (testUserId) {
+    if (process.env.NODE_ENV === "development" && testUserId) {
       userId = testUserId;
     } else {
       const session = await auth.api.getSession({ headers: req.headers });

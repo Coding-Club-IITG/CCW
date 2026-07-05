@@ -297,11 +297,11 @@ export default function ContestListingClient({
                 <div className="flex justify-between items-center mb-6 border-b border-outline-variant pb-2">
                   <h2 className="text-2xl font-headline-lg font-semibold text-on-surface">Upcoming</h2>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
                   {/* Upcoming Card */}
                   {upcoming.map(contest => (
                     <div key={contest._id} className="hover-sharp-shadow bg-surface-container border border-outline-variant rounded-xl p-6 relative overflow-hidden group hover:border-primary/50 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
-                      <div className="flex flex-wrap justify-between items-start mb-4 gap-2">
+                      <div className="flex flex-wrap items-center mb-4 gap-2">
                         <span className="inline-block px-2 py-1 bg-surface-variant text-on-surface-variant font-label-sm text-[12px] rounded capitalize whitespace-nowrap">{contest.mode} Mode • {getFormatDisplay(contest.format)}</span>
                         <span className="text-xs font-label-sm text-on-surface-variant bg-surface px-2 py-1 rounded border border-outline-variant whitespace-nowrap">
                           {contest.startTime ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(contest.startTime)) : "TBD"}
@@ -315,17 +315,20 @@ export default function ContestListingClient({
                             <span className="material-symbols-outlined text-[16px] shrink-0">group</span>
                             <span>{contest.participantsCount || 0} Registered</span>
                           </span>
-                          {contest.registrationDeadline ? (
-                            <span className="text-xs font-label-sm text-error/90 flex items-center gap-1 whitespace-nowrap">
-                              <span className="material-symbols-outlined text-[14px] shrink-0">timer</span>
-                              <span>Closes: {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(contest.registrationDeadline))}</span>
-                            </span>
-                          ) : (
-                            <span className="text-xs font-label-sm text-on-surface-variant flex items-center gap-1 whitespace-nowrap">
-                              <span className="material-symbols-outlined text-[14px] shrink-0">timer_off</span>
-                              <span>Deadline not specified</span>
-                            </span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            {contest.registrationDeadline ? (
+                              <span className="text-xs font-label-sm text-error/90 flex items-center gap-1 whitespace-nowrap">
+                                <span className="material-symbols-outlined text-[14px] shrink-0">timer</span>
+                                <span>Closes: {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(contest.registrationDeadline))}</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs font-label-sm text-on-surface-variant flex items-center gap-1 whitespace-nowrap">
+                                <span className="material-symbols-outlined text-[14px] shrink-0">timer_off</span>
+                                <span>Deadline not specified</span>
+                              </span>
+                            )}
+                            <UpcomingCountdownTimer startTime={contest.startTime || null} />
+                          </div>
                         </div>
 
                         {contest.isRegistered ? (
@@ -454,5 +457,54 @@ export default function ContestListingClient({
         </main>
       </div>
     </>
+  );
+}
+
+function UpcomingCountdownTimer({ startTime }: { startTime: Date | string | null }) {
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!startTime) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const start = new Date(startTime).getTime();
+
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      const diff = start - now;
+
+      if (diff <= 0) {
+        setTimeLeft("Starts soon");
+        return;
+      }
+
+      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (d > 0) {
+        setTimeLeft(`In ${d}d ${h}h ${m}m`);
+      } else if (h > 0) {
+        setTimeLeft(`In ${h}h ${m}m ${s}s`);
+      } else {
+        setTimeLeft(`In ${m}m ${s}s`);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [startTime]);
+
+  if (!startTime || !timeLeft) return null;
+
+  return (
+    <span className="text-[11px] font-label-sm text-primary bg-primary/10 px-2 py-0.5 rounded flex items-center gap-1 border border-primary/20 whitespace-nowrap font-bold h-fit">
+      <span className="material-symbols-outlined text-[12px]">schedule</span>
+      {timeLeft}
+    </span>
   );
 }

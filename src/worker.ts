@@ -13,16 +13,11 @@ import { cfSyncWorker } from "./lib/workers/cfSyncWorker";
 import { reconciliationWorker } from "./lib/workers/reconciliationWorker";
 import { cfSyncQueue } from "./lib/bullmq";
 import CFQuestion from "./models/CFQuestion";
-import { startPresenceKeyspaceListener } from "./lib/presenceListener";
-
 async function run() {
   logger.info("[Worker] Starting standalone background worker (Agenda + BullMQ)...");
 
   // Ensure DB is connected
   await dbConnect();
-
-  // Start Redis keyspace notifications listener for presence tracking
-  await startPresenceKeyspaceListener();
 
   // BullMq sync runs at 2
   await cfSyncQueue.add(

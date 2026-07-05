@@ -40,11 +40,6 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
           <span style={{ color: "var(--muted)" }}>Registration:</span>
           <strong style={{ color: "var(--foreground)", textTransform: "capitalize" }}>{formData.registrationType}</strong>
 
-          <span style={{ color: "var(--muted)" }}>Deadline:</span>
-          <strong style={{ color: "var(--foreground)" }}>
-            {formData.deadline ? new Date(formData.deadline).toLocaleString() : "Not Set"}
-          </strong>
-
           <span style={{ color: "var(--muted)" }}>Max Participants:</span>
           <strong style={{ color: "var(--foreground)" }}>{formData.maxParticipants}</strong>
         </div>

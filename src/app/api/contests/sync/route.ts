@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     let userId = "";
 
     const testUserId = request.headers.get("x-test-user-id");
-    if (testUserId) {
+    if (process.env.NODE_ENV === "development" && testUserId) {
       userId = testUserId;
     } else {
       const session = await auth.api.getSession({ headers: request.headers });
@@ -49,13 +49,14 @@ export async function POST(request: NextRequest) {
 
     // 1. Check ratelimit
     if (process.env.NODE_ENV !== "development") {
+      const cooldown = parseInt(process.env.NEXT_PUBLIC_SYNC_COOLDOWN || process.env.SYNC_COOLDOWN || "60", 10);
       const isRateLimited = await redis.exists(rateLimitKey);
       if (isRateLimited) {
-        return NextResponse.json({ error: "Rate limit exceeded. Please wait 60 seconds." }, { status: 429 });
+        return NextResponse.json({ error: `Rate limit exceeded. Please wait ${cooldown} seconds.` }, { status: 429 });
       }
 
-      // 2. Set ratelimit (60s TTL)
-      await redis.set(rateLimitKey, "1", { EX: 60 });
+      // 2. Set ratelimit (cooldown TTL)
+      await redis.set(rateLimitKey, "1", { EX: cooldown });
     }
 
     // 3. Enqueue job

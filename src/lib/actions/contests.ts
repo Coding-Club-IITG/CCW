@@ -415,6 +415,7 @@ export async function getContestRegistrations(contestId: string) {
       success: true,
       format: contest.format,
       teamSize: contest.teamSize,
+      registrationType: contest.registrationSettings?.type,
       isDeadlinePassed,
       registrations: JSON.parse(JSON.stringify(populatedRegistrations)),
     };

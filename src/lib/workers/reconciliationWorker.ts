@@ -39,6 +39,124 @@ export const reconciliationWorker = new Worker(
       const contest = await CustomContest.findById(contestId);
       if (!contest) return;
 
+      // ── Bracket tournaments: generate bracket here (single entry point) ──
+      if (contest.format === "bracket") {
+        if (contest.registrations && contest.registrations.length < 2) {
+          logger.info(`[reconciliationWorker] check_start: bracket ${contestId} has insufficient registrations. Canceling.`);
+          await CustomContest.findByIdAndDelete(contestId);
+          const creator = await CPUser.findById(contest.creatorId);
+          if (creator && creator.userId) {
+            await Notification.create({
+              userId: creator.userId,
+              type: "announcement",
+              title: "Tournament Cancelled",
+              message: `Your bracket tournament '${contest.name}' was cancelled due to insufficient registrations.`,
+              link: "/internal/contests"
+            });
+          }
+          return;
+        }
+
+        contest.status = "provisioning";
+        await contest.save();
+
+        const bracketUserIds = (contest.registrations || []).map((r: any) => r.userId.toString());
+        
+        // Incremental CF sync for all bracket registrants
+        // OPTIMIZATION: Only do this if problemSelectionMode is "bulk"
+        if (contest.problemSelectionMode === "bulk") {
+          const { fetchCodeforcesUserStatus } = await import("../cf-api");
+
+          for (const uid of bracketUserIds) {
+          const cpUser = await CPUser.findOne({ userId: uid });
+          if (!cpUser || !cpUser.cfHandle) continue;
+          const solvedProblems: any[] = cpUser.solvedProblems || [];
+          let latestSolvedMs = 0;
+          for (const sp of solvedProblems) {
+            const ts = sp.submittedAt ? new Date(sp.submittedAt).getTime() : 0;
+            if (ts > latestSolvedMs) latestSolvedMs = ts;
+          }
+          try {
+            const existingSolvedIds = new Set(solvedProblems.map((sp: any) => sp.problemId));
+            const newSolves: any[] = [];
+            
+            let currentFrom = 1;
+            const chunkSize = 200;
+            let keepFetching = true;
+
+            while (keepFetching) {
+              const submissions = await fetchCodeforcesUserStatus(cpUser.cfHandle, chunkSize, currentFrom);
+              
+              for (const sub of submissions) {
+                if (
+                  sub.verdict === "OK" &&
+                  sub.problem.contestId &&
+                  sub.problem.index &&
+                  sub.creationTimeSeconds * 1000 > latestSolvedMs
+                ) {
+                  const pid = `${sub.problem.contestId}${sub.problem.index}`;
+                  if (!existingSolvedIds.has(pid)) {
+                    newSolves.push({ problemId: pid, submittedAt: new Date(sub.creationTimeSeconds * 1000) });
+                    existingSolvedIds.add(pid);
+                  }
+                }
+              }
+
+              // Check if we need to fetch the next chunk
+              if (submissions.length < chunkSize) {
+                keepFetching = false; // no more submissions available
+              } else {
+                // If the very last (oldest) submission in this chunk is still newer than latestSolvedMs, fetch more.
+                const lastSub = submissions[submissions.length - 1];
+                if (lastSub && lastSub.creationTimeSeconds * 1000 > latestSolvedMs) {
+                  currentFrom += chunkSize;
+                  // Brief pause to respect rate limits
+                  await new Promise(resolve => setTimeout(resolve, 700));
+                } else {
+                  keepFetching = false;
+                }
+              }
+            }
+            if (newSolves.length > 0) {
+              await CPUser.findByIdAndUpdate(cpUser._id, { $push: { solvedProblems: { $each: newSolves } } });
+              logger.info(`[reconciliationWorker] bracket check_start: +${newSolves.length} solves for ${cpUser.cfHandle}`);
+            }
+          } catch (cfErr: any) {
+            logger.warn(`[reconciliationWorker] bracket check_start: CF fetch failed for ${cpUser.cfHandle}: ${cfErr.message}`);
+          }
+        }
+        } // End of problemSelectionMode === "bulk" check
+
+        // Build solved union from refreshed CPUser docs
+        const bracketRefreshedUsers = await CPUser.find({ userId: { $in: bracketUserIds } });
+        const bracketSolvedIds = new Set<string>(
+          bracketRefreshedUsers.flatMap(u => (u.solvedProblems || []).map((sp: any) => sp.problemId))
+        );
+
+        try {
+          const { generateBracket } = await import("../bracket");
+          await generateBracket(contestId, bracketSolvedIds);
+
+          const startTimeMs = contest.startTime ? contest.startTime.getTime() : Date.now();
+          const preStartSeconds = parseInt(process.env.ROOM_PRE_START_SECONDS || "5", 10);
+          const delayToStart = Math.max(0, startTimeMs - Date.now() - preStartSeconds * 1000);
+
+          const { reconciliationQueue } = await import("../bullmq");
+          await reconciliationQueue.add(
+            "activate_bracket",
+            { contestId: contestId.toString(), trigger: "activate_bracket" },
+            { delay: delayToStart, jobId: `activate-bracket-${contestId}` }
+          );
+
+          logger.info(`[reconciliationWorker] check_start: bracket ${contestId} generated. Scheduled activate_bracket in ${delayToStart}ms.`);
+        } catch (err: any) {
+          logger.error(`[reconciliationWorker] check_start: bracket generation failed for ${contestId}:`, err);
+        }
+        return;
+      }
+
+      // ── Non-bracket contests: existing team-grouping + provisioning logic ──
+
       // Group registrations into teams
       const teamsMap = new Map<string, string[]>();
       const regs = contest.registrations || [];
@@ -99,16 +217,74 @@ export const reconciliationWorker = new Worker(
       await contest.save();
 
       // Provision room
-      // Since room creation logic is in api/contests/rooms/route.ts, we'll replicate the core of it here 
-      // or HTTP POST to it if possible. Replicating the core logic is safer to avoid HTTP loopbacks.
-
       const problemCount = contest.bulkProblemCount || 3;
       const minRating = contest.bulkRatingMin || 800;
       const maxRating = contest.bulkRatingMax || 1200;
 
       const allUserIds = validTeams.flatMap(t => t[1]);
-      const users = await CPUser.find({ userId: { $in: allUserIds } });
-      const solvedProblemIds = new Set<string>(users.flatMap(u => (u.solvedProblems || []).map((sp: any) => sp.problemId)));
+
+      // --- Incremental CF submission fetch to get fresh solved problem data ---
+      // For each registered user: find the most recent solved problem timestamp in DB,
+      // fetch any new ACs from CF API since then, and update CPUser.solvedProblems.
+      // OPTIMIZATION: Only do this if problemSelectionMode is "bulk", because "test" mode 
+      // uses manual problem slots and ignores the solved array anyway!
+      if (contest.problemSelectionMode === "bulk") {
+        const { fetchCodeforcesUserStatus } = await import("../cf-api");
+
+        for (const uid of allUserIds) {
+          const cpUser = await CPUser.findOne({ userId: uid });
+          if (!cpUser || !cpUser.cfHandle) continue;
+
+        // Find the timestamp of the most recently recorded solve
+        const solvedProblems: any[] = cpUser.solvedProblems || [];
+        let latestSolvedMs = 0;
+        for (const sp of solvedProblems) {
+          const ts = sp.submittedAt ? new Date(sp.submittedAt).getTime() : 0;
+          if (ts > latestSolvedMs) latestSolvedMs = ts;
+        }
+
+        try {
+          const submissions = await fetchCodeforcesUserStatus(cpUser.cfHandle, 200);
+          const existingSolvedIds = new Set(solvedProblems.map((sp: any) => sp.problemId));
+          const newSolves: any[] = [];
+
+          for (const sub of submissions) {
+            if (
+              sub.verdict === "OK" &&
+              sub.problem.contestId &&
+              sub.problem.index &&
+              sub.creationTimeSeconds * 1000 > latestSolvedMs
+            ) {
+              const pid = `${sub.problem.contestId}${sub.problem.index}`;
+              if (!existingSolvedIds.has(pid)) {
+                newSolves.push({
+                  problemId: pid,
+                  submittedAt: new Date(sub.creationTimeSeconds * 1000),
+                });
+                existingSolvedIds.add(pid);
+              }
+            }
+          }
+
+          if (newSolves.length > 0) {
+            await CPUser.findByIdAndUpdate(cpUser._id, {
+              $push: { solvedProblems: { $each: newSolves } },
+            });
+            logger.info(`[reconciliationWorker] check_start: added ${newSolves.length} new solves for ${cpUser.cfHandle}`);
+          }
+        } catch (cfErr: any) {
+          logger.warn(`[reconciliationWorker] check_start: failed to fetch CF submissions for ${cpUser.cfHandle}: ${cfErr.message}`);
+          // Non-fatal: continue with existing DB data for this user
+        }
+      }
+      }
+
+      // Build union of all solved problem IDs from the (now refreshed) CPUser docs
+      const refreshedUsers = await CPUser.find({ userId: { $in: allUserIds } });
+      const solvedProblemIds = new Set<string>(
+        refreshedUsers.flatMap(u => (u.solvedProblems || []).map((sp: any) => sp.problemId))
+      );
+
 
       let availableProblems: any[] = [];
       if (contest.problemSelectionMode === "test") {
@@ -239,6 +415,21 @@ export const reconciliationWorker = new Worker(
       return;
     }
 
+    // Handle activating a bracket contest exactly 5 seconds before start time
+    if (job.name === "activate_bracket" || trigger === "activate_bracket") {
+      const contest = await CustomContest.findById(contestId);
+      if (!contest) return;
+
+      if (contest.status !== "active") {
+        contest.status = "active";
+        await contest.save();
+        await redis.hSet(`contest:${contestId}:meta`, { status: "active" });
+
+        logger.info(`[reconciliationWorker] activate_bracket: contest ${contestId} is now active.`);
+      }
+      return;
+    }
+
     // Handle starting the waiting room (making it visible to users)
     if (job.name === "start_waiting_room" || trigger === "start_waiting_room") {
       const contest = await CustomContest.findById(contestId);
@@ -282,13 +473,65 @@ export const reconciliationWorker = new Worker(
       
       // If room is still waiting, it means not everyone clicked ready
       if (state && state.status === "waiting") {
+        // Fetch contest before deleting or force-starting
+        const c = await CustomContest.findById(contestId).lean();
+        
+        // For brackets, NEVER cancel the tournament. Instead, force-start the match!
+        if (c && c.format === "bracket") {
+          logger.info(`[reconciliationWorker] Room ${roomId} ready timeout hit, but it's a bracket. Force-starting the match!`);
+          
+          const room = await ContestRoom.findById(roomId);
+          if (room) {
+            const now = Date.now();
+            
+            // Reveal the problem
+            const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
+            if (problemsRaw.length > 0) {
+              const firstProblem = JSON.parse(problemsRaw[0]);
+              firstProblem.revealedAt = now;
+              await redis.lSet(`room:${roomId}:problems`, 0, JSON.stringify(firstProblem));
+            }
+
+            // Update DB and Redis
+            room.status = "active";
+            room.actualStartTime = new Date(now);
+            await room.save();
+            await redis.hSet(`room:${roomId}:state`, { status: "active", startTime: now.toString() });
+            
+            // Re-fetch and sync to clients
+            const updatedState = await redis.hGetAll(`room:${roomId}:state`);
+            const updatedProblems = await redis.lRange(`room:${roomId}:problems`, 0, -1);
+            const teamIds = await redis.sMembers(`room:${roomId}:teams`);
+            const scores: Record<string, number> = {};
+            for (const tId of teamIds) {
+              const score = await redis.zScore(`room:${roomId}:scores`, tId);
+              scores[tId] = score || 0;
+            }
+
+            await publishRoom(roomId, {
+              type: "room.state_sync",
+              roomId,
+              state: updatedState,
+              problems: updatedProblems.map(p => JSON.parse(p)),
+              scores
+            });
+
+            // Start the match timer
+            const timeLimitSecs = parseInt(state.timeLimit || "3600", 10);
+            const { reconciliationQueue } = await import("../bullmq");
+            await reconciliationQueue.add(
+              "room_timeout",
+              { roomId, contestId: contestId.toString(), trigger: "timeout" },
+              { delay: timeLimitSecs * 1000, jobId: `timeout-${roomId}` }
+            );
+          }
+          return;
+        }
+
         logger.info(`[reconciliationWorker] Room ${roomId} ready timeout hit. Canceling contest.`);
 
         // Collect team IDs before any deletion so we can clean up team-scoped Redis keys
         const teamIds = await redis.sMembers(`room:${roomId}:teams`);
-        
-        // Fetch contest before deleting to get creatorId
-        const c = await CustomContest.findById(contestId).lean();
         if (c) {
           // Notify creator
           const creator = await CPUser.findById(c.creatorId);
@@ -374,12 +617,52 @@ export const reconciliationWorker = new Worker(
         await submission.save();
       }
 
-      // Finally, update the room status to "ended" so the frontend can safely query the complete database
+      // Finally, update the room status to "ended"
       if (completedRoom) {
         completedRoom.status = "ended";
         await completedRoom.save();
 
-        // Mark contest completed if all rooms ended
+        // For bracket contests: advance winner + check round completion
+        if (contestId) {
+          const completedContest = await CustomContest.findById(contestId).lean();
+          if (completedContest?.format === "bracket") {
+            const teamScoresForBracket: Record<string, number> = {};
+            for (const tId of completedTeams) {
+              const s = await redis.zScore(`room:${roomId}:scores`, tId);
+              teamScoresForBracket[tId] = s ? parseFloat(s.toString()) : 0;
+            }
+            let bracketWinnerId: string | null = null;
+            let bracketMaxScore = -1;
+            for (const [tId, sc] of Object.entries(teamScoresForBracket)) {
+              if (sc > bracketMaxScore) { bracketMaxScore = sc; bracketWinnerId = tId; }
+            }
+
+            try {
+              const { advanceWinner, checkRoundCompletion } = await import("../bracket");
+              await advanceWinner(roomId, contestId, bracketWinnerId);
+              if (completedRoom.currentRoundId) {
+                const roundDoc = await ContestRound.findById(completedRoom.currentRoundId).lean();
+                if (roundDoc) await checkRoundCompletion(contestId, roundDoc.roundNumber);
+              }
+            } catch (bracketErr) {
+              logger.error(`[reconciliationWorker] room_completed: bracket advancement failed for room ${roomId}:`, bracketErr);
+            }
+
+            // Bracket: clean up ONLY room-scoped and team-scoped keys
+            // Contest-level keys (contest:${contestId}:meta, contest:${contestId}:rooms) must persist
+            // until the entire tournament is finished (handled by advanceWinner / checkRoundCompletion).
+            const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
+            if (completedRoomKeys.length > 0) await redis.del(completedRoomKeys);
+            for (const tId of completedTeams) {
+              await redis.del(`team:${tId}:meta`);
+              await redis.del(`team:${tId}:users`);
+            }
+            logger.info(`[reconciliationWorker] room_completed (bracket): cleanup done for room ${roomId}.`);
+            return;
+          }
+        }
+
+        // Non-bracket: mark contest completed if all rooms ended
         if (contestId) {
           const totalRooms = await ContestRoom.countDocuments({ contestId });
           const endedRooms = await ContestRoom.countDocuments({
@@ -396,7 +679,7 @@ export const reconciliationWorker = new Worker(
         }
       }
 
-      // Clean up Redis (room-scoped, team-scoped, and contest-scoped)
+      // Non-bracket: clean up room-scoped, team-scoped, and contest-scoped keys
       const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
       if (completedRoomKeys.length > 0) {
         await redis.del(completedRoomKeys);
@@ -413,26 +696,9 @@ export const reconciliationWorker = new Worker(
       return;
     }
 
-    // Handle ending registration for brackets
-    if (job.name === "end_registration" || trigger === "end_registration") {
-      const contest = await CustomContest.findById(contestId);
-      if (!contest || contest.format !== "bracket") return;
-      
-      // Flip status to active so generateBracket can run
-      contest.status = "active";
-      await contest.save();
-      logger.info(`[reconciliationWorker] Ended registration for bracket contest ${contestId}. Generating bracket...`);
-      
-      try {
-        const { generateBracket } = await import("../bracket");
-        await generateBracket(contestId);
-        
+    // Note: end_registration handler has been removed.
+    // Bracket generation is now handled entirely inside check_start for a single entry point.
 
-      } catch (err: any) {
-        logger.error(`[reconciliationWorker] Error generating bracket for ${contestId}:`, err);
-      }
-      return;
-    }
 
 
     // Handle mid-match disconnect timeout
@@ -530,70 +796,18 @@ export const reconciliationWorker = new Worker(
       }
     }
 
-    // 2.5 Bracket advancement hook for knockout contests
+    // 2.5 Bracket advancement hook — now handled in room_completed. This path covers
+    // forfeit/timeout endings for bracket rooms.
     if (contestId) {
       try {
-        const contest = await CustomContest.findById(contestId).lean();
-        if (contest && contest.format === "bracket") {
-          // Update ContestStanding and Redis standings for each team
-          const ContestStanding = (await import("../../models/ContestStanding")).default;
-          
-          for (const tId of teams) {
-            const isWinner = tId === winnerId;
-            const teamDoc = await ContestTeam.findById(tId).lean();
-            
-            if (teamDoc && teamDoc.members) {
-              for (const userId of teamDoc.members) {
-                let standing = await ContestStanding.findOne({
-                  contestId,
-                  userId,
-                });
-                
-                if (!standing) {
-                  standing = new ContestStanding({
-                    roomId,
-                    contestId,
-                    userId,
-                    teamId: tId,
-                    score: 0,
-                    problemsSolved: 0,
-                    wins: 0,
-                    losses: 0,
-                    eliminated: false
-                  });
-                }
-                
-                standing.roomId = roomId;
-                standing.teamId = tId;
-                standing.score += (teamScores[tId] || 0);
-                
-                if (isWinner) {
-                  standing.wins = (standing.wins || 0) + 1;
-                } else if (winnerId) {
-                  // Only count as a loss if there is a definitive winner
-                  standing.losses = (standing.losses || 0) + 1;
-                  standing.eliminated = true;
-                }
-                
-                await standing.save();
-              }
-            }
-            
-            if (isWinner) {
-              await redis.zIncrBy(`contest:${contestId}:standings`, 1, tId);
-            }
-          }
-
-          if (winnerId) {
-            const { advanceWinner, checkRoundCompletion } = await import("../bracket");
-            await advanceWinner(roomId, contestId, winnerId);
-
-            if (room && room.currentRoundId) {
-              const roundDoc = await ContestRound.findById(room.currentRoundId).lean();
-              if (roundDoc) {
-                await checkRoundCompletion(contestId, roundDoc.roundNumber);
-              }
-            }
+        const bracketContest = await CustomContest.findById(contestId).lean();
+        if (bracketContest?.format === "bracket" && winnerId) {
+          const { advanceWinner, checkRoundCompletion } = await import("../bracket");
+          await advanceWinner(roomId, contestId, winnerId);
+          const bracketRoom = await ContestRoom.findById(roomId).lean();
+          if (bracketRoom?.currentRoundId) {
+            const roundDoc = await ContestRound.findById(bracketRoom.currentRoundId).lean();
+            if (roundDoc) await checkRoundCompletion(contestId, roundDoc.roundNumber);
           }
         }
       } catch (err) {

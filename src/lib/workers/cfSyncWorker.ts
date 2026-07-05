@@ -23,13 +23,6 @@ export const cfSyncWorker = new Worker(
       return;
     }
 
-    if (job.name === "solved_prefetch") {
-      const { cfHandle } = job.data;
-      const { prefetchUserSolvedHistory } = require("../cf-api");
-      await prefetchUserSolvedHistory(cfHandle);
-      return;
-    }
-
     if (job.name === "cf_sync") {
       const { roomId, userId, teamId, cfHandle, problemId } = job.data;
       
@@ -273,7 +266,8 @@ export const cfSyncWorker = new Worker(
                   await publishRoom(roomId, {
                     type: "room.end",
                     finalScores,
-                    duration: Date.now() - startTime
+                    duration: Date.now() - startTime,
+                    lastSolvedBy: { userId, teamId }
                   });
 
                   // Remove the timeout job since the room ended naturally

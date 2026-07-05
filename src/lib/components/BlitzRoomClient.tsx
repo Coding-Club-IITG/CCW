@@ -25,6 +25,8 @@ export default function BlitzRoomClient({
   initialProblems = [],
   initialScores = {},
   initialProblemIndex = 0,
+  initialStartTime,
+  initialTimeLimit,
   from,
   syncCooldownSeconds = 60
 }: {
@@ -41,21 +43,61 @@ export default function BlitzRoomClient({
   initialProblems?: any[];
   initialScores?: Record<string, number>;
   initialProblemIndex?: number;
+  initialStartTime?: number;
+  initialTimeLimit?: number;
   from?: string;
   syncCooldownSeconds?: number;
 }) {
   const router = useRouter();
   
   const [matchState, setMatchState] = useState<"waiting" | "active" | "completed">(initialMatchState);
+  const matchStateRef = useRef(initialMatchState);
   const [showMatchStartedModal, setShowMatchStartedModal] = useState(false);
   const [problems, setProblems] = useState<any[]>(initialProblems);
   const [currentProblemIndex, setCurrentProblemIndex] = useState(initialProblemIndex);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
   const [readyUserIds, setReadyUserIds] = useState<Set<string>>(new Set(initialReadyUserIds));
-  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set(initialOnlineUserIds || [userId])); // Track online users
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set(initialOnlineUserIds || [userId]));
+  const onlineUserIdsRef = useRef<Set<string>>(new Set(initialOnlineUserIds || [userId]));
   const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
   const [syncing, setSyncing] = useState(false);
   const [syncCooldown, setSyncCooldown] = useState(0);
+
+  const [startTime, setStartTime] = useState<number | undefined>(initialStartTime);
+  const [timeLimit, setTimeLimit] = useState<number | undefined>(initialTimeLimit);
+  const [timeLeft, setTimeLeft] = useState<string>("00:00");
+
+  // --- Countdown timer (mirrors Arena) ---
+  useEffect(() => {
+    if (matchState !== "active" || !startTime || !timeLimit) {
+      if (matchState === "completed") {
+        setTimeLeft("00:00");
+      } else {
+        setTimeLeft(timeLimit
+          ? `${Math.floor(timeLimit / 60).toString().padStart(2, '0')}:${(timeLimit % 60).toString().padStart(2, '0')}`
+          : "00:00");
+      }
+      return;
+    }
+    const endMs = startTime + (timeLimit * 1000);
+    const interval = setInterval(() => {
+      const diffSecs = Math.floor((endMs - Date.now()) / 1000);
+      if (diffSecs <= 0) { setTimeLeft("00:00"); return; }
+      const m = Math.floor(diffSecs / 60);
+      const s = diffSecs % 60;
+      setTimeLeft(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [matchState, startTime, timeLimit]);
+
+  const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
+  const getDisplayTeamName = (t: any) => {
+    if (!t) return "Unknown";
+    if (isSoloFormat && t.members && t.members.length > 0) {
+      return t.members[0].name;
+    }
+    return t.name;
+  };
 
   useEffect(() => {
     if (syncCooldown > 0) {
@@ -77,26 +119,41 @@ export default function BlitzRoomClient({
     }
   }, [roomId, userId, syncCooldownSeconds]);
   
+  // Each entry stores { icon, text, timestamp (epoch ms), color, id }
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
-  
+  const [, setTick] = useState(0); // forces re-render every second to update relative times
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const getRelativeTime = (epochMs: number): string => {
+    const diffSecs = Math.floor((Date.now() - epochMs) / 1000);
+    if (diffSecs < 5) return "just now";
+    if (diffSecs < 60) return `${diffSecs}s ago`;
+    const diffMins = Math.floor(diffSecs / 60);
+    if (diffMins < 60) return `${diffMins}m ago`;
+    return `${Math.floor(diffMins / 60)}h ago`;
+  };
+
   const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
 
   // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
   useEffect(() => {
     if (initialMatchState === "completed") {
-      router.replace(`/internal/contests/rooms/${roomId}/result`);
+      router.replace(`/internal/contests/rooms/${roomId}/result${contest.format === 'bracket' || contest.mode === 'knockout' ? '?from=bracket' : ''}`);
     }
-  }, [initialMatchState, roomId, router]);
+  }, [initialMatchState, roomId, router, contest.format, contest.mode]);
 
   // Also redirect dynamically if the match completes while connected
   useEffect(() => {
     if (matchState === "completed" && initialMatchState !== "completed") {
       const t = setTimeout(() => {
-        router.replace(`/internal/contests/rooms/${roomId}/result`);
+        router.replace(`/internal/contests/rooms/${roomId}/result${contest.format === 'bracket' || contest.mode === 'knockout' ? '?from=bracket' : ''}`);
       }, 2000);
       return () => clearTimeout(t);
     }
-  }, [matchState, initialMatchState, roomId, router]);
+  }, [matchState, initialMatchState, roomId, router, contest.format, contest.mode]);
 
   useEffect(() => {
     const eventSource = new EventSource(`/api/events?roomId=${roomId}`);
@@ -120,16 +177,19 @@ export default function BlitzRoomClient({
   const handleEvent = (payload: EventPayload) => {
     switch (payload.type) {
       case "room.state_sync":
+        matchStateRef.current = payload.state.status;
         setMatchState(prev => {
           if (prev !== "active" && payload.state.status === "active") {
             setShowMatchStartedModal(true);
           }
           return payload.state.status;
         });
+        if (payload.state.startTime) setStartTime(parseInt(payload.state.startTime));
+        if (payload.state.timeLimit) setTimeLimit(parseInt(payload.state.timeLimit));
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
         if (payload.state.status === "active") {
-          addActivity("info", "Match started! Good luck.", "Just now");
+          addActivity("info", "Match started! Good luck.");
         }
         break;
       case "room.advance":
@@ -141,25 +201,30 @@ export default function BlitzRoomClient({
         });
         setAnimationKey(k => k + 1);
         const solverName = getMemberName(payload.solvedBy.userId);
-        addActivity("check_circle", `${solverName} solved a problem!`, "Just now", "text-primary");
+        addActivity("check_circle", `${solverName} solved a problem!`, "text-primary");
         break;
       case "room.score":
         setScores(payload.scores);
         break;
       case "room.end":
+        matchStateRef.current = "completed";
         setMatchState("completed");
         if (payload.finalScores) setScores(payload.finalScores);
+        if (payload.lastSolvedBy) {
+          const solverName = getMemberName(payload.lastSolvedBy.userId);
+          addActivity("check_circle", `${solverName} solved the final problem!`, "text-primary");
+        }
         break;
       case "sync.queued":
         setSyncing(true);
-        addActivity("sync", "Submission queued for verification...", "Just now", "text-secondary");
+        addActivity("sync", "Submission queued for verification...", "text-secondary");
         break;
       case "sync.detected":
         setSyncing(false);
         if (payload.verdict === "OK") {
-          addActivity("check_circle", `Valid AC detected! +${payload.pointsAwarded || 100} pts`, "Just now", "text-primary");
+          addActivity("check_circle", `Valid AC detected! +${payload.pointsAwarded || 100} pts`, "text-primary");
         } else {
-          addActivity("error", `Submission failed: ${payload.verdict}`, "Just now", "text-error");
+          addActivity("error", `Submission failed: ${payload.verdict}`, "text-error");
         }
         break;
       case "room.user_ready":
@@ -175,34 +240,41 @@ export default function BlitzRoomClient({
       case "sync.failed":
         setSyncing(false);
         if (payload.verdict) {
-          addActivity("error", `Sync succeeded, but verdict is ${payload.verdict}`, "Just now", "text-error");
+          addActivity("error", `Sync succeeded, but verdict is ${payload.verdict}`, "text-error");
         } else {
-          addActivity("error", `Sync failed: ${payload.reason || "Unknown error"}`, "Just now", "text-error");
+          addActivity("error", `Sync failed: ${payload.reason || "Unknown error"}`, "text-error");
         }
         break;
       case "presence.online": {
         const uName = getMemberName(payload.userId);
-        setOnlineUserIds(prev => {
-          const newSet = new Set(prev);
-          newSet.add(payload.userId);
-          return newSet;
-        });
-        addActivity("person", `${uName} connected.`, "Just now", "text-secondary");
+        const wasOffline = !onlineUserIdsRef.current.has(payload.userId);
+        
+        if (wasOffline) {
+          onlineUserIdsRef.current.add(payload.userId);
+          setOnlineUserIds(new Set(onlineUserIdsRef.current));
+          
+          if (payload.cancelledForfeit) {
+            addActivity("person", `${uName} reconnected. Forfeiture cancelled.`, "text-secondary");
+          } else {
+            addActivity("person", `${uName} connected${matchStateRef.current === "waiting" ? " (Not Ready)" : ""}.`, "text-secondary");
+          }
+        }
         break;
       }
       case "presence.offline": {
         const uName = getMemberName(payload.userId);
-        setOnlineUserIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(payload.userId);
-          return newSet;
-        });
+        onlineUserIdsRef.current.delete(payload.userId);
+        setOnlineUserIds(new Set(onlineUserIdsRef.current));
+        
         setReadyUserIds(prev => {
           const newSet = new Set(prev);
           newSet.delete(payload.userId);
           return newSet;
         });
-        addActivity("person_off", `${uName} disconnected.`, "Just now", "text-error");
+        const text = payload.forfeitTimeout 
+          ? `${uName} disconnected. Match will be forfeited in ${payload.forfeitTimeout}s.` 
+          : `${uName} disconnected.`;
+        addActivity("person_off", text, "text-error");
         break;
       }
     }
@@ -218,8 +290,8 @@ export default function BlitzRoomClient({
     return uid === userId ? "You" : "Unknown";
   };
 
-  const addActivity = (icon: string, text: string, time: string, color: string = "text-on-surface") => {
-    setActivityFeed(prev => [{ icon, text, time, color, id: Date.now() }, ...prev].slice(0, 10));
+  const addActivity = (icon: string, text: string, color: string = "text-on-surface") => {
+    setActivityFeed(prev => [{ icon, text, timestamp: Date.now(), color, id: Date.now() + Math.random() }, ...prev].slice(0, 10));
   };
 
   const handleReady = async () => {
@@ -298,7 +370,7 @@ export default function BlitzRoomClient({
         </div>
         
         {/* Compact HUD */}
-        <header className="flex justify-between items-center bg-surface-container-low border border-outline-variant p-4 rounded-xl cyber-glow">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-container-low border border-outline-variant p-4 rounded-xl cyber-glow gap-4">
           <div className="flex items-center gap-4">
             <h1 className="font-headline-lg text-[20px] text-on-surface tracking-tight">{contest.name}</h1>
             <div className={`flex items-center gap-2 px-3 py-1 bg-surface-container border rounded-full font-label-sm text-xs uppercase tracking-wider ${matchState === 'active' ? 'border-primary/30 text-primary' : 'border-outline-variant text-on-surface-variant'}`}>
@@ -306,24 +378,27 @@ export default function BlitzRoomClient({
               {matchState === 'active' ? 'LIVE MATCH' : matchState === 'completed' ? 'MATCH OVER' : 'WAITING FOR PLAYERS'}
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4 font-headline-lg text-[24px]">
-              {teams && teams.length >= 2 ? (
-                <>
-                  <span className={teams[0]._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'}>{teams[0].name}</span>
-                  <span className="text-on-surface font-bold">{scores[teams[0]._id] || 0} pts</span>
-                  <span className="text-outline-variant font-body-md text-body-md">VS</span>
-                  <span className="text-on-surface font-bold">{scores[teams[1]._id] || 0} pts</span>
-                  <span className={teams[1]._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'}>{teams[1].name}</span>
-                </>
-              ) : teams?.map((t, idx) => (
-                <span key={t._id} className="flex items-center gap-2">
-                  <span className={t._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'}>{t.name}</span>
-                  <span className="text-on-surface font-bold">{scores[t._id] || 0} pts</span>
-                  {idx < (teams.length - 1) && <span className="text-outline-variant font-body-md text-body-md mx-1">VS</span>}
-                </span>
-              ))}
-            </div>
+          <div className="flex flex-wrap items-center gap-4 font-headline-lg text-[24px]">
+            {teams && teams.length >= 2 ? (
+              <>
+                <span className={teams[0]._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'}>{getDisplayTeamName(teams[0])}</span>
+                <span className="text-on-surface font-bold">{scores[teams[0]._id] || 0} pts</span>
+                <span className="text-outline-variant font-body-md text-body-md">VS</span>
+                <span className="text-on-surface font-bold">{scores[teams[1]._id] || 0} pts</span>
+                <span className={teams[1]._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'}>{getDisplayTeamName(teams[1])}</span>
+              </>
+            ) : teams?.map((t, idx) => (
+              <span key={t._id} className="flex items-center gap-2">
+                <span className={t._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'}>{getDisplayTeamName(t)}</span>
+                <span className="text-on-surface font-bold">{scores[t._id] || 0} pts</span>
+                {idx < (teams.length - 1) && <span className="text-outline-variant font-body-md text-body-md mx-1">VS</span>}
+              </span>
+            ))}
+          </div>
+          {/* Countdown Timer */}
+          <div className="flex items-center gap-3 bg-surface-container py-2 px-4 border border-outline-variant rounded-lg">
+            <span className="material-symbols-outlined text-primary">timer</span>
+            <span className="font-label-sm text-label-sm text-on-surface">{timeLeft} <span className="text-on-surface-variant text-xs">remaining</span></span>
           </div>
         </header>
 
@@ -337,15 +412,17 @@ export default function BlitzRoomClient({
               
               {teams?.map((team) => (
                 <div key={team._id} className="flex flex-col gap-2 mt-4 first:mt-0">
-                  <span className={`font-label-sm text-[10px] uppercase tracking-widest pb-1 mb-1 ${team._id === teamId ? 'text-primary' : 'text-secondary'}`}>
-                    {team.name}
-                  </span>
+                  {!isSoloFormat && (
+                    <span className={`font-label-sm text-[10px] uppercase tracking-widest pb-1 mb-1 ${team._id === teamId ? 'text-primary' : 'text-secondary'}`}>
+                      {team.name}
+                    </span>
+                  )}
                   {team.members.map((member: any) => {
                     const memberIsReady = readyUserIds.has(member.id);
                     const memberIsOnline = onlineUserIds.has(member.id);
                     
-                    const borderColor = memberIsReady ? 'border-primary' : (!memberIsOnline ? 'border-error' : 'border-transparent');
-                    const dotColor = memberIsReady ? 'bg-primary' : 'bg-error';
+                    const borderColor = !memberIsOnline ? 'border-error' : (memberIsReady || matchState !== 'waiting' ? 'border-primary' : 'border-transparent');
+                    const dotColor = !memberIsOnline ? 'bg-error' : (matchState === 'waiting' && !memberIsReady ? 'bg-outline-variant' : 'bg-primary');
 
                     return (
                       <div key={member.id} className={`flex items-center gap-3 p-2 rounded bg-surface-variant/30 hover:bg-surface-variant/50 transition-colors border-l-2 ${borderColor}`}>
@@ -477,7 +554,7 @@ export default function BlitzRoomClient({
                       <div className="mt-1"><span className={`material-symbols-outlined ${act.color} text-sm`}>{act.icon}</span></div>
                       <div>
                         <p className="text-on-surface">{act.text}</p>
-                        <span className="text-on-surface-variant text-[11px]">{act.time}</span>
+                        <span className="text-on-surface-variant text-[11px]">{getRelativeTime(act.timestamp)}</span>
                       </div>
                     </div>
                   ))
@@ -528,11 +605,11 @@ export default function BlitzRoomClient({
             </div>
             <p className="font-body-md text-on-surface-variant mb-6">
               Final Scores: <br/>
-              <strong className="text-primary text-lg">Team Alpha: {Object.values(scores)[0] || 0}</strong><br/>
-              <strong className="text-secondary text-lg">Team Beta: {Object.values(scores)[1] || 0}</strong>
+              <strong className="text-primary text-lg">{teams?.[0] ? getDisplayTeamName(teams[0]) : "Team Alpha"}: {teams?.[0] ? (scores[teams[0]._id] || 0) : (Object.values(scores)[0] || 0)}</strong><br/>
+              <strong className="text-secondary text-lg">{teams?.[1] ? getDisplayTeamName(teams[1]) : "Team Beta"}: {teams?.[1] ? (scores[teams[1]._id] || 0) : (Object.values(scores)[1] || 0)}</strong>
             </p>
             <button 
-              onClick={() => router.push(`/internal/contests/rooms/${roomId}/result`)}
+              onClick={() => router.push(`/internal/contests/rooms/${roomId}/result${contest.format === 'bracket' || contest.mode === 'knockout' ? '?from=bracket' : ''}`)}
               className="w-full py-2 bg-surface-variant hover:bg-outline-variant text-on-surface rounded-lg font-label-sm text-label-sm transition-colors border border-outline-variant"
             >
               View Match Results

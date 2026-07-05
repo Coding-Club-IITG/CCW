@@ -8,6 +8,7 @@ import { getRedis } from "./redis";
 import { publishContest } from "./sse";
 import { logger } from "./utils";
 import CPUser from "../models/CPUser";
+import User from "../models/User";
 import {
   type BracketNode,
   type BracketSnapshot,
@@ -20,30 +21,48 @@ function toStr(id: mongoose.Types.ObjectId | string): string {
   return typeof id === "string" ? id : id.toString();
 }
 
-export async function generateBracket(contestId: string) {
+/**
+ * Initialise all Redis keys for a bracket match room that is transitioning to `waiting`.
+ * Mirrors the key structure used by non-bracket rooms so the ready route, SSE presence,
+ * and sync worker can all locate the room correctly.
+ */
+async function initBracketRoomRedis(
+  redis: Awaited<ReturnType<typeof getRedis>>,
+  roomId: string,
+  mode: string,
+  teamDocs: { _id: mongoose.Types.ObjectId; name: string; members: mongoose.Types.ObjectId[]; score: number }[],
+  durationSeconds = 3600,
+  contestId: string
+) {
+  await redis.hSet(`room:${roomId}:state`, {
+    status: "waiting",
+    type: mode,
+    startTime: "",
+    timeLimit: durationSeconds.toString(),
+    readyCount: "0",
+    contestId: contestId,
+  });
+  const teamIds = teamDocs.map(t => toStr(t._id));
+  if (teamIds.length > 0) {
+    await redis.sAdd(`room:${roomId}:teams`, teamIds);
+  }
+  for (const team of teamDocs) {
+    const tId = toStr(team._id);
+    await redis.hSet(`team:${tId}:meta`, { name: team.name, score: "0" });
+    const memberStrs = team.members.map(m => toStr(m));
+    if (memberStrs.length > 0) {
+      await redis.sAdd(`team:${tId}:users`, memberStrs);
+    }
+  }
+}
+
+export async function generateBracket(contestId: string, solvedProblemIds?: Set<string>) {
   await dbConnect();
   const contest = await CustomContest.findById(contestId);
   if (!contest) throw new Error("Contest not found");
   if (contest.format !== "bracket") throw new Error("Contest is not a bracket format");
-  if (contest.status !== "active") throw new Error("Contest must be in 'active' status to generate bracket");
-  if (!contest.registrations || contest.registrations.length < 2) {
-    logger.info(`[Bracket] Contest ${contestId} did not meet minimum registration requirements. Canceling.`);
-    await CustomContest.findByIdAndDelete(contestId);
+  if (contest.status !== "provisioning") throw new Error("Contest must be in 'provisioning' status to generate bracket");
 
-    const Notification = (await import("../models/Notification")).default;
-    const CPUser = (await import("../models/CPUser")).default;
-    const creator = await CPUser.findById(contest.creatorId);
-    if (creator && creator.userId) {
-      await Notification.create({
-        userId: creator.userId,
-        type: "announcement",
-        title: "Tournament Cancelled",
-        message: `Your bracket tournament '${contest.name}' was cancelled due to insufficient registrations.`,
-        link: "/internal/contests"
-      });
-    }
-    return null;
-  }
 
   const existingRooms = await ContestRoom.countDocuments({ contestId });
   if (existingRooms > 0) throw new Error("Bracket already generated for this contest");
@@ -113,8 +132,12 @@ export async function generateBracket(contestId: string) {
   if (contest.problemSelectionMode === "bulk") {
     const totalRooms = bracketSize - 1;
     const totalProblemsNeeded = totalRooms * problemCount;
+    const excludeIds = solvedProblemIds ? Array.from(solvedProblemIds) : [];
     bulkProblemPool = await CFQuestion.aggregate([
-      { $match: { rating: { $gte: minRating, $lte: maxRating } } },
+      { $match: {
+        rating: { $gte: minRating, $lte: maxRating },
+        ...(excludeIds.length > 0 ? { problemId: { $nin: excludeIds } } : {})
+      }},
       { $sample: { size: totalProblemsNeeded } }
     ]);
   }
@@ -176,6 +199,15 @@ export async function generateBracket(contestId: string) {
       }
 
       room.teams = teamIds.filter(Boolean) as mongoose.Types.ObjectId[];
+
+      // Populate participants for waiting rooms so the SSE presence system can find them
+      if (roomStatus === "waiting" && leftTeamId && rightTeamId) {
+        room.participants = [
+          ...leftTeamId.memberIds,
+          ...rightTeamId.memberIds,
+        ].map(id => new mongoose.Types.ObjectId(id));
+      }
+
       await room.save();
 
       let assignedProblems: any[] = [];
@@ -224,6 +256,18 @@ export async function generateBracket(contestId: string) {
         await redis.rPush(`room:${room._id}:problems`, redisProblems);
       }
 
+      if (roundIndex === 0 && roomStatus === "waiting") {
+        const round1TeamDocs = await ContestTeam.find({ roomId: room._id }).lean();
+        await initBracketRoomRedis(
+          redis,
+          toStr(room._id),
+          mode,
+          round1TeamDocs as any[],
+          contest.durationSeconds || 3600,
+          toStr(contest._id)
+        );
+      }
+
       roundRooms.push(room._id);
       allRoomIds.push(toStr(room._id));
 
@@ -253,7 +297,7 @@ export async function generateBracket(contestId: string) {
   await redis.hSet(`contest:${contestId}:meta`, {
     format: "knockout",
     currentRound: "1",
-    status: "active",
+    status: "provisioning",
   });
   if (allRoomIds.length > 0) {
     await redis.sAdd(`contest:${contestId}:rooms`, allRoomIds);
@@ -337,8 +381,25 @@ async function seedTeamToRound(
 
   const updatedRoom = await ContestRoom.findById(targetRoom._id);
   if (updatedRoom && updatedRoom.teams.length === 2) {
+    // Populate participants for SSE presence tracking
+    const allTeamDocs = await ContestTeam.find({ roomId: targetRoom._id }).lean();
+    const allMemberIds = allTeamDocs.flatMap(t => t.members);
+    updatedRoom.participants = allMemberIds;
     updatedRoom.status = "waiting";
     await updatedRoom.save();
+
+    // Initialise Redis state so the ready route can find the room
+    const redis = await getRedis();
+    const contest = await (await import("../models/CustomContest")).default.findById(contestId).lean();
+    await initBracketRoomRedis(
+      redis,
+      toStr(targetRoom._id),
+      (contest as any)?.mode || "blitz",
+      allTeamDocs as any[],
+      (contest as any)?.durationSeconds || 3600,
+      toStr(contestId)
+    );
+
     logger.info(`[Bracket] Room ${targetRoom._id} is now ready with 2 teams`);
   }
 }
@@ -427,8 +488,24 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
 
   const updatedRoom = await ContestRoom.findById(nextRoom._id);
   if (updatedRoom && updatedRoom.teams.length === 2) {
+    // Populate participants so SSE presence system can track the room
+    const allAdvancedTeamDocs = await ContestTeam.find({ roomId: nextRoom._id }).lean();
+    const allAdvancedMemberIds = allAdvancedTeamDocs.flatMap(t => t.members);
+    updatedRoom.participants = allAdvancedMemberIds;
     updatedRoom.status = "waiting";
     await updatedRoom.save();
+
+    // Initialise Redis state for the next round room
+    const redis = await getRedis();
+    await initBracketRoomRedis(
+      redis,
+      toStr(nextRoom._id),
+      contest.mode || "blitz",
+      allAdvancedTeamDocs as any[],
+      contest.durationSeconds || 3600,
+      contestId
+    );
+
     logger.info(`[Bracket] Next room ${nextRoom._id} is now ready with 2 teams`);
   }
 
@@ -529,10 +606,17 @@ export async function getBracketSnapshot(contestId: string): Promise<BracketSnap
     const rooms = await ContestRoom.find({ _id: { $in: round.rooms } }).sort({ createdAt: 1 });
     for (const room of rooms) {
       const teams = await Promise.all(
-        room.teams.map((tId: ObjectId) => ContestTeam.findById(tId))
+        room.teams.map((tId: ObjectId) =>
+          ContestTeam.findById(tId).populate({
+            path: "members",
+            model: User,
+            select: "image",
+          })
+        )
       );
       const teamIds: [string | null, string | null] = [null, null];
       const teamNames: [string | null, string | null] = [null, null];
+      const teamImages: [string | null, string | null] = [null, null];
       const scores: [number, number] = [0, 0];
 
       for (let i = 0; i < Math.min(teams.length, 2); i++) {
@@ -540,6 +624,9 @@ export async function getBracketSnapshot(contestId: string): Promise<BracketSnap
           teamIds[i] = toStr(teams[i]!._id);
           teamNames[i] = teams[i]!.name || null;
           scores[i] = teams[i]!.score;
+          
+          const firstMember = (teams[i]!.members as any)?.[0];
+          teamImages[i] = firstMember?.image || null;
         }
       }
 
@@ -551,9 +638,17 @@ export async function getBracketSnapshot(contestId: string): Promise<BracketSnap
       }
 
       let status: BracketNode["status"] = "pending";
-      if (room.status === "ended") status = "completed";
-      else if (room.status === "active") status = "active";
-      else if (teamIds[0] === null || teamIds[1] === null) status = "bye";
+      if (room.status === "ended") {
+        if ((teamIds[0] === null || teamIds[1] === null) && scores[0] === 0 && scores[1] === 0) {
+          status = "bye";
+        } else {
+          status = "completed";
+        }
+      } else if (room.status === "active") {
+        status = "active";
+      } else if (room.status === "waiting") {
+        status = "waiting";
+      }
 
       nodes.push({
         roomId: toStr(room._id),
@@ -561,6 +656,7 @@ export async function getBracketSnapshot(contestId: string): Promise<BracketSnap
         matchIndex: rooms.indexOf(room),
         teams: teamIds,
         teamNames,
+        teamImages,
         scores,
         status,
         winner,

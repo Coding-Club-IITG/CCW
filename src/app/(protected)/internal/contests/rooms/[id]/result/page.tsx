@@ -185,6 +185,7 @@ export default async function PostMatchResultPage({
     isKnockout: contest.format === "bracket",
     contestId: contest._id.toString(),
     terminationReason: room.terminationReason,
+    format: contest.format,
   };
   
   return <PostMatchResultClient matchData={matchData} currentUserId={currentUserId} from={unwrappedSearch?.from} />;

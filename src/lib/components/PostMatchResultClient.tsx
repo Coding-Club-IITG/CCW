@@ -43,6 +43,7 @@ export type MatchData = {
   isKnockout: boolean;
   contestId?: string;
   terminationReason?: string;
+  format?: string;
 };
 
 export default function PostMatchResultClient({ matchData, currentUserId, from }: { matchData: MatchData; currentUserId?: string; from?: string }) {
@@ -65,6 +66,14 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
       return `https://codeforces.com/problemset/problem/${match[1]}/${match[2]}`;
     }
     return `https://codeforces.com/problemset/problem/${problemId}`; // fallback
+  };
+
+  const isSoloFormat = ["1v1", "solo-tournament"].includes(matchData.format || "");
+  const getDisplayTeamName = (t: any) => {
+    if (isSoloFormat && t.members && t.members.length > 0) {
+      return t.members[0].handle || t.members[0].name;
+    }
+    return t.name;
   };
 
   return (
@@ -102,7 +111,7 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
           <section className="flex flex-col items-center justify-center text-center gap-[24px] py-[24px]">
             <div className="flex flex-col md:flex-row items-center justify-center gap-[32px] md:gap-[48px] flex-wrap">
               {matchData.teams.slice(0, 3).map((team, index) => {
-                const isWinner = index === 0 && matchData.teams.length > 0;
+                const isWinner = index === 0 && matchData.teams.length > 0 && (matchData.teams.length === 1 || team.score > matchData.teams[1].score);
                 return (
                   <div key={team.id} className="flex items-center gap-[32px] md:gap-[48px]">
                     {index > 0 && (
@@ -115,7 +124,7 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
                           WINNER
                         </div>
                       )}
-                      <h2 className={`font-headline-lg text-headline-lg tracking-tight ${isWinner ? 'text-primary glow-emerald rounded-full px-4 text-center' : 'text-on-surface text-center'}`}>{team.name}</h2>
+                      <h2 className={`font-headline-lg text-headline-lg tracking-tight ${isWinner ? 'text-primary glow-emerald rounded-full px-4 text-center' : 'text-on-surface text-center'}`}>{getDisplayTeamName(team)}</h2>
                       <span className={`font-display-lg text-display-lg ${isWinner ? 'text-primary-fixed' : 'text-on-surface'}`}>{team.score}</span>
                     </div>
                   </div>
@@ -132,7 +141,7 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
           {matchData.terminationReason === "disconnect" && (
             <div className="w-full bg-error/10 border border-error/30 rounded-xl p-[16px] flex items-center justify-center gap-3 text-error">
               <span className="material-symbols-outlined text-[24px]">person_off</span>
-              <span className="font-label-sm text-sm uppercase tracking-wider font-bold">Match concluded early: Won due to disconnection of other users</span>
+              <span className="font-label-sm text-sm uppercase tracking-wider font-bold">Match concluded early: A user disconnected</span>
             </div>
           )}
 
@@ -164,7 +173,7 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
                         <span className="material-symbols-outlined text-[14px]">emoji_events</span> Match MVP
                       </div>
                       <h5 className="font-body-md text-body-md font-bold text-on-surface">{matchData.mvp.name}</h5>
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">{matchData.mvp.teamName}</span>
+                      {!isSoloFormat && <span className="font-label-sm text-label-sm text-on-surface-variant">{matchData.mvp.teamName}</span>}
                     </div>
                   </div>
                   <div className="flex justify-between items-end border-t border-outline-variant pt-[16px]">
@@ -188,21 +197,26 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
                     <div className="bg-surface-container-high p-3 flex justify-between items-center border-b border-outline-variant/50">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-on-surface-variant text-sm">#{tIdx + 1}</span>
-                        <span className="font-body-md font-bold text-on-surface">{team.name}</span>
+                        {isSoloFormat && team.members[0] && (
+                          <img src={team.members[0].avatar} alt={team.members[0].handle} className="w-6 h-6 rounded-full object-cover border border-outline-variant" />
+                        )}
+                        <span className="font-body-md font-bold text-on-surface">{getDisplayTeamName(team)}</span>
                       </div>
                       <span className="font-body-md text-primary font-bold">{team.score} pts</span>
                     </div>
-                    <div className="flex flex-col divide-y divide-outline-variant/30">
-                      {team.members.map(member => (
-                        <div key={member.id} className="p-3 flex items-center justify-between hover:bg-surface-container-high/50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <img src={member.avatar} alt={member.handle} className="w-8 h-8 rounded-full object-cover border border-outline-variant" />
-                            <span className="font-label-sm text-sm text-on-surface">{member.handle}</span>
+                    {!isSoloFormat && (
+                      <div className="flex flex-col divide-y divide-outline-variant/30">
+                        {team.members.map(member => (
+                          <div key={member.id} className="p-3 flex items-center justify-between hover:bg-surface-container-high/50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <img src={member.avatar} alt={member.handle} className="w-8 h-8 rounded-full object-cover border border-outline-variant" />
+                              <span className="font-label-sm text-sm text-on-surface">{member.handle}</span>
+                            </div>
+                            <span className="font-label-sm text-sm text-on-surface-variant">+{member.contribution || 0}</span>
                           </div>
-                          <span className="font-label-sm text-sm text-on-surface-variant">+{member.contribution || 0}</span>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -237,7 +251,7 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
                               <span className="material-symbols-outlined text-[14px]">
                                 {prob.solved ? (isUserTeam ? 'check_circle' : 'lock') : 'lock'}
                               </span>
-                              {prob.solved ? `Solved by ${prob.solver?.teamName}` : 'Unsolved'}
+                              {prob.solved ? `Solved by ${isSoloFormat ? prob.solver?.userName : prob.solver?.teamName}` : 'Unsolved'}
                             </div>
                           </div>
                         </div>

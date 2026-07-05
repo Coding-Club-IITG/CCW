@@ -10,7 +10,7 @@ import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import User from "@/models/User";
 import CPUser from "@/models/CPUser";
-import { createClient } from "redis";
+import { getRedis } from "@/lib/redis";
 import { getBracketSnapshot } from "@/lib/bracket";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +47,13 @@ export default async function ContestRoomPage({
     : { contestId: contest._id, participants: userId };
 
   // Find the active/waiting room for this user in this contest
+  // Bracket format: show bracket viewer (unless entering a specific match room)
+  if ((contest.format === "bracket" || contest.mode === "knockout") && !matchRoomId) {
+    const bracketSnapshot = await getBracketSnapshot(contest._id.toString());
+    const userTeam = await ContestTeam.findOne({ contestId: contest._id, members: userId }).lean();
+    return <BracketRoomClient contest={contest} initialSnapshot={bracketSnapshot} userId={userId} currentUserTeamId={userTeam ? userTeam._id.toString() : null} />;
+  }
+
   const room = await ContestRoom.findOne(roomQuery).lean();
 
   let teamId = null;
@@ -72,13 +79,6 @@ export default async function ContestRoomPage({
     if (team) {
       teamId = team._id.toString();
     }
-  }
-
-  // Bracket format: show bracket viewer (unless entering a specific match room)
-  if ((contest.format === "bracket" || contest.mode === "knockout") && !matchRoomId) {
-    const bracketSnapshot = await getBracketSnapshot(contest._id.toString());
-    const userTeam = await ContestTeam.findOne({ contestId: contest._id, members: userId }).lean();
-    return <BracketRoomClient contest={contest} initialSnapshot={bracketSnapshot} userId={userId} currentUserTeamId={userTeam ? userTeam._id.toString() : null} />;
   }
 
   if (contest.mode === "blitz" || contest.mode === "arena") {
@@ -134,9 +134,7 @@ export default async function ContestRoomPage({
       })
     }));
 
-    const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
-    const redis = createClient({ url: REDIS_URL });
-    await redis.connect();
+    const redis = await getRedis();
     const readyUserIds = await redis.sMembers(`room:${roomId}:ready_users`);
     
     // Check online presence for all members
@@ -173,7 +171,7 @@ export default async function ContestRoomPage({
       }
     }
     
-    await redis.disconnect();
+
     
     const cpUser = cpUserMap.get(userId);
     const userDoc = userMap.get(userId);
@@ -197,6 +195,8 @@ export default async function ContestRoomPage({
           initialProblems={initialProblems}
           initialScores={initialScores}
           initialProblemIndex={stateObj?.currentProblem ? parseInt(stateObj.currentProblem) : (room.currentProblemIndex || 0)}
+          initialStartTime={stateObj?.startTime ? parseInt(stateObj.startTime) : undefined}
+          initialTimeLimit={stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined}
           from={from}
           syncCooldownSeconds={syncCooldown}
         />

@@ -4,7 +4,7 @@ import { getRedis } from "@/lib/redis";
 import dbConnect from "@/lib/mongodb";
 import ContestRoom from "@/models/ContestRoom";
 import { logger } from "@/lib/utils";
-import { publishRoom } from "@/lib/sse";
+import { publishRoom, publishUser } from "@/lib/sse";
 import { reconciliationQueue } from "@/lib/bullmq";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   const activeRooms = isValidObjectId
     ? await ContestRoom.find({
       participants: userId,
-      status: "active",
+      status: { $in: ["waiting", "active"] },
     }).lean()
     : [];
 
@@ -40,15 +40,71 @@ export async function GET(request: NextRequest) {
     await redis.set(presenceKey, "online");
     await redis.persist(presenceKey);
 
-    // Remove the offline tracker key since the user is now online
-    const offlineSentKey = `room:${roomId}:presence:${userId}:offline_sent`;
-    await redis.del(offlineSentKey);
+    const stateObj = await redis.hGetAll(`room:${roomId}:state`);
+    const currentStatus = stateObj?.status || "unknown";
 
-    // Clear any pending disconnect timeout jobs
-    await reconciliationQueue.remove(`disconnect-timeout-${roomId}-${userId}`);
+    let cancelled = false;
+
+    if (currentStatus === "active") {
+      const allTeams = await redis.sMembers(`room:${roomId}:teams`);
+      let activeTeamsCount = 0;
+      
+      for (const tId of allTeams) {
+        const members = await redis.sMembers(`team:${tId}:users`);
+        let isTeamActive = false;
+        for (const mId of members) {
+          const isOnline = await redis.exists(`room:${roomId}:presence:${mId}`);
+          if (isOnline) {
+            isTeamActive = true;
+            break;
+          }
+        }
+        if (isTeamActive) {
+          activeTeamsCount++;
+        }
+      }
+
+      if (activeTeamsCount > 1) {
+        const { Job } = await import("bullmq");
+        const job = await Job.fromId(reconciliationQueue, `disconnect-timeout-${roomId}`);
+        if (job) {
+          await job.remove();
+          cancelled = true;
+        }
+      }
+    }
 
     // Publish online status
-    await publishRoom(roomId, { type: "presence.online", userId });
+    await publishRoom(roomId, { type: "presence.online", userId, cancelledForfeit: cancelled });
+
+    // Send a full state resync directly to the reconnecting user so they catch up on any
+    // changes that happened while they were disconnected (missed SSE events).
+    if (currentStatus === "active" || currentStatus === "waiting") {
+      try {
+        const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
+        const problems = problemsRaw.map((p: string) => JSON.parse(p));
+
+        const allTeams = await redis.sMembers(`room:${roomId}:teams`);
+        const scores: Record<string, number> = {};
+        for (const tId of allTeams) {
+          const s = await redis.zScore(`room:${roomId}:scores`, tId);
+          scores[tId] = s ? parseFloat(s.toString()) : 0;
+        }
+
+        const locks = stateObj.type === "arena" ? await redis.hGetAll(`room:${roomId}:locks`) : {};
+
+        await publishUser(userId, {
+          type: "room.state_sync",
+          roomId,
+          state: stateObj,
+          problems,
+          scores,
+          locks,
+        });
+      } catch (syncErr) {
+        logger.error("[SSE] Failed to send reconnect state_sync:", syncErr);
+      }
+    }
   }
 
   const channels = [`events:user:${userId}`];
@@ -98,25 +154,54 @@ export async function GET(request: NextRequest) {
       for (const room of activeRooms) {
         const roomId = room._id.toString();
         const presenceKey = `room:${roomId}:presence:${userId}`;
-        await redis.expire(presenceKey, 90);
+        
+        // Delete presence immediately instead of setting an expiration
+        await redis.del(presenceKey);
 
-        // Track that we sent the offline event immediately on disconnect
-        const offlineSentKey = `room:${roomId}:presence:${userId}:offline_sent`;
-        await redis.set(offlineSentKey, "1", { EX: 120 });
+        const stateObj = await redis.hGetAll(`room:${roomId}:state`);
+        const currentStatus = stateObj?.status || "unknown";
 
-        // Publish offline status
-        await publishRoom(roomId, { type: "presence.offline", userId });
+        if (currentStatus === "active") {
+          const allTeams = await redis.sMembers(`room:${roomId}:teams`);
+          let activeTeamsCount = 0;
+          
+          for (const tId of allTeams) {
+            const members = await redis.sMembers(`team:${tId}:users`);
+            let isTeamActive = false;
+            for (const mId of members) {
+              const isOnline = await redis.exists(`room:${roomId}:presence:${mId}`);
+              if (isOnline) {
+                isTeamActive = true;
+                break;
+              }
+            }
+            if (isTeamActive) {
+              activeTeamsCount++;
+            }
+          }
 
-        // Queue a mid-match disconnect timeout for 10 minutes (600,000 ms) in prod, 10s in dev
-        const timeoutDelay = process.env.NODE_ENV === "development" ? 10000 : 600000;
-        await reconciliationQueue.add(
-          "mid_match_disconnect_timeout",
-          { roomId, userId, contestId: room.contestId.toString(), trigger: "disconnect" },
-          { delay: timeoutDelay, jobId: `disconnect-timeout-${roomId}-${userId}` }
-        );
+          if (activeTeamsCount <= 1) {
+            const timeoutSeconds = parseInt(process.env.DISCONNECT_FORFEIT_TIMEOUT_SECONDS || "60", 10);
+            
+            // Publish offline status with timeout warning
+            await publishRoom(roomId, { type: "presence.offline", userId, forfeitTimeout: timeoutSeconds });
+            
+            await reconciliationQueue.add(
+              "mid_match_disconnect_timeout",
+              { roomId, userId, contestId: room.contestId.toString(), trigger: "disconnect" },
+              { delay: timeoutSeconds * 1000, jobId: `disconnect-timeout-${roomId}` }
+            );
+          } else {
+            // Publish offline status without scheduling forfeit
+            await publishRoom(roomId, { type: "presence.offline", userId });
+          }
+        } else {
+          // If room is not active (e.g., waiting), just publish offline status normally
+          await publishRoom(roomId, { type: "presence.offline", userId });
+        }
       }
     } catch (err) {
-      logger.error("[SSE] Error setting presence expiration:", err);
+      logger.error("[SSE] Error processing disconnect logic:", err);
     }
   };
 

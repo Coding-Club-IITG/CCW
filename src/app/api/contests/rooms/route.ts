@@ -9,8 +9,15 @@ import CFQuestion from "@/models/CFQuestion";
 import { getRedis } from "@/lib/redis";
 import mongoose from "mongoose";
 
+import { auth } from "@/lib/auth";
+
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth.api.getSession({ headers: req.headers });
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { contestId, teams } = body;
 

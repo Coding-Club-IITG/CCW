@@ -51,20 +51,45 @@ export default function ArenaRoomClient({
   const router = useRouter();
 
   const [matchState, setMatchState] = useState<"waiting" | "active" | "completed">(initialMatchState);
+  const matchStateRef = useRef(initialMatchState);
   const [problems, setProblems] = useState<any[]>(initialProblems);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
   const [locks, setLocks] = useState<Record<string, string>>(initialLocks);
   const [readyUserIds, setReadyUserIds] = useState<Set<string>>(new Set(initialReadyUserIds));
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set(initialOnlineUserIds || [userId])); // Track online users
+  const onlineUserIdsRef = useRef<Set<string>>(new Set(initialOnlineUserIds || [userId]));
   const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
   
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
   const [syncCooldown, setSyncCooldown] = useState(0);
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
-  
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const getRelativeTime = (epochMs: number): string => {
+    const diffSecs = Math.floor((Date.now() - epochMs) / 1000);
+    if (diffSecs < 5) return "just now";
+    if (diffSecs < 60) return `${diffSecs}s ago`;
+    const diffMins = Math.floor(diffSecs / 60);
+    if (diffMins < 60) return `${diffMins}m ago`;
+    return `${Math.floor(diffMins / 60)}h ago`;
+  };
+
   const [startTime, setStartTime] = useState<number | undefined>(initialStartTime);
   const [timeLimit, setTimeLimit] = useState<number | undefined>(initialTimeLimit);
   const [timeLeft, setTimeLeft] = useState<string>("00:00");
+
+  const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
+  const getDisplayTeamName = (t: any) => {
+    if (!t) return "Unknown";
+    if (isSoloFormat && t.members && t.members.length > 0) {
+      return t.members[0].name;
+    }
+    return t.name;
+  };
 
   useEffect(() => {
     if (syncCooldown > 0) {
@@ -87,19 +112,19 @@ export default function ArenaRoomClient({
   // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
   useEffect(() => {
     if (initialMatchState === "completed") {
-      router.replace(`/internal/contests/rooms/${roomId}/result`);
+      router.replace(`/internal/contests/rooms/${roomId}/result${contest.format === 'bracket' || contest.mode === 'knockout' ? '?from=bracket' : ''}`);
     }
-  }, [initialMatchState, roomId, router]);
+  }, [initialMatchState, roomId, router, contest.format, contest.mode]);
 
   // Also redirect dynamically if the match completes while connected
   useEffect(() => {
     if (matchState === "completed" && initialMatchState !== "completed") {
       const t = setTimeout(() => {
-        router.replace(`/internal/contests/rooms/${roomId}/result`);
+        router.replace(`/internal/contests/rooms/${roomId}/result${contest.format === 'bracket' || contest.mode === 'knockout' ? '?from=bracket' : ''}`);
       }, 2000);
       return () => clearTimeout(t);
     }
-  }, [matchState, initialMatchState, roomId, router]);
+  }, [matchState, initialMatchState, roomId, router, contest.format, contest.mode]);
 
   useEffect(() => {
     if (matchState !== "active" || !startTime || !timeLimit) {
@@ -152,6 +177,7 @@ export default function ArenaRoomClient({
   const handleEvent = (payload: EventPayload) => {
     switch (payload.type) {
       case "room.state_sync":
+        matchStateRef.current = payload.state.status;
         setMatchState(payload.state.status);
         if (payload.state.startTime) setStartTime(parseInt(payload.state.startTime));
         if (payload.state.timeLimit) setTimeLimit(parseInt(payload.state.timeLimit));
@@ -159,18 +185,22 @@ export default function ArenaRoomClient({
         if (payload.scores) setScores(payload.scores);
         if (payload.locks) setLocks(payload.locks);
         if (payload.state.status === "active") {
-          addActivity("info", "Arena match started! Good luck.", "Just now");
+          addActivity("info", "Arena match started! Good luck.");
         }
         break;
       case "room.locked": {
         const existingLock = stateRef.current.locks[payload.problemId];
-        const tName = stateRef.current.teams?.find(t => t._id === payload.claimedBy)?.name || "Unknown Team";
+        const t = stateRef.current.teams?.find(t => t._id === payload.claimedBy);
+        let tName = t?.name || "Unknown Team";
+        if (["1v1", "solo-tournament"].includes(contest?.format) && t?.members?.[0]) {
+          tName = t.members[0].name;
+        }
         const pName = stateRef.current.problems.find(p => p.problemId === payload.problemId)?.name || payload.problemId;
         
         if (existingLock && existingLock.split('|')[0] !== payload.claimedBy) {
-           addActivity("gavel", `CRITICAL: ${tName} RECLAIMED ${payload.problemId} - ${pName}!`, "Just now", "text-error");
+           addActivity("gavel", `CRITICAL: ${tName} RECLAIMED ${payload.problemId} - ${pName}!`, "text-error");
         } else {
-           addActivity("lock", `${tName} solved ${payload.problemId} - ${pName}`, "Just now", "text-primary");
+           addActivity("lock", `${tName} solved ${payload.problemId} - ${pName}`, "text-primary");
         }
         
         setLocks(prev => ({ ...prev, [payload.problemId]: `${payload.claimedBy}|${payload.timestamp}` }));
@@ -180,6 +210,7 @@ export default function ArenaRoomClient({
         setScores(payload.scores);
         break;
       case "room.end":
+        matchStateRef.current = "completed";
         setMatchState("completed");
         if (payload.finalScores) setScores(payload.finalScores);
         break;
@@ -187,23 +218,23 @@ export default function ArenaRoomClient({
         if (payload.problemId) {
           setSyncingMap(prev => ({ ...prev, [payload.problemId]: true }));
         }
-        addActivity("sync", "Submission queued for verification...", "Just now", "text-secondary");
+        addActivity("sync", "Submission queued for verification...", "text-secondary");
         break;
       case "sync.detected":
         if (payload.problemId) {
           setSyncingMap(prev => ({ ...prev, [payload.problemId]: false }));
         }
         if (payload.verdict === "OK") {
-          addActivity("check_circle", `Valid AC detected! +${payload.pointsAwarded || 100} pts`, "Just now", "text-primary");
+          addActivity("check_circle", `Valid AC detected! +${payload.pointsAwarded || 100} pts`, "text-primary");
         } else {
-          addActivity("error", `Submission failed: ${payload.verdict}`, "Just now", "text-error");
+          addActivity("error", `Submission failed: ${payload.verdict}`, "text-error");
         }
         break;
       case "sync.failed":
         if (payload.problemId) {
           setSyncingMap(prev => ({ ...prev, [payload.problemId]: false }));
         }
-        addActivity("error", `Sync failed: ${payload.reason || payload.verdict || "Unknown error"}`, "Just now", "text-error");
+        addActivity("error", `Sync failed: ${payload.reason || payload.verdict || "Unknown error"}`, "text-error");
         break;
       case "room.user_ready":
         setReadyUserIds(prev => {
@@ -217,27 +248,34 @@ export default function ArenaRoomClient({
         break;
       case "presence.online": {
         const uName = getMemberName(payload.userId);
-        setOnlineUserIds(prev => {
-          const newSet = new Set(prev);
-          newSet.add(payload.userId);
-          return newSet;
-        });
-        addActivity("person", `${uName} connected.`, "Just now", "text-secondary");
+        const wasOffline = !onlineUserIdsRef.current.has(payload.userId);
+        
+        if (wasOffline) {
+          onlineUserIdsRef.current.add(payload.userId);
+          setOnlineUserIds(new Set(onlineUserIdsRef.current));
+          
+          if (payload.cancelledForfeit) {
+            addActivity("person", `${uName} reconnected. Forfeiture cancelled.`, "text-secondary");
+          } else {
+            addActivity("person", `${uName} connected${matchStateRef.current === "waiting" ? " (Not Ready)" : ""}.`, "text-secondary");
+          }
+        }
         break;
       }
       case "presence.offline": {
         const uName = getMemberName(payload.userId);
-        setOnlineUserIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(payload.userId);
-          return newSet;
-        });
+        onlineUserIdsRef.current.delete(payload.userId);
+        setOnlineUserIds(new Set(onlineUserIdsRef.current));
+        
         setReadyUserIds(prev => {
           const newSet = new Set(prev);
           newSet.delete(payload.userId);
           return newSet;
         });
-        addActivity("person_off", `${uName} disconnected.`, "Just now", "text-error");
+        const text = payload.forfeitTimeout 
+          ? `${uName} disconnected. Match will be forfeited in ${payload.forfeitTimeout}s.` 
+          : `${uName} disconnected.`;
+        addActivity("person_off", text, "text-error");
         break;
       }
     }
@@ -253,8 +291,8 @@ export default function ArenaRoomClient({
     return uid === userId ? "You" : "Unknown";
   };
 
-  const addActivity = (icon: string, text: string, time: string, color: string = "text-on-surface") => {
-    setActivityFeed(prev => [{ icon, text, time, color, id: Date.now() + Math.random() }, ...prev].slice(0, 15));
+  const addActivity = (icon: string, text: string, color: string = "text-on-surface") => {
+    setActivityFeed(prev => [{ icon, text, timestamp: Date.now(), color, id: Date.now() + Math.random() }, ...prev].slice(0, 15));
   };
 
   const handleReady = async () => {
@@ -278,7 +316,7 @@ export default function ArenaRoomClient({
       })
     });
     
-    setSyncCooldown(cooldown); // Apply frontend cooldown directly
+    setSyncCooldown(syncCooldownSeconds); // Apply frontend cooldown directly
     localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
     
     if (!res.ok) {
@@ -338,7 +376,7 @@ export default function ArenaRoomClient({
             <div className="flex flex-wrap items-center gap-4 font-headline-lg text-[24px]">
               {teams?.map((t, idx) => (
                 <div key={t._id} className="flex items-center gap-2">
-                  <span className={`${t._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'} truncate max-w-[150px]`}>{t.name}</span>
+                  <span className={`${t._id === teamId ? 'text-primary' : 'text-on-surface-variant text-lg'} truncate max-w-[150px]`}>{getDisplayTeamName(t)}</span>
                   <span className="text-on-surface font-bold">{scores[t._id] || 0}</span>
                   {idx < (teams.length || 0) - 1 && <span className="text-outline-variant font-body-md text-sm mx-2">VS</span>}
                 </div>
@@ -359,15 +397,17 @@ export default function ArenaRoomClient({
                 
                 {teams?.map((team) => (
                   <div key={team._id} className="flex flex-col gap-2 mt-4 first:mt-0">
-                    <span className={`font-label-sm text-[10px] uppercase tracking-widest pb-1 mb-1 ${team._id === teamId ? 'text-primary' : 'text-secondary'}`}>
-                      {team.name}
-                    </span>
+                    {!isSoloFormat && (
+                      <span className={`font-label-sm text-[10px] uppercase tracking-widest pb-1 mb-1 ${team._id === teamId ? 'text-primary' : 'text-secondary'}`}>
+                        {team.name}
+                      </span>
+                    )}
                     {team.members.map((member: any) => {
                       const memberIsReady = readyUserIds.has(member.id);
                       const memberIsOnline = onlineUserIds.has(member.id);
                       
-                      const borderColor = memberIsReady ? 'border-primary' : (!memberIsOnline ? 'border-error' : 'border-transparent');
-                      const dotColor = memberIsReady ? 'bg-primary' : (!memberIsOnline ? 'bg-error' : 'bg-transparent border border-outline-variant');
+                      const borderColor = !memberIsOnline ? 'border-error' : (memberIsReady || matchState !== 'waiting' ? 'border-primary' : 'border-transparent');
+                      const dotColor = !memberIsOnline ? 'bg-error' : (matchState === 'waiting' && !memberIsReady ? 'bg-outline-variant' : 'bg-primary');
 
                       return (
                         <div key={member.id} className={`flex items-center gap-3 p-2 rounded bg-surface-variant/30 hover:bg-surface-variant/50 transition-colors border-l-2 ${borderColor}`}>
@@ -426,7 +466,8 @@ export default function ArenaRoomClient({
                         if (isClaimed) {
                           const [cTeamId, cTimestamp] = lockVal.split('|');
                           claimedByMe = (cTeamId === teamId);
-                          claimedByWhoName = teams?.find(t => t._id === cTeamId)?.name || "Unknown";
+                          const t = teams?.find(t => t._id === cTeamId);
+                          claimedByWhoName = t ? getDisplayTeamName(t) : "Unknown";
                         }
 
                         // Colors & Styling
@@ -519,7 +560,7 @@ export default function ArenaRoomClient({
                         <div className="mt-1"><span className={`material-symbols-outlined ${act.color} text-sm`}>{act.icon}</span></div>
                         <div className="flex-1 overflow-hidden">
                           <p className={`text-on-surface break-words ${act.icon === 'gavel' ? 'font-bold text-error' : ''}`}>{act.text}</p>
-                          <span className="text-on-surface-variant text-[11px]">{act.time}</span>
+                          <span className="text-on-surface-variant text-[11px]">{getRelativeTime(act.timestamp)}</span>
                         </div>
                       </div>
                     ))
@@ -545,13 +586,13 @@ export default function ArenaRoomClient({
                 <span className="mb-2">Final Scores:</span>
                 {teams?.map(t => (
                   <div key={t._id} className="flex justify-between items-center bg-surface-container p-2 rounded">
-                    <strong className={t._id === teamId ? 'text-primary' : 'text-on-surface'}>{t.name}</strong>
+                    <strong className={t._id === teamId ? 'text-primary' : 'text-on-surface'}>{getDisplayTeamName(t)}</strong>
                     <span className="font-bold">{scores[t._id] || 0} pts</span>
                   </div>
                 ))}
               </div>
               <button 
-                onClick={() => router.push(`/internal/contests/rooms/${roomId}/result`)}
+                onClick={() => router.push(`/internal/contests/rooms/${roomId}/result${contest.format === 'bracket' || contest.mode === 'knockout' ? '?from=bracket' : ''}`)}
                 className="w-full py-2 bg-primary-container hover:brightness-110 text-on-primary-container rounded-lg font-label-sm text-label-sm transition-colors font-bold"
               >
                 View Match Results

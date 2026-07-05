@@ -2,7 +2,6 @@ import styles from "../ContestWizard.module.scss";
 
 interface Step2Props {
   registrationType: string;
-  deadline: string;
   maxParticipants: number;
   updateFields: (fields: any) => void;
   errors: Record<string, string>;
@@ -10,7 +9,6 @@ interface Step2Props {
 
 export default function Step2Registration({
   registrationType,
-  deadline,
   maxParticipants,
   updateFields,
   errors,
@@ -45,25 +43,6 @@ export default function Step2Registration({
             Closed (Invite-only / Manual registration)
           </label>
         </div>
-      </div>
-
-      <div className={styles.field} style={{ display: "flex", flexDirection: "column", gap: "0.375rem", marginBottom: "1.25rem" }}>
-        <label style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--foreground)" }}>Registration Deadline</label>
-        <input
-          type="datetime-local"
-          value={deadline}
-          onChange={(e) => updateFields({ deadline: e.target.value })}
-          style={{
-            padding: "0.5rem 0.75rem",
-            border: errors.deadline ? "1px solid var(--danger)" : "1px solid var(--border-input)",
-            borderRadius: "6px",
-            fontSize: "0.875rem",
-            background: "var(--surface)",
-            color: "var(--foreground)",
-          }}
-          required
-        />
-        {errors.deadline && <span style={{ color: "var(--danger)", fontSize: "0.75rem" }}>{errors.deadline}</span>}
       </div>
 
       <div className={styles.field} style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>

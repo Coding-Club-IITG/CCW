@@ -48,6 +48,8 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
 
   const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
   const [manualTeams, setManualTeams] = useState<{ id: string, name: string, members: any[] }[]>([]);
+  // bracketRoundProblems: per-round problem ID arrays for fine-tuned bracket creation
+  const [bracketRoundProblems, setBracketRoundProblems] = useState<{ roundNumber: number; problemIds: string[] }[]>([]);
   const [activeSearchTeamId, setActiveSearchTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -167,7 +169,7 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
   const isTeamSizeLocked = ["1v1", "solo-tournament", "team-tournament"].includes(formData.format);
   const isMaxPartLocked = formData.format === "1v1";
 
-  const useTeamsUI = true;
+  const useTeamsUI = !["1v1", "solo-tournament"].includes(formData.format) && formData.teamSize > 1;
   const membersPerTeamLimit = formData.teamSize;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -210,21 +212,25 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
     
     let finalRegisteredUsers = formData.registrationType === "closed" ? registeredUsers : [];
     if (formData.registrationType === "closed") {
-      for (const team of manualTeams) {
-        if (team.members.length !== membersPerTeamLimit) {
-          alert(`Team "${team.name}" does not have exactly ${membersPerTeamLimit} member(s).`);
-          return;
+      if (useTeamsUI) {
+        for (const team of manualTeams) {
+          if (team.members.length !== membersPerTeamLimit) {
+            alert(`Team "${team.name}" does not have exactly ${membersPerTeamLimit} member(s).`);
+            return;
+          }
         }
-      }
-      if (formData.format === "1v1") {
-        if (manualTeams.length !== 2) {
-          alert("1v1 format requires exactly 2 participants (2 teams of 1).");
-          return;
+        finalRegisteredUsers = manualTeams.flatMap(team => 
+          team.members.map(member => ({ ...member, teamName: team.name }))
+        );
+      } else {
+        if (formData.format === "1v1") {
+          if (registeredUsers.length !== 2) {
+            alert("1v1 format requires exactly 2 participants.");
+            return;
+          }
         }
+        finalRegisteredUsers = registeredUsers.map(member => ({ ...member, teamName: member.name || member.cfHandle }));
       }
-      finalRegisteredUsers = manualTeams.flatMap(team => 
-        team.members.map(member => ({ ...member, teamName: team.name }))
-      );
     }
 
     if (formData.format === "bracket") {
@@ -233,13 +239,28 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
         return;
       }
 
+      // Validate & build problemSlots for fine-tuned bracket mode
+      let bracketProblemSlots: { platform: string; problemId: string; roundNumber: number }[] = [];
+      if (formData.problemSelectionMode === "fine-tuned") {
+        for (const rnd of bracketRoundProblems) {
+          for (const pid of rnd.problemIds) {
+            if (!pid.trim()) {
+              alert(`Round ${rnd.roundNumber}: all problem IDs must be filled in.`);
+              return;
+            }
+            bracketProblemSlots.push({ platform: "codeforces", problemId: pid.trim(), roundNumber: rnd.roundNumber });
+          }
+        }
+      }
+
       setLoading(true);
       try {
         const res = await createBracketContest({
           ...formData,
           deadline: start.toISOString(),
           registrationStartTime: regStartIso,
-          registeredUsers: finalRegisteredUsers
+          registeredUsers: finalRegisteredUsers,
+          ...(formData.problemSelectionMode === "fine-tuned" ? { fineTunedProblems: bracketProblemSlots.map(s => s.problemId), problemSlots: bracketProblemSlots } : {})
         });
         if (res.error) {
           alert(res.error);
@@ -475,7 +496,7 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
         </div>
       )}
 
-      {formData.problemSelectionMode === "fine-tuned" && (
+      {formData.problemSelectionMode === "fine-tuned" && formData.format !== "bracket" && (
         <div className="flex flex-col gap-[16px] mt-2">
           <div className="flex flex-col gap-unit">
             <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="fine-tuned-count">Number of Problems</label>
@@ -537,6 +558,84 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
           </div>
         </div>
       )}
+
+      {/* Bracket-specific fine-tuned UI: problems grouped by round */}
+      {formData.problemSelectionMode === "fine-tuned" && formData.format === "bracket" && (() => {
+        const maxP = Math.max(2, formData.maxParticipants || 2);
+        const totalRounds = Math.ceil(Math.log2(maxP));
+        const ppm = formData.bulkProblemCount || 3; // problems per match
+
+        // Sync bracketRoundProblems structure with computed rounds
+        const syncedRounds: { roundNumber: number; problemIds: string[] }[] = [];
+        for (let r = 1; r <= totalRounds; r++) {
+          const matchCount = Math.pow(2, totalRounds - r);
+          const needed = matchCount * ppm;
+          const existing = bracketRoundProblems.find(x => x.roundNumber === r);
+          const ids = existing ? [...existing.problemIds] : [];
+          while (ids.length < needed) ids.push("");
+          while (ids.length > needed) ids.pop();
+          syncedRounds.push({ roundNumber: r, problemIds: ids });
+        }
+        if (JSON.stringify(syncedRounds) !== JSON.stringify(bracketRoundProblems)) {
+          // Use setTimeout to avoid updating state during render
+          setTimeout(() => setBracketRoundProblems(syncedRounds), 0);
+        }
+
+        const getRoundLabel = (r: number) => {
+          const matchCount = Math.pow(2, totalRounds - r);
+          if (r === totalRounds) return "Final";
+          if (r === totalRounds - 1) return "Semi-Finals";
+          if (r === totalRounds - 2) return "Quarter-Finals";
+          return `Round ${r}`;
+        };
+
+        return (
+          <div className="flex flex-col gap-[24px] mt-2">
+            {syncedRounds.map((rnd) => {
+              const matchCount = Math.pow(2, totalRounds - rnd.roundNumber);
+              const label = getRoundLabel(rnd.roundNumber);
+              return (
+                <div key={rnd.roundNumber} className="flex flex-col gap-[12px] p-3 rounded-lg border border-outline-variant bg-surface-container-low">
+                  <div className="flex items-center justify-between">
+                    <span className="font-label-sm text-sm font-semibold text-on-surface">{label}</span>
+                    <span className="font-label-sm text-[11px] text-on-surface-variant">
+                      {matchCount} match{matchCount > 1 ? "es" : ""} × {ppm} problems = <strong>{rnd.problemIds.length} IDs needed</strong>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-[8px]">
+                    {rnd.problemIds.map((pid, idx) => {
+                      const matchNum = Math.floor(idx / ppm) + 1;
+                      const probNum = (idx % ppm) + 1;
+                      return (
+                        <div key={idx} className="flex flex-col gap-[2px]">
+                          <label className="font-label-sm text-[11px] text-on-surface-variant">
+                            Match {matchNum} · P{probNum}
+                          </label>
+                          <input
+                            required
+                            type="text"
+                            placeholder="e.g. 4A"
+                            value={pid}
+                            onChange={e => {
+                              const updated = syncedRounds.map(r =>
+                                r.roundNumber === rnd.roundNumber
+                                  ? { ...r, problemIds: r.problemIds.map((p, i) => i === idx ? e.target.value : p) }
+                                  : r
+                              );
+                              setBracketRoundProblems(updated);
+                            }}
+                            className="form-input rounded-lg w-full px-[10px] py-[6px] focus:outline-none transition-shadow text-sm"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 
@@ -844,9 +943,30 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
                       {useTeamsUI ? (
                         <div className="flex flex-col gap-4">
                           {manualTeams.map((team, teamIndex) => (
-                            <div key={team.id} className="flex flex-col gap-2 p-3 bg-surface-container-high border border-outline-variant rounded-lg">
+                            <div 
+                              key={team.id}
+                              draggable={formData.seedingMethod === "manual"}
+                              onDragStart={(e) => handleTeamDragStart(e, teamIndex)}
+                              onDragOver={(e) => handleTeamDragOver(e, teamIndex)}
+                              onDragLeave={handleTeamDragLeave}
+                              onDragEnd={handleTeamDragEnd}
+                              onDrop={(e) => handleTeamDrop(e, teamIndex)}
+                              className={`flex flex-col gap-2 p-3 bg-surface-container-high border rounded-lg transition-all duration-200 ${
+                                formData.seedingMethod === "manual" ? 'cursor-grab active:cursor-grabbing hover:border-primary/50' : 'border-outline-variant'
+                              } ${
+                                draggedTeamIndex === teamIndex ? 'opacity-40 scale-[0.98]' :
+                                dragOverTeamIndex === teamIndex ? 'border-primary border-t-2 bg-primary/10 shadow-lg' :
+                                'border-outline-variant'
+                              }`}
+                            >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 group border-b border-transparent hover:border-outline-variant focus-within:border-outline-variant transition-colors pb-0.5">
+                                  {formData.seedingMethod === "manual" && (
+                                    <>
+                                      <span className="material-symbols-outlined text-on-surface-variant/50 cursor-grab active:cursor-grabbing pointer-events-none">drag_indicator</span>
+                                      <span className="font-bold text-on-surface-variant w-6 text-center text-[12px] pointer-events-none">#{teamIndex + 1}</span>
+                                    </>
+                                  )}
                                   <input
                                     type="text"
                                     value={team.name}

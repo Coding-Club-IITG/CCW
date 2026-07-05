@@ -6,8 +6,9 @@ export type BracketNode = {
   matchIndex: number;
   teams: [string | null, string | null];
   teamNames: [string | null, string | null];
+  teamImages?: [string | null, string | null];
   scores: [number, number];
-  status: "pending" | "active" | "completed" | "bye";
+  status: "pending" | "waiting" | "active" | "completed" | "bye";
   winner: string | null;
   bracketPosition: BracketPosition;
 };

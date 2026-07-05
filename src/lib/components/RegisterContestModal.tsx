@@ -16,6 +16,7 @@ export default function RegisterContestModal({ isOpen, onClose, contestId, teamS
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
   const [format, setFormat] = useState<string>("unknown");
   const [isDeadlinePassed, setIsDeadlinePassed] = useState(false);
+  const [registrationType, setRegistrationType] = useState<string>("open");
 
   useEffect(() => {
     if (isOpen) {
@@ -28,6 +29,9 @@ export default function RegisterContestModal({ isOpen, onClose, contestId, teamS
       setLoadingTeams(true);
       getAvailableTeamsForContest(contestId).then(teams => {
         setAvailableTeams(teams);
+        setLoadingTeams(false);
+      }).catch(err => {
+        console.error(err);
         setLoadingTeams(false);
       });
     }
@@ -42,9 +46,16 @@ export default function RegisterContestModal({ isOpen, onClose, contestId, teamS
             setRegistrations(res.registrations || []);
             setFormat(res.format || "unknown");
             setIsDeadlinePassed(res.isDeadlinePassed || false);
+            setRegistrationType(res.registrationType || "open");
           }
           setLoadingRegistrations(false);
+        }).catch(err => {
+          console.error(err);
+          setLoadingRegistrations(false);
         });
+      }).catch(err => {
+        console.error(err);
+        setLoadingRegistrations(false);
       });
     }
   }, [isOpen, contestId]);
@@ -53,7 +64,8 @@ export default function RegisterContestModal({ isOpen, onClose, contestId, teamS
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teamName.trim()) {
+    const isSoloFormat = ["1v1", "solo-tournament"].includes(format);
+    if (!isSoloFormat && !teamName.trim()) {
       alert("Please provide a team name.");
       return;
     }
@@ -262,54 +274,56 @@ export default function RegisterContestModal({ isOpen, onClose, contestId, teamS
             )}
 
             {/* Team Name Text Input */}
-            <div className="flex flex-col gap-unit">
-              <label className="font-label-sm text-label-sm text-primary" htmlFor="team_name">
-                {mode === "existing" ? "Team Name to Join" : (teamSize === 1 ? "Your Display Name" : "New Team Name")}
-              </label>
-              <div className="relative mt-1">
-                {mode === "existing" ? (
-                  <>
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none z-10">group</span>
-                    <select
-                      className="w-full bg-background border border-outline-variant rounded-DEFAULT py-3 pl-10 pr-3 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest transition-all appearance-none cursor-pointer"
-                      id="team_name"
-                      name="team_name"
-                      required
-                      value={teamName}
-                      onChange={e => setTeamName(e.target.value)}
-                    >
-                      <option value="" disabled>Select a team to join</option>
-                      {loadingTeams ? (
-                        <option value="" disabled>Loading teams...</option>
-                      ) : availableTeams.length === 0 ? (
-                        <option value="" disabled>No available teams to join</option>
-                      ) : (
-                        availableTeams.map(t => (
-                          <option key={t.teamName} value={t.teamName}>
-                            {t.teamName} ({t.memberCount}/{t.maxCapacity} members)
-                          </option>
-                        ))
-                      )}
-                    </select>
-                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none z-10">arrow_drop_down</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none z-10">terminal</span>
-                    <input
-                      className="w-full bg-background border border-outline-variant rounded-DEFAULT py-3 pl-10 pr-3 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest transition-all"
-                      id="team_name"
-                      name="team_name"
-                      placeholder={teamSize === 1 ? "e.g. Code Ninja" : "e.g. Null Pointers"}
-                      required
-                      type="text"
-                      value={teamName}
-                      onChange={e => setTeamName(e.target.value)}
-                    />
-                  </>
-                )}
+            {!["1v1", "solo-tournament"].includes(format) && (
+              <div className="flex flex-col gap-unit">
+                <label className="font-label-sm text-label-sm text-primary" htmlFor="team_name">
+                  {mode === "existing" ? "Team Name to Join" : (teamSize === 1 ? "Your Display Name" : "New Team Name")}
+                </label>
+                <div className="relative mt-1">
+                  {mode === "existing" ? (
+                    <>
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none z-10">group</span>
+                      <select
+                        className="w-full bg-background border border-outline-variant rounded-DEFAULT py-3 pl-10 pr-3 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest transition-all appearance-none cursor-pointer"
+                        id="team_name"
+                        name="team_name"
+                        required={!["1v1", "solo-tournament"].includes(format)}
+                        value={teamName}
+                        onChange={e => setTeamName(e.target.value)}
+                      >
+                        <option value="" disabled>Select a team to join</option>
+                        {loadingTeams ? (
+                          <option value="" disabled>Loading teams...</option>
+                        ) : availableTeams.length === 0 ? (
+                          <option value="" disabled>No available teams to join</option>
+                        ) : (
+                          availableTeams.map(t => (
+                            <option key={t.teamName} value={t.teamName}>
+                              {t.teamName} ({t.memberCount}/{t.maxCapacity} members)
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none z-10">arrow_drop_down</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none z-10">terminal</span>
+                      <input
+                        className="w-full bg-background border border-outline-variant rounded-DEFAULT py-3 pl-10 pr-3 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest transition-all"
+                        id="team_name"
+                        name="team_name"
+                        placeholder={teamSize === 1 ? "e.g. Code Ninja" : "e.g. Null Pointers"}
+                        required={!["1v1", "solo-tournament"].includes(format)}
+                        type="text"
+                        value={teamName}
+                        onChange={e => setTeamName(e.target.value)}
+                      />
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </form>
           )}
         </div>
@@ -318,7 +332,7 @@ export default function RegisterContestModal({ isOpen, onClose, contestId, teamS
           <div className="flex justify-between items-center gap-4 px-gutter py-4 bg-surface-container-highest border-t border-outline-variant/60">
             {viewOnly ? (
               <>
-                {!isDeadlinePassed && (
+                {!isDeadlinePassed && registrationType !== "closed" && (
                   <button
                     className="px-4 py-2 rounded-DEFAULT font-label-sm text-label-sm text-error/80 border border-error/30 hover:bg-error/10 hover:text-error transition-all focus:outline-none disabled:opacity-50"
                     type="button"

@@ -15,14 +15,6 @@ export async function validateStep(step: number, data: Record<string, any>) {
   const errors: Record<string, string> = {};
 
   if (step === 1) {
-    if (!data.name || data.name.trim().length < 3) {
-      errors.name = "Name must be at least 3 characters";
-    } else if (data.name.trim().length > 100) {
-      errors.name = "Name must be at most 100 characters";
-    }
-    if (data.description && data.description.length > 500) {
-      errors.description = "Description must be at most 500 characters";
-    }
     if (data.mode !== "blitz" && data.mode !== "arena") {
       errors.mode = "Mode must be blitz or arena";
     }
@@ -35,16 +27,6 @@ export async function validateStep(step: number, data: Record<string, any>) {
     if (data.registrationType !== "open" && data.registrationType !== "closed") {
       errors.registrationType = "Registration type must be open or closed";
     }
-    if (!data.deadline) {
-      errors.deadline = "Registration deadline is required";
-    } else {
-      const deadlineDate = new Date(data.deadline);
-      if (isNaN(deadlineDate.getTime())) {
-        errors.deadline = "Invalid date format";
-      } else if (deadlineDate.getTime() <= Date.now()) {
-        errors.deadline = "Deadline must be in the future";
-      }
-    }
     if (!data.maxParticipants || isNaN(Number(data.maxParticipants))) {
       errors.maxParticipants = "Max participants is required and must be a number";
     } else if (Number(data.maxParticipants) < 2) {
@@ -56,21 +38,23 @@ export async function validateStep(step: number, data: Record<string, any>) {
     if (!data.presetId) {
       errors.presetId = "Please select a match preset";
     } else if (data.presetId !== "custom") {
-      await dbConnect();
-      const preset = await ContestPreset.findById(data.presetId);
+      if (!mongoose.Types.ObjectId.isValid(data.presetId)) {
+        errors.presetId = "Invalid preset ID format";
+      } else {
+        await dbConnect();
+        const preset = await ContestPreset.findById(data.presetId);
       if (!preset) {
         errors.presetId = "Selected preset does not exist";
       } else if (preset.archived) {
         errors.presetId = "Selected preset is archived";
       }
+      }
     }
   }
 
   if (step === 4 || step === 5) {
-    if (data.thirdPlacePlayoff !== undefined) {
-      if (data.seedingMethod && data.seedingMethod !== "cf_rating" && data.seedingMethod !== "manual") {
-        errors.seedingMethod = "Seeding method must be cf_rating or manual";
-      }
+    if (data.seedingMethod && data.seedingMethod !== "cf_rating" && data.seedingMethod !== "manual") {
+      errors.seedingMethod = "Seeding method must be cf_rating or manual";
     }
   }
 
@@ -92,8 +76,10 @@ export async function createBracketContest(data: any) {
   let step1 = await validateStep(1, data);
   let step2 = await validateStep(2, data);
   let step3 = await validateStep(3, data);
+  let step4 = await validateStep(4, data);
+  let step5 = await validateStep(5, data);
 
-  if (!step1.valid || !step2.valid || !step3.valid) {
+  if (!step1.valid || !step2.valid || !step3.valid || !step4.valid || !step5.valid) {
     return { error: "Invalid form data submission" };
   }
 
@@ -108,11 +94,16 @@ export async function createBracketContest(data: any) {
   let problemSlots: any[] = [];
 
   if (data.presetId === "custom") {
-    if (problemSelectionMode === "fine-tuned" && Array.isArray(data.fineTunedProblems)) {
-      problemSlots = data.fineTunedProblems.map((id: string) => ({
-        platform: "codeforces",
-        problemId: id.trim()
-      })).filter((slot: any) => slot.problemId !== "");
+    if (problemSelectionMode === "fine-tuned") {
+      if (!Array.isArray(data.problemSlots) || data.problemSlots.length === 0) {
+        return { error: "Fine-tuned problem slots with round assignments are required for a bracket contest." };
+      }
+      // Per-round bracket fine-tuned: problemSlots already has roundNumber set by the UI
+      problemSlots = data.problemSlots.filter((s: any) => s.problemId && s.problemId.trim() !== "");
+      
+      if (problemSlots.length === 0) {
+        return { error: "Please provide valid problem IDs for the bracket rounds." };
+      }
     }
   } else {
     const preset = await ContestPreset.findById(data.presetId);
@@ -126,7 +117,11 @@ export async function createBracketContest(data: any) {
     problemSlots = (data.problemSlots && data.problemSlots.length > 0) ? data.problemSlots : preset.problemSlots;
   }
 
+
   try {
+    const cpUser = await CPUser.findOne({ userId: user.id });
+    if (!cpUser) return { error: "CP Profile not found" };
+
     const deadlineStr = process.env.REGISTRATION_DEADLINE_MINUTES;
     if (!deadlineStr) {
       throw new Error("REGISTRATION_DEADLINE_MINUTES is not set in environment variables.");
@@ -138,7 +133,7 @@ export async function createBracketContest(data: any) {
     const contest = await CustomContest.create({
       name: data.name.trim(),
       description: data.description?.trim(),
-      creatorId: new mongoose.Types.ObjectId(user.id),
+      creatorId: cpUser._id,
       format: "bracket",
       mode: data.mode,
       status: "draft",
@@ -195,23 +190,19 @@ export async function createBracketContest(data: any) {
         await contest.save();
       }
     } else {
-      // If closed, we skip the registration phase and go straight to draft.
-      // The bracket generation will still happen via end_registration at the deadline.
-      contest.status = "draft";
+      // If closed, we skip the registration phase and go straight to provisioning.
+      contest.status = "provisioning";
       await contest.save();
+      
+      // Invoke check_start immediately to generate the bracket
+      await reconciliationQueue.add(
+        "check_start",
+        { contestId: contest._id.toString() }
+      );
     }
 
-    // Schedule end_registration at deadline (Bracket ONLY)
-    if (deadlineTime > now) {
-      await reconciliationQueue.add(
-        "end_registration",
-        { contestId: contest._id.toString() },
-        { delay: deadlineTime - now }
-      );
-      
-      // Also schedule the traditional check_start for brackets?
-      // Actually, for bracket tournaments, the end_registration job will generate the bracket.
-      // But standard workflow still expects check_start to be fired at the same time to process the first round.
+    // For open contests, schedule check_start at the deadline to handle provisioning
+    if (data.registrationType !== "closed" && deadlineTime > now) {
       await reconciliationQueue.add(
         "check_start",
         { contestId: contest._id.toString() },

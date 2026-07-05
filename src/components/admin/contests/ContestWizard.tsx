@@ -27,7 +27,6 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     mode: "blitz",
     teamSize: 1,
     registrationType: "open",
-    deadline: "",
     maxParticipants: 8,
     presetId: "",
     problemSlots: [] as { platform: string; problemId: string; roundNumber: number }[],
@@ -137,7 +136,6 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
         {steps[currentStep - 1]?.id === "reg" && (
           <Step2Registration
             registrationType={formData.registrationType}
-            deadline={formData.deadline}
             maxParticipants={formData.maxParticipants}
             updateFields={updateFields}
             errors={errors}

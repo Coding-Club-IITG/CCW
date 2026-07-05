@@ -36,11 +36,14 @@ export interface CodeforcesSubmission {
  * @param count Number of recent submissions to fetch. If omitted, fetches all.
  * @returns Array of CodeforcesSubmission.
  */
-export async function fetchCodeforcesUserStatus(handle: string, count?: number): Promise<CodeforcesSubmission[]> {
+export async function fetchCodeforcesUserStatus(handle: string, count?: number, from: number = 1): Promise<CodeforcesSubmission[]> {
   try {
     logger.info(`[cf-api] fetchCodeforcesUserStatus called for handle: ${handle}, count: ${count}, NODE_ENV: ${process.env.NODE_ENV}`);
-    if (handle.toLowerCase().includes("test")) {
-      logger.info(`[cf-api] Mocking CF API response for test handle: ${handle}`);
+    const isTestHandle = handle.toLowerCase().includes("test");
+    const forceMock = process.env.NODE_ENV === "development" && process.env.MOCK_CF_API === "true";
+    
+    if (isTestHandle || forceMock) {
+      logger.info(`[cf-api] Mocking CF API response for handle: ${handle}`);
       return [{
         id: Math.floor(Math.random() * 1000000),
         creationTimeSeconds: Math.floor(Date.now() / 1000),
@@ -66,7 +69,7 @@ export async function fetchCodeforcesUserStatus(handle: string, count?: number):
     }
 
     const url = count 
-      ? `https://codeforces.com/api/user.status?handle=${handle}&from=1&count=${count}`
+      ? `https://codeforces.com/api/user.status?handle=${handle}&from=${from}&count=${count}`
       : `https://codeforces.com/api/user.status?handle=${handle}`;
       
     const response = await axios.get(url, {

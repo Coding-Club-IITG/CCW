@@ -17,7 +17,7 @@ export async function POST(
     const testUserId = request.headers.get("x-test-user-id");
     let userId: string;
 
-    if (testUserId) {
+    if (process.env.NODE_ENV === "development" && testUserId) {
       userId = testUserId;
     } else {
       const session = await auth.api.getSession({ headers: request.headers });
@@ -55,41 +55,31 @@ export async function POST(
 
     if (contest.teamSize === 1) {
       // Solo Registration
-      if (registrations.length >= regSettings.maxParticipants) {
-        return NextResponse.json({ error: "Contest is full" }, { status: 400 });
-      }
-
-      // Check duplicate
-      const alreadyRegistered = registrations.some((reg: any) => reg.userId.toString() === userId);
-      if (alreadyRegistered) {
-        return NextResponse.json({ error: "Already registered" }, { status: 409 });
-      }
-
       // Look up verified handle
       const cpUser = await CPUser.findOne({ userId });
       if (!cpUser || !cpUser.cfHandle) {
         return NextResponse.json({ error: "User must have a Codeforces handle" }, { status: 400 });
       }
 
-      // Push registration
-      contest.registrations = [
-        ...registrations,
+      const result = await CustomContest.updateOne(
         {
-          userId: new mongoose.Types.ObjectId(userId),
-          cfHandle: cpUser.cfHandle,
-          registeredAt: new Date(),
+          _id: id,
+          "registrations.userId": { $ne: new mongoose.Types.ObjectId(userId) },
+          $expr: { $lt: [{ $size: { $ifNull: ["$registrations", []] } }, regSettings.maxParticipants] }
         },
-      ];
+        {
+          $push: {
+            registrations: {
+              userId: new mongoose.Types.ObjectId(userId),
+              cfHandle: cpUser.cfHandle,
+              registeredAt: new Date(),
+            }
+          }
+        }
+      );
 
-      await contest.save();
-
-      // Trigger solved prefetch job in background
-      try {
-        const { cfSyncQueue } = require("@/lib/bullmq");
-        await cfSyncQueue.add("solved_prefetch", { cfHandle: cpUser.cfHandle });
-      } catch (queueErr) {
-        // Log error but don't fail registration
-        console.error("Failed to enqueue solved_prefetch job:", queueErr);
+      if (result.modifiedCount === 0) {
+        return NextResponse.json({ error: "Could not register. Contest might be full or you are already registered." }, { status: 409 });
       }
 
       return NextResponse.json({ registered: true });
@@ -122,7 +112,7 @@ export async function POST(
         return NextResponse.json({ error: "All members must have a verified Codeforces handle" }, { status: 400 });
       }
 
-      // Check registrations for duplicates
+      // Check registrations for duplicates (quick in-memory fail)
       const registeredUserIds = new Set(registrations.map((reg: any) => reg.userId.toString()));
       for (const memberId of memberIds) {
         if (registeredUserIds.has(memberId)) {
@@ -130,28 +120,28 @@ export async function POST(
         }
       }
 
-      // Push all members to registration list with team grouping
-      const updatedRegs = [...registrations];
-      for (const u of cpUsers) {
-        updatedRegs.push({
-          userId: u.userId,
-          cfHandle: u.cfHandle,
-          teamName,
-          registeredAt: new Date(),
-        });
-      }
-      contest.registrations = updatedRegs;
-
-      await contest.save();
-
-      // Trigger prefetch jobs for all 3 members
-      try {
-        const { cfSyncQueue } = require("@/lib/bullmq");
-        for (const u of cpUsers) {
-          await cfSyncQueue.add("solved_prefetch", { cfHandle: u.cfHandle });
+      const result = await CustomContest.updateOne(
+        {
+          _id: id,
+          "registrations.userId": { $nin: memberIds.map((mid: string) => new mongoose.Types.ObjectId(mid)) },
+          $expr: { $lt: [{ $size: { $ifNull: ["$registrations", []] } }, regSettings.maxParticipants - 2] }
+        },
+        {
+          $push: {
+            registrations: {
+              $each: cpUsers.map((u) => ({
+                userId: u.userId,
+                cfHandle: u.cfHandle,
+                teamName,
+                registeredAt: new Date(),
+              }))
+            }
+          }
         }
-      } catch (queueErr) {
-        console.error("Failed to enqueue solved_prefetch jobs:", queueErr);
+      );
+
+      if (result.modifiedCount === 0) {
+        return NextResponse.json({ error: "Could not register team. Contest might be full or members are already registered." }, { status: 409 });
       }
 
       return NextResponse.json({ registered: true });
