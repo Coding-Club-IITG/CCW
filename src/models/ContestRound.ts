@@ -13,7 +13,7 @@ export interface IContestRound extends Document {
 
 const ContestRoundSchema = new Schema<IContestRound>(
   {
-    contestId: { type: Schema.Types.ObjectId, ref: "CustomContest", required: true, index: true },
+    contestId: { type: Schema.Types.ObjectId, ref: "ContestMatch", required: true, index: true },
     roundNumber: { type: Number, required: true },
     name: { type: String, required: true },
     status: {

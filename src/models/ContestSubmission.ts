@@ -18,7 +18,7 @@ export interface IContestSubmission extends Document {
 
 const ContestSubmissionSchema = new Schema<IContestSubmission>(
   {
-    contestId: { type: Schema.Types.ObjectId, ref: "CustomContest", required: true, index: true },
+    contestId: { type: Schema.Types.ObjectId, ref: "ContestMatch", required: true, index: true },
     roomId: { type: Schema.Types.ObjectId, ref: "ContestRoom", required: true, index: true },
     userId: { type: Schema.Types.ObjectId, ref: "CPUser", required: true },
     teamId: { type: Schema.Types.ObjectId, ref: "ContestTeam" },

@@ -26,7 +26,7 @@ export interface IBracketSettings {
   seedingMethod: "cf_rating" | "manual";
 }
 
-export interface ICustomContest extends Document {
+export interface IContestMatch extends Document {
   name: string;
   description?: string;
   creatorId: mongoose.Types.ObjectId;
@@ -82,7 +82,7 @@ const BracketSettingsSchema = new Schema<IBracketSettings>({
   seedingMethod: { type: String, enum: ["cf_rating", "manual"], required: true },
 });
 
-const CustomContestSchema = new Schema<ICustomContest>(
+const ContestMatchSchema = new Schema<IContestMatch>(
   {
     name: { type: String, required: true },
     description: { type: String, maxlength: 500 },
@@ -134,12 +134,12 @@ const CustomContestSchema = new Schema<ICustomContest>(
   { timestamps: true }
 );
 
-CustomContestSchema.index({ status: 1, startTime: 1 });
-CustomContestSchema.index({ format: 1, status: 1 });
+ContestMatchSchema.index({ status: 1, startTime: 1 });
+ContestMatchSchema.index({ format: 1, status: 1 });
 
-const CustomContest =
-  mongoose.models.CustomContest ||
-  mongoose.model<ICustomContest>("CustomContest", CustomContestSchema, "custom_contests");
+const ContestMatch =
+  mongoose.models.ContestMatch ||
+  mongoose.model<IContestMatch>("ContestMatch", ContestMatchSchema, "custom_contests");
 
-export default CustomContest;
+export default ContestMatch;
 

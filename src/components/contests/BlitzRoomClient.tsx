@@ -156,7 +156,7 @@ export default function BlitzRoomClient({
   }, [matchState, initialMatchState, roomId, router, contest.format, contest.mode]);
 
   useEffect(() => {
-    const eventSource = new EventSource(`/api/events?roomId=${roomId}`);
+    const eventSource = new EventSource(`/api/contests/stream?roomId=${roomId}`);
     
     eventSource.onmessage = (e) => {
       try {

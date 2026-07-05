@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
-import CustomContest from "@/models/CustomContest";
+import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
 import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
-import CFQuestion from "@/models/CFQuestion";
+import ContestQuestion from "@/models/ContestQuestion";
 import { getRedis } from "@/lib/redis";
 import mongoose from "mongoose";
 
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     await dbConnect();
-    const contest = await CustomContest.findById(contestId);
+    const contest = await ContestMatch.findById(contestId);
     if (!contest) {
       return NextResponse.json({ error: "Contest not found" }, { status: 404 });
     }
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Query MongoDB problem pool
-    const availableProblems = await CFQuestion.aggregate([
+    const availableProblems = await ContestQuestion.aggregate([
       {
         $match: {
           rating: { $gte: minRating, $lte: maxRating },

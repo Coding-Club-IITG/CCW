@@ -1,5 +1,5 @@
 import { getContestListing } from "@/lib/actions/contests";
-import MatchHistoryClient from "@/lib/components/MatchHistoryClient";
+import MatchHistoryClient from "@/components/contests/MatchHistoryClient";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";

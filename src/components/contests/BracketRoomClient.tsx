@@ -538,7 +538,7 @@ export default function BracketRoomClient({ contest, initialSnapshot, userId, cu
 
   // ── SSE: Subscribe to contest events and refresh snapshot ──
   useEffect(() => {
-    const eventSource = new EventSource(`/api/events?contestId=${contest._id}`);
+    const eventSource = new EventSource(`/api/contests/stream?contestId=${contest._id}`);
 
     eventSource.addEventListener('message', async (e) => {
       try {

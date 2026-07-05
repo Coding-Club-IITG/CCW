@@ -3,11 +3,10 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import dbConnect from "@/lib/mongodb";
-import CustomContest from "@/models/CustomContest";
+import ContestMatch from "@/models/ContestMatch";
 import CPUser from "@/models/CPUser";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
-import { isAdmin, parseModuleRoles } from "@/lib/roles";
 
 export type ContestListingItem = {
   teamSize?: number;
@@ -48,7 +47,7 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
     }
   }
 
-  const contests = await CustomContest.find({
+  const contests = await ContestMatch.find({
     status: { $in: ["draft", "registration", "provisioning", "active", "completed"] },
   }).lean();
 
@@ -134,7 +133,7 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
   }
 
   try {
-    const contest = await CustomContest.findById(id).lean();
+    const contest = await ContestMatch.findById(id).lean();
     if (!contest) return null;
 
     const isRegistered = userId ? (contest.registrations || []).some((r: any) => r.userId.toString() === userId) : false;
@@ -185,19 +184,12 @@ export async function registerForContest(contestId: string, teamName?: string): 
     const userId = session?.user?.id;
     if (!userId) return { success: false, message: "Unauthorized" };
 
-    const user = session.user as any;
-    const admin = isAdmin(user.role);
-    const moduleRoles = parseModuleRoles(user.moduleRoles);
-    const isSoftwareDev = moduleRoles.some((mr) => mr.module === "Software Development");
-    if (!admin && !isSoftwareDev) {
-      return { success: false, message: "Forbidden: Software Development module only" };
-    }
 
     await dbConnect();
     const cpUser = await CPUser.findOne({ userId });
     if (!cpUser) return { success: false, message: "CP Profile not found" };
 
-    const contest = await CustomContest.findById(contestId);
+    const contest = await ContestMatch.findById(contestId);
     if (!contest) return { success: false, message: "Contest not found" };
 
     if (contest.status !== "registration") {
@@ -247,7 +239,7 @@ export async function registerForContest(contestId: string, teamName?: string): 
 export async function getAvailableTeamsForContest(contestId: string): Promise<{ teamName: string; memberCount: number; maxCapacity: number }[]> {
   try {
     await dbConnect();
-    const contest = await CustomContest.findById(contestId).lean();
+    const contest = await ContestMatch.findById(contestId).lean();
     if (!contest || contest.teamSize <= 1) return [];
 
     const registrations = contest.registrations || [];
@@ -283,13 +275,6 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
     const userId = session?.user?.id;
     if (!userId) return { success: false, error: "Unauthorized" };
 
-    const user = session.user as any;
-    const admin = isAdmin(user.role);
-    const moduleRoles = parseModuleRoles(user.moduleRoles);
-    const isSoftwareDev = moduleRoles.some((mr) => mr.module === "Software Development");
-    if (!admin && !isSoftwareDev) {
-      return { success: false, error: "Forbidden: Software Development module only" };
-    }
 
     await dbConnect();
     const cpUser = await CPUser.findOne({ userId });
@@ -334,7 +319,7 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
       }));
     }
 
-    const contest = new CustomContest({
+    const contest = new ContestMatch({
       name: data.name,
       description: data.description,
       creatorId: cpUser._id,
@@ -374,7 +359,7 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
 
     // Validate registration starts before it ends (only for open registration)
     if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
-      await CustomContest.findByIdAndDelete(contest._id);
+      await ContestMatch.findByIdAndDelete(contest._id);
       return { success: false, error: "Registration start time must be before the deadline." };
     }
 
@@ -410,7 +395,7 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
 export async function getContestRegistrations(contestId: string) {
   try {
     await dbConnect();
-    const contest = await CustomContest.findById(contestId).lean();
+    const contest = await ContestMatch.findById(contestId).lean();
     if (!contest) return { success: false, error: "Contest not found" };
 
     const User = (await import("@/models/User")).default;
@@ -448,17 +433,10 @@ export async function unregisterFromContest(contestId: string): Promise<{ succes
     const userId = session?.user?.id;
     if (!userId) return { success: false, message: "Unauthorized" };
 
-    const user = session.user as any;
-    const admin = isAdmin(user.role);
-    const moduleRoles = parseModuleRoles(user.moduleRoles);
-    const isSoftwareDev = moduleRoles.some((mr) => mr.module === "Software Development");
-    if (!admin && !isSoftwareDev) {
-      return { success: false, message: "Forbidden: Software Development module only" };
-    }
 
     await dbConnect();
 
-    const contest = await CustomContest.findById(contestId);
+    const contest = await ContestMatch.findById(contestId);
     if (!contest) return { success: false, message: "Contest not found" };
 
     if (contest.status !== "registration") {

@@ -4,7 +4,7 @@ import { getRedis } from "@/lib/redis";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import dbConnect from "@/lib/mongodb";
-import CustomContest from "@/models/CustomContest";
+import ContestMatch from "@/models/ContestMatch";
 import { publishRoom } from "@/lib/sse";
 import { reconciliationQueue } from "@/lib/bullmq";
 import { logger } from "@/lib/utils";
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         await room.save();
 
         if (state.contestId) {
-          const contest = await CustomContest.findById(state.contestId);
+          const contest = await ContestMatch.findById(state.contestId);
           if (contest) {
             contest.status = "active";
             await contest.save();
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Find format safely
         let format = "unknown";
         if (state.contestId) {
-          const contest = await CustomContest.findById(state.contestId);
+          const contest = await ContestMatch.findById(state.contestId);
           if (contest) format = contest.format;
         }
 

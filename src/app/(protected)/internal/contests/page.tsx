@@ -1,5 +1,5 @@
 import { getContestListing } from "@/lib/actions/contests";
-import ContestListingClient from "@/lib/components/ContestListingClient";
+import ContestListingClient from "@/components/contests/ContestListingClient";
 import { auth } from "@/lib/auth";
 import { isAdmin, parseModuleRoles } from "@/lib/roles";
 import { headers } from "next/headers";

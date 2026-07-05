@@ -46,8 +46,8 @@ const ContestSchema = new mongoose.Schema({
   bulkProblemCount: Number,
 });
 
-const CustomContest = mongoose.models.CustomContest || 
-  mongoose.model("CustomContest", ContestSchema, "custom_contests");
+const ContestMatch = mongoose.models.ContestMatch || 
+  mongoose.model("ContestMatch", ContestSchema, "custom_contests");
 
 async function seed() {
   try {
@@ -127,7 +127,7 @@ async function seed() {
       bulkProblemCount: 3,
     };
     
-    const createdContest = await CustomContest.findOneAndUpdate(
+    const createdContest = await ContestMatch.findOneAndUpdate(
       { name: sampleContest.name },
       sampleContest,
       { upsert: true, returnDocument: "after" }

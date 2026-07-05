@@ -1,6 +1,6 @@
 import mongoose, { type ObjectId } from "mongoose";
 import dbConnect from "./mongodb";
-import CustomContest from "../models/CustomContest";
+import ContestMatch from "../models/ContestMatch";
 import ContestRound from "../models/ContestRound";
 import ContestRoom from "../models/ContestRoom";
 import ContestTeam from "../models/ContestTeam";
@@ -63,7 +63,7 @@ async function initBracketRoomRedis(
 
 export async function generateBracket(contestId: string, solvedProblemIds?: Set<string>) {
   await dbConnect();
-  const contest = await CustomContest.findById(contestId);
+  const contest = await ContestMatch.findById(contestId);
   if (!contest) throw new Error("Contest not found");
   if (contest.format !== "bracket") throw new Error("Contest is not a bracket format");
   if (contest.status !== "provisioning") throw new Error("Contest must be in 'provisioning' status to generate bracket");
@@ -127,7 +127,7 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
   const allRoomIds: string[] = [];
   let roundIndex = 0;
 
-  const CFQuestion = (await import("../models/CFQuestion")).default;
+  const ContestQuestion = (await import("../models/ContestQuestion")).default;
   const ContestProblemSet = (await import("../models/ContestProblemSet")).default;
   const problemCount = contest.bulkProblemCount || 3;
   const minRating = contest.bulkRatingMin || 800;
@@ -138,7 +138,7 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
     const totalRooms = bracketSize - 1;
     const totalProblemsNeeded = totalRooms * problemCount;
     const excludeIds = solvedProblemIds ? Array.from(solvedProblemIds) : [];
-    bulkProblemPool = await CFQuestion.aggregate([
+    bulkProblemPool = await ContestQuestion.aggregate([
       { $match: {
         rating: { $gte: minRating, $lte: maxRating },
         ...(excludeIds.length > 0 ? { problemId: { $nin: excludeIds } } : {})
@@ -405,7 +405,7 @@ async function seedTeamToRound(
 
     // Initialise Redis state so the ready route can find the room
     const redis = await getRedis();
-    const contest = await (await import("../models/CustomContest")).default.findById(contestId).lean();
+    const contest = await (await import("../models/ContestMatch")).default.findById(contestId).lean();
     await initBracketRoomRedis(
       redis,
       toStr(targetRoom._id),
@@ -432,7 +432,7 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
     return;
   }
 
-  const contest = await CustomContest.findById(contestId);
+  const contest = await ContestMatch.findById(contestId);
   if (!contest || contest.format !== "bracket") return;
 
   let currentRound = room.currentRoundId as any;
@@ -548,7 +548,7 @@ export async function checkRoundCompletion(contestId: string, roundNumber: numbe
   }
 
   try {
-    const contest = await CustomContest.findById(contestId);
+    const contest = await ContestMatch.findById(contestId);
     if (!contest || contest.format !== "bracket") return;
 
     const round = await ContestRound.findOne({ contestId, roundNumber });
@@ -605,7 +605,7 @@ export async function checkRoundCompletion(contestId: string, roundNumber: numbe
 
 export async function getBracketSnapshot(contestId: string): Promise<BracketSnapshot> {
   await dbConnect();
-  const contest = await CustomContest.findById(contestId);
+  const contest = await ContestMatch.findById(contestId);
   if (!contest) throw new Error("Contest not found");
 
   const rounds = await ContestRound.find({ contestId }).sort({ roundNumber: 1 });
@@ -693,7 +693,7 @@ export async function processWalkover(
   const room = await ContestRoom.findById(roomId);
   if (!room) throw new Error("Room not found");
 
-  const contest = await CustomContest.findById(room.contestId);
+  const contest = await ContestMatch.findById(room.contestId);
   if (!contest || contest.format !== "bracket") throw new Error("Room is not part of a bracket contest");
 
   room.status = "ended";

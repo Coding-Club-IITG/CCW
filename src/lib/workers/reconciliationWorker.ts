@@ -5,14 +5,14 @@ import { getRedis } from "../redis";
 import dbConnect from "../mongodb";
 import ContestRoom from "../../models/ContestRoom";
 import ContestRound from "../../models/ContestRound";
-import CustomContest from "../../models/CustomContest";
+import ContestMatch from "../../models/ContestMatch";
 import { publishRoom } from "../sse";
 import ContestProblemSet from "../../models/ContestProblemSet";
 import ContestTeam from "../../models/ContestTeam";
 import ContestSubmission from "../../models/ContestSubmission";
 import Notification from "../../models/Notification";
 import CPUser from "../../models/CPUser";
-import CFQuestion from "../../models/CFQuestion";
+import ContestQuestion from "../../models/ContestQuestion";
 
 export const reconciliationWorker = new Worker(
   "reconciliation_queue",
@@ -81,7 +81,7 @@ export const reconciliationWorker = new Worker(
 
     // Handle starting registration for scheduled brackets
     if (job.name === "start_registration" || trigger === "start_registration") {
-      const contest = await CustomContest.findById(contestId);
+      const contest = await ContestMatch.findById(contestId);
       if (contest && contest.status === "draft") {
         contest.status = "registration";
         await contest.save();
@@ -92,14 +92,14 @@ export const reconciliationWorker = new Worker(
 
     // Handle checking contest start
     if (job.name === "check_start" || trigger === "check_start") {
-      const contest = await CustomContest.findById(contestId);
+      const contest = await ContestMatch.findById(contestId);
       if (!contest) return;
 
       // ── Bracket tournaments: generate bracket here (single entry point) ──
       if (contest.format === "bracket") {
         if (contest.registrations && contest.registrations.length < 2) {
           logger.info(`[reconciliationWorker] check_start: bracket ${contestId} has insufficient registrations. Canceling.`);
-          await CustomContest.findByIdAndDelete(contestId);
+          await ContestMatch.findByIdAndDelete(contestId);
           const creator = await CPUser.findById(contest.creatorId);
           if (creator && creator.userId) {
             await Notification.create({
@@ -207,7 +207,7 @@ export const reconciliationWorker = new Worker(
           logger.info(`[reconciliationWorker] check_start: bracket ${contestId} generated. Scheduled activate_bracket in ${delayToStart}ms.`);
         } catch (err: any) {
           logger.error(`[reconciliationWorker] check_start: bracket generation failed for ${contestId}:`, err);
-          await CustomContest.findByIdAndDelete(contestId);
+          await ContestMatch.findByIdAndDelete(contestId);
           const creator = await CPUser.findById(contest.creatorId);
           if (creator && creator.userId) {
             const Notification = (await import("@/models/Notification")).default;
@@ -244,7 +244,7 @@ export const reconciliationWorker = new Worker(
 
       if (invalidTeams.length > 0) {
         logger.info(`[reconciliationWorker] Contest ${contestId} has incomplete teams. Canceling.`);
-        await CustomContest.findByIdAndDelete(contestId);
+        await ContestMatch.findByIdAndDelete(contestId);
         
         // Notify creator
         const creator = await CPUser.findById(contest.creatorId);
@@ -264,7 +264,7 @@ export const reconciliationWorker = new Worker(
 
       if (validTeams.length < 2) {
         logger.info(`[reconciliationWorker] Contest ${contestId} did not meet minimum registration requirements. Canceling.`);
-        await CustomContest.findByIdAndDelete(contestId);
+        await ContestMatch.findByIdAndDelete(contestId);
         
         // Notify creator
         const creator = await CPUser.findById(contest.creatorId);
@@ -364,7 +364,7 @@ export const reconciliationWorker = new Worker(
       } else if (contest.problemSelectionMode === "fine-tuned") {
         const slots = contest.problemSlots || [];
         const slotIds = slots.map((s: any) => s.problemId).filter(Boolean);
-        const questions = await CFQuestion.find({ problemId: { $in: slotIds } });
+        const questions = await ContestQuestion.find({ problemId: { $in: slotIds } });
         
         for (const slot of slots) {
           if (!slot.problemId) continue;
@@ -376,7 +376,7 @@ export const reconciliationWorker = new Worker(
           }
         }
       } else {
-        availableProblems = await CFQuestion.aggregate([
+        availableProblems = await ContestQuestion.aggregate([
           {
             $match: {
               rating: { $gte: minRating, $lte: maxRating },
@@ -389,7 +389,7 @@ export const reconciliationWorker = new Worker(
 
       if (availableProblems.length === 0) {
         logger.info(`[reconciliationWorker] check_start: 0 available problems for contest ${contestId}. Canceling.`);
-        await CustomContest.findByIdAndDelete(contestId);
+        await ContestMatch.findByIdAndDelete(contestId);
         const creator = await CPUser.findById(contest.creatorId);
         if (creator && creator.userId) {
           const Notification = (await import("@/models/Notification")).default;
@@ -502,7 +502,7 @@ export const reconciliationWorker = new Worker(
 
     // Handle activating a bracket contest exactly 5 seconds before start time
     if (job.name === "activate_bracket" || trigger === "activate_bracket") {
-      const contest = await CustomContest.findById(contestId);
+      const contest = await ContestMatch.findById(contestId);
       if (!contest) return;
 
       if (contest.status !== "active") {
@@ -517,7 +517,7 @@ export const reconciliationWorker = new Worker(
 
     // Handle starting the waiting room (making it visible to users)
     if (job.name === "start_waiting_room" || trigger === "start_waiting_room") {
-      const contest = await CustomContest.findById(contestId);
+      const contest = await ContestMatch.findById(contestId);
       const room = await ContestRoom.findById(roomId);
       if (!contest || !room) return;
 
@@ -559,7 +559,7 @@ export const reconciliationWorker = new Worker(
       // If room is still waiting, it means not everyone clicked ready
       if (state && state.status === "waiting") {
         // Fetch contest before deleting or force-starting
-        const c = await CustomContest.findById(contestId).lean();
+        const c = await ContestMatch.findById(contestId).lean();
         
         // For brackets, NEVER cancel the tournament. Instead, force-start the match!
         if (c && c.format === "bracket") {
@@ -632,7 +632,7 @@ export const reconciliationWorker = new Worker(
         }
         
         // Remove room/contest data to abort
-        await CustomContest.findByIdAndDelete(contestId);
+        await ContestMatch.findByIdAndDelete(contestId);
         await ContestRoom.findByIdAndDelete(roomId);
         
         // Clean up room-scoped Redis keys
@@ -709,7 +709,7 @@ export const reconciliationWorker = new Worker(
 
         // For bracket contests: advance winner + check round completion
         if (contestId) {
-          const completedContest = await CustomContest.findById(contestId).lean();
+          const completedContest = await ContestMatch.findById(contestId).lean();
           if (completedContest?.format === "bracket") {
             const teamScoresForBracket: Record<string, number> = {};
             for (const tId of completedTeams) {
@@ -755,7 +755,7 @@ export const reconciliationWorker = new Worker(
             status: { $in: ["ended", "completed"] }
           });
           if (totalRooms > 0 && totalRooms === endedRooms) {
-            await CustomContest.findByIdAndUpdate(contestId, {
+            await ContestMatch.findByIdAndUpdate(contestId, {
               status: "completed",
               endTime: new Date()
             });
@@ -885,7 +885,7 @@ export const reconciliationWorker = new Worker(
     // forfeit/timeout endings for bracket rooms.
     if (contestId) {
       try {
-        const bracketContest = await CustomContest.findById(contestId).lean();
+        const bracketContest = await ContestMatch.findById(contestId).lean();
         if (bracketContest?.format === "bracket" && winnerId) {
           const { advanceWinner, checkRoundCompletion } = await import("../bracket");
           await advanceWinner(roomId, contestId, winnerId);
@@ -944,7 +944,7 @@ export const reconciliationWorker = new Worker(
       room.status = "ended";
       await room.save();
 
-      // Approach 1: Global Backend Aggregation for CustomContest
+      // Approach 1: Global Backend Aggregation for ContestMatch
       if (contestId) {
         const totalRooms = await ContestRoom.countDocuments({ contestId });
         const endedRooms = await ContestRoom.countDocuments({ 
@@ -953,7 +953,7 @@ export const reconciliationWorker = new Worker(
         });
         
         if (totalRooms > 0 && totalRooms === endedRooms) {
-          await CustomContest.findByIdAndUpdate(contestId, { 
+          await ContestMatch.findByIdAndUpdate(contestId, { 
             status: "completed",
             endTime: new Date() // Force end time to now since match finished dynamically
           });

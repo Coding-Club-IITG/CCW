@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import { headers } from "next/headers";
 import dbConnect from "@/lib/mongodb";
-import CustomContest from "@/models/CustomContest";
+import ContestMatch from "@/models/ContestMatch";
 import ContestPreset from "@/models/ContestPreset";
 import mongoose from "mongoose";
 import User from "@/models/User";
@@ -130,7 +130,7 @@ export async function createBracketContest(data: any) {
     if (isNaN(deadlineMinutes)) {
       throw new Error("REGISTRATION_DEADLINE_MINUTES must be a valid number.");
     }
-    const contest = await CustomContest.create({
+    const contest = await ContestMatch.create({
       name: data.name.trim(),
       description: data.description?.trim(),
       creatorId: cpUser._id,
@@ -171,7 +171,7 @@ export async function createBracketContest(data: any) {
     
     // Validate registration starts before it ends (only for open registration)
     if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
-      await CustomContest.findByIdAndDelete(contest._id);
+      await ContestMatch.findByIdAndDelete(contest._id);
       return { error: "Registration start time must be before the deadline." };
     }
     

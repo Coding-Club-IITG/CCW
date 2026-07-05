@@ -160,7 +160,7 @@ export default function ArenaRoomClient({
   }, [locks, problems, teams, userId]);
 
   useEffect(() => {
-    const eventSource = new EventSource(`/api/events?roomId=${roomId}`);
+    const eventSource = new EventSource(`/api/contests/stream?roomId=${roomId}`);
     
     eventSource.onmessage = (e) => {
       try {

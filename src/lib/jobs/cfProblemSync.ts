@@ -1,5 +1,5 @@
 import axios from "axios";
-import CFQuestion from "@/models/CFQuestion";
+import ContestQuestion from "@/models/ContestQuestion";
 import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
 
@@ -12,7 +12,7 @@ export async function syncCodeforcesProblems() {
 
   try {
     //  fetch all existing problemIds from database to perform incremental sync
-    const existingQuestions = await CFQuestion.find({}, { problemId: 1 }).lean();
+    const existingQuestions = await ContestQuestion.find({}, { problemId: 1 }).lean();
     const existingProblemIds = new Set(existingQuestions.map((q) => q.problemId));
     const isFirstRun = existingProblemIds.size === 0;
 
@@ -74,7 +74,7 @@ export async function syncCodeforcesProblems() {
 
     for (let i = 0; i < bulkOps.length; i += BATCH_SIZE) {
       const batch = bulkOps.slice(i, i + BATCH_SIZE);
-      await CFQuestion.bulkWrite(batch);
+      await ContestQuestion.bulkWrite(batch);
       logger.info(
         `[CF-Problem-Sync] Successfully processed batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(
           bulkOps.length / BATCH_SIZE

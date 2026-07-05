@@ -1,5 +1,5 @@
 import mongoose, { Schema, type Document } from "mongoose";
-import { IProblemSlot } from "./CustomContest";
+import { IProblemSlot } from "./ContestMatch";
 
 export interface IContestPreset extends Document {
   name: string;

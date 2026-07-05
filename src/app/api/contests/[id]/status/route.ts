@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
-import CustomContest from "@/models/CustomContest";
+import ContestMatch from "@/models/ContestMatch";
 import { publishContest } from "@/lib/sse";
 
 export async function PATCH(
@@ -24,7 +24,7 @@ export async function PATCH(
     }
 
     await dbConnect();
-    const contest = await CustomContest.findById(id);
+    const contest = await ContestMatch.findById(id);
     if (!contest) {
       return NextResponse.json({ error: "Contest not found" }, { status: 404 });
     }

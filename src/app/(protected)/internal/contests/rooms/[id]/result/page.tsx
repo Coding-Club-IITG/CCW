@@ -1,4 +1,4 @@
-import PostMatchResultClient from "@/lib/components/PostMatchResultClient";
+import PostMatchResultClient from "@/components/contests/PostMatchResultClient";
 import { getContestById } from "@/lib/actions/contests";
 import { notFound } from "next/navigation";
 import dbConnect from "@/lib/mongodb";

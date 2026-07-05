@@ -30,7 +30,7 @@ const FirstSolverSchema = new Schema<IFirstSolver>({
 
 const ContestRoomSchema = new Schema<IContestRoom>(
   {
-    contestId: { type: Schema.Types.ObjectId, ref: "CustomContest", required: true, index: true },
+    contestId: { type: Schema.Types.ObjectId, ref: "ContestMatch", required: true, index: true },
     name: { type: String, required: true },
     status: {
       type: String,

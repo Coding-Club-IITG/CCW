@@ -1,6 +1,6 @@
 import mongoose, { Schema, type Document } from "mongoose";
 
-export interface ICFQuestion extends Document {
+export interface IContestQuestion extends Document {
   problemId: string; // e.g. "1234A" (unique across all questions)
   contestId: number; // e.g. 1234
   index: string;     // e.g. "A"
@@ -11,7 +11,7 @@ export interface ICFQuestion extends Document {
   updatedAt: Date;
 }
 
-const CFQuestionSchema = new Schema<ICFQuestion>(
+const ContestQuestionSchema = new Schema<IContestQuestion>(
   {
     problemId: {
       type: String,
@@ -47,10 +47,10 @@ const CFQuestionSchema = new Schema<ICFQuestion>(
 );
 
 // Compound index to ensure uniqueness of contestId + index combination
-CFQuestionSchema.index({ contestId: 1, index: 1 }, { unique: true });
+ContestQuestionSchema.index({ contestId: 1, index: 1 }, { unique: true });
 
-const CFQuestion =
-  mongoose.models.CFQuestion ||
-  mongoose.model<ICFQuestion>("CFQuestion", CFQuestionSchema, "cf_questions");
+const ContestQuestion =
+  mongoose.models.ContestQuestion ||
+  mongoose.model<IContestQuestion>("ContestQuestion", ContestQuestionSchema, "cf_questions");
 
-export default CFQuestion;
+export default ContestQuestion;

@@ -12,7 +12,7 @@ import dbConnect from "./lib/mongodb";
 import { cfSyncWorker } from "./lib/workers/cfSyncWorker";
 import { reconciliationWorker } from "./lib/workers/reconciliationWorker";
 import { cfSyncQueue } from "./lib/bullmq";
-import CFQuestion from "./models/CFQuestion";
+import ContestQuestion from "./models/ContestQuestion";
 async function run() {
   logger.info("[Worker] Starting standalone background worker (Agenda + BullMQ)...");
 
@@ -33,9 +33,9 @@ async function run() {
   logger.info("[Worker] Scheduled nightly Codeforces problem sync repeatable job.");
 
 
-  const cfQuestionCount = await CFQuestion.countDocuments();
+  const cfQuestionCount = await ContestQuestion.countDocuments();
   if (cfQuestionCount === 0) {
-    logger.info("[Worker] CFQuestion database is empty. Triggering immediate full ingest...");
+    logger.info("[Worker] ContestQuestion database is empty. Triggering immediate full ingest...");
     await cfSyncQueue.add("nightly-cf-problem-sync", { isFirstRun: true });
   }
 

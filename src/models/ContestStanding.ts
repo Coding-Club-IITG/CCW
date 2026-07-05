@@ -20,7 +20,7 @@ export interface IContestStanding extends Document {
 const ContestStandingSchema = new Schema<IContestStanding>(
   {
     roomId: { type: Schema.Types.ObjectId, ref: "ContestRoom", required: true, index: true },
-    contestId: { type: Schema.Types.ObjectId, ref: "CustomContest", required: true },
+    contestId: { type: Schema.Types.ObjectId, ref: "ContestMatch", required: true },
     teamId: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     userId: { type: Schema.Types.ObjectId, ref: "CPUser", required: true },
     score: { type: Number, required: true, default: 0 },

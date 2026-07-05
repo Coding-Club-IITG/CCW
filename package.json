@@ -10,8 +10,7 @@
     "start": "concurrently -k -n web,worker -c cyan,magenta \"next start\" \"tsx src/worker.ts\"",
     "start:web": "next start",
     "lint": "next lint",
-    "seed": "tsx scripts/seed.ts",
-    "test-blade": "tsx scripts/test-blade.ts"
+    "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "@agendajs/mongo-backend": "^4.0.2",

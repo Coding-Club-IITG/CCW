@@ -20,7 +20,7 @@ const ContestTeamSchema = new Schema<IContestTeam>(
     teamSize: { type: Number, required: true, enum: [1, 3] },
     score: { type: Number, required: true, default: 0 },
     roundId: { type: Schema.Types.ObjectId, ref: "ContestRound" },
-    contestId: { type: Schema.Types.ObjectId, ref: "CustomContest" },
+    contestId: { type: Schema.Types.ObjectId, ref: "ContestMatch" },
   },
   { timestamps: true }
 );

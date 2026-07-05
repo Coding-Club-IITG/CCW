@@ -8,7 +8,7 @@ import { getRedis, claimProblem } from "../redis";
 import { reconciliationQueue } from "../bullmq";
 import dbConnect from "../mongodb";
 import ContestRoom from "../../models/ContestRoom";
-import CustomContest from "../../models/CustomContest";
+import ContestMatch from "../../models/ContestMatch";
 import mongoose from "mongoose";
 
 // Circuit breaker removed, relying on BullMQ job-level retries
@@ -49,7 +49,7 @@ export const cfSyncWorker = new Worker(
           return;
         }
 
-        const contest = await CustomContest.findById(room.contestId).lean();
+        const contest = await ContestMatch.findById(room.contestId).lean();
         if (!contest) {
           logger.warn(`[cfSyncWorker] Contest not found for room ${roomId}.`);
           await publishUser(userId, { verdict: "invalid", reason: "contest_not_found" });

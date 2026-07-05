@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
-import CustomContest from "@/models/CustomContest";
+import ContestMatch from "@/models/ContestMatch";
 import CPUser from "@/models/CPUser";
 import mongoose from "mongoose";
 
@@ -28,7 +28,7 @@ export async function POST(
     }
 
     await dbConnect();
-    const contest = await CustomContest.findById(id);
+    const contest = await ContestMatch.findById(id);
     if (!contest) {
       return NextResponse.json({ error: "Contest not found" }, { status: 404 });
     }
@@ -58,7 +58,7 @@ export async function POST(
         return NextResponse.json({ error: "User must have a Codeforces handle" }, { status: 400 });
       }
 
-      const result = await CustomContest.updateOne(
+      const result = await ContestMatch.updateOne(
         {
           _id: id,
           "registrations.userId": { $ne: new mongoose.Types.ObjectId(userId) },
@@ -117,7 +117,7 @@ export async function POST(
         }
       }
 
-      const result = await CustomContest.updateOne(
+      const result = await ContestMatch.updateOne(
         {
           _id: id,
           "registrations.userId": { $nin: memberIds.map((mid: string) => new mongoose.Types.ObjectId(mid)) },

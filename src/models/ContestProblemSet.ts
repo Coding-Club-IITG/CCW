@@ -30,7 +30,7 @@ const ContestProblemSetSchema = new Schema<IContestProblemSet>(
   {
     contestId: {
       type: Schema.Types.ObjectId,
-      ref: "CustomContest",
+      ref: "ContestMatch",
       required: true,
       index: true,
     },

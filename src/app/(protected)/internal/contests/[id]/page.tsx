@@ -1,7 +1,7 @@
 import { getContestById } from "@/lib/actions/contests";
-import BlitzRoomClient from "@/lib/components/BlitzRoomClient";
-import ArenaRoomClient from "@/lib/components/ArenaRoomClient";
-import BracketRoomClient from "@/lib/components/BracketRoomClient";
+import BlitzRoomClient from "@/components/contests/BlitzRoomClient";
+import ArenaRoomClient from "@/components/contests/ArenaRoomClient";
+import BracketRoomClient from "@/components/contests/BracketRoomClient";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
