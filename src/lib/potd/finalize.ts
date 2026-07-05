@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
+import POTDOutage from "@/models/POTDOutage";
+import { windowStartToISTDateStr } from "@/lib/potd/utils";
 import { logger } from "@/lib/utils";
 import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
 import { fetchUserSubmissions } from "@/lib/potd/recompute";
@@ -43,6 +45,9 @@ export async function buildTimeline(now: Date = new Date()): Promise<{
     .sort({ windowStart: 1, difficulty: 1 })
     .populate("problem");
 
+  const outages = await POTDOutage.find({}).lean();
+  const outageDates = new Set(outages.map((o: any) => o.date));
+
   const deriveChallenges: DeriveChallenge[] = [];
   const challengeDocs = new Map<string, any>();
   for (const c of challenges as any[]) {
@@ -50,13 +55,17 @@ export async function buildTimeline(now: Date = new Date()): Promise<{
     if (!problem) continue; // problem deleted, skip defensively
     const id = c._id.toString();
     challengeDocs.set(id, c);
+
+    const dateStr = windowStartToISTDateStr(c.windowStart);
+    const isExempt = outageDates.has(dateStr);
+
     deriveChallenges.push({
       challengeId: id,
       windowStartMs: (c.windowStart as Date).getTime(),
       windowEndMs: (c.windowEnd as Date).getTime(),
       graceEndMs: (c.graceEnd as Date).getTime(),
       rating: problem.rating ?? 0,
-      streakPreserved: c.streakPreserved ?? false,
+      streakPreserved: isExempt,
     });
   }
 
@@ -324,23 +333,6 @@ export async function finalize(now: Date = new Date()): Promise<void> {
       );
       continue;
     }
-
-    // Auto-preserve streaks if the entire platform has 0 solves for this day
-    const chIds = chs.map((c) => c._id);
-    const solvedCount = await POTDSubmission.countDocuments({
-      challengeId: { $in: chIds },
-      solvedAt: { $ne: null },
-    });
-    if (solvedCount === 0) {
-      logger.info(
-        `[potd-finalize] Day ${new Date(dayKey).toISOString()} has 0 successful solves. Automatically enabling streakPreserved.`
-      );
-      await DailyChallenge.updateMany(
-        { _id: { $in: chIds } },
-        { $set: { streakPreserved: true } }
-      );
-    }
-
     finalizingDayKeys.push(dayKey);
     for (const c of chs) finalizableChallengeIds.push(c._id);
   }

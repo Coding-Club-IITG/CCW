@@ -11,17 +11,18 @@ import CPUser from "../src/models/CPUser";
 import Problem from "../src/models/POTDProblem";
 import DailyChallenge from "../src/models/POTDDailyChallenge";
 import POTDSubmission from "../src/models/POTDSubmission";
+import POTDOutage from "../src/models/POTDOutage";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local"), quiet: true });
 
-export { mongoose, User, CPUser, Problem, DailyChallenge, POTDSubmission };
+export { mongoose, User, CPUser, Problem, DailyChallenge, POTDSubmission, POTDOutage };
 
 /** Connect to Mongo and register all POTD-related models */
 export async function connect(): Promise<void> {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error("MONGODB_URI not set in .env.local");
   await mongoose.connect(uri);
-  [User, CPUser, Problem, DailyChallenge, POTDSubmission].forEach(
+  [User, CPUser, Problem, DailyChallenge, POTDSubmission, POTDOutage].forEach(
     (m: any) => m && m.init && m.init(),
   );
   console.error("Connected to MongoDB.");
