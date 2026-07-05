@@ -1,18 +1,12 @@
 /**
- * POTD Streak Freeze & Invalidation Script
+ * POTD Streak Freeze Script
  *
- * Use Case:
- *   When the platform/database goes down and we could NOT share the daily challenge
- *   questions, meaning the majority of users had no way of knowing or solving the problem.
- *
- * Difference from potd-outage.ts:
- *   - potd-outage.ts: Used when the platform was down but we still managed to share the
- *     questions beforehand. It backfills solved times for those who solved the problem
- *     on CF/AC, but resets streaks to 0 for everyone who did not.
- *   - potd-streak-freeze.ts: Used when we could NOT share the questions. It registers
- *     the date in the POTDOutage collection. Users who solved the problem (e.g., by
- *     coincidence beforehand) still get points and streak increments, while everyone else's
- *     streaks are safely preserved/frozen at their previous value instead of reset to 0.
+ * Usecase:
+ *   - potd-outage.ts: Used when POTD was down but we still shred questions beforehand.
+ *     Backfills solved times for those who solved the problem, but resets streaks for others.
+ *   - potd-streak-freeze.ts: Used when we could NOT share the questions. Registers date in POTDOutage.
+ *     Users who solved problem still get points and streak increments,
+ *     while others' streaks are preserved/frozen at previous value instead of reset.
  *
  * Usage:
  *   pnpm tsx scripts/potd-streak-freeze.ts --date 2026-07-01            # dry run
@@ -38,15 +32,15 @@ async function main() {
 
   if (!isValidDateStr(dateStr)) {
     console.error(
-      "Usage: pnpm tsx scripts/potd-streak-freeze.ts --date YYYY-MM-DD [--execute]"
+      "Usage: pnpm tsx scripts/potd-streak-freeze.ts --date YYYY-MM-DD [--execute]",
     );
     process.exit(1);
   }
 
   console.log(
-    `=== POTD Streak Freeze === date=${dateStr} mode=${EXECUTE ? "EXECUTE" : "DRY RUN"}`
+    `=== POTD Streak Freeze === date=${dateStr} mode=${EXECUTE ? "EXECUTE" : "DRY RUN"}`,
   );
-  
+
   await connect();
 
   if (EXECUTE) {

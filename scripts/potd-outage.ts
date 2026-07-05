@@ -28,7 +28,7 @@ async function main() {
 
   if (!isValidDateStr(from)) {
     console.error(
-      "Usage: pnpm tsx scripts/potd-outage.ts --from YYYY-MM-DD [--execute]"
+      "Usage: pnpm tsx scripts/potd-outage.ts --from YYYY-MM-DD [--execute]",
     );
     process.exit(1);
   }

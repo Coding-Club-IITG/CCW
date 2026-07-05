@@ -201,14 +201,14 @@ async function runPlatformBackfill({
         ok = true;
       } catch (e: any) {
         console.log(
-          `  [${platform} ${i + 1}/${targets.length}] ${handle} attempt ${attempt} failed: ${e?.message}`
+          `  [${platform} ${i + 1}/${targets.length}] ${handle} attempt ${attempt} failed: ${e?.message}`,
         );
         if (attempt < 3) await sleep(3000);
       }
     }
     if (!ok) {
       console.log(
-        `  [${platform} ${i + 1}/${targets.length}] ${handle} - skipped`
+        `  [${platform} ${i + 1}/${targets.length}] ${handle} - skipped`,
       );
       await sleep(delayMs);
       continue;
@@ -216,151 +216,24 @@ async function runPlatformBackfill({
     const solved = await backfillSolvedAt(userId, challenges, subs, platform);
     if (solved > 0 || (i + 1) % 10 === 0) {
       console.log(
-        `  [${platform} ${i + 1}/${targets.length}] ${handle}: ${solved} solves`
+        `  [${platform} ${i + 1}/${targets.length}] ${handle}: ${solved} solves`,
       );
     }
     await sleep(delayMs);
   }
 }
 
-/**
- * Core orchestration logic for registering an outage and freezing streaks for a day
- */
-export async function registerStreakFreeze(
-  dateStr: string,
-  execute: boolean,
-  reason = "",
-): Promise<void> {
-  const windowTimes = computeWindowTimes(dateStr);
-  const fromWindowStart = windowTimes.windowStart.getTime();
-
-  // Find daily challenges on that specific windowStart
-  const challenges = (await DailyChallenge.find({
-    windowStart: windowTimes.windowStart,
-  }).populate("problem")) as any[];
-
-  if (challenges.length === 0) {
-    throw new Error(`No challenges found for date ${dateStr} (windowStart: ${windowTimes.windowStart.toISOString()}).`);
-  }
-
-  console.log(`Found ${challenges.length} challenge(s) on ${dateStr}.`);
-  for (const c of challenges) {
-    console.log(`  - [${c.difficulty}] ID: ${c._id} (Problem: ${c.problem?.name || "unnamed"})`);
-  }
-
-  // Split challenges by platform
-  const cfChallenges = challenges.filter((c) => platformOf(c) === "codeforces");
-  const acChallenges = challenges.filter((c) => platformOf(c) === "atcoder");
-
-  // Build verified-user -> handle maps
-  const cpUsers = (await CPUser.find(
-    {},
-    "userId cfVerified acVerified"
-  ).lean()) as any[];
-  const userDocs = (await User.find(
-    {},
-    "_id codeforcesId atcoderId"
-  ).lean()) as any[];
-
-  const cfHandle = new Map<string, string>();
-  const acHandle = new Map<string, string>();
-  for (const u of userDocs) {
-    if (u.codeforcesId) cfHandle.set(u._id.toString(), u.codeforcesId);
-    if (u.atcoderId) acHandle.set(u._id.toString(), u.atcoderId);
-  }
-
-  const cfTargets = cpUsers.filter(
-    (c) => c.cfVerified && cfHandle.has(c.userId.toString())
-  );
-  const acTargets = cpUsers.filter(
-    (c) => c.acVerified && acHandle.has(c.userId.toString())
-  );
-
-  console.log(
-    `Verified targets for polling -> CF: ${cfTargets.length}, AC: ${acTargets.length}`
-  );
-
-  if (!execute) {
-    console.log(
-      "\nDry run complete. No database changes were made. Re-run with --execute to apply."
-    );
-    return;
-  }
-
-  // Mark the challenges as streak-preserved in the POTDOutage collection
-  console.log(`\nRegistering outage for date ${dateStr} in POTDOutage collection...`);
-  await POTDOutage.updateOne(
-    { date: dateStr },
-    { $set: { reason } },
-    { upsert: true }
-  );
-
-  // Backfill solvedAt using shared platform helper
-  await runPlatformBackfill({
-    targets: cfTargets,
-    handleMap: cfHandle,
-    challenges: cfChallenges,
-    platform: "codeforces",
-    delayMs: CF_DELAY_MS,
-    fromWindowStart,
-  });
-
-  await runPlatformBackfill({
-    targets: acTargets,
-    handleMap: acHandle,
-    challenges: acChallenges,
-    platform: "atcoder",
-    delayMs: AC_DELAY_MS,
-    fromWindowStart,
-  });
-
-  console.log("\nRecomputing all users scoring timeline & streaks...");
-  
-  // Break circular dependency by dynamic importing
-  const { buildTimeline, recomputeUsers } = await import("./finalize");
-  
-  const now = new Date();
-  const { days } = await buildTimeline(now);
-  const allCp = (await CPUser.find({}, "userId").lean()) as any[];
-  const userIds = allCp.map((c) => c.userId);
-  
-  for (let i = 0; i < userIds.length; i++) {
-    await recomputeUsers([userIds[i]], days, now);
-    if ((i + 1) % 25 === 0) console.log(`  ...${i + 1}/${userIds.length}`);
-  }
+interface VerifiedTargets {
+  cfTargets: any[];
+  acTargets: any[];
+  cfHandle: Map<string, string>;
+  acHandle: Map<string, string>;
 }
 
 /**
- * Core orchestration logic for running outage recovery from a start date
+ * Build the verified-user -> platform-handle maps and the lists of users to poll on each platform
  */
-export async function recoverOutage(
-  fromDateStr: string,
-  execute: boolean,
-): Promise<void> {
-  const now = new Date();
-  const windowTimes = computeWindowTimes(fromDateStr);
-  const fromWindowStart = windowTimes.windowStart.getTime();
-
-  // Find all challenges from that date onward
-  const challenges = (await getFinalizedChallenges(now)) as any[];
-  const toRefetch = challenges.filter(
-    (c) => (c.windowStart as Date).getTime() >= fromWindowStart,
-  );
-
-  console.log(
-    `Finalized challenges: ${challenges.length} total; ${toRefetch.length} to re-fetch from ${fromDateStr}.`
-  );
-
-  if (toRefetch.length === 0) {
-    console.log(`No challenges found from date ${fromDateStr} onward.`);
-    return;
-  }
-
-  // Split challenges by platform
-  const cfChallenges = toRefetch.filter((c) => platformOf(c) === "codeforces");
-  const acChallenges = toRefetch.filter((c) => platformOf(c) === "atcoder");
-
-  // Build verified-user -> handle maps
+async function buildVerifiedTargets(): Promise<VerifiedTargets> {
   const cpUsers = (await CPUser.find(
     {},
     "userId cfVerified acVerified",
@@ -385,20 +258,26 @@ export async function recoverOutage(
   );
 
   console.log(
-    `Verified targets for polling -> CF: ${cfTargets.length}, AC: ${acTargets.length}`
+    `Verified targets for polling -> CF: ${cfTargets.length}, AC: ${acTargets.length}`,
   );
+  return { cfTargets, acTargets, cfHandle, acHandle };
+}
 
-  if (!execute) {
-    console.log(
-      "\nDry run complete. No database changes were made. Re-run with --execute to apply."
-    );
-    return;
-  }
-
-  // Backfill solvedAt using shared platform helper
+/**
+ * Backfill solves for the given challenges from all platforms,
+ * recompute every user's scoring timeline,
+ * then finalize any past-grace days the (stopped) worker may have missed
+ */
+async function runBackfillsAndRecompute(
+  cfChallenges: any[],
+  acChallenges: any[],
+  targets: VerifiedTargets,
+  fromWindowStart: number,
+  now: Date,
+): Promise<void> {
   await runPlatformBackfill({
-    targets: cfTargets,
-    handleMap: cfHandle,
+    targets: targets.cfTargets,
+    handleMap: targets.cfHandle,
     challenges: cfChallenges,
     platform: "codeforces",
     delayMs: CF_DELAY_MS,
@@ -406,8 +285,8 @@ export async function recoverOutage(
   });
 
   await runPlatformBackfill({
-    targets: acTargets,
-    handleMap: acHandle,
+    targets: targets.acTargets,
+    handleMap: targets.acHandle,
     challenges: acChallenges,
     platform: "atcoder",
     delayMs: AC_DELAY_MS,
@@ -415,16 +294,128 @@ export async function recoverOutage(
   });
 
   console.log("\nRecomputing all users scoring timeline & streaks...");
-  
-  // Break circular dependency by dynamic importing
-  const { buildTimeline, recomputeUsers } = await import("./finalize");
-  
+
+  // Dynamic import breaks the finalize <-> recompute module cycle
+  const { buildTimeline, recomputeUsers, markPastDaysFinalized } =
+    await import("./finalize");
+
   const { days } = await buildTimeline(now);
   const allCp = (await CPUser.find({}, "userId").lean()) as any[];
   const userIds = allCp.map((c) => c.userId);
-  
+
   for (let i = 0; i < userIds.length; i++) {
     await recomputeUsers([userIds[i]], days, now);
     if ((i + 1) % 25 === 0) console.log(`  ...${i + 1}/${userIds.length}`);
   }
+
+  const marked = await markPastDaysFinalized(now);
+  if (marked > 0) console.log(`Marked ${marked} past challenge(s) finalized.`);
+}
+
+/**
+ * Core orchestration logic for registering an outage and freezing streaks for a day
+ */
+export async function registerStreakFreeze(
+  dateStr: string,
+  execute: boolean,
+  reason = "",
+): Promise<void> {
+  const now = new Date();
+  const windowTimes = computeWindowTimes(dateStr);
+  const fromWindowStart = windowTimes.windowStart.getTime();
+
+  // Find daily challenges on that specific windowStart
+  const challenges = (await DailyChallenge.find({
+    windowStart: windowTimes.windowStart,
+  }).populate("problem")) as any[];
+
+  if (challenges.length === 0) {
+    throw new Error(
+      `No challenges found for date ${dateStr} (windowStart: ${windowTimes.windowStart.toISOString()}).`,
+    );
+  }
+
+  console.log(`Found ${challenges.length} challenge(s) on ${dateStr}.`);
+  for (const c of challenges) {
+    console.log(
+      `  - [${c.difficulty}] ID: ${c._id} (Problem: ${c.problem?.name || "unnamed"})`,
+    );
+  }
+
+  const cfChallenges = challenges.filter((c) => platformOf(c) === "codeforces");
+  const acChallenges = challenges.filter((c) => platformOf(c) === "atcoder");
+
+  const targets = await buildVerifiedTargets();
+
+  if (!execute) {
+    console.log(
+      "\nDry run complete. No database changes were made. Re-run with --execute to apply.",
+    );
+    return;
+  }
+
+  // Mark the day as streak-preserved in the POTDOutage collection
+  console.log(
+    `\nRegistering outage for date ${dateStr} in POTDOutage collection...`,
+  );
+  await POTDOutage.updateOne(
+    { date: dateStr },
+    { $set: { reason } },
+    { upsert: true },
+  );
+
+  await runBackfillsAndRecompute(
+    cfChallenges,
+    acChallenges,
+    targets,
+    fromWindowStart,
+    now,
+  );
+}
+
+/**
+ * Core orchestration logic for running outage recovery from a start date
+ */
+export async function recoverOutage(
+  fromDateStr: string,
+  execute: boolean,
+): Promise<void> {
+  const now = new Date();
+  const windowTimes = computeWindowTimes(fromDateStr);
+  const fromWindowStart = windowTimes.windowStart.getTime();
+
+  // Find all challenges from that date onward
+  const challenges = (await getFinalizedChallenges(now)) as any[];
+  const toRefetch = challenges.filter(
+    (c) => (c.windowStart as Date).getTime() >= fromWindowStart,
+  );
+
+  console.log(
+    `Finalized challenges: ${challenges.length} total; ${toRefetch.length} to re-fetch from ${fromDateStr}.`,
+  );
+
+  if (toRefetch.length === 0) {
+    console.log(`No challenges found from date ${fromDateStr} onward.`);
+    return;
+  }
+
+  const cfChallenges = toRefetch.filter((c) => platformOf(c) === "codeforces");
+  const acChallenges = toRefetch.filter((c) => platformOf(c) === "atcoder");
+
+  const targets = await buildVerifiedTargets();
+
+  if (!execute) {
+    console.log(
+      "\nDry run complete. No database changes were made. Re-run with --execute to apply.",
+    );
+    return;
+  }
+
+  await runBackfillsAndRecompute(
+    cfChallenges,
+    acChallenges,
+    targets,
+    fromWindowStart,
+    now,
+  );
 }
