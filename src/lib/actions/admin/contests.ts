@@ -24,11 +24,15 @@ export async function validateStep(step: number, data: Record<string, any>) {
   }
 
   if (step === 2) {
-    if (data.registrationType !== "open" && data.registrationType !== "closed") {
+    if (
+      data.registrationType !== "open" &&
+      data.registrationType !== "closed"
+    ) {
       errors.registrationType = "Registration type must be open or closed";
     }
     if (!data.maxParticipants || isNaN(Number(data.maxParticipants))) {
-      errors.maxParticipants = "Max participants is required and must be a number";
+      errors.maxParticipants =
+        "Max participants is required and must be a number";
     } else if (Number(data.maxParticipants) < 2) {
       errors.maxParticipants = "Minimum 2 participants required";
     }
@@ -43,17 +47,21 @@ export async function validateStep(step: number, data: Record<string, any>) {
       } else {
         await dbConnect();
         const preset = await ContestPreset.findById(data.presetId);
-      if (!preset) {
-        errors.presetId = "Selected preset does not exist";
-      } else if (preset.archived) {
-        errors.presetId = "Selected preset is archived";
-      }
+        if (!preset) {
+          errors.presetId = "Selected preset does not exist";
+        } else if (preset.archived) {
+          errors.presetId = "Selected preset is archived";
+        }
       }
     }
   }
 
   if (step === 4 || step === 5) {
-    if (data.seedingMethod && data.seedingMethod !== "cf_rating" && data.seedingMethod !== "manual") {
+    if (
+      data.seedingMethod &&
+      data.seedingMethod !== "cf_rating" &&
+      data.seedingMethod !== "manual"
+    ) {
       errors.seedingMethod = "Seeding method must be cf_rating or manual";
     }
   }
@@ -79,7 +87,13 @@ export async function createBracketContest(data: any) {
   let step4 = await validateStep(4, data);
   let step5 = await validateStep(5, data);
 
-  if (!step1.valid || !step2.valid || !step3.valid || !step4.valid || !step5.valid) {
+  if (
+    !step1.valid ||
+    !step2.valid ||
+    !step3.valid ||
+    !step4.valid ||
+    !step5.valid
+  ) {
     return { error: "Invalid form data submission" };
   }
 
@@ -96,13 +110,20 @@ export async function createBracketContest(data: any) {
   if (data.presetId === "custom") {
     if (problemSelectionMode === "fine-tuned") {
       if (!Array.isArray(data.problemSlots) || data.problemSlots.length === 0) {
-        return { error: "Fine-tuned problem slots with round assignments are required for a bracket contest." };
+        return {
+          error:
+            "Fine-tuned problem slots with round assignments are required for a bracket contest.",
+        };
       }
       // Per-round bracket fine-tuned: problemSlots already has roundNumber set by the UI
-      problemSlots = data.problemSlots.filter((s: any) => s.problemId && s.problemId.trim() !== "");
-      
+      problemSlots = data.problemSlots.filter(
+        (s: any) => s.problemId && s.problemId.trim() !== "",
+      );
+
       if (problemSlots.length === 0) {
-        return { error: "Please provide valid problem IDs for the bracket rounds." };
+        return {
+          error: "Please provide valid problem IDs for the bracket rounds.",
+        };
       }
     }
   } else {
@@ -114,9 +135,11 @@ export async function createBracketContest(data: any) {
     bulkRatingMin = preset.bulkRatingMin;
     bulkRatingMax = preset.bulkRatingMax;
     bulkProblemCount = data.bulkProblemCount || preset.bulkProblemCount;
-    problemSlots = (data.problemSlots && data.problemSlots.length > 0) ? data.problemSlots : preset.problemSlots;
+    problemSlots =
+      data.problemSlots && data.problemSlots.length > 0
+        ? data.problemSlots
+        : preset.problemSlots;
   }
-
 
   try {
     const cpUser = await CPUser.findOne({ userId: user.id });
@@ -124,7 +147,9 @@ export async function createBracketContest(data: any) {
 
     const deadlineStr = process.env.REGISTRATION_DEADLINE_MINUTES;
     if (!deadlineStr) {
-      throw new Error("REGISTRATION_DEADLINE_MINUTES is not set in environment variables.");
+      throw new Error(
+        "REGISTRATION_DEADLINE_MINUTES is not set in environment variables.",
+      );
     }
     const deadlineMinutes = parseInt(deadlineStr, 10);
     if (isNaN(deadlineMinutes)) {
@@ -154,8 +179,12 @@ export async function createBracketContest(data: any) {
       startTime: new Date(data.startTime),
       registrationSettings: {
         type: data.registrationType,
-        startTime: data.registrationStartTime ? new Date(data.registrationStartTime) : undefined,
-        deadline: new Date(new Date(data.startTime).getTime() - deadlineMinutes * 60000), // strictly before based on ENV
+        startTime: data.registrationStartTime
+          ? new Date(data.registrationStartTime)
+          : undefined,
+        deadline: new Date(
+          new Date(data.startTime).getTime() - deadlineMinutes * 60000,
+        ), // strictly before based on ENV
         maxParticipants: Number(data.maxParticipants),
       },
       bracketSettings: {
@@ -166,23 +195,25 @@ export async function createBracketContest(data: any) {
 
     // Handle scheduling based on registrationStartTime and deadline
     const now = Date.now();
-    const regStartTime = data.registrationStartTime ? new Date(data.registrationStartTime).getTime() : now;
+    const regStartTime = data.registrationStartTime
+      ? new Date(data.registrationStartTime).getTime()
+      : now;
     const deadlineTime = contest.registrationSettings!.deadline!.getTime();
-    
+
     // Validate registration starts before it ends (only for open registration)
     if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
       await ContestMatch.findByIdAndDelete(contest._id);
       return { error: "Registration start time must be before the deadline." };
     }
-    
+
     // Only handle start_registration scheduling for open contests
     if (data.registrationType !== "closed") {
       // If registration is in the future, schedule start_registration
       if (regStartTime > now) {
         await reconciliationQueue.add(
-          "start_registration", 
-          { contestId: contest._id.toString() }, 
-          { delay: regStartTime - now }
+          "start_registration",
+          { contestId: contest._id.toString() },
+          { delay: regStartTime - now },
         );
       } else {
         // If immediate, switch status to registration
@@ -193,12 +224,11 @@ export async function createBracketContest(data: any) {
       // If closed, we skip the registration phase and go straight to provisioning.
       contest.status = "provisioning";
       await contest.save();
-      
+
       // Invoke check_start immediately to generate the bracket
-      await reconciliationQueue.add(
-        "check_start",
-        { contestId: contest._id.toString() }
-      );
+      await reconciliationQueue.add("check_start", {
+        contestId: contest._id.toString(),
+      });
     }
 
     // For open contests, schedule check_start at the deadline to handle provisioning
@@ -206,7 +236,7 @@ export async function createBracketContest(data: any) {
       await reconciliationQueue.add(
         "check_start",
         { contestId: contest._id.toString() },
-        { delay: deadlineTime - now }
+        { delay: deadlineTime - now },
       );
     }
 
@@ -224,28 +254,35 @@ export async function searchVerifiedUsers(query: string) {
   if (!query || query.length < 2) return { users: [] };
 
   await dbConnect();
-  
-  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const users = await User.find({ name: { $regex: escapedQuery, $options: "i" } })
+
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const users = await User.find({
+    name: { $regex: escapedQuery, $options: "i" },
+  })
     .select("_id name image")
     .limit(20)
     .lean();
-    
+
   if (users.length === 0) return { users: [] };
-  
+
   const userIds = users.map((u: any) => u._id);
-  
+
   // Find which of these users are CPUsers with verified handles
-  const cpUsers = await CPUser.find({ 
-    userId: { $in: userIds }, 
-    cfHandle: { $ne: "" } 
-  }).select("userId cfHandle cfRating").lean();
-  
+  const cpUsers = await CPUser.find({
+    userId: { $in: userIds },
+    cfHandle: { $ne: "" },
+  })
+    .select("userId cfHandle cfRating")
+    .lean();
+
   const cpUserMap = new Map();
   for (const c of cpUsers) {
-    cpUserMap.set(c.userId.toString(), { cfHandle: c.cfHandle, cfRating: c.cfRating });
+    cpUserMap.set(c.userId.toString(), {
+      cfHandle: c.cfHandle,
+      cfRating: c.cfRating,
+    });
   }
-  
+
   const result = users
     .filter((u: any) => cpUserMap.has(u._id.toString()))
     .map((u: any) => {
@@ -255,9 +292,9 @@ export async function searchVerifiedUsers(query: string) {
         name: u.name,
         image: u.image,
         cfHandle: cpData.cfHandle,
-        cfRating: cpData.cfRating || 0
+        cfRating: cpData.cfRating || 0,
       };
     });
-    
+
   return { users: result };
 }

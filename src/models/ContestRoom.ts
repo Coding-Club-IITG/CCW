@@ -30,7 +30,12 @@ const FirstSolverSchema = new Schema<IFirstSolver>({
 
 const ContestRoomSchema = new Schema<IContestRoom>(
   {
-    contestId: { type: Schema.Types.ObjectId, ref: "ContestMatch", required: true, index: true },
+    contestId: {
+      type: Schema.Types.ObjectId,
+      ref: "ContestMatch",
+      required: true,
+      index: true,
+    },
     name: { type: String, required: true },
     status: {
       type: String,
@@ -48,11 +53,15 @@ const ContestRoomSchema = new Schema<IContestRoom>(
     terminationReason: { type: String },
     actualStartTime: { type: Date },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const ContestRoom =
   mongoose.models.ContestRoom ||
-  mongoose.model<IContestRoom>("ContestRoom", ContestRoomSchema, "contest_rooms");
+  mongoose.model<IContestRoom>(
+    "ContestRoom",
+    ContestRoomSchema,
+    "contest_rooms",
+  );
 
 export default ContestRoom;

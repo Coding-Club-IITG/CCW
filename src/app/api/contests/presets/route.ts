@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(presets);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -27,16 +30,34 @@ export async function POST(request: NextRequest) {
 
     await dbConnect();
     const body = await request.json();
-    const { name, description, format, mode, durationSeconds, problemSelectionMode, bulkPlatform, bulkRatingMin, bulkRatingMax, bulkProblemCount, problemSlots } = body;
+    const {
+      name,
+      description,
+      format,
+      mode,
+      durationSeconds,
+      problemSelectionMode,
+      bulkPlatform,
+      bulkRatingMin,
+      bulkRatingMax,
+      bulkProblemCount,
+      problemSlots,
+    } = body;
 
     if (!name || name.trim().length < 3) {
-      return NextResponse.json({ error: "Name must be at least 3 characters long" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Name must be at least 3 characters long" },
+        { status: 400 },
+      );
     }
 
     // Check unique name
     const existing = await ContestPreset.findOne({ name: name.trim() });
     if (existing) {
-      return NextResponse.json({ error: "Preset name already exists" }, { status: 409 });
+      return NextResponse.json(
+        { error: "Preset name already exists" },
+        { status: 409 },
+      );
     }
 
     const preset = await ContestPreset.create({
@@ -56,6 +77,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(preset, { status: 201 });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

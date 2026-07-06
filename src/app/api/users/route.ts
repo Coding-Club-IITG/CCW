@@ -1,5 +1,10 @@
 /**
- * GET /api/users - returns a minimal list of users
+ * GET /api/users - search/list a minimal set of users
+ *
+ * Query params:
+ *   - search : filter by name or email
+ *   - ids    : comma-separated user ids to resolve
+ *   - page / limit : offset pagination (default limit 30)
  *
  * Only accessible to users who can upload.
  */
@@ -12,6 +17,14 @@ import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
 import { getDisplayName } from "@/lib/utils";
 import User from "@/models/User";
+
+type MinimalUser = { _id: string; name: string; email: string };
+
+const toMinimal = (u: any): MinimalUser => ({
+  _id: u._id.toString(),
+  email: u.email,
+  name: getDisplayName(u.name, u.pizza_count),
+});
 
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -27,27 +40,59 @@ export async function GET(request: NextRequest) {
   await dbConnect();
 
   const { searchParams } = new URL(request.url);
-  const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
+  const idsParam = searchParams.get("ids")?.trim();
 
-  const cacheKey = buildCacheKey("users", { page, limit });
+  // Resolve specific users by id
+  if (idsParam) {
+    const ids = idsParam
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 100);
+
+    if (ids.length === 0) return NextResponse.json({ items: [] });
+
+    const cacheKey = buildCacheKey("users", { ids: [...ids].sort().join(",") });
+    const items = await cachedFetch(cacheKey, CACHE_TTLS.USERS, async () => {
+      const users = await User.find({ _id: { $in: ids } })
+        .select("_id name email pizza_count")
+        .lean();
+      return (users as any[]).map(toMinimal);
+    });
+
+    return NextResponse.json({ items });
+  }
+
+  const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
+  const search = searchParams.get("search")?.trim() || "";
+  const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const filter = search
+    ? {
+        $or: [
+          { name: { $regex: escaped, $options: "i" } },
+          { email: { $regex: escaped, $options: "i" } },
+        ],
+      }
+    : {};
+
+  const cacheKey = buildCacheKey("users", {
+    page,
+    limit,
+    search: search || undefined,
+  });
 
   const result = await cachedFetch(cacheKey, CACHE_TTLS.USERS, async () => {
     const [users, total] = await Promise.all([
-      User.find({})
+      User.find(filter)
         .select("_id name email pizza_count")
         .sort({ name: 1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      User.countDocuments({}),
+      User.countDocuments(filter),
     ]);
 
-    const data = users.map((u: any) => ({
-      ...u,
-      name: getDisplayName(u.name, u.pizza_count),
-    }));
-
-    return { data, total };
+    return { data: (users as any[]).map(toMinimal), total };
   });
 
   return NextResponse.json(

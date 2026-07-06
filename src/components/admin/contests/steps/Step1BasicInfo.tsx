@@ -19,12 +19,34 @@ export default function Step1BasicInfo({
 }: Step1Props) {
   return (
     <div>
-      <h2 style={{ marginBottom: "1.5rem", fontSize: "1.25rem", color: "var(--foreground-strong)" }}>
+      <h2
+        style={{
+          marginBottom: "1.5rem",
+          fontSize: "1.25rem",
+          color: "var(--foreground-strong)",
+        }}
+      >
         Step 1: Tournament Basic Info
       </h2>
 
-      <div className={styles.field} style={{ display: "flex", flexDirection: "column", gap: "0.375rem", marginBottom: "1.25rem" }}>
-        <label style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--foreground)" }}>Tournament Name</label>
+      <div
+        className={styles.field}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.375rem",
+          marginBottom: "1.25rem",
+        }}
+      >
+        <label
+          style={{
+            fontWeight: 600,
+            fontSize: "0.8125rem",
+            color: "var(--foreground)",
+          }}
+        >
+          Tournament Name
+        </label>
         <input
           type="text"
           value={name}
@@ -32,7 +54,9 @@ export default function Step1BasicInfo({
           placeholder="e.g. CCW Monsoon Bracket Clash"
           style={{
             padding: "0.5rem 0.75rem",
-            border: errors.name ? "1px solid var(--danger)" : "1px solid var(--border-input)",
+            border: errors.name
+              ? "1px solid var(--danger)"
+              : "1px solid var(--border-input)",
             borderRadius: "6px",
             fontSize: "0.875rem",
             background: "var(--surface)",
@@ -40,11 +64,31 @@ export default function Step1BasicInfo({
           }}
           required
         />
-        {errors.name && <span style={{ color: "var(--danger)", fontSize: "0.75rem" }}>{errors.name}</span>}
+        {errors.name && (
+          <span style={{ color: "var(--danger)", fontSize: "0.75rem" }}>
+            {errors.name}
+          </span>
+        )}
       </div>
 
-      <div className={styles.field} style={{ display: "flex", flexDirection: "column", gap: "0.375rem", marginBottom: "1.25rem" }}>
-        <label style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--foreground)" }}>Description</label>
+      <div
+        className={styles.field}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.375rem",
+          marginBottom: "1.25rem",
+        }}
+      >
+        <label
+          style={{
+            fontWeight: 600,
+            fontSize: "0.8125rem",
+            color: "var(--foreground)",
+          }}
+        >
+          Description
+        </label>
         <textarea
           value={description}
           onChange={(e) => updateFields({ description: e.target.value })}
@@ -52,7 +96,9 @@ export default function Step1BasicInfo({
           maxLength={500}
           style={{
             padding: "0.5rem 0.75rem",
-            border: errors.description ? "1px solid var(--danger)" : "1px solid var(--border-input)",
+            border: errors.description
+              ? "1px solid var(--danger)"
+              : "1px solid var(--border-input)",
             borderRadius: "6px",
             fontSize: "0.875rem",
             background: "var(--surface)",
@@ -61,12 +107,24 @@ export default function Step1BasicInfo({
             resize: "vertical",
           }}
         />
-        {errors.description && <span style={{ color: "var(--danger)", fontSize: "0.75rem" }}>{errors.description}</span>}
+        {errors.description && (
+          <span style={{ color: "var(--danger)", fontSize: "0.75rem" }}>
+            {errors.description}
+          </span>
+        )}
       </div>
 
       <div style={{ display: "flex", gap: "2rem", marginBottom: "1.25rem" }}>
         <div style={{ flex: 1 }}>
-          <label style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--foreground)", display: "block", marginBottom: "0.5rem" }}>
+          <label
+            style={{
+              fontWeight: 600,
+              fontSize: "0.8125rem",
+              color: "var(--foreground)",
+              display: "block",
+              marginBottom: "0.5rem",
+            }}
+          >
             Format (Fixed)
           </label>
           <input
@@ -87,11 +145,27 @@ export default function Step1BasicInfo({
         </div>
 
         <div style={{ flex: 1 }}>
-          <label style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--foreground)", display: "block", marginBottom: "0.5rem" }}>
+          <label
+            style={{
+              fontWeight: 600,
+              fontSize: "0.8125rem",
+              color: "var(--foreground)",
+              display: "block",
+              marginBottom: "0.5rem",
+            }}
+          >
             Match Mode
           </label>
           <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.875rem", cursor: "pointer" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.375rem",
+                fontSize: "0.875rem",
+                cursor: "pointer",
+              }}
+            >
               <input
                 type="radio"
                 name="mode"
@@ -100,7 +174,15 @@ export default function Step1BasicInfo({
               />
               Blitz
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.875rem", cursor: "pointer" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.375rem",
+                fontSize: "0.875rem",
+                cursor: "pointer",
+              }}
+            >
               <input
                 type="radio"
                 name="mode"
@@ -113,12 +195,30 @@ export default function Step1BasicInfo({
         </div>
       </div>
 
-      <div className={styles.field} style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-        <label style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--foreground)", marginBottom: "0.5rem" }}>
+      <div
+        className={styles.field}
+        style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}
+      >
+        <label
+          style={{
+            fontWeight: 600,
+            fontSize: "0.8125rem",
+            color: "var(--foreground)",
+            marginBottom: "0.5rem",
+          }}
+        >
           Team Size
         </label>
         <div style={{ display: "flex", gap: "1.5rem" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.875rem", cursor: "pointer" }}>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.375rem",
+              fontSize: "0.875rem",
+              cursor: "pointer",
+            }}
+          >
             <input
               type="radio"
               name="teamSize"
@@ -127,7 +227,15 @@ export default function Step1BasicInfo({
             />
             Solo (1v1 matches)
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.875rem", cursor: "pointer" }}>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.375rem",
+              fontSize: "0.875rem",
+              cursor: "pointer",
+            }}
+          >
             <input
               type="radio"
               name="teamSize"

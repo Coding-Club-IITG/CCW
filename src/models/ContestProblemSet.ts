@@ -42,11 +42,15 @@ const ContestProblemSetSchema = new Schema<IContestProblemSet>(
     },
     problems: [SelectedProblemSchema],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const ContestProblemSet =
   mongoose.models.ContestProblemSet ||
-  mongoose.model<IContestProblemSet>("ContestProblemSet", ContestProblemSetSchema, "contest_problem_sets");
+  mongoose.model<IContestProblemSet>(
+    "ContestProblemSet",
+    ContestProblemSetSchema,
+    "contest_problem_sets",
+  );
 
 export default ContestProblemSet;

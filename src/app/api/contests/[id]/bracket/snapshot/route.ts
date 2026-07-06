@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session?.user) {
@@ -18,6 +18,9 @@ export async function GET(
     const snapshot = await getBracketSnapshot(id);
     return NextResponse.json(snapshot);
   } catch (err) {
-    return NextResponse.json({ error: "Failed to fetch bracket snapshot" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch bracket snapshot" },
+      { status: 500 },
+    );
   }
 }

@@ -25,7 +25,7 @@ import {
   getTodayISTDateStr,
   windowStartToISTDateStr,
 } from "@/lib/potd/utils";
-import { processSubmission } from "@/lib/potd/submit";
+import { syncUserChallenge } from "@/lib/potd/finalize";
 import { fetchUserSubmissions } from "@/lib/potd/recompute";
 import { getProblemById } from "@/lib/platforms/atcoder";
 
@@ -420,9 +420,7 @@ export async function forceSyncUser(
   }
 
   const handle =
-    platform === "codeforces"
-      ? targetUser.codeforcesId
-      : targetUser.atcoderId;
+    platform === "codeforces" ? targetUser.codeforcesId : targetUser.atcoderId;
 
   let subs: any[] = [];
   try {
@@ -436,10 +434,9 @@ export async function forceSyncUser(
     return { ok: false, error: `Failed to reach ${platform} API` };
   }
 
-  const { status: newStatus } = await processSubmission(
+  const { status: newStatus } = await syncUserChallenge(
     targetUserId,
     challenge,
-    targetCPUser,
     subs,
     platform,
   );

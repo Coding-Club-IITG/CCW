@@ -34,7 +34,11 @@ export type ContestListingItem = {
   actualStartTime?: Date | null;
 };
 
-export async function getContestListing(): Promise<{ active: ContestListingItem[], upcoming: ContestListingItem[], completed: ContestListingItem[] }> {
+export async function getContestListing(): Promise<{
+  active: ContestListingItem[];
+  upcoming: ContestListingItem[];
+  completed: ContestListingItem[];
+}> {
   const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user?.id;
 
@@ -49,7 +53,9 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
   }
 
   const contests = await ContestMatch.find({
-    status: { $in: ["draft", "registration", "provisioning", "active", "completed"] },
+    status: {
+      $in: ["draft", "registration", "provisioning", "active", "completed"],
+    },
   }).lean();
 
   const active: ContestListingItem[] = [];
@@ -57,7 +63,11 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
   const completed: ContestListingItem[] = [];
 
   for (const contest of contests) {
-    const isRegistered = userId ? (contest.registrations || []).some((r: any) => r.userId.toString() === userId) : false;
+    const isRegistered = userId
+      ? (contest.registrations || []).some(
+          (r: any) => r.userId.toString() === userId,
+        )
+      : false;
     const item: ContestListingItem = {
       _id: contest._id.toString(),
       name: contest.name,
@@ -82,7 +92,10 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
 
     if (status === "active") {
       if (userId) {
-        const room = await ContestRoom.findOne({ contestId: contest._id, participants: userId }).lean();
+        const room = await ContestRoom.findOne({
+          contestId: contest._id,
+          participants: userId,
+        }).lean();
         if (room) {
           item.roomStatus = room.status;
           item.actualStartTime = room.actualStartTime || null;
@@ -93,15 +106,27 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
       upcoming.push(item);
     } else if (status === "completed") {
       if (userId) {
-        const room = await ContestRoom.findOne({ contestId: contest._id, participants: userId }).lean();
+        const room = await ContestRoom.findOne({
+          contestId: contest._id,
+          participants: userId,
+        }).lean();
         if (room) {
           const teams = await ContestTeam.find({ roomId: room._id }).lean();
-          const userTeam = teams.find((t: any) => t.members.some((m: any) => m.toString() === userId));
+          const userTeam = teams.find((t: any) =>
+            t.members.some((m: any) => m.toString() === userId),
+          );
           if (userTeam) {
             item.userScore = userTeam.score;
-            const otherTeams = teams.filter((t: any) => t._id.toString() !== userTeam._id.toString());
-            item.opponentScore = otherTeams.length > 0 ? Math.max(...otherTeams.map((t: any) => t.score)) : 0;
-            item.otherScores = otherTeams.map((t: any) => t.score).sort((a: number, b: number) => b - a);
+            const otherTeams = teams.filter(
+              (t: any) => t._id.toString() !== userTeam._id.toString(),
+            );
+            item.opponentScore =
+              otherTeams.length > 0
+                ? Math.max(...otherTeams.map((t: any) => t.score))
+                : 0;
+            item.otherScores = otherTeams
+              .map((t: any) => t.score)
+              .sort((a: number, b: number) => b - a);
             const us = item.userScore ?? 0;
             const op = item.opponentScore ?? 0;
             item.result = us > op ? "victory" : us === op ? "tie" : "loss";
@@ -113,14 +138,28 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
   }
 
   // Sort
-  active.sort((a, b) => (a.startTime && b.startTime) ? a.startTime.getTime() - b.startTime.getTime() : 0);
-  upcoming.sort((a, b) => (a.startTime && b.startTime) ? a.startTime.getTime() - b.startTime.getTime() : 0);
-  completed.sort((a, b) => (a.startTime && b.startTime) ? b.startTime.getTime() - a.startTime.getTime() : 0); // desc
+  active.sort((a, b) =>
+    a.startTime && b.startTime
+      ? a.startTime.getTime() - b.startTime.getTime()
+      : 0,
+  );
+  upcoming.sort((a, b) =>
+    a.startTime && b.startTime
+      ? a.startTime.getTime() - b.startTime.getTime()
+      : 0,
+  );
+  completed.sort((a, b) =>
+    a.startTime && b.startTime
+      ? b.startTime.getTime() - a.startTime.getTime()
+      : 0,
+  ); // desc
 
   return { active, upcoming, completed };
 }
 
-export async function getContestById(id: string): Promise<ContestListingItem | null> {
+export async function getContestById(
+  id: string,
+): Promise<ContestListingItem | null> {
   const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user?.id;
 
@@ -138,11 +177,17 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
     const contest = await ContestMatch.findById(id).lean();
     if (!contest) return null;
 
-    const isRegistered = userId ? (contest.registrations || []).some((r: any) => r.userId.toString() === userId) : false;
+    const isRegistered = userId
+      ? (contest.registrations || []).some(
+          (r: any) => r.userId.toString() === userId,
+        )
+      : false;
 
     let computedStatus = contest.status;
     const now = new Date();
-    if (["completed", "active", "draft", "provisioning"].includes(contest.status)) {
+    if (
+      ["completed", "active", "draft", "provisioning"].includes(contest.status)
+    ) {
       computedStatus = contest.status;
     } else if (contest.startTime && contest.endTime) {
       if (now >= contest.startTime && now <= contest.endTime) {
@@ -180,12 +225,14 @@ export async function getContestById(id: string): Promise<ContestListingItem | n
 
 import { revalidatePath } from "next/cache";
 
-export async function registerForContest(contestId: string, teamName?: string): Promise<{ success: boolean; message: string }> {
+export async function registerForContest(
+  contestId: string,
+  teamName?: string,
+): Promise<{ success: boolean; message: string }> {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
     if (!userId) return { success: false, message: "Unauthorized" };
-
 
     await dbConnect();
     const cpUser = await CPUser.findOne({ userId });
@@ -195,10 +242,15 @@ export async function registerForContest(contestId: string, teamName?: string): 
     if (!contest) return { success: false, message: "Contest not found" };
 
     if (contest.status !== "registration") {
-      return { success: false, message: "Contest is not open for registration" };
+      return {
+        success: false,
+        message: "Contest is not open for registration",
+      };
     }
 
-    const isAlreadyRegistered = contest.registrations?.some((r: any) => r.userId.toString() === userId);
+    const isAlreadyRegistered = contest.registrations?.some(
+      (r: any) => r.userId.toString() === userId,
+    );
     if (isAlreadyRegistered) {
       return { success: false, message: "Already registered" };
     }
@@ -208,13 +260,17 @@ export async function registerForContest(contestId: string, teamName?: string): 
     const tName = teamName || cpUser.cfHandle || "unknown";
 
     if (contest.teamSize > 1) {
-      const teamMembers = contest.registrations.filter((r: any) => r.teamName === tName);
+      const teamMembers = contest.registrations.filter(
+        (r: any) => r.teamName === tName,
+      );
       if (teamMembers.length >= contest.teamSize) {
         return { success: false, message: "Team is already full." };
       }
     } else {
       // For solo, ensure no duplicate team name
-      const teamExists = contest.registrations.some((r: any) => r.teamName === tName);
+      const teamExists = contest.registrations.some(
+        (r: any) => r.teamName === tName,
+      );
       if (teamExists) {
         return { success: false, message: "Display name already taken." };
       }
@@ -238,7 +294,9 @@ export async function registerForContest(contestId: string, teamName?: string): 
   }
 }
 
-export async function getAvailableTeamsForContest(contestId: string): Promise<{ teamName: string; memberCount: number; maxCapacity: number }[]> {
+export async function getAvailableTeamsForContest(
+  contestId: string,
+): Promise<{ teamName: string; memberCount: number; maxCapacity: number }[]> {
   try {
     await dbConnect();
     const contest = await ContestMatch.findById(contestId).lean();
@@ -258,7 +316,7 @@ export async function getAvailableTeamsForContest(contestId: string): Promise<{ 
       .map(([teamName, count]) => ({
         teamName,
         memberCount: count,
-        maxCapacity: contest.teamSize
+        maxCapacity: contest.teamSize,
       }));
 
     return availableTeams;
@@ -271,12 +329,13 @@ export async function getAvailableTeamsForContest(contestId: string): Promise<{ 
 import { reconciliationQueue } from "@/lib/bullmq";
 import mongoose from "mongoose";
 
-export async function createRoomContest(data: any): Promise<{ success: boolean; message?: string; error?: string }> {
+export async function createRoomContest(
+  data: any,
+): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
     if (!userId) return { success: false, error: "Unauthorized" };
-
 
     await dbConnect();
     const cpUser = await CPUser.findOne({ userId });
@@ -285,7 +344,9 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
     const start = new Date(data.startTime);
     const deadlineStr = process.env.REGISTRATION_DEADLINE_MINUTES;
     if (!deadlineStr) {
-      throw new Error("REGISTRATION_DEADLINE_MINUTES is not set in environment variables.");
+      throw new Error(
+        "REGISTRATION_DEADLINE_MINUTES is not set in environment variables.",
+      );
     }
     const deadlineMinutes = parseInt(deadlineStr, 10);
     if (isNaN(deadlineMinutes)) {
@@ -294,8 +355,13 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
     const deadline = new Date(start.getTime() - deadlineMinutes * 60000);
 
     // Validate start time is at least 2 minutes from now (1 min registration + 1 min buffer)
-    if (start.getTime() < Date.now() + 2 * 60000 - 5000) { // 5s grace period
-      return { success: false, error: "Start time must be strictly at least 2 minutes ahead of current time" };
+    if (start.getTime() < Date.now() + 2 * 60000 - 5000) {
+      // 5s grace period
+      return {
+        success: false,
+        error:
+          "Start time must be strictly at least 2 minutes ahead of current time",
+      };
     }
 
     // Format-specific backend validations and overrides
@@ -306,18 +372,26 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
       maxParticipants = 2;
     } else if (format === "solo-tournament") {
       teamSize = 1;
-      if (maxParticipants < 2) return { success: false, error: "At least 2 participants required." };
+      if (maxParticipants < 2)
+        return { success: false, error: "At least 2 participants required." };
     } else if (format === "team-tournament") {
       teamSize = 3;
-      if (maxParticipants < 6) return { success: false, error: "Team battles require at least 6 participants." };
+      if (maxParticipants < 6)
+        return {
+          success: false,
+          error: "Team battles require at least 6 participants.",
+        };
       maxParticipants = maxParticipants - (maxParticipants % 3);
     }
 
     let problemSlots: any[] = [];
-    if (data.problemSelectionMode === "fine-tuned" && Array.isArray(data.fineTunedProblems)) {
+    if (
+      data.problemSelectionMode === "fine-tuned" &&
+      Array.isArray(data.fineTunedProblems)
+    ) {
       problemSlots = data.fineTunedProblems.map((id: string) => ({
         platform: "codeforces",
-        problemId: id.trim()
+        problemId: id.trim(),
       }));
     }
 
@@ -338,7 +412,9 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
       problemSlots: problemSlots.length > 0 ? problemSlots : undefined,
       registrationSettings: {
         type: data.registrationType || "open",
-        startTime: data.registrationStartTime ? new Date(data.registrationStartTime) : undefined,
+        startTime: data.registrationStartTime
+          ? new Date(data.registrationStartTime)
+          : undefined,
         deadline: deadline,
         maxParticipants: maxParticipants,
       },
@@ -347,22 +423,25 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
         cfHandle: u.cfHandle,
         teamName: u.teamName,
         registeredAt: new Date(),
-      }))
+      })),
     });
-
-
 
     await contest.save();
 
     // Handle scheduling based on registrationStartTime and deadline
     const now = Date.now();
-    const regStartTime = data.registrationStartTime ? new Date(data.registrationStartTime).getTime() : now;
+    const regStartTime = data.registrationStartTime
+      ? new Date(data.registrationStartTime).getTime()
+      : now;
     const deadlineTime = contest.registrationSettings!.deadline!.getTime();
 
     // Validate registration starts before it ends (only for open registration)
     if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
       await ContestMatch.findByIdAndDelete(contest._id);
-      return { success: false, error: "Registration start time must be before the deadline." };
+      return {
+        success: false,
+        error: "Registration start time must be before the deadline.",
+      };
     }
 
     if (data.registrationType !== "closed") {
@@ -371,19 +450,27 @@ export async function createRoomContest(data: any): Promise<{ success: boolean; 
         await reconciliationQueue.add(
           "start_registration",
           { contestId: contest._id.toString() },
-          { delay: regStartTime - now }
+          { delay: regStartTime - now },
         );
       } else {
         contest.status = "registration";
         await contest.save();
       }
-      
+
       // Schedule the check_start job at the registration deadline
       const delay = Math.max(0, deadlineTime - Date.now());
-      await reconciliationQueue.add("check_start", { contestId: contest._id.toString() }, { delay });
+      await reconciliationQueue.add(
+        "check_start",
+        { contestId: contest._id.toString() },
+        { delay },
+      );
     } else {
       // For closed matches, directly invoke check_start job immediately
-      await reconciliationQueue.add("check_start", { contestId: contest._id.toString() }, { delay: 0 });
+      await reconciliationQueue.add(
+        "check_start",
+        { contestId: contest._id.toString() },
+        { delay: 0 },
+      );
     }
 
     revalidatePath("/internal/contests");
@@ -408,12 +495,16 @@ export async function getContestRegistrations(contestId: string) {
       if (u.image) imageMap[u._id.toString()] = u.image;
     });
 
-    const populatedRegistrations = (contest.registrations || []).map((r: any) => ({
-      ...r,
-      image: imageMap[r.userId.toString()] || null
-    }));
+    const populatedRegistrations = (contest.registrations || []).map(
+      (r: any) => ({
+        ...r,
+        image: imageMap[r.userId.toString()] || null,
+      }),
+    );
 
-    const isDeadlinePassed = contest.registrationSettings?.deadline ? new Date() > new Date(contest.registrationSettings.deadline) : false;
+    const isDeadlinePassed = contest.registrationSettings?.deadline
+      ? new Date() > new Date(contest.registrationSettings.deadline)
+      : false;
 
     return {
       success: true,
@@ -429,12 +520,13 @@ export async function getContestRegistrations(contestId: string) {
   }
 }
 
-export async function unregisterFromContest(contestId: string): Promise<{ success: boolean; message: string }> {
+export async function unregisterFromContest(
+  contestId: string,
+): Promise<{ success: boolean; message: string }> {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
     if (!userId) return { success: false, message: "Unauthorized" };
-
 
     await dbConnect();
 
@@ -442,13 +534,19 @@ export async function unregisterFromContest(contestId: string): Promise<{ succes
     if (!contest) return { success: false, message: "Contest not found" };
 
     if (contest.status !== "registration") {
-      return { success: false, message: "Cannot unregister after registration has closed." };
+      return {
+        success: false,
+        message: "Cannot unregister after registration has closed.",
+      };
     }
 
-    if (!contest.registrations) return { success: false, message: "Not registered" };
+    if (!contest.registrations)
+      return { success: false, message: "Not registered" };
 
     const initialLength = contest.registrations.length;
-    contest.registrations = contest.registrations.filter((r: any) => r.userId.toString() !== userId);
+    contest.registrations = contest.registrations.filter(
+      (r: any) => r.userId.toString() !== userId,
+    );
 
     if (contest.registrations.length === initialLength) {
       return { success: false, message: "Not registered" };

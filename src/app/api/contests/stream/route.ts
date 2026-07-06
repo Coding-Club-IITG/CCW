@@ -12,7 +12,10 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   let userId = "";
 
-  if (process.env.NODE_ENV === "development" && request.headers.get("x-test-user-id")) {
+  if (
+    process.env.NODE_ENV === "development" &&
+    request.headers.get("x-test-user-id")
+  ) {
     userId = request.headers.get("x-test-user-id")!;
   } else {
     const session = await auth.api.getSession({ headers: request.headers });
@@ -27,9 +30,9 @@ export async function GET(request: NextRequest) {
   const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
   const activeRooms = isValidObjectId
     ? await ContestRoom.find({
-      participants: userId,
-      status: { $in: ["waiting", "active"] },
-    }).lean()
+        participants: userId,
+        status: { $in: ["waiting", "active"] },
+      }).lean()
     : [];
 
   const redis = await getRedis();
@@ -48,7 +51,7 @@ export async function GET(request: NextRequest) {
     if (currentStatus === "active") {
       const allTeams = await redis.sMembers(`room:${roomId}:teams`);
       let activeTeamsCount = 0;
-      
+
       for (const tId of allTeams) {
         const members = await redis.sMembers(`team:${tId}:users`);
         let isTeamActive = false;
@@ -66,7 +69,10 @@ export async function GET(request: NextRequest) {
 
       if (activeTeamsCount > 1) {
         const { Job } = await import("bullmq");
-        const job = await Job.fromId(reconciliationQueue, `disconnect-timeout-${roomId}`);
+        const job = await Job.fromId(
+          reconciliationQueue,
+          `disconnect-timeout-${roomId}`,
+        );
         if (job) {
           await job.remove();
           cancelled = true;
@@ -75,13 +81,21 @@ export async function GET(request: NextRequest) {
     }
 
     // Publish online status
-    await publishRoom(roomId, { type: "presence.online", userId, cancelledForfeit: cancelled });
+    await publishRoom(roomId, {
+      type: "presence.online",
+      userId,
+      cancelledForfeit: cancelled,
+    });
 
     // Send a full state resync directly to the reconnecting user so they catch up on any
     // changes that happened while they were disconnected (missed SSE events).
     if (currentStatus === "active" || currentStatus === "waiting") {
       try {
-        const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
+        const problemsRaw = await redis.lRange(
+          `room:${roomId}:problems`,
+          0,
+          -1,
+        );
         const problems = problemsRaw.map((p: string) => JSON.parse(p));
 
         const allTeams = await redis.sMembers(`room:${roomId}:teams`);
@@ -91,7 +105,10 @@ export async function GET(request: NextRequest) {
           scores[tId] = s ? parseFloat(s.toString()) : 0;
         }
 
-        const locks = stateObj.type === "arena" ? await redis.hGetAll(`room:${roomId}:locks`) : {};
+        const locks =
+          stateObj.type === "arena"
+            ? await redis.hGetAll(`room:${roomId}:locks`)
+            : {};
 
         await publishUser(userId, {
           type: "room.state_sync",
@@ -123,7 +140,9 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const roomIdFromQuery = request.nextUrl.searchParams.get("roomId") || request.nextUrl.searchParams.get("rooms");
+  const roomIdFromQuery =
+    request.nextUrl.searchParams.get("roomId") ||
+    request.nextUrl.searchParams.get("rooms");
   if (roomIdFromQuery && /^[0-9a-fA-F]{24}$/.test(roomIdFromQuery)) {
     const roomChannel = `events:room:${roomIdFromQuery}`;
     if (!channels.includes(roomChannel)) {
@@ -154,7 +173,7 @@ export async function GET(request: NextRequest) {
       for (const room of activeRooms) {
         const roomId = room._id.toString();
         const presenceKey = `room:${roomId}:presence:${userId}`;
-        
+
         // Delete presence immediately instead of setting an expiration
         await redis.del(presenceKey);
 
@@ -164,12 +183,14 @@ export async function GET(request: NextRequest) {
         if (currentStatus === "active") {
           const allTeams = await redis.sMembers(`room:${roomId}:teams`);
           let activeTeamsCount = 0;
-          
+
           for (const tId of allTeams) {
             const members = await redis.sMembers(`team:${tId}:users`);
             let isTeamActive = false;
             for (const mId of members) {
-              const isOnline = await redis.exists(`room:${roomId}:presence:${mId}`);
+              const isOnline = await redis.exists(
+                `room:${roomId}:presence:${mId}`,
+              );
               if (isOnline) {
                 isTeamActive = true;
                 break;
@@ -181,15 +202,30 @@ export async function GET(request: NextRequest) {
           }
 
           if (activeTeamsCount <= 1) {
-            const timeoutSeconds = parseInt(process.env.DISCONNECT_FORFEIT_TIMEOUT_SECONDS || "60", 10);
-            
+            const timeoutSeconds = parseInt(
+              process.env.DISCONNECT_FORFEIT_TIMEOUT_SECONDS || "60",
+              10,
+            );
+
             // Publish offline status with timeout warning
-            await publishRoom(roomId, { type: "presence.offline", userId, forfeitTimeout: timeoutSeconds });
-            
+            await publishRoom(roomId, {
+              type: "presence.offline",
+              userId,
+              forfeitTimeout: timeoutSeconds,
+            });
+
             await reconciliationQueue.add(
               "mid_match_disconnect_timeout",
-              { roomId, userId, contestId: room.contestId.toString(), trigger: "disconnect" },
-              { delay: timeoutSeconds * 1000, jobId: `disconnect-timeout-${roomId}` }
+              {
+                roomId,
+                userId,
+                contestId: room.contestId.toString(),
+                trigger: "disconnect",
+              },
+              {
+                delay: timeoutSeconds * 1000,
+                jobId: `disconnect-timeout-${roomId}`,
+              },
             );
           } else {
             // Publish offline status without scheduling forfeit
@@ -232,15 +268,17 @@ export async function GET(request: NextRequest) {
         subscribedChannels: channels,
       });
 
-      console.log(`[SSE] Client ${userId} connected. Subscribing to channels:`, channels);
+      console.log(
+        `[SSE] Client ${userId} connected. Subscribing to channels:`,
+        channels,
+      );
 
       try {
         await subscriber.subscribe(channels, (message, channel) => {
           let parsed = message;
           try {
             parsed = JSON.parse(message);
-          } catch (e) {
-          }
+          } catch (e) {}
           sendEvent("message", { channel, payload: parsed });
         });
       } catch (err) {
@@ -258,7 +296,7 @@ export async function GET(request: NextRequest) {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
     },
   });
 }

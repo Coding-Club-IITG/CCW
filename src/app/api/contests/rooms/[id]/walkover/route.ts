@@ -4,7 +4,7 @@ import { processWalkover } from "@/lib/bracket";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const resolvedParams = await params;
@@ -26,17 +26,22 @@ export async function POST(
     if (!winnerTeamId || !note) {
       return NextResponse.json(
         { error: "winnerTeamId and note are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const adminUserId = admin?._id?.toString() || "dev-bypass";
-    const snapshot = await processWalkover(roomId, winnerTeamId, note, adminUserId);
+    const snapshot = await processWalkover(
+      roomId,
+      winnerTeamId,
+      note,
+      adminUserId,
+    );
     return NextResponse.json({ success: true, bracket: snapshot });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Internal Server Error" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 }

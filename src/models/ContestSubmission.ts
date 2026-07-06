@@ -18,8 +18,18 @@ export interface IContestSubmission extends Document {
 
 const ContestSubmissionSchema = new Schema<IContestSubmission>(
   {
-    contestId: { type: Schema.Types.ObjectId, ref: "ContestMatch", required: true, index: true },
-    roomId: { type: Schema.Types.ObjectId, ref: "ContestRoom", required: true, index: true },
+    contestId: {
+      type: Schema.Types.ObjectId,
+      ref: "ContestMatch",
+      required: true,
+      index: true,
+    },
+    roomId: {
+      type: Schema.Types.ObjectId,
+      ref: "ContestRoom",
+      required: true,
+      index: true,
+    },
     userId: { type: Schema.Types.ObjectId, ref: "CPUser", required: true },
     teamId: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     problemId: { type: String, required: true },
@@ -30,7 +40,7 @@ const ContestSubmissionSchema = new Schema<IContestSubmission>(
     solveMs: { type: Number },
     submittedAt: { type: Date, required: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 ContestSubmissionSchema.index({ roomId: 1, userId: 1 });
@@ -38,6 +48,10 @@ ContestSubmissionSchema.index({ contestId: 1, problemId: 1 });
 
 const ContestSubmission =
   mongoose.models.ContestSubmission ||
-  mongoose.model<IContestSubmission>("ContestSubmission", ContestSubmissionSchema, "contest_submissions");
+  mongoose.model<IContestSubmission>(
+    "ContestSubmission",
+    ContestSubmissionSchema,
+    "contest_submissions",
+  );
 
 export default ContestSubmission;

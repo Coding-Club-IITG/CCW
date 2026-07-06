@@ -16,7 +16,9 @@ export default function Step3aFineTuned({
   errors,
   preset,
 }: Step3aFineTunedProps) {
-  const [problemsPerMatch, setProblemsPerMatch] = useState(preset?.bulkProblemCount || 3);
+  const [problemsPerMatch, setProblemsPerMatch] = useState(
+    preset?.bulkProblemCount || 3,
+  );
   const [roundInputs, setRoundInputs] = useState<Record<number, string>>({});
 
   const nextPowerOf2 = (n: number) => Math.pow(2, Math.ceil(Math.log2(n)));
@@ -29,7 +31,9 @@ export default function Step3aFineTuned({
     if (hasInitialized.current) return;
     const inputs: Record<number, string> = {};
     for (let r = 1; r <= totalRounds; r++) {
-      const roundProblems = problemSlots.filter(p => p.roundNumber === r).map(p => p.problemId);
+      const roundProblems = problemSlots
+        .filter((p) => p.roundNumber === r)
+        .map((p) => p.problemId);
       if (roundProblems.length > 0) {
         inputs[r] = roundProblems.join(", ");
       } else {
@@ -45,26 +49,35 @@ export default function Step3aFineTuned({
     setRoundInputs(newInputs);
 
     // Parse and update global problemSlots
-    const newSlots: { platform: string; problemId: string; roundNumber: number }[] = [];
+    const newSlots: {
+      platform: string;
+      problemId: string;
+      roundNumber: number;
+    }[] = [];
     Object.keys(newInputs).forEach((key) => {
       const r = parseInt(key);
       const val = newInputs[r];
       if (val.trim()) {
-        const ids = val.split(",").map(id => id.trim()).filter(id => id.length > 0);
-        ids.forEach(id => {
+        const ids = val
+          .split(",")
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0);
+        ids.forEach((id) => {
           newSlots.push({
             platform: "codeforces",
             problemId: id,
-            roundNumber: r
+            roundNumber: r,
           });
         });
       }
     });
-    
+
     updateFields({ problemSlots: newSlots });
   };
 
-  const handleProblemsPerMatchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProblemsPerMatchChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const val = parseInt(e.target.value) || 1;
     setProblemsPerMatch(val);
     updateFields({ bulkProblemCount: val });
@@ -74,17 +87,18 @@ export default function Step3aFineTuned({
     <div className={styles.stepContainer}>
       <h2>Round-based Problem Selection</h2>
       <p className={styles.stepDescription}>
-        You selected a fine-tuned preset. For a bracket of {maxParticipants} participants, there will be {totalRounds} rounds.
-        Please provide the exact Codeforces Problem IDs (comma-separated) for each round.
+        You selected a fine-tuned preset. For a bracket of {maxParticipants}{" "}
+        participants, there will be {totalRounds} rounds. Please provide the
+        exact Codeforces Problem IDs (comma-separated) for each round.
       </p>
 
       <div className={styles.formGroup}>
         <label>Problems per match:</label>
-        <input 
-          type="number" 
-          min={1} 
-          value={problemsPerMatch} 
-          onChange={handleProblemsPerMatchChange} 
+        <input
+          type="number"
+          min={1}
+          value={problemsPerMatch}
+          onChange={handleProblemsPerMatchChange}
           className={styles.input}
         />
       </div>
@@ -94,12 +108,30 @@ export default function Step3aFineTuned({
           const roundNum = i + 1;
           const matchesInRound = Math.pow(2, totalRounds - roundNum);
           const requiredProblems = matchesInRound * problemsPerMatch;
-          const currentCount = problemSlots.filter(p => p.roundNumber === roundNum).length;
-          
+          const currentCount = problemSlots.filter(
+            (p) => p.roundNumber === roundNum,
+          ).length;
+
           return (
-            <div key={roundNum} className={styles.formGroup} style={{ marginTop: '20px', padding: '15px', border: '1px solid #ccc', borderRadius: '8px' }}>
-              <label>Round {roundNum} ({matchesInRound} matches)</label>
-              <p style={{ fontSize: '12px', color: currentCount === requiredProblems ? 'green' : 'red' }}>
+            <div
+              key={roundNum}
+              className={styles.formGroup}
+              style={{
+                marginTop: "20px",
+                padding: "15px",
+                border: "1px solid #ccc",
+                borderRadius: "8px",
+              }}
+            >
+              <label>
+                Round {roundNum} ({matchesInRound} matches)
+              </label>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: currentCount === requiredProblems ? "green" : "red",
+                }}
+              >
                 Required problems: {requiredProblems} | Provided: {currentCount}
               </p>
               <textarea
@@ -107,9 +139,13 @@ export default function Step3aFineTuned({
                 onChange={(e) => handleInputChange(roundNum, e.target.value)}
                 placeholder="e.g. 4A, 1A, 158A"
                 className={styles.input}
-                style={{ minHeight: '80px', width: '100%' }}
+                style={{ minHeight: "80px", width: "100%" }}
               />
-              {errors[`round_${roundNum}`] && <span className={styles.error}>{errors[`round_${roundNum}`]}</span>}
+              {errors[`round_${roundNum}`] && (
+                <span className={styles.error}>
+                  {errors[`round_${roundNum}`]}
+                </span>
+              )}
             </div>
           );
         })}

@@ -36,25 +36,36 @@ export interface CodeforcesSubmission {
  * @param count Number of recent submissions to fetch. If omitted, fetches all.
  * @returns Array of CodeforcesSubmission.
  */
-export async function fetchCodeforcesUserStatus(handle: string, count?: number, from: number = 1): Promise<CodeforcesSubmission[]> {
+export async function fetchCodeforcesUserStatus(
+  handle: string,
+  count?: number,
+  from: number = 1,
+): Promise<CodeforcesSubmission[]> {
   try {
-    logger.info(`[cf-api] fetchCodeforcesUserStatus called for handle: ${handle}, count: ${count}`);
+    logger.info(
+      `[cf-api] fetchCodeforcesUserStatus called for handle: ${handle}, count: ${count}`,
+    );
 
-    const url = count 
+    const url = count
       ? `https://codeforces.com/api/user.status?handle=${handle}&from=${from}&count=${count}`
       : `https://codeforces.com/api/user.status?handle=${handle}`;
-      
+
     const response = await axios.get(url, {
       timeout: 10000, // 10 seconds timeout
     });
 
     if (response.data.status !== "OK") {
-      throw new Error(`Codeforces API returned non-OK status: ${response.data.comment || "Unknown error"}`);
+      throw new Error(
+        `Codeforces API returned non-OK status: ${response.data.comment || "Unknown error"}`,
+      );
     }
 
     return response.data.result;
   } catch (error: any) {
-    logger.error(`[cf-api] Error fetching status for handle ${handle}:`, error.message || error);
+    logger.error(
+      `[cf-api] Error fetching status for handle ${handle}:`,
+      error.message || error,
+    );
     throw error;
   }
 }
@@ -70,7 +81,7 @@ export async function prefetchUserSolvedHistory(handle: string): Promise<void> {
   try {
     // Fetch all submissions to build the solved history
     const submissions = await fetchCodeforcesUserStatus(handle);
-    
+
     const solvedProblemIds = new Set<string>();
     for (const sub of submissions) {
       if (sub.verdict === "OK" && sub.problem.contestId && sub.problem.index) {
@@ -80,7 +91,7 @@ export async function prefetchUserSolvedHistory(handle: string): Promise<void> {
 
     const redis = await getRedis();
     const key = `solved:${handle.toLowerCase()}`;
-    
+
     if (solvedProblemIds.size > 0) {
       // Use pipeline to add elements and set TTL atomically
       const pipeline = redis.multi();
@@ -88,8 +99,10 @@ export async function prefetchUserSolvedHistory(handle: string): Promise<void> {
       pipeline.sAdd(key, Array.from(solvedProblemIds));
       pipeline.expire(key, 6 * 60 * 60); // 6 hours TTL
       await pipeline.exec();
-      
-      logger.info(`[cf-api] Cached ${solvedProblemIds.size} solved problems for ${handle}`);
+
+      logger.info(
+        `[cf-api] Cached ${solvedProblemIds.size} solved problems for ${handle}`,
+      );
     } else {
       logger.info(`[cf-api] Handle ${handle} has 0 solved problems.`);
       const pipeline = redis.multi();
@@ -99,7 +112,10 @@ export async function prefetchUserSolvedHistory(handle: string): Promise<void> {
       await pipeline.exec();
     }
   } catch (error: any) {
-    logger.error(`[cf-api] Failed to prefetch solved history for ${handle}:`, error.message || error);
+    logger.error(
+      `[cf-api] Failed to prefetch solved history for ${handle}:`,
+      error.message || error,
+    );
     throw error;
   }
 }

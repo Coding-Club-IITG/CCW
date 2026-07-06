@@ -13,7 +13,12 @@ export interface IContestRound extends Document {
 
 const ContestRoundSchema = new Schema<IContestRound>(
   {
-    contestId: { type: Schema.Types.ObjectId, ref: "ContestMatch", required: true, index: true },
+    contestId: {
+      type: Schema.Types.ObjectId,
+      ref: "ContestMatch",
+      required: true,
+      index: true,
+    },
     roundNumber: { type: Number, required: true },
     name: { type: String, required: true },
     status: {
@@ -25,13 +30,17 @@ const ContestRoundSchema = new Schema<IContestRound>(
     rooms: [{ type: Schema.Types.ObjectId, ref: "ContestRoom" }],
     bracketLevel: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 ContestRoundSchema.index({ contestId: 1, roundNumber: 1 });
 
 const ContestRound =
   mongoose.models.ContestRound ||
-  mongoose.model<IContestRound>("ContestRound", ContestRoundSchema, "contest_rounds");
+  mongoose.model<IContestRound>(
+    "ContestRound",
+    ContestRoundSchema,
+    "contest_rounds",
+  );
 
 export default ContestRound;

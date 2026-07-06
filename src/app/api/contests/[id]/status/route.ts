@@ -6,7 +6,7 @@ import { publishContest } from "@/lib/sse";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const resolvedParams = await params;
@@ -20,7 +20,10 @@ export async function PATCH(
     const { action } = body;
 
     if (!action) {
-      return NextResponse.json({ error: "Action is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Action is required" },
+        { status: 400 },
+      );
     }
 
     await dbConnect();
@@ -33,21 +36,33 @@ export async function PATCH(
 
     if (action === "publish") {
       if (contest.status !== "draft") {
-        return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Invalid status transition" },
+          { status: 400 },
+        );
       }
       newStatus = "registration";
     } else if (action === "start") {
       if (contest.status !== "registration") {
-        return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Invalid status transition" },
+          { status: 400 },
+        );
       }
       newStatus = "active";
     } else if (action === "complete") {
       if (contest.status !== "active") {
-        return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Invalid status transition" },
+          { status: 400 },
+        );
       }
       newStatus = "completed";
     } else {
-      return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid status transition" },
+        { status: 400 },
+      );
     }
 
     contest.status = newStatus;
@@ -65,6 +80,9 @@ export async function PATCH(
 
     return NextResponse.json(contest);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

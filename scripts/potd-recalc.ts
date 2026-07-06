@@ -1,9 +1,8 @@
 /**
  * Full POTD recompute for all users
  *
- * Resets every user's stats and replays the entire finalized challenge history
- * chronologically. Use this when scoring/streak logic changed but the stored
- * solve data is already trustworthy.
+ * Rebuilds every user's stats and per-submission scoring from their stored solve facts.
+ * Use this when scoring/streak logic changed but the stored solve data is trustworthy.
  *
  *   pnpm tsx scripts/potd-recalc.ts            # dry run
  *   pnpm tsx scripts/potd-recalc.ts --execute  # apply
@@ -17,12 +16,10 @@ import {
   CPUser,
 } from "./_potd-shared";
 import {
-  getFinalizedChallenges,
-  groupChallengesByDay,
-  resetAllStats,
-  resetSubmissionStatuses,
-  replayUser,
-} from "../src/lib/potd/recompute";
+  buildTimeline,
+  recomputeUsers,
+  markPastDaysFinalized,
+} from "../src/lib/potd/finalize";
 
 const EXECUTE = process.argv.includes("--execute");
 
@@ -32,11 +29,11 @@ async function main() {
   );
   await connect();
 
-  const challenges = await getFinalizedChallenges();
-  const { daysMap, sortedDays } = groupChallengesByDay(challenges as any[]);
-  const cpUsers = await CPUser.find();
+  const now = new Date();
+  const { days } = await buildTimeline(now);
+  const cpUsers = await CPUser.find({}, "userId");
   console.log(
-    `Will recompute ${cpUsers.length} users across ${sortedDays.length} finalized days (${challenges.length} challenges).`,
+    `Will recompute ${cpUsers.length} users across ${days.length} days.`,
   );
 
   if (!EXECUTE) {
@@ -49,18 +46,17 @@ async function main() {
 
   await backupPotd("recalc");
 
-  console.log(
-    "Resetting all stats + submission statuses (keeping solvedAt)...",
-  );
-  await resetAllStats();
-  await resetSubmissionStatuses();
-
-  for (let i = 0; i < cpUsers.length; i++) {
-    const cp = cpUsers[i] as any;
-    await replayUser(cp.userId, daysMap, sortedDays);
-    if ((i + 1) % 10 === 0) console.log(`  ...${i + 1}/${cpUsers.length}`);
+  console.log("Recomputing all users from solve facts...");
+  const userIds = (cpUsers as any[]).map((c) => c.userId);
+  for (let i = 0; i < userIds.length; i++) {
+    await recomputeUsers([userIds[i]], days, now);
+    if ((i + 1) % 25 === 0) console.log(`  ...${i + 1}/${userIds.length}`);
   }
-  console.log("Replay complete.");
+
+  const marked = await markPastDaysFinalized(now);
+  console.log(
+    `Recompute complete. Marked ${marked} past challenges finalized.`,
+  );
 
   console.log("Verifying...");
   await verifyConsistency();

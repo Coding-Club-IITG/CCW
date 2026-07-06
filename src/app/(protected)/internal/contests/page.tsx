@@ -13,10 +13,12 @@ export default async function ContestsPage() {
 
   const userRole = session?.user?.role as string | undefined;
   const admin = isAdmin(userRole);
-  
+
   const moduleRoles = parseModuleRoles((session.user as any)?.moduleRoles);
-  const isSoftwareDev = moduleRoles.some((mr) => mr.module === "Software Development");
-  
+  const isSoftwareDev = moduleRoles.some(
+    (mr) => mr.module === "Software Development",
+  );
+
   if (!admin && !isSoftwareDev) {
     redirect("/internal/dashboard");
   }
@@ -43,10 +45,10 @@ export default async function ContestsPage() {
   const deadlineMinutes = parseInt(deadlineMinutesStr, 10);
 
   return (
-    <ContestListingClient 
-      active={active} 
-      upcoming={upcoming} 
-      completed={completed} 
+    <ContestListingClient
+      active={active}
+      upcoming={upcoming}
+      completed={completed}
       isAdmin={admin}
       presets={presets}
       deadlineMinutes={deadlineMinutes}

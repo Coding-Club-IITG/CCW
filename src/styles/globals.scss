@@ -40,9 +40,9 @@ button {
 
 /* Fix for webkit autofill changing background to white and text to black in dark mode */
 input:-webkit-autofill,
-input:-webkit-autofill:hover, 
-input:-webkit-autofill:focus, 
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-    transition: background-color 5000s ease-in-out 0s;
-    -webkit-text-fill-color: #e5e2e1 !important;
+  transition: background-color 5000s ease-in-out 0s;
+  -webkit-text-fill-color: #e5e2e1 !important;
 }

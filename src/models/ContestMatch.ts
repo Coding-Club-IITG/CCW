@@ -79,14 +79,23 @@ const RegistrationSettingsSchema = new Schema<IRegistrationSettings>({
 
 const BracketSettingsSchema = new Schema<IBracketSettings>({
   thirdPlacePlayoff: { type: Boolean, default: false },
-  seedingMethod: { type: String, enum: ["cf_rating", "manual"], required: true },
+  seedingMethod: {
+    type: String,
+    enum: ["cf_rating", "manual"],
+    required: true,
+  },
 });
 
 const ContestMatchSchema = new Schema<IContestMatch>(
   {
     name: { type: String, required: true },
     description: { type: String, maxlength: 500 },
-    creatorId: { type: Schema.Types.ObjectId, ref: "CPUser", required: true, index: true },
+    creatorId: {
+      type: Schema.Types.ObjectId,
+      ref: "CPUser",
+      required: true,
+      index: true,
+    },
     startTime: { type: Date },
     endTime: { type: Date },
     durationSeconds: { type: Number },
@@ -131,7 +140,7 @@ const ContestMatchSchema = new Schema<IContestMatch>(
     winner: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     winnerName: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 ContestMatchSchema.index({ status: 1, startTime: 1 });
@@ -139,7 +148,10 @@ ContestMatchSchema.index({ format: 1, status: 1 });
 
 const ContestMatch =
   mongoose.models.ContestMatch ||
-  mongoose.model<IContestMatch>("ContestMatch", ContestMatchSchema, "custom_contests");
+  mongoose.model<IContestMatch>(
+    "ContestMatch",
+    ContestMatchSchema,
+    "custom_contests",
+  );
 
 export default ContestMatch;
-
