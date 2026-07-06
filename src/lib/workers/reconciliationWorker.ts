@@ -14,6 +14,88 @@ import Notification from "../../models/Notification";
 import CPUser from "../../models/CPUser";
 import ContestQuestion from "../../models/ContestQuestion";
 
+async function determineWinner(redis: any, roomId: string, teams: string[], stateObj: any): Promise<{ winnerId: string | null, teamScores: Record<string, number> }> {
+  let winnerId = null;
+
+  interface TeamStats {
+    id: string;
+    score: number;
+    penaltyTime: number;
+    lastSolveTime: number;
+    solveTimeSum: number;
+    wrongSubs: number;
+    avgRating: number;
+  }
+
+  const teamStats: Record<string, TeamStats> = {};
+  const isArena = stateObj.type === "arena";
+
+  for (const tId of teams) {
+    const scoreStr = await redis.zScore(`room:${roomId}:scores`, tId);
+    const score = scoreStr ? parseFloat(scoreStr.toString()) : 0;
+
+    const penaltyStr = await redis.zScore(`room:${roomId}:penalty_time`, tId);
+    const penaltyTime = penaltyStr ? parseFloat(penaltyStr.toString()) : 0;
+
+    const lastSolveStr = await redis.hGet(`room:${roomId}:last_solve`, tId);
+    const lastSolveTime = parseInt(lastSolveStr || "0", 10);
+
+    const solveTimeStr = await redis.zScore(`room:${roomId}:solve_times`, tId);
+    const solveTimeSum = solveTimeStr ? parseFloat(solveTimeStr.toString()) : 0;
+
+    const wrongSubs = await redis.sCard(`room:${roomId}:wrong_subs:${tId}`);
+
+    const members = await redis.sMembers(`team:${tId}:users`);
+    let totalRating = 0;
+    let validMembers = 0;
+    for (const mId of members) {
+      const cpUser = await CPUser.findOne({ userId: mId });
+      if (cpUser && cpUser.cfRating) {
+        totalRating += cpUser.cfRating;
+        validMembers++;
+      }
+    }
+    const avgRating = validMembers > 0 ? totalRating / validMembers : 0;
+
+    teamStats[tId] = {
+      id: tId,
+      score,
+      penaltyTime,
+      lastSolveTime,
+      solveTimeSum,
+      wrongSubs,
+      avgRating
+    };
+  }
+
+  const sortedTeams = teams.map(tId => teamStats[tId]).sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    
+    if (isArena) {
+      if (a.penaltyTime !== b.penaltyTime) return a.penaltyTime - b.penaltyTime;
+      if (a.lastSolveTime !== b.lastSolveTime) return a.lastSolveTime - b.lastSolveTime;
+    } else {
+      if (a.solveTimeSum !== b.solveTimeSum) return a.solveTimeSum - b.solveTimeSum;
+      if (a.wrongSubs !== b.wrongSubs) return a.wrongSubs - b.wrongSubs;
+    }
+    
+    if (a.avgRating !== b.avgRating) return a.avgRating - b.avgRating;
+    
+    return a.id.localeCompare(b.id);
+  });
+
+  if (sortedTeams.length > 0) {
+    winnerId = sortedTeams[0].id;
+  }
+
+  const teamScores: Record<string, number> = {};
+  for (const t of sortedTeams) {
+    teamScores[t.id] = t.score;
+  }
+  
+  return { winnerId, teamScores };
+}
+
 export const reconciliationWorker = new Worker(
   "reconciliation_queue",
   async (job: Job) => {
@@ -383,7 +465,8 @@ export const reconciliationWorker = new Worker(
               problemId: { $nin: Array.from(solvedProblemIds) }
             }
           },
-          { $sample: { size: problemCount } }
+          { $sample: { size: problemCount } },
+          { $sort: { rating: 1 } }
         ]);
       }
 
@@ -425,7 +508,7 @@ export const reconciliationWorker = new Worker(
           problemId: p.problemId,
           name: p.name,
           rating: p.rating,
-          points: 100
+          points: Math.floor((p.rating || 1000) / 10)
         }))
       });
 
@@ -453,6 +536,7 @@ export const reconciliationWorker = new Worker(
         problemId: p.problemId,
         name: p.name,
         rating: p.rating,
+        points: Math.floor((p.rating || 1000) / 10),
         revealedAt: null
       }));
       await redis.del(`room:${newRoomId}:problems`);
@@ -711,16 +795,8 @@ export const reconciliationWorker = new Worker(
         if (contestId) {
           const completedContest = await ContestMatch.findById(contestId).lean();
           if (completedContest?.format === "bracket") {
-            const teamScoresForBracket: Record<string, number> = {};
-            for (const tId of completedTeams) {
-              const s = await redis.zScore(`room:${roomId}:scores`, tId);
-              teamScoresForBracket[tId] = s ? parseFloat(s.toString()) : 0;
-            }
-            let bracketWinnerId: string | null = null;
-            let bracketMaxScore = -1;
-            for (const [tId, sc] of Object.entries(teamScoresForBracket)) {
-              if (sc > bracketMaxScore) { bracketMaxScore = sc; bracketWinnerId = tId; }
-            }
+            const stateObj = await redis.hGetAll(`room:${roomId}:state`);
+            const { winnerId: bracketWinnerId } = await determineWinner(redis, roomId, completedTeams, stateObj);
 
             try {
               const { advanceWinner, checkRoundCompletion } = await import("../bracket");
@@ -829,31 +905,8 @@ export const reconciliationWorker = new Worker(
       logger.info(`[reconciliationWorker] No teams found in Redis for room ${roomId}. Room likely already processed. Skipping.`);
       return;
     }
-    let winnerId = null;
-    let maxScore = -1;
-    let minSolveTime = Infinity;
-
-    const teamScores: Record<string, number> = {};
-
-    for (const tId of teams) {
-      const scoreStr = await redis.zScore(`room:${roomId}:scores`, tId);
-      const score = scoreStr || 0;
-      teamScores[tId] = score;
-
-      const timeStr = await redis.zScore(`room:${roomId}:solve_times`, tId);
-      const solveTime = timeStr || 0;
-
-      if (score > maxScore) {
-        maxScore = score;
-        minSolveTime = solveTime;
-        winnerId = tId;
-      } else if (score === maxScore && score > 0) {
-        if (solveTime < minSolveTime) {
-          minSolveTime = solveTime;
-          winnerId = tId;
-        }
-      }
-    }
+    const stateObj = await redis.hGetAll(`room:${roomId}:state`);
+    let { winnerId, teamScores } = await determineWinner(redis, roomId, teams, stateObj);
 
     // Handle forfeit winner if provided
     if (trigger === "forfeit" && forfeitedUserId) {

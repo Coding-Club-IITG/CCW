@@ -143,7 +143,8 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
         rating: { $gte: minRating, $lte: maxRating },
         ...(excludeIds.length > 0 ? { problemId: { $nin: excludeIds } } : {})
       }},
-      { $sample: { size: totalProblemsNeeded } }
+      { $sample: { size: totalProblemsNeeded } },
+      { $sort: { rating: 1 } }
     ]);
   }
   let fineTunedPool = [...(contest.problemSlots || [])];
@@ -244,7 +245,7 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
             problemId: p.problemId,
             name: p.name || p.problemId,
             rating: p.rating || 0,
-            points: 100,
+            points: Math.floor((p.rating || 1000) / 10),
           })),
         });
         await problemSet.save();
@@ -254,6 +255,7 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
             problemId: p.problemId,
             name: p.name || p.problemId,
             rating: p.rating || 0,
+            points: Math.floor((p.rating || 1000) / 10),
             revealedAt: null,
           })
         );

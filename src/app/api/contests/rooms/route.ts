@@ -72,7 +72,8 @@ export async function POST(req: NextRequest) {
           problemId: { $nin: Array.from(solvedProblemIds) }
         }
       },
-      { $sample: { size: problemCount } }
+      { $sample: { size: problemCount } },
+      { $sort: { rating: 1 } }
     ]);
 
     if (availableProblems.length < problemCount) {
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
         problemId: p.problemId,
         name: p.name,
         rating: p.rating,
-        points: 100
+        points: Math.floor((p.rating || 1000) / 10)
       }))
     });
 
@@ -133,6 +134,7 @@ export async function POST(req: NextRequest) {
       problemId: p.problemId,
       name: p.name,
       rating: p.rating,
+      points: Math.floor((p.rating || 1000) / 10),
       revealedAt: null
     }));
     await redis.del(`room:${roomId}:problems`);

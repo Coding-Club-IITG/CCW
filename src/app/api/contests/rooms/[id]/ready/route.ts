@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
-    if (!room.participants.includes(userId as any)) {
+    if (!room.participants.some((p: any) => p.toString() === userId)) {
       return NextResponse.json({ error: "Not a participant" }, { status: 403 });
     }
 

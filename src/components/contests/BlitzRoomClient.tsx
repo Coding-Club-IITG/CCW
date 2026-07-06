@@ -206,6 +206,12 @@ export default function BlitzRoomClient({
       case "room.score":
         setScores(payload.scores);
         break;
+      case "room.reclaimed": {
+        const team = teams?.find((t: any) => t._id === payload.teamId);
+        const tName = getDisplayTeamName(team);
+        addActivity("gavel", `CRITICAL: ${tName} RECLAIMED points for an earlier solve!`, "text-error");
+        break;
+      }
       case "room.end":
         matchStateRef.current = "completed";
         setMatchState("completed");

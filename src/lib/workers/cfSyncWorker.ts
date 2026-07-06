@@ -65,20 +65,54 @@ export const cfSyncWorker = new Worker(
           return;
         }
 
-        const lowerTimestamp = room.actualStartTime
+        const state = await redis.hGetAll(`room:${roomId}:state`);
+        const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
+        const problems = problemsRaw.map(p => JSON.parse(p));
+
+        let lowerTimestamp = room.actualStartTime
           ? room.actualStartTime.getTime()
           : contest.startTime.getTime();
+
+        if (state && state.type !== "arena") {
+          const targetProblem = problems.find((p: any) => p.problemId === problemId);
+          if (targetProblem && targetProblem.revealedAt) {
+            lowerTimestamp = targetProblem.revealedAt;
+          }
+        }
+
         // Add a 2-minute grace period after the match ends for late submissions to process
         const upperTimestamp = lowerTimestamp + ((contest.durationSeconds || 3600) * 1000) + 120000;
 
         // 2. Fetch CF Submissions (last 20)
-        const submissions = await fetchCodeforcesUserStatus(cfHandle, 20);
+        let submissions: any[] = [];
+        if (process.env.NODE_ENV === "development") {
+          const match = problemId.match(/^(\d+)([A-Za-z].*)$/);
+          const cId = match ? parseInt(match[1]) : 0;
+          const idx = match ? match[2] : problemId;
+          
+          submissions = [{
+            id: Math.floor(Math.random() * 1000000),
+            creationTimeSeconds: Math.floor(Date.now() / 1000),
+            problem: { contestId: cId, index: idx, name: "Mock Problem", type: "PROGRAMMING", tags: [] },
+            author: { members: [{ handle: cfHandle }], participantType: "CONTESTANT", ghost: false },
+            programmingLanguage: "C++",
+            verdict: "OK",
+            testset: "TESTS",
+            passedTestCount: 1,
+            timeConsumedMillis: 0,
+            memoryConsumedBytes: 0,
+          }];
+        } else {
+          submissions = await fetchCodeforcesUserStatus(cfHandle, 20);
+        }
 
         // 3. Validation Matrix
         let isValid = false;
         let matchedSubmission = null;
         let hasSubmissionForProblem = false;
         let bestVerdict = "not_found";
+
+        let wrongSubIds: number[] = [];
 
         for (const sub of submissions) {
           const subProblemId = `${sub.problem.contestId || ""}${sub.problem.index}`;
@@ -97,16 +131,21 @@ export const cfSyncWorker = new Worker(
               (m: any) => m.handle.toLowerCase() === cfHandle.toLowerCase()
             );
 
-            if (
-              authorHandle &&
-              subVerdict === "OK" &&
-              subTimestamp >= lowerTimestamp &&
-              subTimestamp <= upperTimestamp
-            ) {
-              isValid = true;
-              matchedSubmission = sub;
-              break;
+            if (authorHandle && subTimestamp >= lowerTimestamp && subTimestamp <= upperTimestamp) {
+              if (subVerdict === "OK") {
+                isValid = true;
+                matchedSubmission = sub;
+              } else if (subVerdict !== "TESTING") {
+                wrongSubIds.push(sub.id);
+              }
             }
+          }
+        }
+
+        if (wrongSubIds.length > 0) {
+          const newWrongs = await redis.sAdd(`room:${roomId}:wrong_subs:${teamId}`, ...wrongSubIds.map(String));
+          if (newWrongs > 0 && state && state.type === "arena") {
+            await redis.zIncrBy(`room:${roomId}:penalty_time`, newWrongs * 20 * 60 * 1000, teamId);
           }
         }
         
@@ -126,14 +165,9 @@ export const cfSyncWorker = new Worker(
             pointsAwarded: null, // Stage 3 fills this
           };
 
-          const redis = await getRedis();
-          const state = await redis.hGetAll(`room:${roomId}:state`);
           let isAdvanceTriggered = false;
 
           if (state && state.status === "active") {
-            const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
-            const problems = problemsRaw.map(p => JSON.parse(p));
-
             if (state.type === "arena") {
               const targetProblem = problems.find((p: any) => p.problemId === problemId);
               if (targetProblem) {
@@ -151,13 +185,23 @@ export const cfSyncWorker = new Worker(
 
                 if (claimResult === "claimed" || claimResult.startsWith("reclaimed|")) {
                   if (claimResult.startsWith("reclaimed|")) {
-                    const oldTeamId = claimResult.split("|")[1];
+                    const parts = claimResult.split("|");
+                    const oldTeamId = parts[1];
+                    const oldTimestamp = parseInt(parts[2], 10);
                     await redis.zIncrBy(`room:${roomId}:scores`, -points, oldTeamId);
+                    
+                    const oldSolveMs = oldTimestamp - startTime;
+                    await redis.zIncrBy(`room:${roomId}:penalty_time`, -oldSolveMs, oldTeamId);
                   }
                   
                   await redis.zIncrBy(`room:${roomId}:scores`, points, teamId);
                   const solveMs = cfTimestamp - startTime;
-                  await redis.zAdd(`room:${roomId}:solve_times`, { score: solveMs, value: teamId });
+                  await redis.zIncrBy(`room:${roomId}:penalty_time`, solveMs, teamId);
+                  
+                  const currentLastSolve = await redis.hGet(`room:${roomId}:last_solve`, teamId);
+                  if (!currentLastSolve || cfTimestamp > parseInt(currentLastSolve, 10)) {
+                    await redis.hSet(`room:${roomId}:last_solve`, { [teamId]: cfTimestamp.toString() });
+                  }
                   
                   const submissionObj = {
                     userId,
@@ -210,71 +254,50 @@ export const cfSyncWorker = new Worker(
               }
             } else {
               const currentProblemIndex = parseInt(state.currentProblem || "0", 10);
-              const currentProblem = problems[currentProblemIndex];
+              const targetProblemIndex = problems.findIndex((p: any) => p.problemId === problemId);
 
-              if (currentProblem && currentProblem.problemId === problemId) {
-                const points = currentProblem.points || 100;
+              if (targetProblemIndex !== -1 && targetProblemIndex <= currentProblemIndex) {
+                const targetProblem = problems[targetProblemIndex];
+                const points = targetProblem.points || 100;
                 const cfTimestamp = matchedSubmission.creationTimeSeconds * 1000;
-                const startTime = parseInt(state.startTime || "0", 10);
-                const solveMs = cfTimestamp - startTime;
+                const revealedAt = targetProblem.revealedAt || parseInt(state.startTime || "0", 10);
+                const solveMs = cfTimestamp - revealedAt;
 
-                await redis.zIncrBy(`room:${roomId}:scores`, points, teamId);
-                await redis.zAdd(`room:${roomId}:solve_times`, { score: solveMs, value: teamId });
-                
-                const submissionObj = {
-                  userId,
-                  teamId,
+                const claimResult = await claimProblem(
+                  redis,
+                  `room:${roomId}:locks`,
                   problemId,
-                  cfSubmissionId: matchedSubmission.id,
-                  verdict: "OK",
-                  points,
-                  solveMs,
+                  teamId,
                   cfTimestamp
-                };
-                await redis.xAdd(`room:${roomId}:submissions`, "*", { data: JSON.stringify(submissionObj) });
+                );
 
-                eventPayload.pointsAwarded = points;
-                isAdvanceTriggered = true;
-
-                const newProblemIndex = currentProblemIndex + 1;
-                await redis.hIncrBy(`room:${roomId}:state`, "currentProblem", 1);
-
-                if (newProblemIndex === problems.length) {
-                  await redis.hSet(`room:${roomId}:state`, { status: "completed" });
-                  
-                  const finalScores: Record<string, number> = {};
-                  const teams = await redis.sMembers(`room:${roomId}:teams`);
-                  for (const tId of teams) {
-                    const score = await redis.zScore(`room:${roomId}:scores`, tId);
-                    finalScores[tId] = score || 0;
+                if (claimResult === "claimed" || claimResult.startsWith("reclaimed|")) {
+                  if (claimResult.startsWith("reclaimed|")) {
+                    const parts = claimResult.split("|");
+                    const oldTeamId = parts[1];
+                    const oldTimestamp = parseInt(parts[2], 10);
+                    await redis.zIncrBy(`room:${roomId}:scores`, -points, oldTeamId);
+                    
+                    const oldSolveMs = oldTimestamp - revealedAt;
+                    await redis.zIncrBy(`room:${roomId}:solve_times`, -oldSolveMs, oldTeamId);
                   }
+
+                  await redis.zIncrBy(`room:${roomId}:scores`, points, teamId);
+                  await redis.zIncrBy(`room:${roomId}:solve_times`, solveMs, teamId);
                   
-                  await publishRoom(roomId, {
-                    type: "room.end",
-                    finalScores,
-                    duration: Date.now() - startTime,
-                    lastSolvedBy: { userId, teamId }
-                  });
+                  const submissionObj = {
+                    userId,
+                    teamId,
+                    problemId,
+                    cfSubmissionId: matchedSubmission.id,
+                    verdict: "OK",
+                    points,
+                    solveMs,
+                    cfTimestamp
+                  };
+                  await redis.xAdd(`room:${roomId}:submissions`, "*", { data: JSON.stringify(submissionObj) });
 
-                  // Remove the timeout job since the room ended naturally
-                  await reconciliationQueue.remove(`timeout-${roomId}`);
-
-                  await reconciliationQueue.add(
-                    "room_completed",
-                    { roomId, contestId: state.contestId, trigger: "completed" },
-                    { jobId: `completed-${roomId}` }
-                  );
-                } else {
-                  const nextProblem = problems[newProblemIndex];
-                  nextProblem.revealedAt = Date.now();
-                  await redis.lSet(`room:${roomId}:problems`, newProblemIndex, JSON.stringify(nextProblem));
-
-                  await publishRoom(roomId, {
-                    type: "room.advance",
-                    solvedBy: { userId, teamId },
-                    problemIndex: newProblemIndex,
-                    nextProblem
-                  });
+                  eventPayload.pointsAwarded = points;
 
                   const scores: Record<string, number> = {};
                   const teams = await redis.sMembers(`room:${roomId}:teams`);
@@ -282,7 +305,55 @@ export const cfSyncWorker = new Worker(
                     const score = await redis.zScore(`room:${roomId}:scores`, tId);
                     scores[tId] = score || 0;
                   }
-                  await publishRoom(roomId, { type: "room.score", scores });
+
+                  if (claimResult === "claimed" && targetProblemIndex === currentProblemIndex) {
+                    isAdvanceTriggered = true;
+                    const newProblemIndex = currentProblemIndex + 1;
+                    await redis.hIncrBy(`room:${roomId}:state`, "currentProblem", 1);
+
+                    if (newProblemIndex === problems.length) {
+                      await redis.hSet(`room:${roomId}:state`, { status: "completed" });
+                      
+                      await publishRoom(roomId, {
+                        type: "room.end",
+                        finalScores: scores,
+                        duration: Date.now() - startTime,
+                        lastSolvedBy: { userId, teamId }
+                      });
+
+                      // Remove the timeout job since the room ended naturally
+                      await reconciliationQueue.remove(`timeout-${roomId}`);
+
+                      await reconciliationQueue.add(
+                        "room_completed",
+                        { roomId, contestId: state.contestId, trigger: "completed" },
+                        { jobId: `completed-${roomId}` }
+                      );
+                    } else {
+                      const nextProblem = problems[newProblemIndex];
+                      nextProblem.revealedAt = Date.now();
+                      await redis.lSet(`room:${roomId}:problems`, newProblemIndex, JSON.stringify(nextProblem));
+
+                      await publishRoom(roomId, {
+                        type: "room.advance",
+                        solvedBy: { userId, teamId },
+                        problemIndex: newProblemIndex,
+                        nextProblem
+                      });
+
+                      await publishRoom(roomId, { type: "room.score", scores });
+                    }
+                  } else {
+                    // Just emit updated scores for reclaimed points
+                    await publishRoom(roomId, { type: "room.score", scores });
+                    if (claimResult.startsWith("reclaimed|")) {
+                      await publishRoom(roomId, {
+                        type: "room.reclaimed",
+                        teamId,
+                        problemId
+                      });
+                    }
+                  }
                 }
               }
             }

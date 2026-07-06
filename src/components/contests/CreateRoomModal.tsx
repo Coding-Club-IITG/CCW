@@ -319,6 +319,7 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
     e.dataTransfer.effectAllowed = "move";
     // Required for Firefox
     e.dataTransfer.setData("text/html", e.currentTarget.innerHTML);
+    e.dataTransfer.setData("text/plain", index.toString());
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
@@ -340,14 +341,20 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
 
   const handleDrop = (e: React.DragEvent, index: number) => {
     e.preventDefault();
-    if (draggedUserIndex === null || draggedUserIndex === index) {
+    const draggedIdxStr = e.dataTransfer.getData("text/plain");
+    if (!draggedIdxStr) {
+      handleDragEnd();
+      return;
+    }
+    const draggedIdx = parseInt(draggedIdxStr, 10);
+    if (draggedIdx === index) {
       handleDragEnd();
       return;
     }
     
     setRegisteredUsers(prev => {
       const result = [...prev];
-      const [removed] = result.splice(draggedUserIndex, 1);
+      const [removed] = result.splice(draggedIdx, 1);
       result.splice(index, 0, removed);
       return result;
     });
@@ -384,6 +391,7 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
     setDraggedTeamIndex(index);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/html", e.currentTarget.innerHTML);
+    e.dataTransfer.setData("text/plain", index.toString());
   };
 
   const handleTeamDragOver = (e: React.DragEvent, index: number) => {
@@ -405,14 +413,20 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
 
   const handleTeamDrop = (e: React.DragEvent, index: number) => {
     e.preventDefault();
-    if (draggedTeamIndex === null || draggedTeamIndex === index) {
+    const draggedIdxStr = e.dataTransfer.getData("text/plain");
+    if (!draggedIdxStr) {
+      handleTeamDragEnd();
+      return;
+    }
+    const draggedIdx = parseInt(draggedIdxStr, 10);
+    if (draggedIdx === index) {
       handleTeamDragEnd();
       return;
     }
     
     setManualTeams(prev => {
       const result = [...prev];
-      const [removed] = result.splice(draggedTeamIndex, 1);
+      const [removed] = result.splice(draggedIdx, 1);
       result.splice(index, 0, removed);
       return result;
     });
@@ -768,36 +782,7 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
               </div>
             </div>
 
-            <div className="flex flex-col gap-unit">
-              <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="start-time">
-                Match Start Time
-              </label>
-              <div className="flex flex-col gap-[12px]">
-                <input
-                  required
-                  id="start-time"
-                  type="datetime-local"
-                  value={formData.startTime}
-                  onChange={e => setFormData({ ...formData, startTime: e.target.value })}
-                  className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow [color-scheme:dark]"
-                />
-                <div className="flex items-center justify-center gap-[16px] flex-wrap mt-4 mb-2 w-full">
-                  {[3, 5, 10, 15].map(mins => (
-                    <button
-                      key={mins}
-                      type="button"
-                      onClick={() => handleTimeAdd(mins)}
-                      className="px-8 py-3 bg-transparent border-2 border-dashed border-primary/40 text-on-surface rounded-lg font-label-sm text-[15px] font-medium hover:bg-primary/10 hover:border-primary/70 hover:text-primary transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    >
-                      +{mins} min{mins > 1 ? 's' : ''}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <span className="font-label-sm text-label-sm text-primary mt-1">
-                Scheduled rooms start automatically. Registration deadline will be exactly 1 minute before the start time for all users.
-              </span>
-            </div>
+
 
             {formData.format !== "bracket" && renderProblemConfiguration()}
 
@@ -1277,6 +1262,37 @@ export default function CreateRoomModal({ isOpen, onClose, isAdmin = false, pres
                   )}
               </div>
 
+
+              <div className="flex flex-col gap-unit mt-6 pt-4 border-t border-outline-variant">
+                <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="start-time">
+                  Match Start Time
+                </label>
+                <div className="flex flex-col gap-[12px]">
+                  <input
+                    required
+                    id="start-time"
+                    type="datetime-local"
+                    value={formData.startTime}
+                    onChange={e => setFormData({ ...formData, startTime: e.target.value })}
+                    className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow [color-scheme:dark]"
+                  />
+                  <div className="flex items-center justify-center gap-[16px] flex-wrap mt-4 mb-2 w-full">
+                    {[3, 5, 10, 15].map(mins => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => handleTimeAdd(mins)}
+                        className="px-8 py-3 bg-transparent border-2 border-dashed border-primary/40 text-on-surface rounded-lg font-label-sm text-[15px] font-medium hover:bg-primary/10 hover:border-primary/70 hover:text-primary transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      >
+                        +{mins} min{mins > 1 ? 's' : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <span className="font-label-sm text-label-sm text-primary mt-1">
+                  Scheduled rooms start automatically. Registration deadline will be exactly 1 minute before the start time for all users.
+                </span>
+              </div>
 
           </form>
         </div>

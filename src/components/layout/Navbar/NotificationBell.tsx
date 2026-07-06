@@ -23,10 +23,6 @@ export default function NotificationBell() {
   useEffect(() => {
     fetchNotifications();
     
-    if (process.env.NEXT_PUBLIC_DISABLE_NOTIFICATION_POLLING === "true") {
-      return;
-    }
-    
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);

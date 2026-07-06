@@ -270,7 +270,7 @@ export default function PostMatchResultClient({ matchData, currentUserId, from }
                           <div className={`w-1.5 h-10 rounded-full ${prob.solved ? (isUserTeam ? 'bg-primary' : 'bg-outline-variant') : 'bg-outline-variant'}`}></div>
                           <div className="flex flex-col">
                             <span className={`font-body-md font-bold text-on-surface ${!prob.solved ? 'line-through decoration-outline-variant/70 text-on-surface-variant' : ''}`}>
-                              {prob.id} - {prob.name}
+                              {prob.name?.startsWith(prob.id) ? prob.name : `${prob.id} - ${prob.name}`}
                             </span>
                             <div className={`font-label-sm text-[12px] flex items-center gap-1 mt-1 ${prob.solved ? (isUserTeam ? 'text-primary' : 'text-on-surface-variant') : 'text-on-surface-variant'}`}>
                               <span className="material-symbols-outlined text-[14px]">

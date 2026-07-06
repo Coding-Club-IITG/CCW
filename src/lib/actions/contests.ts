@@ -24,6 +24,7 @@ export type ContestListingItem = {
   participantsCount: number;
   maxParticipants: number;
   registrationDeadline: Date | null;
+  registrationStartTime?: Date | null;
   registrationType?: string;
   userScore?: number;
   opponentScore?: number;
@@ -72,6 +73,7 @@ export async function getContestListing(): Promise<{ active: ContestListingItem[
       teamSize: contest.teamSize,
       isRegistered,
       registrationDeadline: contest.registrationSettings?.deadline || null,
+      registrationStartTime: contest.registrationSettings?.startTime || null,
       maxParticipants: contest.registrationSettings?.maxParticipants || 999,
       registrationType: contest.registrationSettings?.type,
     };

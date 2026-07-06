@@ -20,7 +20,7 @@ export async function claimProblem(redis: any, locksKey: string, problemId: stri
         local existingTimestamp = tonumber(string.sub(existing, sepIndex + 1))
         if cfTimestamp < existingTimestamp then
           redis.call("HSET", locksKey, problemId, teamId .. "|" .. cfTimestamp)
-          return "reclaimed|" .. existingTeamId
+          return "reclaimed|" .. existingTeamId .. "|" .. existingTimestamp
         else
           return "lost"
         end

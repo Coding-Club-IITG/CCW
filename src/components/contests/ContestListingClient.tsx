@@ -315,7 +315,13 @@ export default function ContestListingClient({
                             <span className="material-symbols-outlined text-[16px] shrink-0">group</span>
                             <span>{contest.participantsCount || 0} Registered</span>
                           </span>
-                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <div className="flex flex-col items-start gap-1 mt-1">
+                            {contest.registrationStartTime && new Date(contest.registrationStartTime).getTime() > now && (
+                              <span className="text-xs font-label-sm text-primary flex items-center gap-1 whitespace-nowrap">
+                                <span className="material-symbols-outlined text-[14px] shrink-0">event</span>
+                                <span>Registration Starts: {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(contest.registrationStartTime))}</span>
+                              </span>
+                            )}
                             {contest.registrationDeadline ? (
                               <span className="text-xs font-label-sm text-error/90 flex items-center gap-1 whitespace-nowrap">
                                 <span className="material-symbols-outlined text-[14px] shrink-0">timer</span>
@@ -367,7 +373,7 @@ export default function ContestListingClient({
                                   teamSize={contest.teamSize || 1}
                                   onRegisterClick={handleRegisterClick}
                                   disabledOverride={true}
-                                  label="Upcoming Registration"
+                                  label={contest.registrationStartTime && new Date(contest.registrationStartTime).getTime() > now ? "When will the registration start?" : "Upcoming Registration"}
                                 />
                             ) : contest.registrationType === "closed" ? (
                               <button 
