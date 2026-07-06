@@ -221,9 +221,6 @@ export async function searchVerifiedUsers(query: string) {
   const session = await auth.api.getSession({ headers: reqHeaders });
   if (!session) return { error: "Unauthorized" };
 
-  const user = session.user as any;
-  if (!isAdmin(user.role)) return { error: "Forbidden" };
-
   if (!query || query.length < 2) return { users: [] };
 
   await dbConnect();
