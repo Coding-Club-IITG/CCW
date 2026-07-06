@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Shield, AlertCircle } from "lucide-react";
-import type { FileEntry, UserBasic } from "./types";
+import type { FileEntry } from "./types";
 import { EMPTY_ACL } from "./utils";
 import AccessControlForm from "./AccessControlForm";
 import styles from "./FilesClient.module.scss";
@@ -10,7 +10,6 @@ import styles from "./FilesClient.module.scss";
 interface Props {
   file: FileEntry;
   existingFolders: string[];
-  users: UserBasic[];
   onSuccess: () => void;
   onClose: () => void;
 }
@@ -18,7 +17,6 @@ interface Props {
 export default function EditModal({
   file,
   existingFolders,
-  users,
   onSuccess,
   onClose,
 }: Props) {
@@ -149,7 +147,6 @@ export default function EditModal({
                 onChange={(acl) =>
                   setForm((p) => ({ ...p, accessControl: acl }))
                 }
-                users={users}
               />
             </div>
 

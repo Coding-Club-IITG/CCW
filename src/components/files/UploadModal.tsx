@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Upload, X, FileIcon, Shield, AlertCircle } from "lucide-react";
 import { MODULES } from "@/lib/constants";
-import type { CurrentUser, UserBasic } from "./types";
+import type { CurrentUser } from "./types";
 import { EMPTY_ACL, DEFAULT_FOLDER, formatBytes } from "./utils";
 import AccessControlForm from "./AccessControlForm";
 import styles from "./FilesClient.module.scss";
@@ -11,7 +11,6 @@ import styles from "./FilesClient.module.scss";
 interface Props {
   currentUser: CurrentUser;
   existingFolders: string[];
-  users: UserBasic[];
   onSuccess: () => void;
   onClose: () => void;
 }
@@ -19,7 +18,6 @@ interface Props {
 export default function UploadModal({
   currentUser,
   existingFolders,
-  users,
   onSuccess,
   onClose,
 }: Props) {
@@ -241,7 +239,6 @@ export default function UploadModal({
                 onChange={(acl) =>
                   setForm((p) => ({ ...p, accessControl: acl }))
                 }
-                users={users}
               />
             </div>
 

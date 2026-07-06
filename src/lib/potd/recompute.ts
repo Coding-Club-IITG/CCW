@@ -6,24 +6,15 @@ import POTDSubmission from "@/models/POTDSubmission";
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import Problem from "@/models/POTDProblem";
-import {
-  processSubmission,
-  findEarliestAcceptedSolveTime,
-  buildMockSubmissions,
-} from "@/lib/potd/submit";
+import POTDOutage from "@/models/POTDOutage";
+import User from "@/models/User";
+import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
 import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
 import { getUserSubmissions as getAtcoderSubmissions } from "@/lib/platforms/atcoder";
+import { computeWindowTimes } from "@/lib/potd/utils";
 import type { Platform } from "@/lib/constants";
 
 void Problem;
-
-/**
- * Redis key marking that the end-of-day streak reset has already run for the
- * day starting at 'windowStartMs'
- */
-export const STREAK_RESET_GUARD_PREFIX = "potd:streak_reset";
-export const streakResetGuardKey = (windowStartMs: number): string =>
-  `${STREAK_RESET_GUARD_PREFIX}:${windowStartMs}`;
 
 /**
  * Fetch a user's submissions from the relevant platform, from 'windowStartMs' onward
@@ -173,51 +164,258 @@ export async function resetSubmissionStatuses(
   });
 }
 
+const CF_DELAY_MS = 2_100;
+const AC_DELAY_MS = 1_100;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+interface BackfillOptions {
+  targets: any[];
+  handleMap: Map<string, string>;
+  challenges: any[];
+  platform: Platform;
+  delayMs: number;
+  fromWindowStart: number;
+}
+
 /**
- * Replay one user's entire finalized history chronologically, recomputing
- * status/points/streaks from their stored 'solvedAt' values
+ * Shared helper to poll external platforms and record solves to MongoDB
  */
-export async function replayUser(
-  userId: any,
-  daysMap: Map<number, any[]>,
-  sortedDays: number[],
-  now: Date = new Date(),
-): Promise<void> {
-  const userSubs = await POTDSubmission.find({ userId });
-  const byChallenge = new Map<string, any>();
-  for (const s of userSubs) byChallenge.set(s.challengeId.toString(), s);
-
-  for (const day of sortedDays) {
-    const dayChallenges = daysMap.get(day)!;
-    let solvedAnyToday = false;
-
-    for (const challenge of dayChallenges) {
-      const platform = platformOf(challenge);
-      const sub = byChallenge.get(challenge._id.toString());
-      const mocks = buildMockSubmissions(
-        challenge.problem as any,
-        platform,
-        sub?.solvedAt ?? null,
-      );
-
-      // Re-fetch so processSubmission sees the running (already-updated) streak
-      const latest = await CPUser.findOne({ userId });
-      const r = await processSubmission(
-        userId.toString(),
-        challenge,
-        latest,
-        mocks,
-        platform,
-        now,
-      );
-      if (r.status === "Accepted" || r.status === "Late") solvedAnyToday = true;
-    }
-
-    if (!solvedAnyToday) {
-      const latest = await CPUser.findOne({ userId });
-      if (latest && latest.potdCurrentStreak > 0) {
-        await CPUser.updateOne({ userId }, { $set: { potdCurrentStreak: 0 } });
+async function runPlatformBackfill({
+  targets,
+  handleMap,
+  challenges,
+  platform,
+  delayMs,
+  fromWindowStart,
+}: BackfillOptions): Promise<void> {
+  if (challenges.length === 0) return;
+  console.log(`\nBackfilling ${platform} submissions...`);
+  for (let i = 0; i < targets.length; i++) {
+    const userId = targets[i].userId;
+    const handle = handleMap.get(userId.toString())!;
+    let subs: any[] = [];
+    let ok = false;
+    for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+      try {
+        subs = await fetchUserSubmissions(handle, platform, fromWindowStart);
+        ok = true;
+      } catch (e: any) {
+        console.log(
+          `  [${platform} ${i + 1}/${targets.length}] ${handle} attempt ${attempt} failed: ${e?.message}`,
+        );
+        if (attempt < 3) await sleep(3000);
       }
     }
+    if (!ok) {
+      console.log(
+        `  [${platform} ${i + 1}/${targets.length}] ${handle} - skipped`,
+      );
+      await sleep(delayMs);
+      continue;
+    }
+    const solved = await backfillSolvedAt(userId, challenges, subs, platform);
+    if (solved > 0 || (i + 1) % 10 === 0) {
+      console.log(
+        `  [${platform} ${i + 1}/${targets.length}] ${handle}: ${solved} solves`,
+      );
+    }
+    await sleep(delayMs);
   }
+}
+
+interface VerifiedTargets {
+  cfTargets: any[];
+  acTargets: any[];
+  cfHandle: Map<string, string>;
+  acHandle: Map<string, string>;
+}
+
+/**
+ * Build the verified-user -> platform-handle maps and the lists of users to poll on each platform
+ */
+async function buildVerifiedTargets(): Promise<VerifiedTargets> {
+  const cpUsers = (await CPUser.find(
+    {},
+    "userId cfVerified acVerified",
+  ).lean()) as any[];
+  const userDocs = (await User.find(
+    {},
+    "_id codeforcesId atcoderId",
+  ).lean()) as any[];
+
+  const cfHandle = new Map<string, string>();
+  const acHandle = new Map<string, string>();
+  for (const u of userDocs) {
+    if (u.codeforcesId) cfHandle.set(u._id.toString(), u.codeforcesId);
+    if (u.atcoderId) acHandle.set(u._id.toString(), u.atcoderId);
+  }
+
+  const cfTargets = cpUsers.filter(
+    (c) => c.cfVerified && cfHandle.has(c.userId.toString()),
+  );
+  const acTargets = cpUsers.filter(
+    (c) => c.acVerified && acHandle.has(c.userId.toString()),
+  );
+
+  console.log(
+    `Verified targets for polling -> CF: ${cfTargets.length}, AC: ${acTargets.length}`,
+  );
+  return { cfTargets, acTargets, cfHandle, acHandle };
+}
+
+/**
+ * Backfill solves for the given challenges from all platforms,
+ * recompute every user's scoring timeline,
+ * then finalize any past-grace days the (stopped) worker may have missed
+ */
+async function runBackfillsAndRecompute(
+  cfChallenges: any[],
+  acChallenges: any[],
+  targets: VerifiedTargets,
+  fromWindowStart: number,
+  now: Date,
+): Promise<void> {
+  await runPlatformBackfill({
+    targets: targets.cfTargets,
+    handleMap: targets.cfHandle,
+    challenges: cfChallenges,
+    platform: "codeforces",
+    delayMs: CF_DELAY_MS,
+    fromWindowStart,
+  });
+
+  await runPlatformBackfill({
+    targets: targets.acTargets,
+    handleMap: targets.acHandle,
+    challenges: acChallenges,
+    platform: "atcoder",
+    delayMs: AC_DELAY_MS,
+    fromWindowStart,
+  });
+
+  console.log("\nRecomputing all users scoring timeline & streaks...");
+
+  // Dynamic import breaks the finalize <-> recompute module cycle
+  const { buildTimeline, recomputeUsers, markPastDaysFinalized } =
+    await import("./finalize");
+
+  const { days } = await buildTimeline(now);
+  const allCp = (await CPUser.find({}, "userId").lean()) as any[];
+  const userIds = allCp.map((c) => c.userId);
+
+  for (let i = 0; i < userIds.length; i++) {
+    await recomputeUsers([userIds[i]], days, now);
+    if ((i + 1) % 25 === 0) console.log(`  ...${i + 1}/${userIds.length}`);
+  }
+
+  const marked = await markPastDaysFinalized(now);
+  if (marked > 0) console.log(`Marked ${marked} past challenge(s) finalized.`);
+}
+
+/**
+ * Core orchestration logic for registering an outage and freezing streaks for a day
+ */
+export async function registerStreakFreeze(
+  dateStr: string,
+  execute: boolean,
+  reason = "",
+): Promise<void> {
+  const now = new Date();
+  const windowTimes = computeWindowTimes(dateStr);
+  const fromWindowStart = windowTimes.windowStart.getTime();
+
+  // Find daily challenges on that specific windowStart
+  const challenges = (await DailyChallenge.find({
+    windowStart: windowTimes.windowStart,
+  }).populate("problem")) as any[];
+
+  if (challenges.length === 0) {
+    throw new Error(
+      `No challenges found for date ${dateStr} (windowStart: ${windowTimes.windowStart.toISOString()}).`,
+    );
+  }
+
+  console.log(`Found ${challenges.length} challenge(s) on ${dateStr}.`);
+  for (const c of challenges) {
+    console.log(
+      `  - [${c.difficulty}] ID: ${c._id} (Problem: ${c.problem?.name || "unnamed"})`,
+    );
+  }
+
+  const cfChallenges = challenges.filter((c) => platformOf(c) === "codeforces");
+  const acChallenges = challenges.filter((c) => platformOf(c) === "atcoder");
+
+  const targets = await buildVerifiedTargets();
+
+  if (!execute) {
+    console.log(
+      "\nDry run complete. No database changes were made. Re-run with --execute to apply.",
+    );
+    return;
+  }
+
+  // Mark the day as streak-preserved in the POTDOutage collection
+  console.log(
+    `\nRegistering outage for date ${dateStr} in POTDOutage collection...`,
+  );
+  await POTDOutage.updateOne(
+    { date: dateStr },
+    { $set: { reason } },
+    { upsert: true },
+  );
+
+  await runBackfillsAndRecompute(
+    cfChallenges,
+    acChallenges,
+    targets,
+    fromWindowStart,
+    now,
+  );
+}
+
+/**
+ * Core orchestration logic for running outage recovery from a start date
+ */
+export async function recoverOutage(
+  fromDateStr: string,
+  execute: boolean,
+): Promise<void> {
+  const now = new Date();
+  const windowTimes = computeWindowTimes(fromDateStr);
+  const fromWindowStart = windowTimes.windowStart.getTime();
+
+  // Find all challenges from that date onward
+  const challenges = (await getFinalizedChallenges(now)) as any[];
+  const toRefetch = challenges.filter(
+    (c) => (c.windowStart as Date).getTime() >= fromWindowStart,
+  );
+
+  console.log(
+    `Finalized challenges: ${challenges.length} total; ${toRefetch.length} to re-fetch from ${fromDateStr}.`,
+  );
+
+  if (toRefetch.length === 0) {
+    console.log(`No challenges found from date ${fromDateStr} onward.`);
+    return;
+  }
+
+  const cfChallenges = toRefetch.filter((c) => platformOf(c) === "codeforces");
+  const acChallenges = toRefetch.filter((c) => platformOf(c) === "atcoder");
+
+  const targets = await buildVerifiedTargets();
+
+  if (!execute) {
+    console.log(
+      "\nDry run complete. No database changes were made. Re-run with --execute to apply.",
+    );
+    return;
+  }
+
+  await runBackfillsAndRecompute(
+    cfChallenges,
+    acChallenges,
+    targets,
+    fromWindowStart,
+    now,
+  );
 }

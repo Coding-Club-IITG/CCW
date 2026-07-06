@@ -147,8 +147,20 @@ Standalone worker (`src/worker.ts`) via Agenda. Jobs in `src/lib/jobs/`.
 
 - Time windows in IST: main (00:00-23:59:59) + grace (until 02:00 next day)
 - Points: rating-based + streak bonus in main window; 50% in grace; 0 after
-- Submission processing in MongoDB transactions (`src/lib/potd/submit.ts`)
-- Statuses: `Pending` → `Accepted` / `Late` / `NotSolved`
+- **Scoring is derived, not incrementally mutated.** Ground truth = challenge
+  calendar + `POTDSubmission.solvedAt`. The pure engine `src/lib/potd/derive.ts`
+  deterministically computes every status/points/streak from solve facts, so
+  recompute is always idempotent and order-independent.
+- Single write path (`src/lib/potd/finalize.ts`): record `solvedAt`
+  (poll / live sync) → `recomputeUser()` rewrites stats + per-submission scoring.
+  `syncUserChallenge()` is the live-sync entry; `finalize()` is the nightly cron.
+- Finalization is durable + backlog-draining via `DailyChallenge.finalizedAt`
+  (replaced the old ephemeral Redis streak-reset guard). A missed/failed cron run
+  self-heals on the next run; recovery scripts (`potd-outage`, `potd-recalc`,
+  `potd-recalc-user`, `potd-mark-finalized`) reuse the same `recomputeUsers` core.
+- `streakAtSolve` is persisted per submission so each day's points are a local,
+  auditable function of `(rating, solvedAt, streakAtSolve)` — no full replay.
+- Statuses: `Pending` → `Accepted` (main) / `Late` (grace, 50%) / `NotSolved`
 - Admin can set problems up to 10 days ahead; no reuse allowed
 
 ---
