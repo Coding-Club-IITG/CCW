@@ -23,13 +23,13 @@ export async function proxy(request: NextRequest) {
       pathname.startsWith("/api/contests"))
   ) {
     const user = session.user as { role?: string; moduleRoles?: unknown };
-    const inSoftwareDev = parseModuleRoles(user.moduleRoles).some(
-      (mr) => mr.module === "Software Development",
+    const hasRequiredModule = parseModuleRoles(user.moduleRoles).some(
+      (mr) => mr.module === "Software Development" || mr.module === "Competitive Programming",
     );
-    if (!isAdmin(user.role) && !inSoftwareDev) {
+    if (!isAdmin(user.role) && !hasRequiredModule) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
-          { error: "Forbidden: Software Development module only (testing)" },
+          { error: "Forbidden: Software Development or CP module only (testing)" },
           { status: 403 },
         );
       }
