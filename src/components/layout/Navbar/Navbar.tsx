@@ -47,6 +47,7 @@ const INTERNAL_LINKS = [
   { href: "/internal/files", label: "Files" },
   { href: "/internal/cp", label: "CP" },
   { href: "/internal/potd", label: "POTD" },
+  { href: "/internal/contests", label: "Contests" },
   { href: "/internal/hackathons", label: "Hackathons" },
 ];
 

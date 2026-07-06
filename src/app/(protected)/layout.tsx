@@ -1,3 +1,4 @@
+import ProtectedLayoutClient from "./ProtectedLayoutClient";
 import Navbar from "@/components/layout/Navbar/Navbar";
 
 export default async function ProtectedLayout({
@@ -8,15 +9,7 @@ export default async function ProtectedLayout({
   return (
     <>
       <Navbar />
-      <main
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-          padding: "2rem",
-        }}
-      >
-        {children}
-      </main>
+      <ProtectedLayoutClient>{children}</ProtectedLayoutClient>
     </>
   );
 }
