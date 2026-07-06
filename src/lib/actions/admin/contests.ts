@@ -262,7 +262,7 @@ export async function searchVerifiedUsers(query: string) {
   const users = await User.find({
     name: { $regex: escapedQuery, $options: "i" },
   })
-    .select("_id name image")
+    .select("_id name image pizza_count")
     .limit(20)
     .lean();
 
@@ -294,6 +294,7 @@ export async function searchVerifiedUsers(query: string) {
         id: u._id.toString(),
         name: u.name,
         image: u.image,
+        pizza_count: u.pizza_count || 0,
         cfHandle: cpData.cfHandle,
         cfRating: cpData.cfRating || 0,
       };

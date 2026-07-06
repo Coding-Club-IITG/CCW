@@ -15,45 +15,14 @@ export default function Step2Registration({
 }: Step2Props) {
   return (
     <div>
-      <h2
-        style={{
-          marginBottom: "1.5rem",
-          fontSize: "1.25rem",
-          color: "var(--foreground-strong)",
-        }}
-      >
-        Step 2: Registration settings
-      </h2>
+      <h2 className={styles.stepTitle}>Step 2: Registration settings</h2>
 
-      <div
-        className={styles.field}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.375rem",
-          marginBottom: "1.25rem",
-        }}
-      >
-        <label
-          style={{
-            fontWeight: 600,
-            fontSize: "0.8125rem",
-            color: "var(--foreground)",
-            marginBottom: "0.5rem",
-          }}
-        >
+      <div className={styles.field}>
+        <label className={`${styles.label} ${styles.labelBlock}`}>
           Registration Type
         </label>
-        <div style={{ display: "flex", gap: "1.5rem" }}>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.375rem",
-              fontSize: "0.875rem",
-              cursor: "pointer",
-            }}
-          >
+        <div className={styles.radioRow}>
+          <label className={styles.radioLabel}>
             <input
               type="radio"
               name="registrationType"
@@ -62,15 +31,7 @@ export default function Step2Registration({
             />
             Open (Any verified user can join)
           </label>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.375rem",
-              fontSize: "0.875rem",
-              cursor: "pointer",
-            }}
-          >
+          <label className={styles.radioLabel}>
             <input
               type="radio"
               name="registrationType"
@@ -82,17 +43,8 @@ export default function Step2Registration({
         </div>
       </div>
 
-      <div
-        className={styles.field}
-        style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}
-      >
-        <label
-          style={{
-            fontWeight: 600,
-            fontSize: "0.8125rem",
-            color: "var(--foreground)",
-          }}
-        >
+      <div className={`${styles.field} ${styles.fieldFlush}`}>
+        <label className={styles.label}>
           Max Participants (Total brackets / teams size)
         </label>
         <input
@@ -102,22 +54,11 @@ export default function Step2Registration({
             updateFields({ maxParticipants: Number(e.target.value) })
           }
           min={2}
-          style={{
-            padding: "0.5rem 0.75rem",
-            border: errors.maxParticipants
-              ? "1px solid var(--danger)"
-              : "1px solid var(--border-input)",
-            borderRadius: "6px",
-            fontSize: "0.875rem",
-            background: "var(--surface)",
-            color: "var(--foreground)",
-          }}
+          className={`${styles.input} ${errors.maxParticipants ? styles.inputError : ""}`}
           required
         />
         {errors.maxParticipants && (
-          <span style={{ color: "var(--danger)", fontSize: "0.75rem" }}>
-            {errors.maxParticipants}
-          </span>
+          <span className={styles.error}>{errors.maxParticipants}</span>
         )}
       </div>
     </div>

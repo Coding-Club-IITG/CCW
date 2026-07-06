@@ -10,112 +10,69 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
 
   return (
     <div>
-      <h2
-        style={{
-          marginBottom: "1.5rem",
-          fontSize: "1.25rem",
-          color: "var(--foreground-strong)",
-        }}
-      >
-        Step 5: Review & Create Tournament
-      </h2>
+      <h2 className={styles.stepTitle}>Step 5: Review & Create Tournament</h2>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "1rem",
-          fontSize: "0.875rem",
-        }}
-      >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "150px 1fr",
-            gap: "0.5rem",
-            borderBottom: "1px solid var(--border)",
-            paddingBottom: "0.75rem",
-          }}
-        >
-          <span style={{ color: "var(--muted)" }}>Tournament Name:</span>
-          <strong style={{ color: "var(--foreground-strong)" }}>
-            {formData.name}
-          </strong>
+      <div className={styles.previewList}>
+        <div className={styles.previewSection}>
+          <span className={styles.previewLabel}>Tournament Name:</span>
+          <strong className={styles.previewValueStrong}>{formData.name}</strong>
 
           {formData.description && (
             <>
-              <span style={{ color: "var(--muted)" }}>Description:</span>
+              <span className={styles.previewLabel}>Description:</span>
               <span
-                style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}
+                className={`${styles.previewValue} ${styles.previewValuePre}`}
               >
                 {formData.description}
               </span>
             </>
           )}
 
-          <span style={{ color: "var(--muted)" }}>Format:</span>
-          <strong style={{ color: "var(--foreground)" }}>
-            Bracket (Knockout)
-          </strong>
+          <span className={styles.previewLabel}>Format:</span>
+          <strong className={styles.previewValue}>Bracket (Knockout)</strong>
 
-          <span style={{ color: "var(--muted)" }}>Match Mode:</span>
+          <span className={styles.previewLabel}>Match Mode:</span>
           <strong
-            style={{ color: "var(--foreground)", textTransform: "capitalize" }}
+            className={`${styles.previewValue} ${styles.previewValueCap}`}
           >
             {formData.mode}
           </strong>
 
-          <span style={{ color: "var(--muted)" }}>Team Size:</span>
-          <strong style={{ color: "var(--foreground)" }}>
+          <span className={styles.previewLabel}>Team Size:</span>
+          <strong className={styles.previewValue}>
             {formData.teamSize === 3 ? "Trio (3v3)" : "Solo (1v1)"}
           </strong>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "150px 1fr",
-            gap: "0.5rem",
-            borderBottom: "1px solid var(--border)",
-            paddingBottom: "0.75rem",
-          }}
-        >
-          <span style={{ color: "var(--muted)" }}>Registration:</span>
+        <div className={styles.previewSection}>
+          <span className={styles.previewLabel}>Registration:</span>
           <strong
-            style={{ color: "var(--foreground)", textTransform: "capitalize" }}
+            className={`${styles.previewValue} ${styles.previewValueCap}`}
           >
             {formData.registrationType}
           </strong>
 
-          <span style={{ color: "var(--muted)" }}>Max Participants:</span>
-          <strong style={{ color: "var(--foreground)" }}>
+          <span className={styles.previewLabel}>Max Participants:</span>
+          <strong className={styles.previewValue}>
             {formData.maxParticipants}
           </strong>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "150px 1fr",
-            gap: "0.5rem",
-            borderBottom: "1px solid var(--border)",
-            paddingBottom: "0.75rem",
-          }}
-        >
-          <span style={{ color: "var(--muted)" }}>Match Preset:</span>
-          <strong style={{ color: "var(--foreground-strong)" }}>
+        <div className={styles.previewSection}>
+          <span className={styles.previewLabel}>Match Preset:</span>
+          <strong className={styles.previewValueStrong}>
             {selectedPreset?.name || "None"}
           </strong>
 
           {selectedPreset && (
             <>
-              <span style={{ color: "var(--muted)" }}>Match Duration:</span>
-              <strong style={{ color: "var(--foreground)" }}>
+              <span className={styles.previewLabel}>Match Duration:</span>
+              <strong className={styles.previewValue}>
                 {Math.round((selectedPreset.durationSeconds || 0) / 60)} minutes
               </strong>
 
-              <span style={{ color: "var(--muted)" }}>Problem Selection:</span>
-              <strong style={{ color: "var(--foreground)" }}>
+              <span className={styles.previewLabel}>Problem Selection:</span>
+              <strong className={styles.previewValue}>
                 {selectedPreset.problemSelectionMode === "bulk"
                   ? `Bulk (${selectedPreset.bulkProblemCount} problems from ${selectedPreset.bulkPlatform}, rating ${selectedPreset.bulkRatingMin}-${selectedPreset.bulkRatingMax})`
                   : `Fine-tuned slots (${selectedPreset.problemSlots?.map((s: any) => s.rating).join(", ")})`}
@@ -125,20 +82,16 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
         </div>
 
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "150px 1fr",
-            gap: "0.5rem",
-          }}
+          className={`${styles.previewSection} ${styles.previewSectionLast}`}
         >
-          <span style={{ color: "var(--muted)" }}>Bronze Playoff:</span>
-          <strong style={{ color: "var(--foreground)" }}>
+          <span className={styles.previewLabel}>Bronze Playoff:</span>
+          <strong className={styles.previewValue}>
             {formData.thirdPlacePlayoff ? "Enabled" : "Disabled"}
           </strong>
 
-          <span style={{ color: "var(--muted)" }}>Seeding:</span>
+          <span className={styles.previewLabel}>Seeding:</span>
           <strong
-            style={{ color: "var(--foreground)", textTransform: "capitalize" }}
+            className={`${styles.previewValue} ${styles.previewValueCap}`}
           >
             {formData.seedingMethod === "cf_rating"
               ? "Auto Codeforces Rating"

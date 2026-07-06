@@ -5,6 +5,8 @@ import { ContestListingItem } from "@/lib/actions/contests";
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { getDisplayName } from "@/lib/utils";
+import styles from "./ArenaRoomClient.module.scss";
 
 interface EventPayload {
   type: string;
@@ -86,6 +88,19 @@ export default function ArenaRoomClient({
     return `${Math.floor(diffMins / 60)}h ago`;
   };
 
+  const activityColorClass = (color: string) => {
+    switch (color) {
+      case "text-primary":
+        return styles.actPrimary;
+      case "text-error":
+        return styles.actError;
+      case "text-secondary":
+        return styles.actSecondary;
+      default:
+        return styles.actDefault;
+    }
+  };
+
   const [startTime, setStartTime] = useState<number | undefined>(
     initialStartTime,
   );
@@ -98,7 +113,7 @@ export default function ArenaRoomClient({
   const getDisplayTeamName = (t: any) => {
     if (!t) return "Unknown";
     if (isSoloFormat && t.members && t.members.length > 0) {
-      return t.members[0].name;
+      return getDisplayName(t.members[0].name, t.members[0].pizza_count);
     }
     return t.name;
   };
@@ -239,7 +254,7 @@ export default function ArenaRoomClient({
           ["1v1", "solo-tournament"].includes(contest?.format) &&
           t?.members?.[0]
         ) {
-          tName = t.members[0].name;
+          tName = getDisplayName(t.members[0].name, t.members[0].pizza_count);
         }
         const pName =
           stateRef.current.problems.find(
@@ -369,7 +384,7 @@ export default function ArenaRoomClient({
     if (!teams) return "Unknown";
     for (const t of teams) {
       for (const m of t.members) {
-        if (m.id === uid) return m.name;
+        if (m.id === uid) return getDisplayName(m.name, m.pizza_count);
       }
     }
     return uid === userId ? "You" : "Unknown";
@@ -425,476 +440,416 @@ export default function ArenaRoomClient({
   };
 
   return (
-    <>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hanken+Grotesk:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
-        rel="stylesheet"
-      />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-        rel="stylesheet"
-      />
-      <div className="flex-1 flex flex-col overflow-hidden relative dark stitch-container bg-background w-full h-full text-on-background font-body-md selection:bg-primary-container selection:text-on-primary-container">
-        <style>{`
-          .cyber-glow { box-shadow: 0 0 15px rgba(136, 217, 130, 0.2); }
-          .cyber-glow-error { box-shadow: 0 0 15px rgba(255, 180, 171, 0.1); }
-          .scroll-hide::-webkit-scrollbar { display: none; }
-          .scroll-hide { -ms-overflow-style: none; scrollbar-width: none; }
-          .bg-pattern { background-image: radial-gradient(rgba(136, 217, 130, 0.05) 1px, transparent 1px); background-size: 24px 24px; }
-          @keyframes slide-in {
-            0% { opacity: 0; transform: translateX(20px); }
-            100% { opacity: 1; transform: translateX(0); }
-          }
-          .problem-transition { animation: slide-in 0.4s ease-out forwards; }
-          @keyframes loading-dots {
-            0% { content: ''; }
-            25% { content: '.'; }
-            50% { content: '..'; }
-            75%, 100% { content: '...'; }
-          }
-          .animated-dots::after {
-            content: '';
-            animation: loading-dots 1.5s infinite;
-            display: inline-block;
-            width: 20px;
-            text-align: left;
-          }
-        `}</style>
-        <div className="absolute inset-0 bg-pattern opacity-30 pointer-events-none"></div>
+    <div className={styles.page}>
+      <div className={styles.bgPattern} aria-hidden="true"></div>
 
-        {/* Main Content Canvas */}
-        <main className="flex-1 flex flex-col h-full overflow-hidden p-6 gap-6 relative z-10 max-w-container-max-width mx-auto w-full">
-          <div className="flex items-center">
-            <Link
-              href={
-                from === "bracket"
-                  ? `/internal/contests/${contest._id}`
-                  : "/internal/contests"
-              }
-              className="flex items-center gap-2 px-3 py-1.5 text-primary hover:bg-primary/10 border border-transparent hover:border-primary/20 rounded-lg transition-all font-label-sm text-label-sm uppercase tracking-wider"
+      {/* Main Content Canvas */}
+      <main className={styles.main}>
+        <div>
+          <Link
+            href={
+              from === "bracket"
+                ? `/internal/contests/${contest._id}`
+                : "/internal/contests"
+            }
+            className={styles.backLink}
+          >
+            <span className={`material-symbols-outlined ${styles.icon18}`}>
+              arrow_back
+            </span>
+            {from === "bracket" ? "Back to Bracket Canvas" : "Back to Contests"}
+          </Link>
+        </div>
+
+        {/* Compact HUD */}
+        <header className={styles.hud}>
+          <div className={styles.hudLeft}>
+            <h1 className={styles.hudTitle}>{contest.name}</h1>
+            <div
+              className={`${styles.statusBadge} ${
+                matchState === "active" ? styles.statusBadgeActive : ""
+              }`}
             >
-              <span className="material-symbols-outlined text-[18px]">
-                arrow_back
-              </span>
-              {from === "bracket"
-                ? "Back to Bracket Canvas"
-                : "Back to Contests"}
-            </Link>
-          </div>
-
-          {/* Compact HUD */}
-          <header className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-container-low border border-outline-variant p-4 rounded-xl cyber-glow gap-4">
-            <div className="flex items-center gap-4">
-              <h1 className="font-headline-lg text-[20px] text-on-surface tracking-tight">
-                {contest.name}
-              </h1>
-              <div
-                className={`flex items-center gap-2 px-3 py-1 bg-surface-container border rounded-full font-label-sm text-xs uppercase tracking-wider ${matchState === "active" ? "border-primary/30 text-primary" : "border-outline-variant text-on-surface-variant"}`}
-              >
-                {matchState === "active" && (
-                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                )}
-                {matchState === "active"
-                  ? "LIVE MATCH"
-                  : matchState === "completed"
-                    ? "MATCH OVER"
-                    : "WAITING FOR PLAYERS"}
-              </div>
+              {matchState === "active" && (
+                <span className={styles.statusDot}></span>
+              )}
+              {matchState === "active"
+                ? "LIVE MATCH"
+                : matchState === "completed"
+                  ? "MATCH OVER"
+                  : "WAITING FOR PLAYERS"}
             </div>
-            <div className="flex flex-wrap items-center gap-4 font-headline-lg text-[24px]">
-              {teams?.map((t, idx) => (
-                <div key={t._id} className="flex items-center gap-2">
-                  <span
-                    className={`${t._id === teamId ? "text-primary" : "text-on-surface-variant text-lg"} truncate max-w-[150px]`}
-                  >
-                    {getDisplayTeamName(t)}
-                  </span>
-                  <span className="text-on-surface font-bold">
-                    {scores[t._id] || 0}
-                  </span>
-                  {idx < (teams.length || 0) - 1 && (
-                    <span className="text-outline-variant font-body-md text-sm mx-2">
-                      VS
+          </div>
+          <div className={styles.scoreRow}>
+            {teams?.map((t, idx) => (
+              <div key={t._id} className={styles.teamScoreGroup}>
+                <span
+                  className={
+                    t._id === teamId ? styles.teamNameActive : styles.teamName
+                  }
+                >
+                  {getDisplayTeamName(t)}
+                </span>
+                <span className={styles.scoreVal}>{scores[t._id] || 0}</span>
+                {idx < (teams.length || 0) - 1 && (
+                  <span className={styles.vsInline}>VS</span>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className={styles.timerBox}>
+            <span className={`material-symbols-outlined ${styles.timerIcon}`}>
+              timer
+            </span>
+            <span className={styles.timerText}>
+              {timeLeft} <span className={styles.timerSub}>remaining</span>
+            </span>
+          </div>
+        </header>
+
+        {/* 3-Column Layout */}
+        <div className={styles.grid}>
+          {/* Left Sidebar (Roster) */}
+          <div className={styles.sideCol}>
+            <div className={styles.panel}>
+              <h2 className={styles.panelTitle}>Active Roster</h2>
+
+              {teams?.map((team) => (
+                <div key={team._id} className={styles.rosterTeam}>
+                  {!isSoloFormat && (
+                    <span
+                      className={`${styles.rosterTeamName} ${
+                        team._id === teamId ? styles.rosterTeamNameOwn : ""
+                      }`}
+                    >
+                      {team.name}
                     </span>
                   )}
+                  {team.members.map((member: any) => {
+                    const memberIsReady = readyUserIds.has(member.id);
+                    const memberIsOnline = onlineUserIds.has(member.id);
+
+                    const borderClass = !memberIsOnline
+                      ? styles.borderError
+                      : memberIsReady || matchState !== "waiting"
+                        ? styles.borderPrimary
+                        : styles.borderNone;
+                    const dotClass = !memberIsOnline
+                      ? styles.dotError
+                      : matchState === "waiting" && !memberIsReady
+                        ? styles.dotMuted
+                        : styles.dotPrimary;
+
+                    return (
+                      <div
+                        key={member.id}
+                        className={`${styles.memberRow} ${borderClass}`}
+                      >
+                        <img
+                          src={
+                            member.avatar ||
+                            `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "U")}&background=random`
+                          }
+                          alt={member.name}
+                          className={`${styles.memberAvatar} ${
+                            memberIsOnline ? "" : styles.memberAvatarOffline
+                          }`}
+                        />
+                        <span className={styles.memberName}>
+                          {getDisplayName(member.name, member.pizza_count)}{" "}
+                          {member.id === userId && "(You)"}
+                        </span>
+                        <div
+                          className={`${styles.statusDotSm} ${dotClass}`}
+                        ></div>
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-3 bg-surface-container py-2 px-4 border border-outline-variant rounded-lg">
-              <span className="material-symbols-outlined text-primary">
-                timer
-              </span>
-              <span className="font-label-sm text-label-sm text-on-surface">
-                {timeLeft}{" "}
-                <span className="text-on-surface-variant text-xs">
-                  remaining
-                </span>
-              </span>
-            </div>
-          </header>
+          </div>
 
-          {/* 3-Column Layout */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 overflow-hidden">
-            {/* Left Sidebar (Roster) */}
-            <div className="lg:col-span-1 flex flex-col h-full overflow-hidden">
-              <div className="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex flex-col gap-4 h-full overflow-y-auto scroll-hide">
-                <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest sticky top-0 bg-surface-container-low z-10 pb-2 border-b border-outline-variant/50">
-                  Active Roster
-                </h2>
-
-                {teams?.map((team) => (
-                  <div
-                    key={team._id}
-                    className="flex flex-col gap-2 mt-4 first:mt-0"
+          {/* Center Stage - Problem Grid */}
+          <div className={styles.centerCol}>
+            <div className={`${styles.panel} ${styles.panelStage}`}>
+              {matchState === "waiting" ? (
+                <div className={styles.waiting}>
+                  <div className={styles.waitingIcon}>
+                    <span className="material-symbols-outlined">groups</span>
+                  </div>
+                  <h2 className={styles.waitingTitle}>Waiting for Players</h2>
+                  <p className={styles.waitingText}>
+                    The arena is being prepared. Review your strategy—the match
+                    begins when all teams are ready.
+                  </p>
+                  <button
+                    onClick={handleReady}
+                    disabled={isReady}
+                    className={styles.readyBtn}
                   >
-                    {!isSoloFormat && (
-                      <span
-                        className={`font-label-sm text-[10px] uppercase tracking-widest pb-1 mb-1 ${team._id === teamId ? "text-primary" : "text-secondary"}`}
-                      >
-                        {team.name}
+                    {isReady ? (
+                      <span className={styles.animatedDots}>
+                        Ready! Waiting on others
                       </span>
+                    ) : (
+                      "I am Ready"
                     )}
-                    {team.members.map((member: any) => {
-                      const memberIsReady = readyUserIds.has(member.id);
-                      const memberIsOnline = onlineUserIds.has(member.id);
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className={styles.gridHead}>
+                    <h2 className={styles.gridHeadTitle}>Problem Grid</h2>
+                  </div>
 
-                      const borderColor = !memberIsOnline
-                        ? "border-error"
-                        : memberIsReady || matchState !== "waiting"
-                          ? "border-primary"
-                          : "border-transparent";
-                      const dotColor = !memberIsOnline
-                        ? "bg-error"
-                        : matchState === "waiting" && !memberIsReady
-                          ? "bg-outline-variant"
-                          : "bg-primary";
+                  <div className={styles.problemGrid}>
+                    {problems.map((prob) => {
+                      const lockVal = locks[prob.problemId];
+                      const isClaimed = !!lockVal;
+                      let claimedByMe = false;
+                      let claimedByWhoName = "Unknown";
+
+                      if (isClaimed) {
+                        const [cTeamId, cTimestamp] = lockVal.split("|");
+                        claimedByMe = cTeamId === teamId;
+                        const t = teams?.find((t) => t._id === cTeamId);
+                        claimedByWhoName = t
+                          ? getDisplayTeamName(t)
+                          : "Unknown";
+                      }
+
+                      const cardStateClass = isClaimed
+                        ? claimedByMe
+                          ? styles.gridCardMine
+                          : styles.gridCardOther
+                        : styles.gridCardOpen;
+                      const badgeClass = isClaimed
+                        ? claimedByMe
+                          ? styles.badgeMine
+                          : styles.badgeOther
+                        : styles.badgeOpen;
+                      const topIconClass = isClaimed
+                        ? claimedByMe
+                          ? styles.topIconMine
+                          : styles.topIconOther
+                        : styles.topIconOpen;
+                      const isSyncing = syncingMap[prob.problemId];
 
                       return (
                         <div
-                          key={member.id}
-                          className={`flex items-center gap-3 p-2 rounded bg-surface-variant/30 hover:bg-surface-variant/50 transition-colors border-l-2 ${borderColor}`}
+                          key={prob.problemId}
+                          className={`${styles.gridCard} ${cardStateClass}`}
                         >
-                          <img
-                            src={
-                              member.avatar ||
-                              `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "U")}&background=random`
-                            }
-                            alt={member.name}
-                            className={`w-6 h-6 rounded-full object-cover border ${memberIsOnline ? "border-primary/50" : "border-error/50 grayscale"}`}
-                          />
-                          <span className="font-label-sm text-sm text-on-surface flex-1 truncate">
-                            {member.name} {member.id === userId && "(You)"}
-                          </span>
-                          <div
-                            className={`w-2 h-2 rounded-full ${dotColor}`}
-                          ></div>
+                          {isClaimed && (
+                            <div
+                              className={`${styles.lockOverlay} ${
+                                claimedByMe
+                                  ? styles.lockOverlayMine
+                                  : styles.lockOverlayOther
+                              }`}
+                            >
+                              <span className="material-symbols-outlined">
+                                {claimedByMe ? "check_circle" : "lock"}
+                              </span>
+                            </div>
+                          )}
+                          <div className={styles.gridCardHeader}>
+                            <span
+                              className={`${styles.ratingBadge} ${badgeClass}`}
+                            >
+                              {prob.rating}
+                            </span>
+                            <span
+                              className={`material-symbols-outlined ${topIconClass}`}
+                            >
+                              {isClaimed
+                                ? claimedByMe
+                                  ? "code"
+                                  : "lock"
+                                : "code"}
+                            </span>
+                          </div>
+                          <div className={styles.gridCardBody}>
+                            <h3
+                              className={styles.gridCardTitle}
+                              title={prob.name}
+                            >
+                              {prob.problemId ? `${prob.problemId} - ` : ""}
+                              {prob.name}
+                            </h3>
+                            <p className={styles.gridCardPoints}>
+                              {prob.points || 100} pts
+                            </p>
+                          </div>
+
+                          <div className={styles.gridCardFooter}>
+                            {isClaimed ? (
+                              <div
+                                className={`${styles.claimedInfo} ${
+                                  claimedByMe
+                                    ? styles.claimedInfoMine
+                                    : styles.claimedInfoOther
+                                }`}
+                              >
+                                <span
+                                  className={styles.claimedName}
+                                  title={claimedByWhoName}
+                                >
+                                  {claimedByWhoName}
+                                </span>
+                                <span className={styles.claimedLabel}>
+                                  Locked
+                                </span>
+                              </div>
+                            ) : (
+                              <span className={styles.unclaimed}>
+                                Unclaimed
+                              </span>
+                            )}
+
+                            <div className={styles.gridCardActions}>
+                              <a
+                                href={`https://codeforces.com/contest/${prob.problemId.replace(/[^0-9]/g, "")}/problem/${prob.problemId.replace(/[0-9]/g, "")}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={styles.cfIconBtn}
+                                title="Open in Codeforces"
+                              >
+                                <span
+                                  className={`material-symbols-outlined ${styles.icon16}`}
+                                >
+                                  open_in_new
+                                </span>
+                              </a>
+                              <button
+                                onClick={() => handleSync(prob.problemId)}
+                                disabled={
+                                  isClaimed ||
+                                  isSyncing ||
+                                  matchState !== "active" ||
+                                  syncCooldown > 0
+                                }
+                                className={styles.syncMini}
+                              >
+                                <span
+                                  className={`material-symbols-outlined ${styles.icon14} ${isSyncing && !isClaimed ? styles.spin : ""}`}
+                                >
+                                  {isClaimed
+                                    ? "lock"
+                                    : isSyncing
+                                      ? "sync"
+                                      : syncCooldown > 0
+                                        ? "hourglass_empty"
+                                        : "sync"}
+                                </span>
+                                {isClaimed
+                                  ? "Locked"
+                                  : isSyncing
+                                    ? "Syncing"
+                                    : syncCooldown > 0
+                                      ? `${syncCooldown}s`
+                                      : "Sync"}
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
-                ))}
-              </div>
+                </>
+              )}
             </div>
+          </div>
 
-            {/* Center Stage - Problem Grid */}
-            <div className="lg:col-span-2 flex flex-col h-full overflow-hidden">
-              <div className="flex-1 flex flex-col bg-surface-container-low border border-outline-variant rounded-xl p-6 overflow-y-auto scroll-hide relative">
-                {matchState === "waiting" ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                    <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6 cyber-glow">
-                      <span className="material-symbols-outlined text-6xl text-primary animate-pulse">
-                        groups
-                      </span>
-                    </div>
-                    <h2 className="text-3xl font-bold mb-4 text-on-surface">
-                      Waiting for Players
-                    </h2>
-                    <p className="text-on-surface-variant mb-8 max-w-md text-lg">
-                      The arena is being prepared. Review your strategy—the
-                      match begins when all teams are ready.
-                    </p>
-                    <button
-                      onClick={handleReady}
-                      disabled={isReady}
-                      className="w-full max-w-sm px-8 py-4 bg-primary-container text-white border border-primary/50 rounded-lg font-label-sm font-bold tracking-widest uppercase text-lg transition-all duration-300 shadow-[0_4px_20px_rgba(46,125,50,0.4)] hover:shadow-[0_0_25px_rgba(46,125,50,0.7)] disabled:opacity-50"
-                      style={{ cursor: isReady ? "default" : "pointer" }}
-                    >
-                      {isReady ? (
-                        <span className="animated-dots">
-                          Ready! Waiting on others
-                        </span>
-                      ) : (
-                        "I am Ready"
-                      )}
-                    </button>
-                  </div>
+          {/* Right Sidebar (Activity Log) */}
+          <div className={styles.sideCol}>
+            <div className={`${styles.panel} ${styles.panelStage}`}>
+              <div className={styles.activityHead}>
+                <h2 className={styles.activityTitle}>
+                  <span className="material-symbols-outlined">rss_feed</span>
+                  Activity Feed
+                </h2>
+              </div>
+              <div className={styles.activityList}>
+                {activityFeed.length === 0 ? (
+                  <p className={styles.activityEmpty}>No activity yet.</p>
                 ) : (
-                  <>
-                    <div className="flex justify-between items-center mb-6 sticky top-0 bg-surface-container-low z-20 pb-2 border-b border-outline-variant/50">
-                      <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
-                        Problem Grid
-                      </h2>
+                  activityFeed.map((act) => (
+                    <div key={act.id} className={styles.activityItem}>
+                      <div className={styles.activityIconWrap}>
+                        <span
+                          className={`material-symbols-outlined ${activityColorClass(act.color)} ${styles.icon16}`}
+                        >
+                          {act.icon}
+                        </span>
+                      </div>
+                      <div className={styles.activityBody}>
+                        <p
+                          className={`${styles.activityText} ${
+                            act.icon === "gavel"
+                              ? styles.activityTextCritical
+                              : ""
+                          }`}
+                        >
+                          {act.text}
+                        </p>
+                        <span className={styles.activityTime}>
+                          {getRelativeTime(act.timestamp)}
+                        </span>
+                      </div>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-max pb-4">
-                      {problems.map((prob) => {
-                        const lockVal = locks[prob.problemId];
-                        const isClaimed = !!lockVal;
-                        let claimedByMe = false;
-                        let claimedByWhoName = "Unknown";
-
-                        if (isClaimed) {
-                          const [cTeamId, cTimestamp] = lockVal.split("|");
-                          claimedByMe = cTeamId === teamId;
-                          const t = teams?.find((t) => t._id === cTeamId);
-                          claimedByWhoName = t
-                            ? getDisplayTeamName(t)
-                            : "Unknown";
-                        }
-
-                        // Colors & Styling
-                        const borderColor = isClaimed
-                          ? claimedByMe
-                            ? "border-primary"
-                            : "border-error"
-                          : "border-outline-variant hover:border-primary/50";
-                        const bgColor = isClaimed
-                          ? claimedByMe
-                            ? "bg-surface"
-                            : "bg-surface opacity-75"
-                          : "bg-surface";
-                        const glow =
-                          isClaimed && claimedByMe ? "cyber-glow" : "";
-                        const badgeBg = isClaimed
-                          ? claimedByMe
-                            ? "bg-primary-container text-on-primary-container"
-                            : "bg-error-container text-on-error-container"
-                          : "bg-surface-variant text-on-surface";
-                        const isSyncing = syncingMap[prob.problemId];
-
-                        return (
-                          <div
-                            key={prob.problemId}
-                            className={`${bgColor} border-2 ${borderColor} p-5 rounded-lg flex flex-col gap-4 relative overflow-hidden group ${glow} transition-colors`}
-                          >
-                            {isClaimed && (
-                              <div className="absolute top-0 right-0 p-2 opacity-10">
-                                <span
-                                  className={`material-symbols-outlined text-6xl ${claimedByMe ? "text-primary" : "text-error"}`}
-                                >
-                                  {claimedByMe ? "check_circle" : "lock"}
-                                </span>
-                              </div>
-                            )}
-                            <div className="flex justify-between items-start z-10">
-                              <span
-                                className={`font-label-sm text-label-sm px-2 py-1 rounded ${badgeBg}`}
-                              >
-                                {prob.rating}
-                              </span>
-                              <span
-                                className={`material-symbols-outlined ${isClaimed ? (claimedByMe ? "text-primary" : "text-error") : "text-on-surface-variant group-hover:text-primary"}`}
-                              >
-                                {isClaimed
-                                  ? claimedByMe
-                                    ? "code"
-                                    : "lock"
-                                  : "code"}
-                              </span>
-                            </div>
-                            <div className="z-10">
-                              <h3
-                                className="font-label-sm text-label-sm text-on-surface mb-1 truncate"
-                                title={prob.name}
-                              >
-                                {prob.problemId ? `${prob.problemId} - ` : ""}
-                                {prob.name}
-                              </h3>
-                              <p className="text-xs text-primary font-label-sm font-bold">
-                                {prob.points || 100} pts
-                              </p>
-                            </div>
-
-                            <div className="mt-auto pt-4 border-t border-outline-variant/50 flex flex-wrap items-center justify-between gap-3 z-10">
-                              {isClaimed ? (
-                                <div className="flex items-center gap-2 max-w-[50%]">
-                                  <div
-                                    className={`flex flex-col ${claimedByMe ? "text-primary" : "text-error"}`}
-                                  >
-                                    <span
-                                      className="font-label-sm text-xs truncate"
-                                      title={claimedByWhoName}
-                                    >
-                                      {claimedByWhoName}
-                                    </span>
-                                    <span className="text-[10px] opacity-80 font-label-sm">
-                                      Locked
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="font-label-sm text-xs text-on-surface-variant">
-                                  Unclaimed
-                                </span>
-                              )}
-
-                              <div className="flex items-center gap-2 ml-auto">
-                                <a
-                                  href={`https://codeforces.com/contest/${prob.problemId.replace(/[^0-9]/g, "")}/problem/${prob.problemId.replace(/[0-9]/g, "")}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="p-2 rounded bg-surface-variant hover:bg-outline-variant text-on-surface transition-colors flex items-center justify-center"
-                                  title="Open in Codeforces"
-                                >
-                                  <span className="material-symbols-outlined text-sm">
-                                    open_in_new
-                                  </span>
-                                </a>
-                                <button
-                                  onClick={() => handleSync(prob.problemId)}
-                                  disabled={
-                                    isClaimed ||
-                                    isSyncing ||
-                                    matchState !== "active" ||
-                                    syncCooldown > 0
-                                  }
-                                  className={`flex items-center gap-1 px-3 py-1.5 rounded font-label-sm text-xs transition-colors ${
-                                    isClaimed ||
-                                    isSyncing ||
-                                    matchState !== "active" ||
-                                    syncCooldown > 0
-                                      ? "bg-surface-variant text-outline opacity-50 cursor-not-allowed"
-                                      : "bg-primary-container text-on-primary-container hover:brightness-110 shadow-sm"
-                                  }`}
-                                >
-                                  <span
-                                    className={`material-symbols-outlined text-[14px] ${isSyncing && !isClaimed ? "animate-spin" : ""}`}
-                                  >
-                                    {isClaimed
-                                      ? "lock"
-                                      : isSyncing
-                                        ? "sync"
-                                        : syncCooldown > 0
-                                          ? "hourglass_empty"
-                                          : "sync"}
-                                  </span>
-                                  {isClaimed
-                                    ? "Locked"
-                                    : isSyncing
-                                      ? "Syncing"
-                                      : syncCooldown > 0
-                                        ? `${syncCooldown}s`
-                                        : "Sync"}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
+                  ))
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      </main>
 
-            {/* Right Sidebar (Activity Log) */}
-            <div className="lg:col-span-1 flex flex-col h-full overflow-hidden">
-              <div className="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex flex-col h-full overflow-hidden relative">
-                <div className="sticky top-0 bg-surface-container-low z-10 pb-2 border-b border-outline-variant/50 mb-4">
-                  <h2 className="font-label-sm text-label-sm text-on-surface font-bold flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">
-                      rss_feed
-                    </span>
-                    Activity Feed
-                  </h2>
-                </div>
-                <div className="flex flex-col gap-4 overflow-y-auto scroll-hide font-label-sm text-label-sm h-full pb-4">
-                  {activityFeed.length === 0 ? (
-                    <p className="text-on-surface-variant text-center mt-4">
-                      No activity yet.
-                    </p>
-                  ) : (
-                    activityFeed.map((act) => (
-                      <div
-                        key={act.id}
-                        className="flex gap-3 problem-transition"
-                      >
-                        <div className="mt-1">
-                          <span
-                            className={`material-symbols-outlined ${act.color} text-sm`}
-                          >
-                            {act.icon}
-                          </span>
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          <p
-                            className={`text-on-surface break-words ${act.icon === "gavel" ? "font-bold text-error" : ""}`}
-                          >
-                            {act.text}
-                          </p>
-                          <span className="text-on-surface-variant text-[11px]">
-                            {getRelativeTime(act.timestamp)}
-                          </span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+      {/* Match Over Overlay Modal */}
+      {matchState === "completed" && (
+        <div className={styles.toast}>
+          <div className={styles.toastCard}>
+            <div className={styles.toastAccent}></div>
+            <div className={styles.toastHeader}>
+              <div className={styles.toastHeaderLeft}>
+                <span
+                  className={`material-symbols-outlined ${styles.toastIcon}`}
+                >
+                  emoji_events
+                </span>
+                <h3 className={styles.toastTitle}>Match Over!</h3>
               </div>
             </div>
-          </div>
-        </main>
-
-        {/* Match Over Overlay Modal */}
-        {matchState === "completed" && (
-          <div
-            className="fixed bottom-gutter right-gutter z-50 problem-transition"
-            style={{ bottom: "24px", right: "24px" }}
-          >
-            <div className="bg-surface-container-highest border border-primary/30 rounded-xl p-6 shadow-2xl w-80 relative overflow-hidden cyber-glow">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-secondary"></div>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-3xl">
-                    emoji_events
-                  </span>
-                  <h3 className="font-headline-lg-mobile text-[24px] font-bold text-on-surface">
-                    Match Over!
-                  </h3>
-                </div>
-              </div>
-              <div className="font-body-md text-on-surface-variant mb-6 flex flex-col gap-1">
-                <span className="mb-2">Final Scores:</span>
-                {teams?.map((t) => (
-                  <div
-                    key={t._id}
-                    className="flex justify-between items-center bg-surface-container p-2 rounded"
+            <div className={styles.toastScoreList}>
+              <span>Final Scores:</span>
+              {teams?.map((t) => (
+                <div key={t._id} className={styles.toastScoreRow}>
+                  <strong
+                    className={
+                      t._id === teamId ? styles.toastScoreOwn : undefined
+                    }
                   >
-                    <strong
-                      className={
-                        t._id === teamId ? "text-primary" : "text-on-surface"
-                      }
-                    >
-                      {getDisplayTeamName(t)}
-                    </strong>
-                    <span className="font-bold">{scores[t._id] || 0} pts</span>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() =>
-                  router.push(
-                    `/internal/contests/rooms/${roomId}/result${contest.format === "bracket" || contest.mode === "knockout" ? "?from=bracket" : ""}`,
-                  )
-                }
-                className="w-full py-2 bg-primary-container hover:brightness-110 text-on-primary-container rounded-lg font-label-sm text-label-sm transition-colors font-bold"
-              >
-                View Match Results
-              </button>
+                    {getDisplayTeamName(t)}
+                  </strong>
+                  <span>{scores[t._id] || 0} pts</span>
+                </div>
+              ))}
             </div>
+            <button
+              onClick={() =>
+                router.push(
+                  `/internal/contests/rooms/${roomId}/result${contest.format === "bracket" || contest.mode === "knockout" ? "?from=bracket" : ""}`,
+                )
+              }
+              className={styles.toastBtn}
+            >
+              View Match Results
+            </button>
           </div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+    </div>
   );
 }

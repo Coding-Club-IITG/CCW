@@ -14,6 +14,7 @@ import { getRedis } from "@/lib/redis";
 import { getBracketSnapshot } from "@/lib/bracket";
 import { isAdmin, parseModuleRoles } from "@/lib/roles";
 import { redirect } from "next/navigation";
+import styles from "./page.module.scss";
 
 export const dynamic = "force-dynamic";
 
@@ -116,12 +117,14 @@ export default async function ContestRoomPage({
     if (!room || !teamId) {
       if (contest.status === "completed") {
         return (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center text-on-surface">
-            <span className="material-symbols-outlined text-6xl text-error mb-4">
+          <div className={styles.stateWrap}>
+            <span
+              className={`material-symbols-outlined ${styles.stateIcon} ${styles.iconError}`}
+            >
               event_busy
             </span>
-            <h1 className="text-2xl font-bold mb-2">Contest Cancelled</h1>
-            <p className="text-on-surface-variant">
+            <h1 className={styles.stateTitle}>Contest Cancelled</h1>
+            <p className={styles.stateText}>
               This contest was cancelled (likely due to not enough players).
             </p>
           </div>
@@ -130,12 +133,14 @@ export default async function ContestRoomPage({
         ["draft", "registration", "provisioning"].includes(contest.status)
       ) {
         return (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center text-on-surface">
-            <span className="material-symbols-outlined text-6xl text-primary animate-spin mb-4">
+          <div className={styles.stateWrap}>
+            <span
+              className={`material-symbols-outlined ${styles.stateIcon} ${styles.iconPrimary} ${styles.spin}`}
+            >
               hourglass_empty
             </span>
-            <h1 className="text-2xl font-bold mb-2">Match is Preparing</h1>
-            <p className="text-on-surface-variant">
+            <h1 className={styles.stateTitle}>Match is Preparing</h1>
+            <p className={styles.stateText}>
               The rooms are currently being provisioned. Please wait...
             </p>
             <meta httpEquiv="refresh" content="5" />
@@ -143,12 +148,14 @@ export default async function ContestRoomPage({
         );
       } else {
         return (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center text-on-surface">
-            <span className="material-symbols-outlined text-6xl text-error mb-4">
+          <div className={styles.stateWrap}>
+            <span
+              className={`material-symbols-outlined ${styles.stateIcon} ${styles.iconError}`}
+            >
               error
             </span>
-            <h1 className="text-2xl font-bold mb-2">No Room Found</h1>
-            <p className="text-on-surface-variant">
+            <h1 className={styles.stateTitle}>No Room Found</h1>
+            <p className={styles.stateText}>
               You have not been assigned to a match room for this contest yet.
             </p>
           </div>
@@ -159,7 +166,7 @@ export default async function ContestRoomPage({
     const allMemberIds = teams.flatMap((t) => t.members);
     const users = await User.find(
       { _id: { $in: allMemberIds } },
-      { name: 1, image: 1 },
+      { name: 1, image: 1, pizza_count: 1 },
     ).lean();
     const cpUsers = await CPUser.find({ userId: { $in: allMemberIds } }).lean();
 
@@ -176,6 +183,7 @@ export default async function ContestRoomPage({
         return {
           id: mId.toString(),
           name: u ? u.name : "Unknown Player",
+          pizza_count: u?.pizza_count || 0,
           handle: cp?.cfHandle || u?.name || "Unknown",
           avatar:
             u?.image ||

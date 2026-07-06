@@ -62,13 +62,13 @@
 }
 
 .badgeActive {
-  background: rgba(46, 204, 113, 0.15);
-  color: #2ecc71;
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 
 .badgeArchived {
-  background: rgba(149, 165, 166, 0.15);
-  color: #95a5a6;
+  background: var(--surface-hover);
+  color: var(--muted);
 }
 
 .actions {
@@ -99,8 +99,8 @@
 }
 
 .unarchiveBtn:hover {
-  border-color: #2ecc71;
-  color: #2ecc71;
+  border-color: var(--success);
+  color: var(--success);
 }
 
 .overlay {

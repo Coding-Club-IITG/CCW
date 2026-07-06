@@ -1,0 +1,245 @@
+@use "@/styles/mixins" as *;
+
+@include contest-kf-pulse;
+@include contest-kf-spin;
+@include contest-kf-slide-in;
+@include contest-kf-loading-dots;
+
+@include contest-room-base;
+
+/* Arena-specific: problem grid */
+.gridHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-secondary);
+}
+
+.gridHeadTitle {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.problemGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  grid-auto-rows: max-content;
+  padding-bottom: 1rem;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.gridCard {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  transition: border-color 0.15s ease;
+}
+
+.gridCardOpen:hover {
+  border-color: var(--primary);
+}
+
+.gridCardMine {
+  border-color: var(--primary);
+  @include contest-glow(var(--focus-ring));
+}
+
+.gridCardOther {
+  border-color: var(--error);
+  opacity: 0.75;
+}
+
+.lockOverlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.5rem;
+  opacity: 0.1;
+  pointer-events: none;
+
+  span {
+    font-size: 4rem;
+  }
+}
+
+.lockOverlayMine {
+  color: var(--primary);
+}
+
+.lockOverlayOther {
+  color: var(--error);
+}
+
+.gridCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+  z-index: 1;
+}
+
+.ratingBadge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.badgeMine {
+  background: var(--primary-alpha);
+  color: var(--primary);
+}
+
+.badgeOther {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.badgeOpen {
+  background: var(--surface-hover);
+  color: var(--foreground-strong);
+}
+
+.topIconMine {
+  color: var(--primary);
+}
+
+.topIconOther {
+  color: var(--error);
+}
+
+.topIconOpen {
+  color: var(--muted);
+
+  .gridCard:hover & {
+    color: var(--primary);
+  }
+}
+
+.gridCardBody {
+  position: relative;
+  z-index: 1;
+}
+
+.gridCardTitle {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  color: var(--foreground-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gridCardPoints {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.gridCardFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  position: relative;
+  z-index: 1;
+}
+
+.claimedInfo {
+  display: flex;
+  flex-direction: column;
+  max-width: 50%;
+}
+
+.claimedInfoMine {
+  color: var(--primary);
+}
+
+.claimedInfoOther {
+  color: var(--error);
+}
+
+.claimedName {
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.claimedLabel {
+  font-size: 0.625rem;
+  opacity: 0.8;
+}
+
+.unclaimed {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.gridCardActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.cfIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background: var(--surface-hover);
+  color: var(--foreground-strong);
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--surface-secondary);
+  }
+}
+
+.syncMini {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  transition: filter 0.15s ease;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  &:disabled {
+    background: var(--surface-hover);
+    color: var(--muted-light);
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

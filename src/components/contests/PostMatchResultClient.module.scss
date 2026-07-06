@@ -1,0 +1,651 @@
+@use "@/styles/mixins" as *;
+
+@include contest-kf-spin;
+@include contest-kf-pulse;
+
+/* Processing / loading state */
+.processing {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  position: relative;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.processingIcon {
+  font-size: 48px;
+  color: var(--primary);
+  animation: contestSpin 1s linear infinite;
+}
+
+.processingText {
+  margin-top: 1rem;
+  color: var(--muted);
+  animation: contestPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Page shell */
+.page {
+  @include contest-page;
+  overflow: hidden;
+  min-height: 100vh;
+}
+
+.main {
+  @include contest-container;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+  overflow-y: auto;
+}
+
+/* Hero */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1.5rem;
+  padding: 1.5rem 0;
+}
+
+.heroTeams {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    gap: 3rem;
+  }
+}
+
+.teamBlock {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+
+  @media (min-width: 768px) {
+    gap: 3rem;
+  }
+}
+
+.vsDash {
+  font-size: 1.5rem;
+  color: var(--muted);
+  opacity: 0.5;
+  display: none;
+
+  @media (min-width: 768px) {
+    display: block;
+  }
+}
+
+.teamResult {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.winner {
+  position: relative;
+}
+
+.loser {
+  opacity: 0.7;
+}
+
+.winnerBadge {
+  position: absolute;
+  top: -3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 1rem;
+  border-radius: 999px;
+  background: var(--success);
+  color: var(--fg-on-emphasis);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  @include contest-glow(var(--success-border), 15px);
+}
+
+.teamName {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--foreground-strong);
+  text-align: center;
+  margin: 0;
+}
+
+.teamNameWinner {
+  color: var(--success);
+  border-radius: 999px;
+  padding: 0 1rem;
+  @include contest-glow(var(--success-border), 40px);
+}
+
+.teamScore {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--foreground-strong);
+}
+
+.teamScoreWinner {
+  color: var(--success);
+}
+
+.heroMeta {
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+
+  strong {
+    color: var(--primary);
+    font-weight: 700;
+  }
+}
+
+/* Banners */
+.terminationBanner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  color: var(--error-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.advancementBanner {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(
+    to right,
+    var(--surface),
+    var(--surface-hover),
+    var(--surface)
+  );
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px var(--shadow-md);
+
+  h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--foreground-strong);
+    z-index: 1;
+  }
+}
+
+.advancementIcon {
+  font-size: 32px;
+  color: var(--primary);
+}
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  padding-bottom: 3rem;
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.standingsCol {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+
+  @media (min-width: 1024px) {
+    grid-column: span 1;
+  }
+}
+
+.problemsCol {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+
+  @media (min-width: 1024px) {
+    grid-column: span 2;
+  }
+}
+
+.sectionHeading {
+  margin: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--foreground-strong);
+}
+
+/* MVP card */
+.mvpCard {
+  position: relative;
+  overflow: hidden;
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--surface-hover);
+  }
+}
+
+.mvpBadge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  border-bottom-left-radius: 8px;
+  background: var(--success);
+  color: var(--fg-on-emphasis);
+}
+
+.mvpInfo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.mvpAvatar {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary);
+  padding: 1px;
+}
+
+.mvpLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.mvpName {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--foreground-strong);
+}
+
+.mvpTeam {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.mvpContribRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.mvpContribLabel {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.mvpContribValue {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.mvpEmpty {
+  position: relative;
+  overflow: hidden;
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.mvpEmptyInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  opacity: 0.6;
+  color: var(--muted);
+  gap: 0.5rem;
+}
+
+.mvpEmptyIcon {
+  font-size: 32px;
+}
+
+/* Team standings */
+.standingsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.teamStanding {
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.teamStandingHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--border);
+}
+
+.teamStandingLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.teamRank {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.teamStandingAvatar {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
+.teamStandingName {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--foreground-strong);
+}
+
+.teamStandingScore {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  transition: background 0.15s ease;
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+
+  &:hover {
+    background: var(--surface-hover);
+  }
+}
+
+.memberInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.memberAvatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
+.memberName {
+  font-size: 0.875rem;
+  color: var(--foreground-strong);
+}
+
+.memberContrib {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+/* Problem matrix */
+.problemGrid {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.problemCard {
+  position: relative;
+  display: block;
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+
+  &:hover {
+    @include contest-glow(var(--success-border), 20px);
+    border-color: var(--success);
+    transform: scale(1.01);
+    z-index: 1;
+  }
+}
+
+.problemUnsolved {
+  opacity: 0.7;
+}
+
+.problemMain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.problemLeft {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.problemBar {
+  width: 0.375rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.problemBarSolved {
+  background: var(--primary);
+}
+
+.problemInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.problemName {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--foreground-strong);
+}
+
+.problemNameUnsolved {
+  text-decoration: line-through;
+  text-decoration-color: var(--muted-light);
+  color: var(--muted);
+}
+
+.problemStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.problemStatusSolved {
+  color: var(--primary);
+}
+
+.problemStats {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.statCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.statLabel {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.statValue {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.statValueSolved {
+  color: var(--primary);
+}
+
+.solverCol {
+  min-width: 100px;
+}
+
+.timeCol {
+  min-width: 70px;
+}
+
+.solverInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.125rem;
+}
+
+.solverName {
+  font-size: 0.875rem;
+  color: var(--foreground-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100px;
+}
+
+.solverAvatar {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--primary);
+}
+
+.solverAvatarOther {
+  border-color: var(--error);
+  filter: grayscale(1);
+}
+
+.statMuted {
+  font-size: 0.875rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 0.125rem;
+}
+
+.problemEmpty {
+  padding: 2rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.icon14 {
+  font-size: 14px;
+}
+
+.icon16 {
+  font-size: 16px;
+}
+
+.iconFilled {
+  font-variation-settings: "FILL" 1;
+}

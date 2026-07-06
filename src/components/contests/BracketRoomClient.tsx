@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Handle, Position, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import styles from "./BracketRoomClient.module.scss";
 
 const ReactFlow = dynamic(
   () => import("@xyflow/react").then((mod) => mod.ReactFlow),
@@ -44,63 +45,29 @@ function TeamSlot({
   fallback: string;
   isWinner?: boolean;
 }) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  const style = {
-    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-    transform: isHovered
-      ? "scale(1.02) translateY(-1px)"
-      : "scale(1) translateY(0)",
-    boxShadow: isHovered
-      ? "0 4px 6px -1px rgba(0, 0, 0, 0.2)"
-      : isWinner
-        ? "0 0 10px rgba(255, 215, 0, 0.2)"
-        : "none",
-    backgroundColor: isHovered
-      ? "var(--md-sys-color-surface-container-highest, #333)"
-      : isWinner
-        ? "rgba(255, 215, 0, 0.05)"
-        : undefined,
-    borderColor: isWinner ? "rgba(255, 215, 0, 0.5)" : undefined,
-  };
-
   if (tid && tname) {
     return (
       <div
-        className={`flex justify-between items-center p-3 rounded bg-surface-container-lowest border ${isWinner ? "" : "border-outline-variant"} relative`}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={style}
+        className={`${styles.teamSlot} ${isWinner ? styles.teamSlotWinner : ""}`}
       >
-        <div className="flex items-center gap-2 relative">
+        <div className={styles.teamSlotInner}>
           {timage ? (
-            <img
-              src={timage}
-              alt={tname}
-              className="w-6 h-6 rounded-full object-cover"
-            />
+            <img src={timage} alt={tname} className={styles.teamAvatar} />
           ) : (
-            <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-xs font-bold text-on-secondary-container">
+            <div
+              className={`${styles.teamAvatarFallback} ${styles.teamAvatarFallbackHi}`}
+            >
               {getInitials(tname)}
             </div>
           )}
           <span
-            className={`font-label-sm text-sm ${isWinner ? "text-on-surface font-bold" : "text-on-surface"}`}
+            className={`${styles.slotName} ${isWinner ? styles.slotNameWinner : ""}`}
           >
             {tname}
           </span>
           {isWinner && (
             <span
-              className="material-symbols-outlined absolute"
-              style={{
-                color: "#FFD700",
-                left: "100%",
-                marginLeft: "6px",
-                top: "-10px",
-                transform: "rotate(15deg) scale(1.4)",
-                filter: "drop-shadow(0px 3px 4px rgba(0,0,0,0.4))",
-                zIndex: 20,
-              }}
+              className={`material-symbols-outlined ${styles.winnerTrophy}`}
             >
               emoji_events
             </span>
@@ -110,15 +77,8 @@ function TeamSlot({
     );
   }
   return (
-    <div
-      className="flex justify-between items-center p-3 rounded bg-surface-container-lowest border border-outline-variant border-dashed"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={style}
-    >
-      <span className="font-label-sm text-sm text-on-surface-variant italic">
-        {fallback}
-      </span>
+    <div className={`${styles.teamSlot} ${styles.teamSlotTbd}`}>
+      <span className={styles.slotTbd}>{fallback}</span>
     </div>
   );
 }
@@ -140,55 +100,25 @@ function TeamRow({
   isLoser: boolean;
   isActive: boolean;
 }) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  const style = {
-    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-    transform: isHovered
-      ? "scale(1.02) translateY(-1px)"
-      : "scale(1) translateY(0)",
-    boxShadow: isHovered ? "0 4px 6px -1px rgba(0, 0, 0, 0.2)" : "none",
-    backgroundColor: isHovered
-      ? "var(--md-sys-color-surface-container-highest, #333)"
-      : undefined,
-  };
-
   if (!tid || !tname) {
     return (
-      <div
-        className="flex justify-between items-center p-2 rounded"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={style}
-      >
-        <div className="flex items-center gap-2">
-          <span className="font-label-sm text-sm text-on-surface-variant italic">
-            TBD
-          </span>
+      <div className={styles.teamRow}>
+        <div className={styles.rowInner}>
+          <span className={styles.rowTbd}>TBD</span>
         </div>
-        <span className="font-label-sm text-on-surface-variant">-</span>
+        <span className={styles.rowScoreMuted}>-</span>
       </div>
     );
   }
   const ini = getInitials(tname);
 
-  const renderAvatar = (isWinnerState?: boolean, isActiveState?: boolean) => {
+  const renderAvatar = (hi?: boolean) => {
     if (timage) {
-      return (
-        <img
-          src={timage}
-          alt={tname}
-          className="w-6 h-6 rounded-full object-cover"
-        />
-      );
+      return <img src={timage} alt={tname} className={styles.teamAvatar} />;
     }
-    const bgClass =
-      isWinnerState || isActiveState
-        ? "bg-secondary-container text-on-secondary-container font-bold"
-        : "bg-surface-bright text-on-surface-variant";
     return (
       <div
-        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${bgClass}`}
+        className={`${styles.teamAvatarFallback} ${hi ? styles.teamAvatarFallbackHi : ""}`}
       >
         {ini}
       </div>
@@ -197,70 +127,44 @@ function TeamRow({
 
   if (isWinner) {
     return (
-      <div
-        className="flex justify-between items-center p-2 rounded bg-surface-variant border-l-2 border-primary"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={style}
-      >
-        <div className="flex items-center gap-2">
-          {renderAvatar(true, false)}
-          <span className="font-label-sm text-sm text-on-surface">{tname}</span>
+      <div className={`${styles.teamRow} ${styles.teamRowWinner}`}>
+        <div className={styles.rowInner}>
+          {renderAvatar(true)}
+          <span className={styles.rowName}>{tname}</span>
         </div>
-        <span className="font-label-sm font-bold text-primary">{score}</span>
+        <span className={styles.rowScoreWinner}>{score}</span>
       </div>
     );
   }
   if (isLoser) {
     return (
-      <div
-        className="flex justify-between items-center p-2 rounded"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={style}
-      >
-        <div className="flex items-center gap-2 opacity-50">
-          {renderAvatar(false, false)}
-          <span className="font-label-sm text-sm text-on-surface-variant">
-            {tname}
-          </span>
+      <div className={styles.teamRow}>
+        <div className={`${styles.rowInner} ${styles.rowInnerLoser}`}>
+          {renderAvatar(false)}
+          <span className={styles.rowNameMuted}>{tname}</span>
         </div>
-        <span className="font-label-sm text-on-surface-variant opacity-50">
-          {score}
-        </span>
+        <span className={styles.rowScoreLoser}>{score}</span>
       </div>
     );
   }
   if (isActive) {
     return (
-      <div
-        className="flex justify-between items-center p-2 rounded bg-surface-variant"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={style}
-      >
-        <div className="flex items-center gap-2">
-          {renderAvatar(false, true)}
-          <span className="font-label-sm text-sm text-on-surface">{tname}</span>
+      <div className={`${styles.teamRow} ${styles.teamRowActive}`}>
+        <div className={styles.rowInner}>
+          {renderAvatar(true)}
+          <span className={styles.rowName}>{tname}</span>
         </div>
-        <span className="font-label-sm font-bold text-on-surface">{score}</span>
+        <span className={styles.rowScoreActive}>{score}</span>
       </div>
     );
   }
   return (
-    <div
-      className="flex justify-between items-center p-2 rounded"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={style}
-    >
-      <div className="flex items-center gap-2">
-        {renderAvatar(false, false)}
-        <span className="font-label-sm text-sm text-on-surface">{tname}</span>
+    <div className={styles.teamRow}>
+      <div className={styles.rowInner}>
+        {renderAvatar(false)}
+        <span className={styles.rowName}>{tname}</span>
       </div>
-      <span className="font-label-sm text-on-surface-variant">
-        {score === 0 ? "-" : score}
-      </span>
+      <span className={styles.rowScoreMuted}>{score === 0 ? "-" : score}</span>
     </div>
   );
 }
@@ -268,7 +172,6 @@ function TeamRow({
 // ── Grand Final Node ──────────────────────────────────────────────
 function GrandFinalNode({ data }: { data: any }) {
   const { node, openMatchDetails } = data;
-  const [isHovered, setIsHovered] = useState(false);
   const t1 = node.teams[0],
     t2 = node.teams[1];
   const n1 = node.teamNames?.[0],
@@ -278,67 +181,42 @@ function GrandFinalNode({ data }: { data: any }) {
   const isWaiting = node.status === "waiting";
   return (
     <div
-      className={`bg-surface-container border-2 rounded-lg overflow-hidden relative w-[280px] cursor-pointer ${!t1 && !t2 ? "opacity-50" : ""}`}
+      className={`${styles.matchNode} ${
+        isActive ? styles.nodeActive : isWaiting ? styles.nodeWaiting : ""
+      } ${!t1 && !t2 ? styles.nodeEmpty : ""}`}
       onClick={(e) => {
         e.stopPropagation();
         if (openMatchDetails) openMatchDetails(e, node);
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-        transform: isHovered ? "scale(1.03)" : "scale(1)",
-        boxShadow: isHovered
-          ? "0 0 20px rgba(136, 217, 130, 0.4), 0 10px 15px -3px rgba(0, 0, 0, 0.5)"
-          : isActive
-            ? "0 0 15px rgba(46,125,50,0.3)"
-            : isWaiting
-              ? "0 0 15px rgba(220,170,50,0.3)"
-              : "none",
-        borderColor: isHovered
-          ? "var(--md-sys-color-primary, #88d982)"
-          : isActive
-            ? "var(--md-sys-color-primary, #88d982)"
-            : isWaiting
-              ? "var(--md-sys-color-secondary, #d9b882)"
-              : "var(--md-sys-color-outline-variant, #40493d)",
-        zIndex: isHovered ? 50 : 1,
-      }}
     >
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!opacity-0 !w-px !h-px !border-none !bg-transparent"
-      />
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent to-surface-variant pointer-events-none" />
-      <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high relative z-10">
-        <span className="font-label-sm text-label-sm text-on-surface font-bold flex items-center gap-2">
-          <span className="material-symbols-outlined text-[16px] text-tertiary">
+      <Handle type="target" position={Position.Left} />
+      <div className={styles.nodeGradient} />
+      <div className={styles.nodeHeader}>
+        <span className={styles.nodeHeaderTitle}>
+          <span className={`material-symbols-outlined ${styles.trophyIcon}`}>
             emoji_events
           </span>
           Grand Final
         </span>
         {isCompleted ? (
-          <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">
+          <span className={`${styles.badge} ${styles.badgePrimary}`}>
             Completed
           </span>
         ) : isActive ? (
-          <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />{" "}
-            Live
+          <span className={`${styles.badge} ${styles.badgePrimary}`}>
+            <span className={styles.dotLive} /> Live
           </span>
         ) : isWaiting ? (
-          <span className="font-label-sm text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />{" "}
-            Waiting
+          <span className={`${styles.badge} ${styles.badgeWarning}`}>
+            <span className={styles.dotWaiting} /> Waiting
           </span>
         ) : (
-          <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">
+          <span className={`${styles.badge} ${styles.badgeNeutral}`}>
             Upcoming
           </span>
         )}
       </div>
-      <div className="p-4 space-y-3 relative z-10">
+      <div className={styles.nodeBody}>
         <TeamSlot
           tid={t1}
           tname={n1}
@@ -346,11 +224,7 @@ function GrandFinalNode({ data }: { data: any }) {
           fallback="Winner SF 1"
           isWinner={isCompleted && node.winner === t1}
         />
-        <div className="flex justify-center">
-          <span className="font-label-sm text-xs text-on-surface-variant">
-            VS
-          </span>
-        </div>
+        <div className={styles.vsLabel}>VS</div>
         <TeamSlot
           tid={t2}
           tname={n2}
@@ -359,11 +233,7 @@ function GrandFinalNode({ data }: { data: any }) {
           isWinner={isCompleted && node.winner === t2}
         />
       </div>
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!opacity-0 !w-px !h-px !border-none !bg-transparent"
-      />
+      <Handle type="source" position={Position.Right} />
     </div>
   );
 }
@@ -371,7 +241,6 @@ function GrandFinalNode({ data }: { data: any }) {
 // ── Standard Match Card ───────────────────────────────────────────
 function MatchCardNode({ data }: { data: any }) {
   const { node, openMatchDetails, totalRounds } = data;
-  const [isHovered, setIsHovered] = useState(false);
   const t1 = node.teams[0],
     t2 = node.teams[1];
   const n1 = node.teamNames?.[0],
@@ -393,71 +262,37 @@ function MatchCardNode({ data }: { data: any }) {
   const t2Lose = isCompleted && t2 && t2 !== winnerId;
 
   const badge = isCompleted ? (
-    <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">
-      Final
-    </span>
+    <span className={`${styles.badge} ${styles.badgePrimary}`}>Final</span>
   ) : isActive ? (
-    <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />{" "}
-      Live
+    <span className={`${styles.badge} ${styles.badgePrimary}`}>
+      <span className={styles.dotLive} /> Live
     </span>
   ) : isWaiting ? (
-    <span className="font-label-sm text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-      <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />{" "}
-      Waiting
+    <span className={`${styles.badge} ${styles.badgeWarning}`}>
+      <span className={styles.dotWaiting} /> Waiting
     </span>
   ) : isBye ? (
-    <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">
-      Bye
-    </span>
+    <span className={`${styles.badge} ${styles.badgeNeutral}`}>Bye</span>
   ) : (
-    <span className="font-label-sm text-[10px] bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded uppercase tracking-wider border border-outline-variant">
-      Upcoming
-    </span>
+    <span className={`${styles.badge} ${styles.badgeNeutral}`}>Upcoming</span>
   );
 
   return (
     <div
-      className="bg-surface-container border-2 rounded-lg overflow-hidden cursor-pointer w-[280px]"
+      className={`${styles.matchNode} ${
+        isActive ? styles.nodeActive : isWaiting ? styles.nodeWaiting : ""
+      } ${isPending ? styles.nodePending : ""}`}
       onClick={(e) => {
         e.stopPropagation();
         if (openMatchDetails) openMatchDetails(e, node);
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-        transform: isHovered ? "scale(1.03)" : "scale(1)",
-        boxShadow: isHovered
-          ? "0 0 20px rgba(136, 217, 130, 0.4), 0 10px 15px -3px rgba(0, 0, 0, 0.5)"
-          : isActive
-            ? "0 0 15px rgba(46,125,50,0.3)"
-            : isWaiting
-              ? "0 0 15px rgba(220,170,50,0.3)"
-              : "none",
-        borderColor: isHovered
-          ? "var(--md-sys-color-primary, #88d982)"
-          : isActive
-            ? "var(--md-sys-color-primary, #88d982)"
-            : isWaiting
-              ? "var(--md-sys-color-secondary, #d9b882)"
-              : "var(--md-sys-color-outline-variant, #40493d)",
-        opacity: isPending && !isHovered ? 0.6 : 1,
-        zIndex: isHovered ? 50 : 1,
-      }}
     >
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!opacity-0 !w-px !h-px !border-none !bg-transparent"
-      />
-      <div className="flex justify-between items-center p-3 border-b border-outline-variant bg-surface-container-high">
-        <span className="font-label-sm text-label-sm text-on-surface-variant">
-          {matchLabel}
-        </span>
+      <Handle type="target" position={Position.Left} />
+      <div className={styles.nodeHeader}>
+        <span className={styles.nodeHeaderLabel}>{matchLabel}</span>
         {badge}
       </div>
-      <div className="p-2 space-y-1">
+      <div className={`${styles.nodeBody} ${styles.nodeBodyCompact}`}>
         <TeamRow
           tid={t1}
           tname={n1}
@@ -477,11 +312,7 @@ function MatchCardNode({ data }: { data: any }) {
           isActive={isActive}
         />
       </div>
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!opacity-0 !w-px !h-px !border-none !bg-transparent"
-      />
+      <Handle type="source" position={Position.Right} />
     </div>
   );
 }
@@ -555,47 +386,21 @@ function MatchSidePanel({
     <>
       {/* Backdrop */}
       <div
-        style={{
-          position: "fixed",
-          top: "64px",
-          right: 0,
-          bottom: 0,
-          left: 0,
-          backgroundColor: "rgba(0, 0, 0, 0.7)",
-          zIndex: 9998,
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
-          transition: "opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        }}
+        className={`${styles.backdrop} ${isOpen ? styles.backdropOpen : ""}`}
         onClick={onClose}
         aria-hidden
       />
 
       {/* Sidebar */}
       <aside
-        className="fixed right-0 bg-surface-container-low border-l border-outline-variant flex flex-col shadow-2xl"
-        style={{
-          top: "64px",
-          zIndex: 9999,
-          height: "calc(100vh - 64px)",
-          width: "400px",
-          transform: isOpen ? "translateX(0)" : "translateX(100%)",
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
-          transition:
-            "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        }}
+        className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ""}`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between p-6 border-b border-outline-variant bg-surface-container-high shrink-0">
-          <div className="flex flex-col">
-            <span className="font-label-sm text-xs text-primary tracking-widest uppercase">
-              {matchLabel}
-            </span>
-            <h3 className="font-headline-lg text-xl font-bold text-on-surface">
-              Match Details
-            </h3>
-            <p className="font-label-sm text-xs text-on-surface-variant mt-0.5">
+        <div className={styles.sidebarHeader}>
+          <div>
+            <span className={styles.sidebarLabel}>{matchLabel}</span>
+            <h3 className={styles.sidebarTitle}>Match Details</h3>
+            <p className={styles.sidebarStatus}>
               {isActive
                 ? "🔴 Live"
                 : isCompleted
@@ -609,90 +414,92 @@ function MatchSidePanel({
               e.stopPropagation();
               onClose();
             }}
-            className="p-2 hover:bg-surface-variant rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
+            className={styles.sidebarClose}
           >
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
         {/* Sidebar Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className={styles.sidebarBody}>
           {/* Score Overview */}
-          <div className="flex items-center justify-between p-4 bg-surface-container rounded-lg border border-outline-variant">
+          <div className={styles.scoreOverview}>
             {/* Team 1 */}
-            <div className="flex flex-col items-center gap-2 flex-1">
+            <div className={styles.scoreTeam}>
               <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg border-2 ${t1 && winnerId && t1 === winnerId ? "bg-secondary-container text-on-secondary-container border-primary" : "bg-surface-bright text-on-surface-variant border-transparent"}`}
+                className={`${styles.scoreAvatar} ${
+                  t1 && winnerId && t1 === winnerId
+                    ? styles.scoreAvatarWinner
+                    : ""
+                }`}
               >
                 {n1 ? getInitials(n1) : "??"}
               </div>
-              <span className="font-label-sm text-sm text-on-surface">
-                {n1 || "TBD"}
-              </span>
+              <span className={styles.scoreName}>{n1 || "TBD"}</span>
               <span
-                className={`font-label-sm text-2xl font-bold ${t1 && winnerId && t1 === winnerId ? "text-primary" : "text-on-surface"}`}
+                className={`${styles.scoreValue} ${
+                  t1 && winnerId && t1 === winnerId
+                    ? styles.scoreValueWinner
+                    : ""
+                }`}
               >
                 {t1 ? s1 : "-"}
               </span>
               {t1 && winnerId && t1 === winnerId && (
-                <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">
-                  Winner
-                </span>
+                <span className={styles.winnerPill}>Winner</span>
               )}
             </div>
 
             {/* VS */}
-            <div className="flex flex-col items-center gap-1 px-4">
-              <span className="text-on-surface-variant font-label-sm text-sm">
-                VS
-              </span>
-              {isActive && (
-                <span className="w-2 h-2 rounded-full bg-error animate-pulse" />
-              )}
+            <div className={styles.vsCol}>
+              <span className={styles.vsColLabel}>VS</span>
+              {isActive && <span className={styles.dotError} />}
             </div>
 
             {/* Team 2 */}
-            <div className="flex flex-col items-center gap-2 flex-1">
+            <div className={styles.scoreTeam}>
               <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg border-2 ${t2 && winnerId && t2 === winnerId ? "bg-secondary-container text-on-secondary-container border-primary" : "bg-surface-bright text-on-surface-variant border-transparent"}`}
+                className={`${styles.scoreAvatar} ${
+                  t2 && winnerId && t2 === winnerId
+                    ? styles.scoreAvatarWinner
+                    : ""
+                }`}
               >
                 {n2 ? getInitials(n2) : "??"}
               </div>
-              <span className="font-label-sm text-sm text-on-surface">
-                {n2 || "TBD"}
-              </span>
+              <span className={styles.scoreName}>{n2 || "TBD"}</span>
               <span
-                className={`font-label-sm text-2xl font-bold ${t2 && winnerId && t2 === winnerId ? "text-primary" : "text-on-surface"}`}
+                className={`${styles.scoreValue} ${
+                  t2 && winnerId && t2 === winnerId
+                    ? styles.scoreValueWinner
+                    : ""
+                }`}
               >
                 {t2 ? s2 : "-"}
               </span>
               {t2 && winnerId && t2 === winnerId && (
-                <span className="font-label-sm text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded uppercase tracking-wider">
-                  Winner
-                </span>
+                <span className={styles.winnerPill}>Winner</span>
               )}
             </div>
           </div>
 
           {/* Match Info */}
           <div>
-            <h4 className="font-label-sm text-xs text-on-surface-variant uppercase tracking-widest mb-3 border-b border-outline-variant pb-2">
-              Match Info
-            </h4>
-            <div className="space-y-2 font-label-sm text-xs">
-              <div className="flex justify-between p-2 bg-surface-container-lowest border-l-2 border-outline-variant">
-                <span className="text-on-surface-variant">Round</span>
-                <span className="text-on-surface">{roundName}</span>
+            <h4 className={styles.matchInfoHeading}>Match Info</h4>
+            <div className={styles.infoList}>
+              <div className={styles.infoRow}>
+                <span className={styles.infoLabel}>Round</span>
+                <span className={styles.infoValue}>{roundName}</span>
               </div>
-              <div className="flex justify-between p-2 bg-surface-container-lowest border-l-2 border-outline-variant">
-                <span className="text-on-surface-variant">Status</span>
+              <div className={styles.infoRow}>
+                <span className={styles.infoLabel}>Status</span>
                 <span
                   className={
                     isActive
-                      ? "text-primary"
+                      ? styles.infoValueActive
                       : isCompleted
-                        ? "text-on-surface"
-                        : "text-on-surface-variant"
+                        ? styles.infoValue
+                        : styles.infoLabel
                   }
                 >
                   {displayNode?.status === "active"
@@ -705,9 +512,9 @@ function MatchSidePanel({
                 </span>
               </div>
               {isCompleted && winnerId && (
-                <div className="flex justify-between p-2 bg-surface-container-lowest border-l-2 border-primary">
-                  <span className="text-on-surface-variant">Winner</span>
-                  <span className="text-primary">
+                <div className={`${styles.infoRow} ${styles.infoRowWinner}`}>
+                  <span className={styles.infoLabel}>Winner</span>
+                  <span className={styles.infoValueWinner}>
                     {winnerId === t1 ? n1 : n2}
                   </span>
                 </div>
@@ -717,14 +524,11 @@ function MatchSidePanel({
         </div>
 
         {/* Sidebar Footer — action buttons */}
-        <div className="p-6 border-t border-outline-variant bg-surface-container-high flex flex-col gap-3 shrink-0">
+        <div className={styles.sidebarFooter}>
           {/* COMPLETED STATUS */}
           {isCompleted && displayNode?.roomId && (
-            <button
-              onClick={handleViewResults}
-              className="w-full py-3 bg-primary text-on-primary font-label-sm rounded font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[18px]">
+            <button onClick={handleViewResults} className={styles.footerBtn}>
+              <span className={`material-symbols-outlined ${styles.icon18}`}>
                 leaderboard
               </span>
               VIEW RESULTS
@@ -733,11 +537,8 @@ function MatchSidePanel({
 
           {/* ACTIVE STATUS */}
           {isActive && displayNode?.roomId && isParticipant && (
-            <button
-              onClick={handleEnterRoom}
-              className="w-full py-3 bg-primary text-on-primary font-label-sm rounded font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[18px]">
+            <button onClick={handleEnterRoom} className={styles.footerBtn}>
+              <span className={`material-symbols-outlined ${styles.icon18}`}>
                 login
               </span>
               ENTER ROOM
@@ -746,7 +547,7 @@ function MatchSidePanel({
 
           {/* PENDING STATUS */}
           {isPending && (
-            <div className="text-center font-label-sm text-xs text-on-surface-variant py-2">
+            <div className={styles.footerNote}>
               Status: Pending. Teams to be decided.
             </div>
           )}
@@ -755,18 +556,15 @@ function MatchSidePanel({
           {(displayNode?.status as string) === "waiting" &&
             isParticipant &&
             displayNode?.roomId && (
-              <button
-                onClick={handleEnterRoom}
-                className="w-full py-3 bg-primary text-on-primary font-label-sm rounded font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-[18px]">
+              <button onClick={handleEnterRoom} className={styles.footerBtn}>
+                <span className={`material-symbols-outlined ${styles.icon18}`}>
                   login
                 </span>
                 ENTER ROOM
               </button>
             )}
           {(displayNode?.status as string) === "waiting" && !isParticipant && (
-            <div className="text-center font-label-sm text-xs text-on-surface-variant py-2">
+            <div className={styles.footerNote}>
               Waiting for the participants to get ready...
             </div>
           )}
@@ -777,7 +575,7 @@ function MatchSidePanel({
               e.stopPropagation();
               onClose();
             }}
-            className="w-full py-2 text-on-surface-variant font-label-sm text-xs hover:text-on-surface transition-colors"
+            className={styles.footerClose}
           >
             Close
           </button>
@@ -927,7 +725,10 @@ export default function BracketRoomClient({
               target: parent.roomId,
               type: "smoothstep",
               animated: active,
-              style: { stroke: active ? "#2e7d32" : "#40493d", strokeWidth: 2 },
+              style: {
+                stroke: active ? "var(--success)" : "var(--border)",
+                strokeWidth: 2,
+              },
             });
           }
         }
@@ -937,116 +738,61 @@ export default function BracketRoomClient({
   }, [snapshot, openMatchDetails]);
 
   return (
-    <>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hanken+Grotesk:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
-        rel="stylesheet"
-      />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-        rel="stylesheet"
-      />
-      <div
-        className="flex flex-col overflow-hidden relative dark stitch-container bg-background w-full text-on-surface font-body-md selection:bg-primary-container selection:text-on-primary-container"
-        style={{ height: "calc(100vh - 64px)" }}
-      >
-        {/* ── Header ──────────────────────────────────────────── */}
-        <header
-          ref={headerRef}
-          className="flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 w-full bg-background border-b border-outline-variant z-10 shrink-0"
-        >
-          <div className="flex gap-4 flex-col items-start">
-            <div className="flex items-center gap-4 mb-4">
-              <Link
-                href="/internal/contests"
-                className="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-highest px-3 py-1.5 rounded border border-outline-variant hover:border-primary"
-              >
-                <span className="material-symbols-outlined text-sm">
-                  arrow_back
-                </span>
-                <span className="font-label-sm text-label-sm">
-                  Back to Contests
-                </span>
-              </Link>
-              <div className="h-6 w-px bg-outline-variant mx-2 hidden md:block" />
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg font-bold text-on-surface">
-                  {contest.name}
-                </h2>
-                <span className="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-2 py-1 rounded-sm ml-2">
-                  Knockout
-                </span>
-              </div>
-              <p className="text-on-surface-variant font-body-md text-sm mt-1">
-                Contests • {currentRoundName} •{" "}
-                {hasActiveMatches ? "Live" : "Waiting"}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            {/* Live SSE indicator — only show "Live" */}
-            <div className="hidden sm:flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant">
-              <span className="w-2 h-2 rounded-full bg-error animate-pulse" />
-              <span className="font-label-sm text-label-sm text-on-surface-variant">
-                Live
+    <div className={styles.page}>
+      {/* ── Header ──────────────────────────────────────────── */}
+      <header ref={headerRef} className={styles.header}>
+        <div className={styles.headerLeft}>
+          <div className={styles.headerTop}>
+            <Link href="/internal/contests" className={styles.backLink}>
+              <span className={`material-symbols-outlined ${styles.icon16}`}>
+                arrow_back
               </span>
-            </div>
+              Back to Contests
+            </Link>
+            <div className={styles.headerDivider} />
           </div>
-        </header>
-
-        {/* ── React Flow Canvas ────────────────────────────────── */}
-        <div className="flex-1 w-full relative min-h-0 overflow-hidden">
-          <style>{`
-            .react-flow__handle { opacity: 0 !important; pointer-events: none !important; }
-            .react-flow__node { cursor: pointer !important; }
-            .react-flow__pane { cursor: grab !important; }
-            .react-flow__pane:active { cursor: grabbing !important; }
-            .react-flow__edge-path { stroke-linecap: round; }
-            .react-flow__controls {
-              box-shadow: 0 4px 12px rgb(0 0 0 / 0.4) !important;
-              border-radius: 8px !important;
-              overflow: hidden !important;
-              border: 1px solid #40493d !important;
-            }
-            .react-flow__controls-button {
-              background: #2a2a2a !important;
-              border-bottom: 1px solid #40493d !important;
-              color: #e5e2e1 !important;
-              width: 32px !important; height: 32px !important;
-              transition: all 0.15s ease !important;
-            }
-            .react-flow__controls-button:hover {
-              background: #353534 !important;
-              color: #88d982 !important;
-            }
-            .react-flow__controls-button svg { fill: currentColor !important; }
-            .react-flow__controls-button:last-child { border-bottom: none !important; }
-            .react-flow__background { opacity: 0.3; }
-          `}</style>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            fitView
-            fitViewOptions={{ padding: 0.3 }}
-            minZoom={0.15}
-            maxZoom={2.5}
-            className="bg-surface-container-lowest"
-            proOptions={{ hideAttribution: true }}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={true}
-            onPaneClick={closeSidebar}
-            onNodeClick={(e, node) =>
-              openMatchDetails(e as any, node.data.node as any)
-            }
-          >
-            <Background color="#40493d" gap={20} size={1} />
-            <Controls showInteractive={false} />
-          </ReactFlow>
+          <div>
+            <div className={styles.titleRow}>
+              <h2 className={styles.title}>{contest.name}</h2>
+              <span className={styles.knockoutBadge}>Knockout</span>
+            </div>
+            <p className={styles.subtitle}>
+              Contests • {currentRoundName} •{" "}
+              {hasActiveMatches ? "Live" : "Waiting"}
+            </p>
+          </div>
         </div>
+        <div className={styles.headerRight}>
+          {/* Live SSE indicator — only show "Live" */}
+          <div className={styles.liveIndicator}>
+            <span className={styles.dotError} />
+            Live
+          </div>
+        </div>
+      </header>
+
+      {/* ── React Flow Canvas ────────────────────────────────── */}
+      <div className={styles.canvas}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{ padding: 0.3 }}
+          minZoom={0.15}
+          maxZoom={2.5}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={true}
+          onPaneClick={closeSidebar}
+          onNodeClick={(e, node) =>
+            openMatchDetails(e as any, node.data.node as any)
+          }
+        >
+          <Background gap={20} size={1} />
+          <Controls showInteractive={false} />
+        </ReactFlow>
       </div>
 
       {/* ── Match Detail Side Panel ─────────────────────────── */}
@@ -1057,6 +803,6 @@ export default function BracketRoomClient({
         contestId={contest._id.toString()}
         data={{ currentUserTeamId }}
       />
-    </>
+    </div>
   );
 }

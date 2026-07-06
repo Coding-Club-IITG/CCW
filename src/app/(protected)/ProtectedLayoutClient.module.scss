@@ -1,0 +1,13 @@
+/* Full-bleed shell for the contests area (provides its own bg + layout) */
+.contestMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Standard centred page shell for the rest of the protected area */
+.pageMain {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}

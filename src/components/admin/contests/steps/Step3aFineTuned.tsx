@@ -84,16 +84,16 @@ export default function Step3aFineTuned({
   };
 
   return (
-    <div className={styles.stepContainer}>
-      <h2>Round-based Problem Selection</h2>
+    <div>
+      <h2 className={styles.stepTitle}>Round-based Problem Selection</h2>
       <p className={styles.stepDescription}>
         You selected a fine-tuned preset. For a bracket of {maxParticipants}{" "}
         participants, there will be {totalRounds} rounds. Please provide the
         exact Codeforces Problem IDs (comma-separated) for each round.
       </p>
 
-      <div className={styles.formGroup}>
-        <label>Problems per match:</label>
+      <div className={styles.field}>
+        <label className={styles.label}>Problems per match:</label>
         <input
           type="number"
           min={1}
@@ -113,24 +113,16 @@ export default function Step3aFineTuned({
           ).length;
 
           return (
-            <div
-              key={roundNum}
-              className={styles.formGroup}
-              style={{
-                marginTop: "20px",
-                padding: "15px",
-                border: "1px solid #ccc",
-                borderRadius: "8px",
-              }}
-            >
-              <label>
+            <div key={roundNum} className={styles.roundCard}>
+              <label className={styles.label}>
                 Round {roundNum} ({matchesInRound} matches)
               </label>
               <p
-                style={{
-                  fontSize: "12px",
-                  color: currentCount === requiredProblems ? "green" : "red",
-                }}
+                className={`${styles.roundStatus} ${
+                  currentCount === requiredProblems
+                    ? styles.roundStatusOk
+                    : styles.roundStatusBad
+                }`}
               >
                 Required problems: {requiredProblems} | Provided: {currentCount}
               </p>
@@ -138,8 +130,7 @@ export default function Step3aFineTuned({
                 value={roundInputs[roundNum] || ""}
                 onChange={(e) => handleInputChange(roundNum, e.target.value)}
                 placeholder="e.g. 4A, 1A, 158A"
-                className={styles.input}
-                style={{ minHeight: "80px", width: "100%" }}
+                className={styles.textarea}
               />
               {errors[`round_${roundNum}`] && (
                 <span className={styles.error}>

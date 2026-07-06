@@ -1,0 +1,30 @@
+// Table styles
+@mixin table-base {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+
+  th,
+  td {
+    text-align: left;
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    font-weight: 600;
+    color: var(--table-header-text);
+    background: var(--table-header-bg);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  td {
+    color: var(--foreground);
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+}

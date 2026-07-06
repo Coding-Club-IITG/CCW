@@ -1,0 +1,21 @@
+// Modal overlay + dialog
+@mixin modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+@mixin modal-dialog($max-width: 480px) {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: $max-width;
+  box-shadow: 0 8px 24px var(--shadow-lg);
+}

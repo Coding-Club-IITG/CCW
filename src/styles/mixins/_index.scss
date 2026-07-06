@@ -1,0 +1,13 @@
+// Aggregated mixin entrypoint. Consumers keep using `@use "@/styles/mixins" as *;`
+// and get every mixin below. Split by concern for maintainability.
+
+@forward "tables";
+@forward "modals";
+@forward "badges";
+@forward "buttons";
+@forward "cards";
+@forward "tabs";
+@forward "sidebar";
+@forward "blog";
+@forward "contests";
+@forward "contest-room";
