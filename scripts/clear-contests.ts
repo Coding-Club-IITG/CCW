@@ -24,16 +24,20 @@ async function clearContests() {
       "contest_rooms",
       "contest_teams",
       "contest_presets",
-      "contest_registrations"
+      "contest_registrations",
     ];
 
     const db = mongoose.connection.db;
     if (db) {
       for (const colName of collectionsToClear) {
-        const collections = await db.listCollections({ name: colName }).toArray();
+        const collections = await db
+          .listCollections({ name: colName })
+          .toArray();
         if (collections.length > 0) {
           const result = await db.collection(colName).deleteMany({});
-          console.log(`  🗑️  Deleted ${result.deletedCount} documents from ${colName}`);
+          console.log(
+            `  🗑️  Deleted ${result.deletedCount} documents from ${colName}`,
+          );
         } else {
           console.log(`  ⏭️  Collection ${colName} does not exist, skipping.`);
         }
@@ -58,7 +62,7 @@ async function clearContests() {
     console.log(`Total Redis keys deleted: ${totalRedisKeysDeleted}`);
 
     console.log(`\n✨ All contest data has been completely cleared!`);
-    
+
     await mongoose.disconnect();
     await redis.disconnect();
   } catch (error) {

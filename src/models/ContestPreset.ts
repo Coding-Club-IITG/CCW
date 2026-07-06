@@ -51,11 +51,15 @@ const ContestPresetSchema = new Schema<IContestPreset>(
     problemSlots: [ProblemSlotSchema],
     archived: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const ContestPreset =
   mongoose.models.ContestPreset ||
-  mongoose.model<IContestPreset>("ContestPreset", ContestPresetSchema, "contest_presets");
+  mongoose.model<IContestPreset>(
+    "ContestPreset",
+    ContestPresetSchema,
+    "contest_presets",
+  );
 
 export default ContestPreset;

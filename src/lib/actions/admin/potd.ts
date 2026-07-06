@@ -420,9 +420,7 @@ export async function forceSyncUser(
   }
 
   const handle =
-    platform === "codeforces"
-      ? targetUser.codeforcesId
-      : targetUser.atcoderId;
+    platform === "codeforces" ? targetUser.codeforcesId : targetUser.atcoderId;
 
   let subs: any[] = [];
   try {

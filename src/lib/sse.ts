@@ -5,7 +5,10 @@ export async function publishRoom(roomId: string, event: any): Promise<number> {
   return redis.publish(`events:room:${roomId}`, JSON.stringify(event));
 }
 
-export async function publishContest(contestId: string, event: any): Promise<number> {
+export async function publishContest(
+  contestId: string,
+  event: any,
+): Promise<number> {
   const redis = await getRedis();
   return redis.publish(`events:contest:${contestId}`, JSON.stringify(event));
 }

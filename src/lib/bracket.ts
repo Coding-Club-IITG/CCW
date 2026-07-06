@@ -30,9 +30,14 @@ async function initBracketRoomRedis(
   redis: Awaited<ReturnType<typeof getRedis>>,
   roomId: string,
   mode: string,
-  teamDocs: { _id: mongoose.Types.ObjectId; name: string; members: mongoose.Types.ObjectId[]; score: number }[],
+  teamDocs: {
+    _id: mongoose.Types.ObjectId;
+    name: string;
+    members: mongoose.Types.ObjectId[];
+    score: number;
+  }[],
   durationSeconds = 3600,
-  contestId: string
+  contestId: string,
 ) {
   try {
     await redis.hSet(`room:${roomId}:state`, {
@@ -43,14 +48,14 @@ async function initBracketRoomRedis(
       readyCount: "0",
       contestId: contestId,
     });
-    const teamIds = teamDocs.map(t => toStr(t._id));
+    const teamIds = teamDocs.map((t) => toStr(t._id));
     if (teamIds.length > 0) {
       await redis.sAdd(`room:${roomId}:teams`, teamIds);
     }
     for (const team of teamDocs) {
       const tId = toStr(team._id);
       await redis.hSet(`team:${tId}:meta`, { name: team.name, score: "0" });
-      const memberStrs = team.members.map(m => toStr(m));
+      const memberStrs = team.members.map((m) => toStr(m));
       if (memberStrs.length > 0) {
         await redis.sAdd(`team:${tId}:users`, memberStrs);
       }
@@ -61,21 +66,31 @@ async function initBracketRoomRedis(
   }
 }
 
-export async function generateBracket(contestId: string, solvedProblemIds?: Set<string>) {
+export async function generateBracket(
+  contestId: string,
+  solvedProblemIds?: Set<string>,
+) {
   await dbConnect();
   const contest = await ContestMatch.findById(contestId);
   if (!contest) throw new Error("Contest not found");
-  if (contest.format !== "bracket") throw new Error("Contest is not a bracket format");
-  if (contest.status !== "provisioning") throw new Error("Contest must be in 'provisioning' status to generate bracket");
-
+  if (contest.format !== "bracket")
+    throw new Error("Contest is not a bracket format");
+  if (contest.status !== "provisioning")
+    throw new Error(
+      "Contest must be in 'provisioning' status to generate bracket",
+    );
 
   const existingRooms = await ContestRoom.countDocuments({ contestId });
-  if (existingRooms > 0) throw new Error("Bracket already generated for this contest");
+  if (existingRooms > 0)
+    throw new Error("Bracket already generated for this contest");
 
   const teamSize = contest.teamSize || 1;
   const mode = contest.mode || "blitz";
 
-  const groupedTeams = groupRegistrationsIntoTeams(contest.registrations, teamSize);
+  const groupedTeams = groupRegistrationsIntoTeams(
+    contest.registrations,
+    teamSize,
+  );
 
   const cpUsers = await CPUser.find({
     userId: { $in: groupedTeams.flatMap((t) => t.memberIds) },
@@ -87,7 +102,8 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
 
   const seededTeams = groupedTeams.map((team) => {
     const avgRating =
-      team.memberIds.reduce((sum, id) => sum + (ratingMap.get(id) || 0), 0) / team.memberIds.length;
+      team.memberIds.reduce((sum, id) => sum + (ratingMap.get(id) || 0), 0) /
+      team.memberIds.length;
     return { ...team, rating: avgRating };
   });
   seededTeams.sort((a, b) => b.rating - a.rating);
@@ -96,20 +112,22 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
   const totalRounds = Math.log2(bracketSize);
 
   const seededOrder = snakeSeed(
-    seededTeams.map((t, i) => ({ teamId: t.teamName, seed: i + 1 }))
+    seededTeams.map((t, i) => ({ teamId: t.teamName, seed: i + 1 })),
   );
 
-  const matchAssignments: (typeof seededTeams[0] | null)[] = [];
+  const matchAssignments: ((typeof seededTeams)[0] | null)[] = [];
   for (let i = 0; i < bracketSize; i++) {
     if (i < seededOrder.length) {
-      const matchTeam = seededTeams.find((t) => t.teamName === seededOrder[i].teamId);
+      const matchTeam = seededTeams.find(
+        (t) => t.teamName === seededOrder[i].teamId,
+      );
       matchAssignments.push(matchTeam || null);
     } else {
       matchAssignments.push(null);
     }
   }
 
-  const rounds: typeof ContestRound.prototype[] = [];
+  const rounds: (typeof ContestRound.prototype)[] = [];
   for (let r = 0; r < totalRounds; r++) {
     const roundNum = r + 1;
     const round = await ContestRound.create({
@@ -128,7 +146,8 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
   let roundIndex = 0;
 
   const ContestQuestion = (await import("../models/ContestQuestion")).default;
-  const ContestProblemSet = (await import("../models/ContestProblemSet")).default;
+  const ContestProblemSet = (await import("../models/ContestProblemSet"))
+    .default;
   const problemCount = contest.bulkProblemCount || 3;
   const minRating = contest.bulkRatingMin || 800;
   const maxRating = contest.bulkRatingMax || 1200;
@@ -139,16 +158,17 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
     const totalProblemsNeeded = totalRooms * problemCount;
     const excludeIds = solvedProblemIds ? Array.from(solvedProblemIds) : [];
     bulkProblemPool = await ContestQuestion.aggregate([
-      { $match: {
-        rating: { $gte: minRating, $lte: maxRating },
-        ...(excludeIds.length > 0 ? { problemId: { $nin: excludeIds } } : {})
-      }},
+      {
+        $match: {
+          rating: { $gte: minRating, $lte: maxRating },
+          ...(excludeIds.length > 0 ? { problemId: { $nin: excludeIds } } : {}),
+        },
+      },
       { $sample: { size: totalProblemsNeeded } },
-      { $sort: { rating: 1 } }
+      { $sort: { rating: 1 } },
     ]);
   }
   let fineTunedPool = [...(contest.problemSlots || [])];
-
 
   for (const round of rounds) {
     const matchesInRound = Math.pow(2, totalRounds - roundIndex - 1);
@@ -159,11 +179,17 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
       const leftTeamId =
         roundIndex === 0 ? getTeamByMatchIndex(matchAssignments, m * 2) : null;
       const rightTeamId =
-        roundIndex === 0 ? getTeamByMatchIndex(matchAssignments, m * 2 + 1) : null;
+        roundIndex === 0
+          ? getTeamByMatchIndex(matchAssignments, m * 2 + 1)
+          : null;
 
       const hasNoTeams = !leftTeamId && !rightTeamId;
       const isBye = !hasNoTeams && (!leftTeamId || !rightTeamId);
-      const roomStatus = hasNoTeams ? ("pending" as const) : isBye ? ("ended" as const) : ("waiting" as const);
+      const roomStatus = hasNoTeams
+        ? ("pending" as const)
+        : isBye
+          ? ("ended" as const)
+          : ("waiting" as const);
 
       const room = await ContestRoom.create({
         contestId: contest._id,
@@ -183,7 +209,9 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
         const team = await ContestTeam.create({
           roomId: room._id,
           name: leftTeamId.teamName,
-          members: leftTeamId.memberIds.map((id) => new mongoose.Types.ObjectId(id)),
+          members: leftTeamId.memberIds.map(
+            (id) => new mongoose.Types.ObjectId(id),
+          ),
           teamSize,
           score: 0,
           contestId: contest._id,
@@ -195,7 +223,9 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
         const team = await ContestTeam.create({
           roomId: room._id,
           name: rightTeamId.teamName,
-          members: rightTeamId.memberIds.map((id) => new mongoose.Types.ObjectId(id)),
+          members: rightTeamId.memberIds.map(
+            (id) => new mongoose.Types.ObjectId(id),
+          ),
           teamSize,
           score: 0,
           contestId: contest._id,
@@ -211,19 +241,23 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
         room.participants = [
           ...leftTeamId.memberIds,
           ...rightTeamId.memberIds,
-        ].map(id => new mongoose.Types.ObjectId(id));
+        ].map((id) => new mongoose.Types.ObjectId(id));
       }
 
       await room.save();
 
       let assignedProblems: any[] = [];
       if (contest.problemSelectionMode === "fine-tuned") {
-        const roundSlots = fineTunedPool.filter((p: any) => p.roundNumber === (roundIndex + 1));
+        const roundSlots = fineTunedPool.filter(
+          (p: any) => p.roundNumber === roundIndex + 1,
+        );
         const toAssign = roundSlots.slice(0, problemCount);
         assignedProblems = toAssign;
         // Remove used problems from the pool
         toAssign.forEach((a) => {
-          const idx = fineTunedPool.findIndex((p) => p.problemId === a.problemId);
+          const idx = fineTunedPool.findIndex(
+            (p) => p.problemId === a.problemId,
+          );
           if (idx !== -1) fineTunedPool.splice(idx, 1);
         });
       } else if (contest.problemSelectionMode === "bulk") {
@@ -257,32 +291,36 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
             rating: p.rating || 0,
             points: Math.floor((p.rating || 1000) / 10),
             revealedAt: null,
-          })
+          }),
         );
         try {
           await redis.del(`room:${room._id}:problems`);
           await redis.rPush(`room:${room._id}:problems`, redisProblems);
         } catch (err) {
-          logger.error(`[Bracket] Failed to push problems to Redis for room ${room._id}`, err);
+          logger.error(
+            `[Bracket] Failed to push problems to Redis for room ${room._id}`,
+            err,
+          );
           throw err;
         }
       }
 
       if (roundIndex === 0 && roomStatus === "waiting") {
-        const round1TeamDocs = await ContestTeam.find({ roomId: room._id }).lean();
+        const round1TeamDocs = await ContestTeam.find({
+          roomId: room._id,
+        }).lean();
         await initBracketRoomRedis(
           redis,
           toStr(room._id),
           mode,
           round1TeamDocs as any[],
           contest.durationSeconds || 3600,
-          toStr(contest._id)
+          toStr(contest._id),
         );
       }
 
       roundRooms.push(room._id);
       allRoomIds.push(toStr(room._id));
-
 
       if (isBye && !hasNoTeams) {
         const winnerTeam = teamIds[0] || teamIds[1];
@@ -291,7 +329,12 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
           const nextRoundIdx = roundIndex + 1;
           if (nextRoundIdx < rounds.length) {
             const matchIdx = Math.floor(m / 2);
-            await seedTeamToRound(rounds[nextRoundIdx]._id, winnerTeam, matchIdx, contest._id);
+            await seedTeamToRound(
+              rounds[nextRoundIdx]._id,
+              winnerTeam,
+              matchIdx,
+              contest._id,
+            );
           } else {
             contest.winner = winnerTeam;
             contest.status = "completed";
@@ -316,20 +359,33 @@ export async function generateBracket(contestId: string, solvedProblemIds?: Set<
       await redis.sAdd(`contest:${contestId}:rooms`, allRoomIds);
     }
   } catch (err) {
-    logger.error(`[Bracket] Failed to set contest meta in Redis for ${contestId}`, err);
+    logger.error(
+      `[Bracket] Failed to set contest meta in Redis for ${contestId}`,
+      err,
+    );
     throw err;
   }
 
   const snapshot = await getBracketSnapshot(contestId);
-  await publishContest(contestId, { type: "contest.bracket_update", ...snapshot });
+  await publishContest(contestId, {
+    type: "contest.bracket_update",
+    ...snapshot,
+  });
 
-  logger.info(`[Bracket] Generated bracket for contest ${contestId}: ${allRoomIds.length} rooms across ${totalRounds} rounds`);
+  logger.info(
+    `[Bracket] Generated bracket for contest ${contestId}: ${allRoomIds.length} rooms across ${totalRounds} rounds`,
+  );
   return snapshot;
 }
 
 function groupRegistrationsIntoTeams(
-  registrations: { userId: mongoose.Types.ObjectId; cfHandle: string; teamName?: string; registeredAt: Date }[],
-  teamSize: number
+  registrations: {
+    userId: mongoose.Types.ObjectId;
+    cfHandle: string;
+    teamName?: string;
+    registeredAt: Date;
+  }[],
+  teamSize: number,
 ): { teamName: string; memberIds: string[] }[] {
   if (teamSize === 1) {
     return registrations.map((r) => ({
@@ -352,15 +408,21 @@ function groupRegistrationsIntoTeams(
     if (group.memberIds.length === teamSize) {
       valid.push(group);
     } else {
-      logger.warn(`[Bracket] Team "${group.teamName}" has ${group.memberIds.length} members, expected ${teamSize}. Skipping.`);
+      logger.warn(
+        `[Bracket] Team "${group.teamName}" has ${group.memberIds.length} members, expected ${teamSize}. Skipping.`,
+      );
     }
   }
   return valid;
 }
 
 function getTeamByMatchIndex(
-  assignments: ({ teamName: string; memberIds: string[]; rating: number } | null)[],
-  index: number
+  assignments: ({
+    teamName: string;
+    memberIds: string[];
+    rating: number;
+  } | null)[],
+  index: number,
 ): { teamName: string; memberIds: string[]; rating: number } | null {
   if (index < 0 || index >= assignments.length) return null;
   return assignments[index];
@@ -370,12 +432,14 @@ async function seedTeamToRound(
   roundId: mongoose.Types.ObjectId,
   teamId: mongoose.Types.ObjectId,
   matchIndex: number,
-  contestId: mongoose.Types.ObjectId
+  contestId: mongoose.Types.ObjectId,
 ) {
   const round = await ContestRound.findById(roundId);
   if (!round) return;
 
-  const rooms = await ContestRoom.find({ _id: { $in: round.rooms } }).sort({ createdAt: 1 });
+  const rooms = await ContestRoom.find({ _id: { $in: round.rooms } }).sort({
+    createdAt: 1,
+  });
   const targetRoom = rooms[matchIndex];
   if (!targetRoom) return;
 
@@ -399,31 +463,41 @@ async function seedTeamToRound(
   const updatedRoom = await ContestRoom.findById(targetRoom._id);
   if (updatedRoom && updatedRoom.teams.length === 2) {
     // Populate participants for SSE presence tracking
-    const allTeamDocs = await ContestTeam.find({ roomId: targetRoom._id }).lean();
-    const allMemberIds = allTeamDocs.flatMap(t => t.members);
+    const allTeamDocs = await ContestTeam.find({
+      roomId: targetRoom._id,
+    }).lean();
+    const allMemberIds = allTeamDocs.flatMap((t) => t.members);
     updatedRoom.participants = allMemberIds;
     updatedRoom.status = "waiting";
     await updatedRoom.save();
 
     // Initialise Redis state so the ready route can find the room
     const redis = await getRedis();
-    const contest = await (await import("../models/ContestMatch")).default.findById(contestId).lean();
+    const contest = await (await import("../models/ContestMatch")).default
+      .findById(contestId)
+      .lean();
     await initBracketRoomRedis(
       redis,
       toStr(targetRoom._id),
       (contest as any)?.mode || "blitz",
       allTeamDocs as any[],
       (contest as any)?.durationSeconds || 3600,
-      toStr(contestId)
+      toStr(contestId),
     );
 
     logger.info(`[Bracket] Room ${targetRoom._id} is now ready with 2 teams`);
   }
 }
 
-export async function advanceWinner(roomId: string, contestId: string, winnerTeamId: string | null) {
+export async function advanceWinner(
+  roomId: string,
+  contestId: string,
+  winnerTeamId: string | null,
+) {
   if (!winnerTeamId) {
-    logger.warn(`[Bracket] advanceWinner called for room ${roomId} with null winner`);
+    logger.warn(
+      `[Bracket] advanceWinner called for room ${roomId} with null winner`,
+    );
     return;
   }
 
@@ -438,10 +512,10 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
   if (!contest || contest.format !== "bracket") return;
 
   let currentRound = room.currentRoundId as any;
-  if (currentRound && typeof currentRound.roundNumber !== 'number') {
+  if (currentRound && typeof currentRound.roundNumber !== "number") {
     currentRound = await ContestRound.findById(currentRound);
   }
-  
+
   if (!currentRound) return;
 
   const bracketPos = room.bracketPosition;
@@ -459,10 +533,15 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
     const winnerTeamDoc = await ContestTeam.findById(winnerTeamId);
     contest.winnerName = winnerTeamDoc?.name || "";
     await contest.save();
-    logger.info(`[Bracket] Contest ${contestId} completed. Winner: ${winnerTeamId}`);
+    logger.info(
+      `[Bracket] Contest ${contestId} completed. Winner: ${winnerTeamId}`,
+    );
 
     const finalSnapshot = await getBracketSnapshot(contestId);
-    await publishContest(contestId, { type: "contest.bracket_update", ...finalSnapshot });
+    await publishContest(contestId, {
+      type: "contest.bracket_update",
+      ...finalSnapshot,
+    });
     await publishContest(contestId, {
       type: "contest.round_complete",
       roundNumber: currentRound.roundNumber,
@@ -476,10 +555,14 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
   }
 
   const nextMatchIndex = Math.floor(matchIndex / 2);
-  const nextRooms = await ContestRoom.find({ _id: { $in: nextRound.rooms } }).sort({ createdAt: 1 });
+  const nextRooms = await ContestRoom.find({
+    _id: { $in: nextRound.rooms },
+  }).sort({ createdAt: 1 });
   const nextRoom = nextRooms[nextMatchIndex];
   if (!nextRoom) {
-    logger.warn(`[Bracket] No next room found for match ${nextMatchIndex} in round ${nextRound.roundNumber}`);
+    logger.warn(
+      `[Bracket] No next room found for match ${nextMatchIndex} in round ${nextRound.roundNumber}`,
+    );
     return;
   }
 
@@ -496,7 +579,7 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
     teamSize: winnerTeamDoc.teamSize,
     score: 0,
     contestId: contest._id,
-    roundId: nextRound._id
+    roundId: nextRound._id,
   });
 
   await ContestRoom.findByIdAndUpdate(nextRoom._id, {
@@ -506,8 +589,10 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
   const updatedRoom = await ContestRoom.findById(nextRoom._id);
   if (updatedRoom && updatedRoom.teams.length === 2) {
     // Populate participants so SSE presence system can track the room
-    const allAdvancedTeamDocs = await ContestTeam.find({ roomId: nextRoom._id }).lean();
-    const allAdvancedMemberIds = allAdvancedTeamDocs.flatMap(t => t.members);
+    const allAdvancedTeamDocs = await ContestTeam.find({
+      roomId: nextRoom._id,
+    }).lean();
+    const allAdvancedMemberIds = allAdvancedTeamDocs.flatMap((t) => t.members);
     updatedRoom.participants = allAdvancedMemberIds;
     updatedRoom.status = "waiting";
     await updatedRoom.save();
@@ -520,10 +605,12 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
       contest.mode || "blitz",
       allAdvancedTeamDocs as any[],
       contest.durationSeconds || 3600,
-      contestId
+      contestId,
     );
 
-    logger.info(`[Bracket] Next room ${nextRoom._id} is now ready with 2 teams`);
+    logger.info(
+      `[Bracket] Next room ${nextRoom._id} is now ready with 2 teams`,
+    );
   }
 
   await publishContest(contestId, {
@@ -533,19 +620,29 @@ export async function advanceWinner(roomId: string, contestId: string, winnerTea
   });
 
   const snapshot = await getBracketSnapshot(contestId);
-  await publishContest(contestId, { type: "contest.bracket_update", ...snapshot });
+  await publishContest(contestId, {
+    type: "contest.bracket_update",
+    ...snapshot,
+  });
 
-  logger.info(`[Bracket] Advanced team ${winnerTeamId} to room ${nextRoom._id}`);
+  logger.info(
+    `[Bracket] Advanced team ${winnerTeamId} to room ${nextRoom._id}`,
+  );
 }
 
-export async function checkRoundCompletion(contestId: string, roundNumber: number) {
+export async function checkRoundCompletion(
+  contestId: string,
+  roundNumber: number,
+) {
   await dbConnect();
   const redis = await getRedis();
   const lockKey = `contest:${contestId}:round:${roundNumber}:check_lock`;
 
   const lockAcquired = await redis.set(lockKey, "1", { NX: true, EX: 5 });
   if (!lockAcquired) {
-    logger.info(`[Bracket] Round ${roundNumber} check already in progress for contest ${contestId}`);
+    logger.info(
+      `[Bracket] Round ${roundNumber} check already in progress for contest ${contestId}`,
+    );
     return;
   }
 
@@ -564,11 +661,11 @@ export async function checkRoundCompletion(contestId: string, roundNumber: numbe
     for (const room of rooms) {
       if (room.teams.length === 2) {
         const teamScores = await Promise.all(
-          room.teams.map((tId: ObjectId) => ContestTeam.findById(tId))
+          room.teams.map((tId: ObjectId) => ContestTeam.findById(tId)),
         );
-        const winner = teamScores.reduce((best, t) =>
-          t && (!best || t.score > best.score) ? t : best,
-          null as typeof teamScores[0]
+        const winner = teamScores.reduce(
+          (best, t) => (t && (!best || t.score > best.score) ? t : best),
+          null as (typeof teamScores)[0],
         );
         if (winner) advancingTeams.push(toStr(winner._id));
       } else if (room.teams.length === 1) {
@@ -579,7 +676,9 @@ export async function checkRoundCompletion(contestId: string, roundNumber: numbe
     round.status = "completed";
     await round.save();
 
-    await redis.hSet(`contest:${contestId}:meta`, { currentRound: String(roundNumber + 1) });
+    await redis.hSet(`contest:${contestId}:meta`, {
+      currentRound: String(roundNumber + 1),
+    });
 
     await publishContest(contestId, {
       type: "contest.round_complete",
@@ -588,13 +687,21 @@ export async function checkRoundCompletion(contestId: string, roundNumber: numbe
     });
 
     const snapshot = await getBracketSnapshot(contestId);
-    await publishContest(contestId, { type: "contest.bracket_update", ...snapshot });
+    await publishContest(contestId, {
+      type: "contest.bracket_update",
+      ...snapshot,
+    });
 
-    const nextRound = await ContestRound.findOne({ contestId, roundNumber: roundNumber + 1 });
+    const nextRound = await ContestRound.findOne({
+      contestId,
+      roundNumber: roundNumber + 1,
+    });
     if (nextRound) {
       nextRound.status = "active";
       await nextRound.save();
-      logger.info(`[Bracket] Round ${roundNumber} complete. Advancing to round ${roundNumber + 1}`);
+      logger.info(
+        `[Bracket] Round ${roundNumber} complete. Advancing to round ${roundNumber + 1}`,
+      );
     } else {
       logger.info(`[Bracket] Contest ${contestId} fully completed.`);
       const keys = await redis.keys(`contest:${contestId}:*`);
@@ -605,22 +712,30 @@ export async function checkRoundCompletion(contestId: string, roundNumber: numbe
   }
 }
 
-export async function getBracketSnapshot(contestId: string): Promise<BracketSnapshot> {
+export async function getBracketSnapshot(
+  contestId: string,
+): Promise<BracketSnapshot> {
   await dbConnect();
   const contest = await ContestMatch.findById(contestId);
   if (!contest) throw new Error("Contest not found");
 
-  const rounds = await ContestRound.find({ contestId }).sort({ roundNumber: 1 });
+  const rounds = await ContestRound.find({ contestId }).sort({
+    roundNumber: 1,
+  });
   const totalRounds = rounds.length;
   const currentRound = parseInt(
-    (await (await getRedis()).hGet(`contest:${contestId}:meta`, "currentRound")) || "1",
-    10
+    (await (
+      await getRedis()
+    ).hGet(`contest:${contestId}:meta`, "currentRound")) || "1",
+    10,
   );
 
   const nodes: BracketNode[] = [];
 
   for (const round of rounds) {
-    const rooms = await ContestRoom.find({ _id: { $in: round.rooms } }).sort({ createdAt: 1 });
+    const rooms = await ContestRoom.find({ _id: { $in: round.rooms } }).sort({
+      createdAt: 1,
+    });
     for (const room of rooms) {
       const teams = await Promise.all(
         room.teams.map((tId: ObjectId) =>
@@ -628,8 +743,8 @@ export async function getBracketSnapshot(contestId: string): Promise<BracketSnap
             path: "members",
             model: User,
             select: "image",
-          })
-        )
+          }),
+        ),
       );
       const teamIds: [string | null, string | null] = [null, null];
       const teamNames: [string | null, string | null] = [null, null];
@@ -641,7 +756,7 @@ export async function getBracketSnapshot(contestId: string): Promise<BracketSnap
           teamIds[i] = toStr(teams[i]!._id);
           teamNames[i] = teams[i]!.name || null;
           scores[i] = teams[i]!.score;
-          
+
           const firstMember = (teams[i]!.members as any)?.[0];
           teamImages[i] = firstMember?.image || null;
         }
@@ -656,7 +771,11 @@ export async function getBracketSnapshot(contestId: string): Promise<BracketSnap
 
       let status: BracketNode["status"] = "pending";
       if (room.status === "ended") {
-        if ((teamIds[0] === null || teamIds[1] === null) && scores[0] === 0 && scores[1] === 0) {
+        if (
+          (teamIds[0] === null || teamIds[1] === null) &&
+          scores[0] === 0 &&
+          scores[1] === 0
+        ) {
           status = "bye";
         } else {
           status = "completed";
@@ -689,14 +808,15 @@ export async function processWalkover(
   roomId: string,
   winnerTeamId: string,
   note: string,
-  adminUserId: string
+  adminUserId: string,
 ) {
   await dbConnect();
   const room = await ContestRoom.findById(roomId);
   if (!room) throw new Error("Room not found");
 
   const contest = await ContestMatch.findById(room.contestId);
-  if (!contest || contest.format !== "bracket") throw new Error("Room is not part of a bracket contest");
+  if (!contest || contest.format !== "bracket")
+    throw new Error("Room is not part of a bracket contest");
 
   room.status = "ended";
   await room.save();
@@ -707,7 +827,9 @@ export async function processWalkover(
     await winnerTeam.save();
   }
 
-  logger.info(`[Bracket] Walkover in room ${roomId}: winner ${winnerTeamId}, note: "${note}", admin: ${adminUserId}`);
+  logger.info(
+    `[Bracket] Walkover in room ${roomId}: winner ${winnerTeamId}, note: "${note}", admin: ${adminUserId}`,
+  );
 
   await advanceWinner(roomId, toStr(contest._id), winnerTeamId);
 

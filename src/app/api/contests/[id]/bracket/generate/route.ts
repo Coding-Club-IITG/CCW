@@ -4,7 +4,7 @@ import { generateBracket, getBracketSnapshot } from "@/lib/bracket";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const resolvedParams = await params;
@@ -24,14 +24,14 @@ export async function POST(
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Internal Server Error" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 }
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const resolvedParams = await params;
@@ -41,7 +41,7 @@ export async function GET(
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Internal Server Error" },
-      { status: 404 }
+      { status: 404 },
     );
   }
 }

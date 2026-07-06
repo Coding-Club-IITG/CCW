@@ -29,9 +29,9 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
   const [bulkProblemCount, setBulkProblemCount] = useState(3);
 
   // Mode B Fine-Tuned Slots
-  const [problemSlots, setProblemSlots] = useState<Array<{ platform: string; rating: number }>>([
-    { platform: "codeforces", rating: 800 },
-  ]);
+  const [problemSlots, setProblemSlots] = useState<
+    Array<{ platform: string; rating: number }>
+  >([{ platform: "codeforces", rating: 800 }]);
 
   function resetForm() {
     setName("");
@@ -65,7 +65,9 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
     setBulkRatingMin(preset.bulkRatingMin || 800);
     setBulkRatingMax(preset.bulkRatingMax || 1200);
     setBulkProblemCount(preset.bulkProblemCount || 3);
-    setProblemSlots(preset.problemSlots || [{ platform: "codeforces", rating: 800 }]);
+    setProblemSlots(
+      preset.problemSlots || [{ platform: "codeforces", rating: 800 }],
+    );
     setModalOpen(true);
   }
 
@@ -85,7 +87,9 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
           : { problemSlots }),
       };
 
-      const url = editingPreset ? `/api/contests/presets/${editingPreset._id}` : `/api/contests/presets`;
+      const url = editingPreset
+        ? `/api/contests/presets/${editingPreset._id}`
+        : `/api/contests/presets`;
       const method = editingPreset ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -100,11 +104,17 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
       }
 
       const savedPreset = await res.json();
-      
+
       if (editingPreset) {
-        setPresets(presets.map((p) => (p._id === savedPreset._id ? savedPreset : p)));
+        setPresets(
+          presets.map((p) => (p._id === savedPreset._id ? savedPreset : p)),
+        );
       } else {
-        setPresets([...presets, savedPreset].sort((a, b) => a.name.localeCompare(b.name)));
+        setPresets(
+          [...presets, savedPreset].sort((a, b) =>
+            a.name.localeCompare(b.name),
+          ),
+        );
       }
 
       setModalOpen(false);
@@ -146,7 +156,11 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
     setProblemSlots([...problemSlots, { platform: "codeforces", rating: 800 }]);
   }
 
-  function updateSlot(index: number, field: "platform" | "rating", value: string | number) {
+  function updateSlot(
+    index: number,
+    field: "platform" | "rating",
+    value: string | number,
+  ) {
     const updated = [...problemSlots];
     updated[index] = { ...updated[index], [field]: value };
     setProblemSlots(updated);
@@ -160,7 +174,11 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <button onClick={openCreate} className={styles.addButton} disabled={loading}>
+        <button
+          onClick={openCreate}
+          className={styles.addButton}
+          disabled={loading}
+        >
           <Plus size={16} /> New Preset
         </button>
       </div>
@@ -179,22 +197,33 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
           </thead>
           <tbody>
             {presets.map((preset) => (
-              <tr key={preset._id} className={preset.archived ? styles.archivedRow : ""}>
+              <tr
+                key={preset._id}
+                className={preset.archived ? styles.archivedRow : ""}
+              >
                 <td>
                   <strong>{preset.name}</strong>
-                  {preset.description && <p className={styles.description}>{preset.description}</p>}
+                  {preset.description && (
+                    <p className={styles.description}>{preset.description}</p>
+                  )}
                 </td>
                 <td>{preset.format}</td>
                 <td>{preset.mode}</td>
                 <td>{Math.round((preset.durationSeconds || 0) / 60)}</td>
                 <td>
-                  <span className={`${styles.badge} ${preset.archived ? styles.badgeArchived : styles.badgeActive}`}>
+                  <span
+                    className={`${styles.badge} ${preset.archived ? styles.badgeArchived : styles.badgeActive}`}
+                  >
                     {preset.archived ? "Archived" : "Active"}
                   </span>
                 </td>
                 <td>
                   <div className={styles.actions}>
-                    <button onClick={() => openEdit(preset)} className={styles.actionButton} title="Edit">
+                    <button
+                      onClick={() => openEdit(preset)}
+                      className={styles.actionButton}
+                      title="Edit"
+                    >
                       <Edit2 size={14} />
                     </button>
                     <button
@@ -242,7 +271,10 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
               <div className={styles.row}>
                 <div className={styles.field}>
                   <label>Format</label>
-                  <select value={format} onChange={(e) => setFormat(e.target.value)}>
+                  <select
+                    value={format}
+                    onChange={(e) => setFormat(e.target.value)}
+                  >
                     <option value="bracket">Bracket (Knockout)</option>
                     <option value="1v1">1v1</option>
                     <option value="solo-tournament">Solo Tournament</option>
@@ -252,7 +284,10 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
 
                 <div className={styles.field}>
                   <label>Mode</label>
-                  <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                  <select
+                    value={mode}
+                    onChange={(e) => setMode(e.target.value)}
+                  >
                     <option value="blitz">Blitz</option>
                     <option value="arena">Arena</option>
                   </select>
@@ -272,9 +307,14 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
 
               <div className={styles.field}>
                 <label>Problem Selection Mode</label>
-                <select value={problemSelectionMode} onChange={(e) => setProblemSelectionMode(e.target.value)}>
+                <select
+                  value={problemSelectionMode}
+                  onChange={(e) => setProblemSelectionMode(e.target.value)}
+                >
                   <option value="bulk">Bulk (Automatic query)</option>
-                  <option value="fine-tuned">Fine-Tuned (Manual rating slots)</option>
+                  <option value="fine-tuned">
+                    Fine-Tuned (Manual rating slots)
+                  </option>
                 </select>
               </div>
 
@@ -282,7 +322,10 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
                 <div className={styles.bulkSection}>
                   <div className={styles.field}>
                     <label>Platform</label>
-                    <select value={bulkPlatform} onChange={(e) => setBulkPlatform(e.target.value)}>
+                    <select
+                      value={bulkPlatform}
+                      onChange={(e) => setBulkPlatform(e.target.value)}
+                    >
                       <option value="codeforces">Codeforces</option>
                     </select>
                   </div>
@@ -292,7 +335,9 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
                       <input
                         type="number"
                         value={bulkRatingMin}
-                        onChange={(e) => setBulkRatingMin(Number(e.target.value))}
+                        onChange={(e) =>
+                          setBulkRatingMin(Number(e.target.value))
+                        }
                         min={800}
                         max={3500}
                         step={100}
@@ -303,7 +348,9 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
                       <input
                         type="number"
                         value={bulkRatingMax}
-                        onChange={(e) => setBulkRatingMax(Number(e.target.value))}
+                        onChange={(e) =>
+                          setBulkRatingMax(Number(e.target.value))
+                        }
                         min={800}
                         max={3500}
                         step={100}
@@ -315,7 +362,9 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
                     <input
                       type="number"
                       value={bulkProblemCount}
-                      onChange={(e) => setBulkProblemCount(Number(e.target.value))}
+                      onChange={(e) =>
+                        setBulkProblemCount(Number(e.target.value))
+                      }
                       min={1}
                       max={10}
                     />
@@ -326,13 +375,20 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
                   <label>Problem Slots</label>
                   {problemSlots.map((slot, index) => (
                     <div key={index} className={styles.slotRow}>
-                      <select value={slot.platform} onChange={(e) => updateSlot(index, "platform", e.target.value)}>
+                      <select
+                        value={slot.platform}
+                        onChange={(e) =>
+                          updateSlot(index, "platform", e.target.value)
+                        }
+                      >
                         <option value="codeforces">Codeforces</option>
                       </select>
                       <input
                         type="number"
                         value={slot.rating}
-                        onChange={(e) => updateSlot(index, "rating", Number(e.target.value))}
+                        onChange={(e) =>
+                          updateSlot(index, "rating", Number(e.target.value))
+                        }
                         min={800}
                         max={3500}
                         step={100}
@@ -349,18 +405,35 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
                       </button>
                     </div>
                   ))}
-                  <button type="button" onClick={addSlot} className={styles.addSlotBtn}>
+                  <button
+                    type="button"
+                    onClick={addSlot}
+                    className={styles.addSlotBtn}
+                  >
                     + Add Slot
                   </button>
                 </div>
               )}
 
               <div className={styles.modalActions}>
-                <button type="button" onClick={() => setModalOpen(false)} className={styles.cancelButton} disabled={loading}>
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className={styles.cancelButton}
+                  disabled={loading}
+                >
                   Cancel
                 </button>
-                <button type="submit" className={styles.saveButton} disabled={loading}>
-                  {loading ? <Loader2 className={styles.spinner} size={16} /> : "Save Preset"}
+                <button
+                  type="submit"
+                  className={styles.saveButton}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <Loader2 className={styles.spinner} size={16} />
+                  ) : (
+                    "Save Preset"
+                  )}
                 </button>
               </div>
             </form>

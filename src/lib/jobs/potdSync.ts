@@ -5,7 +5,10 @@ import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
 import { logger } from "@/lib/utils";
 import { processSubmission } from "@/lib/potd/submit";
-import { fetchUserSubmissions, streakResetGuardKey } from "@/lib/potd/recompute";
+import {
+  fetchUserSubmissions,
+  streakResetGuardKey,
+} from "@/lib/potd/recompute";
 import { isAtCoderAPIReachable } from "@/lib/platforms/atcoder";
 import { isCodeforcesAPIReachable } from "@/lib/platforms/codeforces";
 import type { Platform } from "@/lib/constants";

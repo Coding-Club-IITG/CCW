@@ -5,7 +5,13 @@ const redisClient = createClient({
   url: process.env.REDIS_URL || "redis://localhost:6379",
 });
 
-export async function claimProblem(redis: any, locksKey: string, problemId: string, teamId: string, cfTimestamp: number): Promise<string> {
+export async function claimProblem(
+  redis: any,
+  locksKey: string,
+  problemId: string,
+  teamId: string,
+  cfTimestamp: number,
+): Promise<string> {
   const script = `
     local locksKey = KEYS[1]
     local problemId = ARGV[1]
@@ -30,10 +36,10 @@ export async function claimProblem(redis: any, locksKey: string, problemId: stri
     redis.call("HSET", locksKey, problemId, teamId .. "|" .. cfTimestamp)
     return "claimed"
   `;
-  
+
   return await redis.eval(script, {
     keys: [locksKey],
-    arguments: [problemId, teamId, cfTimestamp.toString()]
+    arguments: [problemId, teamId, cfTimestamp.toString()],
   });
 }
 
@@ -51,7 +57,10 @@ export async function getRedis(): Promise<typeof redisClient> {
           await redisClient.configSet("maxmemory-policy", "noeviction");
           await redisClient.configSet("notify-keyspace-events", "KEA");
         } catch (configErr) {
-          logger.warn("Failed to set Redis configurations programmatically:", configErr);
+          logger.warn(
+            "Failed to set Redis configurations programmatically:",
+            configErr,
+          );
         }
         return redisClient;
       })

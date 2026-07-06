@@ -11,15 +11,17 @@ export default async function MatchHistoryPage() {
 
   const userRole = session?.user?.role as string | undefined;
   const admin = isAdmin(userRole);
-  
+
   const moduleRoles = parseModuleRoles((session.user as any)?.moduleRoles);
-  const isSoftwareDev = moduleRoles.some((mr) => mr.module === "Software Development");
-  
+  const isSoftwareDev = moduleRoles.some(
+    (mr) => mr.module === "Software Development",
+  );
+
   if (!admin && !isSoftwareDev) {
     redirect("/internal/dashboard");
   }
 
   const { completed } = await getContestListing();
-  
+
   return <MatchHistoryClient history={completed} />;
 }

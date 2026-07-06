@@ -27,16 +27,21 @@ export async function POST(req: NextRequest) {
 
     // Validate team sizes: each team must have 1 or 3 members
     const teamSizes = teams.map((t: any) => t.members.length);
-    const validSizes = teamSizes.every((size: number) => size === 1 || size === 3);
-    const consistentSizes = teamSizes.every((size: number) => size === teamSizes[0]);
+    const validSizes = teamSizes.every(
+      (size: number) => size === 1 || size === 3,
+    );
+    const consistentSizes = teamSizes.every(
+      (size: number) => size === teamSizes[0],
+    );
 
     if (!validSizes || !consistentSizes) {
       return NextResponse.json(
-        { 
+        {
           error: "Invalid team sizes",
-          details: "Each team must have 1 or 3 members, and all teams must have the same size"
+          details:
+            "Each team must have 1 or 3 members, and all teams must have the same size",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -51,7 +56,7 @@ export async function POST(req: NextRequest) {
     const maxRating = contest.bulkRatingMax || 1200;
 
     // Collect all user IDs and fetch them to get solved problems
-    const allUserIds = teams.flatMap(t => t.members);
+    const allUserIds = teams.flatMap((t) => t.members);
     const users = await CPUser.find({ userId: { $in: allUserIds } });
 
     // Collect all solved problem IDs
@@ -69,18 +74,21 @@ export async function POST(req: NextRequest) {
       {
         $match: {
           rating: { $gte: minRating, $lte: maxRating },
-          problemId: { $nin: Array.from(solvedProblemIds) }
-        }
+          problemId: { $nin: Array.from(solvedProblemIds) },
+        },
       },
       { $sample: { size: problemCount } },
-      { $sort: { rating: 1 } }
+      { $sort: { rating: 1 } },
     ]);
 
     if (availableProblems.length < problemCount) {
-      return NextResponse.json({ 
-        error: 'insufficient_problems', 
-        minimumRatingRange: [minRating, maxRating] 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "insufficient_problems",
+          minimumRatingRange: [minRating, maxRating],
+        },
+        { status: 400 },
+      );
     }
 
     // Write stub ContestRoom to MongoDB
@@ -90,20 +98,20 @@ export async function POST(req: NextRequest) {
       status: "waiting",
       participants: allUserIds,
       currentProblemIndex: 0,
-      firstSolvers: []
+      firstSolvers: [],
     });
 
     // Write stub ContestProblemSet
     const problemSet = new ContestProblemSet({
       contestId: contest._id,
       roomId: room._id,
-      problems: availableProblems.map(p => ({
+      problems: availableProblems.map((p) => ({
         platform: "codeforces",
         problemId: p.problemId,
         name: p.name,
         rating: p.rating,
-        points: Math.floor((p.rating || 1000) / 10)
-      }))
+        points: Math.floor((p.rating || 1000) / 10),
+      })),
     });
 
     // Create teams in MongoDB
@@ -115,12 +123,12 @@ export async function POST(req: NextRequest) {
         name: t.name,
         members: t.members,
         teamSize,
-        score: 0
+        score: 0,
       });
       await team.save();
       createdTeams.push(team);
     }
-    room.teams = createdTeams.map(t => t._id);
+    room.teams = createdTeams.map((t) => t._id);
 
     await room.save();
     await problemSet.save();
@@ -128,15 +136,17 @@ export async function POST(req: NextRequest) {
     const roomId = room._id.toString();
 
     const redis = await getRedis();
-    
+
     // Write ordered problem array to room:<id>:problems
-    const redisProblems = availableProblems.map(p => JSON.stringify({
-      problemId: p.problemId,
-      name: p.name,
-      rating: p.rating,
-      points: Math.floor((p.rating || 1000) / 10),
-      revealedAt: null
-    }));
+    const redisProblems = availableProblems.map((p) =>
+      JSON.stringify({
+        problemId: p.problemId,
+        name: p.name,
+        rating: p.rating,
+        points: Math.floor((p.rating || 1000) / 10),
+        revealedAt: null,
+      }),
+    );
     await redis.del(`room:${roomId}:problems`);
     if (redisProblems.length > 0) {
       await redis.rPush(`room:${roomId}:problems`, redisProblems);
@@ -149,7 +159,7 @@ export async function POST(req: NextRequest) {
       startTime: "",
       timeLimit: contest.durationSeconds.toString(),
       contestId: contestId.toString(),
-      readyCount: 0
+      readyCount: 0,
     };
     if (contest.mode !== "arena") {
       stateObj.currentProblem = 0;
@@ -157,13 +167,19 @@ export async function POST(req: NextRequest) {
     await redis.hSet(`room:${roomId}:state`, stateObj);
 
     // Write room:<id>:teams Set
-    await redis.sAdd(`room:${roomId}:teams`, createdTeams.map(t => t._id.toString()));
+    await redis.sAdd(
+      `room:${roomId}:teams`,
+      createdTeams.map((t) => t._id.toString()),
+    );
 
     // Write team:<teamId>:meta and team:<teamId>:users
     for (const t of createdTeams) {
       const tId = t._id.toString();
       await redis.hSet(`team:${tId}:meta`, { name: t.name, score: 0 });
-      await redis.sAdd(`team:${tId}:users`, t.members.map((m: any) => m.toString()));
+      await redis.sAdd(
+        `team:${tId}:users`,
+        t.members.map((m: any) => m.toString()),
+      );
     }
 
     // Add roomId to contest:<contestId>:rooms Set
@@ -172,6 +188,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ roomId });
   } catch (error) {
     console.error("Room creation error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

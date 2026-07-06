@@ -24,11 +24,14 @@ export async function POST(request: NextRequest) {
     const { roomId, teamId, cfHandle, problemId } = body;
 
     if (!roomId || !cfHandle || !problemId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
     const redis = await getRedis();
-    
+
     // Resolve teamId if not provided: check which team contains this userId
     let resolvedTeamId = teamId;
     if (!resolvedTeamId) {
@@ -41,7 +44,10 @@ export async function POST(request: NextRequest) {
         }
       }
       if (!resolvedTeamId) {
-        return NextResponse.json({ error: "User is not part of any team in this room" }, { status: 403 });
+        return NextResponse.json(
+          { error: "User is not part of any team in this room" },
+          { status: 403 },
+        );
       }
     }
 
@@ -49,10 +55,18 @@ export async function POST(request: NextRequest) {
 
     // 1. Check ratelimit
     if (process.env.NODE_ENV !== "development") {
-      const cooldown = parseInt(process.env.NEXT_PUBLIC_SYNC_COOLDOWN || process.env.SYNC_COOLDOWN || "60", 10);
+      const cooldown = parseInt(
+        process.env.NEXT_PUBLIC_SYNC_COOLDOWN ||
+          process.env.SYNC_COOLDOWN ||
+          "60",
+        10,
+      );
       const isRateLimited = await redis.exists(rateLimitKey);
       if (isRateLimited) {
-        return NextResponse.json({ error: `Rate limit exceeded. Please wait ${cooldown} seconds.` }, { status: 429 });
+        return NextResponse.json(
+          { error: `Rate limit exceeded. Please wait ${cooldown} seconds.` },
+          { status: 429 },
+        );
       }
 
       // 2. Set ratelimit (cooldown TTL)
@@ -60,7 +74,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Enqueue job
-    const jobData = { roomId, userId, teamId: resolvedTeamId, cfHandle, problemId };
+    const jobData = {
+      roomId,
+      userId,
+      teamId: resolvedTeamId,
+      cfHandle,
+      problemId,
+    };
     const job = await cfSyncQueue.add("cf_sync", jobData);
 
     // Approximate position
@@ -84,9 +104,11 @@ export async function POST(request: NextRequest) {
 
     // 6. Return 202
     return NextResponse.json({ queued: true }, { status: 202 });
-
   } catch (error: any) {
     logger.error("[/api/contests/sync] Error enqueuing sync job:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

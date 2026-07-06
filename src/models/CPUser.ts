@@ -15,7 +15,7 @@ const SolvedProblemSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const CPUserSchema = new mongoose.Schema(
@@ -140,9 +140,7 @@ CPUserSchema.index(
   { acHandle: 1 },
   { unique: true, partialFilterExpression: { acHandle: { $gt: "" } } },
 );
-CPUserSchema.index(
-  { "solvedProblems.problemId": 1 }
-);
+CPUserSchema.index({ "solvedProblems.problemId": 1 });
 
 export default mongoose.models.CPUser ||
   mongoose.model("CPUser", CPUserSchema, "cpusers");

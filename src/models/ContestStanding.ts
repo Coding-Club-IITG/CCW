@@ -19,8 +19,17 @@ export interface IContestStanding extends Document {
 
 const ContestStandingSchema = new Schema<IContestStanding>(
   {
-    roomId: { type: Schema.Types.ObjectId, ref: "ContestRoom", required: true, index: true },
-    contestId: { type: Schema.Types.ObjectId, ref: "ContestMatch", required: true },
+    roomId: {
+      type: Schema.Types.ObjectId,
+      ref: "ContestRoom",
+      required: true,
+      index: true,
+    },
+    contestId: {
+      type: Schema.Types.ObjectId,
+      ref: "ContestMatch",
+      required: true,
+    },
     teamId: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     userId: { type: Schema.Types.ObjectId, ref: "CPUser", required: true },
     score: { type: Number, required: true, default: 0 },
@@ -36,11 +45,15 @@ const ContestStandingSchema = new Schema<IContestStanding>(
     draws: { type: Number, default: 0 },
     eliminated: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const ContestStanding =
   mongoose.models.ContestStanding ||
-  mongoose.model<IContestStanding>("ContestStanding", ContestStandingSchema, "contest_standings");
+  mongoose.model<IContestStanding>(
+    "ContestStanding",
+    ContestStandingSchema,
+    "contest_standings",
+  );
 
 export default ContestStanding;

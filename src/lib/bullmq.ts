@@ -6,7 +6,10 @@ let redisUrl: URL;
 try {
   redisUrl = new URL(redisUrlString);
 } catch (err) {
-  logger.error(`[BullMQ] Invalid REDIS_URL: ${redisUrlString}. Falling back to default localhost.`, err);
+  logger.error(
+    `[BullMQ] Invalid REDIS_URL: ${redisUrlString}. Falling back to default localhost.`,
+    err,
+  );
   redisUrl = new URL("redis://localhost:6379");
 }
 
@@ -15,7 +18,10 @@ export const connection: ConnectionOptions = {
   port: redisUrl.port ? parseInt(redisUrl.port, 10) : 6379,
   username: redisUrl.username || undefined,
   password: redisUrl.password || undefined,
-  db: (redisUrl.pathname && redisUrl.pathname.slice(1)) ? parseInt(redisUrl.pathname.slice(1), 10) : undefined,
+  db:
+    redisUrl.pathname && redisUrl.pathname.slice(1)
+      ? parseInt(redisUrl.pathname.slice(1), 10)
+      : undefined,
   tls: redisUrl.protocol === "rediss:" ? {} : undefined,
   maxRetriesPerRequest: null,
 };

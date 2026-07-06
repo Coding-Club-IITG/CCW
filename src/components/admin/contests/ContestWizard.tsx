@@ -2,7 +2,10 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { validateStep, createBracketContest } from "@/lib/actions/admin/contests";
+import {
+  validateStep,
+  createBracketContest,
+} from "@/lib/actions/admin/contests";
 import Step1BasicInfo from "./steps/Step1BasicInfo";
 import Step2Registration from "./steps/Step2Registration";
 import Step3MatchPreset from "./steps/Step3MatchPreset";
@@ -29,7 +32,11 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     registrationType: "open",
     maxParticipants: 8,
     presetId: "",
-    problemSlots: [] as { platform: string; problemId: string; roundNumber: number }[],
+    problemSlots: [] as {
+      platform: string;
+      problemId: string;
+      roundNumber: number;
+    }[],
     thirdPlacePlayoff: false,
     seedingMethod: "cf_rating",
   });
@@ -41,7 +48,9 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     { number: 1, id: "basic", title: "Basic Info" },
     { number: 2, id: "reg", title: "Registration" },
     { number: 3, id: "preset", title: "Match Preset" },
-    ...(isFineTuned ? [{ number: 4, id: "problems", title: "Round Problems" }] : []),
+    ...(isFineTuned
+      ? [{ number: 4, id: "problems", title: "Round Problems" }]
+      : []),
     { number: isFineTuned ? 5 : 4, id: "settings", title: "Bracket Settings" },
     { number: isFineTuned ? 6 : 5, id: "preview", title: "Preview" },
   ];
@@ -53,7 +62,11 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
       if (fields.presetId !== undefined && fields.presetId !== prev.presetId) {
         newProblemSlots = [];
       }
-      return { ...prev, ...fields, problemSlots: fields.problemSlots ?? newProblemSlots };
+      return {
+        ...prev,
+        ...fields,
+        problemSlots: fields.problemSlots ?? newProblemSlots,
+      };
     });
     // Clear errors for fields as they are edited
     const updatedErrors = { ...errors };
@@ -121,7 +134,9 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
               <div className={styles.label}>{step.title}</div>
             </div>
             {index < steps.length - 1 && (
-              <div className={`${styles.line} ${currentStep > step.number ? styles.completedLine : ""}`} />
+              <div
+                className={`${styles.line} ${currentStep > step.number ? styles.completedLine : ""}`}
+              />
             )}
           </React.Fragment>
         ))}
@@ -172,23 +187,37 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
             errors={errors}
           />
         )}
-        {steps[currentStep - 1]?.id === "preview" && <Step5Preview formData={formData} presets={presets} />}
+        {steps[currentStep - 1]?.id === "preview" && (
+          <Step5Preview formData={formData} presets={presets} />
+        )}
       </div>
 
       {/* Controls */}
       <div className={styles.wizardControls}>
         {currentStep > 1 && (
-          <button onClick={handleBack} className={styles.backButton} disabled={isSubmitting}>
+          <button
+            onClick={handleBack}
+            className={styles.backButton}
+            disabled={isSubmitting}
+          >
             Back
           </button>
         )}
         <div style={{ flex: 1 }} />
         {currentStep < maxStep ? (
-          <button onClick={handleNext} className={styles.nextButton} disabled={isSubmitting}>
+          <button
+            onClick={handleNext}
+            className={styles.nextButton}
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Validating..." : "Next"}
           </button>
         ) : (
-          <button onClick={handleCreate} className={styles.createButton} disabled={isSubmitting}>
+          <button
+            onClick={handleCreate}
+            className={styles.createButton}
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Creating..." : "Create Tournament"}
           </button>
         )}

@@ -13,10 +13,12 @@ export default function ProtectedLayoutClient({
   useEffect(() => {
     // 1. Scroll the main window
     window.scrollTo(0, 0);
-    
+
     // 2. Scroll any inner nested overflow containers (which bypass Next.js default scroll restoration)
-    const scrollableContainers = document.querySelectorAll('.overflow-y-auto, .overflow-auto');
-    scrollableContainers.forEach(el => el.scrollTo(0, 0));
+    const scrollableContainers = document.querySelectorAll(
+      ".overflow-y-auto, .overflow-auto",
+    );
+    scrollableContainers.forEach((el) => el.scrollTo(0, 0));
   }, [pathname]);
 
   // The contests layout requires full bleed (no max-width, no padding)

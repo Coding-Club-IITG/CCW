@@ -38,7 +38,9 @@ export function getRoundName(roundNumber: number, totalRounds: number): string {
   return `Round of ${participants}`;
 }
 
-export function snakeSeed(teams: { teamId: string; seed: number }[]): { teamId: string; seed: number }[] {
+export function snakeSeed(
+  teams: { teamId: string; seed: number }[],
+): { teamId: string; seed: number }[] {
   const sorted = [...teams].sort((a, b) => a.seed - b.seed);
   const n = sorted.length;
   const result: { teamId: string; seed: number }[] = [];

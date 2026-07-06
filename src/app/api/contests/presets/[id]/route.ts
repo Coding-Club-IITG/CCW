@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -16,13 +16,16 @@ export async function GET(
     }
     return NextResponse.json(preset);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -33,7 +36,19 @@ export async function PUT(
 
     await dbConnect();
     const body = await request.json();
-    const { name, description, format, mode, durationSeconds, problemSelectionMode, bulkPlatform, bulkRatingMin, bulkRatingMax, bulkProblemCount, problemSlots } = body;
+    const {
+      name,
+      description,
+      format,
+      mode,
+      durationSeconds,
+      problemSelectionMode,
+      bulkPlatform,
+      bulkRatingMin,
+      bulkRatingMax,
+      bulkProblemCount,
+      problemSlots,
+    } = body;
 
     const preset = await ContestPreset.findById(id);
     if (!preset) {
@@ -43,7 +58,10 @@ export async function PUT(
     if (name && name.trim() !== preset.name) {
       const existing = await ContestPreset.findOne({ name: name.trim() });
       if (existing) {
-        return NextResponse.json({ error: "Preset name already exists" }, { status: 409 });
+        return NextResponse.json(
+          { error: "Preset name already exists" },
+          { status: 409 },
+        );
       }
       preset.name = name.trim();
     }
@@ -52,23 +70,28 @@ export async function PUT(
     if (format !== undefined) preset.format = format;
     if (mode !== undefined) preset.mode = mode;
     if (durationSeconds !== undefined) preset.durationSeconds = durationSeconds;
-    if (problemSelectionMode !== undefined) preset.problemSelectionMode = problemSelectionMode;
+    if (problemSelectionMode !== undefined)
+      preset.problemSelectionMode = problemSelectionMode;
     if (bulkPlatform !== undefined) preset.bulkPlatform = bulkPlatform;
     if (bulkRatingMin !== undefined) preset.bulkRatingMin = bulkRatingMin;
     if (bulkRatingMax !== undefined) preset.bulkRatingMax = bulkRatingMax;
-    if (bulkProblemCount !== undefined) preset.bulkProblemCount = bulkProblemCount;
+    if (bulkProblemCount !== undefined)
+      preset.bulkProblemCount = bulkProblemCount;
     if (problemSlots !== undefined) preset.problemSlots = problemSlots;
 
     await preset.save();
     return NextResponse.json(preset);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -82,13 +105,16 @@ export async function PATCH(
     const { archived } = body;
 
     if (archived === undefined) {
-      return NextResponse.json({ error: "Missing archived status" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing archived status" },
+        { status: 400 },
+      );
     }
 
     const preset = await ContestPreset.findByIdAndUpdate(
       id,
       { archived },
-      { new: true }
+      { new: true },
     );
 
     if (!preset) {
@@ -97,6 +123,9 @@ export async function PATCH(
 
     return NextResponse.json(preset);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

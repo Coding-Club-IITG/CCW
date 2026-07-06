@@ -12,7 +12,7 @@ export default async function PresetsPage() {
   await dbConnect();
   // Fetch initial presets server-side
   const presetsJson = await ContestPreset.find().sort({ name: 1 }).lean();
-  
+
   // Serialize Mongo _id and Dates
   const presets = JSON.parse(JSON.stringify(presetsJson));
 

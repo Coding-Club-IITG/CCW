@@ -10,43 +10,102 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
 
   return (
     <div>
-      <h2 style={{ marginBottom: "1.5rem", fontSize: "1.25rem", color: "var(--foreground-strong)" }}>
+      <h2
+        style={{
+          marginBottom: "1.5rem",
+          fontSize: "1.25rem",
+          color: "var(--foreground-strong)",
+        }}
+      >
         Step 5: Review & Create Tournament
       </h2>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem", fontSize: "0.875rem" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "0.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.75rem" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "1rem",
+          fontSize: "0.875rem",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "150px 1fr",
+            gap: "0.5rem",
+            borderBottom: "1px solid var(--border)",
+            paddingBottom: "0.75rem",
+          }}
+        >
           <span style={{ color: "var(--muted)" }}>Tournament Name:</span>
-          <strong style={{ color: "var(--foreground-strong)" }}>{formData.name}</strong>
+          <strong style={{ color: "var(--foreground-strong)" }}>
+            {formData.name}
+          </strong>
 
           {formData.description && (
             <>
               <span style={{ color: "var(--muted)" }}>Description:</span>
-              <span style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>{formData.description}</span>
+              <span
+                style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}
+              >
+                {formData.description}
+              </span>
             </>
           )}
 
           <span style={{ color: "var(--muted)" }}>Format:</span>
-          <strong style={{ color: "var(--foreground)" }}>Bracket (Knockout)</strong>
+          <strong style={{ color: "var(--foreground)" }}>
+            Bracket (Knockout)
+          </strong>
 
           <span style={{ color: "var(--muted)" }}>Match Mode:</span>
-          <strong style={{ color: "var(--foreground)", textTransform: "capitalize" }}>{formData.mode}</strong>
+          <strong
+            style={{ color: "var(--foreground)", textTransform: "capitalize" }}
+          >
+            {formData.mode}
+          </strong>
 
           <span style={{ color: "var(--muted)" }}>Team Size:</span>
-          <strong style={{ color: "var(--foreground)" }}>{formData.teamSize === 3 ? "Trio (3v3)" : "Solo (1v1)"}</strong>
+          <strong style={{ color: "var(--foreground)" }}>
+            {formData.teamSize === 3 ? "Trio (3v3)" : "Solo (1v1)"}
+          </strong>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "0.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.75rem" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "150px 1fr",
+            gap: "0.5rem",
+            borderBottom: "1px solid var(--border)",
+            paddingBottom: "0.75rem",
+          }}
+        >
           <span style={{ color: "var(--muted)" }}>Registration:</span>
-          <strong style={{ color: "var(--foreground)", textTransform: "capitalize" }}>{formData.registrationType}</strong>
+          <strong
+            style={{ color: "var(--foreground)", textTransform: "capitalize" }}
+          >
+            {formData.registrationType}
+          </strong>
 
           <span style={{ color: "var(--muted)" }}>Max Participants:</span>
-          <strong style={{ color: "var(--foreground)" }}>{formData.maxParticipants}</strong>
+          <strong style={{ color: "var(--foreground)" }}>
+            {formData.maxParticipants}
+          </strong>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "0.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.75rem" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "150px 1fr",
+            gap: "0.5rem",
+            borderBottom: "1px solid var(--border)",
+            paddingBottom: "0.75rem",
+          }}
+        >
           <span style={{ color: "var(--muted)" }}>Match Preset:</span>
-          <strong style={{ color: "var(--foreground-strong)" }}>{selectedPreset?.name || "None"}</strong>
+          <strong style={{ color: "var(--foreground-strong)" }}>
+            {selectedPreset?.name || "None"}
+          </strong>
 
           {selectedPreset && (
             <>
@@ -65,13 +124,25 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "0.5rem" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "150px 1fr",
+            gap: "0.5rem",
+          }}
+        >
           <span style={{ color: "var(--muted)" }}>Bronze Playoff:</span>
-          <strong style={{ color: "var(--foreground)" }}>{formData.thirdPlacePlayoff ? "Enabled" : "Disabled"}</strong>
+          <strong style={{ color: "var(--foreground)" }}>
+            {formData.thirdPlacePlayoff ? "Enabled" : "Disabled"}
+          </strong>
 
           <span style={{ color: "var(--muted)" }}>Seeding:</span>
-          <strong style={{ color: "var(--foreground)", textTransform: "capitalize" }}>
-            {formData.seedingMethod === "cf_rating" ? "Auto Codeforces Rating" : "Manual"}
+          <strong
+            style={{ color: "var(--foreground)", textTransform: "capitalize" }}
+          >
+            {formData.seedingMethod === "cf_rating"
+              ? "Auto Codeforces Rating"
+              : "Manual"}
           </strong>
         </div>
       </div>
