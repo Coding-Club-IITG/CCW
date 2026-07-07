@@ -50,6 +50,11 @@ export default async function DashboardPage() {
           description="Daily coding challenges, streaks, and submissions."
         />
         <LinkCard
+          href="/internal/contests"
+          title="Contests & Rooms"
+          description="Participate in knockout brackets, 1v1s, and team-based matches."
+        />
+        <LinkCard
           href="/internal/hackathons"
           title="Hackathon Finder"
           description="Find active hackathons and build your team."
