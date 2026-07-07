@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import axios from "axios";
+import { cp } from "@ronits2407/cp-api";
 import dbConnect from "@/lib/mongodb";
 import { getRedis } from "@/lib/redis";
 import User from "@/models/User";
@@ -144,16 +144,14 @@ export async function setDailyProblem(
       if (cached) {
         allProblems = JSON.parse(cached);
       } else {
-        const { data } = await axios.get(
-          "https://codeforces.com/api/problemset.problems",
-          { timeout: 30_000 },
-        );
-        if (data.status !== "OK")
+        try {
+          allProblems = await cp.codeforces.getProblems();
+        } catch (e: any) {
           return {
             ok: false,
-            error: `CF API error: ${data.comment ?? "unknown"}`,
+            error: `CF API error: ${e.message}`,
           };
-        allProblems = data.result.problems;
+        }
         await redis.set(CACHE_KEY, JSON.stringify(allProblems), { EX: 86_400 });
       }
 

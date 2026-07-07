@@ -1,10 +1,8 @@
-import axios from "axios";
 import ContestQuestion from "@/models/ContestQuestion";
 import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
+import { cp } from "@/lib/cf-api";
 
-const CODEFORCES_PROBLEMS_URL =
-  "https://codeforces.com/api/problemset.problems";
 const BATCH_SIZE = 1000;
 
 export async function syncCodeforcesProblems() {
@@ -34,15 +32,8 @@ export async function syncCodeforcesProblems() {
       );
     }
 
-    const response = await axios.get(CODEFORCES_PROBLEMS_URL);
-
-    if (response.data.status !== "OK") {
-      throw new Error(
-        `Codeforces API error: ${response.data.comment || "Unknown"}`,
-      );
-    }
-
-    const { problems } = response.data.result;
+    // Fetch problems using the @ronits2407/cp-api SDK
+    const problems = await cp.codeforces.getProblems();
 
     if (!problems || !Array.isArray(problems)) {
       throw new Error("Invalid problems list returned by Codeforces API.");
