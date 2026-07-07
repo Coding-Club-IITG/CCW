@@ -18,6 +18,7 @@
     "@better-auth/mongo-adapter": "^1.6.11",
     "@bjorn3/browser_wasi_shim": "^0.4.2",
     "@monaco-editor/react": "^4.7.0",
+    "@ronits2407/cp-api": "^1.0.8",
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/forms": "^0.5.11",
     "@xyflow/react": "^12.11.1",
