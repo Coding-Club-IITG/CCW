@@ -1,10 +1,8 @@
-import axios from "axios";
 import CPUser from "@/models/CPUser";
 import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
+import { cp } from "@/lib/cf-api";
 
-const CODEFORCES_API_URL = "https://codeforces.com/api/user.info";
-// CF API has URL length limits, batch handles to stay safe
 const BATCH_SIZE = 50;
 
 export async function syncCodeforcesRatings() {
@@ -36,21 +34,11 @@ export async function syncCodeforcesRatings() {
 
     for (let i = 0; i < handles.length; i += BATCH_SIZE) {
       const batch = handles.slice(i, i + BATCH_SIZE);
-      const handlesParam = batch.join(";");
 
       try {
-        const response = await axios.get(
-          `${CODEFORCES_API_URL}?handles=${handlesParam}`,
-        );
+        const result = await cp.codeforces.getUser(batch);
 
-        if (response.data.status !== "OK") {
-          logger.error(
-            `[CF-Sync] API error for batch ${i / BATCH_SIZE + 1}: ${response.data.comment}`,
-          );
-          continue;
-        }
-
-        for (const cfData of response.data.result) {
+        for (const cfData of result) {
           const lowerHandle = cfData.handle.toLowerCase();
           const docId = handleToDocId[lowerHandle];
 
