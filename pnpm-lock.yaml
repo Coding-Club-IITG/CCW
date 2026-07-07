@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  UnifiedAPI: link:../UnifiedAPI
+
 importers:
 
   .:
@@ -35,6 +38,9 @@ importers:
       '@xyflow/react':
         specifier: ^12.11.1
         version: 12.11.1(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      UnifiedAPI:
+        specifier: link:../UnifiedAPI
+        version: link:../UnifiedAPI
       agenda:
         specifier: ^6.2.5
         version: 6.2.5
