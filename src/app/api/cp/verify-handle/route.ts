@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cp } from "@ronits2407/cp-api";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import User from "@/models/User";
@@ -78,25 +79,30 @@ async function verifyCF(cpUserDoc: any, userId: string) {
 
   await redis.set(redisKey, "1", { EX: 60 });
 
-  const cfRes = await fetch(
-    `https://codeforces.com/api/user.info?handles=${handle}`,
-  );
-  if (!cfRes.ok) {
+  let userInfo;
+  try {
+    const users = await cp.codeforces.getUser(handle);
+    if (!users || users.length === 0) {
+      return NextResponse.json(
+        { error: "Handle not found on Codeforces." },
+        { status: 404 },
+      );
+    }
+    userInfo = users[0];
+  } catch (err: any) {
+    if (err.message && err.message.toLowerCase().includes("not found")) {
+      return NextResponse.json(
+        { error: "Handle not found on Codeforces." },
+        { status: 404 },
+      );
+    }
     return NextResponse.json(
       { error: "Failed to communicate with Codeforces API." },
       { status: 502 },
     );
   }
-  const cfData = await cfRes.json();
 
-  if (cfData.status !== "OK" || !cfData.result || cfData.result.length === 0) {
-    return NextResponse.json(
-      { error: "Handle not found on Codeforces." },
-      { status: 404 },
-    );
-  }
-
-  if (cfData.result[0].firstName === cpUserDoc.cfVerificationToken) {
+  if (userInfo.firstName === cpUserDoc.cfVerificationToken) {
     cpUserDoc.cfVerified = true;
     cpUserDoc.cfVerificationToken = "";
     cpUserDoc.cfVerificationRequestedAt = null;
