@@ -5,3 +5,7 @@ allowBuilds:
   redis-memory-server: true
   sharp: true
   unrs-resolver: true
+minimumReleaseAgeExclude:
+  - '@ronits2407/cp-api@1.0.8'
+overrides:
+  UnifiedAPI: link:../UnifiedAPI
