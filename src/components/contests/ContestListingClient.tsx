@@ -216,10 +216,7 @@ export default function ContestListingClient({
 
   return (
     <>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet"
-      />
+
       <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet"
@@ -715,9 +712,9 @@ export default function ContestListingClient({
                   <span className="material-symbols-outlined text-[64px] text-on-surface-variant/50 mb-4">
                     event_busy
                   </span>
-                  <h3 className="text-xl font-bold text-on-surface mb-2">
+                  <h2 className="text-xl font-bold text-on-surface mb-2">
                     No contests found
-                  </h3>
+                  </h2>
                   <p className="text-on-surface-variant mb-6">
                     There are no contests matching your selected format.
                   </p>

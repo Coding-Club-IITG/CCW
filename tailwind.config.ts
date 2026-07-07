@@ -75,11 +75,11 @@ const config: Config = {
         "margin-desktop": "48px",
       },
       fontFamily: {
-        "display-lg": ["Hanken Grotesk", "sans-serif"],
-        "headline-lg": ["Hanken Grotesk", "sans-serif"],
-        "headline-lg-mobile": ["Hanken Grotesk", "sans-serif"],
-        "body-md": ["Inter", "sans-serif"],
-        "label-sm": ["JetBrains Mono", "monospace"],
+        "display-lg": ["var(--font-hanken)", "sans-serif"],
+        "headline-lg": ["var(--font-hanken)", "sans-serif"],
+        "headline-lg-mobile": ["var(--font-hanken)", "sans-serif"],
+        "body-md": ["var(--font-inter)", "sans-serif"],
+        "label-sm": ["var(--font-jetbrains)", "monospace"],
       },
       fontSize: {
         "display-lg": [

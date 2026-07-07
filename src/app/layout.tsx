@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import "@/styles/globals.scss";
 import Providers from "@/components/layout/Providers";
+import { Inter, JetBrains_Mono, Hanken_Grotesk } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
+const jetBrainsMono = JetBrains_Mono({ subsets: ["latin"], display: "swap", variable: "--font-jetbrains" });
+const hankenGrotesk = Hanken_Grotesk({ subsets: ["latin"], display: "swap", variable: "--font-hanken" });
 
 export const metadata: Metadata = {
   title: "Coding Club IITG",
@@ -20,20 +25,10 @@ export default async function RootLayout({
     <html
       lang="en"
       data-theme={theme}
-      className={theme === "dark" ? "dark" : ""}
+      className={`${theme === "dark" ? "dark" : ""} ${inter.variable} ${jetBrainsMono.variable} ${hankenGrotesk.variable}`}
     >
       <head>
-        {/* Google Fonts */}
-        <link href="https://fonts.googleapis.com" rel="preconnect" />
-        <link
-          crossOrigin="anonymous"
-          href="https://fonts.gstatic.com"
-          rel="preconnect"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Inter:wght@400&family=JetBrains+Mono:wght@500&display=swap"
-          rel="stylesheet"
-        />
+        {/* Google Fonts loaded via next/font */}
         {/* Material Symbols */}
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"

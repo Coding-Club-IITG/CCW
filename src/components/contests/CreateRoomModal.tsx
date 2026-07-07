@@ -561,16 +561,9 @@ export default function CreateRoomModal({
           disabled={!!topPresetId}
           className={`form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow appearance-none ${!!topPresetId ? "cursor-not-allowed" : "cursor-pointer"}`}
         >
-          <option value="test">Test</option>
           <option value="bulk">Bulk</option>
           <option value="fine-tuned">Fine-Tuned</option>
         </select>
-        {formData.problemSelectionMode === "test" && (
-          <span className="font-label-sm text-label-sm text-primary mt-1">
-            A pre-selected test problem will be assigned to verify the room
-            mechanics.
-          </span>
-        )}
         {formData.problemSelectionMode === "bulk" && (
           <span className="font-label-sm text-label-sm text-primary mt-1">
             Automatically fetch problems unsolved by all registered players,

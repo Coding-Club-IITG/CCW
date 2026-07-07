@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useSession, signIn, signOut } from "@/lib/auth-client";
 import { useState, useRef, useEffect } from "react";
 import { useThemeStore } from "@/lib/store/theme";
@@ -28,7 +29,7 @@ function UserAvatar({
 
   if (image) {
     return (
-      <img src={image} alt={name || "User"} className={styles.avatarImg} />
+      <Image src={image} alt={name || "User"} className={styles.avatarImg} width={56} height={56} />
     );
   }
   return <span className={styles.avatarInitials}>{initials}</span>;
