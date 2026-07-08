@@ -1,7 +1,7 @@
 import { getContestListing } from "@/lib/actions/contests";
 import ContestListingClient from "@/components/contests/ContestListingClient";
 import { auth } from "@/lib/auth";
-import { isAdmin, parseModuleRoles } from "@/lib/roles";
+import { isAdmin } from "@/lib/roles";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import dbConnect from "@/lib/mongodb";
@@ -14,14 +14,6 @@ export default async function ContestsPage() {
   const userRole = session?.user?.role as string | undefined;
   const admin = isAdmin(userRole);
 
-  const moduleRoles = parseModuleRoles((session.user as any)?.moduleRoles);
-  const isSoftwareDev = moduleRoles.some(
-    (mr) => mr.module === "Software Development",
-  );
-
-  if (!admin && !isSoftwareDev) {
-    redirect("/internal/dashboard");
-  }
 
   const { active, upcoming, completed } = await getContestListing();
 
