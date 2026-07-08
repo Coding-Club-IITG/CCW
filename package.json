@@ -22,7 +22,6 @@
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/forms": "^0.5.11",
     "@xyflow/react": "^12.11.1",
-    "UnifiedAPI": "link:../UnifiedAPI",
     "agenda": "^6.2.5",
     "axios": "^1.16.1",
     "better-auth": "^1.6.11",
