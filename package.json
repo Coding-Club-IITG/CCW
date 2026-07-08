@@ -20,7 +20,6 @@
     "@monaco-editor/react": "^4.7.0",
     "@ronits2407/cp-api": "^1.0.8",
     "@xyflow/react": "^12.11.1",
-    "UnifiedAPI": "link:../UnifiedAPI",
     "agenda": "^6.2.5",
     "axios": "^1.16.1",
     "better-auth": "^1.6.11",
