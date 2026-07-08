@@ -6,6 +6,16 @@ import {
   getAvailableTeamsForContest,
 } from "@/lib/actions/contests";
 import { useRouter } from "next/navigation";
+import {
+  ChevronDown,
+  CircleUserRound,
+  List,
+  Terminal,
+  User,
+  Users,
+  X,
+} from "lucide-react";
+import styles from "./RegisterContestModal.module.scss";
 
 export default function RegisterContestModal({
   isOpen,
@@ -135,40 +145,35 @@ export default function RegisterContestModal({
   const renderRegistrations = () => {
     if (loadingRegistrations)
       return (
-        <div className="text-sm text-on-surface-variant flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <div className={styles.regLoading}>
+          <div className={styles.spinner}></div>
           Loading registrations...
         </div>
       );
     if (registrations.length === 0)
       return (
-        <div className="text-sm text-on-surface-variant p-4 text-center border border-dashed border-outline-variant rounded">
+        <div className={styles.regEmpty}>
           No one has registered yet. Be the first!
         </div>
       );
 
     if (format === "1v1" || format === "solo-tournament" || teamSize === 1) {
       return (
-        <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+        <div className={styles.regList}>
           {registrations.map((reg, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 p-3 border border-outline-variant rounded bg-surface-container-low hover:border-primary/30 transition-colors"
-            >
-              <div className="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center shrink-0 overflow-hidden">
+            <div key={i} className={styles.regItem}>
+              <div className={styles.avatar}>
                 {reg.image ? (
                   <img
                     src={reg.image}
                     alt={reg.cfHandle}
-                    className="w-full h-full object-cover"
+                    className={styles.avatarImg}
                   />
                 ) : (
-                  <span className="material-symbols-outlined text-[18px] text-on-surface-variant">
-                    person
-                  </span>
+                  <User className={styles.icon18} size={18} />
                 )}
               </div>
-              <span className="text-sm text-on-surface font-medium">
+              <span className={styles.regName}>
                 {reg.teamName || reg.cfHandle}
               </span>
             </div>
@@ -182,39 +187,32 @@ export default function RegisterContestModal({
         teams[r.teamName].push(r);
       });
       return (
-        <div className="flex flex-col gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+        <div className={`${styles.regList} ${styles.teamList}`}>
           {Object.entries(teams).map(([tName, members], i) => (
-            <div
-              key={i}
-              className="border border-outline-variant rounded p-3 bg-surface-container-low hover:border-primary/30 transition-colors"
-            >
-              <div className="text-sm font-bold text-primary mb-3 flex items-center justify-between border-b border-outline-variant/30 pb-2">
-                <span className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">
-                    groups
-                  </span>
+            <div key={i} className={styles.teamCard}>
+              <div className={styles.teamHeader}>
+                <span className={styles.teamHeaderName}>
+                  <Users className={styles.icon16} size={16} />
                   {tName}
                 </span>
-                <span className="text-xs text-on-surface-variant bg-surface px-2 py-0.5 rounded border border-outline-variant/50">
+                <span className={styles.teamCount}>
                   {members.length}/{teamSize}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className={styles.memberChips}>
                 {members.map((m, j) => (
-                  <span
-                    key={j}
-                    className="text-xs text-on-surface px-2.5 py-1.5 bg-surface-container-high rounded border border-outline-variant/50 flex items-center gap-1.5"
-                  >
+                  <span key={j} className={styles.memberChip}>
                     {m.image ? (
                       <img
                         src={m.image}
                         alt={m.cfHandle}
-                        className="w-4 h-4 rounded-full object-cover shrink-0"
+                        className={styles.memberChipImg}
                       />
                     ) : (
-                      <span className="material-symbols-outlined text-[12px] opacity-50 shrink-0">
-                        account_circle
-                      </span>
+                      <CircleUserRound
+                        className={styles.memberChipIcon}
+                        size={12}
+                      />
                     )}
                     {m.cfHandle}
                   </span>
@@ -228,264 +226,202 @@ export default function RegisterContestModal({
   };
 
   return (
-    <>
-      <style>{`
-        /* Custom radio button styling */
-        .cyber-radio:checked + div {
-            background-color: #88d982;
-            border-color: #88d982;
-            box-shadow: 0 0 8px rgba(136, 217, 130, 0.5);
-        }
-        .cyber-radio:checked + div::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background-color: #131313;
-        }
-      `}</style>
+    <div className={styles.overlay} onClick={onClose}>
+      {/* Modal Container */}
+      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+        {/* Accent line */}
+        <div className={styles.accentLine}></div>
 
-      {/* Modal Overlay - grayed out background, no grid */}
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-grayscale flex items-center justify-center p-margin-mobile md:p-margin-desktop"
-        style={{ zIndex: 9999 }}
-        onClick={onClose}
-      >
-        {/* Modal Container */}
-        <div
-          className="relative w-full max-w-md bg-surface-container border border-outline-variant rounded-lg shadow-2xl flex flex-col overflow-hidden ring-1 ring-primary/10"
-          style={{ maxWidth: "448px", zIndex: 10000 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Cybernetic top accent line */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-70"></div>
+        {/* Header */}
+        <div className={styles.header}>
+          <h2>{viewOnly ? "Contest Registrations" : "Register for Contest"}</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close modal"
+            className={styles.closeBtn}
+            type="button"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-          {/* Header */}
-          <div className="flex justify-between items-center px-gutter py-4 border-b border-outline-variant/60 bg-surface-container-high/30">
-            <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">
-              {viewOnly ? "Contest Registrations" : "Register for Contest"}
-            </h2>
-            <button
-              onClick={onClose}
-              aria-label="Close modal"
-              className="text-on-surface-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-DEFAULT p-1"
-              type="button"
+        <div className={styles.body}>
+          {/* Current Registrations Display */}
+          <div className={styles.section}>
+            <h3 className={styles.sectionTitle}>
+              <List className={styles.icon18} size={18} />
+              Current Registrations
+            </h3>
+            {renderRegistrations()}
+          </div>
+
+          {/* Body / Form Fields */}
+          {!viewOnly && (
+            <form
+              id="register-contest-form"
+              onSubmit={handleSubmit}
+              className={styles.form}
             >
-              <span className="material-symbols-outlined block">close</span>
-            </button>
-          </div>
-
-          <div className="flex flex-col p-gutter max-h-[80vh] overflow-y-auto">
-            {/* Current Registrations Display */}
-            <div className="mb-6">
-              <h3 className="font-label-sm text-primary mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">
-                  format_list_bulleted
-                </span>
-                Current Registrations
-              </h3>
-              {renderRegistrations()}
-            </div>
-
-            {/* Body / Form Fields */}
-            {!viewOnly && (
-              <form
-                id="register-contest-form"
-                onSubmit={handleSubmit}
-                className="flex flex-col gap-gutter"
-              >
-                <div className="border-t border-outline-variant/30 pt-6"></div>
-                {teamSize > 1 ? (
-                  <div className="flex flex-col gap-unit">
-                    <span className="font-label-sm text-label-sm text-primary">
-                      Registration Mode
-                    </span>
-                    <div className="flex flex-col gap-2 mt-1">
-                      {/* Option: Create New Team */}
-                      <label className="relative flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT cursor-pointer hover:border-primary/50 hover:bg-surface-container-high transition-all has-[:checked]:border-primary has-[:checked]:bg-primary-container/10">
-                        <input
-                          className="cyber-radio sr-only"
-                          name="registration_mode"
-                          type="radio"
-                          value="new"
-                          checked={mode === "new"}
-                          onChange={() => setMode("new")}
-                        />
-                        <div
-                          className={`relative w-4 h-4 rounded-full border flex-shrink-0 transition-colors flex items-center justify-center ${mode === "new" ? "border-primary" : "border-outline-variant"}`}
-                        >
-                          {mode === "new" && (
-                            <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(136,217,130,0.6)]" />
-                          )}
-                        </div>
-                        <span className="font-body-md text-body-md text-on-surface">
-                          Create New Team
-                        </span>
-                      </label>
-
-                      {/* Option: Join Existing */}
-                      <label className="relative flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT cursor-pointer hover:border-primary/50 hover:bg-surface-container-high transition-all has-[:checked]:border-primary has-[:checked]:bg-primary-container/10">
-                        <input
-                          className="cyber-radio sr-only"
-                          name="registration_mode"
-                          type="radio"
-                          value="existing"
-                          checked={mode === "existing"}
-                          onChange={() => setMode("existing")}
-                        />
-                        <div
-                          className={`relative w-4 h-4 rounded-full border flex-shrink-0 transition-colors flex items-center justify-center ${mode === "existing" ? "border-primary" : "border-outline-variant"}`}
-                        >
-                          {mode === "existing" && (
-                            <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(136,217,130,0.6)]" />
-                          )}
-                        </div>
-                        <span className="font-body-md text-body-md text-on-surface">
-                          Join Existing
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="font-body-md text-body-md text-on-surface-variant opacity-80 mb-2">
-                    You are registering as a Solo player.
-                  </div>
-                )}
-
-                {/* Team Name Text Input */}
-                {!["1v1", "solo-tournament"].includes(format) && (
-                  <div className="flex flex-col gap-unit">
-                    <label
-                      className="font-label-sm text-label-sm text-primary"
-                      htmlFor="team_name"
-                    >
-                      {mode === "existing"
-                        ? "Team Name to Join"
-                        : teamSize === 1
-                          ? "Your Display Name"
-                          : "New Team Name"}
+              <div className={styles.divider}></div>
+              {teamSize > 1 ? (
+                <div className={styles.field}>
+                  <span className={styles.fieldLabel}>Registration Mode</span>
+                  <div className={styles.radioGroup}>
+                    {/* Option: Create New Team */}
+                    <label className={styles.radioLabel}>
+                      <input
+                        className={styles.radio}
+                        name="registration_mode"
+                        type="radio"
+                        value="new"
+                        checked={mode === "new"}
+                        onChange={() => setMode("new")}
+                      />
+                      <div className={styles.radioDot}></div>
+                      <span className={styles.radioText}>Create New Team</span>
                     </label>
-                    <div className="relative mt-1">
-                      {mode === "existing" ? (
-                        <>
-                          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none z-10">
-                            group
-                          </span>
-                          <select
-                            className="w-full bg-background border border-outline-variant rounded-DEFAULT py-3 pl-10 pr-3 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest transition-all appearance-none cursor-pointer"
-                            id="team_name"
-                            name="team_name"
-                            required={
-                              !["1v1", "solo-tournament"].includes(format)
-                            }
-                            value={teamName}
-                            onChange={(e) => setTeamName(e.target.value)}
-                          >
-                            <option value="" disabled>
-                              Select a team to join
-                            </option>
-                            {loadingTeams ? (
-                              <option value="" disabled>
-                                Loading teams...
-                              </option>
-                            ) : availableTeams.length === 0 ? (
-                              <option value="" disabled>
-                                No available teams to join
-                              </option>
-                            ) : (
-                              availableTeams.map((t) => (
-                                <option key={t.teamName} value={t.teamName}>
-                                  {t.teamName} ({t.memberCount}/{t.maxCapacity}{" "}
-                                  members)
-                                </option>
-                              ))
-                            )}
-                          </select>
-                          <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none z-10">
-                            arrow_drop_down
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none z-10">
-                            terminal
-                          </span>
-                          <input
-                            className="w-full bg-background border border-outline-variant rounded-DEFAULT py-3 pl-10 pr-3 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest transition-all"
-                            id="team_name"
-                            name="team_name"
-                            placeholder={
-                              teamSize === 1
-                                ? "e.g. Code Ninja"
-                                : "e.g. Null Pointers"
-                            }
-                            required={
-                              !["1v1", "solo-tournament"].includes(format)
-                            }
-                            type="text"
-                            value={teamName}
-                            onChange={(e) => setTeamName(e.target.value)}
-                          />
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </form>
-            )}
-          </div>
 
-          {/* Footer / Actions */}
-          <div className="flex justify-between items-center gap-4 px-gutter py-4 bg-surface-container-highest border-t border-outline-variant/60">
-            {viewOnly ? (
-              <>
-                {!isDeadlinePassed && registrationType !== "closed" && (
-                  <button
-                    className="px-4 py-2 rounded-DEFAULT font-label-sm text-label-sm text-error/80 border border-error/30 hover:bg-error/10 hover:text-error transition-all focus:outline-none disabled:opacity-50"
-                    type="button"
-                    onClick={handleUnregister}
-                    disabled={loading}
-                  >
-                    {loading ? "Leaving..." : "Leave Contest"}
-                  </button>
-                )}
+                    {/* Option: Join Existing */}
+                    <label className={styles.radioLabel}>
+                      <input
+                        className={styles.radio}
+                        name="registration_mode"
+                        type="radio"
+                        value="existing"
+                        checked={mode === "existing"}
+                        onChange={() => setMode("existing")}
+                      />
+                      <div className={styles.radioDot}></div>
+                      <span className={styles.radioText}>Join Existing</span>
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.soloNote}>
+                  You are registering as a Solo player.
+                </div>
+              )}
+
+              {/* Team Name Text Input */}
+              {!["1v1", "solo-tournament"].includes(format) && (
+                <div className={styles.field}>
+                  <label className={styles.fieldLabel} htmlFor="team_name">
+                    {mode === "existing"
+                      ? "Team Name to Join"
+                      : teamSize === 1
+                        ? "Your Display Name"
+                        : "New Team Name"}
+                  </label>
+                  <div className={styles.inputWrap}>
+                    {mode === "existing" ? (
+                      <>
+                        <Users className={styles.inputIcon} size={18} />
+                        <select
+                          className={styles.select}
+                          id="team_name"
+                          name="team_name"
+                          required={
+                            !["1v1", "solo-tournament"].includes(format)
+                          }
+                          value={teamName}
+                          onChange={(e) => setTeamName(e.target.value)}
+                        >
+                          <option value="" disabled>
+                            Select a team to join
+                          </option>
+                          {loadingTeams ? (
+                            <option value="" disabled>
+                              Loading teams...
+                            </option>
+                          ) : availableTeams.length === 0 ? (
+                            <option value="" disabled>
+                              No available teams to join
+                            </option>
+                          ) : (
+                            availableTeams.map((t) => (
+                              <option key={t.teamName} value={t.teamName}>
+                                {t.teamName} ({t.memberCount}/{t.maxCapacity}{" "}
+                                members)
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        <ChevronDown className={styles.dropIcon} size={18} />
+                      </>
+                    ) : (
+                      <>
+                        <Terminal className={styles.inputIcon} size={18} />
+                        <input
+                          className={styles.input}
+                          id="team_name"
+                          name="team_name"
+                          placeholder={
+                            teamSize === 1
+                              ? "e.g. Code Ninja"
+                              : "e.g. Null Pointers"
+                          }
+                          required={
+                            !["1v1", "solo-tournament"].includes(format)
+                          }
+                          type="text"
+                          value={teamName}
+                          onChange={(e) => setTeamName(e.target.value)}
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </form>
+          )}
+        </div>
+
+        {/* Footer / Actions */}
+        <div className={styles.footer}>
+          {viewOnly ? (
+            <>
+              {!isDeadlinePassed && registrationType !== "closed" && (
                 <button
-                  className="px-6 py-2 rounded-DEFAULT bg-primary-container text-on-primary-container font-label-sm text-label-sm border border-primary/20 hover:bg-primary hover:text-on-primary transition-all focus:outline-none"
+                  className={styles.btnDanger}
+                  type="button"
+                  onClick={handleUnregister}
+                  disabled={loading}
+                >
+                  {loading ? "Leaving..." : "Leave Contest"}
+                </button>
+              )}
+              <button
+                className={styles.btnPrimary}
+                type="button"
+                onClick={onClose}
+              >
+                Close
+              </button>
+            </>
+          ) : (
+            <>
+              <div></div> {/* spacer */}
+              <div className={styles.footerActions}>
+                <button
+                  className={styles.btnGhost}
                   type="button"
                   onClick={onClose}
                 >
-                  Close
+                  Cancel
                 </button>
-              </>
-            ) : (
-              <>
-                <div></div> {/* spacer */}
-                <div className="flex items-center gap-3">
-                  <button
-                    className="px-4 py-2 rounded-DEFAULT font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors focus:outline-none focus:ring-2 focus:ring-outline-variant"
-                    type="button"
-                    onClick={onClose}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="px-6 py-2 rounded-DEFAULT bg-primary-container text-on-primary-container font-label-sm text-label-sm border border-primary/20 hover:bg-primary hover:text-on-primary transition-all shadow-[0_0_15px_rgba(136,217,130,0.1)] hover:shadow-[0_0_20px_rgba(136,217,130,0.3)] focus:outline-none disabled:opacity-50"
-                    type="submit"
-                    form="register-contest-form"
-                    disabled={loading}
-                  >
-                    {loading ? "Registering..." : "Register"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                <button
+                  className={styles.btnPrimary}
+                  type="submit"
+                  form="register-contest-form"
+                  disabled={loading}
+                >
+                  {loading ? "Registering..." : "Register"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

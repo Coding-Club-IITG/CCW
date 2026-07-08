@@ -15,7 +15,15 @@ import POTDOutage from "../src/models/POTDOutage";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local"), quiet: true });
 
-export { mongoose, User, CPUser, Problem, DailyChallenge, POTDSubmission, POTDOutage };
+export {
+  mongoose,
+  User,
+  CPUser,
+  Problem,
+  DailyChallenge,
+  POTDSubmission,
+  POTDOutage,
+};
 
 /** Connect to Mongo and register all POTD-related models */
 export async function connect(): Promise<void> {

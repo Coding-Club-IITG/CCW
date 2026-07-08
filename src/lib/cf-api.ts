@@ -43,7 +43,7 @@ export async function prefetchUserSolvedHistory(handle: string): Promise<void> {
     // Utilize the SDK's built-in solved problems aggregator
     const solvedProblems = await cp.codeforces.getUserSolvedProblems(handle);
     const solvedProblemIds = new Set<string>();
-    
+
     for (const prob of solvedProblems) {
       solvedProblemIds.add(`${prob.contestId}${prob.index}`);
     }
@@ -63,7 +63,7 @@ export async function prefetchUserSolvedHistory(handle: string): Promise<void> {
       logger.info(`[cf-api] Handle ${handle} has 0 solved problems.`);
       pipeline.sAdd(key, "__empty__");
     }
-    
+
     pipeline.expire(key, 6 * 60 * 60); // 6 hours TTL
     await pipeline.exec();
   } catch (error: any) {

@@ -1,0 +1,16 @@
+// Badge pill
+@mixin badge-pill(
+  $bg: var(--badge-bg),
+  $color: var(--badge-text),
+  $border: var(--badge-border)
+) {
+  display: inline-flex;
+  align-items: center;
+  background: $bg;
+  color: $color;
+  padding: 0.125rem 0.5rem;
+  border-radius: 2rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid $border;
+}

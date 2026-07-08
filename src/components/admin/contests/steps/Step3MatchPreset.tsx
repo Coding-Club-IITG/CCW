@@ -17,84 +17,32 @@ export default function Step3MatchPreset({
 
   return (
     <div>
-      <h2
-        style={{
-          marginBottom: "1.5rem",
-          fontSize: "1.25rem",
-          color: "var(--foreground-strong)",
-        }}
-      >
-        Step 3: Select Match Preset
-      </h2>
+      <h2 className={styles.stepTitle}>Step 3: Select Match Preset</h2>
 
       {errors.presetId && (
-        <div
-          style={{
-            color: "var(--danger)",
-            fontSize: "0.875rem",
-            marginBottom: "1rem",
-          }}
-        >
+        <div className={`${styles.error} ${styles.errorBlock}`}>
           {errors.presetId}
         </div>
       )}
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.75rem",
-          maxHeight: "250px",
-          overflowY: "auto",
-          paddingRight: "0.5rem",
-          marginBottom: "1.5rem",
-        }}
-      >
+      <div className={styles.presetList}>
         {presets.map((preset) => (
           <label
             key={preset._id}
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "0.75rem",
-              padding: "0.75rem",
-              border:
-                selectedPresetId === preset._id
-                  ? "2px solid var(--primary)"
-                  : "1px solid var(--border)",
-              borderRadius: "6px",
-              background: "var(--surface)",
-              cursor: "pointer",
-              transition: "border-color 0.15s ease",
-            }}
+            className={`${styles.presetCard} ${
+              selectedPresetId === preset._id ? styles.presetCardActive : ""
+            }`}
           >
             <input
               type="radio"
               name="presetId"
               checked={selectedPresetId === preset._id}
               onChange={() => updateFields({ presetId: preset._id })}
-              style={{ marginTop: "0.2rem" }}
             />
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span
-                style={{
-                  fontWeight: 600,
-                  fontSize: "0.875rem",
-                  color: "var(--foreground-strong)",
-                }}
-              >
-                {preset.name}
-              </span>
+            <div className={styles.presetInfo}>
+              <span className={styles.presetName}>{preset.name}</span>
               {preset.description && (
-                <span
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "var(--muted)",
-                    marginTop: "0.15rem",
-                  }}
-                >
-                  {preset.description}
-                </span>
+                <span className={styles.presetDesc}>{preset.description}</span>
               )}
             </div>
           </label>
@@ -102,82 +50,61 @@ export default function Step3MatchPreset({
       </div>
 
       {selectedPreset && (
-        <div
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: "6px",
-            padding: "1rem",
-          }}
-        >
-          <h3
-            style={{
-              fontWeight: 600,
-              fontSize: "0.875rem",
-              marginBottom: "0.75rem",
-              color: "var(--foreground-strong)",
-            }}
-          >
+        <div className={styles.presetDetails}>
+          <h3 className={styles.presetDetailsTitle}>
             Preset Details: {selectedPreset.name}
           </h3>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0.5rem 1rem",
-              fontSize: "0.8125rem",
-            }}
-          >
+          <div className={styles.detailsGrid}>
             <div>
-              <span style={{ color: "var(--muted)" }}>Format:</span>{" "}
-              <strong style={{ color: "var(--foreground)" }}>
+              <span className={styles.detailLabel}>Format:</span>{" "}
+              <strong className={styles.detailValue}>
                 {selectedPreset.format}
               </strong>
             </div>
             <div>
-              <span style={{ color: "var(--muted)" }}>Mode:</span>{" "}
-              <strong style={{ color: "var(--foreground)" }}>
+              <span className={styles.detailLabel}>Mode:</span>{" "}
+              <strong className={styles.detailValue}>
                 {selectedPreset.mode}
               </strong>
             </div>
             <div>
-              <span style={{ color: "var(--muted)" }}>Duration:</span>{" "}
-              <strong style={{ color: "var(--foreground)" }}>
+              <span className={styles.detailLabel}>Duration:</span>{" "}
+              <strong className={styles.detailValue}>
                 {Math.round((selectedPreset.durationSeconds || 0) / 60)} minutes
               </strong>
             </div>
             <div>
-              <span style={{ color: "var(--muted)" }}>Selection:</span>{" "}
-              <strong style={{ color: "var(--foreground)" }}>
+              <span className={styles.detailLabel}>Selection:</span>{" "}
+              <strong className={styles.detailValue}>
                 {selectedPreset.problemSelectionMode}
               </strong>
             </div>
             {selectedPreset.problemSelectionMode === "bulk" ? (
               <>
                 <div>
-                  <span style={{ color: "var(--muted)" }}>Platform:</span>{" "}
-                  <strong style={{ color: "var(--foreground)" }}>
+                  <span className={styles.detailLabel}>Platform:</span>{" "}
+                  <strong className={styles.detailValue}>
                     {selectedPreset.bulkPlatform}
                   </strong>
                 </div>
                 <div>
-                  <span style={{ color: "var(--muted)" }}>Rating Range:</span>{" "}
-                  <strong style={{ color: "var(--foreground)" }}>
+                  <span className={styles.detailLabel}>Rating Range:</span>{" "}
+                  <strong className={styles.detailValue}>
                     {selectedPreset.bulkRatingMin} -{" "}
                     {selectedPreset.bulkRatingMax}
                   </strong>
                 </div>
                 <div>
-                  <span style={{ color: "var(--muted)" }}>Count:</span>{" "}
-                  <strong style={{ color: "var(--foreground)" }}>
+                  <span className={styles.detailLabel}>Count:</span>{" "}
+                  <strong className={styles.detailValue}>
                     {selectedPreset.bulkProblemCount}
                   </strong>
                 </div>
               </>
             ) : (
-              <div style={{ gridColumn: "span 2" }}>
-                <span style={{ color: "var(--muted)" }}>Problem Ratings:</span>{" "}
-                <strong style={{ color: "var(--foreground)" }}>
+              <div className={styles.detailSpan2}>
+                <span className={styles.detailLabel}>Problem Ratings:</span>{" "}
+                <strong className={styles.detailValue}>
                   {selectedPreset.problemSlots
                     ?.map((s: any) => s.rating)
                     .join(", ")}

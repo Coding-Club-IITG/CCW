@@ -203,7 +203,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
             Back
           </button>
         )}
-        <div style={{ flex: 1 }} />
+        <div className={styles.spacer} />
         {currentStep < maxStep ? (
           <button
             onClick={handleNext}

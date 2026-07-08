@@ -95,6 +95,7 @@ export default async function PostMatchResultPage({
           solverDetails = {
             userId: u._id.toString(),
             userName: cp?.cfHandle || u.name,
+            pizza_count: u.pizza_count || 0,
             userAvatar: avatarUrl,
             teamId: t._id.toString(),
             teamName: t.name,
@@ -145,6 +146,7 @@ export default async function PostMatchResultPage({
           return {
             id: u._id.toString(),
             name: u.name || "Unknown User",
+            pizza_count: u.pizza_count || 0,
             handle: cpUser?.cfHandle || u.name || "Unknown User",
             avatar: avatarUrl,
             contribution: userScores[u._id.toString()] || 0,
@@ -181,6 +183,7 @@ export default async function PostMatchResultPage({
       mvpDetails = {
         userId: mvpUser._id.toString(),
         name: cpUser?.cfHandle || mvpUser.name || "Unknown User",
+        pizza_count: mvpUser.pizza_count || 0,
         avatar: mvpAvatar,
         teamName: mvpTeam.name,
         contribution: maxUserScore,

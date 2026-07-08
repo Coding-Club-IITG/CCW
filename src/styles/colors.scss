@@ -160,6 +160,17 @@
   --contest-ac: #3fb950;
   --contest-cc: #bc8cff;
   --contest-lc: #d29922;
+  // Contest arena: decorative dot-grid overlay
+  --contest-pattern-dot: rgba(255, 255, 255, 0.03);
+
+  // Codeforces rating tiers (canonical CF colors)
+  --cf-rating-gray: #808080;
+  --cf-rating-green: #008000;
+  --cf-rating-cyan: #03a89e;
+  --cf-rating-blue: #3b5bdb;
+  --cf-rating-violet: #aa00aa;
+  --cf-rating-orange: #ff8c00;
+  --cf-rating-red: #ff0000;
 
   // Component: Blog
   --blog-prose-text: #c9d1d9;
@@ -335,6 +346,17 @@
   --contest-ac: #0a7d6c;
   --contest-cc: #6e5494;
   --contest-lc: #bf8700;
+  // Contest arena: decorative dot-grid overlay
+  --contest-pattern-dot: rgba(27, 31, 36, 0.04);
+
+  // Codeforces rating tiers (canonical CF colors)
+  --cf-rating-gray: #808080;
+  --cf-rating-green: #008000;
+  --cf-rating-cyan: #03a89e;
+  --cf-rating-blue: #0000ff;
+  --cf-rating-violet: #aa00aa;
+  --cf-rating-orange: #ff8c00;
+  --cf-rating-red: #ff0000;
 
   // Component: Blog
   --blog-prose-text: #24292f;

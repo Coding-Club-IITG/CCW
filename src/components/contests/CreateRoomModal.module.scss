@@ -1,0 +1,1001 @@
+@use "../../styles/mixins" as *;
+
+@include contest-kf-spin;
+
+/* Modal chrome */
+.overlay {
+  @include modal-overlay;
+  z-index: 9999;
+  padding: 1rem;
+  overflow-y: auto;
+  backdrop-filter: grayscale(1);
+
+  @media (min-width: 768px) {
+    padding: 3rem;
+  }
+}
+
+.dialog {
+  position: relative;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 672px;
+  margin: 0 auto;
+  max-height: 85vh;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px var(--shadow-lg);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+
+  h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--foreground-strong);
+  }
+}
+
+.closeBtn {
+  display: inline-flex;
+  padding: 0.5rem;
+  border-radius: 6px;
+  color: var(--muted);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover {
+    color: var(--foreground-strong);
+    background: var(--surface-hover);
+  }
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-light);
+  }
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-secondary);
+}
+
+.cancelBtn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: var(--foreground-strong);
+  background: none;
+  border: 1px solid transparent;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover {
+    border-color: var(--border);
+    background: var(--surface-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.submitBtn {
+  @include btn-primary;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+}
+
+/* Form primitives (deduped) */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.labelStrong {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--foreground-strong);
+}
+
+.hint {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--primary);
+}
+
+.hintMuted {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.errorText {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--error-text);
+}
+
+.formInput {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &::placeholder {
+    color: var(--muted-light);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus,
+  &:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px var(--background) inset !important;
+    -webkit-text-fill-color: var(--foreground) !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+}
+
+.formSelect {
+  appearance: none;
+  cursor: pointer;
+}
+
+.formTextarea {
+  resize: none;
+  height: 80px;
+}
+
+.dateInput {
+  color-scheme: dark;
+}
+
+.inputError {
+  border-color: var(--error);
+
+  &:focus {
+    border-color: var(--error);
+    box-shadow: 0 0 0 1px var(--error);
+  }
+}
+
+.disabledField {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cursorPointer {
+  cursor: pointer;
+}
+
+.cursorNotAllowed {
+  cursor: not-allowed;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.grid23 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Section blocks */
+.sectionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.sectionTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--foreground-strong);
+}
+
+.locked {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.lockIcon {
+  font-size: 18px;
+  color: var(--muted);
+}
+
+/* Template box (admin) */
+.templateBox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 1rem;
+  background: var(--primary-alpha);
+  border: 1px solid var(--primary-alpha);
+  border-radius: 8px;
+}
+
+.templateLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--primary);
+}
+
+/* Preset info */
+.presetInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.presetInfoName {
+  font-weight: 600;
+  color: var(--foreground-strong);
+}
+
+.presetInfoMeta {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  opacity: 0.8;
+  text-transform: capitalize;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--foreground-strong);
+}
+
+.checkbox {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* Registration section */
+.regSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-secondary);
+}
+
+.regTitle {
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--foreground-strong);
+}
+
+.regSub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.regMembersBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.timeChipRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.timeChip {
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  background: var(--surface-hover);
+  color: var(--foreground);
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--primary-alpha);
+  }
+}
+
+.timeAddRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.timeAddBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--foreground-strong);
+  background: transparent;
+  border: 2px dashed var(--border);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    background: var(--primary-alpha);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Teams UI */
+.teamsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.teamCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.teamCardDraggable {
+  cursor: grab;
+
+  &:hover {
+    border-color: var(--primary);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+}
+
+.dragOver {
+  border-color: var(--primary);
+  border-top-width: 2px;
+  background: var(--primary-alpha);
+  box-shadow: 0 8px 24px var(--shadow-md);
+}
+
+.teamCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.teamNameWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.125rem;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+
+  &:hover,
+  &:focus-within {
+    border-bottom-color: var(--border);
+  }
+}
+
+.dragHandle {
+  color: var(--muted-light);
+  cursor: grab;
+  pointer-events: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.seedNum {
+  width: 1.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.teamNameInput {
+  max-width: 180px;
+  padding: 0.125rem 0.25rem;
+  background: transparent;
+  border: none;
+  color: var(--foreground-strong);
+  font-size: 1rem;
+  font-weight: 600;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.editIcon {
+  font-size: 16px;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+
+  .teamNameWrap:hover & {
+    opacity: 1;
+  }
+}
+
+.iconBtnDanger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 6px;
+  color: var(--danger-text);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover {
+    color: var(--error-text);
+    background: var(--error-bg);
+  }
+}
+
+.iconBtnMuted {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 6px;
+  color: var(--muted);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover {
+    color: var(--error-text);
+    background: var(--error-bg);
+  }
+}
+
+.teamMembers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.memberInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.avatarSm {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--primary-alpha);
+  color: var(--primary);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.avatarFallbackLg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--primary-alpha);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.memberName {
+  font-size: 0.875rem;
+  color: var(--foreground-strong);
+}
+
+.sep {
+  color: var(--border);
+  font-size: 0.75rem;
+}
+
+.ratingValue {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.searchWrap {
+  position: relative;
+  margin-top: 0.25rem;
+}
+
+.searchSpinner {
+  position: absolute;
+  right: 0.75rem;
+  top: 0.625rem;
+  color: var(--muted);
+  animation: contestSpin 1s linear infinite;
+}
+
+.searchDropdown {
+  position: absolute;
+  z-index: 50;
+  width: 100%;
+  margin-top: 0.25rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px var(--shadow-md);
+}
+
+.searchItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--surface-secondary);
+  }
+}
+
+.searchItemActive {
+  background: var(--surface-secondary);
+}
+
+.searchUserCol {
+  display: flex;
+  flex-direction: column;
+}
+
+.searchUserTop {
+  display: flex;
+  align-items: center;
+}
+
+.searchUserName {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground-strong);
+  line-height: 1.2;
+}
+
+.searchUserRating {
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.searchSepInline {
+  margin: 0 0.5rem;
+  color: var(--border);
+  font-size: 0.75rem;
+}
+
+.searchUserHandle {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  line-height: 1.2;
+  margin-top: 0.125rem;
+}
+
+.addTeamBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  background: var(--surface-hover);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    background: var(--surface-secondary);
+    color: var(--foreground-strong);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/* Solo participant list */
+.soloList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.soloRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+  cursor: grab;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
+
+  &:hover {
+    border-color: var(--primary);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.soloInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.soloUserCol {
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.avatarMd {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.chipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  padding: 0.375rem 0.25rem 0.375rem 0.5rem;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.chipBody {
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+}
+
+.iconBtnChip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  margin-left: 0.25rem;
+  border-radius: 999px;
+  color: var(--muted);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover {
+    color: var(--error-text);
+    background: var(--error-bg);
+  }
+}
+
+/* Rating tiers */
+.ratingGray {
+  color: var(--cf-rating-gray);
+}
+.ratingGreen {
+  color: var(--cf-rating-green);
+}
+.ratingCyan {
+  color: var(--cf-rating-cyan);
+}
+.ratingBlue {
+  color: var(--cf-rating-blue);
+}
+.ratingViolet {
+  color: var(--cf-rating-violet);
+}
+.ratingOrange {
+  color: var(--cf-rating-orange);
+}
+.ratingRed {
+  color: var(--cf-rating-red);
+}
+
+/* Round cards (fine-tuned bracket) */
+.fineTunedBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.roundsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.roundCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-secondary);
+}
+
+.roundHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.roundLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground-strong);
+}
+
+.roundMeta {
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.roundField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.roundFieldLabel {
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.startTimeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Icon sizes */
+.icon16 {
+  font-size: 16px;
+}
+.icon18 {
+  font-size: 18px;
+}
+
+.iconFilled {
+  font-variation-settings: "FILL" 1;
+}
+
+/* Apply Fonts */
+.header h2,
+.sectionHeading {
+  font-family: "Hanken Grotesk", sans-serif;
+}
+.teamNameInput,
+.memberName,
+.searchUserName {
+  font-family: "Inter", sans-serif;
+}
+.label,
+.labelStrong,
+.hint,
+.hintMuted,
+.errorText,
+.formInput,
+.presetInfoName,
+.presetInfoMeta,
+.checkboxLabel,
+.timeChip,
+.seedNum,
+.regTitle,
+.roundLabel {
+  font-family: "JetBrains Mono", monospace;
+}

@@ -30,8 +30,7 @@ export default async function EventDetailPage({ params }: Props) {
   }
 
   const recurrenceType = (event as any).recurrenceType as
-    | EventRecurrenceType
-    | undefined;
+    EventRecurrenceType | undefined;
   const recurrenceCount = (event as any).recurrenceCount as number | undefined;
 
   const status = getEventStatus(

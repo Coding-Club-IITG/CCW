@@ -1,21 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  GripVertical,
+  Lock,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  X,
+} from "lucide-react";
 import { createRoomContest, searchVerifiedUsers } from "@/lib/actions/contests";
 import { createBracketContest } from "@/lib/actions/admin/contests";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
-
-const getRatingColor = (rating: number | undefined) => {
-  if (!rating) return "#808080";
-  if (rating < 1200) return "#808080";
-  if (rating < 1400) return "#008000";
-  if (rating < 1600) return "#03a89e";
-  if (rating < 1900) return "#0000ff";
-  if (rating < 2100) return "#aa00aa";
-  if (rating < 2400) return "#ff8c00";
-  return "#ff0000";
-};
+import { getDisplayName } from "@/lib/utils";
+import styles from "./CreateRoomModal.module.scss";
 
 export default function CreateRoomModal({
   isOpen,
@@ -34,6 +34,17 @@ export default function CreateRoomModal({
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [topPresetId, setTopPresetId] = useState("");
+
+  const getRatingClass = (rating: number | undefined) => {
+    if (!rating) return styles.ratingGray;
+    if (rating < 1200) return styles.ratingGray;
+    if (rating < 1400) return styles.ratingGreen;
+    if (rating < 1600) return styles.ratingCyan;
+    if (rating < 1900) return styles.ratingBlue;
+    if (rating < 2100) return styles.ratingViolet;
+    if (rating < 2400) return styles.ratingOrange;
+    return styles.ratingRed;
+  };
 
   const [formData, setFormData] = useState({
     name: "",
@@ -529,27 +540,20 @@ export default function CreateRoomModal({
 
   const renderProblemConfiguration = () => (
     <div
-      className={`mt-[16px] pt-[16px] border-t border-outline-variant flex flex-col gap-[16px] ${!!topPresetId ? "opacity-60 pointer-events-none" : ""}`}
+      className={`${styles.sectionBlock} ${topPresetId ? styles.locked : ""}`}
     >
-      <div className="flex items-center gap-2">
-        <h3 className="font-headline-lg-mobile text-headline-lg-mobile md:text-[24px] text-on-surface m-0">
-          Problem Configuration
-        </h3>
+      <div className={styles.sectionTitleRow}>
+        <h3 className={styles.sectionHeading}>Problem Configuration</h3>
         {!!topPresetId && (
-          <span
-            className="material-symbols-outlined text-[18px] text-on-surface-variant"
-            style={{ fontVariationSettings: "'FILL' 1" }}
-          >
-            lock
-          </span>
+          <Lock
+            className={`${styles.lockIcon} ${styles.iconFilled}`}
+            size={18}
+          />
         )}
       </div>
 
-      <div className="flex flex-col gap-unit">
-        <label
-          className="font-label-sm text-label-sm text-on-surface-variant"
-          htmlFor="problem-selection-mode"
-        >
+      <div className={styles.field}>
+        <label className={styles.label} htmlFor="problem-selection-mode">
           Selection Mode
         </label>
         <select
@@ -559,26 +563,26 @@ export default function CreateRoomModal({
             setFormData({ ...formData, problemSelectionMode: e.target.value })
           }
           disabled={!!topPresetId}
-          className={`form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow appearance-none ${!!topPresetId ? "cursor-not-allowed" : "cursor-pointer"}`}
+          className={`${styles.formInput} ${styles.formSelect}`}
         >
           <option value="test">Test</option>
           <option value="bulk">Bulk</option>
           <option value="fine-tuned">Fine-Tuned</option>
         </select>
         {formData.problemSelectionMode === "test" && (
-          <span className="font-label-sm text-label-sm text-primary mt-1">
+          <span className={styles.hint}>
             A pre-selected test problem will be assigned to verify the room
             mechanics.
           </span>
         )}
         {formData.problemSelectionMode === "bulk" && (
-          <span className="font-label-sm text-label-sm text-primary mt-1">
+          <span className={styles.hint}>
             Automatically fetch problems unsolved by all registered players,
             selected based on their rating range.
           </span>
         )}
         {formData.problemSelectionMode === "fine-tuned" && (
-          <span className="font-label-sm text-label-sm text-primary mt-1">
+          <span className={styles.hint}>
             Manually curate and select exactly which problems will be included
             in the room.
           </span>
@@ -586,12 +590,9 @@ export default function CreateRoomModal({
       </div>
 
       {formData.problemSelectionMode === "bulk" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-[16px]">
-          <div className="flex flex-col gap-unit">
-            <label
-              className="font-label-sm text-label-sm text-on-surface-variant"
-              htmlFor="min-rating"
-            >
+        <div className={styles.grid3}>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="min-rating">
               Min Rating
             </label>
             <input
@@ -611,14 +612,11 @@ export default function CreateRoomModal({
                 })
               }
               disabled={!!topPresetId}
-              className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow"
+              className={styles.formInput}
             />
           </div>
-          <div className="flex flex-col gap-unit">
-            <label
-              className="font-label-sm text-label-sm text-on-surface-variant"
-              htmlFor="max-rating"
-            >
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="max-rating">
               Max Rating
             </label>
             <input
@@ -638,14 +636,11 @@ export default function CreateRoomModal({
                 })
               }
               disabled={!!topPresetId}
-              className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow"
+              className={styles.formInput}
             />
           </div>
-          <div className="flex flex-col gap-unit">
-            <label
-              className="font-label-sm text-label-sm text-on-surface-variant"
-              htmlFor="problem-count"
-            >
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="problem-count">
               Count
             </label>
             <input
@@ -666,7 +661,7 @@ export default function CreateRoomModal({
                 })
               }
               disabled={!!topPresetId}
-              className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow"
+              className={styles.formInput}
             />
           </div>
         </div>
@@ -674,12 +669,9 @@ export default function CreateRoomModal({
 
       {formData.problemSelectionMode === "fine-tuned" &&
         formData.format !== "bracket" && (
-          <div className="flex flex-col gap-[16px] mt-2">
-            <div className="flex flex-col gap-unit">
-              <label
-                className="font-label-sm text-label-sm text-on-surface-variant"
-                htmlFor="fine-tuned-count"
-              >
+          <div className={styles.fineTunedBlock}>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="fine-tuned-count">
                 Number of Problems
               </label>
               <input
@@ -714,22 +706,19 @@ export default function CreateRoomModal({
                   }
                 }}
                 disabled={!!topPresetId}
-                className={`form-input rounded-lg w-full md:w-1/3 px-[12px] py-[8px] focus:outline-none transition-shadow ${fineTunedCountError ? "border-error focus:border-error focus:shadow-[0_0_0_1px_rgba(255,180,171,1)]" : ""}`}
+                className={`${styles.formInput} ${
+                  fineTunedCountError ? styles.inputError : ""
+                }`}
               />
               {fineTunedCountError && (
-                <span className="text-[11px] font-label-sm text-error mt-1">
-                  {fineTunedCountError}
-                </span>
+                <span className={styles.errorText}>{fineTunedCountError}</span>
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-[16px]">
+            <div className={styles.grid23}>
               {formData.fineTunedProblems.map((prob, idx) => (
-                <div key={idx} className="flex flex-col gap-unit">
-                  <label
-                    className="font-label-sm text-label-sm text-on-surface-variant"
-                    htmlFor={`problem-${idx}`}
-                  >
+                <div key={idx} className={styles.field}>
+                  <label className={styles.label} htmlFor={`problem-${idx}`}>
                     Problem {idx + 1}
                   </label>
                   <input
@@ -747,7 +736,7 @@ export default function CreateRoomModal({
                       });
                     }}
                     disabled={!!topPresetId}
-                    className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow"
+                    className={styles.formInput}
                   />
                 </div>
               ))}
@@ -794,32 +783,27 @@ export default function CreateRoomModal({
           };
 
           return (
-            <div className="flex flex-col gap-[24px] mt-2">
+            <div className={styles.roundsList}>
               {syncedRounds.map((rnd) => {
                 const matchCount = Math.pow(2, totalRounds - rnd.roundNumber);
                 const label = getRoundLabel(rnd.roundNumber);
                 return (
-                  <div
-                    key={rnd.roundNumber}
-                    className="flex flex-col gap-[12px] p-3 rounded-lg border border-outline-variant bg-surface-container-low"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-label-sm text-sm font-semibold text-on-surface">
-                        {label}
-                      </span>
-                      <span className="font-label-sm text-[11px] text-on-surface-variant">
+                  <div key={rnd.roundNumber} className={styles.roundCard}>
+                    <div className={styles.roundHeader}>
+                      <span className={styles.roundLabel}>{label}</span>
+                      <span className={styles.roundMeta}>
                         {matchCount} match{matchCount > 1 ? "es" : ""} × {ppm}{" "}
                         problems ={" "}
                         <strong>{rnd.problemIds.length} IDs needed</strong>
                       </span>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-[8px]">
+                    <div className={styles.grid23}>
                       {rnd.problemIds.map((pid, idx) => {
                         const matchNum = Math.floor(idx / ppm) + 1;
                         const probNum = (idx % ppm) + 1;
                         return (
-                          <div key={idx} className="flex flex-col gap-[2px]">
-                            <label className="font-label-sm text-[11px] text-on-surface-variant">
+                          <div key={idx} className={styles.roundField}>
+                            <label className={styles.roundFieldLabel}>
                               Match {matchNum} · P{probNum}
                             </label>
                             <input
@@ -840,7 +824,7 @@ export default function CreateRoomModal({
                                 );
                                 setBracketRoundProblems(updated);
                               }}
-                              className="form-input rounded-lg w-full px-[10px] py-[6px] focus:outline-none transition-shadow text-sm"
+                              className={styles.formInput}
                             />
                           </div>
                         );
@@ -856,57 +840,32 @@ export default function CreateRoomModal({
   );
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center p-margin-mobile md:p-margin-desktop bg-black/60 backdrop-grayscale overflow-y-auto text-on-surface font-body-md"
-      style={{ zIndex: 9999 }}
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-2xl mx-auto bg-surface-container border border-outline-variant rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
-        style={{ maxWidth: "672px", zIndex: 10000 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-gutter py-[16px] border-b border-outline-variant">
-          <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface m-0">
-            Create a room
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-on-surface-variant hover:text-on-surface transition-colors p-unit rounded hover:bg-surface-variant"
-          >
-            <span
-              className="material-symbols-outlined"
-              style={{
-                fontVariationSettings:
-                  "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
-              }}
-            >
-              close
-            </span>
+    <div className={styles.overlay} onClick={onClose}>
+      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.header}>
+          <h2>Create a room</h2>
+          <button type="button" onClick={onClose} className={styles.closeBtn}>
+            <X size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-gutter custom-scrollbar">
+        <div className={styles.body}>
           <form
             id="create-room-form"
             onSubmit={handleSubmit}
-            className="flex flex-col gap-[16px]"
+            className={styles.form}
             spellCheck={false}
           >
             {isAdmin && (
-              <div className="flex flex-col gap-unit bg-primary/5 p-4 rounded-lg border border-primary/20 mb-2">
-                <label
-                  className="font-label-sm text-label-sm text-primary font-medium"
-                  htmlFor="top-preset-id"
-                >
+              <div className={styles.templateBox}>
+                <label className={styles.templateLabel} htmlFor="top-preset-id">
                   Load from Template (Optional)
                 </label>
                 <select
                   id="top-preset-id"
                   value={topPresetId}
                   onChange={handleTopPresetChange}
-                  className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow appearance-none cursor-pointer mt-1"
+                  className={`${styles.formInput} ${styles.formSelect}`}
                 >
                   <option value="">No template (Manual setup)</option>
                   {presets.map((p) => (
@@ -915,18 +874,15 @@ export default function CreateRoomModal({
                     </option>
                   ))}
                 </select>
-                <span className="font-label-sm text-[11px] text-on-surface-variant mt-1">
+                <span className={styles.hintMuted}>
                   Selecting a template will auto-fill and lock the configuration
                   below.
                 </span>
               </div>
             )}
 
-            <div className="flex flex-col gap-unit">
-              <label
-                className="font-label-sm text-label-sm text-on-surface-variant"
-                htmlFor="room-name"
-              >
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="room-name">
                 Name
               </label>
               <input
@@ -939,15 +895,12 @@ export default function CreateRoomModal({
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow"
+                className={styles.formInput}
               />
             </div>
 
-            <div className="flex flex-col gap-unit">
-              <label
-                className="font-label-sm text-label-sm text-on-surface-variant"
-                htmlFor="room-description"
-              >
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="room-description">
                 Description (Optional)
               </label>
               <textarea
@@ -958,17 +911,14 @@ export default function CreateRoomModal({
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow resize-none h-[80px]"
+                className={`${styles.formInput} ${styles.formTextarea}`}
                 maxLength={500}
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
-              <div className="flex flex-col gap-unit">
-                <label
-                  className="font-label-sm text-label-sm text-on-surface-variant"
-                  htmlFor="room-mode"
-                >
+            <div className={styles.grid2}>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="room-mode">
                   Mode
                 </label>
                 <select
@@ -978,17 +928,14 @@ export default function CreateRoomModal({
                     setFormData({ ...formData, mode: e.target.value })
                   }
                   disabled={!!topPresetId}
-                  className={`form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow appearance-none ${!!topPresetId ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  className={`${styles.formInput} ${styles.formSelect}`}
                 >
                   <option value="blitz">Blitz</option>
                   <option value="arena">Arena</option>
                 </select>
               </div>
-              <div className="flex flex-col gap-unit">
-                <label
-                  className="font-label-sm text-label-sm text-on-surface-variant"
-                  htmlFor="room-format"
-                >
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="room-format">
                   Format
                 </label>
                 <select
@@ -998,7 +945,7 @@ export default function CreateRoomModal({
                     setFormData({ ...formData, format: e.target.value })
                   }
                   disabled={!!topPresetId}
-                  className={`form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow appearance-none ${!!topPresetId ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  className={`${styles.formInput} ${styles.formSelect}`}
                 >
                   <option value="1v1">1v1</option>
                   <option value="solo-tournament">Solo Tournament</option>
@@ -1010,12 +957,9 @@ export default function CreateRoomModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
-              <div className="flex flex-col gap-unit">
-                <label
-                  className="font-label-sm text-label-sm text-on-surface-variant"
-                  htmlFor="team-size"
-                >
+            <div className={styles.grid2}>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="team-size">
                   Team Size
                 </label>
                 <select
@@ -1028,17 +972,14 @@ export default function CreateRoomModal({
                     })
                   }
                   disabled={isTeamSizeLocked}
-                  className={`form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow appearance-none ${isTeamSizeLocked ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  className={`${styles.formInput} ${styles.formSelect}`}
                 >
                   <option value={1}>1 Player (Solo)</option>
                   <option value={3}>3 Players (ICPC)</option>
                 </select>
               </div>
-              <div className="flex flex-col gap-unit">
-                <label
-                  className="font-label-sm text-label-sm text-on-surface-variant"
-                  htmlFor="max-participants"
-                >
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="max-participants">
                   Max Participants
                 </label>
                 <input
@@ -1059,12 +1000,12 @@ export default function CreateRoomModal({
                     })
                   }
                   disabled={isMaxPartLocked}
-                  className={`form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow ${isMaxPartLocked ? "opacity-50 cursor-not-allowed" : ""} ${maxPartError ? "border-error focus:border-error focus:shadow-[0_0_0_1px_rgba(255,180,171,1)]" : ""}`}
+                  className={`${styles.formInput} ${
+                    maxPartError ? styles.inputError : ""
+                  }`}
                 />
                 {maxPartError && (
-                  <span className="text-[11px] font-label-sm text-error mt-1">
-                    {maxPartError}
-                  </span>
+                  <span className={styles.errorText}>{maxPartError}</span>
                 )}
               </div>
             </div>
@@ -1072,28 +1013,23 @@ export default function CreateRoomModal({
             {formData.format !== "bracket" && renderProblemConfiguration()}
 
             {formData.format === "bracket" && (
-              <div className="mt-[16px] pt-[16px] border-t border-outline-variant flex flex-col gap-[16px]">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-headline-lg-mobile text-headline-lg-mobile md:text-[24px] text-on-surface m-0">
-                    Bracket Settings
-                  </h3>
+              <div className={styles.sectionBlock}>
+                <div className={styles.sectionTitleRow}>
+                  <h3 className={styles.sectionHeading}>Bracket Settings</h3>
                   {!!topPresetId && (
-                    <span
-                      className="material-symbols-outlined text-[18px] text-on-surface-variant"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      lock
-                    </span>
+                    <Lock
+                      className={`${styles.lockIcon} ${styles.iconFilled}`}
+                      size={18}
+                    />
                   )}
                 </div>
 
                 <div
-                  className={`flex flex-col gap-unit ${!!topPresetId ? "opacity-60 pointer-events-none" : ""}`}
+                  className={`${styles.field} ${
+                    topPresetId ? styles.locked : ""
+                  }`}
                 >
-                  <label
-                    className="font-label-sm text-label-sm text-on-surface-variant"
-                    htmlFor="preset-id"
-                  >
+                  <label className={styles.label} htmlFor="preset-id">
                     Match Preset
                   </label>
                   <select
@@ -1103,7 +1039,7 @@ export default function CreateRoomModal({
                       setFormData({ ...formData, presetId: e.target.value })
                     }
                     disabled={!!topPresetId}
-                    className={`form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow appearance-none ${!!topPresetId ? "cursor-not-allowed" : "cursor-pointer"}`}
+                    className={`${styles.formInput} ${styles.formSelect}`}
                   >
                     <option value="" disabled>
                       Select a preset...
@@ -1117,7 +1053,7 @@ export default function CreateRoomModal({
                       </option>
                     ))}
                   </select>
-                  <span className="font-label-sm text-label-sm text-primary mt-1">
+                  <span className={styles.hint}>
                     Bracket tournaments use presets to define the problem
                     criteria for all rounds.
                   </span>
@@ -1126,17 +1062,15 @@ export default function CreateRoomModal({
                       (p) => p._id === formData.presetId,
                     );
                     return selectedMatchPreset ? (
-                      <div className="mt-2 p-3 bg-surface-variant/30 rounded-lg border border-outline-variant/50 text-xs text-on-surface-variant flex flex-col gap-1">
-                        <span className="font-semibold text-on-surface">
+                      <div className={styles.presetInfo}>
+                        <span className={styles.presetInfoName}>
                           {selectedMatchPreset.name}
                         </span>
                         {selectedMatchPreset.description && (
                           <span>{selectedMatchPreset.description}</span>
                         )}
-                        <div className="flex gap-3 mt-1 opacity-80">
-                          <span className="capitalize">
-                            • {selectedMatchPreset.mode}
-                          </span>
+                        <div className={styles.presetInfoMeta}>
+                          <span>• {selectedMatchPreset.mode}</span>
                           {selectedMatchPreset.problemSelectionMode ===
                           "bulk" ? (
                             <span>
@@ -1158,12 +1092,9 @@ export default function CreateRoomModal({
 
                 {formData.presetId === "custom" && renderProblemConfiguration()}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
-                  <div className="flex flex-col gap-unit">
-                    <label
-                      className="font-label-sm text-label-sm text-on-surface-variant"
-                      htmlFor="seeding-method"
-                    >
+                <div className={styles.grid2}>
+                  <div className={styles.field}>
+                    <label className={styles.label} htmlFor="seeding-method">
                       Seeding Method
                     </label>
                     <select
@@ -1181,7 +1112,7 @@ export default function CreateRoomModal({
                           setFormData({ ...formData, seedingMethod: val });
                         }
                       }}
-                      className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow appearance-none cursor-pointer"
+                      className={`${styles.formInput} ${styles.formSelect}`}
                     >
                       <option value="cf_rating">
                         Codeforces Rating (Average)
@@ -1190,8 +1121,8 @@ export default function CreateRoomModal({
                     </select>
                   </div>
 
-                  <div className="flex flex-col gap-unit justify-center">
-                    <label className="flex items-center gap-unit cursor-pointer mt-4">
+                  <div className={styles.field}>
+                    <label className={styles.checkboxLabel}>
                       <input
                         type="checkbox"
                         checked={formData.thirdPlacePlayoff}
@@ -1201,11 +1132,9 @@ export default function CreateRoomModal({
                             thirdPlacePlayoff: e.target.checked,
                           })
                         }
-                        className="form-checkbox text-primary rounded border-outline-variant bg-background focus:ring-primary focus:ring-offset-surface-container focus:ring-offset-2 w-5 h-5 transition-colors"
+                        className={styles.checkbox}
                       />
-                      <span className="font-label-sm text-label-sm text-on-surface">
-                        Third Place Playoff
-                      </span>
+                      <span>Third Place Playoff</span>
                     </label>
                   </div>
                 </div>
@@ -1213,16 +1142,12 @@ export default function CreateRoomModal({
             )}
 
             {/* New Scheduled Registration Section */}
-            <div className="mt-4 p-4 border border-outline-variant rounded-lg bg-surface-container-low flex flex-col gap-4">
-              <h4 className="font-label-md text-on-surface mb-2 border-b border-outline-variant pb-2">
-                Registration Window
-              </h4>
+            <div className={styles.regSection}>
+              <h4 className={styles.regTitle}>Registration Window</h4>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
-                <div className="flex flex-col gap-unit">
-                  <label className="font-label-sm text-label-sm text-on-surface-variant">
-                    Registration Type
-                  </label>
+              <div className={styles.grid2}>
+                <div className={styles.field}>
+                  <label className={styles.label}>Registration Type</label>
                   <select
                     value={formData.registrationType}
                     onChange={(e) =>
@@ -1235,7 +1160,7 @@ export default function CreateRoomModal({
                       formData.format === "bracket" &&
                       formData.seedingMethod === "manual"
                     }
-                    className={`form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow appearance-none ${formData.format === "bracket" && formData.seedingMethod === "manual" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                    className={`${styles.formInput} ${styles.formSelect}`}
                   >
                     <option value="open">Open (Public)</option>
                     <option value="closed">Closed (Manual Registration)</option>
@@ -1243,10 +1168,8 @@ export default function CreateRoomModal({
                 </div>
 
                 {formData.registrationType !== "closed" && (
-                  <div className="flex flex-col gap-unit">
-                    <label className="font-label-sm text-label-sm text-on-surface-variant">
-                      Registration Starts
-                    </label>
+                  <div className={styles.field}>
+                    <label className={styles.label}>Registration Starts</label>
                     <select
                       value={formData.registrationStartMode}
                       onChange={(e) =>
@@ -1255,7 +1178,7 @@ export default function CreateRoomModal({
                           registrationStartMode: e.target.value,
                         })
                       }
-                      className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow appearance-none cursor-pointer"
+                      className={`${styles.formInput} ${styles.formSelect}`}
                     >
                       <option value="immediate">Immediately</option>
                       <option value="schedule">Schedule Start</option>
@@ -1266,11 +1189,11 @@ export default function CreateRoomModal({
 
               {formData.registrationType !== "closed" &&
                 formData.registrationStartMode === "schedule" && (
-                  <div className="flex flex-col gap-unit mt-2">
-                    <label className="font-label-sm text-label-sm text-on-surface-variant">
+                  <div className={styles.regSub}>
+                    <label className={styles.label}>
                       Registration Start Time
                     </label>
-                    <div className="flex flex-col gap-[8px]">
+                    <div className={styles.field}>
                       <input
                         required={formData.registrationStartMode === "schedule"}
                         type="datetime-local"
@@ -1281,27 +1204,27 @@ export default function CreateRoomModal({
                             registrationStartTime: e.target.value,
                           })
                         }
-                        className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow [color-scheme:dark]"
+                        className={`${styles.formInput} ${styles.dateInput}`}
                       />
-                      <div className="flex items-center gap-[8px] mt-2">
+                      <div className={styles.timeChipRow}>
                         <button
                           type="button"
                           onClick={() => handleRegTimeAdd(3)}
-                          className="px-3 py-1 bg-surface-variant rounded text-[12px] hover:bg-primary/20"
+                          className={styles.timeChip}
                         >
                           +3m
                         </button>
                         <button
                           type="button"
                           onClick={() => handleRegTimeAdd(15)}
-                          className="px-3 py-1 bg-surface-variant rounded text-[12px] hover:bg-primary/20"
+                          className={styles.timeChip}
                         >
                           +15m
                         </button>
                         <button
                           type="button"
                           onClick={() => handleRegTimeAdd(60)}
-                          className="px-3 py-1 bg-surface-variant rounded text-[12px] hover:bg-primary/20"
+                          className={styles.timeChip}
                         >
                           +1h
                         </button>
@@ -1311,13 +1234,13 @@ export default function CreateRoomModal({
                 )}
 
               {formData.registrationType === "closed" && (
-                <div className="flex flex-col gap-unit mt-2 border-t border-outline-variant pt-4">
-                  <label className="font-label-sm text-label-sm text-on-surface-variant">
+                <div className={styles.regMembersBlock}>
+                  <label className={styles.label}>
                     {useTeamsUI ? "Add Teams" : "Add Participants"}
                   </label>
 
                   {useTeamsUI ? (
-                    <div className="flex flex-col gap-4">
+                    <div className={styles.teamsList}>
                       {manualTeams.map((team, teamIndex) => (
                         <div
                           key={team.id}
@@ -1327,26 +1250,27 @@ export default function CreateRoomModal({
                           onDragLeave={handleTeamDragLeave}
                           onDragEnd={handleTeamDragEnd}
                           onDrop={(e) => handleTeamDrop(e, teamIndex)}
-                          className={`flex flex-col gap-2 p-3 bg-surface-container-high border rounded-lg transition-all duration-200 ${
+                          className={`${styles.teamCard} ${
                             formData.seedingMethod === "manual"
-                              ? "cursor-grab active:cursor-grabbing hover:border-primary/50"
-                              : "border-outline-variant"
+                              ? styles.teamCardDraggable
+                              : ""
                           } ${
                             draggedTeamIndex === teamIndex
-                              ? "opacity-40 scale-[0.98]"
+                              ? styles.dragging
                               : dragOverTeamIndex === teamIndex
-                                ? "border-primary border-t-2 bg-primary/10 shadow-lg"
-                                : "border-outline-variant"
+                                ? styles.dragOver
+                                : ""
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 group border-b border-transparent hover:border-outline-variant focus-within:border-outline-variant transition-colors pb-0.5">
+                          <div className={styles.teamCardHeader}>
+                            <div className={styles.teamNameWrap}>
                               {formData.seedingMethod === "manual" && (
                                 <>
-                                  <span className="material-symbols-outlined text-on-surface-variant/50 cursor-grab active:cursor-grabbing pointer-events-none">
-                                    drag_indicator
-                                  </span>
-                                  <span className="font-bold text-on-surface-variant w-6 text-center text-[12px] pointer-events-none">
+                                  <GripVertical
+                                    className={styles.dragHandle}
+                                    size={18}
+                                  />
+                                  <span className={styles.seedNum}>
                                     #{teamIndex + 1}
                                   </span>
                                 </>
@@ -1359,12 +1283,10 @@ export default function CreateRoomModal({
                                   newTeams[teamIndex].name = e.target.value;
                                   setManualTeams(newTeams);
                                 }}
-                                className="bg-transparent border-none focus:outline-none focus:ring-0 text-on-surface font-semibold text-[16px] px-1 py-0.5 max-w-[180px]"
+                                className={styles.teamNameInput}
                                 placeholder="Team Name"
                               />
-                              <span className="material-symbols-outlined text-[16px] text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                edit
-                              </span>
+                              <Pencil className={styles.editIcon} size={16} />
                             </div>
                             <button
                               type="button"
@@ -1373,43 +1295,38 @@ export default function CreateRoomModal({
                                   manualTeams.filter((t) => t.id !== team.id),
                                 )
                               }
-                              className="text-error/80 hover:text-error hover:bg-error/10 p-1 rounded transition-colors flex items-center justify-center"
+                              className={styles.iconBtnDanger}
                             >
-                              <span className="material-symbols-outlined text-[18px]">
-                                delete
-                              </span>
+                              <Trash2 className={styles.icon18} size={18} />
                             </button>
                           </div>
 
-                          <div className="flex flex-col gap-2 mt-1">
+                          <div className={styles.teamMembers}>
                             {team.members.map((member) => (
-                              <div
-                                key={member.id}
-                                className="flex items-center justify-between p-2 bg-surface-variant rounded border border-outline-variant/50"
-                              >
-                                <div className="flex items-center gap-2">
+                              <div key={member.id} className={styles.memberRow}>
+                                <div className={styles.memberInfo}>
                                   {member.image ? (
                                     <img
                                       src={member.image}
                                       alt={member.name}
-                                      className="w-6 h-6 rounded-full object-cover"
+                                      className={styles.avatarSm}
                                     />
                                   ) : (
-                                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[10px] font-bold">
+                                    <div className={styles.avatarFallback}>
                                       {member.name.charAt(0).toUpperCase()}
                                     </div>
                                   )}
-                                  <span className="text-sm text-on-surface">
-                                    {member.name}
+                                  <span className={styles.memberName}>
+                                    {getDisplayName(
+                                      member.name,
+                                      member.pizza_count,
+                                    )}
                                   </span>
-                                  <span className="text-outline-variant text-[12px]">
-                                    |
-                                  </span>
+                                  <span className={styles.sep}>|</span>
                                   <span
-                                    className="text-sm font-bold"
-                                    style={{
-                                      color: getRatingColor(member.cfRating),
-                                    }}
+                                    className={`${styles.ratingValue} ${getRatingClass(
+                                      member.cfRating,
+                                    )}`}
                                   >
                                     {member.cfRating || "Unrated"}
                                   </span>
@@ -1423,17 +1340,15 @@ export default function CreateRoomModal({
                                     ].members.filter((m) => m.id !== member.id);
                                     setManualTeams(newTeams);
                                   }}
-                                  className="text-on-surface-variant hover:text-error hover:bg-error/10 p-1 rounded transition-colors flex items-center justify-center"
+                                  className={styles.iconBtnMuted}
                                 >
-                                  <span className="material-symbols-outlined text-[16px]">
-                                    close
-                                  </span>
+                                  <X className={styles.icon16} size={16} />
                                 </button>
                               </div>
                             ))}
 
                             {team.members.length < membersPerTeamLimit && (
-                              <div className="relative mt-1">
+                              <div className={styles.searchWrap}>
                                 <input
                                   type="text"
                                   placeholder="Search to add member..."
@@ -1482,30 +1397,27 @@ export default function CreateRoomModal({
                                       }
                                     }
                                   }}
-                                  className="form-input rounded-lg w-full px-[14px] py-[12px] focus:outline-none transition-shadow text-[15px]"
+                                  className={styles.formInput}
                                 />
                                 {activeSearchTeamId === team.id &&
                                   isSearching && (
-                                    <div className="absolute right-3 top-2.5">
-                                      <span
-                                        className="material-symbols-outlined animate-spin text-on-surface-variant text-[18px]"
-                                        style={{
-                                          fontVariationSettings:
-                                            "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
-                                        }}
-                                      >
-                                        refresh
-                                      </span>
-                                    </div>
+                                    <RefreshCw
+                                      className={styles.searchSpinner}
+                                      size={18}
+                                    />
                                   )}
                                 {activeSearchTeamId === team.id &&
                                   searchQuery.length >= 2 &&
                                   searchResults.length > 0 && (
-                                    <div className="absolute z-50 w-full mt-1 bg-surface-container-high border border-outline-variant rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                    <div className={styles.searchDropdown}>
                                       {searchResults.map((user, index) => (
                                         <div
                                           key={user.id}
-                                          className={`flex items-center gap-3 p-2 hover:bg-surface-variant cursor-pointer transition-colors ${index === selectedUserIndex ? "bg-surface-variant" : ""}`}
+                                          className={`${styles.searchItem} ${
+                                            index === selectedUserIndex
+                                              ? styles.searchItemActive
+                                              : ""
+                                          }`}
                                           onClick={() => {
                                             const newTeams = [...manualTeams];
                                             newTeams[teamIndex].members.push(
@@ -1521,35 +1433,51 @@ export default function CreateRoomModal({
                                             <img
                                               src={user.image}
                                               alt={user.name}
-                                              className="w-6 h-6 rounded-full object-cover"
+                                              className={styles.avatarSm}
                                             />
                                           ) : (
-                                            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[10px] font-bold">
+                                            <div
+                                              className={styles.avatarFallback}
+                                            >
                                               {user.name
                                                 .charAt(0)
                                                 .toUpperCase()}
                                             </div>
                                           )}
-                                          <div className="flex flex-col">
-                                            <div className="flex items-center">
-                                              <span className="text-[14px] font-medium text-on-surface leading-tight">
-                                                {user.name}
+                                          <div className={styles.searchUserCol}>
+                                            <div
+                                              className={styles.searchUserTop}
+                                            >
+                                              <span
+                                                className={
+                                                  styles.searchUserName
+                                                }
+                                              >
+                                                {getDisplayName(
+                                                  user.name,
+                                                  user.pizza_count,
+                                                )}
                                               </span>
-                                              <span className="text-outline-variant mx-2 text-[12px]">
+                                              <span
+                                                className={
+                                                  styles.searchSepInline
+                                                }
+                                              >
                                                 |
                                               </span>
                                               <span
-                                                className="text-[14px] font-bold leading-tight"
-                                                style={{
-                                                  color: getRatingColor(
-                                                    user.cfRating,
-                                                  ),
-                                                }}
+                                                className={`${styles.searchUserRating} ${getRatingClass(
+                                                  user.cfRating,
+                                                )}`}
                                               >
                                                 {user.cfRating || "Unrated"}
                                               </span>
                                             </div>
-                                            <span className="text-[11px] text-on-surface-variant leading-tight mt-0.5">
+                                            <span
+                                              className={
+                                                styles.searchUserHandle
+                                              }
+                                            >
                                               {user.cfHandle}
                                             </span>
                                           </div>
@@ -1581,11 +1509,9 @@ export default function CreateRoomModal({
                             formData.maxParticipants / membersPerTeamLimit,
                           )
                         }
-                        className={`w-full py-2 bg-surface-variant text-on-surface-variant rounded border border-outline-variant transition-colors font-label-md flex items-center justify-center gap-2 mt-2 ${manualTeams.length >= Math.floor(formData.maxParticipants / membersPerTeamLimit) ? "opacity-50 cursor-not-allowed" : "hover:bg-surface-variant/80 hover:text-on-surface"}`}
+                        className={styles.addTeamBtn}
                       >
-                        <span className="material-symbols-outlined text-[18px]">
-                          add
-                        </span>
+                        <Plus className={styles.icon18} size={18} />
                         Add Team{" "}
                         {manualTeams.length >=
                           Math.floor(
@@ -1594,10 +1520,10 @@ export default function CreateRoomModal({
                       </button>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-2">
+                    <div className={styles.teamMembers}>
                       {(formData.format !== "1v1" ||
                         registeredUsers.length < 2) && (
-                        <div className="relative">
+                        <div className={styles.searchWrap}>
                           <input
                             type="text"
                             disabled={
@@ -1647,29 +1573,26 @@ export default function CreateRoomModal({
                                 }
                               }
                             }}
-                            className="form-input rounded-lg w-full px-[14px] py-[12px] focus:outline-none transition-shadow text-[15px]"
+                            className={styles.formInput}
                           />
                           {activeSearchTeamId === null && isSearching && (
-                            <div className="absolute right-3 top-2.5">
-                              <span
-                                className="material-symbols-outlined animate-spin text-on-surface-variant"
-                                style={{
-                                  fontVariationSettings:
-                                    "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
-                                }}
-                              >
-                                refresh
-                              </span>
-                            </div>
+                            <RefreshCw
+                              className={styles.searchSpinner}
+                              size={18}
+                            />
                           )}
                           {activeSearchTeamId === null &&
                             searchQuery.length >= 2 &&
                             searchResults.length > 0 && (
-                              <div className="absolute z-50 w-full mt-1 bg-surface-container-high border border-outline-variant rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                              <div className={styles.searchDropdown}>
                                 {searchResults.map((user, index) => (
                                   <div
                                     key={user.id}
-                                    className={`flex items-center gap-3 p-2 hover:bg-surface-variant cursor-pointer transition-colors ${index === selectedUserIndex ? "bg-surface-variant" : ""}`}
+                                    className={`${styles.searchItem} ${
+                                      index === selectedUserIndex
+                                        ? styles.searchItemActive
+                                        : ""
+                                    }`}
                                     onClick={() => {
                                       setRegisteredUsers((prev) => [
                                         ...prev,
@@ -1684,33 +1607,35 @@ export default function CreateRoomModal({
                                       <img
                                         src={user.image}
                                         alt={user.name}
-                                        className="w-6 h-6 rounded-full object-cover"
+                                        className={styles.avatarSm}
                                       />
                                     ) : (
-                                      <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[10px] font-bold">
+                                      <div className={styles.avatarFallback}>
                                         {user.name.charAt(0).toUpperCase()}
                                       </div>
                                     )}
-                                    <div className="flex flex-col">
-                                      <div className="flex items-center">
-                                        <span className="text-[14px] font-medium text-on-surface leading-tight">
-                                          {user.name}
+                                    <div className={styles.searchUserCol}>
+                                      <div className={styles.searchUserTop}>
+                                        <span className={styles.searchUserName}>
+                                          {getDisplayName(
+                                            user.name,
+                                            user.pizza_count,
+                                          )}
                                         </span>
-                                        <span className="text-outline-variant mx-2 text-[12px]">
+                                        <span
+                                          className={styles.searchSepInline}
+                                        >
                                           |
                                         </span>
                                         <span
-                                          className="text-[14px] font-bold leading-tight"
-                                          style={{
-                                            color: getRatingColor(
-                                              user.cfRating,
-                                            ),
-                                          }}
+                                          className={`${styles.searchUserRating} ${getRatingClass(
+                                            user.cfRating,
+                                          )}`}
                                         >
                                           {user.cfRating || "Unrated"}
                                         </span>
                                       </div>
-                                      <span className="text-[11px] text-on-surface-variant leading-tight mt-0.5">
+                                      <span className={styles.searchUserHandle}>
                                         {user.cfHandle}
                                       </span>
                                     </div>
@@ -1726,7 +1651,7 @@ export default function CreateRoomModal({
                   {formData.teamSize === 1 && registeredUsers.length > 0 && (
                     <>
                       {formData.seedingMethod === "manual" ? (
-                        <div className="flex flex-col gap-2 mt-3">
+                        <div className={styles.soloList}>
                           {registeredUsers.map((u, index) => (
                             <div
                               key={u.id}
@@ -1736,96 +1661,90 @@ export default function CreateRoomModal({
                               onDragLeave={handleDragLeave}
                               onDragEnd={handleDragEnd}
                               onDrop={(e) => handleDrop(e, index)}
-                              className={`flex items-center justify-between p-2 rounded-lg border transition-all duration-200 cursor-grab active:cursor-grabbing ${
+                              className={`${styles.soloRow} ${
                                 draggedUserIndex === index
-                                  ? "opacity-40 scale-[0.98]"
+                                  ? styles.dragging
                                   : dragOverIndex === index
-                                    ? "border-primary border-t-2 bg-primary/10 shadow-lg"
-                                    : "bg-surface-variant border-outline-variant hover:border-primary/50"
+                                    ? styles.dragOver
+                                    : ""
                               }`}
                             >
-                              <div className="flex items-center gap-3">
-                                <span className="material-symbols-outlined text-on-surface-variant/50 cursor-grab active:cursor-grabbing pointer-events-none">
-                                  drag_indicator
-                                </span>
-                                <span className="font-bold text-on-surface-variant w-6 text-center text-[12px] pointer-events-none">
+                              <div className={styles.soloInfo}>
+                                <GripVertical
+                                  className={styles.dragHandle}
+                                  size={18}
+                                />
+                                <span className={styles.seedNum}>
                                   #{index + 1}
                                 </span>
                                 {u.image ? (
                                   <img
                                     src={u.image}
                                     alt={u.name}
-                                    className="w-8 h-8 rounded-full object-cover pointer-events-none"
+                                    className={styles.avatarMd}
                                   />
                                 ) : (
-                                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[12px] font-bold pointer-events-none">
+                                  <div className={styles.avatarFallbackLg}>
                                     {u.name.charAt(0).toUpperCase()}
                                   </div>
                                 )}
-                                <div className="flex flex-col pointer-events-none">
-                                  <div className="flex items-center">
-                                    <span className="text-[14px] font-medium text-on-surface">
-                                      {u.name}
+                                <div className={styles.soloUserCol}>
+                                  <div className={styles.searchUserTop}>
+                                    <span className={styles.searchUserName}>
+                                      {getDisplayName(u.name, u.pizza_count)}
                                     </span>
-                                    <span className="text-outline-variant mx-2 text-[12px]">
+                                    <span className={styles.searchSepInline}>
                                       |
                                     </span>
                                     <span
-                                      className="text-[14px] font-bold"
-                                      style={{
-                                        color: getRatingColor(u.cfRating),
-                                      }}
+                                      className={`${styles.searchUserRating} ${getRatingClass(
+                                        u.cfRating,
+                                      )}`}
                                     >
                                       {u.cfRating || "Unrated"}
                                     </span>
                                   </div>
-                                  <span className="text-[11px] text-on-surface-variant leading-tight mt-0.5">
+                                  <span className={styles.searchUserHandle}>
                                     {u.cfHandle}
                                   </span>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1">
+                              <div className={styles.memberInfo}>
                                 <button
                                   type="button"
                                   onClick={() => removeUser(u.id)}
-                                  className="p-1 text-error hover:bg-error/10 rounded ml-2 flex items-center justify-center relative z-10"
+                                  className={styles.iconBtnMuted}
                                 >
-                                  <span className="material-symbols-outlined text-[18px]">
-                                    close
-                                  </span>
+                                  <X className={styles.icon18} size={18} />
                                 </button>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="flex flex-wrap gap-3 mt-4">
+                        <div className={styles.chipList}>
                           {registeredUsers.map((u) => (
-                            <div
-                              key={u.id}
-                              className="flex items-center bg-surface-variant border border-outline-variant rounded-full pl-2 pr-1 py-1.5 shadow-sm"
-                            >
+                            <div key={u.id} className={styles.chip}>
                               {u.image ? (
                                 <img
                                   src={u.image}
                                   alt={u.name}
-                                  className="w-6 h-6 rounded-full object-cover"
+                                  className={styles.avatarSm}
                                 />
                               ) : (
-                                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[10px] font-bold">
+                                <div className={styles.avatarFallback}>
                                   {u.name.charAt(0).toUpperCase()}
                                 </div>
                               )}
-                              <div className="flex items-center px-3">
-                                <span className="text-[14px] font-medium text-on-surface">
-                                  {u.name}
+                              <div className={styles.chipBody}>
+                                <span className={styles.memberName}>
+                                  {getDisplayName(u.name, u.pizza_count)}
                                 </span>
-                                <span className="text-outline-variant mx-2 text-[12px]">
-                                  |
-                                </span>
+                                <span className={styles.sep}>|</span>
                                 <span
-                                  className="text-[14px] font-bold"
-                                  style={{ color: getRatingColor(u.cfRating) }}
+                                  className={`${styles.ratingValue} ${getRatingClass(
+                                    u.cfRating,
+                                  )}`}
                                 >
                                   {u.cfRating || "Unrated"}
                                 </span>
@@ -1833,17 +1752,9 @@ export default function CreateRoomModal({
                               <button
                                 type="button"
                                 onClick={() => removeUser(u.id)}
-                                className="text-on-surface-variant hover:text-error hover:bg-error/10 rounded-full p-1 flex items-center justify-center transition-colors ml-1"
+                                className={styles.iconBtnChip}
                               >
-                                <span
-                                  className="material-symbols-outlined text-[16px]"
-                                  style={{
-                                    fontVariationSettings:
-                                      "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
-                                  }}
-                                >
-                                  close
-                                </span>
+                                <X className={styles.icon16} size={16} />
                               </button>
                             </div>
                           ))}
@@ -1852,7 +1763,7 @@ export default function CreateRoomModal({
                     </>
                   )}
 
-                  <span className="font-label-sm text-[11px] text-on-surface-variant mt-1">
+                  <span className={styles.hintMuted}>
                     These members will be automatically registered when the
                     contest begins.
                   </span>
@@ -1860,14 +1771,11 @@ export default function CreateRoomModal({
               )}
             </div>
 
-            <div className="flex flex-col gap-unit mt-6 pt-4 border-t border-outline-variant">
-              <label
-                className="font-label-sm text-label-sm text-on-surface-variant"
-                htmlFor="start-time"
-              >
+            <div className={styles.startTimeBlock}>
+              <label className={styles.label} htmlFor="start-time">
                 Match Start Time
               </label>
-              <div className="flex flex-col gap-[12px]">
+              <div className={styles.field}>
                 <input
                   required
                   id="start-time"
@@ -1876,22 +1784,22 @@ export default function CreateRoomModal({
                   onChange={(e) =>
                     setFormData({ ...formData, startTime: e.target.value })
                   }
-                  className="form-input rounded-lg w-full px-[12px] py-[8px] focus:outline-none transition-shadow [color-scheme:dark]"
+                  className={`${styles.formInput} ${styles.dateInput}`}
                 />
-                <div className="flex items-center justify-center gap-[16px] flex-wrap mt-4 mb-2 w-full">
+                <div className={styles.timeAddRow}>
                   {[3, 5, 10, 15].map((mins) => (
                     <button
                       key={mins}
                       type="button"
                       onClick={() => handleTimeAdd(mins)}
-                      className="px-8 py-3 bg-transparent border-2 border-dashed border-primary/40 text-on-surface rounded-lg font-label-sm text-[15px] font-medium hover:bg-primary/10 hover:border-primary/70 hover:text-primary transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className={styles.timeAddBtn}
                     >
                       +{mins} min{mins > 1 ? "s" : ""}
                     </button>
                   ))}
                 </div>
               </div>
-              <span className="font-label-sm text-label-sm text-primary mt-1">
+              <span className={styles.hint}>
                 Scheduled rooms start automatically. Registration deadline will
                 be exactly 1 minute before the start time for all users.
               </span>
@@ -1899,12 +1807,8 @@ export default function CreateRoomModal({
           </form>
         </div>
 
-        <div className="flex items-center justify-end gap-[16px] px-gutter py-[16px] border-t border-outline-variant bg-surface-container">
-          <button
-            type="button"
-            onClick={onClose}
-            className="font-label-sm text-label-sm text-on-surface px-[24px] py-[12px] rounded-lg border border-transparent hover:border-outline-variant hover:bg-surface-variant transition-all focus:outline-none focus:ring-2 focus:ring-primary"
-          >
+        <div className={styles.footer}>
+          <button type="button" onClick={onClose} className={styles.cancelBtn}>
             Cancel
           </button>
           <button
@@ -1916,50 +1820,12 @@ export default function CreateRoomModal({
               (formData.problemSelectionMode === "fine-tuned" &&
                 !!fineTunedCountError)
             }
-            className="font-label-sm text-label-sm bg-primary-container text-on-primary-container px-[24px] py-[12px] rounded-lg hover:bg-primary hover:text-on-primary transition-colors shadow-[0_0_15px_rgba(46,125,50,0.3)] hover:shadow-[0_0_20px_rgba(136,217,130,0.5)] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface-container disabled:opacity-50"
+            className={styles.submitBtn}
           >
             {loading ? "Creating..." : "Create Room"}
           </button>
         </div>
       </div>
-
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-        .form-input {
-            background-color: #131313 !important;
-            border: 1px solid #40493d !important;
-            color: #e5e2e1 !important;
-        }
-        .form-input:focus {
-            border-color: #88d982 !important;
-            box-shadow: 0 0 0 1px #88d982 !important;
-            color: #e5e2e1 !important;
-        }
-        .form-input:-webkit-autofill,
-        .form-input:-webkit-autofill:hover, 
-        .form-input:-webkit-autofill:focus, 
-        .form-input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 30px #131313 inset !important;
-            -webkit-text-fill-color: #e5e2e1 !important;
-            transition: background-color 5000s ease-in-out 0s;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #353534;
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #40493d;
-        }
-      `,
-        }}
-      />
     </div>
   );
 }

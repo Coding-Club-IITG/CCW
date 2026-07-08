@@ -7,7 +7,6 @@ import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
 import ContestPreset from "@/models/ContestPreset";
 import mongoose from "mongoose";
-import User from "@/models/User";
 import CPUser from "@/models/CPUser";
 import { reconciliationQueue } from "@/lib/bullmq";
 
@@ -245,4 +244,3 @@ export async function createBracketContest(data: any) {
     return { error: err.message || "Failed to create contest" };
   }
 }
-

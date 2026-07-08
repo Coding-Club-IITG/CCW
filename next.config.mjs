@@ -6,6 +6,11 @@ const nextConfig = {
       bodySizeLimit: "50mb",
     },
   },
+  turbopack: {
+    resolveAlias: {
+      "@/styles": "./src/styles",
+    },
+  },
 };
 
 export default nextConfig;
