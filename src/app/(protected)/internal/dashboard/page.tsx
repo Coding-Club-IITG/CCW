@@ -45,6 +45,11 @@ export default async function DashboardPage() {
           description="Leaderboards, contests, and your CP performance tracker."
         />
         <LinkCard
+          href="/internal/contests"
+          title="Contests & Arena"
+          description="Compete in live coding contests and 1v1 arenas."
+        />
+        <LinkCard
           href="/internal/potd"
           title="Problem of the Day"
           description="Daily coding challenges, streaks, and submissions."
