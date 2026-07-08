@@ -170,3 +170,12 @@
     cursor: not-allowed;
   }
 }
+
+/* Apply Fonts */
+.problemTitle {
+  font-family: "Inter", sans-serif;
+}
+.problemCountText, .metaChip, .metaPoints, .cfLink, .syncBtn {
+  font-family: "JetBrains Mono", monospace;
+}
+

@@ -519,3 +519,15 @@
 .icon18 {
   font-size: 18px;
 }
+
+/* Apply Fonts */
+.header h2 {
+  font-family: "Hanken Grotesk", sans-serif;
+}
+.regName, .teamHeaderName {
+  font-family: "Inter", sans-serif;
+}
+.sectionTitle, .regLoading, .regEmpty, .teamCount, .memberChip, .fieldLabel, .soloNote, .radioText, .input, .select, .btnPrimary, .btnGhost, .btnDanger {
+  font-family: "JetBrains Mono", monospace;
+}
+

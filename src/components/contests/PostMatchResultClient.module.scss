@@ -117,15 +117,15 @@
   gap: 0.25rem;
   padding: 0.25rem 1rem;
   border-radius: 999px;
-  background: #2e7d32;
-  color: #ffffff;
+  background: var(--primary);
+  color: var(--btn-primary-text);
   font-size: 14px;
   font-family: "JetBrains Mono", monospace;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
-  box-shadow: 0 0 15px rgba(46, 125, 50, 0.5);
+  box-shadow: 0 0 15px var(--focus-ring);
 }
 
 .teamName {
@@ -140,10 +140,10 @@
 }
 
 .teamNameWinner {
-  color: #88d982;
+  color: var(--primary);
   border-radius: 999px;
   padding: 0 1rem;
-  box-shadow: 0 0 40px rgba(46, 125, 50, 0.3);
+  box-shadow: 0 0 40px var(--primary-alpha);
 }
 
 .teamScore {
@@ -156,7 +156,7 @@
 }
 
 .teamScoreWinner {
-  color: #a3f69c;
+  color: var(--primary-hover);
 }
 
 .heroMeta {
@@ -273,7 +273,7 @@
   padding: 1.5rem;
   border-radius: 12px;
   background: var(--surface);
-  border: 1px solid rgba(136, 217, 130, 0.5);
+  border: 1px solid var(--focus-ring);
   transition: background 0.15s ease;
 
   &:hover {
@@ -290,8 +290,8 @@
   justify-content: center;
   padding: 0.75rem;
   border-bottom-left-radius: 8px;
-  background: #2e7d32;
-  color: #ffffff;
+  background: var(--primary);
+  color: var(--btn-primary-text);
 }
 
 .mvpInfo {
@@ -306,7 +306,7 @@
   height: 4rem;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #88d982;
+  border: 2px solid var(--primary);
   padding: 1px;
 }
 
@@ -317,7 +317,7 @@
   margin-bottom: 0.25rem;
   font-family: "JetBrains Mono", monospace;
   font-size: 14px;
-  color: #88d982;
+  color: var(--primary);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -354,7 +354,7 @@
   font-family: "Hanken Grotesk", sans-serif;
   font-size: 32px;
   font-weight: 700;
-  color: #88d982;
+  color: var(--primary);
 }
 
 .mvpEmpty {
@@ -501,8 +501,8 @@
     transform 0.15s ease;
 
   &:hover {
-    box-shadow: 0 0 20px rgba(46, 125, 50, 0.6) !important;
-    border-color: rgba(46, 125, 50, 0.8) !important;
+    box-shadow: 0 0 20px var(--focus-ring) !important;
+    border-color: var(--primary) !important;
     transform: scale(1.01);
     z-index: 10;
   }

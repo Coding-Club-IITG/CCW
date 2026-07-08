@@ -994,3 +994,15 @@
 .iconFilled {
   font-variation-settings: "FILL" 1;
 }
+
+/* Apply Fonts */
+.header h2, .sectionHeading {
+  font-family: "Hanken Grotesk", sans-serif;
+}
+.teamNameInput, .memberName, .searchUserName {
+  font-family: "Inter", sans-serif;
+}
+.label, .labelStrong, .hint, .hintMuted, .errorText, .formInput, .presetInfoName, .presetInfoMeta, .checkboxLabel, .timeChip, .seedNum, .regTitle, .roundLabel {
+  font-family: "JetBrains Mono", monospace;
+}
+

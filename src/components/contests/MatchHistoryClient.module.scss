@@ -342,3 +342,19 @@
 .iconSm {
   font-size: 16px;
 }
+
+/* Apply Fonts */
+.header h1 {
+  font-family: "Hanken Grotesk", sans-serif;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+
+.scoreValue {
+  font-family: "Inter", sans-serif;
+}
+
+.select, .dateInput, .badgeVictory, .badgeTie, .badgeDefeat, .badgeNeutral, .tournamentTag, .metaText, .resultsBtn {
+  font-family: "JetBrains Mono", monospace;
+}
+

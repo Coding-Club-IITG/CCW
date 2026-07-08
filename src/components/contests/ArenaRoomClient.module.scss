@@ -243,3 +243,14 @@
     cursor: not-allowed;
   }
 }
+
+/* Apply Fonts */
+.gridCardTitle {
+  font-family: "Inter", sans-serif;
+  font-size: 1rem;
+}
+
+.gridHeadTitle, .ratingBadge, .gridCardPoints, .claimedName, .claimedLabel, .unclaimed, .syncMini {
+  font-family: "JetBrains Mono", monospace;
+}
+

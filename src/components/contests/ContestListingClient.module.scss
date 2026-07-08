@@ -667,15 +667,66 @@
 }
 
 /* Icon sizes */
-.icon12 {
-  font-size: 12px;
+.icon12 { font-size: 12px; }
+.icon14 { font-size: 14px; }
+.icon16 { font-size: 16px; }
+.icon18 { font-size: 18px; }
+
+/* Apply Fonts */
+.title, .sectionTitle {
+  font-family: "Hanken Grotesk", sans-serif;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
 }
-.icon14 {
-  font-size: 14px;
+
+.sectionTitle {
+  font-size: 1.5rem;
 }
-.icon16 {
-  font-size: 16px;
+
+.cardTitle {
+  font-family: "Inter", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: var(--foreground-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.icon18 {
-  font-size: 18px;
+
+.upcomingTitle {
+  font-family: "Inter", sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  color: var(--foreground-strong);
 }
+
+.cardBadge, .cardBadgeNeutral, .cardDateBadge, .filterBtn, .createBtn, .timer, .timerWaiting, .registeredLabel, .registeredMini, .regStart, .regClose, .regNoDeadline, .startsBadge, .joinBtn, .miniBtn, .pillBtn, .tableBadge, .inProgressBadge {
+  font-family: "JetBrains Mono", monospace;
+}
+
+.timer, .timerWaiting {
+  font-size: 1.125rem;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.cardBadge, .cardBadgeNeutral, .cardDateBadge {
+  font-size: 0.75rem;
+}
+
+.startsBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.joinBtn {
+  font-size: 0.875rem;
+}
+
+.miniBtn {
+  font-size: 0.8125rem;
+  height: 32px;
+}
+

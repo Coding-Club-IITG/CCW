@@ -797,6 +797,18 @@
 .icon16 {
   font-size: 16px;
 }
-.icon18 {
-  font-size: 18px;
+.icon18 { font-size: 18px; }
+
+/* Apply Fonts */
+.title, .sidebarTitle {
+  font-family: "Hanken Grotesk", sans-serif;
 }
+
+.scoreValue, .scoreName, .slotName, .rowName, .infoValue, .infoValueActive, .infoValueWinner {
+  font-family: "Inter", sans-serif;
+}
+
+.backLink, .liveIndicator, .knockoutBadge, .badge, .nodeHeaderTitle, .nodeHeaderLabel, .vsLabel, .slotTbd, .rowTbd, .rowScore, .sidebarLabel, .sidebarStatus, .winnerPill, .vsColLabel, .matchInfoHeading, .infoList, .infoLabel, .footerBtn, .footerNote, .footerClose {
+  font-family: "JetBrains Mono", monospace;
+}
+
