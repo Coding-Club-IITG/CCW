@@ -145,49 +145,7 @@ export default function ContestListingClient({
     setLocalUpcoming(initialUpcoming);
   }, [initialActive, initialUpcoming]);
 
-  useEffect(() => {
-    if (localUpcoming.length === 0) return;
 
-    const timer = setInterval(() => {
-      const now = Date.now();
-
-      setLocalUpcoming((prevUpcoming) => {
-        const transferring = prevUpcoming.filter((c) => {
-          const transitionTime = c.startTime;
-          return transitionTime && new Date(transitionTime).getTime() <= now;
-        });
-        if (transferring.length > 0) {
-          // Safe to call another state setter here because we are in an effect callback,
-          // BUT React 18 strict mode might execute updaters twice.
-          // To be safe, we schedule it out of the pure function using setTimeout
-          setTimeout(() => {
-            setLocalActive((prevActive) => {
-              const newActive: ContestListingItem[] = [...transferring].map(
-                (c) => ({
-                  ...c,
-                  status: "active",
-                  roomStatus: "waiting",
-                }),
-              );
-              for (const item of prevActive) {
-                if (!newActive.some((x) => x._id === item._id)) {
-                  newActive.push(item);
-                }
-              }
-              return newActive;
-            });
-          }, 0);
-
-          return prevUpcoming.filter(
-            (c) => !transferring.some((t) => t._id === c._id),
-          );
-        }
-        return prevUpcoming;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [localUpcoming.length]);
 
   const filterByFormat = (contest: ContestListingItem) => {
     if (formatFilter === "all") return true;
