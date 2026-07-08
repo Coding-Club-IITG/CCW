@@ -438,28 +438,10 @@
 }
 
 .btnPrimary {
+  @include btn-primary;
   padding: 0.5rem 1.5rem;
-  border-radius: 6px;
   font-size: 0.8125rem;
-  font-weight: 500;
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
   border: 1px solid transparent;
-  transition: background 0.15s ease;
-
-  &:hover {
-    background: var(--btn-primary-bg-hover);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 }
 
 .btnGhost {
@@ -524,10 +506,22 @@
 .header h2 {
   font-family: "Hanken Grotesk", sans-serif;
 }
-.regName, .teamHeaderName {
+.regName,
+.teamHeaderName {
   font-family: "Inter", sans-serif;
 }
-.sectionTitle, .regLoading, .regEmpty, .teamCount, .memberChip, .fieldLabel, .soloNote, .radioText, .input, .select, .btnPrimary, .btnGhost, .btnDanger {
+.sectionTitle,
+.regLoading,
+.regEmpty,
+.teamCount,
+.memberChip,
+.fieldLabel,
+.soloNote,
+.radioText,
+.input,
+.select,
+.btnPrimary,
+.btnGhost,
+.btnDanger {
   font-family: "JetBrains Mono", monospace;
 }
-

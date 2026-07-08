@@ -14,6 +14,7 @@ import { getRedis } from "@/lib/redis";
 import { getBracketSnapshot } from "@/lib/bracket";
 import { isAdmin, parseModuleRoles } from "@/lib/roles";
 import { redirect } from "next/navigation";
+import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
 import styles from "./page.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -118,11 +119,10 @@ export default async function ContestRoomPage({
       if (contest.status === "completed") {
         return (
           <div className={styles.stateWrap}>
-            <span
-              className={`material-symbols-outlined ${styles.stateIcon} ${styles.iconError}`}
-            >
-              event_busy
-            </span>
+            <CalendarX
+              className={`${styles.stateIcon} ${styles.iconError}`}
+              size={60}
+            />
             <h1 className={styles.stateTitle}>Contest Cancelled</h1>
             <p className={styles.stateText}>
               This contest was cancelled (likely due to not enough players).
@@ -134,11 +134,10 @@ export default async function ContestRoomPage({
       ) {
         return (
           <div className={styles.stateWrap}>
-            <span
-              className={`material-symbols-outlined ${styles.stateIcon} ${styles.iconPrimary} ${styles.spin}`}
-            >
-              hourglass_empty
-            </span>
+            <Hourglass
+              className={`${styles.stateIcon} ${styles.iconPrimary} ${styles.spin}`}
+              size={60}
+            />
             <h1 className={styles.stateTitle}>Match is Preparing</h1>
             <p className={styles.stateText}>
               The rooms are currently being provisioned. Please wait...
@@ -149,11 +148,10 @@ export default async function ContestRoomPage({
       } else {
         return (
           <div className={styles.stateWrap}>
-            <span
-              className={`material-symbols-outlined ${styles.stateIcon} ${styles.iconError}`}
-            >
-              error
-            </span>
+            <CircleAlert
+              className={`${styles.stateIcon} ${styles.iconError}`}
+              size={60}
+            />
             <h1 className={styles.stateTitle}>No Room Found</h1>
             <p className={styles.stateText}>
               You have not been assigned to a match room for this contest yet.

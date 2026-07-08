@@ -12,9 +12,7 @@ export type { CFSubmission, CFUserInfo, CFProblem } from "@ronits2407/cp-api";
 /**
  * Fetch user info for one or more handles
  */
-export async function getUserInfo(
-  handles: string | string[],
-) {
+export async function getUserInfo(handles: string | string[]) {
   try {
     return await cp.codeforces.getUser(handles);
   } catch (error: any) {
@@ -26,10 +24,7 @@ export async function getUserInfo(
 /**
  * Fetch recent submissions for a user
  */
-export async function getUserSubmissions(
-  handle: string,
-  count: number = 100,
-) {
+export async function getUserSubmissions(handle: string, count: number = 100) {
   try {
     return await cp.codeforces.getSubmissions(handle, { count });
   } catch (error: any) {
@@ -70,10 +65,7 @@ export async function getProblems() {
 /**
  * Find a specific problem by contestId and index
  */
-export async function getProblemById(
-  contestId: number,
-  index: string,
-) {
+export async function getProblemById(contestId: number, index: string) {
   try {
     return await cp.codeforces.getProblem(contestId, index);
   } catch (err) {
@@ -94,7 +86,7 @@ export function getCFRankFromRating(rating: number): string {
  */
 export async function isCodeforcesAPIReachable(): Promise<boolean> {
   try {
-    const healths = await cp.health.check('CODEFORCES');
+    const healths = await cp.health.check("CODEFORCES");
     return healths[0]?.reachable ?? false;
   } catch {
     return false;

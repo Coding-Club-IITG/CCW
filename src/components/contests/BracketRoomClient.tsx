@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeft, BarChart3, LogIn, Trophy, X } from "lucide-react";
 import { ContestListingItem } from "@/lib/actions/contests";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -65,13 +66,7 @@ function TeamSlot({
           >
             {tname}
           </span>
-          {isWinner && (
-            <span
-              className={`material-symbols-outlined ${styles.winnerTrophy}`}
-            >
-              emoji_events
-            </span>
-          )}
+          {isWinner && <Trophy className={styles.winnerTrophy} size={16} />}
         </div>
       </div>
     );
@@ -193,9 +188,7 @@ function GrandFinalNode({ data }: { data: any }) {
       <div className={styles.nodeGradient} />
       <div className={styles.nodeHeader}>
         <span className={styles.nodeHeaderTitle}>
-          <span className={`material-symbols-outlined ${styles.trophyIcon}`}>
-            emoji_events
-          </span>
+          <Trophy className={styles.trophyIcon} size={16} />
           Grand Final
         </span>
         {isCompleted ? (
@@ -416,7 +409,7 @@ function MatchSidePanel({
             }}
             className={styles.sidebarClose}
           >
-            <span className="material-symbols-outlined">close</span>
+            <X size={18} />
           </button>
         </div>
 
@@ -528,9 +521,7 @@ function MatchSidePanel({
           {/* COMPLETED STATUS */}
           {isCompleted && displayNode?.roomId && (
             <button onClick={handleViewResults} className={styles.footerBtn}>
-              <span className={`material-symbols-outlined ${styles.icon18}`}>
-                leaderboard
-              </span>
+              <BarChart3 className={styles.icon18} size={18} />
               VIEW RESULTS
             </button>
           )}
@@ -538,9 +529,7 @@ function MatchSidePanel({
           {/* ACTIVE STATUS */}
           {isActive && displayNode?.roomId && isParticipant && (
             <button onClick={handleEnterRoom} className={styles.footerBtn}>
-              <span className={`material-symbols-outlined ${styles.icon18}`}>
-                login
-              </span>
+              <LogIn className={styles.icon18} size={18} />
               ENTER ROOM
             </button>
           )}
@@ -557,9 +546,7 @@ function MatchSidePanel({
             isParticipant &&
             displayNode?.roomId && (
               <button onClick={handleEnterRoom} className={styles.footerBtn}>
-                <span className={`material-symbols-outlined ${styles.icon18}`}>
-                  login
-                </span>
+                <LogIn className={styles.icon18} size={18} />
                 ENTER ROOM
               </button>
             )}
@@ -744,9 +731,7 @@ export default function BracketRoomClient({
         <div className={styles.headerLeft}>
           <div className={styles.headerTop}>
             <Link href="/internal/contests" className={styles.backLink}>
-              <span className={`material-symbols-outlined ${styles.icon16}`}>
-                arrow_back
-              </span>
+              <ArrowLeft className={styles.icon16} size={16} />
               Back to Contests
             </Link>
             <div className={styles.headerDivider} />

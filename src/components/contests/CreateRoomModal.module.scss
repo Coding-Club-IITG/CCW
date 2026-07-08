@@ -120,31 +120,10 @@
 }
 
 .submitBtn {
+  @include btn-primary;
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   font-size: 0.75rem;
-  font-weight: 500;
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-  border: none;
-  transition:
-    background 0.15s ease,
-    box-shadow 0.15s ease;
-
-  &:hover {
-    background: var(--btn-primary-bg-hover);
-    @include contest-glow(var(--success-border), 20px);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 }
 
 /* Form primitives (deduped) */
@@ -996,13 +975,27 @@
 }
 
 /* Apply Fonts */
-.header h2, .sectionHeading {
+.header h2,
+.sectionHeading {
   font-family: "Hanken Grotesk", sans-serif;
 }
-.teamNameInput, .memberName, .searchUserName {
+.teamNameInput,
+.memberName,
+.searchUserName {
   font-family: "Inter", sans-serif;
 }
-.label, .labelStrong, .hint, .hintMuted, .errorText, .formInput, .presetInfoName, .presetInfoMeta, .checkboxLabel, .timeChip, .seedNum, .regTitle, .roundLabel {
+.label,
+.labelStrong,
+.hint,
+.hintMuted,
+.errorText,
+.formInput,
+.presetInfoName,
+.presetInfoMeta,
+.checkboxLabel,
+.timeChip,
+.seedNum,
+.regTitle,
+.roundLabel {
   font-family: "JetBrains Mono", monospace;
 }
-

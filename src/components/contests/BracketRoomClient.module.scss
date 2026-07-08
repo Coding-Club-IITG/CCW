@@ -757,22 +757,15 @@
 }
 
 .footerBtn {
+  @include btn-primary;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   width: 100%;
   padding: 0.75rem;
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-  border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 700;
-  transition: filter 0.15s ease;
-
-  &:hover {
-    filter: brightness(1.1);
-  }
 }
 
 .footerNote {
@@ -797,18 +790,45 @@
 .icon16 {
   font-size: 16px;
 }
-.icon18 { font-size: 18px; }
+.icon18 {
+  font-size: 18px;
+}
 
 /* Apply Fonts */
-.title, .sidebarTitle {
+.title,
+.sidebarTitle {
   font-family: "Hanken Grotesk", sans-serif;
 }
 
-.scoreValue, .scoreName, .slotName, .rowName, .infoValue, .infoValueActive, .infoValueWinner {
+.scoreValue,
+.scoreName,
+.slotName,
+.rowName,
+.infoValue,
+.infoValueActive,
+.infoValueWinner {
   font-family: "Inter", sans-serif;
 }
 
-.backLink, .liveIndicator, .knockoutBadge, .badge, .nodeHeaderTitle, .nodeHeaderLabel, .vsLabel, .slotTbd, .rowTbd, .rowScore, .sidebarLabel, .sidebarStatus, .winnerPill, .vsColLabel, .matchInfoHeading, .infoList, .infoLabel, .footerBtn, .footerNote, .footerClose {
+.backLink,
+.liveIndicator,
+.knockoutBadge,
+.badge,
+.nodeHeaderTitle,
+.nodeHeaderLabel,
+.vsLabel,
+.slotTbd,
+.rowTbd,
+.rowScore,
+.sidebarLabel,
+.sidebarStatus,
+.winnerPill,
+.vsColLabel,
+.matchInfoHeading,
+.infoList,
+.infoLabel,
+.footerBtn,
+.footerNote,
+.footerClose {
   font-family: "JetBrains Mono", monospace;
 }
-

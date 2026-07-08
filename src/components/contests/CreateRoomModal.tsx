@@ -1,6 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  GripVertical,
+  Lock,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  X,
+} from "lucide-react";
 import { createRoomContest, searchVerifiedUsers } from "@/lib/actions/contests";
 import { createBracketContest } from "@/lib/actions/admin/contests";
 import { useRouter } from "next/navigation";
@@ -536,11 +545,10 @@ export default function CreateRoomModal({
       <div className={styles.sectionTitleRow}>
         <h3 className={styles.sectionHeading}>Problem Configuration</h3>
         {!!topPresetId && (
-          <span
-            className={`material-symbols-outlined ${styles.lockIcon} ${styles.iconFilled}`}
-          >
-            lock
-          </span>
+          <Lock
+            className={`${styles.lockIcon} ${styles.iconFilled}`}
+            size={18}
+          />
         )}
       </div>
 
@@ -837,7 +845,7 @@ export default function CreateRoomModal({
         <div className={styles.header}>
           <h2>Create a room</h2>
           <button type="button" onClick={onClose} className={styles.closeBtn}>
-            <span className="material-symbols-outlined">close</span>
+            <X size={18} />
           </button>
         </div>
 
@@ -1009,11 +1017,10 @@ export default function CreateRoomModal({
                 <div className={styles.sectionTitleRow}>
                   <h3 className={styles.sectionHeading}>Bracket Settings</h3>
                   {!!topPresetId && (
-                    <span
-                      className={`material-symbols-outlined ${styles.lockIcon} ${styles.iconFilled}`}
-                    >
-                      lock
-                    </span>
+                    <Lock
+                      className={`${styles.lockIcon} ${styles.iconFilled}`}
+                      size={18}
+                    />
                   )}
                 </div>
 
@@ -1259,11 +1266,10 @@ export default function CreateRoomModal({
                             <div className={styles.teamNameWrap}>
                               {formData.seedingMethod === "manual" && (
                                 <>
-                                  <span
-                                    className={`material-symbols-outlined ${styles.dragHandle}`}
-                                  >
-                                    drag_indicator
-                                  </span>
+                                  <GripVertical
+                                    className={styles.dragHandle}
+                                    size={18}
+                                  />
                                   <span className={styles.seedNum}>
                                     #{teamIndex + 1}
                                   </span>
@@ -1280,11 +1286,7 @@ export default function CreateRoomModal({
                                 className={styles.teamNameInput}
                                 placeholder="Team Name"
                               />
-                              <span
-                                className={`material-symbols-outlined ${styles.editIcon}`}
-                              >
-                                edit
-                              </span>
+                              <Pencil className={styles.editIcon} size={16} />
                             </div>
                             <button
                               type="button"
@@ -1295,11 +1297,7 @@ export default function CreateRoomModal({
                               }
                               className={styles.iconBtnDanger}
                             >
-                              <span
-                                className={`material-symbols-outlined ${styles.icon18}`}
-                              >
-                                delete
-                              </span>
+                              <Trash2 className={styles.icon18} size={18} />
                             </button>
                           </div>
 
@@ -1344,11 +1342,7 @@ export default function CreateRoomModal({
                                   }}
                                   className={styles.iconBtnMuted}
                                 >
-                                  <span
-                                    className={`material-symbols-outlined ${styles.icon16}`}
-                                  >
-                                    close
-                                  </span>
+                                  <X className={styles.icon16} size={16} />
                                 </button>
                               </div>
                             ))}
@@ -1407,11 +1401,10 @@ export default function CreateRoomModal({
                                 />
                                 {activeSearchTeamId === team.id &&
                                   isSearching && (
-                                    <span
-                                      className={`material-symbols-outlined ${styles.searchSpinner}`}
-                                    >
-                                      refresh
-                                    </span>
+                                    <RefreshCw
+                                      className={styles.searchSpinner}
+                                      size={18}
+                                    />
                                   )}
                                 {activeSearchTeamId === team.id &&
                                   searchQuery.length >= 2 &&
@@ -1518,11 +1511,7 @@ export default function CreateRoomModal({
                         }
                         className={styles.addTeamBtn}
                       >
-                        <span
-                          className={`material-symbols-outlined ${styles.icon18}`}
-                        >
-                          add
-                        </span>
+                        <Plus className={styles.icon18} size={18} />
                         Add Team{" "}
                         {manualTeams.length >=
                           Math.floor(
@@ -1587,11 +1576,10 @@ export default function CreateRoomModal({
                             className={styles.formInput}
                           />
                           {activeSearchTeamId === null && isSearching && (
-                            <span
-                              className={`material-symbols-outlined ${styles.searchSpinner}`}
-                            >
-                              refresh
-                            </span>
+                            <RefreshCw
+                              className={styles.searchSpinner}
+                              size={18}
+                            />
                           )}
                           {activeSearchTeamId === null &&
                             searchQuery.length >= 2 &&
@@ -1682,11 +1670,10 @@ export default function CreateRoomModal({
                               }`}
                             >
                               <div className={styles.soloInfo}>
-                                <span
-                                  className={`material-symbols-outlined ${styles.dragHandle}`}
-                                >
-                                  drag_indicator
-                                </span>
+                                <GripVertical
+                                  className={styles.dragHandle}
+                                  size={18}
+                                />
                                 <span className={styles.seedNum}>
                                   #{index + 1}
                                 </span>
@@ -1728,11 +1715,7 @@ export default function CreateRoomModal({
                                   onClick={() => removeUser(u.id)}
                                   className={styles.iconBtnMuted}
                                 >
-                                  <span
-                                    className={`material-symbols-outlined ${styles.icon18}`}
-                                  >
-                                    close
-                                  </span>
+                                  <X className={styles.icon18} size={18} />
                                 </button>
                               </div>
                             </div>
@@ -1771,11 +1754,7 @@ export default function CreateRoomModal({
                                 onClick={() => removeUser(u.id)}
                                 className={styles.iconBtnChip}
                               >
-                                <span
-                                  className={`material-symbols-outlined ${styles.icon16}`}
-                                >
-                                  close
-                                </span>
+                                <X className={styles.icon16} size={16} />
                               </button>
                             </div>
                           ))}

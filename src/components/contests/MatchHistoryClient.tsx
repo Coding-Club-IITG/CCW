@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ArrowRight, Calendar, ChevronDown, Timer, Trophy } from "lucide-react";
 
 import { ContestListingItem } from "@/lib/actions/contests";
 import BackLink from "@/components/shared/BackLink";
@@ -102,11 +103,7 @@ export default function MatchHistoryClient({
                 <option>Blitz</option>
                 <option>Arena</option>
               </select>
-              <span
-                className={`material-symbols-outlined ${styles.selectIcon}`}
-              >
-                expand_more
-              </span>
+              <ChevronDown className={styles.selectIcon} size={18} />
             </div>
             {/* Outcome Filter */}
             <div className={styles.selectWrap}>
@@ -120,11 +117,7 @@ export default function MatchHistoryClient({
                 <option>Tie</option>
                 <option>Defeat</option>
               </select>
-              <span
-                className={`material-symbols-outlined ${styles.selectIcon}`}
-              >
-                expand_more
-              </span>
+              <ChevronDown className={styles.selectIcon} size={18} />
             </div>
             {/* Date Filter */}
             <div className={styles.dateGroup}>
@@ -186,22 +179,14 @@ export default function MatchHistoryClient({
                     {/* Tournament Tag */}
                     {contest.format === "bracket" && (
                       <div className={styles.tournamentTag}>
-                        <span
-                          className={`material-symbols-outlined ${styles.iconXs}`}
-                        >
-                          emoji_events
-                        </span>
+                        <Trophy className={styles.iconXs} size={14} />
                         {contest.name}
                       </div>
                     )}
                   </div>
 
                   <div className={styles.meta}>
-                    <span
-                      className={`material-symbols-outlined ${styles.metaIcon}`}
-                    >
-                      calendar_today
-                    </span>
+                    <Calendar className={styles.metaIcon} size={14} />
                     <span className={styles.metaText}>
                       {contest.startTime
                         ? new Intl.DateTimeFormat("en-US", {
@@ -215,11 +200,7 @@ export default function MatchHistoryClient({
                         : "-"}
                     </span>
                     <span className={styles.metaDot}></span>
-                    <span
-                      className={`material-symbols-outlined ${styles.metaIcon}`}
-                    >
-                      timer
-                    </span>
+                    <Timer className={styles.metaIcon} size={14} />
                     <span className={styles.metaText}>
                       {contest.startTime && contest.endTime
                         ? (() => {
@@ -275,11 +256,7 @@ export default function MatchHistoryClient({
                   <Link href={`/internal/contests/${contest._id}?from=history`}>
                     <button className={styles.resultsBtn}>
                       Results
-                      <span
-                        className={`material-symbols-outlined ${styles.iconSm}`}
-                      >
-                        arrow_forward
-                      </span>
+                      <ArrowRight className={styles.iconSm} size={16} />
                     </button>
                   </Link>
                 </div>

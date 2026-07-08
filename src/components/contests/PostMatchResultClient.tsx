@@ -2,6 +2,16 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Award,
+  CircleCheck,
+  Lock,
+  Medal,
+  RefreshCw,
+  Star,
+  Trophy,
+  UserX,
+} from "lucide-react";
 import BackLink from "@/components/shared/BackLink";
 import { getDisplayName } from "@/lib/utils";
 import styles from "./PostMatchResultClient.module.scss";
@@ -87,9 +97,7 @@ export default function PostMatchResultClient({
   if (matchData.isProcessing) {
     return (
       <div className={styles.processing}>
-        <span className={`material-symbols-outlined ${styles.processingIcon}`}>
-          sync
-        </span>
+        <RefreshCw className={styles.processingIcon} size={48} />
         <p className={styles.processingText}>Calculating match results...</p>
       </div>
     );
@@ -121,13 +129,8 @@ export default function PostMatchResultClient({
   };
 
   return (
-    <>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Inter:wght@400&family=JetBrains+Mono:wght@500&display=swap"
-        rel="stylesheet"
-      />
-      <div className={styles.page}>
-        <main className={styles.main}>
+    <div className={styles.page}>
+      <main className={styles.main}>
         {/* Breadcrumb */}
         <BackLink href={backHref} label={backText} />
 
@@ -150,11 +153,10 @@ export default function PostMatchResultClient({
                   >
                     {isWinner && (
                       <div className={styles.winnerBadge}>
-                        <span
-                          className={`material-symbols-outlined ${styles.icon16} ${styles.iconFilled}`}
-                        >
-                          workspace_premium
-                        </span>
+                        <Award
+                          className={`${styles.icon16} ${styles.iconFilled}`}
+                          size={16}
+                        />
                         WINNER
                       </div>
                     )}
@@ -186,7 +188,7 @@ export default function PostMatchResultClient({
         {/* Termination Reason Banner */}
         {matchData.terminationReason === "disconnect" && (
           <div className={styles.terminationBanner}>
-            <span className="material-symbols-outlined">person_off</span>
+            <UserX size={16} />
             <span>Match concluded early: A user disconnected</span>
           </div>
         )}
@@ -194,11 +196,10 @@ export default function PostMatchResultClient({
         {/* Advancement Banner */}
         {matchData.isKnockout && (
           <div className={styles.advancementBanner}>
-            <span
-              className={`material-symbols-outlined ${styles.advancementIcon} ${styles.iconFilled}`}
-            >
-              military_tech
-            </span>
+            <Medal
+              className={`${styles.advancementIcon} ${styles.iconFilled}`}
+              size={32}
+            />
             <h3>✨ MATCH COMPLETED</h3>
           </div>
         )}
@@ -213,11 +214,7 @@ export default function PostMatchResultClient({
             {matchData.mvp ? (
               <div className={styles.mvpCard}>
                 <div className={styles.mvpBadge}>
-                  <span
-                    className={`material-symbols-outlined ${styles.iconFilled}`}
-                  >
-                    star
-                  </span>
+                  <Star className={styles.iconFilled} size={18} />
                 </div>
                 <div className={styles.mvpInfo}>
                   <img
@@ -227,12 +224,7 @@ export default function PostMatchResultClient({
                   />
                   <div>
                     <div className={styles.mvpLabel}>
-                      <span
-                        className={`material-symbols-outlined ${styles.icon14}`}
-                      >
-                        emoji_events
-                      </span>{" "}
-                      Match MVP
+                      <Trophy className={styles.icon14} size={14} /> Match MVP
                     </div>
                     <h5 className={styles.mvpName}>
                       {getDisplayName(
@@ -259,11 +251,7 @@ export default function PostMatchResultClient({
             ) : (
               <div className={styles.mvpEmpty}>
                 <div className={styles.mvpEmptyInner}>
-                  <span
-                    className={`material-symbols-outlined ${styles.mvpEmptyIcon}`}
-                  >
-                    person_off
-                  </span>
+                  <UserX className={styles.mvpEmptyIcon} size={32} />
                   <span>No solves this match</span>
                 </div>
               </div>
@@ -364,15 +352,14 @@ export default function PostMatchResultClient({
                                   : ""
                               }`}
                             >
-                              <span
-                                className={`material-symbols-outlined ${styles.icon14}`}
-                              >
-                                {prob.solved
-                                  ? isUserTeam
-                                    ? "check_circle"
-                                    : "lock"
-                                  : "lock"}
-                              </span>
+                              {prob.solved && isUserTeam ? (
+                                <CircleCheck
+                                  className={styles.icon14}
+                                  size={14}
+                                />
+                              ) : (
+                                <Lock className={styles.icon14} size={14} />
+                              )}
                               {prob.solved
                                 ? `Solved by ${isSoloFormat ? getDisplayName(prob.solver?.userName ?? "", prob.solver?.pizza_count) : prob.solver?.teamName}`
                                 : "Unsolved"}
@@ -448,8 +435,7 @@ export default function PostMatchResultClient({
             </div>
           </section>
         </div>
-        </main>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }

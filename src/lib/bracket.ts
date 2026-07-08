@@ -473,7 +473,9 @@ async function seedTeamToRound(
 
     // Initialise Redis state so the ready route can find the room
     const redis = await getRedis();
-    const contest = await (await import("../models/ContestMatch")).default
+    const contest = await (
+      await import("../models/ContestMatch")
+    ).default
       .findById(contestId)
       .lean();
     await initBracketRoomRedis(

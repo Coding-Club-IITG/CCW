@@ -4,6 +4,19 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { type ContestListingItem } from "@/lib/actions/contests";
 import Link from "next/link";
+import {
+  CalendarDays,
+  CalendarX,
+  CircleCheck,
+  Clock,
+  History,
+  ListFilter,
+  Medal,
+  Plus,
+  Timer,
+  TimerOff,
+  Users,
+} from "lucide-react";
 
 import CreateRoomModal from "./CreateRoomModal";
 import RegisterContestModal from "./RegisterContestModal";
@@ -234,11 +247,7 @@ export default function ContestListingClient({
                   }`}
                 >
                   {formatFilter === "all" && (
-                    <span
-                      className={`material-symbols-outlined ${styles.icon18}`}
-                    >
-                      filter_list
-                    </span>
+                    <ListFilter className={styles.icon18} size={18} />
                   )}
                   All Formats
                 </button>
@@ -271,9 +280,7 @@ export default function ContestListingClient({
                 onClick={() => setShowCreateModal(true)}
                 className={styles.createBtn}
               >
-                <span className={`material-symbols-outlined ${styles.icon16}`}>
-                  add
-                </span>
+                <Plus className={styles.icon16} size={16} />
                 Create a room
               </button>
             </div>
@@ -331,31 +338,19 @@ export default function ContestListingClient({
                     </div>
                     <div className={styles.cardMeta}>
                       <div className={styles.cardMetaItem}>
-                        <span
-                          className={`material-symbols-outlined ${styles.icon16}`}
-                        >
-                          group
-                        </span>{" "}
+                        <Users className={styles.icon16} size={16} />{" "}
                         {contest.participantsCount || 0} Registered
                       </div>
                       <div className={styles.cardMetaItem}>
-                        <span
-                          className={`material-symbols-outlined ${styles.icon16}`}
-                        >
-                          military_tech
-                        </span>{" "}
-                        5000 Pts Pool
+                        <Medal className={styles.icon16} size={16} /> 5000 Pts
+                        Pool
                       </div>
                     </div>
                     <div className={styles.cardFooter}>
                       {contest.isRegistered ? (
                         <>
                           <div className={styles.registeredLabel}>
-                            <span
-                              className={`material-symbols-outlined ${styles.icon18}`}
-                            >
-                              check_circle
-                            </span>
+                            <CircleCheck className={styles.icon18} size={18} />
                             Registered
                           </div>
                           <Link href={`/internal/contests/${contest._id}`}>
@@ -370,11 +365,7 @@ export default function ContestListingClient({
                             Not registered
                           </div>
                           <div className={styles.inProgressBadge}>
-                            <span
-                              className={`material-symbols-outlined ${styles.icon16}`}
-                            >
-                              pending
-                            </span>
+                            <Clock className={styles.icon16} size={16} />
                             In Progress
                           </div>
                         </>
@@ -422,11 +413,7 @@ export default function ContestListingClient({
                     <div className={styles.upcomingFooter}>
                       <div className={styles.upcomingInfo}>
                         <span className={styles.regMeta}>
-                          <span
-                            className={`material-symbols-outlined ${styles.icon16}`}
-                          >
-                            group
-                          </span>
+                          <Users className={styles.icon16} size={16} />
                           <span>
                             {contest.participantsCount || 0} Registered
                           </span>
@@ -436,11 +423,10 @@ export default function ContestListingClient({
                             new Date(contest.registrationStartTime).getTime() >
                               now && (
                               <span className={styles.regStart}>
-                                <span
-                                  className={`material-symbols-outlined ${styles.icon14}`}
-                                >
-                                  event
-                                </span>
+                                <CalendarDays
+                                  className={styles.icon14}
+                                  size={14}
+                                />
                                 <span>
                                   Registration Starts:{" "}
                                   {new Intl.DateTimeFormat("en-US", {
@@ -457,11 +443,7 @@ export default function ContestListingClient({
                             )}
                           {contest.registrationDeadline ? (
                             <span className={styles.regClose}>
-                              <span
-                                className={`material-symbols-outlined ${styles.icon14}`}
-                              >
-                                timer
-                              </span>
+                              <Timer className={styles.icon14} size={14} />
                               <span>
                                 Closes:{" "}
                                 {new Intl.DateTimeFormat("en-US", {
@@ -477,11 +459,7 @@ export default function ContestListingClient({
                             </span>
                           ) : (
                             <span className={styles.regNoDeadline}>
-                              <span
-                                className={`material-symbols-outlined ${styles.icon14}`}
-                              >
-                                timer_off
-                              </span>
+                              <TimerOff className={styles.icon14} size={14} />
                               <span>Deadline not specified</span>
                             </span>
                           )}
@@ -496,11 +474,10 @@ export default function ContestListingClient({
                         contest.status === "provisioning" ? (
                           <div className={styles.regActions}>
                             <div className={styles.registeredMini}>
-                              <span
-                                className={`material-symbols-outlined ${styles.icon16}`}
-                              >
-                                check_circle
-                              </span>
+                              <CircleCheck
+                                className={styles.icon16}
+                                size={16}
+                              />
                               <span className={styles.hiddenSm}>
                                 Registered
                               </span>
@@ -521,11 +498,10 @@ export default function ContestListingClient({
                         ) : (
                           <div className={styles.regActions}>
                             <div className={styles.registeredMini}>
-                              <span
-                                className={`material-symbols-outlined ${styles.icon16}`}
-                              >
-                                check_circle
-                              </span>
+                              <CircleCheck
+                                className={styles.icon16}
+                                size={16}
+                              />
                               <span className={styles.hiddenSm}>
                                 Registered
                               </span>
@@ -615,11 +591,7 @@ export default function ContestListingClient({
                 <h2 className={styles.sectionTitle}>Completed</h2>
                 <Link href="/internal/contests/history">
                   <button className={styles.pillBtn}>
-                    <span
-                      className={`material-symbols-outlined ${styles.icon18}`}
-                    >
-                      history
-                    </span>
+                    <History className={styles.icon18} size={18} />
                     View History
                   </button>
                 </Link>
@@ -681,11 +653,7 @@ export default function ContestListingClient({
             upcoming.length === 0 &&
             completed.length === 0 && (
               <div className={styles.empty}>
-                <span
-                  className={`material-symbols-outlined ${styles.emptyIcon}`}
-                >
-                  event_busy
-                </span>
+                <CalendarX className={styles.emptyIcon} size={64} />
                 <h3 className={styles.emptyTitle}>No contests found</h3>
                 <p className={styles.emptyText}>
                   There are no contests matching your selected format.
@@ -755,11 +723,7 @@ function UpcomingCountdownTimer({
 
   return (
     <span className={styles.startsBadge}>
-      Starts{" "}
-      <span className={`material-symbols-outlined ${styles.icon12}`}>
-        schedule
-      </span>{" "}
-      {timeLeft}
+      Starts <Clock className={styles.icon12} size={12} /> {timeLeft}
     </span>
   );
 }

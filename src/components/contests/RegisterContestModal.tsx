@@ -6,6 +6,15 @@ import {
   getAvailableTeamsForContest,
 } from "@/lib/actions/contests";
 import { useRouter } from "next/navigation";
+import {
+  ChevronDown,
+  CircleUserRound,
+  List,
+  Terminal,
+  User,
+  Users,
+  X,
+} from "lucide-react";
 import styles from "./RegisterContestModal.module.scss";
 
 export default function RegisterContestModal({
@@ -161,11 +170,7 @@ export default function RegisterContestModal({
                     className={styles.avatarImg}
                   />
                 ) : (
-                  <span
-                    className={`material-symbols-outlined ${styles.icon18}`}
-                  >
-                    person
-                  </span>
+                  <User className={styles.icon18} size={18} />
                 )}
               </div>
               <span className={styles.regName}>
@@ -187,11 +192,7 @@ export default function RegisterContestModal({
             <div key={i} className={styles.teamCard}>
               <div className={styles.teamHeader}>
                 <span className={styles.teamHeaderName}>
-                  <span
-                    className={`material-symbols-outlined ${styles.icon16}`}
-                  >
-                    groups
-                  </span>
+                  <Users className={styles.icon16} size={16} />
                   {tName}
                 </span>
                 <span className={styles.teamCount}>
@@ -208,11 +209,10 @@ export default function RegisterContestModal({
                         className={styles.memberChipImg}
                       />
                     ) : (
-                      <span
-                        className={`material-symbols-outlined ${styles.memberChipIcon}`}
-                      >
-                        account_circle
-                      </span>
+                      <CircleUserRound
+                        className={styles.memberChipIcon}
+                        size={12}
+                      />
                     )}
                     {m.cfHandle}
                   </span>
@@ -241,7 +241,7 @@ export default function RegisterContestModal({
             className={styles.closeBtn}
             type="button"
           >
-            <span className="material-symbols-outlined">close</span>
+            <X size={18} />
           </button>
         </div>
 
@@ -249,9 +249,7 @@ export default function RegisterContestModal({
           {/* Current Registrations Display */}
           <div className={styles.section}>
             <h3 className={styles.sectionTitle}>
-              <span className={`material-symbols-outlined ${styles.icon18}`}>
-                format_list_bulleted
-              </span>
+              <List className={styles.icon18} size={18} />
               Current Registrations
             </h3>
             {renderRegistrations()}
@@ -317,11 +315,7 @@ export default function RegisterContestModal({
                   <div className={styles.inputWrap}>
                     {mode === "existing" ? (
                       <>
-                        <span
-                          className={`material-symbols-outlined ${styles.inputIcon}`}
-                        >
-                          group
-                        </span>
+                        <Users className={styles.inputIcon} size={18} />
                         <select
                           className={styles.select}
                           id="team_name"
@@ -352,19 +346,11 @@ export default function RegisterContestModal({
                             ))
                           )}
                         </select>
-                        <span
-                          className={`material-symbols-outlined ${styles.dropIcon}`}
-                        >
-                          arrow_drop_down
-                        </span>
+                        <ChevronDown className={styles.dropIcon} size={18} />
                       </>
                     ) : (
                       <>
-                        <span
-                          className={`material-symbols-outlined ${styles.inputIcon}`}
-                        >
-                          terminal
-                        </span>
+                        <Terminal className={styles.inputIcon} size={18} />
                         <input
                           className={styles.input}
                           id="team_name"

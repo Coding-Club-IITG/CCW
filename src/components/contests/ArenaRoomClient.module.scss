@@ -222,26 +222,12 @@
 }
 
 .syncMini {
+  @include btn-primary;
   display: flex;
   align-items: center;
   gap: 0.25rem;
   padding: 0.375rem 0.75rem;
-  border-radius: 6px;
   font-size: 0.75rem;
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-  transition: filter 0.15s ease;
-
-  &:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-
-  &:disabled {
-    background: var(--surface-hover);
-    color: var(--muted-light);
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 }
 
 /* Apply Fonts */
@@ -250,7 +236,12 @@
   font-size: 1rem;
 }
 
-.gridHeadTitle, .ratingBadge, .gridCardPoints, .claimedName, .claimedLabel, .unclaimed, .syncMini {
+.gridHeadTitle,
+.ratingBadge,
+.gridCardPoints,
+.claimedName,
+.claimedLabel,
+.unclaimed,
+.syncMini {
   font-family: "JetBrains Mono", monospace;
 }
-

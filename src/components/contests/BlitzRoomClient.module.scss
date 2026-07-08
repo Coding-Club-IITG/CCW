@@ -147,35 +147,24 @@
 }
 
 .syncBtn {
+  @include btn-primary;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 2rem;
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
   border-radius: 8px;
   font-size: 0.75rem;
   font-weight: 700;
-  transition:
-    filter 0.15s ease,
-    box-shadow 0.15s ease;
-  @include contest-glow(var(--focus-ring));
-
-  &:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 }
 
 /* Apply Fonts */
 .problemTitle {
   font-family: "Inter", sans-serif;
 }
-.problemCountText, .metaChip, .metaPoints, .cfLink, .syncBtn {
+.problemCountText,
+.metaChip,
+.metaPoints,
+.cfLink,
+.syncBtn {
   font-family: "JetBrains Mono", monospace;
 }
-

@@ -1,12 +1,42 @@
 "use client";
 
 import Link from "next/link";
+import {
+  ArrowLeft,
+  CircleAlert,
+  CircleCheck,
+  Code,
+  ExternalLink,
+  Gavel,
+  Hourglass,
+  Info,
+  Lock,
+  type LucideIcon,
+  RefreshCw,
+  Rss,
+  Timer,
+  Trophy,
+  User,
+  UserX,
+  Users,
+} from "lucide-react";
 import { ContestListingItem } from "@/lib/actions/contests";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, createElement } from "react";
 import { useRouter } from "next/navigation";
 import { getDisplayName } from "@/lib/utils";
 import styles from "./ArenaRoomClient.module.scss";
+
+const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
+  info: Info,
+  gavel: Gavel,
+  lock: Lock,
+  sync: RefreshCw,
+  check_circle: CircleCheck,
+  error: CircleAlert,
+  person: User,
+  person_off: UserX,
+};
 
 interface EventPayload {
   type: string;
@@ -454,9 +484,7 @@ export default function ArenaRoomClient({
             }
             className={styles.backLink}
           >
-            <span className={`material-symbols-outlined ${styles.icon18}`}>
-              arrow_back
-            </span>
+            <ArrowLeft className={styles.icon18} size={18} />
             {from === "bracket" ? "Back to Bracket Canvas" : "Back to Contests"}
           </Link>
         </div>
@@ -498,9 +526,7 @@ export default function ArenaRoomClient({
             ))}
           </div>
           <div className={styles.timerBox}>
-            <span className={`material-symbols-outlined ${styles.timerIcon}`}>
-              timer
-            </span>
+            <Timer className={styles.timerIcon} size={18} />
             <span className={styles.timerText}>
               {timeLeft} <span className={styles.timerSub}>remaining</span>
             </span>
@@ -576,7 +602,7 @@ export default function ArenaRoomClient({
               {matchState === "waiting" ? (
                 <div className={styles.waiting}>
                   <div className={styles.waitingIcon}>
-                    <span className="material-symbols-outlined">groups</span>
+                    <Users size={48} />
                   </div>
                   <h2 className={styles.waitingTitle}>Waiting for Players</h2>
                   <p className={styles.waitingText}>
@@ -649,9 +675,11 @@ export default function ArenaRoomClient({
                                   : styles.lockOverlayOther
                               }`}
                             >
-                              <span className="material-symbols-outlined">
-                                {claimedByMe ? "check_circle" : "lock"}
-                              </span>
+                              {claimedByMe ? (
+                                <CircleCheck size={64} />
+                              ) : (
+                                <Lock size={64} />
+                              )}
                             </div>
                           )}
                           <div className={styles.gridCardHeader}>
@@ -660,15 +688,11 @@ export default function ArenaRoomClient({
                             >
                               {prob.rating}
                             </span>
-                            <span
-                              className={`material-symbols-outlined ${topIconClass}`}
-                            >
-                              {isClaimed
-                                ? claimedByMe
-                                  ? "code"
-                                  : "lock"
-                                : "code"}
-                            </span>
+                            {isClaimed && !claimedByMe ? (
+                              <Lock className={topIconClass} size={18} />
+                            ) : (
+                              <Code className={topIconClass} size={18} />
+                            )}
                           </div>
                           <div className={styles.gridCardBody}>
                             <h3
@@ -716,11 +740,10 @@ export default function ArenaRoomClient({
                                 className={styles.cfIconBtn}
                                 title="Open in Codeforces"
                               >
-                                <span
-                                  className={`material-symbols-outlined ${styles.icon16}`}
-                                >
-                                  open_in_new
-                                </span>
+                                <ExternalLink
+                                  className={styles.icon16}
+                                  size={16}
+                                />
                               </a>
                               <button
                                 onClick={() => handleSync(prob.problemId)}
@@ -732,17 +755,24 @@ export default function ArenaRoomClient({
                                 }
                                 className={styles.syncMini}
                               >
-                                <span
-                                  className={`material-symbols-outlined ${styles.icon14} ${isSyncing && !isClaimed ? styles.spin : ""}`}
-                                >
-                                  {isClaimed
-                                    ? "lock"
-                                    : isSyncing
-                                      ? "sync"
-                                      : syncCooldown > 0
-                                        ? "hourglass_empty"
-                                        : "sync"}
-                                </span>
+                                {isClaimed ? (
+                                  <Lock className={styles.icon14} size={14} />
+                                ) : isSyncing ? (
+                                  <RefreshCw
+                                    className={`${styles.icon14} ${styles.spin}`}
+                                    size={14}
+                                  />
+                                ) : syncCooldown > 0 ? (
+                                  <Hourglass
+                                    className={styles.icon14}
+                                    size={14}
+                                  />
+                                ) : (
+                                  <RefreshCw
+                                    className={styles.icon14}
+                                    size={14}
+                                  />
+                                )}
                                 {isClaimed
                                   ? "Locked"
                                   : isSyncing
@@ -767,7 +797,7 @@ export default function ArenaRoomClient({
             <div className={`${styles.panel} ${styles.panelStage}`}>
               <div className={styles.activityHead}>
                 <h2 className={styles.activityTitle}>
-                  <span className="material-symbols-outlined">rss_feed</span>
+                  <Rss size={18} />
                   Activity Feed
                 </h2>
               </div>
@@ -778,11 +808,10 @@ export default function ArenaRoomClient({
                   activityFeed.map((act) => (
                     <div key={act.id} className={styles.activityItem}>
                       <div className={styles.activityIconWrap}>
-                        <span
-                          className={`material-symbols-outlined ${activityColorClass(act.color)} ${styles.icon16}`}
-                        >
-                          {act.icon}
-                        </span>
+                        {createElement(ACTIVITY_ICON_MAP[act.icon] ?? Info, {
+                          className: `${activityColorClass(act.color)} ${styles.icon16}`,
+                          size: 16,
+                        })}
                       </div>
                       <div className={styles.activityBody}>
                         <p
@@ -814,11 +843,7 @@ export default function ArenaRoomClient({
             <div className={styles.toastAccent}></div>
             <div className={styles.toastHeader}>
               <div className={styles.toastHeaderLeft}>
-                <span
-                  className={`material-symbols-outlined ${styles.toastIcon}`}
-                >
-                  emoji_events
-                </span>
+                <Trophy className={styles.toastIcon} size={28} />
                 <h3 className={styles.toastTitle}>Match Over!</h3>
               </div>
             </div>

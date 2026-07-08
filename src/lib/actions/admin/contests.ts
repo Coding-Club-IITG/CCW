@@ -7,7 +7,6 @@ import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
 import ContestPreset from "@/models/ContestPreset";
 import mongoose from "mongoose";
-import User from "@/models/User";
 import CPUser from "@/models/CPUser";
 import { reconciliationQueue } from "@/lib/bullmq";
 
@@ -244,61 +243,4 @@ export async function createBracketContest(data: any) {
   } catch (err: any) {
     return { error: err.message || "Failed to create contest" };
   }
-}
-
-export async function searchVerifiedUsers(query: string) {
-  const reqHeaders = await headers();
-  const session = await auth.api.getSession({ headers: reqHeaders });
-  if (!session) return { error: "Unauthorized" };
-
-  const user = session.user as any;
-  if (!isAdmin(user.role)) return { error: "Forbidden" };
-
-  if (!query || query.length < 2) return { users: [] };
-
-  await dbConnect();
-
-  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const users = await User.find({
-    name: { $regex: escapedQuery, $options: "i" },
-  })
-    .select("_id name image pizza_count")
-    .limit(20)
-    .lean();
-
-  if (users.length === 0) return { users: [] };
-
-  const userIds = users.map((u: any) => u._id);
-
-  // Find which of these users are CPUsers with verified handles
-  const cpUsers = await CPUser.find({
-    userId: { $in: userIds },
-    cfHandle: { $ne: "" },
-  })
-    .select("userId cfHandle cfRating")
-    .lean();
-
-  const cpUserMap = new Map();
-  for (const c of cpUsers) {
-    cpUserMap.set(c.userId.toString(), {
-      cfHandle: c.cfHandle,
-      cfRating: c.cfRating,
-    });
-  }
-
-  const result = users
-    .filter((u: any) => cpUserMap.has(u._id.toString()))
-    .map((u: any) => {
-      const cpData = cpUserMap.get(u._id.toString());
-      return {
-        id: u._id.toString(),
-        name: u.name,
-        image: u.image,
-        pizza_count: u.pizza_count || 0,
-        cfHandle: cpData.cfHandle,
-        cfRating: cpData.cfRating || 0,
-      };
-    });
-
-  return { users: result };
 }

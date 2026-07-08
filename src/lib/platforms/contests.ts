@@ -23,7 +23,7 @@ export type RawContest = {
 export async function fetchAllContests(): Promise<RawContest[]> {
   try {
     const upcoming = await cp.contests.getUpcoming();
-    
+
     // Log for each platform like the old code did
     const cfCount = upcoming.filter((c) => c.platform === "CODEFORCES").length;
     const acCount = upcoming.filter((c) => c.platform === "ATCODER").length;
@@ -45,7 +45,10 @@ export async function fetchAllContests(): Promise<RawContest[]> {
       url: c.url,
     }));
   } catch (error: any) {
-    logger.error("[ContestSync] fetchAllContests failed:", error.message || error);
+    logger.error(
+      "[ContestSync] fetchAllContests failed:",
+      error.message || error,
+    );
     return [];
   }
 }

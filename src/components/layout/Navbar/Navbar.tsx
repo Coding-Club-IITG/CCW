@@ -106,9 +106,15 @@ export default function Navbar() {
       </div>
 
       <div className={styles.rightSection}>
-        <div className={`${styles.navLinks} ${hamburgerOpen ? styles.open : ""}`}>
+        <div
+          className={`${styles.navLinks} ${hamburgerOpen ? styles.open : ""}`}
+        >
           {navLinks.map(({ href, label }) => (
-            <Link key={href} href={href} onClick={() => setHamburgerOpen(false)}>
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setHamburgerOpen(false)}
+            >
               {label}
             </Link>
           ))}
@@ -122,6 +128,8 @@ export default function Navbar() {
                 className={styles.avatarButton}
                 onClick={() => setMenuOpen(!menuOpen)}
                 aria-label="User menu"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
                 type="button"
               >
                 <UserAvatar name={user?.name} image={user?.image} />
@@ -225,6 +233,7 @@ export default function Navbar() {
             onClick={() => setHamburgerOpen(!hamburgerOpen)}
             className={styles.hamburgerButton}
             aria-label="Toggle navigation menu"
+            aria-expanded={hamburgerOpen}
             type="button"
           >
             {hamburgerOpen ? <X size={20} /> : <Menu size={20} />}

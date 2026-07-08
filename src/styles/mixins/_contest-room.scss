@@ -3,6 +3,7 @@
 // HUD / roster / activity-feed / toast layout. Only the problem area differs.
 
 @use "contests" as *;
+@use "buttons" as *;
 
 @mixin contest-room-base {
   .page {
@@ -389,7 +390,7 @@
     background: var(--primary-alpha);
     @include contest-glow(var(--focus-ring));
 
-    span {
+    svg {
       font-size: 3rem;
       color: var(--primary);
       animation: contestPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -411,32 +412,15 @@
   }
 
   .readyBtn {
+    @include btn-primary;
     width: 100%;
     max-width: 24rem;
     padding: 1rem 2rem;
     border-radius: 8px;
-    background: var(--btn-primary-bg);
-    color: var(--btn-primary-text);
-    border: 1px solid transparent;
     font-size: 1rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    transition:
-      background 0.2s ease,
-      box-shadow 0.2s ease,
-      transform 0.2s ease;
-    @include contest-glow(var(--success-border), 20px);
-
-    &:hover:not(:disabled) {
-      background: var(--btn-primary-bg-hover);
-      transform: translateY(-2px);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: default;
-    }
   }
 
   /* Activity feed */
@@ -458,7 +442,7 @@
     font-weight: 700;
     color: var(--foreground-strong);
 
-    span {
+    svg {
       color: var(--primary);
     }
   }
@@ -626,18 +610,12 @@
   }
 
   .toastBtn {
+    @include btn-primary;
     width: 100%;
     padding: 0.5rem;
-    background: var(--btn-primary-bg);
-    color: var(--btn-primary-text);
     border-radius: 8px;
     font-size: 0.75rem;
     font-weight: 700;
-    transition: filter 0.15s ease;
-
-    &:hover {
-      filter: brightness(1.1);
-    }
   }
 
   .toastBtnSecondary {
@@ -656,12 +634,19 @@
   }
 
   /* Icon sizes */
-  .icon14 { font-size: 14px; }
-  .icon16 { font-size: 16px; }
-  .icon18 { font-size: 18px; }
+  .icon14 {
+    font-size: 14px;
+  }
+  .icon16 {
+    font-size: 16px;
+  }
+  .icon18 {
+    font-size: 18px;
+  }
 
   /* Apply Fonts */
-  .hudTitle, .waitingTitle {
+  .hudTitle,
+  .waitingTitle {
     font-family: "Hanken Grotesk", sans-serif;
   }
   .hudTitle {
@@ -671,12 +656,31 @@
     font-size: 1.875rem; /* 30px */
   }
 
-  .teamName, .teamNameActive, .scoreRow, .scoreVal, .toastScoreOwn, .toastScoreOther, .toastTitle {
+  .teamName,
+  .teamNameActive,
+  .scoreRow,
+  .scoreVal,
+  .toastScoreOwn,
+  .toastScoreOther,
+  .toastTitle {
     font-family: "Inter", sans-serif;
     font-weight: 700;
   }
-  
-  .backLink, .statusBadge, .timerText, .timerSub, .panelTitle, .rosterTeamName, .memberName, .activityTitle, .activitySub, .activityTime, .readyBtn, .toastBtn, .toastBtnSecondary, .activityText {
+
+  .backLink,
+  .statusBadge,
+  .timerText,
+  .timerSub,
+  .panelTitle,
+  .rosterTeamName,
+  .memberName,
+  .activityTitle,
+  .activitySub,
+  .activityTime,
+  .readyBtn,
+  .toastBtn,
+  .toastBtnSecondary,
+  .activityText {
     font-family: "JetBrains Mono", monospace;
   }
 
@@ -685,4 +689,3 @@
     letter-spacing: 0.1em;
   }
 }
-

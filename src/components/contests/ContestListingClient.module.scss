@@ -477,24 +477,8 @@
 
 /* Buttons */
 .joinBtn {
+  @include btn-primary;
   padding: 0.5rem 1.5rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-  border: none;
-  transition:
-    background 0.2s ease,
-    transform 0.2s ease;
-
-  &:hover {
-    background: var(--btn-primary-bg-hover);
-    transform: translateY(-2px);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
 }
 
 .inProgressBadge {
@@ -667,13 +651,22 @@
 }
 
 /* Icon sizes */
-.icon12 { font-size: 12px; }
-.icon14 { font-size: 14px; }
-.icon16 { font-size: 16px; }
-.icon18 { font-size: 18px; }
+.icon12 {
+  font-size: 12px;
+}
+.icon14 {
+  font-size: 14px;
+}
+.icon16 {
+  font-size: 16px;
+}
+.icon18 {
+  font-size: 18px;
+}
 
 /* Apply Fonts */
-.title, .sectionTitle {
+.title,
+.sectionTitle {
   font-family: "Hanken Grotesk", sans-serif;
   font-size: 2rem;
   letter-spacing: -0.02em;
@@ -702,17 +695,37 @@
   color: var(--foreground-strong);
 }
 
-.cardBadge, .cardBadgeNeutral, .cardDateBadge, .filterBtn, .createBtn, .timer, .timerWaiting, .registeredLabel, .registeredMini, .regStart, .regClose, .regNoDeadline, .startsBadge, .joinBtn, .miniBtn, .pillBtn, .tableBadge, .inProgressBadge {
+.cardBadge,
+.cardBadgeNeutral,
+.cardDateBadge,
+.filterBtn,
+.createBtn,
+.timer,
+.timerWaiting,
+.registeredLabel,
+.registeredMini,
+.regStart,
+.regClose,
+.regNoDeadline,
+.startsBadge,
+.joinBtn,
+.miniBtn,
+.pillBtn,
+.tableBadge,
+.inProgressBadge {
   font-family: "JetBrains Mono", monospace;
 }
 
-.timer, .timerWaiting {
+.timer,
+.timerWaiting {
   font-size: 1.125rem;
   letter-spacing: 0.05em;
   font-weight: 500;
 }
 
-.cardBadge, .cardBadgeNeutral, .cardDateBadge {
+.cardBadge,
+.cardBadgeNeutral,
+.cardDateBadge {
   font-size: 0.75rem;
 }
 
@@ -729,4 +742,3 @@
   font-size: 0.8125rem;
   height: 32px;
 }
-

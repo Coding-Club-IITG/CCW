@@ -1,12 +1,45 @@
 "use client";
 
 import Link from "next/link";
+import {
+  ArrowLeft,
+  BarChart3,
+  CircleAlert,
+  CircleCheck,
+  Code,
+  ExternalLink,
+  Gavel,
+  Hourglass,
+  Info,
+  type LucideIcon,
+  Play,
+  RefreshCw,
+  Rss,
+  Sparkles,
+  Target,
+  Timer,
+  Trophy,
+  User,
+  UserX,
+  Users,
+  X,
+} from "lucide-react";
 import { ContestListingItem } from "@/lib/actions/contests";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, createElement } from "react";
 import { useRouter } from "next/navigation";
 import { getDisplayName } from "@/lib/utils";
 import styles from "./BlitzRoomClient.module.scss";
+
+const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
+  info: Info,
+  gavel: Gavel,
+  sync: RefreshCw,
+  check_circle: CircleCheck,
+  error: CircleAlert,
+  person: User,
+  person_off: UserX,
+};
 
 interface EventPayload {
   type: string;
@@ -459,9 +492,7 @@ export default function BlitzRoomClient({
             }
             className={styles.backLink}
           >
-            <span className={`material-symbols-outlined ${styles.icon18}`}>
-              arrow_back
-            </span>
+            <ArrowLeft className={styles.icon18} size={18} />
             {from === "bracket" ? "Back to Bracket Canvas" : "Back to Contests"}
           </Link>
         </div>
@@ -536,9 +567,7 @@ export default function BlitzRoomClient({
           </div>
           {/* Countdown Timer */}
           <div className={styles.timerBox}>
-            <span className={`material-symbols-outlined ${styles.timerIcon}`}>
-              timer
-            </span>
+            <Timer className={styles.timerIcon} size={18} />
             <span className={styles.timerText}>
               {timeLeft} <span className={styles.timerSub}>remaining</span>
             </span>
@@ -615,7 +644,7 @@ export default function BlitzRoomClient({
               {matchState === "waiting" ? (
                 <div className={styles.waiting}>
                   <div className={styles.waitingIcon}>
-                    <span className="material-symbols-outlined">groups</span>
+                    <Users size={48} />
                   </div>
                   <h2 className={styles.waitingTitle}>Waiting for Players</h2>
                   <p className={styles.waitingText}>
@@ -640,11 +669,10 @@ export default function BlitzRoomClient({
                 <>
                   <div className={styles.problemHead}>
                     <div className={styles.problemCount}>
-                      <span
-                        className={`material-symbols-outlined ${styles.problemCountText} ${styles.icon16}`}
-                      >
-                        target
-                      </span>
+                      <Target
+                        className={`${styles.problemCountText} ${styles.icon16}`}
+                        size={16}
+                      />
                       <span className={styles.problemCountText}>
                         Problem {currentProblemIndex + 1} of {totalProblems}
                       </span>
@@ -667,9 +695,7 @@ export default function BlitzRoomClient({
 
                   <div key={animationKey} className={styles.problemCard}>
                     <div className={styles.problemWatermark}>
-                      <span className="material-symbols-outlined">
-                        code_blocks
-                      </span>
+                      <Code size={96} />
                     </div>
                     <div className={styles.problemBody}>
                       <h1 className={styles.problemTitle}>
@@ -680,19 +706,11 @@ export default function BlitzRoomClient({
                       </h1>
                       <div className={styles.problemMeta}>
                         <span className={styles.metaChip}>
-                          <span
-                            className={`material-symbols-outlined ${styles.icon16}`}
-                          >
-                            bar_chart
-                          </span>
+                          <BarChart3 className={styles.icon16} size={16} />
                           Rating: {activeProblem.rating}
                         </span>
                         <span className={styles.metaPoints}>
-                          <span
-                            className={`material-symbols-outlined ${styles.icon16}`}
-                          >
-                            stars
-                          </span>
+                          <Sparkles className={styles.icon16} size={16} />
                           Points: {activeProblem.points || 100}
                         </span>
                       </div>
@@ -705,9 +723,7 @@ export default function BlitzRoomClient({
                         rel="noreferrer"
                         className={styles.cfLink}
                       >
-                        <span className="material-symbols-outlined">
-                          open_in_new
-                        </span>
+                        <ExternalLink size={16} />
                         Open in Codeforces
                       </a>
                       <button
@@ -717,13 +733,14 @@ export default function BlitzRoomClient({
                         }
                         className={styles.syncBtn}
                       >
-                        <span
-                          className={`material-symbols-outlined ${syncing ? styles.spin : ""}`}
-                        >
-                          {syncCooldown > 0 && !syncing
-                            ? "hourglass_empty"
-                            : "sync"}
-                        </span>
+                        {syncCooldown > 0 && !syncing ? (
+                          <Hourglass size={16} />
+                        ) : (
+                          <RefreshCw
+                            className={syncing ? styles.spin : ""}
+                            size={16}
+                          />
+                        )}
                         {syncing
                           ? "Syncing..."
                           : syncCooldown > 0
@@ -742,7 +759,7 @@ export default function BlitzRoomClient({
             <div className={`${styles.panel} ${styles.panelStage}`}>
               <div className={styles.activityHead}>
                 <h2 className={styles.activityTitle}>
-                  <span className="material-symbols-outlined">rss_feed</span>
+                  <Rss size={18} />
                   Activity Feed
                 </h2>
                 <p className={styles.activitySub}>
@@ -756,11 +773,10 @@ export default function BlitzRoomClient({
                   activityFeed.map((act) => (
                     <div key={act.id} className={styles.activityItem}>
                       <div className={styles.activityIconWrap}>
-                        <span
-                          className={`material-symbols-outlined ${activityColorClass(act.color)} ${styles.icon16}`}
-                        >
-                          {act.icon}
-                        </span>
+                        {createElement(ACTIVITY_ICON_MAP[act.icon] ?? Info, {
+                          className: `${activityColorClass(act.color)} ${styles.icon16}`,
+                          size: 16,
+                        })}
                       </div>
                       <div>
                         <p className={styles.activityText}>{act.text}</p>
@@ -784,11 +800,7 @@ export default function BlitzRoomClient({
             <div className={styles.toastAccent}></div>
             <div className={styles.toastHeader}>
               <div className={styles.toastHeaderLeft}>
-                <span
-                  className={`material-symbols-outlined ${styles.toastIcon}`}
-                >
-                  play_arrow
-                </span>
+                <Play className={styles.toastIcon} size={28} />
                 <h3 className={styles.toastTitle}>Match Started!</h3>
               </div>
             </div>
@@ -812,15 +824,11 @@ export default function BlitzRoomClient({
             <div className={styles.toastAccent}></div>
             <div className={styles.toastHeader}>
               <div className={styles.toastHeaderLeft}>
-                <span
-                  className={`material-symbols-outlined ${styles.toastIcon}`}
-                >
-                  emoji_events
-                </span>
+                <Trophy className={styles.toastIcon} size={28} />
                 <h3 className={styles.toastTitle}>Match Over!</h3>
               </div>
               <button className={styles.toastClose}>
-                <span className="material-symbols-outlined">close</span>
+                <X size={18} />
               </button>
             </div>
             <p className={styles.toastText}>

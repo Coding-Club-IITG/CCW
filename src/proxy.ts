@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { isAdmin, parseModuleRoles } from "@/lib/roles";
 
 export async function proxy(request: NextRequest) {
   const session = await auth.api.getSession({
@@ -14,29 +13,6 @@ export async function proxy(request: NextRequest) {
   // If no session, send to home
   if (isProtectedRoute && !session)
     return NextResponse.redirect(new URL("/", request.url));
-
-  // ───────────────────────────────────────────────────────────────────────
-  // TEMP TESTING GATE
-  if (
-    session &&
-    (pathname.startsWith("/internal/contests") ||
-      pathname.startsWith("/api/contests"))
-  ) {
-    const user = session.user as { role?: string; moduleRoles?: unknown };
-    const hasRequiredModule = parseModuleRoles(user.moduleRoles).some(
-      (mr) => mr.module === "Software Development" || mr.module === "Competitive Programming",
-    );
-    if (!isAdmin(user.role) && !hasRequiredModule) {
-      if (pathname.startsWith("/api/")) {
-        return NextResponse.json(
-          { error: "Forbidden: Software Development or CP module only (testing)" },
-          { status: 403 },
-        );
-      }
-      return NextResponse.redirect(new URL("/internal/dashboard", request.url));
-    }
-  }
-  // ───────────────────────────────────────────────────────────────────────
 
   // Redirect members
   if (
@@ -54,8 +30,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
-    "/api/contests/:path*", // TEMP TESTING GATE
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

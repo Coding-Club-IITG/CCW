@@ -1,5 +1,4 @@
-// Aggregated mixin entrypoint. Consumers keep using `@use "@/styles/mixins" as *;`
-// and get every mixin below. Split by concern for maintainability.
+// Aggregated mixin entrypoint
 
 @forward "tables";
 @forward "modals";

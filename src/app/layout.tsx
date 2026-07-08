@@ -19,7 +19,6 @@ export default async function RootLayout({
   return (
     <html lang="en" data-theme={theme}>
       <head>
-        {/* Google Fonts */}
         <link href="https://fonts.googleapis.com" rel="preconnect" />
         <link
           crossOrigin="anonymous"
@@ -27,7 +26,7 @@ export default async function RootLayout({
           rel="preconnect"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Inter:wght@400&family=JetBrains+Mono:wght@500&display=swap"
           rel="stylesheet"
         />
       </head>
