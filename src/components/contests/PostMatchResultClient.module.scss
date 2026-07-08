@@ -117,41 +117,46 @@
   gap: 0.25rem;
   padding: 0.25rem 1rem;
   border-radius: 999px;
-  background: var(--success);
-  color: var(--fg-on-emphasis);
-  font-size: 0.75rem;
-  font-weight: 600;
+  background: #2e7d32;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
   white-space: nowrap;
-  @include contest-glow(var(--success-border), 15px);
+  box-shadow: 0 0 15px rgba(46, 125, 50, 0.5);
 }
 
 .teamName {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-family: "Hanken Grotesk", sans-serif;
+  font-size: 40px;
+  font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.2;
   color: var(--foreground-strong);
   text-align: center;
   margin: 0;
 }
 
 .teamNameWinner {
-  color: var(--success);
+  color: #88d982;
   border-radius: 999px;
   padding: 0 1rem;
-  @include contest-glow(var(--success-border), 40px);
+  box-shadow: 0 0 40px rgba(46, 125, 50, 0.3);
 }
 
 .teamScore {
-  font-size: 2.25rem;
+  font-family: "Hanken Grotesk", sans-serif;
+  font-size: 56px;
   font-weight: 700;
   line-height: 1.1;
+  letter-spacing: -0.02em;
   color: var(--foreground-strong);
 }
 
 .teamScoreWinner {
-  color: var(--success);
+  color: #a3f69c;
 }
 
 .heroMeta {
@@ -206,7 +211,8 @@
 
   h3 {
     margin: 0;
-    font-size: 1.125rem;
+    font-family: "Hanken Grotesk", sans-serif;
+    font-size: 32px;
     font-weight: 600;
     color: var(--foreground-strong);
     z-index: 1;
@@ -254,7 +260,8 @@
   margin: 0;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
-  font-size: 1.125rem;
+  font-family: "Hanken Grotesk", sans-serif;
+  font-size: 32px;
   font-weight: 600;
   color: var(--foreground-strong);
 }
@@ -266,7 +273,7 @@
   padding: 1.5rem;
   border-radius: 12px;
   background: var(--surface);
-  border: 1px solid var(--primary);
+  border: 1px solid rgba(136, 217, 130, 0.5);
   transition: background 0.15s ease;
 
   &:hover {
@@ -283,8 +290,8 @@
   justify-content: center;
   padding: 0.75rem;
   border-bottom-left-radius: 8px;
-  background: var(--success);
-  color: var(--fg-on-emphasis);
+  background: #2e7d32;
+  color: #ffffff;
 }
 
 .mvpInfo {
@@ -299,7 +306,7 @@
   height: 4rem;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--primary);
+  border: 2px solid #88d982;
   padding: 1px;
 }
 
@@ -308,8 +315,9 @@
   align-items: center;
   gap: 0.25rem;
   margin-bottom: 0.25rem;
-  font-size: 0.75rem;
-  color: var(--primary);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  color: #88d982;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -335,14 +343,18 @@
 }
 
 .mvpContribLabel {
-  font-size: 0.75rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
   color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .mvpContribValue {
-  font-size: 1.125rem;
+  font-family: "Hanken Grotesk", sans-serif;
+  font-size: 32px;
   font-weight: 700;
-  color: var(--primary);
+  color: #88d982;
 }
 
 .mvpEmpty {
@@ -489,10 +501,10 @@
     transform 0.15s ease;
 
   &:hover {
-    @include contest-glow(var(--success-border), 20px);
-    border-color: var(--success);
+    box-shadow: 0 0 20px rgba(46, 125, 50, 0.6) !important;
+    border-color: rgba(46, 125, 50, 0.8) !important;
     transform: scale(1.01);
-    z-index: 1;
+    z-index: 10;
   }
 }
 

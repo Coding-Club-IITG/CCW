@@ -121,8 +121,13 @@ export default function PostMatchResultClient({
   };
 
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
+    <>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Inter:wght@400&family=JetBrains+Mono:wght@500&display=swap"
+        rel="stylesheet"
+      />
+      <div className={styles.page}>
+        <main className={styles.main}>
         {/* Breadcrumb */}
         <BackLink href={backHref} label={backText} />
 
@@ -443,7 +448,8 @@ export default function PostMatchResultClient({
             </div>
           </section>
         </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   );
 }
