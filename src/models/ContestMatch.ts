@@ -44,6 +44,7 @@ export interface IContestMatch extends Document {
   bulkRatingMin?: number;
   bulkRatingMax?: number;
   bulkProblemCount?: number;
+  bulkMinContestId?: number;
   // Mode B (Fine-tuned)
   problemSlots?: IProblemSlot[];
   // Registration and Bracket fields
@@ -131,6 +132,7 @@ const ContestMatchSchema = new Schema<IContestMatch>(
     bulkRatingMin: { type: Number },
     bulkRatingMax: { type: Number },
     bulkProblemCount: { type: Number },
+    bulkMinContestId: { type: Number },
     // Mode B
     problemSlots: [ProblemSlotSchema],
     // Registration and Bracket

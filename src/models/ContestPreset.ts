@@ -13,6 +13,7 @@ export interface IContestPreset extends Document {
   bulkRatingMin?: number;
   bulkRatingMax?: number;
   bulkProblemCount?: number;
+  bulkMinContestId?: number;
   // Mode B (Fine-tuned)
   problemSlots?: IProblemSlot[];
   archived?: boolean;
@@ -47,6 +48,7 @@ const ContestPresetSchema = new Schema<IContestPreset>(
     bulkRatingMin: { type: Number },
     bulkRatingMax: { type: Number },
     bulkProblemCount: { type: Number },
+    bulkMinContestId: { type: Number },
     // Mode B
     problemSlots: [ProblemSlotSchema],
     archived: { type: Boolean, default: false },

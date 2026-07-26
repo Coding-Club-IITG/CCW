@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
       bulkRatingMin,
       bulkRatingMax,
       bulkProblemCount,
+      bulkMinContestId,
       problemSlots,
     } = body;
 
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
       bulkRatingMin,
       bulkRatingMax,
       bulkProblemCount,
+      bulkMinContestId,
       problemSlots,
       archived: false,
     });

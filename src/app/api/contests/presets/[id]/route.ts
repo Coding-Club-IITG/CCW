@@ -47,6 +47,7 @@ export async function PUT(
       bulkRatingMin,
       bulkRatingMax,
       bulkProblemCount,
+      bulkMinContestId,
       problemSlots,
     } = body;
 
@@ -77,6 +78,8 @@ export async function PUT(
     if (bulkRatingMax !== undefined) preset.bulkRatingMax = bulkRatingMax;
     if (bulkProblemCount !== undefined)
       preset.bulkProblemCount = bulkProblemCount;
+    if (bulkMinContestId !== undefined)
+      preset.bulkMinContestId = bulkMinContestId;
     if (problemSlots !== undefined) preset.problemSlots = problemSlots;
 
     await preset.save();

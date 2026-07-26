@@ -9,6 +9,7 @@ import {
   type Difficulty,
   DIFFICULTIES,
   PLATFORM_PROBLEM_URLS,
+  CF_CONTEST_YEAR_OPTIONS,
 } from "@/lib/constants";
 import { formatDate, getTodayISTDateStr } from "@/lib/potd/utils";
 import {
@@ -70,6 +71,9 @@ export default function AutoProblemModal({
     Hard: { min: 1700, max: 2100 },
   });
 
+  // Minimum contest ID threshold
+  const [minContestId, setMinContestId] = useState<number>(0);
+
   // Generated candidates list
   const [candidates, setCandidates] = useState<POTDCandidateResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -112,6 +116,7 @@ export default function AutoProblemModal({
           difficulty: diff,
           ratingMin: ratingRanges[diff].min,
           ratingMax: ratingRanges[diff].max,
+          minContestId,
         });
       });
     });
@@ -157,6 +162,7 @@ export default function AutoProblemModal({
         difficulty: target.difficulty,
         ratingMin: target.ratingMin,
         ratingMax: target.ratingMax,
+        minContestId,
       };
 
       const res = await autoFetchPOTDCandidates(
@@ -278,6 +284,46 @@ export default function AutoProblemModal({
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Release Timeframe / Contest Filter */}
+              <div>
+                <div className={styles.sectionTitle}>
+                  2. Release Timeframe / Contest Filter
+                </div>
+                <div
+                  className={styles.ratingsContainer}
+                  style={{ gridTemplateColumns: "1fr" }}
+                >
+                  <div className={styles.ratingGroup}>
+                    <label
+                      htmlFor="potdMinContestSelect"
+                      style={{ fontSize: "0.8125rem", fontWeight: 600 }}
+                    >
+                      Contest Release Date
+                    </label>
+                    <select
+                      id="potdMinContestSelect"
+                      value={minContestId}
+                      onChange={(e) => setMinContestId(Number(e.target.value))}
+                      style={{
+                        padding: "0.5rem 0.75rem",
+                        border: "1px solid var(--border-input)",
+                        borderRadius: "6px",
+                        fontSize: "0.875rem",
+                        background: "var(--surface)",
+                        color: "var(--foreground)",
+                        outline: "none",
+                      }}
+                    >
+                      {CF_CONTEST_YEAR_OPTIONS.map((opt) => (
+                        <option key={opt.minContestId} value={opt.minContestId}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 

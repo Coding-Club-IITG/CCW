@@ -269,3 +269,13 @@ export type WasmLoadStatus = {
   progress: number;
   message: string;
 };
+
+export const CF_CONTEST_YEAR_OPTIONS = [
+  { label: "Any Time (All Problems)", minContestId: 0 },
+  { label: "2020 Onwards (ID ≥ 1300)", minContestId: 1300 },
+  { label: "2021 Onwards (ID ≥ 1470)", minContestId: 1470 },
+  { label: "2022 Onwards (ID ≥ 1620)", minContestId: 1620 },
+  { label: "2023 Onwards (ID ≥ 1770)", minContestId: 1770 },
+  { label: "2024 Onwards (ID ≥ 1915)", minContestId: 1915 },
+  { label: "2025 Onwards (ID ≥ 2050)", minContestId: 2050 },
+] as const;

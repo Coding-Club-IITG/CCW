@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
     const problemCount = contest.bulkProblemCount || 3;
     const minRating = contest.bulkRatingMin || 800;
     const maxRating = contest.bulkRatingMax || 1200;
+    const minContestId = contest.bulkMinContestId || 0;
 
     // Collect all user IDs and fetch them to get solved problems
     const allUserIds = teams.flatMap((t) => t.members);
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
       {
         $match: {
           rating: { $gte: minRating, $lte: maxRating },
+          ...(minContestId > 0 ? { contestId: { $gte: minContestId } } : {}),
           problemId: { $nin: Array.from(solvedProblemIds) },
         },
       },

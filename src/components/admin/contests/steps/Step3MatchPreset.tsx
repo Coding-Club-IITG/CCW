@@ -100,6 +100,14 @@ export default function Step3MatchPreset({
                     {selectedPreset.bulkProblemCount}
                   </strong>
                 </div>
+                {selectedPreset.bulkMinContestId ? (
+                  <div>
+                    <span className={styles.detailLabel}>Min Contest ID:</span>{" "}
+                    <strong className={styles.detailValue}>
+                      ≥ {selectedPreset.bulkMinContestId}
+                    </strong>
+                  </div>
+                ) : null}
               </>
             ) : (
               <div className={styles.detailSpan2}>

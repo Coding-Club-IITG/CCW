@@ -439,6 +439,7 @@ export const reconciliationWorker = new Worker(
       const problemCount = contest.bulkProblemCount || 3;
       const minRating = contest.bulkRatingMin || 800;
       const maxRating = contest.bulkRatingMax || 1200;
+      const minContestId = contest.bulkMinContestId || 0;
 
       const allUserIds = validTeams.flatMap((t) => t[1]);
 
@@ -551,6 +552,9 @@ export const reconciliationWorker = new Worker(
           {
             $match: {
               rating: { $gte: minRating, $lte: maxRating },
+              ...(minContestId > 0
+                ? { contestId: { $gte: minContestId } }
+                : {}),
               problemId: { $nin: Array.from(solvedProblemIds) },
             },
           },

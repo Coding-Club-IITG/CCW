@@ -457,6 +457,7 @@ export type POTDAutoSlotConfig = {
   difficulty: "Easy" | "Medium" | "Hard";
   ratingMin: number;
   ratingMax: number;
+  minContestId?: number;
 };
 
 export type POTDCandidateResult = {
@@ -465,6 +466,7 @@ export type POTDCandidateResult = {
   difficulty: "Easy" | "Medium" | "Hard";
   ratingMin: number;
   ratingMax: number;
+  minContestId?: number;
   problem: {
     contestId: string;
     problemIndex: string;
@@ -516,12 +518,16 @@ export async function autoFetchPOTDCandidates(
   for (const slot of slots) {
     const minRating = Number(slot.ratingMin) || 800;
     const maxRating = Number(slot.ratingMax) || 1200;
+    const minContestId = Number(slot.minContestId) || 0;
 
     const excludeList = Array.from(currentBatchExcluded);
 
     const matchStage: any = {
       rating: { $gte: minRating, $lte: maxRating },
     };
+    if (minContestId > 0) {
+      matchStage.contestId = { $gte: minContestId };
+    }
     if (excludeList.length > 0) {
       matchStage.problemId = { $nin: excludeList };
     }
@@ -542,6 +548,7 @@ export async function autoFetchPOTDCandidates(
         difficulty: slot.difficulty,
         ratingMin: minRating,
         ratingMax: maxRating,
+        minContestId,
         problem: {
           contestId: String(q.contestId),
           problemIndex: String(q.index).toUpperCase(),
@@ -559,8 +566,9 @@ export async function autoFetchPOTDCandidates(
         difficulty: slot.difficulty,
         ratingMin: minRating,
         ratingMax: maxRating,
+        minContestId,
         problem: null,
-        error: `No unused problems found for rating range ${minRating}-${maxRating}`,
+        error: `No unused problems found for rating range ${minRating}-${maxRating}${minContestId > 0 ? ` (Contest ID >= ${minContestId})` : ""}`,
       });
     }
   }
