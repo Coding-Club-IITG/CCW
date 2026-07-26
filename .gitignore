@@ -21,6 +21,7 @@ next-env.d.ts
 # Misc
 .DS_Store
 *.pem
+.direnv/
 
 # File uploads
 uploads/

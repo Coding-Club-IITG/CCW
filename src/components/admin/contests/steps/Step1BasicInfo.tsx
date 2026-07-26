@@ -27,7 +27,7 @@ export default function Step1BasicInfo({
           type="text"
           value={name}
           onChange={(e) => updateFields({ name: e.target.value })}
-          placeholder="e.g. CCW Monsoon Bracket Clash"
+          placeholder="Eg. CCW Monsoon Bracket Clash"
           className={`${styles.input} ${errors.name ? styles.inputError : ""}`}
           required
         />

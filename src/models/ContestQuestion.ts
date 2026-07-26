@@ -1,9 +1,9 @@
 import mongoose, { Schema, type Document } from "mongoose";
 
 export interface IContestQuestion extends Document {
-  problemId: string; // e.g. "1234A" (unique across all questions)
-  contestId: number; // e.g. 1234
-  index: string; // e.g. "A"
+  problemId: string; // Eg. "1234A" (unique across all questions)
+  contestId: number; // Eg. 1234
+  index: string; // Eg. "A"
   name: string;
   rating?: number;
   tags: string[];

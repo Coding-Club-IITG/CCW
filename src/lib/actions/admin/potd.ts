@@ -448,3 +448,170 @@ export async function forceSyncUser(
 
   return { ok: true, status: newStatus };
 }
+
+// Auto Problem Setting
+
+export type POTDAutoSlotConfig = {
+  id: string; // Unique ID per slot Eg. "2026-07-27-Easy"
+  dateStr: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  ratingMin: number;
+  ratingMax: number;
+};
+
+export type POTDCandidateResult = {
+  id: string;
+  dateStr: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  ratingMin: number;
+  ratingMax: number;
+  problem: {
+    contestId: string;
+    problemIndex: string;
+    problemId: string;
+    name: string;
+    rating: number;
+    tags: string[];
+    platform: "codeforces";
+  } | null;
+  error?: string;
+};
+
+export async function autoFetchPOTDCandidates(
+  slots: POTDAutoSlotConfig[],
+  excludeProblemIds: string[] = [],
+): Promise<{
+  ok: boolean;
+  candidates?: POTDCandidateResult[];
+  error?: string;
+}> {
+  const session = await checkAdmin();
+  if (!session) return { ok: false, error: "Forbidden" };
+
+  if (!Array.isArray(slots) || slots.length === 0) {
+    return { ok: false, error: "No slots requested" };
+  }
+
+  await dbConnect();
+
+  // Get all used POTD problem IDs to avoid repeating problems
+  const usedProblems = await Problem.find({});
+  const usedProblemIds = new Set<string>();
+  usedProblems.forEach((p: any) => {
+    if (p.contestId && p.problemIndex) {
+      usedProblemIds.add(`${p.contestId}${p.problemIndex}`.toUpperCase());
+    }
+  });
+
+  // Also add client-provided exclusions
+  excludeProblemIds.forEach((id) => {
+    if (id) usedProblemIds.add(id.toUpperCase());
+  });
+
+  const ContestQuestion = (await import("@/models/ContestQuestion")).default;
+
+  const candidates: POTDCandidateResult[] = [];
+  const currentBatchExcluded = new Set<string>(usedProblemIds);
+
+  for (const slot of slots) {
+    const minRating = Number(slot.ratingMin) || 800;
+    const maxRating = Number(slot.ratingMax) || 1200;
+
+    const excludeList = Array.from(currentBatchExcluded);
+
+    const matchStage: any = {
+      rating: { $gte: minRating, $lte: maxRating },
+    };
+    if (excludeList.length > 0) {
+      matchStage.problemId = { $nin: excludeList };
+    }
+
+    const sampleResult = await ContestQuestion.aggregate([
+      { $match: matchStage },
+      { $sample: { size: 1 } },
+    ]);
+
+    if (sampleResult && sampleResult.length > 0) {
+      const q = sampleResult[0];
+      const pid = String(q.problemId).toUpperCase();
+      currentBatchExcluded.add(pid);
+
+      candidates.push({
+        id: slot.id,
+        dateStr: slot.dateStr,
+        difficulty: slot.difficulty,
+        ratingMin: minRating,
+        ratingMax: maxRating,
+        problem: {
+          contestId: String(q.contestId),
+          problemIndex: String(q.index).toUpperCase(),
+          problemId: pid,
+          name: q.name,
+          rating: q.rating ?? 0,
+          tags: q.tags ?? [],
+          platform: "codeforces",
+        },
+      });
+    } else {
+      candidates.push({
+        id: slot.id,
+        dateStr: slot.dateStr,
+        difficulty: slot.difficulty,
+        ratingMin: minRating,
+        ratingMax: maxRating,
+        problem: null,
+        error: `No unused problems found for rating range ${minRating}-${maxRating}`,
+      });
+    }
+  }
+
+  return { ok: true, candidates };
+}
+
+export async function bulkSetDailyProblems(
+  items: Array<{
+    dateStr: string;
+    difficulty: "Easy" | "Medium" | "Hard";
+    problemId: string;
+    platform: Platform;
+  }>,
+): Promise<{ ok: boolean; count?: number; error?: string }> {
+  const session = await checkAdmin();
+  if (!session) return { ok: false, error: "Forbidden" };
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return { ok: false, error: "No problems provided to save" };
+  }
+
+  let count = 0;
+  const errors: string[] = [];
+
+  for (const item of items) {
+    const res = await setDailyProblem(
+      item.dateStr,
+      item.problemId,
+      item.difficulty,
+      item.platform || "codeforces",
+      true,
+    );
+    if (!res.ok) {
+      errors.push(
+        `Failed to set ${item.difficulty} for ${item.dateStr}: ${res.error}`,
+      );
+    } else {
+      count++;
+    }
+  }
+
+  revalidatePath("/internal/potd");
+
+  if (errors.length > 0) {
+    return {
+      ok: count > 0,
+      count,
+      error: `Saved ${count} problems. Errors: ${errors.join("; ")}`,
+    };
+  }
+
+  return { ok: true, count };
+}

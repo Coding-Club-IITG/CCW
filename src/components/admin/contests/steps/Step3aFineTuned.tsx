@@ -129,7 +129,7 @@ export default function Step3aFineTuned({
               <textarea
                 value={roundInputs[roundNum] || ""}
                 onChange={(e) => handleInputChange(roundNum, e.target.value)}
-                placeholder="e.g. 4A, 1A, 158A"
+                placeholder="Eg. 4A, 1A, 158A"
                 className={styles.textarea}
               />
               {errors[`round_${roundNum}`] && (

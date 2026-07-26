@@ -12,7 +12,6 @@ export default async function MatchHistoryPage() {
   const userRole = session?.user?.role as string | undefined;
   const admin = isAdmin(userRole);
 
-
   const { completed } = await getContestListing();
 
   return <MatchHistoryClient history={completed} />;

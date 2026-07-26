@@ -241,7 +241,7 @@ export default function CreateRoomModal({
 
     const start = new Date(formData.startTime);
     // Dynamic check based on environment variable passed down from server.
-    // E.g., if deadlineMinutes is 1, minimum wait is (1 + 1) = 2 mins.
+    // Eg. if deadlineMinutes is 1, minimum wait is (1 + 1) = 2 mins.
     const requiredBufferMinutes = deadlineMinutes + 1;
     if (start.getTime() < Date.now() + requiredBufferMinutes * 60000 - 5000) {
       alert(
@@ -725,7 +725,7 @@ export default function CreateRoomModal({
                     required={formData.problemSelectionMode === "fine-tuned"}
                     id={`problem-${idx}`}
                     type="text"
-                    placeholder="e.g. 4A"
+                    placeholder="Eg. 4A"
                     value={prob}
                     onChange={(e) => {
                       const newProblems = [...formData.fineTunedProblems];
@@ -809,7 +809,7 @@ export default function CreateRoomModal({
                             <input
                               required
                               type="text"
-                              placeholder="e.g. 4A"
+                              placeholder="Eg. 4A"
                               value={pid}
                               onChange={(e) => {
                                 const updated = syncedRounds.map((r) =>

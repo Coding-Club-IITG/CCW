@@ -14,7 +14,6 @@ export default async function ContestsPage() {
   const userRole = session?.user?.role as string | undefined;
   const admin = isAdmin(userRole);
 
-
   const { active, upcoming, completed } = await getContestListing();
 
   let presets = [];

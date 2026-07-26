@@ -254,7 +254,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Blitz 5min Easy"
+                  placeholder="Eg. Blitz 5min Easy"
                   required
                 />
               </div>
