@@ -1,8 +1,12 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import Link from "next/link";
+import dbConnect from "@/lib/mongodb";
 import { isAdmin } from "@/lib/roles";
 import LinkCard from "@/components/shared/LinkCard";
+import { IconEdit } from "@/components/shared/Icons";
 import { getDisplayName } from "@/lib/utils";
+import BlogPost from "@/models/BlogPost";
 import styles from "./Dashboard.module.scss";
 
 export default async function DashboardPage() {
@@ -12,6 +16,15 @@ export default async function DashboardPage() {
 
   // session is guaranteed by proxy
   const user = session!.user as any;
+  const userIsAdmin = isAdmin(user.role);
+
+  await dbConnect();
+  const myBlogs = await BlogPost.find({
+    "authors.userId": user.id,
+  })
+    .select("title slug excerpt status updatedAt")
+    .sort({ updatedAt: -1 })
+    .lean();
 
   return (
     <div className={styles.container}>
@@ -22,7 +35,7 @@ export default async function DashboardPage() {
 
       <h2 className={styles.sectionTitle}>Quick Links</h2>
       <div className={styles.grid}>
-        {isAdmin(user.role) && (
+        {userIsAdmin && (
           <LinkCard
             href="/admin"
             title="Website Administration"
@@ -60,6 +73,55 @@ export default async function DashboardPage() {
           description="Find active hackathons and build your team."
         />
       </div>
+
+      {myBlogs.length > 0 && (
+        <>
+          <h2 className={styles.myBlogsTitle}>My Blogs</h2>
+          <div className={styles.grid}>
+            {myBlogs.map((post) => {
+              const isDraft = post.status === "draft";
+              const canEdit = userIsAdmin || isDraft;
+              const editHref = userIsAdmin
+                ? `/admin/blog/${post.slug}/edit`
+                : `/internal/blog/${post.slug}/edit`;
+
+              return (
+                <article key={String(post._id)} className={styles.blogCard}>
+                  <div className={styles.blogCardHeader}>
+                    {isDraft ? (
+                      <h3 className={styles.blogTitle}>{post.title}</h3>
+                    ) : (
+                      <Link
+                        href={`/blog/${post.slug}`}
+                        className={styles.blogTitleLink}
+                      >
+                        {post.title}
+                      </Link>
+                    )}
+                    {canEdit && (
+                      <Link
+                        href={editHref}
+                        className={styles.editBlogLink}
+                        aria-label={`Edit ${post.title}`}
+                        title="Edit blog"
+                      >
+                        <IconEdit width={16} height={16} />
+                      </Link>
+                    )}
+                  </div>
+                  <p className={styles.blogDescription}>
+                    {post.excerpt ||
+                      (isDraft
+                        ? "Blog draft"
+                        : "Read this published blog post.")}
+                  </p>
+                  <span className={styles.blogStatus}>{post.status}</span>
+                </article>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -33,12 +33,18 @@ interface BlogEditorProps {
     authors: BlogAuthor[];
   }) => Promise<void>;
   isNew?: boolean;
+  canManageAuthors?: boolean;
+  canManageStatus?: boolean;
+  uploadEndpoint?: string;
 }
 
 export default function BlogEditor({
   initialData,
   onSave,
   isNew,
+  canManageAuthors = true,
+  canManageStatus = true,
+  uploadEndpoint = "/api/admin/blog/upload-image",
 }: BlogEditorProps) {
   const [title, setTitle] = useState(initialData?.title || "");
   const [content, setContent] = useState(initialData?.content || "");
@@ -180,49 +186,51 @@ export default function BlogEditor({
       </div>
 
       {/* Authors */}
-      <div className={styles.field}>
-        <label className={styles.label}>Authors</label>
-        {authors.length > 0 && (
-          <div className={styles.authorsList}>
-            {authors.map((a) => (
-              <span key={a.userId} className={styles.authorChip}>
-                {a.name}
-                <button
-                  type="button"
-                  className={styles.authorRemove}
-                  onClick={() => removeAuthor(a.userId)}
-                  aria-label={`Remove ${a.name}`}
-                >
-                  <IconX width="12" height="12" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <input
-          type="text"
-          className={styles.input}
-          value={authorSearch}
-          onChange={(e) => setAuthorSearch(e.target.value)}
-          placeholder="Search members by name or email to add as author…"
-        />
-        {availableUsers.length > 0 && (
-          <select
-            className={styles.select}
-            value=""
-            onChange={(e) => {
-              if (e.target.value) addAuthor(e.target.value);
-            }}
-          >
-            <option value="">Add an author...</option>
-            {availableUsers.map((u) => (
-              <option key={u._id} value={u._id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
+      {canManageAuthors && (
+        <div className={styles.field}>
+          <label className={styles.label}>Authors</label>
+          {authors.length > 0 && (
+            <div className={styles.authorsList}>
+              {authors.map((a) => (
+                <span key={a.userId} className={styles.authorChip}>
+                  {a.name}
+                  <button
+                    type="button"
+                    className={styles.authorRemove}
+                    onClick={() => removeAuthor(a.userId)}
+                    aria-label={`Remove ${a.name}`}
+                  >
+                    <IconX width="12" height="12" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <input
+            type="text"
+            className={styles.input}
+            value={authorSearch}
+            onChange={(e) => setAuthorSearch(e.target.value)}
+            placeholder="Search members by name or email to add as author…"
+          />
+          {availableUsers.length > 0 && (
+            <select
+              className={styles.select}
+              value=""
+              onChange={(e) => {
+                if (e.target.value) addAuthor(e.target.value);
+              }}
+            >
+              <option value="">Add an author...</option>
+              {availableUsers.map((u) => (
+                <option key={u._id} value={u._id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
 
       {/* Cover Image */}
       <div className={styles.field}>
@@ -230,7 +238,7 @@ export default function BlogEditor({
         <ImageUpload
           value={coverImage}
           onChange={setCoverImage}
-          uploadEndpoint="/api/admin/blog/upload-image"
+          uploadEndpoint={uploadEndpoint}
           label="Image"
         />
       </div>
@@ -280,20 +288,22 @@ export default function BlogEditor({
       </div>
 
       {/* Status */}
-      <div className={styles.field}>
-        <label className={styles.label}>Status</label>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as BlogStatus)}
-          className={styles.select}
-        >
-          {BLOG_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s.charAt(0).toUpperCase() + s.slice(1)}
-            </option>
-          ))}
-        </select>
-      </div>
+      {canManageStatus && (
+        <div className={styles.field}>
+          <label className={styles.label}>Status</label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as BlogStatus)}
+            className={styles.select}
+          >
+            {BLOG_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Content */}
       <div className={styles.field}>
@@ -301,7 +311,7 @@ export default function BlogEditor({
         <MarkdownEditor
           value={content}
           onChange={setContent}
-          uploadEndpoint="/api/admin/blog/upload-image"
+          uploadEndpoint={uploadEndpoint}
           placeholder="Write your blog post in Markdown..."
           rows={20}
         />

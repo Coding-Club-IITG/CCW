@@ -25,6 +25,11 @@ interface UploadOptions {
   logPrefix?: string;
   /** Whether admin role is required (default: true) */
   requireAdmin?: boolean;
+  /** Optional resource-level authorization check */
+  authorize?: (
+    user: Record<string, any>,
+    request: NextRequest,
+  ) => boolean | Promise<boolean>;
   /** Override allowed MIME types (default: ALLOWED_IMAGE_MIME_TYPES) */
   allowedMimeTypes?: readonly string[];
   /** Override allowed extensions (default: ALLOWED_IMAGE_EXTENSIONS) */
@@ -38,6 +43,7 @@ export function createImageUploadHandler(options: UploadOptions) {
     maxSize = 5 * 1024 * 1024,
     logPrefix = "[Upload]",
     requireAdmin = true,
+    authorize,
     allowedMimeTypes = ALLOWED_IMAGE_MIME_TYPES as readonly string[],
     allowedExtensions = ALLOWED_IMAGE_EXTENSIONS as readonly string[],
   } = options;
@@ -48,11 +54,14 @@ export function createImageUploadHandler(options: UploadOptions) {
       if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
+      const user = session.user as any;
       if (requireAdmin) {
-        const user = session.user as any;
         if (!isAdmin(user.role)) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
+      }
+      if (authorize && !(await authorize(user, request))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
       let formData: FormData;
