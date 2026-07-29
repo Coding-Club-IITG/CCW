@@ -56,4 +56,7 @@ docker compose up -d
 
 ## Contributing
 
-Please follow the club's coding standards. Ensure all new features are type-safe and accompanied by appropriate documentation.
+Before contributing, read:
+
+- [Contributing guidelines](./CONTRIBUTING.md)
+- [Project context](./CONTEXT.md)
