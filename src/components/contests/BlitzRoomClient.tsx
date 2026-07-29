@@ -136,13 +136,10 @@ export default function BlitzRoomClient({
   );
   const [timeLeft, setTimeLeft] = useState<string>("00:00");
 
-  // --- Countdown timer (mirrors Arena) ---
-  // Request browser notification permission once — only if not yet granted or denied
-  useEffect(() => {
-    if (typeof Notification !== "undefined" && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
+  // Notification permission state — used to render the "Enable Notifications" button
+  const [notifGranted, setNotifGranted] = useState(
+    typeof Notification !== "undefined" && Notification.permission === "granted",
+  );
 
   useEffect(() => {
     if (matchState !== "active" || !startTime || !timeLimit) {
@@ -795,6 +792,18 @@ export default function BlitzRoomClient({
                 <p className={styles.activitySub}>
                   Logs since last refresh. May disappear on reload.
                 </p>
+                {typeof Notification !== "undefined" && !notifGranted && (
+                  <button
+                    className={styles.notifBtn}
+                    onClick={() =>
+                      Notification.requestPermission().then((perm) =>
+                        setNotifGranted(perm === "granted"),
+                      )
+                    }
+                  >
+                    🔔 Enable Notifications
+                  </button>
+                )}
               </div>
               <div className={styles.activityList}>
                 {activityFeed.length === 0 ? (

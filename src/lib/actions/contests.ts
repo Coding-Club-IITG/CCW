@@ -627,6 +627,37 @@ export async function createBracketContest(data: any) {
 
   await dbConnect();
 
+  // ── Server-side validation ──────────────────────────────────────────────────
+  if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
+    return { error: "Contest name is required." };
+  }
+  if (data.name.trim().length > 100) {
+    return { error: "Contest name must be 100 characters or fewer." };
+  }
+  if (!data.mode || !["blitz", "arena"].includes(data.mode)) {
+    return { error: "Mode must be either 'blitz' or 'arena'." };
+  }
+  if (!data.startTime || isNaN(new Date(data.startTime).getTime())) {
+    return { error: "A valid start time is required." };
+  }
+  const deadlineEnvStr = process.env.REGISTRATION_DEADLINE_MINUTES;
+  if (!deadlineEnvStr)
+    return { error: "REGISTRATION_DEADLINE_MINUTES is not configured." };
+  const _deadlineMinutes = parseInt(deadlineEnvStr, 10);
+  if (isNaN(_deadlineMinutes))
+    return { error: "REGISTRATION_DEADLINE_MINUTES must be a valid number." };
+  const _startMs = new Date(data.startTime).getTime();
+  const _minStart = Date.now() + (_deadlineMinutes + 1) * 60000;
+  if (_startMs < _minStart) {
+    return {
+      error: `Start time must be at least ${_deadlineMinutes + 1} minutes in the future.`,
+    };
+  }
+  if (!data.registrationType || !["open", "closed"].includes(data.registrationType)) {
+    return { error: "Registration type must be 'open' or 'closed'." };
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
   let presetId = undefined;
   let problemSelectionMode = data.problemSelectionMode;
   let bulkPlatform = data.bulkPlatform || "codeforces";
@@ -651,7 +682,24 @@ export async function createBracketContest(data: any) {
         ? data.problemSlots
         : preset.problemSlots;
   } else {
-    // custom preset
+    // custom — validate bulk / fine-tuned fields
+    if (!problemSelectionMode || !["bulk", "fine-tuned"].includes(problemSelectionMode)) {
+      return { error: "Problem selection mode must be 'bulk' or 'fine-tuned'." };
+    }
+    if (problemSelectionMode === "bulk") {
+      const rMin = Number(bulkRatingMin);
+      const rMax = Number(bulkRatingMax);
+      const rCount = Number(bulkProblemCount);
+      if (isNaN(rMin) || isNaN(rMax) || rMin < 800 || rMax > 3500) {
+        return { error: "Rating range must be between 800 and 3500." };
+      }
+      if (rMin >= rMax) {
+        return { error: "Minimum rating must be less than maximum rating." };
+      }
+      if (isNaN(rCount) || rCount < 1 || rCount > 20) {
+        return { error: "Problem count must be between 1 and 20." };
+      }
+    }
     if (problemSelectionMode === "fine-tuned") {
       if (!Array.isArray(data.problemSlots) || data.problemSlots.length === 0) {
         return {
@@ -666,6 +714,22 @@ export async function createBracketContest(data: any) {
         return {
           error: "Please provide valid problem IDs for the bracket rounds.",
         };
+      }
+    }
+  }
+
+  // Validate registered user CP-profile eligibility (for closed seeded brackets)
+  if (Array.isArray(data.registeredUsers) && data.registeredUsers.length > 0) {
+    for (const u of data.registeredUsers) {
+      if (!u.id || !mongoose.Types.ObjectId.isValid(u.id)) {
+        return { error: `Invalid user ID: ${u.id}` };
+      }
+      const cp = await CPUser.findOne({ userId: new mongoose.Types.ObjectId(u.id) });
+      if (!cp) {
+        return { error: `User ${u.id} does not have a linked CP profile.` };
+      }
+      if (!cp.cfHandle) {
+        return { error: `User ${u.id} does not have a verified Codeforces handle.` };
       }
     }
   }

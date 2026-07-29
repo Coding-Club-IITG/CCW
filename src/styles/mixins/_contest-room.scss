@@ -456,6 +456,27 @@
     opacity: 0.75;
   }
 
+  .notifBtn {
+    margin-top: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid var(--primary);
+    background: transparent;
+    color: var(--primary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+      background: var(--primary);
+      color: #fff;
+    }
+  }
+
   .activityList {
     display: flex;
     flex-direction: column;

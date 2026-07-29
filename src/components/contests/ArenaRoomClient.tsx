@@ -179,12 +179,10 @@ export default function ArenaRoomClient({
     }
   }, [syncCooldown]);
 
-  // Request browser notification permission once — only if not yet granted or denied
-  useEffect(() => {
-    if (typeof Notification !== "undefined" && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
+  // Notification permission state — used to render the "Enable Notifications" button
+  const [notifGranted, setNotifGranted] = useState(
+    typeof Notification !== "undefined" && Notification.permission === "granted",
+  );
 
   useEffect(() => {
     const lastSyncStr = localStorage.getItem(`sync_${roomId}_${userId}`);
@@ -830,6 +828,18 @@ export default function ArenaRoomClient({
                   <Rss size={18} />
                   Activity Feed
                 </h2>
+                {typeof Notification !== "undefined" && !notifGranted && (
+                  <button
+                    className={styles.notifBtn}
+                    onClick={() =>
+                      Notification.requestPermission().then((perm) =>
+                        setNotifGranted(perm === "granted"),
+                      )
+                    }
+                  >
+                    🔔 Enable Notifications
+                  </button>
+                )}
               </div>
               <div className={styles.activityList}>
                 {activityFeed.length === 0 ? (
