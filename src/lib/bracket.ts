@@ -151,6 +151,7 @@ export async function generateBracket(
   const problemCount = contest.bulkProblemCount || 3;
   const minRating = contest.bulkRatingMin || 800;
   const maxRating = contest.bulkRatingMax || 1200;
+  const minContestId = contest.bulkMinContestId || 0;
 
   let bulkProblemPool: any[] = [];
   if (contest.problemSelectionMode === "bulk") {
@@ -161,6 +162,7 @@ export async function generateBracket(
       {
         $match: {
           rating: { $gte: minRating, $lte: maxRating },
+          ...(minContestId > 0 ? { contestId: { $gte: minContestId } } : {}),
           ...(excludeIds.length > 0 ? { problemId: { $nin: excludeIds } } : {}),
         },
       },
@@ -473,9 +475,7 @@ async function seedTeamToRound(
 
     // Initialise Redis state so the ready route can find the room
     const redis = await getRedis();
-    const contest = await (
-      await import("../models/ContestMatch")
-    ).default
+    const contest = await (await import("../models/ContestMatch")).default
       .findById(contestId)
       .lean();
     await initBracketRoomRedis(

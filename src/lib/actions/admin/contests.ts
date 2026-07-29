@@ -104,6 +104,7 @@ export async function createBracketContest(data: any) {
   let bulkRatingMin = data.bulkRatingMin;
   let bulkRatingMax = data.bulkRatingMax;
   let bulkProblemCount = data.bulkProblemCount;
+  let bulkMinContestId = data.bulkMinContestId;
   let problemSlots: any[] = [];
 
   if (data.presetId === "custom") {
@@ -134,6 +135,7 @@ export async function createBracketContest(data: any) {
     bulkRatingMin = preset.bulkRatingMin;
     bulkRatingMax = preset.bulkRatingMax;
     bulkProblemCount = data.bulkProblemCount || preset.bulkProblemCount;
+    bulkMinContestId = data.bulkMinContestId ?? preset.bulkMinContestId;
     problemSlots =
       data.problemSlots && data.problemSlots.length > 0
         ? data.problemSlots
@@ -168,6 +170,7 @@ export async function createBracketContest(data: any) {
       bulkRatingMin: bulkRatingMin,
       bulkRatingMax: bulkRatingMax,
       bulkProblemCount: bulkProblemCount,
+      bulkMinContestId: bulkMinContestId,
       problemSlots: problemSlots,
       registrations: (data.registeredUsers || []).map((u: any) => ({
         userId: new mongoose.Types.ObjectId(u.id),

@@ -9,14 +9,17 @@ import {
   type ScheduledChallenge,
 } from "@/lib/actions/admin/potd";
 import { IconTrash } from "@/components/shared/Icons";
+import { Sparkles } from "lucide-react";
+import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
+import { ScheduledProblemCard } from "./ScheduledProblemCard";
+import AutoProblemModal from "./AutoProblemModal";
 import {
   DIFFICULTIES,
-  DIFFICULTY_COLORS,
   PLATFORMS,
   PLATFORM_DISPLAY_NAMES,
   PLATFORM_PROBLEM_URLS,
 } from "@/lib/constants";
-import type { Platform } from "@/lib/constants";
+import type { Platform, Difficulty } from "@/lib/constants";
 import {
   formatDate,
   getAvailableDates,
@@ -46,6 +49,7 @@ export default function SetProblemClient() {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isAutoModalOpen, setIsAutoModalOpen] = useState(false);
 
   useEffect(() => {
     fetchScheduled();
@@ -201,13 +205,23 @@ export default function SetProblemClient() {
               until end of day.
             </p>
           </div>
-          <button
-            className={styles.addBtn}
-            onClick={handleAddNew}
-            disabled={isAdding || !hasOpenSlots}
-          >
-            + Add Problem
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <button
+              className={styles.autoBtn}
+              onClick={() => setIsAutoModalOpen(true)}
+              disabled={isAdding || !hasOpenSlots}
+            >
+              <Sparkles size={16} />
+              Auto Problem Setting
+            </button>
+            <button
+              className={styles.addBtn}
+              onClick={handleAddNew}
+              disabled={isAdding || !hasOpenSlots}
+            >
+              + Add Problem
+            </button>
+          </div>
         </div>
       </div>
 
@@ -378,88 +392,24 @@ export default function SetProblemClient() {
         {/* Problems grouped by date */}
         {byDate.map(({ dateStr, isToday, entries }) =>
           entries.map((prob) => (
-            <div
+            <ScheduledProblemCard
               key={prob.id}
-              className={styles.problemCard}
-              style={
-                isToday
-                  ? { borderLeft: "3px solid var(--accent-light)" }
-                  : undefined
-              }
-            >
-              <div className={styles.cardHeader}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <span className={styles.dateLabel}>
-                    {isToday ? "Today" : formatDate(dateStr, "long")}
-                  </span>
-                  {isToday && (
-                    <span
-                      style={{
-                        fontSize: "0.7rem",
-                        background: "var(--accent-light)",
-                        color: "white",
-                        padding: "1px 6px",
-                        borderRadius: "999px",
-                      }}
-                    >
-                      LIVE
-                    </span>
-                  )}
-                  <span
-                    style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      color: DIFFICULTY_COLORS[prob.difficulty],
-                      padding: "1px 8px",
-                      borderRadius: "999px",
-                      border: `1px solid ${DIFFICULTY_COLORS[prob.difficulty]}`,
-                    }}
-                  >
-                    {prob.difficulty}
-                  </span>
-                </div>
-                <div className={styles.cardActions}>
-                  <button
-                    title={
-                      isToday ? "Remove today's problem" : "Delete Problem"
-                    }
-                    className={styles.iconBtnDestructive}
-                    onClick={() => handleDelete(prob.id, isToday)}
-                    disabled={isAdding || deletingId === prob.id}
-                  >
-                    <IconTrash width="16" height="16" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-              <div className={styles.cardBody}>
-                <h4>{prob.problem.name}</h4>
-                <div className={styles.meta}>
-                  <span className={styles.difficulty}>
-                    Rating: {prob.problem.rating || "Unrated"}
-                  </span>
-                  <a
-                    href={PLATFORM_PROBLEM_URLS[prob.platform](
-                      prob.problem.contestId,
-                      prob.problem.problemIndex,
-                    )}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={styles.urlLink}
-                  >
-                    View on {PLATFORM_DISPLAY_NAMES[prob.platform]} ↗
-                  </a>
-                </div>
-              </div>
-            </div>
+              prob={prob}
+              isToday={isToday}
+              onDelete={handleDelete}
+              disabled={isAdding || deletingId === prob.id}
+            />
           )),
         )}
       </div>
+
+      <AutoProblemModal
+        isOpen={isAutoModalOpen}
+        onClose={() => setIsAutoModalOpen(false)}
+        availableDates={availableDates}
+        takenDifficultiesMap={takenDifficulties}
+        onSuccess={fetchScheduled}
+      />
     </div>
   );
 }

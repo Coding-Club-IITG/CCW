@@ -357,8 +357,8 @@ export default function RegisterContestModal({
                           name="team_name"
                           placeholder={
                             teamSize === 1
-                              ? "e.g. Code Ninja"
-                              : "e.g. Null Pointers"
+                              ? "Eg. Code Ninja"
+                              : "Eg. Null Pointers"
                           }
                           required={
                             !["1v1", "solo-tournament"].includes(format)

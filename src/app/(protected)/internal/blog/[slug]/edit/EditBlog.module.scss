@@ -1,0 +1,19 @@
+.container {
+  padding: 1rem 0;
+}
+
+.topBar {
+  margin-bottom: 1.5rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--muted);
+}
+
+.error {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--error-text);
+}

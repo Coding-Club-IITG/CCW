@@ -494,7 +494,7 @@ export default function BlitzRoomClient({
     localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
 
     if (!res.ok) {
-      // If it failed immediately (e.g. 429), turn off syncing spinner since SSE won't fire
+      // If it failed immediately (Eg. 429), turn off syncing spinner since SSE won't fire
       setSyncing(false);
     }
   };

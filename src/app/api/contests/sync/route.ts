@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       createdAt: createdAt.toString(),
       jobId: job.id || "",
     });
-    // Set a TTL so it doesn't leak indefinitely (e.g., 1 hour)
+    // Set a TTL so it doesn't leak indefinitely (Eg. 1 hour)
     await redis.expire(syncStateKey, 3600);
 
     // 5. Publish event to user

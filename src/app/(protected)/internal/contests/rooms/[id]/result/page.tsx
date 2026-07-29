@@ -27,7 +27,6 @@ export default async function PostMatchResultPage({
   const userRole = session?.user?.role as string | undefined;
   const admin = isAdmin(userRole);
 
-
   const currentUserId = session?.user?.id || "";
 
   await dbConnect();

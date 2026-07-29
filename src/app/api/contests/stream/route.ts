@@ -232,7 +232,7 @@ export async function GET(request: NextRequest) {
             await publishRoom(roomId, { type: "presence.offline", userId });
           }
         } else {
-          // If room is not active (e.g., waiting), just publish offline status normally
+          // If room is not active (Eg. waiting), just publish offline status normally
           await publishRoom(roomId, { type: "presence.offline", userId });
         }
       }

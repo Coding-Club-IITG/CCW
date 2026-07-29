@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Edit2, Archive, Loader2 } from "lucide-react";
+import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
 import styles from "./PresetManager.module.scss";
 
 interface PresetManagerProps {
@@ -27,6 +28,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
   const [bulkRatingMin, setBulkRatingMin] = useState(800);
   const [bulkRatingMax, setBulkRatingMax] = useState(1200);
   const [bulkProblemCount, setBulkProblemCount] = useState(3);
+  const [bulkMinContestId, setBulkMinContestId] = useState(0);
 
   // Mode B Fine-Tuned Slots
   const [problemSlots, setProblemSlots] = useState<
@@ -44,6 +46,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
     setBulkRatingMin(800);
     setBulkRatingMax(1200);
     setBulkProblemCount(3);
+    setBulkMinContestId(0);
     setProblemSlots([{ platform: "codeforces", rating: 800 }]);
     setEditingPreset(null);
   }
@@ -65,6 +68,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
     setBulkRatingMin(preset.bulkRatingMin || 800);
     setBulkRatingMax(preset.bulkRatingMax || 1200);
     setBulkProblemCount(preset.bulkProblemCount || 3);
+    setBulkMinContestId(preset.bulkMinContestId || 0);
     setProblemSlots(
       preset.problemSlots || [{ platform: "codeforces", rating: 800 }],
     );
@@ -83,7 +87,13 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
         durationSeconds,
         problemSelectionMode,
         ...(problemSelectionMode === "bulk"
-          ? { bulkPlatform, bulkRatingMin, bulkRatingMax, bulkProblemCount }
+          ? {
+              bulkPlatform,
+              bulkRatingMin,
+              bulkRatingMax,
+              bulkProblemCount,
+              bulkMinContestId,
+            }
           : { problemSlots }),
       };
 
@@ -254,7 +264,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Blitz 5min Easy"
+                  placeholder="Eg. Blitz 5min Easy"
                   required
                 />
               </div>
@@ -368,6 +378,21 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
                       min={1}
                       max={10}
                     />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Contest Release Date</label>
+                    <select
+                      value={bulkMinContestId}
+                      onChange={(e) =>
+                        setBulkMinContestId(Number(e.target.value))
+                      }
+                    >
+                      {CF_CONTEST_YEAR_OPTIONS.map((opt) => (
+                        <option key={opt.minContestId} value={opt.minContestId}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               ) : (
