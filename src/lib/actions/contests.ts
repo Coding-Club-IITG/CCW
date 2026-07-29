@@ -134,6 +134,7 @@ export async function getContestListing(): Promise<{
           }
         }
       }
+      // Always add completed contests so any user can view results
       completed.push(item);
     }
   }
@@ -615,4 +616,152 @@ export async function searchVerifiedUsers(query: string) {
     });
 
   return { users: result };
+}
+
+// ─── Bracket / Knockout creation for all authenticated users ──────────────────
+
+export async function createBracketContest(data: any) {
+  const reqHeaders = await headers();
+  const session = await auth.api.getSession({ headers: reqHeaders });
+  if (!session) return { error: "Unauthorized" };
+
+  await dbConnect();
+
+  let presetId = undefined;
+  let problemSelectionMode = data.problemSelectionMode;
+  let bulkPlatform = data.bulkPlatform || "codeforces";
+  let bulkRatingMin = data.bulkRatingMin;
+  let bulkRatingMax = data.bulkRatingMax;
+  let bulkProblemCount = data.bulkProblemCount;
+  let problemSlots: any[] = [];
+
+  if (data.presetId && data.presetId !== "custom") {
+    const ContestPreset = (await import("@/models/ContestPreset")).default;
+    const preset = await ContestPreset.findById(data.presetId);
+    if (!preset) return { error: "Selected preset does not exist" };
+    if (preset.archived) return { error: "Selected preset is archived" };
+    presetId = preset._id;
+    problemSelectionMode = preset.problemSelectionMode;
+    bulkPlatform = preset.bulkPlatform;
+    bulkRatingMin = preset.bulkRatingMin;
+    bulkRatingMax = preset.bulkRatingMax;
+    bulkProblemCount = data.bulkProblemCount || preset.bulkProblemCount;
+    problemSlots =
+      data.problemSlots && data.problemSlots.length > 0
+        ? data.problemSlots
+        : preset.problemSlots;
+  } else {
+    // custom preset
+    if (problemSelectionMode === "fine-tuned") {
+      if (!Array.isArray(data.problemSlots) || data.problemSlots.length === 0) {
+        return {
+          error:
+            "Fine-tuned problem slots with round assignments are required for a bracket contest.",
+        };
+      }
+      problemSlots = data.problemSlots.filter(
+        (s: any) => s.problemId && s.problemId.trim() !== "",
+      );
+      if (problemSlots.length === 0) {
+        return {
+          error: "Please provide valid problem IDs for the bracket rounds.",
+        };
+      }
+    }
+  }
+
+  try {
+    const cpUser = await CPUser.findOne({ userId: session.user.id });
+    if (!cpUser) return { error: "CP Profile not found" };
+
+    const deadlineStr = process.env.REGISTRATION_DEADLINE_MINUTES;
+    if (!deadlineStr)
+      throw new Error(
+        "REGISTRATION_DEADLINE_MINUTES is not set in environment variables.",
+      );
+    const deadlineMinutes = parseInt(deadlineStr, 10);
+    if (isNaN(deadlineMinutes))
+      throw new Error("REGISTRATION_DEADLINE_MINUTES must be a valid number.");
+
+    const contest = await ContestMatch.create({
+      name: data.name.trim(),
+      description: data.description?.trim(),
+      creatorId: cpUser._id,
+      format: "bracket",
+      mode: data.mode,
+      status: "draft",
+      teamSize: data.teamSize,
+      presetId: presetId,
+      problemSelectionMode: problemSelectionMode,
+      bulkPlatform: bulkPlatform,
+      bulkRatingMin: bulkRatingMin,
+      bulkRatingMax: bulkRatingMax,
+      bulkProblemCount: bulkProblemCount,
+      problemSlots: problemSlots,
+      registrations: (data.registeredUsers || []).map((u: any) => ({
+        userId: new mongoose.Types.ObjectId(u.id),
+        cfHandle: u.cfHandle,
+        teamName: u.teamName,
+        registeredAt: new Date(),
+      })),
+      startTime: new Date(data.startTime),
+      registrationSettings: {
+        type: data.registrationType,
+        startTime: data.registrationStartTime
+          ? new Date(data.registrationStartTime)
+          : undefined,
+        deadline: new Date(
+          new Date(data.startTime).getTime() - deadlineMinutes * 60000,
+        ),
+        maxParticipants: Number(data.maxParticipants),
+      },
+      bracketSettings: {
+        thirdPlacePlayoff: !!data.thirdPlacePlayoff,
+        seedingMethod: data.seedingMethod || "cf_rating",
+      },
+    });
+
+    const now = Date.now();
+    const regStartTime = data.registrationStartTime
+      ? new Date(data.registrationStartTime).getTime()
+      : now;
+    const deadlineTime = contest.registrationSettings!.deadline!.getTime();
+
+    if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
+      await ContestMatch.findByIdAndDelete(contest._id);
+      return { error: "Registration start time must be before the deadline." };
+    }
+
+    if (data.registrationType !== "closed") {
+      if (regStartTime > now) {
+        await reconciliationQueue.add(
+          "start_registration",
+          { contestId: contest._id.toString() },
+          { delay: regStartTime - now },
+        );
+      } else {
+        contest.status = "registration";
+        await contest.save();
+      }
+    } else {
+      contest.status = "provisioning";
+      await contest.save();
+      await reconciliationQueue.add("check_start", {
+        contestId: contest._id.toString(),
+      });
+    }
+
+    if (data.registrationType !== "closed" && deadlineTime > now) {
+      await reconciliationQueue.add(
+        "check_start",
+        { contestId: contest._id.toString() },
+        { delay: deadlineTime - now },
+      );
+    }
+
+    revalidatePath("/internal/contests");
+    return { contestId: contest._id.toString() };
+  } catch (err: any) {
+    return { error: err.message || "Failed to create bracket contest" };
+  }
 }

@@ -246,9 +246,7 @@ export default function ContestListingClient({
                     formatFilter === "all" ? styles.filterBtnActive : ""
                   }`}
                 >
-                  {formatFilter === "all" && (
-                    <ListFilter className={styles.icon18} size={18} />
-                  )}
+                  <ListFilter className={styles.icon18} size={18} />
                   All Formats
                 </button>
                 <button

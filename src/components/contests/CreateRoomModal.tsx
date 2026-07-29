@@ -10,8 +10,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { createRoomContest, searchVerifiedUsers } from "@/lib/actions/contests";
-import { createBracketContest } from "@/lib/actions/admin/contests";
+import { createRoomContest, searchVerifiedUsers, createBracketContest } from "@/lib/actions/contests";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { getDisplayName } from "@/lib/utils";
@@ -950,9 +949,7 @@ export default function CreateRoomModal({
                   <option value="1v1">1v1</option>
                   <option value="solo-tournament">Solo Tournament</option>
                   <option value="team-tournament">Team Battle</option>
-                  {isAdmin && (
-                    <option value="bracket">Bracket (Knockout)</option>
-                  )}
+                  <option value="bracket">Bracket (Knockout)</option>
                 </select>
               </div>
             </div>

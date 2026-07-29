@@ -142,6 +142,7 @@ export default function MatchHistoryClient({
         <div className={styles.list}>
           {filteredHistory.map((contest) => {
             const result = contest.result;
+            const participated = result !== undefined;
             const isVictory = result === "victory";
             const isTie = result === "tie";
             const outcomeScore = contest.userScore ?? 0;
@@ -150,11 +151,13 @@ export default function MatchHistoryClient({
                 ? contest.otherScores
                 : [contest.opponentScore ?? 0];
 
-            const stateClass = isVictory
-              ? styles.victory
-              : isTie
-                ? styles.tie
-                : styles.defeat;
+            const stateClass = !participated
+              ? ""
+              : isVictory
+                ? styles.victory
+                : isTie
+                  ? styles.tie
+                  : styles.defeat;
 
             return (
               <div
@@ -163,13 +166,19 @@ export default function MatchHistoryClient({
               >
                 {/* Left: Info */}
                 <div className={styles.info}>
+                  {/* Contest name — always visible */}
+                  <p className={styles.contestName}>{contest.name}</p>
+
                   <div className={styles.badgeRow}>
-                    {isVictory ? (
-                      <span className={styles.badgeVictory}>VICTORY</span>
-                    ) : isTie ? (
-                      <span className={styles.badgeTie}>TIE</span>
-                    ) : (
-                      <span className={styles.badgeDefeat}>DEFEAT</span>
+                    {/* Outcome badge — only for participants */}
+                    {participated && (
+                      isVictory ? (
+                        <span className={styles.badgeVictory}>VICTORY</span>
+                      ) : isTie ? (
+                        <span className={styles.badgeTie}>TIE</span>
+                      ) : (
+                        <span className={styles.badgeDefeat}>DEFEAT</span>
+                      )
                     )}
 
                     <span className={styles.badgeNeutral}>
@@ -180,7 +189,7 @@ export default function MatchHistoryClient({
                     {contest.format === "bracket" && (
                       <div className={styles.tournamentTag}>
                         <Trophy className={styles.iconXs} size={14} />
-                        {contest.name}
+                        Knockout
                       </div>
                     )}
                   </div>
@@ -220,36 +229,38 @@ export default function MatchHistoryClient({
                   </div>
                 </div>
 
-                {/* Middle: Score */}
-                <div className={styles.score}>
-                  <div className={styles.scoreInner}>
-                    <span
-                      className={`${styles.scoreValue} ${
-                        isVictory
-                          ? styles.scoreVictory
-                          : isTie
-                            ? styles.scoreTie
-                            : ""
-                      }`}
-                    >
-                      {outcomeScore}
-                    </span>
-                    {otherScores.map((score, idx) => (
-                      <div key={idx} className={styles.scoreInner}>
-                        <span className={styles.scoreDash}>-</span>
-                        <span
-                          className={`${styles.scoreValue} ${
-                            !isVictory && !isTie && score > outcomeScore
-                              ? styles.scoreLead
+                {/* Middle: Score — only for participants */}
+                {participated && (
+                  <div className={styles.score}>
+                    <div className={styles.scoreInner}>
+                      <span
+                        className={`${styles.scoreValue} ${
+                          isVictory
+                            ? styles.scoreVictory
+                            : isTie
+                              ? styles.scoreTie
                               : ""
-                          }`}
-                        >
-                          {score}
-                        </span>
-                      </div>
-                    ))}
+                        }`}
+                      >
+                        {outcomeScore}
+                      </span>
+                      {otherScores.map((score, idx) => (
+                        <div key={idx} className={styles.scoreInner}>
+                          <span className={styles.scoreDash}>-</span>
+                          <span
+                            className={`${styles.scoreValue} ${
+                              !isVictory && !isTie && score > outcomeScore
+                                ? styles.scoreLead
+                                : ""
+                            }`}
+                          >
+                            {score}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Right: CTA */}
                 <div className={styles.cta}>
@@ -263,6 +274,7 @@ export default function MatchHistoryClient({
               </div>
             );
           })}
+
         </div>
       </main>
     </div>
