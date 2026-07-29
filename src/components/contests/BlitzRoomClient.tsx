@@ -26,7 +26,19 @@ import {
 } from "lucide-react";
 import { ContestListingItem } from "@/lib/actions/contests";
 
-import { useEffect, useState, useRef, createElement } from "react";
+import React, { useEffect, useState, useRef, createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import {
+  IconInfoCircle,
+  IconGavel,
+  IconLock,
+  IconSwitchView,
+  IconCheckCircle,
+  IconWarning,
+  IconUsers,
+  IconPersonOff,
+  IconBell,
+} from "@/components/shared/Icons";
 import { useRouter } from "next/navigation";
 import { getDisplayName } from "@/lib/utils";
 import styles from "./BlitzRoomClient.module.scss";
@@ -41,24 +53,30 @@ const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
   person_off: UserX,
 };
 
-// SVG sources (matching Lucide icons) for browser desktop notifications
-const NOTIFICATION_SVG_ICONS: Record<string, string> = {
-  info: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`,
-  gavel: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 12.5-8 8a2.12 2.12 0 0 1-3-3l8-8"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/></svg>`,
-  lock: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
-  sync: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`,
-  check_circle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`,
-  error: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`,
-  person: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
-  person_off: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/></svg>`,
+// Icon color map matching the activity feed color scheme
+const NOTIFICATION_ICON_MAP: Record<string, { component: React.FC<React.SVGProps<SVGSVGElement>>; color: string }> = {
+  info:         { component: IconInfoCircle,  color: "#8b5cf6" },
+  gavel:        { component: IconGavel,       color: "#ef4444" },
+  lock:         { component: IconLock,        color: "#8b5cf6" },
+  sync:         { component: IconSwitchView,  color: "#06b6d4" },
+  check_circle: { component: IconCheckCircle, color: "#22c55e" },
+  error:        { component: IconWarning,     color: "#ef4444" },
+  person:       { component: IconUsers,       color: "#06b6d4" },
+  person_off:   { component: IconPersonOff,   color: "#ef4444" },
 };
+
+function getNotificationIconUri(icon: string): string {
+  const entry = NOTIFICATION_ICON_MAP[icon] ?? NOTIFICATION_ICON_MAP.info;
+  const svg = renderToStaticMarkup(
+    createElement(entry.component, { width: 24, height: 24, stroke: entry.color }),
+  );
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
 
 function sendBrowserNotification(icon: string, text: string) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
   try {
-    const svgSource = NOTIFICATION_SVG_ICONS[icon] ?? NOTIFICATION_SVG_ICONS.info;
-    const iconUri = `data:image/svg+xml,${encodeURIComponent(svgSource)}`;
-    new Notification("CCW Match", { body: text, icon: iconUri, silent: true });
+    new Notification("CCW Match", { body: text, icon: getNotificationIconUri(icon), silent: true });
   } catch (_) {}
 }
 
