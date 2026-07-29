@@ -25,3 +25,8 @@ next-env.d.ts
 
 # File uploads
 uploads/
+
+# Local-only scripts (testing / dev tools)
+scripts/companion-bot.ts
+*.zip
+blog/
