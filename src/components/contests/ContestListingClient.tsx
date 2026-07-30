@@ -222,12 +222,14 @@ export default function ContestListingClient({
     }
   };
 
+  const handleCloseCreateModal = useCallback(() => setShowCreateModal(false), []);
+
   return (
     <div className={styles.page}>
       {showCreateModal && (
         <CreateRoomModal
           isOpen={true}
-          onClose={useCallback(() => setShowCreateModal(false), [])}
+          onClose={handleCloseCreateModal}
           isAdmin={isAdmin}
           presets={presets}
           deadlineMinutes={deadlineMinutes}
