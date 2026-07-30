@@ -10,7 +10,6 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
   position: relative;
   background: var(--background);
   color: var(--foreground);
@@ -31,8 +30,6 @@
 /* Page shell */
 .page {
   @include contest-page;
-  overflow: hidden;
-  min-height: 100vh;
 }
 
 .main {
@@ -43,7 +40,6 @@
   gap: 3rem;
   padding-top: 2rem;
   padding-bottom: 2rem;
-  overflow-y: auto;
 }
 
 /* Hero */

@@ -1,3 +1,5 @@
+@use "../../styles/mixins" as *;
+
 .protectedShell {
   display: flex;
   flex-direction: column;
@@ -13,9 +15,16 @@
   overflow: hidden;
 }
 
+/* Listing/history/results scroll with the document, like standard pages. */
+.contestDocumentMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Standard centred page shell for the rest of the protected area */
 .pageMain {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+  @include page-container;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
 }

@@ -58,6 +58,10 @@
 - Use existing CSS variables. Do not hardcode colors in module styles.
 - Add new color variables to both light and dark themes.
 - Reuse or extend shared components and mixins wherever practical.
+- Use the shared `page-container` mixin for top-level document pages. Keep
+  immersive workspaces full-bleed and retain narrower component widths only
+  where they support readability or interaction, such as prose, forms, modals,
+  search controls, and popovers.
 - Reuse existing icons wherever possible.
 - Lucide icons may be imported directly. Add new custom SVG icons to
   `src/components/shared/Icons.tsx` instead of embedding SVG markup in

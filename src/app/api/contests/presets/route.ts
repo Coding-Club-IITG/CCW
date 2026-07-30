@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import ContestPreset from "@/models/ContestPreset";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { logger } from "@/lib/utils";
+
+function errorMessage(error: unknown) {
+  logger.error("[Contest Presets] Request failed:", error);
+  return "Internal Server Error";
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,11 +19,8 @@ export async function GET(request: NextRequest) {
     const presets = await ContestPreset.find(query).sort({ name: 1 });
 
     return NextResponse.json(presets);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }
 
@@ -29,7 +32,13 @@ export async function POST(request: NextRequest) {
     }
 
     await dbConnect();
-    const body = await request.json();
+    const body: unknown = await request.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json(
+        { error: "Request body must be an object" },
+        { status: 400 },
+      );
+    }
     const {
       name,
       description,
@@ -43,9 +52,9 @@ export async function POST(request: NextRequest) {
       bulkProblemCount,
       bulkMinContestId,
       problemSlots,
-    } = body;
+    } = body as Record<string, unknown>;
 
-    if (!name || name.trim().length < 3) {
+    if (typeof name !== "string" || name.trim().length < 3) {
       return NextResponse.json(
         { error: "Name must be at least 3 characters long" },
         { status: 400 },
@@ -78,10 +87,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(preset, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

@@ -2,8 +2,6 @@
 
 .page {
   @include contest-page;
-  overflow: hidden;
-  min-height: 100vh;
 
   ::selection {
     background: var(--primary);
@@ -20,7 +18,6 @@
   position: relative;
   z-index: 1;
   flex: 1;
-  overflow-y: auto;
   padding-top: 2rem;
   padding-bottom: 2rem;
 

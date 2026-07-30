@@ -1,5 +1,9 @@
+@use "../../../styles/mixins" as *;
+
 .container {
-  padding: 1.5rem 2rem;
+  @include page-container;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
 
   h1 {
     margin: 0 0 0.25rem 0;

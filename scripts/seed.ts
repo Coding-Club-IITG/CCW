@@ -1,8 +1,6 @@
-import mongoose from "mongoose";
-import * as dotenv from "dotenv";
-import path from "path";
+import "../src/lib/env";
 
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
+import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 

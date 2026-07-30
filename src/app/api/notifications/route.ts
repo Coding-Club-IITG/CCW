@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
+import { prepareSearchQuery } from "@/lib/search";
+import { logger } from "@/lib/utils";
 import Notification from "@/models/Notification";
 
 export async function GET(request: NextRequest) {
@@ -16,21 +18,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = session.user as any;
+    const userId = session.user.id;
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
     const unreadOnly = searchParams.get("unread") === "true";
 
-    const filter: Record<string, any> = { userId: user.id };
+    const filter: Record<string, unknown> = { userId };
     if (unreadOnly) {
       filter.read = false;
     }
 
-    const searchQuery = searchParams.get("search");
+    const searchQuery = prepareSearchQuery(searchParams.get("search"));
     if (searchQuery) {
-      const regex = { $regex: searchQuery, $options: "i" };
+      const regex = { $regex: searchQuery.pattern, $options: "i" };
       filter.$or = [{ title: regex }, { message: regex }];
     }
 
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
         .limit(limit)
         .lean(),
       Notification.countDocuments(filter),
-      Notification.countDocuments({ userId: user.id, read: false }),
+      Notification.countDocuments({ userId, read: false }),
     ]);
 
     return NextResponse.json({
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
       unreadCount,
     });
   } catch (err) {
-    console.error("[Notifications] GET error:", err);
+    logger.error("[Notifications] GET error:", err);
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
@@ -64,17 +66,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = session.user as any;
+    const userId = session.user.id;
     await dbConnect();
 
     const result = await Notification.deleteMany({
-      userId: user.id,
+      userId,
       read: true,
     });
 
     return NextResponse.json({ success: true, deleted: result.deletedCount });
   } catch (err) {
-    console.error("[Notifications] DELETE error:", err);
+    logger.error("[Notifications] DELETE error:", err);
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
@@ -89,7 +91,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = session.user as any;
+    const userId = session.user.id;
     await dbConnect();
 
     let body: Record<string, any>;
@@ -105,13 +107,10 @@ export async function PATCH(request: NextRequest) {
     const { ids, all } = body;
 
     if (all) {
-      await Notification.updateMany(
-        { userId: user.id, read: false },
-        { read: true },
-      );
+      await Notification.updateMany({ userId, read: false }, { read: true });
     } else if (Array.isArray(ids) && ids.length > 0) {
       await Notification.updateMany(
-        { _id: { $in: ids }, userId: user.id },
+        { _id: { $in: ids }, userId },
         { read: true },
       );
     } else {
@@ -123,7 +122,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("[Notifications] PATCH error:", err);
+    logger.error("[Notifications] PATCH error:", err);
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

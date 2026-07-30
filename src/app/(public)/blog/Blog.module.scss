@@ -1,9 +1,9 @@
 @use "../../../styles/mixins" as *;
 
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+  @include page-container;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
 }
 
 .header {

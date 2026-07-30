@@ -2,6 +2,8 @@
 // Contests (shared) — GitHub-styled full-bleed contest screens
 // ============================================================
 
+@use "layout" as *;
+
 // Full-bleed page root for contest screens (rooms, listings, history)
 @mixin contest-page {
   flex: 1;
@@ -12,16 +14,9 @@
   color: var(--foreground);
 }
 
-// Centered content column (matches site 1200px max-width + responsive gutters)
+// Centered content column using the shared site-wide page width and gutters
 @mixin contest-container {
-  width: 100%;
-  max-width: 1200px;
-  margin-inline: auto;
-  padding-inline: 1rem;
-
-  @media (min-width: 768px) {
-    padding-inline: 3rem;
-  }
+  @include page-container;
 }
 
 // Subtle decorative dot pattern (apply to an absolutely-positioned overlay layer)

@@ -62,6 +62,8 @@
   --shadow-sm: rgba(0, 0, 0, 0.2);
   --shadow-md: rgba(0, 0, 0, 0.3);
   --shadow-lg: rgba(0, 0, 0, 0.4);
+  --modal-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
   --overlay: rgba(1, 4, 9, 0.8);
 
   // Semantic: Error/Danger
@@ -248,6 +250,9 @@
   --shadow-sm: rgba(31, 35, 40, 0.04);
   --shadow-md: rgba(31, 35, 40, 0.1);
   --shadow-lg: rgba(31, 35, 40, 0.15);
+  --modal-shadow:
+    0 20px 25px -5px rgba(31, 35, 40, 0.15),
+    0 10px 10px -5px rgba(31, 35, 40, 0.1);
   --overlay: rgba(27, 31, 36, 0.5);
 
   // Semantic: Error/Danger

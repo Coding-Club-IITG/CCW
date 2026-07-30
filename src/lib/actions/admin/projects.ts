@@ -10,6 +10,7 @@ import {
 import dbConnect from "@/lib/mongodb";
 import { isAdmin } from "@/lib/roles";
 import { logger } from "@/lib/utils";
+import { invalidateCache } from "@/lib/cache";
 import Project from "@/models/Project";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
@@ -69,6 +70,13 @@ async function checkAdmin() {
   }
 }
 
+async function invalidateProjectCaches() {
+  await Promise.all([
+    invalidateCache("projects"),
+    invalidateCache("admin:projects"),
+  ]);
+}
+
 export async function getProjects() {
   try {
     const session = await checkAdmin();
@@ -124,7 +132,7 @@ export async function createProject(formData: FormData) {
     const repoLink = getString(formData, "repoLink");
     const coverImage = getString(formData, "coverImage");
     const dateInput = getString(formData, "date");
-    const module = getString(formData, "module");
+    const projectModule = getString(formData, "module");
     const status = getString(formData, "status");
     const tags = parseTags(getString(formData, "tags"));
 
@@ -133,7 +141,7 @@ export async function createProject(formData: FormData) {
       !description ||
       !repoLink ||
       !dateInput ||
-      !module ||
+      !projectModule ||
       !status
     ) {
       return {
@@ -150,7 +158,7 @@ export async function createProject(formData: FormData) {
       };
     }
 
-    if (!PROJECT_MODULES.includes(module as ProjectModuleName)) {
+    if (!PROJECT_MODULES.includes(projectModule as ProjectModuleName)) {
       return { success: false as const, error: "Invalid module selected." };
     }
 
@@ -179,10 +187,11 @@ export async function createProject(formData: FormData) {
       repoLink,
       coverImage,
       date,
-      module,
+      module: projectModule,
       status,
       tags,
     });
+    await invalidateProjectCaches();
 
     logger.info("[Admin Projects] Created project", {
       projectId: String(project._id),
@@ -215,7 +224,7 @@ export async function updateProject(id: string, formData: FormData) {
     const repoLink = getString(formData, "repoLink");
     const coverImage = getString(formData, "coverImage");
     const dateInput = getString(formData, "date");
-    const module = getString(formData, "module");
+    const projectModule = getString(formData, "module");
     const status = getString(formData, "status");
     const tags = parseTags(getString(formData, "tags"));
 
@@ -224,7 +233,7 @@ export async function updateProject(id: string, formData: FormData) {
       !description ||
       !repoLink ||
       !dateInput ||
-      !module ||
+      !projectModule ||
       !status
     ) {
       return {
@@ -241,7 +250,7 @@ export async function updateProject(id: string, formData: FormData) {
       };
     }
 
-    if (!PROJECT_MODULES.includes(module as ProjectModuleName)) {
+    if (!PROJECT_MODULES.includes(projectModule as ProjectModuleName)) {
       return { success: false as const, error: "Invalid module selected." };
     }
 
@@ -272,7 +281,7 @@ export async function updateProject(id: string, formData: FormData) {
         repoLink,
         coverImage,
         date,
-        module,
+        module: projectModule,
         status,
         tags,
       },
@@ -282,6 +291,7 @@ export async function updateProject(id: string, formData: FormData) {
     if (!project) {
       return { success: false as const, error: "Project not found." };
     }
+    await invalidateProjectCaches();
 
     logger.info("[Admin Projects] Updated project", {
       projectId: id,
@@ -315,6 +325,7 @@ export async function deleteProject(id: string) {
     if (!project) {
       return { success: false as const, error: "Project not found." };
     }
+    await invalidateProjectCaches();
 
     logger.info("[Admin Projects] Deleted project", {
       projectId: id,

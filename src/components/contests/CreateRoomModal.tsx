@@ -89,6 +89,12 @@ export default function CreateRoomModal({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedUserIndex, setSelectedUserIndex] = useState(0);
+  const [draggedUserIndex, setDraggedUserIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [draggedTeamIndex, setDraggedTeamIndex] = useState<number | null>(null);
+  const [dragOverTeamIndex, setDragOverTeamIndex] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
     if (searchQuery.length < 2) {
@@ -413,9 +419,6 @@ export default function CreateRoomModal({
     });
   };
 
-  const [draggedUserIndex, setDraggedUserIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedUserIndex(index);
     e.dataTransfer.effectAllowed = "move";
@@ -491,11 +494,6 @@ export default function CreateRoomModal({
       return newUsers;
     });
   };
-
-  const [draggedTeamIndex, setDraggedTeamIndex] = useState<number | null>(null);
-  const [dragOverTeamIndex, setDragOverTeamIndex] = useState<number | null>(
-    null,
-  );
 
   const handleTeamDragStart = (e: React.DragEvent, index: number) => {
     setDraggedTeamIndex(index);

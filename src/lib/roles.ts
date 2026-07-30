@@ -15,13 +15,22 @@ export interface ParsedModuleRole {
 }
 
 // Handles both raw array and stringified form
-export function parseModuleRoles(raw: any): ParsedModuleRole[] {
+function isParsedModuleRole(value: unknown): value is ParsedModuleRole {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.module === "string" &&
+    (item.role === undefined || typeof item.role === "string")
+  );
+}
+
+export function parseModuleRoles(raw: unknown): ParsedModuleRole[] {
   if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw)) return raw.filter(isParsedModuleRole);
   if (typeof raw === "string") {
     try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter(isParsedModuleRole) : [];
     } catch {
       return [];
     }
@@ -59,7 +68,10 @@ export function getHeadModules(
 }
 
 // Enforces role constraints
-export function cleanUserRoles(role: string, moduleRoles: any[]): any[] {
+export function cleanUserRoles(
+  role: string,
+  moduleRoles: ParsedModuleRole[],
+): ParsedModuleRole[] {
   if (isAdmin(role)) return []; // Cannot have module roles
   // Heads can only have module, not specific role
   if (role === "Head") return moduleRoles.map((mr) => ({ module: mr.module }));

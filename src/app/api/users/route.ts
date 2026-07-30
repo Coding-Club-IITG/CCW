@@ -15,6 +15,7 @@ import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import { canUploadFiles } from "@/lib/fileAccess";
 import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
+import { prepareSearchQuery } from "@/lib/search";
 import { getDisplayName } from "@/lib/utils";
 import User from "@/models/User";
 
@@ -64,13 +65,12 @@ export async function GET(request: NextRequest) {
   }
 
   const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
-  const search = searchParams.get("search")?.trim() || "";
-  const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const search = prepareSearchQuery(searchParams.get("search"));
   const filter = search
     ? {
         $or: [
-          { name: { $regex: escaped, $options: "i" } },
-          { email: { $regex: escaped, $options: "i" } },
+          { name: { $regex: search.pattern, $options: "i" } },
+          { email: { $regex: search.pattern, $options: "i" } },
         ],
       }
     : {};
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
   const cacheKey = buildCacheKey("users", {
     page,
     limit,
-    search: search || undefined,
+    search: search?.query,
   });
 
   const result = await cachedFetch(cacheKey, CACHE_TTLS.USERS, async () => {

@@ -1,9 +1,7 @@
-import mongoose from "mongoose";
-import * as dotenv from "dotenv";
-import path from "path";
-import { createClient } from "redis";
+import "../src/lib/env";
 
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
+import mongoose from "mongoose";
+import { createClient } from "redis";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";

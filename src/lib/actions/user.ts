@@ -16,6 +16,7 @@ import {
 } from "@/lib/cache";
 import { logger } from "@/lib/utils";
 import { isAdmin, cleanUserRoles } from "@/lib/roles";
+import { prepareSearchQuery } from "@/lib/search";
 import { ObjectId } from "mongodb";
 
 // Returns the session if user is admin, or null if unauthorized
@@ -43,23 +44,19 @@ export async function getUsers(page = 1, limit = 50, search = "") {
     if (!session) return { success: false as const, error: "Unauthorized" };
     await dbConnect();
 
-    const normalizedSearch = search.trim();
-    const escapedSearch = normalizedSearch.replace(
-      /[.*+?^${}()|[\]\\]/g,
-      "\\$&",
-    );
-    const filter = normalizedSearch
+    const preparedSearch = prepareSearchQuery(search);
+    const filter = preparedSearch
       ? {
           $or: [
-            { name: { $regex: escapedSearch, $options: "i" } },
-            { email: { $regex: escapedSearch, $options: "i" } },
+            { name: { $regex: preparedSearch.pattern, $options: "i" } },
+            { email: { $regex: preparedSearch.pattern, $options: "i" } },
           ],
         }
       : {};
     const cacheKey = buildCacheKey("users:admin", {
       page,
       limit,
-      search: normalizedSearch || undefined,
+      search: preparedSearch?.query,
     });
     const skip = (page - 1) * limit;
 

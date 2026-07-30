@@ -22,10 +22,25 @@ export default function ProtectedLayoutClient({
     scrollableContainers.forEach((el) => el.scrollTo(0, 0));
   }, [pathname]);
 
+  const isContestDocumentPage =
+    pathname === "/internal/contests" ||
+    pathname === "/internal/contests/history" ||
+    /^\/internal\/contests\/rooms\/[^/]+\/result$/.test(pathname ?? "");
+
   // The contests layout requires full bleed (no max-width, no padding)
   // because it provides its own background and layout structure.
   if (pathname?.startsWith("/internal/contests")) {
-    return <main className={styles.contestMain}>{children}</main>;
+    return (
+      <main
+        className={
+          isContestDocumentPage
+            ? styles.contestDocumentMain
+            : styles.contestMain
+        }
+      >
+        {children}
+      </main>
+    );
   }
 
   return <main className={styles.pageMain}>{children}</main>;

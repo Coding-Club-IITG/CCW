@@ -12,6 +12,7 @@ import {
 import dbConnect from "@/lib/mongodb";
 import { isAdmin } from "@/lib/roles";
 import { logger } from "@/lib/utils";
+import { invalidateCache } from "@/lib/cache";
 import Event from "@/models/Event";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
@@ -121,6 +122,13 @@ async function checkAdmin() {
   }
 }
 
+async function invalidateEventCaches() {
+  await Promise.all([
+    invalidateCache("events"),
+    invalidateCache("admin:events"),
+  ]);
+}
+
 export async function getEvents() {
   try {
     const session = await checkAdmin();
@@ -185,7 +193,7 @@ export async function createEvent(formData: FormData) {
     const poster = getString(formData, "poster");
     const startDateInput = getString(formData, "startDate");
     const endDateInput = getString(formData, "endDate");
-    const module = getString(formData, "module");
+    const projectModule = getString(formData, "module");
     const tags = parseTags(getString(formData, "tags"));
     const recurrenceType = getString(formData, "recurrenceType") || "none";
     const recurrenceCountStr = getString(formData, "recurrenceCount");
@@ -215,8 +223,10 @@ export async function createEvent(formData: FormData) {
     }
 
     if (
-      module &&
-      !PROJECT_MODULES.includes(module as (typeof PROJECT_MODULES)[number])
+      projectModule &&
+      !PROJECT_MODULES.includes(
+        projectModule as (typeof PROJECT_MODULES)[number],
+      )
     ) {
       return { success: false as const, error: "Invalid module selected." };
     }
@@ -255,11 +265,12 @@ export async function createEvent(formData: FormData) {
       poster,
       startDate,
       endDate,
-      module: module || undefined,
+      module: projectModule || undefined,
       tags,
       recurrenceType,
       recurrenceCount,
     });
+    await invalidateEventCaches();
 
     logger.info("[Admin Events] Created event", {
       eventId: String(event._id),
@@ -293,7 +304,7 @@ export async function updateEvent(id: string, formData: FormData) {
     const poster = getString(formData, "poster");
     const startDateInput = getString(formData, "startDate");
     const endDateInput = getString(formData, "endDate");
-    const module = getString(formData, "module");
+    const projectModule = getString(formData, "module");
     const tags = parseTags(getString(formData, "tags"));
     const recurrenceType = getString(formData, "recurrenceType") || "none";
     const recurrenceCountStr = getString(formData, "recurrenceCount");
@@ -323,8 +334,10 @@ export async function updateEvent(id: string, formData: FormData) {
     }
 
     if (
-      module &&
-      !PROJECT_MODULES.includes(module as (typeof PROJECT_MODULES)[number])
+      projectModule &&
+      !PROJECT_MODULES.includes(
+        projectModule as (typeof PROJECT_MODULES)[number],
+      )
     ) {
       return { success: false as const, error: "Invalid module selected." };
     }
@@ -365,7 +378,7 @@ export async function updateEvent(id: string, formData: FormData) {
         poster,
         startDate,
         endDate,
-        module: module || undefined,
+        module: projectModule || undefined,
         tags,
         recurrenceType,
         recurrenceCount,
@@ -376,6 +389,7 @@ export async function updateEvent(id: string, formData: FormData) {
     if (!event) {
       return { success: false as const, error: "Event not found." };
     }
+    await invalidateEventCaches();
 
     logger.info("[Admin Events] Updated event", {
       eventId: id,
@@ -410,6 +424,7 @@ export async function deleteEvent(id: string) {
     if (!event) {
       return { success: false as const, error: "Event not found." };
     }
+    await invalidateEventCaches();
 
     logger.info("[Admin Events] Deleted event", {
       eventId: id,

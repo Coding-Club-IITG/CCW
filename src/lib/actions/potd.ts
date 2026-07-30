@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import dbConnect from "@/lib/mongodb";
 import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache";
 import { getRedis } from "@/lib/redis";
+import { prepareSearchQuery } from "@/lib/search";
 import User from "@/models/User";
 import CPUser from "@/models/CPUser";
 import Problem from "@/models/POTDProblem";
@@ -443,11 +444,11 @@ export async function getPastProblems(
 
   await dbConnect();
 
-  const normalizedSearch = search?.trim() ?? "";
+  const preparedSearch = prepareSearchQuery(search);
   const cacheKey = buildCacheKey("potd:past", {
     page,
     limit,
-    search: normalizedSearch,
+    search: preparedSearch?.query,
   });
   const skip = (page - 1) * limit;
 
@@ -460,13 +461,9 @@ export async function getPastProblems(
         graceEnd: { $lt: now },
       };
 
-      if (normalizedSearch) {
-        const escapedSearch = normalizedSearch.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          "\\$&",
-        );
+      if (preparedSearch) {
         const matchingProblemIds = await Problem.find({
-          name: { $regex: new RegExp(escapedSearch, "i") },
+          name: { $regex: preparedSearch.pattern, $options: "i" },
         }).distinct("_id");
 
         if (matchingProblemIds.length === 0) {

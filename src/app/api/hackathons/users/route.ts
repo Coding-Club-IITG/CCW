@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
+import { prepareSearchQuery } from "@/lib/search";
 import User from "@/models/User";
 
 export async function GET(request: NextRequest) {
@@ -16,16 +17,20 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const q = searchParams.get("q") || "";
+    const search = prepareSearchQuery(searchParams.get("q"), {
+      minLength: 2,
+    });
 
-    if (q.length < 2) {
+    if (!search) {
       return NextResponse.json(paginatedResponse([], 0, 1, 20));
     }
 
     await dbConnect();
 
     const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
-    const filter = { name: { $regex: q, $options: "i" } };
+    const filter = {
+      name: { $regex: search.pattern, $options: "i" },
+    };
 
     const [users, total] = await Promise.all([
       User.find(filter)

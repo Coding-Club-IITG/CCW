@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import ContestPreset from "@/models/ContestPreset";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { logger } from "@/lib/utils";
+
+function errorMessage(error: unknown) {
+  logger.error("[Contest Presets] Request failed:", error);
+  return "Internal Server Error";
+}
 
 export async function GET(
   request: NextRequest,
@@ -15,11 +21,8 @@ export async function GET(
       return NextResponse.json({ error: "Preset not found" }, { status: 404 });
     }
     return NextResponse.json(preset);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }
 
@@ -35,7 +38,13 @@ export async function PUT(
     }
 
     await dbConnect();
-    const body = await request.json();
+    const body: unknown = await request.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json(
+        { error: "Request body must be an object" },
+        { status: 400 },
+      );
+    }
     const {
       name,
       description,
@@ -49,14 +58,24 @@ export async function PUT(
       bulkProblemCount,
       bulkMinContestId,
       problemSlots,
-    } = body;
+    } = body as Record<string, unknown>;
+
+    if (
+      name !== undefined &&
+      (typeof name !== "string" || name.trim().length < 3)
+    ) {
+      return NextResponse.json(
+        { error: "Name must be at least 3 characters long" },
+        { status: 400 },
+      );
+    }
 
     const preset = await ContestPreset.findById(id);
     if (!preset) {
       return NextResponse.json({ error: "Preset not found" }, { status: 404 });
     }
 
-    if (name && name.trim() !== preset.name) {
+    if (typeof name === "string" && name.trim() !== preset.name) {
       const existing = await ContestPreset.findOne({ name: name.trim() });
       if (existing) {
         return NextResponse.json(
@@ -84,11 +103,8 @@ export async function PUT(
 
     await preset.save();
     return NextResponse.json(preset);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }
 
@@ -104,12 +120,15 @@ export async function PATCH(
     }
 
     await dbConnect();
-    const body = await request.json();
-    const { archived } = body;
+    const body: unknown = await request.json();
+    const archived =
+      body && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>).archived
+        : undefined;
 
-    if (archived === undefined) {
+    if (typeof archived !== "boolean") {
       return NextResponse.json(
-        { error: "Missing archived status" },
+        { error: "archived must be a boolean" },
         { status: 400 },
       );
     }
@@ -117,7 +136,7 @@ export async function PATCH(
     const preset = await ContestPreset.findByIdAndUpdate(
       id,
       { archived },
-      { new: true },
+      { new: true, runValidators: true },
     );
 
     if (!preset) {
@@ -125,10 +144,7 @@ export async function PATCH(
     }
 
     return NextResponse.json(preset);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

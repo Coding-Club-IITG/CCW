@@ -164,7 +164,6 @@ export const ALLOWED_IMAGE_EXTENSIONS = [
   ".gif",
   ".webp",
   ".avif",
-  ".svg",
 ] as const;
 export type ImageExtension = (typeof ALLOWED_IMAGE_EXTENSIONS)[number];
 
@@ -174,7 +173,6 @@ export const ALLOWED_IMAGE_MIME_TYPES = [
   "image/gif",
   "image/webp",
   "image/avif",
-  "image/svg+xml",
 ] as const;
 export type ImageMimeType = (typeof ALLOWED_IMAGE_MIME_TYPES)[number];
 
@@ -185,7 +183,6 @@ export const IMAGE_EXTENSION_TO_MIME: Record<ImageExtension, ImageMimeType> = {
   ".gif": "image/gif",
   ".webp": "image/webp",
   ".avif": "image/avif",
-  ".svg": "image/svg+xml",
 };
 
 /**

@@ -45,7 +45,7 @@
 
 .archivedRow {
   opacity: 0.6;
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--surface-secondary);
 }
 
 .description {
@@ -230,7 +230,7 @@
   font-weight: 600;
 
   &:hover:not(:disabled) {
-    background: rgba(231, 76, 60, 0.1);
+    background: var(--error-bg);
   }
 
   &:disabled {

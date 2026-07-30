@@ -2,8 +2,9 @@
  * Shared bootstrap + helpers for POTD maintenance scripts
  */
 
+import "../src/lib/env";
+
 import mongoose from "mongoose";
-import * as dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 import User from "../src/models/User";
@@ -12,8 +13,6 @@ import Problem from "../src/models/POTDProblem";
 import DailyChallenge from "../src/models/POTDDailyChallenge";
 import POTDSubmission from "../src/models/POTDSubmission";
 import POTDOutage from "../src/models/POTDOutage";
-
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local"), quiet: true });
 
 export {
   mongoose,

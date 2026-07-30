@@ -12,6 +12,7 @@ import {
 } from "@/lib/contests-validation";
 import dbConnect from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
+import { prepareSearchQuery } from "@/lib/search";
 import ContestMatch from "@/models/ContestMatch";
 import CPUser from "@/models/CPUser";
 import ContestRoom from "@/models/ContestRoom";
@@ -577,9 +578,11 @@ export async function searchVerifiedUsers(query: string) {
 
   await dbConnect();
 
-  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const search = prepareSearchQuery(query);
+  if (!search) return { users: [] };
+
   const users = await User.find({
-    name: { $regex: escapedQuery, $options: "i" },
+    name: { $regex: search.pattern, $options: "i" },
   })
     .select("_id name image pizza_count")
     .limit(20)
