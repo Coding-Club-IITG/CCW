@@ -8,7 +8,11 @@ import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import FileEntry from "@/models/FileEntry";
 import { canUploadFiles, buildAccessFilter } from "@/lib/fileAccess";
-import { parseModuleRoles, getHeadModules, isAdmin } from "@/lib/roles";
+import {
+  parseModuleRoles,
+  getHeadModules,
+  isGlobalAdmin,
+} from "@/lib/roles";
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
@@ -144,7 +148,7 @@ export async function POST(request: NextRequest) {
 
     if (uploaderModuleRaw && uploaderModuleRaw !== "null") {
       const headModules = getHeadModules(user.role, moduleRoles);
-      if (isAdmin(user.role)) {
+      if (isGlobalAdmin(user.role)) {
         uploaderModule = uploaderModuleRaw;
       } else if (headModules.includes(uploaderModuleRaw)) {
         uploaderModule = uploaderModuleRaw;

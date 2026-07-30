@@ -27,6 +27,8 @@ export default defineConfig({
         "src/lib/potd/utils.ts",
         "src/lib/potd/derive.ts",
         "src/lib/potd/submit.ts",
+        "src/lib/fileAccess.ts",
+        "src/components/files/utils.ts",
       ],
       thresholds: {
         branches: 80,

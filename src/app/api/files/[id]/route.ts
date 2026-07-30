@@ -251,7 +251,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const updated = await FileEntry.findByIdAndUpdate(id, update, { new: true })
+    const updated = await FileEntry.findByIdAndUpdate(id, update, {
+      returnDocument: "after",
+    })
       .select("-storedName")
       .lean();
 
