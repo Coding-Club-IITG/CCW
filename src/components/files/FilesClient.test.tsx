@@ -73,7 +73,10 @@ describe("FilesClient", () => {
         }),
       ),
     );
-    vi.stubGlobal("confirm", vi.fn(() => true));
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
     vi.stubGlobal("alert", vi.fn());
     URL.createObjectURL = vi.fn(() => "blob:test-file");
     URL.revokeObjectURL = vi.fn();

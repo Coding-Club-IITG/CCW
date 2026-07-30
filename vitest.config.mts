@@ -29,6 +29,7 @@ export default defineConfig({
         "src/lib/potd/submit.ts",
         "src/lib/fileAccess.ts",
         "src/components/files/utils.ts",
+        "src/lib/jobs/hackathonReminder.ts",
       ],
       thresholds: {
         branches: 80,
@@ -44,6 +45,7 @@ export default defineConfig({
           ...sharedTestConfig,
           name: "node",
           environment: "node",
+          fileParallelism: false,
           include: ["src/**/*.test.ts", "tests/integration/**/*.test.ts"],
         },
       },

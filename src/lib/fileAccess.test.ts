@@ -12,9 +12,7 @@ import type { IFileEntry } from "@/models/FileEntry";
 const ownerId = new Types.ObjectId();
 const memberId = new Types.ObjectId();
 
-function file(
-  overrides: Partial<IFileEntry> = {},
-): IFileEntry {
+function file(overrides: Partial<IFileEntry> = {}): IFileEntry {
   return {
     uploadedBy: ownerId,
     uploaderModule: "Competitive Programming",
@@ -102,25 +100,28 @@ describe("file access control", () => {
       moduleRoles: [],
       accessControl: { allowedUsers: [memberId] },
     },
-  ])("grants access through $label ACLs", ({ role, moduleRoles, accessControl }) => {
-    expect(
-      canAccessFile(
-        memberId.toString(),
-        role,
-        moduleRoles,
-        file({
-          accessControl: {
-            allMembers: false,
-            allowedModules: [],
-            allowedGlobalRoles: [],
-            allowedModuleRoles: [],
-            allowedUsers: [],
-            ...accessControl,
-          } as IFileEntry["accessControl"],
-        }),
-      ),
-    ).toBe(true);
-  });
+  ])(
+    "grants access through $label ACLs",
+    ({ role, moduleRoles, accessControl }) => {
+      expect(
+        canAccessFile(
+          memberId.toString(),
+          role,
+          moduleRoles,
+          file({
+            accessControl: {
+              allMembers: false,
+              allowedModules: [],
+              allowedGlobalRoles: [],
+              allowedModuleRoles: [],
+              allowedUsers: [],
+              ...accessControl,
+            } as IFileEntry["accessControl"],
+          }),
+        ),
+      ).toBe(true);
+    },
+  );
 
   it("denies access when no management or ACL rule matches", () => {
     expect(

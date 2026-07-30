@@ -138,7 +138,7 @@ export async function PATCH(
     }
 
     const hackathon = await Hackathon.findByIdAndUpdate(id, parsed.update, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     }).lean();
     if (!hackathon) {
@@ -175,7 +175,7 @@ export async function DELETE(
     const hackathon = await Hackathon.findByIdAndUpdate(
       id,
       { status: "archived" },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     ).lean();
 
     if (!hackathon) {

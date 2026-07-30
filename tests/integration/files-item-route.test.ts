@@ -220,9 +220,7 @@ describe("individual file route", () => {
   it("validates edits and changes only whitelisted metadata", async () => {
     const FileEntry = (await import("@/models/FileEntry")).default;
     const { PATCH } = await import("@/app/api/files/[id]/route");
-    getSession.mockResolvedValue(
-      fileSession({ id: FILE_OWNER_ID.toString() }),
-    );
+    getSession.mockResolvedValue(fileSession({ id: FILE_OWNER_ID.toString() }));
     const saved = await FileEntry.create(fileEntry());
 
     const invalid = await PATCH(
@@ -258,9 +256,7 @@ describe("individual file route", () => {
   it("deletes owned metadata and disk content and invalidates the file cache", async () => {
     const FileEntry = (await import("@/models/FileEntry")).default;
     const { DELETE } = await import("@/app/api/files/[id]/route");
-    getSession.mockResolvedValue(
-      fileSession({ id: FILE_OWNER_ID.toString() }),
-    );
+    getSession.mockResolvedValue(fileSession({ id: FILE_OWNER_ID.toString() }));
     const saved = await FileEntry.create(fileEntry());
     await writeFile(path.join(uploadDirectory, saved.storedName), "delete me");
 

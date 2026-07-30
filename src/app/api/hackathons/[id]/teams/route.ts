@@ -10,6 +10,7 @@ import { errorToLogMetadata, logger } from "@/lib/utils";
 import Hackathon from "@/models/Hackathon";
 import HackathonTeam from "@/models/HackathonTeam";
 import User from "@/models/User";
+import mongoose from "mongoose";
 
 export async function GET(
   request: NextRequest,
@@ -37,7 +38,9 @@ export async function GET(
       .lean();
 
     // Populate member names
-    const memberIds = [...new Set(teams.flatMap((t: any) => t.members))];
+    const memberIds = [...new Set(teams.flatMap((t: any) => t.members))].filter(
+      (id) => mongoose.Types.ObjectId.isValid(id as string),
+    );
     const users = await User.find({ _id: { $in: memberIds } })
       .select("name pizza_count")
       .lean();

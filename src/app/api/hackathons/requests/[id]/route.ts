@@ -114,7 +114,7 @@ export async function PATCH(
         $expr: { $lt: [{ $size: "$members" }, maxMembers] },
       },
       { $push: { members: userToAdd } },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!updated) {

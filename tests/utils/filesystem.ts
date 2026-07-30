@@ -15,7 +15,9 @@ export async function listTestUploads(directory: string): Promise<string[]> {
   return readdir(directory);
 }
 
-export async function stopTestUploadDirectory(directory: string): Promise<void> {
+export async function stopTestUploadDirectory(
+  directory: string,
+): Promise<void> {
   assertTestUploadDirectory(directory);
   await rm(directory, { recursive: true, force: true });
   delete process.env.FILE_UPLOAD_DIR;
@@ -24,6 +26,8 @@ export async function stopTestUploadDirectory(directory: string): Promise<void> 
 function assertTestUploadDirectory(directory: string): void {
   const resolved = path.resolve(directory);
   if (!resolved.startsWith(TEST_DIRECTORY_PREFIX)) {
-    throw new Error("Refusing to clean a directory outside the test namespace.");
+    throw new Error(
+      "Refusing to clean a directory outside the test namespace.",
+    );
   }
 }

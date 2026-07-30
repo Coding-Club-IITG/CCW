@@ -12,9 +12,7 @@ export const restrictedAcl = {
   allowedUsers: [],
 };
 
-export function fileEntry(
-  overrides: Record<string, unknown> = {},
-) {
+export function fileEntry(overrides: Record<string, unknown> = {}) {
   return {
     title: "Club handbook",
     description: "Internal reference",
@@ -32,9 +30,7 @@ export function fileEntry(
   };
 }
 
-export function fileSession(
-  overrides: Record<string, unknown> = {},
-) {
+export function fileSession(overrides: Record<string, unknown> = {}) {
   return {
     user: {
       id: FILE_MEMBER_ID.toString(),

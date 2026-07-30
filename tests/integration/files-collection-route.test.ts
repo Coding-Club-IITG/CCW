@@ -63,9 +63,7 @@ describe("files collection route", () => {
     const { GET } = await import("@/app/api/files/route");
     getSession.mockResolvedValueOnce(null);
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/files"),
-    );
+    const response = await GET(new NextRequest("http://localhost/api/files"));
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "Unauthorized" });
@@ -206,7 +204,10 @@ function uploadRequest(
   }> = {},
 ) {
   const form = new FormData();
-  form.set("file", new File(["hello files!"], "notes.txt", { type: "text/plain" }));
+  form.set(
+    "file",
+    new File(["hello files!"], "notes.txt", { type: "text/plain" }),
+  );
   form.set("title", overrides.title ?? "Meeting notes");
   form.set("description", "Weekly notes");
   form.set("folder", "Minutes");
@@ -214,7 +215,8 @@ function uploadRequest(
   form.set("uploaderModule", overrides.uploaderModule ?? "null");
   form.set(
     "accessControl",
-    overrides.accessControl ?? JSON.stringify({ ...restrictedAcl, allMembers: true }),
+    overrides.accessControl ??
+      JSON.stringify({ ...restrictedAcl, allMembers: true }),
   );
   return new NextRequest("http://localhost/api/files", {
     method: "POST",

@@ -125,7 +125,7 @@ export async function PATCH(
     }
 
     const updated = await HackathonTeam.findByIdAndUpdate(id, update, {
-      new: true,
+      returnDocument: "after",
     }).lean();
     return NextResponse.json({ team: updated });
   } catch (err) {

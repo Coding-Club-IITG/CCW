@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  aclSummary,
-  canManageFile,
-  formatBytes,
-  isPreviewable,
-} from "./utils";
+import { aclSummary, canManageFile, formatBytes, isPreviewable } from "./utils";
 import type { AccessControl, CurrentUser, FileEntry } from "./types";
 
 const restrictedAcl: AccessControl = {
@@ -74,18 +69,13 @@ describe("file display utilities", () => {
   );
 
   it("mirrors global-admin, module-head, and owner management hints", () => {
+    expect(canManageFile({ ...currentUser, isGlobalAdmin: true }, file)).toBe(
+      true,
+    );
     expect(
-      canManageFile({ ...currentUser, isGlobalAdmin: true }, file),
+      canManageFile({ ...currentUser, headModules: ["Design"] }, file),
     ).toBe(true);
-    expect(
-      canManageFile(
-        { ...currentUser, headModules: ["Design"] },
-        file,
-      ),
-    ).toBe(true);
-    expect(
-      canManageFile({ ...currentUser, id: "owner-1" }, file),
-    ).toBe(true);
+    expect(canManageFile({ ...currentUser, id: "owner-1" }, file)).toBe(true);
     expect(canManageFile(currentUser, file)).toBe(false);
   });
 

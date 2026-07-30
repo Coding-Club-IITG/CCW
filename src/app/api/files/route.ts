@@ -8,11 +8,7 @@ import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import FileEntry from "@/models/FileEntry";
 import { canUploadFiles, buildAccessFilter } from "@/lib/fileAccess";
-import {
-  parseModuleRoles,
-  getHeadModules,
-  isGlobalAdmin,
-} from "@/lib/roles";
+import { parseModuleRoles, getHeadModules, isGlobalAdmin } from "@/lib/roles";
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
