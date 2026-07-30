@@ -85,12 +85,16 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  height: 36px;
+  min-width: 0;
+  padding: 0 1rem;
   border-radius: 999px;
   font-size: 0.75rem;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
   transition:
     border-color 0.15s ease,
     color 0.15s ease,

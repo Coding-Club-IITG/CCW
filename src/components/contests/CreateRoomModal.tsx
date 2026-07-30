@@ -10,11 +10,15 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { createRoomContest, searchVerifiedUsers } from "@/lib/actions/contests";
-import { createBracketContest } from "@/lib/actions/admin/contests";
+import {
+  createRoomContest,
+  searchVerifiedUsers,
+  createBracketContest,
+} from "@/lib/actions/contests";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { getDisplayName } from "@/lib/utils";
+import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
 import styles from "./CreateRoomModal.module.scss";
 
 export default function CreateRoomModal({
@@ -58,6 +62,7 @@ export default function CreateRoomModal({
     bulkRatingMin: 800,
     bulkRatingMax: 1200,
     bulkProblemCount: 3,
+    bulkMinContestId: 0,
     fineTunedProblemCount: 1 as string | number,
     fineTunedProblems: [""] as string[],
     presetId: "",
@@ -162,6 +167,7 @@ export default function CreateRoomModal({
         bulkRatingMin: preset.bulkRatingMin || prev.bulkRatingMin,
         bulkRatingMax: preset.bulkRatingMax || prev.bulkRatingMax,
         bulkProblemCount: preset.bulkProblemCount || prev.bulkProblemCount,
+        bulkMinContestId: preset.bulkMinContestId ?? prev.bulkMinContestId,
         fineTunedProblems:
           preset.problemSlots && preset.problemSlots.length > 0
             ? preset.problemSlots.map((s: any) => s.problemId || "")
@@ -355,13 +361,13 @@ export default function CreateRoomModal({
               }
             : {}),
         });
-        if (res.error) {
+        if (!res.success) {
           alert(res.error);
         } else {
           onClose();
           router.refresh();
         }
-      } catch (err: any) {
+      } catch {
         alert("Error creating bracket");
       } finally {
         setLoading(false);
@@ -664,6 +670,29 @@ export default function CreateRoomModal({
               className={styles.formInput}
             />
           </div>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="bulk-min-contest">
+              Contest Release Date
+            </label>
+            <select
+              id="bulk-min-contest"
+              value={formData.bulkMinContestId}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  bulkMinContestId: Number(e.target.value),
+                })
+              }
+              disabled={!!topPresetId}
+              className={styles.formInput}
+            >
+              {CF_CONTEST_YEAR_OPTIONS.map((opt) => (
+                <option key={opt.minContestId} value={opt.minContestId}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -950,9 +979,7 @@ export default function CreateRoomModal({
                   <option value="1v1">1v1</option>
                   <option value="solo-tournament">Solo Tournament</option>
                   <option value="team-tournament">Team Battle</option>
-                  {isAdmin && (
-                    <option value="bracket">Bracket (Knockout)</option>
-                  )}
+                  <option value="bracket">Bracket (Knockout)</option>
                 </select>
               </div>
             </div>

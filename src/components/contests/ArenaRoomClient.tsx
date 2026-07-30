@@ -22,7 +22,19 @@ import {
 } from "lucide-react";
 import { ContestListingItem } from "@/lib/actions/contests";
 
-import { useEffect, useState, useRef, createElement } from "react";
+import React, { createElement, useEffect, useRef, useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import {
+  IconInfoCircle,
+  IconGavel,
+  IconLock,
+  IconSwitchView,
+  IconCheckCircle,
+  IconWarning,
+  IconUsers,
+  IconPersonOff,
+  IconBell,
+} from "@/components/shared/Icons";
 import { useRouter } from "next/navigation";
 import { getDisplayName } from "@/lib/utils";
 import styles from "./ArenaRoomClient.module.scss";
@@ -37,6 +49,49 @@ const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
   person: User,
   person_off: UserX,
 };
+
+// SVG sources (matching Lucide icons) for browser desktop notifications
+// Icon color map matching the activity feed color scheme
+const NOTIFICATION_ICON_MAP: Record<
+  string,
+  { component: React.FC<React.SVGProps<SVGSVGElement>>; color: string }
+> = {
+  info: { component: IconInfoCircle, color: "#8b5cf6" },
+  gavel: { component: IconGavel, color: "#ef4444" },
+  lock: { component: IconLock, color: "#8b5cf6" },
+  sync: { component: IconSwitchView, color: "#06b6d4" },
+  check_circle: { component: IconCheckCircle, color: "#22c55e" },
+  error: { component: IconWarning, color: "#ef4444" },
+  person: { component: IconUsers, color: "#06b6d4" },
+  person_off: { component: IconPersonOff, color: "#ef4444" },
+};
+
+function getNotificationIconUri(icon: string): string {
+  const entry = NOTIFICATION_ICON_MAP[icon] ?? NOTIFICATION_ICON_MAP.info;
+  const svg = renderToStaticMarkup(
+    createElement(entry.component, {
+      width: 24,
+      height: 24,
+      stroke: entry.color,
+    }),
+  );
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function sendBrowserNotification(icon: string, text: string) {
+  if (
+    typeof Notification === "undefined" ||
+    Notification.permission !== "granted"
+  )
+    return;
+  try {
+    new Notification("CCW Match", {
+      body: text,
+      icon: getNotificationIconUri(icon),
+      silent: true,
+    });
+  } catch (_) {}
+}
 
 interface EventPayload {
   type: string;
@@ -157,6 +212,12 @@ export default function ArenaRoomClient({
       return () => clearInterval(timer);
     }
   }, [syncCooldown]);
+
+  // Notification permission state — used to render the "Enable Notifications" button
+  const [notifGranted, setNotifGranted] = useState(
+    typeof Notification !== "undefined" &&
+      Notification.permission === "granted",
+  );
 
   useEffect(() => {
     const lastSyncStr = localStorage.getItem(`sync_${roomId}_${userId}`);
@@ -437,6 +498,8 @@ export default function ArenaRoomClient({
         ...prev,
       ].slice(0, 15),
     );
+    // Fire a matching desktop notification
+    sendBrowserNotification(icon, text);
   };
 
   const handleReady = async () => {
@@ -800,6 +863,18 @@ export default function ArenaRoomClient({
                   <Rss size={18} />
                   Activity Feed
                 </h2>
+                {typeof Notification !== "undefined" && !notifGranted && (
+                  <button
+                    className={styles.notifBtn}
+                    onClick={() =>
+                      Notification.requestPermission().then((perm) =>
+                        setNotifGranted(perm === "granted"),
+                      )
+                    }
+                  >
+                    🔔 Enable Notifications
+                  </button>
+                )}
               </div>
               <div className={styles.activityList}>
                 {activityFeed.length === 0 ? (

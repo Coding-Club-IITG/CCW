@@ -109,6 +109,14 @@ export default async function ContestRoomPage({
   if (contest.mode === "blitz" || contest.mode === "arena") {
     if (!room || !teamId) {
       if (contest.status === "completed") {
+        // Non-participant or unassigned user: try to redirect to any room
+        const anyRoom = await ContestRoom.findOne({
+          contestId: contest._id,
+        }).lean();
+        if (anyRoom) {
+          redirect(`/internal/contests/rooms/${anyRoom._id.toString()}/result`);
+        }
+        // No rooms at all — contest was cancelled before provisioning
         return (
           <div className={styles.stateWrap}>
             <CalendarX
@@ -177,7 +185,6 @@ export default async function ContestRoomPage({
           handle: cp?.cfHandle || u?.name || "Unknown",
           avatar:
             u?.image ||
-            cp?.cfAvatar ||
             `https://ui-avatars.com/api/?name=${encodeURIComponent(u?.name || "U")}&background=random`,
         };
       }),

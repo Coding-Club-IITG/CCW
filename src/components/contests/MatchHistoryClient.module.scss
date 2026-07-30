@@ -151,6 +151,17 @@
   gap: 1rem;
 }
 
+.contestName {
+  margin: 0 0 0.375rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--foreground-strong);
+  font-family: "Inter", sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .matchCard {
   display: flex;
   flex-direction: column;
