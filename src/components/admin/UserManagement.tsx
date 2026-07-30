@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Trash2, Plus, X, Save } from "lucide-react";
 import SearchInput from "@/components/shared/SearchInput";
 import Pagination from "@/components/shared/Pagination";
@@ -30,14 +30,10 @@ export default function UserManagement() {
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [tempModuleRoles, setTempModuleRoles] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchUsers(page, search);
-  }, [page, search]);
-
-  async function fetchUsers(currentPage = page, searchTerm = search) {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getUsers(currentPage, 50, searchTerm);
+      const result = await getUsers(page, 50, search);
       if (result.success) {
         setUsers(result.users);
         setTotalPages(Math.ceil((result.total || result.users.length) / 50));
@@ -46,7 +42,11 @@ export default function UserManagement() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, search]);
+
+  useEffect(() => {
+    void fetchUsers();
+  }, [fetchUsers]);
 
   function handleSearch(searchTerm: string) {
     setPage(1);
@@ -63,7 +63,7 @@ export default function UserManagement() {
     } else {
       setNewEmail("");
       setNewName("");
-      fetchUsers();
+      void fetchUsers();
     }
   }
 
@@ -72,7 +72,7 @@ export default function UserManagement() {
     if (!result.success) {
       alert(result.error);
     } else {
-      fetchUsers();
+      void fetchUsers();
     }
   }
 
@@ -82,7 +82,7 @@ export default function UserManagement() {
     if (!result.success) {
       alert(result.error);
     } else {
-      fetchUsers();
+      void fetchUsers();
     }
   }
 
@@ -101,7 +101,7 @@ export default function UserManagement() {
       alert(result.error);
     } else {
       setEditingUser(null);
-      fetchUsers();
+      void fetchUsers();
     }
   }
 
@@ -127,7 +127,7 @@ export default function UserManagement() {
     if (!result.success) {
       alert(result.error);
     } else {
-      fetchUsers();
+      void fetchUsers();
     }
   }
 

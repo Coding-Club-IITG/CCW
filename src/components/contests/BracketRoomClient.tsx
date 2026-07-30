@@ -9,6 +9,7 @@ import { BracketSnapshot, BracketNode, getRoundName } from "@/types/bracket";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Handle, Position, type Node, type Edge } from "@xyflow/react";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import "@xyflow/react/dist/style.css";
 import styles from "./BracketRoomClient.module.scss";
 
@@ -53,7 +54,13 @@ function TeamSlot({
       >
         <div className={styles.teamSlotInner}>
           {timage ? (
-            <img src={timage} alt={tname} className={styles.teamAvatar} />
+            <CompatibleImage
+              src={timage}
+              alt={tname}
+              className={styles.teamAvatar}
+              width={24}
+              height={24}
+            />
           ) : (
             <div
               className={`${styles.teamAvatarFallback} ${styles.teamAvatarFallbackHi}`}
@@ -109,7 +116,15 @@ function TeamRow({
 
   const renderAvatar = (hi?: boolean) => {
     if (timage) {
-      return <img src={timage} alt={tname} className={styles.teamAvatar} />;
+      return (
+        <CompatibleImage
+          src={timage}
+          alt={tname}
+          className={styles.teamAvatar}
+          width={24}
+          height={24}
+        />
+      );
     }
     return (
       <div

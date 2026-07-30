@@ -15,6 +15,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import styles from "./RegisterContestModal.module.scss";
 
 export default function RegisterContestModal({
@@ -161,10 +162,12 @@ export default function RegisterContestModal({
             <div key={i} className={styles.regItem}>
               <div className={styles.avatar}>
                 {reg.image ? (
-                  <img
+                  <CompatibleImage
                     src={reg.image}
                     alt={reg.cfHandle}
                     className={styles.avatarImg}
+                    width={40}
+                    height={40}
                   />
                 ) : (
                   <User className={styles.icon18} size={18} />
@@ -200,10 +203,12 @@ export default function RegisterContestModal({
                 {members.map((m, j) => (
                   <span key={j} className={styles.memberChip}>
                     {m.image ? (
-                      <img
+                      <CompatibleImage
                         src={m.image}
                         alt={m.cfHandle}
                         className={styles.memberChipImg}
+                        width={16}
+                        height={16}
                       />
                     ) : (
                       <CircleUserRound

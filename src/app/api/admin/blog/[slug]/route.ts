@@ -25,7 +25,6 @@ function generateSlug(title: string): string {
 async function uniqueSlug(base: string, currentSlug?: string): Promise<string> {
   let slug = base;
   let counter = 1;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const existing = await BlogPost.findOne({ slug }).select("slug").lean();
     if (!existing || (currentSlug && existing.slug === currentSlug)) break;

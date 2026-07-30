@@ -31,31 +31,31 @@ export default function AdminProjectsPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    setLoading(true);
+    async function fetchProjects() {
+      setLoading(true);
+      try {
+        setError("");
+        const res = await fetch(`/api/admin/projects?page=${page}&limit=20`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to fetch projects.");
+        }
+
+        setProjects(data.items || []);
+        setTotalPages(data.pagination?.totalPages || 1);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch projects.",
+        );
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     void fetchProjects();
   }, [page]);
-
-  async function fetchProjects() {
-    try {
-      setError("");
-      const res = await fetch(`/api/admin/projects?page=${page}&limit=20`);
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch projects.");
-      }
-
-      setProjects(data.items || []);
-      setTotalPages(data.pagination?.totalPages || 1);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch projects.",
-      );
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleDelete(id: string) {
     if (!window.confirm("Are you sure you want to delete this project?")) {

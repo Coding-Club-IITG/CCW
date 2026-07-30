@@ -4,6 +4,7 @@ import BlogPost from "@/models/BlogPost";
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
 import TagBadge from "@/components/blog/TagBadge";
 import BackLink from "@/components/shared/BackLink";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import styles from "./BlogPost.module.scss";
 
 interface Props {
@@ -47,7 +48,13 @@ export default async function BlogPostPage({ params }: Props) {
 
       {post.coverImage && (
         <div className={styles.coverWrapper}>
-          <img src={post.coverImage} alt="" className={styles.cover} />
+          <CompatibleImage
+            src={post.coverImage}
+            alt=""
+            className={styles.cover}
+            width={1260}
+            height={540}
+          />
         </div>
       )}
 

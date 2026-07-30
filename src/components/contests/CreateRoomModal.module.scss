@@ -977,12 +977,12 @@
 /* Apply Fonts */
 .header h2,
 .sectionHeading {
-  font-family: "Hanken Grotesk", sans-serif;
+  font-family: var(--font-hanken-grotesk), sans-serif;
 }
 .teamNameInput,
 .memberName,
 .searchUserName {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-inter), sans-serif;
 }
 .label,
 .labelStrong,
@@ -997,5 +997,5 @@
 .seedNum,
 .regTitle,
 .roundLabel {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-jetbrains-mono), monospace;
 }

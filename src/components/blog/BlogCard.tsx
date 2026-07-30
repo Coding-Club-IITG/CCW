@@ -1,6 +1,7 @@
 import Link from "next/link";
 import TagBadge from "./TagBadge";
 import { IconCalendar, IconEdit } from "@/components/shared/Icons";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import styles from "./BlogCard.module.scss";
 
 interface BlogAuthor {
@@ -46,7 +47,13 @@ export default function BlogCard({
     <Link href={`/blog/${slug}`} className={styles.card}>
       {coverImage && (
         <div className={styles.coverWrapper}>
-          <img src={coverImage} alt="" className={styles.cover} />
+          <CompatibleImage
+            src={coverImage}
+            alt=""
+            className={styles.cover}
+            width={640}
+            height={360}
+          />
         </div>
       )}
       <div className={styles.body}>

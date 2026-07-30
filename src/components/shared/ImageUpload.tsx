@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import CompatibleImage from "./CompatibleImage";
 import styles from "./ImageUpload.module.scss";
 
 interface ImageUploadProps {
@@ -54,10 +55,12 @@ export default function ImageUpload({
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.row}>
         {value && (
-          <img
+          <CompatibleImage
             src={value}
             alt={`${label} preview`}
             className={previewClassName || styles.preview}
+            width={192}
+            height={108}
           />
         )}
         <label className={styles.uploadBtn}>

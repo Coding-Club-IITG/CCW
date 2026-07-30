@@ -33,29 +33,29 @@ export default function BlogPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    fetchPosts();
-  }, [activeTag, search, page]);
+    async function fetchPosts() {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ page: String(page), limit: "12" });
+        if (activeTag) params.set("tag", activeTag);
+        if (search) params.set("search", search);
 
-  const fetchPosts = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: "12" });
-      if (activeTag) params.set("tag", activeTag);
-      if (search) params.set("search", search);
-
-      const res = await fetch(`/api/blog?${params}`);
-      const data = await res.json();
-      setPosts(data.items || []);
-      setTotalPages(data.pagination?.totalPages || 1);
-      if (data.availableTags) {
-        setAvailableTags(data.availableTags);
+        const res = await fetch(`/api/blog?${params}`);
+        const data = await res.json();
+        setPosts(data.items || []);
+        setTotalPages(data.pagination?.totalPages || 1);
+        if (data.availableTags) {
+          setAvailableTags(data.availableTags);
+        }
+      } catch {
+        setPosts([]);
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      setPosts([]);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    void fetchPosts();
+  }, [activeTag, page, search]);
 
   const handleTagFilter = (tag: string) => {
     setActiveTag((prev) => (prev === tag ? null : tag));

@@ -9,6 +9,7 @@ import { isAdmin } from "@/lib/roles";
 import { getDisplayName } from "@/lib/utils";
 import { Moon, Sun, Menu, X } from "lucide-react";
 import { IconSwitchView } from "@/components/shared/Icons";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import NotificationBell from "./NotificationBell";
 import styles from "./Navbar.module.scss";
 
@@ -28,7 +29,13 @@ function UserAvatar({
 
   if (image) {
     return (
-      <img src={image} alt={name || "User"} className={styles.avatarImg} />
+      <CompatibleImage
+        src={image}
+        alt={name || "User"}
+        className={styles.avatarImg}
+        width={32}
+        height={32}
+      />
     );
   }
   return <span className={styles.avatarInitials}>{initials}</span>;

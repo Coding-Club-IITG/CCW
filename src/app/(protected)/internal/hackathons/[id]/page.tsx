@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "@/lib/auth-client";
 import BackLink from "@/components/shared/BackLink";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import { getDisplayName, formatDate } from "@/lib/utils";
 import {
   IconUsers,
@@ -388,7 +389,12 @@ export default function HackathonDetailPage({
       <header className={styles.detailHeader}>
         {hackathon.ogImage && (
           <div className={styles.detailImage}>
-            <img src={hackathon.ogImage} alt={hackathon.name} />
+            <CompatibleImage
+              src={hackathon.ogImage}
+              alt={hackathon.name}
+              width={1200}
+              height={360}
+            />
           </div>
         )}
         <h1>{hackathon.name}</h1>

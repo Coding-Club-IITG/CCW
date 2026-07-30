@@ -51,25 +51,27 @@ export default function AdminEventsPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    setLoading(true);
+    async function fetchEvents() {
+      setLoading(true);
+      try {
+        setError("");
+        const res = await fetch(`/api/admin/events?page=${page}&limit=20`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to fetch events.");
+        setEvents(data.items || []);
+        setTotalPages(data.pagination?.totalPages || 1);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch events.",
+        );
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     void fetchEvents();
   }, [page]);
-
-  async function fetchEvents() {
-    try {
-      setError("");
-      const res = await fetch(`/api/admin/events?page=${page}&limit=20`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to fetch events.");
-      setEvents(data.items || []);
-      setTotalPages(data.pagination?.totalPages || 1);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch events.");
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleDelete(id: string) {
     if (!window.confirm("Are you sure you want to delete this event?")) {

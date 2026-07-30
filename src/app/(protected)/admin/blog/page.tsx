@@ -30,23 +30,23 @@ export default function AdminBlogPage() {
   const router = useRouter();
 
   useEffect(() => {
-    setLoading(true);
+    async function fetchPosts() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/blog?page=${page}&limit=20`);
+        const json = await res.json();
+        setPosts(json.items || []);
+        setTotalPages(json.pagination?.totalPages || 1);
+      } catch {
+        setPosts([]);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     void fetchPosts();
   }, [page]);
-
-  const fetchPosts = async () => {
-    try {
-      const res = await fetch(`/api/admin/blog?page=${page}&limit=20`);
-      const json = await res.json();
-      setPosts(json.items || []);
-      setTotalPages(json.pagination?.totalPages || 1);
-    } catch {
-      setPosts([]);
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDelete = async (slug: string) => {
     if (!confirm("Are you sure you want to delete this post?")) return;

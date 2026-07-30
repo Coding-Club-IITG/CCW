@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
@@ -41,12 +41,8 @@ export default function AdminHackathonsPage() {
   const [deadline, setDeadline] = useState("");
   const [description, setDescription] = useState("");
 
-  useEffect(() => {
+  const fetchHackathons = useCallback(async () => {
     setLoading(true);
-    void fetchHackathons();
-  }, [page]);
-
-  async function fetchHackathons() {
     try {
       setError("");
       const res = await fetch(`/api/admin/hackathons?page=${page}&limit=20`);
@@ -59,7 +55,11 @@ export default function AdminHackathonsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page]);
+
+  useEffect(() => {
+    void fetchHackathons();
+  }, [fetchHackathons]);
 
   function resetForm() {
     setName("");
@@ -129,7 +129,7 @@ export default function AdminHackathonsPage() {
 
       resetForm();
       setShowForm(false);
-      fetchHackathons();
+      void fetchHackathons();
     } catch {
       setError(`Failed to ${editingId ? "update" : "create"} hackathon.`);
     } finally {
@@ -141,7 +141,7 @@ export default function AdminHackathonsPage() {
     if (!confirm("Archive this hackathon?")) return;
     try {
       await fetch(`/api/admin/hackathons/${id}`, { method: "DELETE" });
-      fetchHackathons();
+      void fetchHackathons();
     } catch {
       setError("Failed to archive hackathon.");
     }

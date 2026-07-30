@@ -39,8 +39,10 @@ import {
   IconPersonOff,
   IconBell,
 } from "@/components/shared/Icons";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import { useRouter } from "next/navigation";
 import { getDisplayName } from "@/lib/utils";
+import { useRoomEventSource } from "./useRoomEventSource";
 import styles from "./BlitzRoomClient.module.scss";
 
 const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
@@ -298,25 +300,6 @@ export default function BlitzRoomClient({
     contest.mode,
   ]);
 
-  useEffect(() => {
-    const eventSource = new EventSource(
-      `/api/contests/stream?roomId=${roomId}`,
-    );
-
-    eventSource.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.payload) {
-          handleEvent(data.payload);
-        }
-      } catch (err) {}
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, []);
-
   const handleEvent = (payload: EventPayload) => {
     switch (payload.type) {
       case "room.state_sync":
@@ -470,6 +453,8 @@ export default function BlitzRoomClient({
       }
     }
   };
+
+  useRoomEventSource(roomId, handleEvent);
 
   const getMemberName = (uid: string) => {
     if (!teams) return "Unknown";
@@ -673,7 +658,7 @@ export default function BlitzRoomClient({
                         key={member.id}
                         className={`${styles.memberRow} ${borderClass}`}
                       >
-                        <img
+                        <CompatibleImage
                           src={
                             member.avatar ||
                             `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "U")}&background=random`
@@ -682,6 +667,8 @@ export default function BlitzRoomClient({
                           className={`${styles.memberAvatar} ${
                             memberIsOnline ? "" : styles.memberAvatarOffline
                           }`}
+                          width={40}
+                          height={40}
                         />
                         <span className={styles.memberName}>
                           {getDisplayName(member.name, member.pizza_count)}{" "}

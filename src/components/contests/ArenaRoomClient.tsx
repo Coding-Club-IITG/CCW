@@ -35,8 +35,10 @@ import {
   IconPersonOff,
   IconBell,
 } from "@/components/shared/Icons";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import { useRouter } from "next/navigation";
 import { getDisplayName } from "@/lib/utils";
+import { useRoomEventSource } from "./useRoomEventSource";
 import styles from "./ArenaRoomClient.module.scss";
 
 const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
@@ -228,7 +230,7 @@ export default function ArenaRoomClient({
         setSyncCooldown(Math.ceil(syncCooldownSeconds - elapsed));
       }
     }
-  }, [roomId, userId]);
+  }, [roomId, syncCooldownSeconds, userId]);
 
   // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
   useEffect(() => {
@@ -301,23 +303,6 @@ export default function ArenaRoomClient({
   useEffect(() => {
     stateRef.current = { locks, problems, teams, userId };
   }, [locks, problems, teams, userId]);
-
-  useEffect(() => {
-    const eventSource = new EventSource(
-      `/api/contests/stream?roomId=${roomId}`,
-    );
-
-    eventSource.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.payload) {
-          handleEvent(data.payload);
-        }
-      } catch (err) {}
-    };
-
-    return () => eventSource.close();
-  }, [roomId]); // Removed dynamic dependencies to prevent SSE disconnections
 
   const handleEvent = (payload: EventPayload) => {
     switch (payload.type) {
@@ -470,6 +455,8 @@ export default function ArenaRoomClient({
       }
     }
   };
+
+  useRoomEventSource(roomId, handleEvent);
 
   const getMemberName = (uid: string) => {
     if (!teams) return "Unknown";
@@ -634,7 +621,7 @@ export default function ArenaRoomClient({
                         key={member.id}
                         className={`${styles.memberRow} ${borderClass}`}
                       >
-                        <img
+                        <CompatibleImage
                           src={
                             member.avatar ||
                             `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "U")}&background=random`
@@ -643,6 +630,8 @@ export default function ArenaRoomClient({
                           className={`${styles.memberAvatar} ${
                             memberIsOnline ? "" : styles.memberAvatarOffline
                           }`}
+                          width={40}
+                          height={40}
                         />
                         <span className={styles.memberName}>
                           {getDisplayName(member.name, member.pizza_count)}{" "}

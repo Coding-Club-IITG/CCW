@@ -22,24 +22,24 @@ export default function EditBlogPostPage({ params }: Props) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchPost();
-  }, [slug]);
-
-  const fetchPost = async () => {
-    try {
-      const res = await fetch(`/api/admin/blog/${slug}`);
-      if (!res.ok) {
-        setError("Post not found.");
-        return;
+    async function fetchPost() {
+      try {
+        const res = await fetch(`/api/admin/blog/${slug}`);
+        if (!res.ok) {
+          setError("Post not found.");
+          return;
+        }
+        const data = await res.json();
+        setPost(data.post);
+      } catch {
+        setError("Failed to load post.");
+      } finally {
+        setLoading(false);
       }
-      const data = await res.json();
-      setPost(data.post);
-    } catch {
-      setError("Failed to load post.");
-    } finally {
-      setLoading(false);
     }
-  };
+
+    void fetchPost();
+  }, [slug]);
 
   const handleSave = async (data: {
     title: string;

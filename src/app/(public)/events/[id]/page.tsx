@@ -6,6 +6,7 @@ import { formatDate, logger } from "@/lib/utils";
 import Event, { type IEvent } from "@/models/Event";
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
 import BackLink from "@/components/shared/BackLink";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import StatusBadge from "@/components/shared/StatusBadge";
 import styles from "./EventDetail.module.scss";
 
@@ -78,7 +79,13 @@ export default async function EventDetailPage({ params }: Props) {
 
       {event.poster && (
         <div className={styles.posterWrapper}>
-          <img src={event.poster} alt={event.title} className={styles.poster} />
+          <CompatibleImage
+            src={event.poster}
+            alt={event.title}
+            className={styles.poster}
+            width={1200}
+            height={675}
+          />
         </div>
       )}
 

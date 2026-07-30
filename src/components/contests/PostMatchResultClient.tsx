@@ -13,6 +13,7 @@ import {
   UserX,
 } from "lucide-react";
 import BackLink from "@/components/shared/BackLink";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import { getDisplayName } from "@/lib/utils";
 import styles from "./PostMatchResultClient.module.scss";
 
@@ -217,10 +218,12 @@ export default function PostMatchResultClient({
                   <Star className={styles.iconFilled} size={18} />
                 </div>
                 <div className={styles.mvpInfo}>
-                  <img
+                  <CompatibleImage
                     alt={matchData.mvp.name}
                     className={styles.mvpAvatar}
                     src={matchData.mvp.avatar}
+                    width={64}
+                    height={64}
                   />
                   <div>
                     <div className={styles.mvpLabel}>
@@ -265,10 +268,12 @@ export default function PostMatchResultClient({
                     <div className={styles.teamStandingLeft}>
                       <span className={styles.teamRank}>#{tIdx + 1}</span>
                       {isSoloFormat && team.members[0] && (
-                        <img
+                        <CompatibleImage
                           src={team.members[0].avatar}
                           alt={team.members[0].handle}
                           className={styles.teamStandingAvatar}
+                          width={24}
+                          height={24}
                         />
                       )}
                       <span className={styles.teamStandingName}>
@@ -284,10 +289,12 @@ export default function PostMatchResultClient({
                       {team.members.map((member) => (
                         <div key={member.id} className={styles.memberRow}>
                           <div className={styles.memberInfo}>
-                            <img
+                            <CompatibleImage
                               src={member.avatar}
                               alt={member.handle}
                               className={styles.memberAvatar}
+                              width={32}
+                              height={32}
                             />
                             <span className={styles.memberName}>
                               {member.handle}
@@ -399,12 +406,14 @@ export default function PostMatchResultClient({
                                     prob.solver.pizza_count,
                                   )}
                                 </span>
-                                <img
+                                <CompatibleImage
                                   alt={prob.solver.userName}
                                   className={`${styles.solverAvatar} ${
                                     isUserTeam ? "" : styles.solverAvatarOther
                                   }`}
                                   src={prob.solver.userAvatar}
+                                  width={20}
+                                  height={20}
                                 />
                               </div>
                             ) : (

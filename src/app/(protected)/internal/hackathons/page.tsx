@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import SearchInput from "@/components/shared/SearchInput";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import { formatDate } from "@/lib/utils";
 import {
   IconUsers,
@@ -85,7 +86,12 @@ export default function HackathonsPage() {
             >
               {h.ogImage && (
                 <div className={styles.cardImage}>
-                  <img src={h.ogImage} alt={h.name} />
+                  <CompatibleImage
+                    src={h.ogImage}
+                    alt={h.name}
+                    width={640}
+                    height={280}
+                  />
                 </div>
               )}
               <div className={styles.cardTop}>

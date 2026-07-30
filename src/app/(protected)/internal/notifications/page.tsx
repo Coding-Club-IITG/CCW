@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { IconExternalLink } from "@/components/shared/Icons";
 import Pagination from "@/components/shared/Pagination";
@@ -25,12 +25,8 @@ export default function NotificationsPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
-    fetchNotifications();
-  }, [page, search]);
-
-  async function fetchNotifications() {
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -47,7 +43,11 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, search]);
+
+  useEffect(() => {
+    void fetchNotifications();
+  }, [fetchNotifications]);
 
   async function markAllRead() {
     try {
@@ -66,7 +66,7 @@ export default function NotificationsPage() {
   async function clearAllRead() {
     try {
       await fetch("/api/notifications", { method: "DELETE" });
-      fetchNotifications();
+      void fetchNotifications();
     } catch {
       // silent
     }

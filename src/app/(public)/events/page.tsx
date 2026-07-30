@@ -6,6 +6,7 @@ import dbConnect from "@/lib/mongodb";
 import { formatDate, logger } from "@/lib/utils";
 import Event, { type IEvent } from "@/models/Event";
 import StatusBadge from "@/components/shared/StatusBadge";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import styles from "./Events.module.scss";
 
 function formatEventDate(startDate: Date, endDate?: Date): string {
@@ -85,10 +86,12 @@ export default async function EventsPage() {
               >
                 {event.poster && (
                   <div className={styles.posterWrapper}>
-                    <img
+                    <CompatibleImage
                       src={event.poster}
                       alt={event.title}
                       className={styles.poster}
+                      width={640}
+                      height={360}
                     />
                   </div>
                 )}

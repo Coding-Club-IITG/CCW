@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { getDisplayName } from "@/lib/utils";
 import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import styles from "./CreateRoomModal.module.scss";
 
 export default function CreateRoomModal({
@@ -123,35 +124,35 @@ export default function CreateRoomModal({
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, registeredUsers]);
+  }, [manualTeams, registeredUsers, searchQuery]);
 
   useEffect(() => {
-    let newTeamSize = formData.teamSize;
-    let newMaxPart = formData.maxParticipants;
+    setFormData((prev) => {
+      let teamSize = prev.teamSize;
+      let maxParticipants = prev.maxParticipants;
 
-    if (formData.format === "1v1") {
-      newTeamSize = 1;
-      newMaxPart = 2;
-    } else if (formData.format === "solo-tournament") {
-      newTeamSize = 1;
-      newMaxPart = 16;
-    } else if (formData.format === "team-tournament") {
-      newTeamSize = 3;
-      newMaxPart = 15;
-    } else if (formData.format === "bracket") {
-      if (newMaxPart < 2) newMaxPart = 16;
-    }
+      if (prev.format === "1v1") {
+        teamSize = 1;
+        maxParticipants = 2;
+      } else if (prev.format === "solo-tournament") {
+        teamSize = 1;
+        maxParticipants = 16;
+      } else if (prev.format === "team-tournament") {
+        teamSize = 3;
+        maxParticipants = 15;
+      } else if (prev.format === "bracket" && maxParticipants < 2) {
+        maxParticipants = 16;
+      }
 
-    if (
-      newTeamSize !== formData.teamSize ||
-      newMaxPart !== formData.maxParticipants
-    ) {
-      setFormData((prev) => ({
-        ...prev,
-        teamSize: newTeamSize,
-        maxParticipants: newMaxPart,
-      }));
-    }
+      if (
+        teamSize === prev.teamSize &&
+        maxParticipants === prev.maxParticipants
+      ) {
+        return prev;
+      }
+
+      return { ...prev, teamSize, maxParticipants };
+    });
   }, [formData.format]);
 
   const handleTopPresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1331,10 +1332,12 @@ export default function CreateRoomModal({
                               <div key={member.id} className={styles.memberRow}>
                                 <div className={styles.memberInfo}>
                                   {member.image ? (
-                                    <img
+                                    <CompatibleImage
                                       src={member.image}
                                       alt={member.name}
                                       className={styles.avatarSm}
+                                      width={24}
+                                      height={24}
                                     />
                                   ) : (
                                     <div className={styles.avatarFallback}>
@@ -1455,10 +1458,12 @@ export default function CreateRoomModal({
                                           }}
                                         >
                                           {user.image ? (
-                                            <img
+                                            <CompatibleImage
                                               src={user.image}
                                               alt={user.name}
                                               className={styles.avatarSm}
+                                              width={24}
+                                              height={24}
                                             />
                                           ) : (
                                             <div
@@ -1629,10 +1634,12 @@ export default function CreateRoomModal({
                                     }}
                                   >
                                     {user.image ? (
-                                      <img
+                                      <CompatibleImage
                                         src={user.image}
                                         alt={user.name}
                                         className={styles.avatarSm}
+                                        width={24}
+                                        height={24}
                                       />
                                     ) : (
                                       <div className={styles.avatarFallback}>
@@ -1703,10 +1710,12 @@ export default function CreateRoomModal({
                                   #{index + 1}
                                 </span>
                                 {u.image ? (
-                                  <img
+                                  <CompatibleImage
                                     src={u.image}
                                     alt={u.name}
                                     className={styles.avatarMd}
+                                    width={32}
+                                    height={32}
                                   />
                                 ) : (
                                   <div className={styles.avatarFallbackLg}>
@@ -1751,10 +1760,12 @@ export default function CreateRoomModal({
                           {registeredUsers.map((u) => (
                             <div key={u.id} className={styles.chip}>
                               {u.image ? (
-                                <img
+                                <CompatibleImage
                                   src={u.image}
                                   alt={u.name}
                                   className={styles.avatarSm}
+                                  width={24}
+                                  height={24}
                                 />
                               ) : (
                                 <div className={styles.avatarFallback}>

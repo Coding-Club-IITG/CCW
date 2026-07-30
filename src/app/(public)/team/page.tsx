@@ -8,6 +8,7 @@ import {
   TEAM_ROLES,
 } from "@/lib/constants";
 import { getDisplayName, logger } from "@/lib/utils";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import styles from "./Team.module.scss";
 
 interface TeamMember {
@@ -31,10 +32,12 @@ function MemberCard({
   return (
     <div className={styles.card}>
       {member.image ? (
-        <img
+        <CompatibleImage
           src={member.image}
           alt={member.name}
           className={styles.avatarImg}
+          width={72}
+          height={72}
         />
       ) : (
         <div className={styles.avatar}>{member.name.charAt(0)}</div>

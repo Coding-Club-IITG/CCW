@@ -797,7 +797,7 @@
 /* Apply Fonts */
 .title,
 .sidebarTitle {
-  font-family: "Hanken Grotesk", sans-serif;
+  font-family: var(--font-hanken-grotesk), sans-serif;
 }
 
 .scoreValue,
@@ -807,7 +807,7 @@
 .infoValue,
 .infoValueActive,
 .infoValueWinner {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-inter), sans-serif;
 }
 
 .backLink,
@@ -830,5 +830,5 @@
 .footerBtn,
 .footerNote,
 .footerClose {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-jetbrains-mono), monospace;
 }

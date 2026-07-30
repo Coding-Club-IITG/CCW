@@ -232,7 +232,7 @@
 
 /* Apply Fonts */
 .gridCardTitle {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-inter), sans-serif;
   font-size: 1rem;
 }
 
@@ -243,5 +243,5 @@
 .claimedLabel,
 .unclaimed,
 .syncMini {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-jetbrains-mono), monospace;
 }

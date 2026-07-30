@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X, FileIcon, AlertCircle } from "lucide-react";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import type { FileEntry } from "./types";
 import { formatBytes } from "./utils";
 import styles from "./FilesClient.module.scss";
@@ -223,16 +224,18 @@ export default function FileViewer({ file, onClose }: Props) {
       return <PdfCanvasViewer blob={blob} />;
     }
 
-    // Images: <img> with drag and context-menu blocked at wrapper level
+    // Object URLs are rendered unoptimized by CompatibleImage.
     if (isImage && objectUrl) {
       return (
         <div className={styles.viewerImageWrap}>
-          <img
+          <CompatibleImage
             src={objectUrl}
             alt={file.title}
             className={styles.viewerImage}
             draggable={false}
             onDragStart={(e) => e.preventDefault()}
+            width={1600}
+            height={1200}
           />
         </div>
       );
@@ -242,7 +245,6 @@ export default function FileViewer({ file, onClose }: Props) {
     if (isAudio && objectUrl) {
       return (
         <div className={styles.viewerAudioWrap}>
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <audio controls src={objectUrl} className={styles.viewerAudio} />
         </div>
       );
@@ -250,10 +252,7 @@ export default function FileViewer({ file, onClose }: Props) {
 
     // Video: native player
     if (isVideo && objectUrl) {
-      return (
-        // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video controls src={objectUrl} className={styles.viewerFrame} />
-      );
+      return <video controls src={objectUrl} className={styles.viewerFrame} />;
     }
 
     // Plain text - blob URL iframe
