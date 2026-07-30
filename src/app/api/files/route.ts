@@ -209,9 +209,12 @@ export async function POST(request: NextRequest) {
         accessControl,
       });
 
-      logger.info(
-        `[Files] ${user.email} uploaded "${title}" (${file.size} bytes)`,
-      );
+      logger.info("File uploaded", {
+        route: "POST /api/files",
+        operation: "upload_file",
+        resourceId: newFile._id.toString(),
+        fileSize: file.size,
+      });
       return NextResponse.json({ file: newFile }, { status: 201 });
     } catch (err) {
       // Best-effort cleanup of the disk file if DB write fails

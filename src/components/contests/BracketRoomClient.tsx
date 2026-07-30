@@ -608,8 +608,6 @@ export default function BracketRoomClient({
         const payload = data.payload;
         const channel = data.channel as string;
 
-        console.log("[CCW Bracket] SSE event received:", { channel, payload });
-
         // Refresh snapshot on any bracket/contest update
         if (
           channel === `events:contest:${contest._id}` &&
@@ -621,26 +619,15 @@ export default function BracketRoomClient({
             "match.completed",
           ].includes(payload.type)
         ) {
-          console.log(
-            "[CCW Bracket] Refreshing snapshot due to:",
-            payload.type,
-          );
           const res = await fetch(
             `/api/contests/${contest._id}/bracket/snapshot`,
           );
           if (res.ok) {
             const data = await res.json();
-            console.log("[CCW Bracket] New snapshot received:", data);
             setSnapshot(data);
           }
         }
-      } catch (err) {
-        console.error("[CCW Bracket] SSE parse error:", err);
-      }
-    });
-
-    eventSource.addEventListener("connected", (e) => {
-      console.log("[CCW Bracket] SSE connected:", JSON.parse(e.data));
+      } catch {}
     });
 
     eventSource.onerror = () => {

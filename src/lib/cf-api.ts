@@ -16,19 +16,13 @@ export async function fetchCodeforcesUserStatus(
   count?: number,
   from: number = 1,
 ): Promise<CodeforcesSubmission[]> {
-  try {
-    logger.info(
-      `[cf-api] fetchCodeforcesUserStatus called for handle: ${handle}, count: ${count}`,
-    );
-    // Use the new Unified SDK instead of manual axios calls
-    return await cp.codeforces.getSubmissions(handle, { count, from });
-  } catch (error: any) {
-    logger.error(
-      `[cf-api] Error fetching status for handle ${handle}:`,
-      error.message || error,
-    );
-    throw error;
-  }
+  logger.debug("Codeforces submissions fetch started", {
+    operation: "fetch_submissions",
+    count,
+    from,
+  });
+  // Use the new Unified SDK instead of manual axios calls
+  return cp.codeforces.getSubmissions(handle, { count, from });
 }
 
 /**
@@ -38,39 +32,36 @@ export async function fetchCodeforcesUserStatus(
  * @param handle The Codeforces handle.
  */
 export async function prefetchUserSolvedHistory(handle: string): Promise<void> {
-  logger.info(`[cf-api] Prefetching solved history for handle: ${handle}`);
-  try {
-    // Utilize the SDK's built-in solved problems aggregator
-    const solvedProblems = await cp.codeforces.getUserSolvedProblems(handle);
-    const solvedProblemIds = new Set<string>();
+  logger.info("Codeforces solved-history prefetch started", {
+    operation: "prefetch_solved_history",
+  });
+  // Utilize the SDK's built-in solved problems aggregator
+  const solvedProblems = await cp.codeforces.getUserSolvedProblems(handle);
+  const solvedProblemIds = new Set<string>();
 
-    for (const prob of solvedProblems) {
-      solvedProblemIds.add(`${prob.contestId}${prob.index}`);
-    }
-
-    const redis = await getRedis();
-    const key = `solved:${handle.toLowerCase()}`;
-
-    const pipeline = redis.multi();
-    pipeline.del(key); // Clear existing
-
-    if (solvedProblemIds.size > 0) {
-      pipeline.sAdd(key, Array.from(solvedProblemIds));
-      logger.info(
-        `[cf-api] Cached ${solvedProblemIds.size} solved problems for ${handle}`,
-      );
-    } else {
-      logger.info(`[cf-api] Handle ${handle} has 0 solved problems.`);
-      pipeline.sAdd(key, "__empty__");
-    }
-
-    pipeline.expire(key, 6 * 60 * 60); // 6 hours TTL
-    await pipeline.exec();
-  } catch (error: any) {
-    logger.error(
-      `[cf-api] Failed to prefetch solved history for ${handle}:`,
-      error.message || error,
-    );
-    throw error;
+  for (const prob of solvedProblems) {
+    solvedProblemIds.add(`${prob.contestId}${prob.index}`);
   }
+
+  const redis = await getRedis();
+  const key = `solved:${handle.toLowerCase()}`;
+
+  const pipeline = redis.multi();
+  pipeline.del(key); // Clear existing
+
+  if (solvedProblemIds.size > 0) {
+    pipeline.sAdd(key, Array.from(solvedProblemIds));
+    logger.info("Codeforces solved-history prefetch completed", {
+      operation: "prefetch_solved_history",
+      solvedProblemCount: solvedProblemIds.size,
+    });
+  } else {
+    logger.info("Codeforces solved-history prefetch found no problems", {
+      operation: "prefetch_solved_history",
+    });
+    pipeline.sAdd(key, "__empty__");
+  }
+
+  pipeline.expire(key, 6 * 60 * 60); // 6 hours TTL
+  await pipeline.exec();
 }

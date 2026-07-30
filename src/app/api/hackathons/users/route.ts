@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
 import { prepareSearchQuery } from "@/lib/search";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import User from "@/models/User";
 
 export async function GET(request: NextRequest) {
@@ -50,7 +51,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(paginatedResponse(data, total, page, limit));
   } catch (err) {
-    console.error("[Hackathon Users] GET error:", err);
+    logger.error("Hackathon user search failed", {
+      route: "GET /api/hackathons/users",
+      operation: "search_users",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

@@ -13,6 +13,7 @@ import {
   IMAGE_EXTENSION_TO_MIME,
   type ImageExtension,
 } from "@/lib/constants";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -52,7 +53,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       },
     });
   } catch (err) {
-    console.error("[Blog] GET /api/blog/assets/[id] error:", err);
+    logger.error("Blog asset read failed", {
+      route: "GET /api/blog/assets/[id]",
+      operation: "read_asset",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

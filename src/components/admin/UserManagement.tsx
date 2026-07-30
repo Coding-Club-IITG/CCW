@@ -14,7 +14,6 @@ import {
   updateUserRole,
 } from "@/lib/actions/user";
 import { isGlobalAdmin, isModuleHead } from "@/lib/roles";
-import { logger } from "@/lib/utils";
 import styles from "./UserManagement.module.scss";
 
 export default function UserManagement() {
@@ -39,14 +38,11 @@ export default function UserManagement() {
     setLoading(true);
     try {
       const result = await getUsers(currentPage, 50, searchTerm);
-      if (!result.success) {
-        logger.error("Failed to fetch users:", result.error);
-      } else {
+      if (result.success) {
         setUsers(result.users);
         setTotalPages(Math.ceil((result.total || result.users.length) / 50));
       }
-    } catch (error) {
-      logger.error("Failed to fetch users:", error);
+    } catch {
     } finally {
       setLoading(false);
     }

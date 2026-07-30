@@ -7,6 +7,7 @@ import { createReadStream, existsSync } from "fs";
 import { Readable } from "stream";
 import path from "path";
 import { IMAGE_EXTENSION_TO_MIME, type ImageExtension } from "@/lib/constants";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -44,7 +45,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       },
     });
   } catch (err) {
-    console.error("[Avatar] GET /api/profile/assets/[id] error:", err);
+    logger.error("Avatar asset read failed", {
+      route: "GET /api/profile/assets/[id]",
+      operation: "read_asset",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

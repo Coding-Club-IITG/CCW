@@ -13,6 +13,7 @@ import {
   ALLOWED_IMAGE_MIME_TYPES,
   ALLOWED_IMAGE_EXTENSIONS,
 } from "@/lib/constants";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 interface UploadOptions {
   /** Directory to store uploaded files */
@@ -120,7 +121,10 @@ export function createImageUploadHandler(options: UploadOptions) {
       const url = `${urlPrefix}/${filename}`;
       return NextResponse.json({ url, filename }, { status: 201 });
     } catch (err) {
-      console.error(`${logPrefix} Error:`, err);
+      logger.error(`${logPrefix} Upload failed`, {
+        operation: "image_upload",
+        ...errorToLogMetadata(err),
+      });
       return NextResponse.json(
         { error: "Internal server error." },
         { status: 500 },

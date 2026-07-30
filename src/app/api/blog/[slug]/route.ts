@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 
 type RouteContext = { params: Promise<{ slug: string }> };
@@ -21,7 +22,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ post });
   } catch (err) {
-    console.error("[Blog] GET /api/blog/[slug] error:", err);
+    logger.error("Published blog lookup failed", {
+      route: "GET /api/blog/[slug]",
+      operation: "get_post",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

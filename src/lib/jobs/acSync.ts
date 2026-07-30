@@ -46,8 +46,12 @@ export async function syncAtCoderRatings() {
         });
 
         updatedCount++;
-      } catch (err: any) {
-        logger.warn(`[AC-Sync] Error syncing ${doc.acHandle}: ${err.message}`);
+      } catch (err) {
+        logger.warn("AtCoder rating sync failed for a user", {
+          job: "acSync",
+          operation: "sync_user_rating",
+          err,
+        });
       }
 
       await sleep(INTER_USER_DELAY_MS);

@@ -7,7 +7,7 @@ import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
 import { publishRoom } from "@/lib/sse";
 import { reconciliationQueue } from "@/lib/bullmq";
-import { logger } from "@/lib/utils";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function POST(
   req: NextRequest,
@@ -207,7 +207,11 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Ready check error:", err);
+    logger.error("Contest room ready check failed", {
+      route: "POST /api/contests/rooms/[id]/ready",
+      operation: "mark_ready",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

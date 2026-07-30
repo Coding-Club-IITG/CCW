@@ -9,6 +9,7 @@ import ContestPreset from "@/models/ContestPreset";
 import mongoose from "mongoose";
 import CPUser from "@/models/CPUser";
 import { reconciliationQueue } from "@/lib/bullmq";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function validateStep(step: number, data: Record<string, any>) {
   const errors: Record<string, string> = {};
@@ -243,7 +244,11 @@ export async function createBracketContest(data: any) {
     }
 
     return { contestId: contest._id.toString() };
-  } catch (err: any) {
-    return { error: err.message || "Failed to create contest" };
+  } catch (err) {
+    logger.error("Admin contest creation failed", {
+      action: "createContest",
+      ...errorToLogMetadata(err),
+    });
+    return { error: "Failed to create contest." };
   }
 }

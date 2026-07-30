@@ -15,6 +15,7 @@ import {
 import { notifyMany } from "@/lib/notify";
 import { fetchOgImage } from "@/lib/ogImage";
 import { parsePagination, paginatedResponse } from "@/lib/pagination";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import Hackathon from "@/models/Hackathon";
 import User from "@/models/User";
 
@@ -62,7 +63,11 @@ export async function GET(request: NextRequest) {
       paginatedResponse(result.hackathons, result.total, page, limit),
     );
   } catch (err) {
-    console.error("[Hackathon Admin] GET error:", err);
+    logger.error("Admin hackathon listing failed", {
+      route: "GET /api/admin/hackathons",
+      operation: "list_hackathons",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
@@ -204,7 +209,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ hackathon }, { status: 201 });
   } catch (err) {
-    console.error("[Hackathon Admin] POST error:", err);
+    logger.error("Admin hackathon creation failed", {
+      route: "POST /api/admin/hackathons",
+      operation: "create_hackathon",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

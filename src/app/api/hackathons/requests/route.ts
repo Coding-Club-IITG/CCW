@@ -11,6 +11,7 @@ import HackathonRequest from "@/models/HackathonRequest";
 import type { HackathonRequestType } from "@/lib/constants";
 import { notify } from "@/lib/notify";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -211,7 +212,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ request: req }, { status: 201 });
     }
   } catch (err) {
-    console.error("[Hackathon Requests] POST error:", err);
+    logger.error("Hackathon request creation failed", {
+      route: "POST /api/hackathons/requests",
+      operation: "create_request",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
@@ -279,7 +284,11 @@ export async function GET(request: NextRequest) {
       users,
     });
   } catch (err) {
-    console.error("[Hackathon Requests] GET error:", err);
+    logger.error("Hackathon request listing failed", {
+      route: "GET /api/hackathons/requests",
+      operation: "list_requests",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

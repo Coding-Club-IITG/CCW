@@ -16,7 +16,7 @@ import { unlink } from "fs/promises";
 import { Readable } from "stream";
 import path from "path";
 import { invalidateCache } from "@/lib/cache";
-import { logger } from "@/lib/utils";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -255,9 +255,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .select("-storedName")
       .lean();
 
-    logger.info(
-      `[Files] ${user.email} updated metadata for "${file.title}" (id: ${id})`,
-    );
+    logger.info("File metadata updated", {
+      route: "PATCH /api/files/[id]",
+      operation: "update_metadata",
+      resourceId: id,
+    });
     return NextResponse.json({ file: updated });
   } catch (err) {
     logger.error("[Files] PATCH /api/files/[id] error:", err);
@@ -300,13 +302,22 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     try {
       await unlink(filePath);
     } catch (err) {
-      logger.warn(`[Files] Could not delete disk file: ${filePath}`, err);
+      logger.warn("File cleanup from disk failed", {
+        route: "DELETE /api/files/[id]",
+        operation: "delete_disk_file",
+        resourceId: id,
+        ...errorToLogMetadata(err),
+      });
     }
 
     await FileEntry.findByIdAndDelete(id);
     await invalidateCache("files");
 
-    logger.info(`[Files] ${user.email} deleted "${file.title}" (id: ${id})`);
+    logger.info("File deleted", {
+      route: "DELETE /api/files/[id]",
+      operation: "delete_file",
+      resourceId: id,
+    });
     return NextResponse.json({ success: true });
   } catch (err) {
     logger.error("[Files] DELETE /api/files/[id] error:", err);

@@ -14,6 +14,7 @@ import dbConnect from "@/lib/mongodb";
 import { notifyMany } from "@/lib/notify";
 import User from "@/models/User";
 import { MODULES } from "@/lib/constants";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -108,7 +109,11 @@ export async function POST(request: NextRequest) {
       sent: userIds.length,
     });
   } catch (err) {
-    console.error("[Admin Notifications] POST error:", err);
+    logger.error("Admin notification dispatch failed", {
+      route: "POST /api/admin/notifications",
+      operation: "send_notifications",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

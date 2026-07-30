@@ -503,28 +503,29 @@ export const cfSyncWorker = new Worker(
 
           await publishUser(userId, eventPayload);
 
-          logger.info(
-            `[cfSyncWorker] Valid AC detected for ${cfHandle} on ${problemId}. emitted sync.detected.`,
-          );
+          logger.info("Accepted contest submission detected", {
+            worker: "cfSyncWorker",
+            operation: "detect_accepted_submission",
+            problemId,
+          });
         } else {
           const failVerdict = hasSubmissionForProblem
             ? bestVerdict
             : "not_found";
-          logger.info(
-            `[cfSyncWorker] Validation failed for ${cfHandle} on ${problemId}. Verdict: ${failVerdict}`,
-          );
+          logger.info("Contest submission validation failed", {
+            worker: "cfSyncWorker",
+            operation: "validate_submission",
+            problemId,
+            verdict: failVerdict,
+          });
           await publishUser(userId, {
             type: "sync.failed",
             verdict: failVerdict,
             problemId,
           });
         }
-      } catch (error: any) {
-        logger.error(
-          `[cfSyncWorker] Error processing cf_sync for user ${userId}:`,
-          error.message,
-        );
-        throw error; // Rethrow to trigger BullMQ retries
+      } catch (error) {
+        throw error; // The worker failure listener owns diagnostic logging.
       }
     }
   },

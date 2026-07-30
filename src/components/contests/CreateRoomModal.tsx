@@ -116,8 +116,8 @@ export default function CreateRoomModal({
           setSearchResults(filtered);
           setSelectedUserIndex(0);
         }
-      } catch (err) {
-        console.error("Search error", err);
+      } catch {
+        setSearchResults([]);
       } finally {
         setIsSearching(false);
       }

@@ -297,14 +297,18 @@ export const reconciliationWorker = new Worker(
                 await CPUser.findByIdAndUpdate(cpUser._id, {
                   $push: { solvedProblems: { $each: newSolves } },
                 });
-                logger.info(
-                  `[reconciliationWorker] bracket check_start: +${newSolves.length} solves for ${cpUser.cfHandle}`,
-                );
+                logger.info("Bracket solve history refreshed", {
+                  worker: "reconciliationWorker",
+                  operation: "refresh_solve_history",
+                  solvedCount: newSolves.length,
+                });
               }
             } catch (cfErr: any) {
-              logger.warn(
-                `[reconciliationWorker] bracket check_start: CF fetch failed for ${cpUser.cfHandle}: ${cfErr.message}`,
-              );
+              logger.warn("Bracket solve-history fetch failed", {
+                worker: "reconciliationWorker",
+                operation: "fetch_solve_history",
+                err: cfErr,
+              });
             }
           }
         } // End of problemSelectionMode === "bulk" check
@@ -495,14 +499,18 @@ export const reconciliationWorker = new Worker(
               await CPUser.findByIdAndUpdate(cpUser._id, {
                 $push: { solvedProblems: { $each: newSolves } },
               });
-              logger.info(
-                `[reconciliationWorker] check_start: added ${newSolves.length} new solves for ${cpUser.cfHandle}`,
-              );
+              logger.info("Contest solve history refreshed", {
+                worker: "reconciliationWorker",
+                operation: "refresh_solve_history",
+                solvedCount: newSolves.length,
+              });
             }
           } catch (cfErr: any) {
-            logger.warn(
-              `[reconciliationWorker] check_start: failed to fetch CF submissions for ${cpUser.cfHandle}: ${cfErr.message}`,
-            );
+            logger.warn("Contest solve-history fetch failed", {
+              worker: "reconciliationWorker",
+              operation: "fetch_solve_history",
+              err: cfErr,
+            });
             // Non-fatal: continue with existing DB data for this user
           }
         }

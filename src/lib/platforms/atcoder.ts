@@ -172,7 +172,10 @@ export async function getUserInfo(handle: string): Promise<ACUserInfo | null> {
       rank: 0,
     };
   } catch (err) {
-    logger.warn(`[atcoder-api] Failed to get user info for ${handle}`, { err });
+    logger.warn("AtCoder user lookup failed", {
+      operation: "get_user_info",
+      err,
+    });
     return null;
   }
 }
@@ -210,7 +213,8 @@ export async function getUserAffiliation(
     );
     return affiliationMatch ? affiliationMatch[1].trim() : null;
   } catch (err) {
-    logger.warn(`[atcoder-api] Failed to fetch affiliation for ${handle}`, {
+    logger.warn("AtCoder affiliation lookup failed", {
+      operation: "get_affiliation",
       err,
     });
     return null;

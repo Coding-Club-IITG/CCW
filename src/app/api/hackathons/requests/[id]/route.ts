@@ -9,6 +9,7 @@ import HackathonTeam from "@/models/HackathonTeam";
 import HackathonRequest from "@/models/HackathonRequest";
 import Hackathon from "@/models/Hackathon";
 import { notify } from "@/lib/notify";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function PATCH(
   request: NextRequest,
@@ -158,7 +159,11 @@ export async function PATCH(
 
     return NextResponse.json({ status: "accepted" });
   } catch (err) {
-    console.error("[Hackathon Requests] PATCH error:", err);
+    logger.error("Hackathon request update failed", {
+      route: "PATCH /api/hackathons/requests/[id]",
+      operation: "update_request",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

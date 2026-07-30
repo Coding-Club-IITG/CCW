@@ -9,6 +9,7 @@ import dbConnect from "@/lib/mongodb";
 import HackathonTeam from "@/models/HackathonTeam";
 import HackathonRequest from "@/models/HackathonRequest";
 import { notify, notifyMany } from "@/lib/notify";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function PATCH(
   request: NextRequest,
@@ -128,7 +129,11 @@ export async function PATCH(
     }).lean();
     return NextResponse.json({ team: updated });
   } catch (err) {
-    console.error("[Hackathon Teams] PATCH error:", err);
+    logger.error("Hackathon team update failed", {
+      route: "PATCH /api/hackathons/teams/[id]",
+      operation: "update_team",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
@@ -180,7 +185,11 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("[Hackathon Teams] DELETE error:", err);
+    logger.error("Hackathon team deletion failed", {
+      route: "DELETE /api/hackathons/teams/[id]",
+      operation: "delete_team",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

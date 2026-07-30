@@ -61,8 +61,7 @@ export default function RegisterContestModal({
           setAvailableTeams(teams);
           setLoadingTeams(false);
         })
-        .catch((err) => {
-          console.error(err);
+        .catch(() => {
           setLoadingTeams(false);
         });
     }
@@ -83,13 +82,11 @@ export default function RegisterContestModal({
               }
               setLoadingRegistrations(false);
             })
-            .catch((err) => {
-              console.error(err);
+            .catch(() => {
               setLoadingRegistrations(false);
             });
         })
-        .catch((err) => {
-          console.error(err);
+        .catch(() => {
           setLoadingRegistrations(false);
         });
     }

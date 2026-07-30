@@ -26,9 +26,9 @@ async function checkAdmin() {
       headers: await headers(),
     });
     if (!session || !isAdmin((session.user as any).role)) {
-      logger.warn(
-        `Unauthorized admin access attempt by: ${session?.user?.email || "Unknown"}`,
-      );
+      logger.warn("Unauthorized admin access attempt", {
+        action: "checkAdmin",
+      });
       return null;
     }
     return session;
@@ -99,7 +99,10 @@ export async function addUser(email: string, name?: string) {
       emailVerified: true,
     });
 
-    logger.info(`Admin ${adminSession.user.email} added user: ${email}`);
+    logger.info("Admin user created", {
+      action: "addUser",
+      resourceId: newUser._id.toString(),
+    });
     await invalidateCache("users");
     revalidatePath("/admin");
     return {
@@ -130,9 +133,11 @@ export async function updateUserRole(userId: string, role: string) {
       { new: true },
     );
 
-    logger.info(
-      `Admin ${adminSession.user.email} updated role of ${updatedUser.email} to ${role}`,
-    );
+    logger.info("User role updated", {
+      action: "updateUserRole",
+      resourceId: userId,
+      role,
+    });
     await invalidateCache("users");
     await invalidateCache("team");
     revalidatePath("/admin");
@@ -167,9 +172,10 @@ export async function updateUserModuleRoles(
       { new: true },
     );
 
-    logger.info(
-      `Admin ${adminSession.user.email} updated module roles of ${updatedUser.email}`,
-    );
+    logger.info("User module roles updated", {
+      action: "updateUserModuleRoles",
+      resourceId: userId,
+    });
     await invalidateCache("users");
     await invalidateCache("team");
     revalidatePath("/admin");
@@ -196,9 +202,10 @@ export async function deleteUser(userId: string) {
       return { success: true as const };
     }
 
-    logger.warn(
-      `Admin ${adminSession.user.email} deleted user: ${userToDelete.email}`,
-    );
+    logger.warn("User deletion started", {
+      action: "deleteUser",
+      resourceId: userId,
+    });
 
     await User.findByIdAndDelete(userId);
 
@@ -207,9 +214,12 @@ export async function deleteUser(userId: string) {
       CPUser.deleteMany({ userId }),
       POTDSubmission.deleteMany({ userId }),
     ]);
-    logger.info(
-      `Admin deleted ${cpResult.deletedCount} CPUser and ${potdResult.deletedCount} POTDSubmission records: ${userToDelete.email}`,
-    );
+    logger.info("Related user records deleted", {
+      action: "deleteUser",
+      resourceId: userId,
+      cpUserCount: cpResult.deletedCount,
+      potdSubmissionCount: potdResult.deletedCount,
+    });
 
     // Purge all sessions and linked accounts
     try {
@@ -228,15 +238,18 @@ export async function deleteUser(userId: string) {
         db.collection("accounts").deleteMany({ userId: userIdQuery }),
       ]);
 
-      logger.info(
-        `[Auth] Cleaned up ${sessionsResult.deletedCount} session(s) and ` +
-          `${accountsResult.deletedCount} account(s) for deleted user: ${userToDelete.email}`,
-      );
+      logger.info("Authentication records deleted", {
+        action: "deleteUser",
+        resourceId: userId,
+        sessionCount: sessionsResult.deletedCount,
+        accountCount: accountsResult.deletedCount,
+      });
     } catch (err) {
-      logger.error(
-        `[Auth] Failed to clean up sessions/accounts for deleted user ${userToDelete.email}:`,
+      logger.error("Authentication record cleanup failed", {
+        action: "deleteUser",
+        resourceId: userId,
         err,
-      );
+      });
     }
 
     await invalidateCache("users");
@@ -268,9 +281,11 @@ export async function updateUserPizzaCount(userId: string, delta: 1 | -1) {
       { new: true },
     );
 
-    logger.info(
-      `Admin ${adminSession.user.email} updated pizza_count of ${updatedUser.email} to ${newCount}`,
-    );
+    logger.info("User pizza count updated", {
+      action: "updateUserPizzaCount",
+      resourceId: userId,
+      pizzaCount: newCount,
+    });
     await invalidateCache("users");
     await invalidateCache("team");
     await invalidateCache("cp");
@@ -428,9 +443,10 @@ export async function updateProfile(data: {
           },
         },
       );
-      logger.info(
-        `User ${session.user.email} changed CF handle from "${oldCfHandle}" to "${codeforcesId}" - verification reset`,
-      );
+      logger.info("Codeforces handle change reset verification", {
+        action: "updateProfile",
+        resourceId: session.user.id,
+      });
     }
 
     // If the AC handle changed, revoke old verification
@@ -445,12 +461,16 @@ export async function updateProfile(data: {
           },
         },
       );
-      logger.info(
-        `User ${session.user.email} changed AC handle from "${oldAcHandle}" to "${atcoderId}" - verification reset`,
-      );
+      logger.info("AtCoder handle change reset verification", {
+        action: "updateProfile",
+        resourceId: session.user.id,
+      });
     }
 
-    logger.info(`User ${session.user.email} updated their profile`);
+    logger.info("User profile updated", {
+      action: "updateProfile",
+      resourceId: session.user.id,
+    });
     await invalidateCache("team");
     await invalidateCache("cp");
     await invalidateCache("potd");

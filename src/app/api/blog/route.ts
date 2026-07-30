@@ -7,6 +7,7 @@ import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
 import { prepareSearchQuery } from "@/lib/search";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 
 export async function GET(request: NextRequest) {
@@ -55,7 +56,11 @@ export async function GET(request: NextRequest) {
       availableTags: result.availableTags,
     });
   } catch (err) {
-    console.error("[Blog] GET /api/blog error:", err);
+    logger.error("Published blog listing failed", {
+      route: "GET /api/blog",
+      operation: "list_posts",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

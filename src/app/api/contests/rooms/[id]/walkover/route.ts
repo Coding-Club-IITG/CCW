@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { processWalkover } from "@/lib/bracket";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function POST(
   request: NextRequest,
@@ -38,9 +39,14 @@ export async function POST(
       adminUserId,
     );
     return NextResponse.json({ success: true, bracket: snapshot });
-  } catch (error: any) {
+  } catch (error) {
+    logger.error("Contest walkover processing failed", {
+      route: "POST /api/contests/rooms/[id]/walkover",
+      operation: "process_walkover",
+      ...errorToLogMetadata(error),
+    });
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: "Unable to process the walkover." },
       { status: 400 },
     );
   }

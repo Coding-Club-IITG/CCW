@@ -11,7 +11,7 @@ import {
   type BracketContestInput,
 } from "@/lib/contests-validation";
 import dbConnect from "@/lib/mongodb";
-import { logger } from "@/lib/utils";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import { prepareSearchQuery } from "@/lib/search";
 import ContestMatch from "@/models/ContestMatch";
 import CPUser from "@/models/CPUser";
@@ -230,7 +230,10 @@ export async function getContestById(
       registrationType: contest.registrationSettings?.type,
     };
   } catch (error) {
-    console.error("Error fetching contest by id:", error);
+    logger.error("Contest lookup failed", {
+      action: "getContestById",
+      ...errorToLogMetadata(error),
+    });
     return null;
   }
 }
@@ -299,7 +302,10 @@ export async function registerForContest(
     revalidatePath("/internal/contests");
     return { success: true, message: "Successfully registered" };
   } catch (error) {
-    console.error("Registration error:", error);
+    logger.error("Contest registration failed", {
+      action: "registerForContest",
+      ...errorToLogMetadata(error),
+    });
     return { success: false, message: "Internal server error" };
   }
 }
@@ -331,7 +337,10 @@ export async function getAvailableTeamsForContest(
 
     return availableTeams;
   } catch (error) {
-    console.error("Error fetching available teams:", error);
+    logger.error("Available contest teams lookup failed", {
+      action: "getAvailableTeams",
+      ...errorToLogMetadata(error),
+    });
     return [];
   }
 }
@@ -483,7 +492,10 @@ export async function createRoomContest(
     revalidatePath("/internal/contests");
     return { success: true };
   } catch (err: any) {
-    console.error("createRoomContest error:", err);
+    logger.error("Contest room creation failed", {
+      action: "createRoomContest",
+      ...errorToLogMetadata(err),
+    });
     return { success: false, error: "Failed to create contest" };
   }
 }
@@ -522,7 +534,10 @@ export async function getContestRegistrations(contestId: string) {
       registrations: JSON.parse(JSON.stringify(populatedRegistrations)),
     };
   } catch (error) {
-    console.error("Error fetching contest registrations:", error);
+    logger.error("Contest registrations lookup failed", {
+      action: "getContestRegistrations",
+      ...errorToLogMetadata(error),
+    });
     return { success: false, error: "Failed to fetch registrations" };
   }
 }
@@ -564,7 +579,10 @@ export async function unregisterFromContest(
     revalidatePath("/internal/contests");
     return { success: true, message: "Successfully unregistered" };
   } catch (error) {
-    console.error("Unregister error:", error);
+    logger.error("Contest unregistration failed", {
+      action: "unregisterFromContest",
+      ...errorToLogMetadata(error),
+    });
     return { success: false, message: "Internal server error" };
   }
 }

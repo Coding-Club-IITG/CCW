@@ -271,7 +271,11 @@ async function pollChallenge(challenge: any): Promise<void> {
         );
       }
     } catch (err) {
-      logger.warn(`[potd-finalize] Error polling ${handle}`, { err });
+      logger.warn("POTD platform polling failed", {
+        operation: "poll_user_submissions",
+        platform,
+        err,
+      });
     }
 
     await sleep(INTER_USER_DELAY_MS);

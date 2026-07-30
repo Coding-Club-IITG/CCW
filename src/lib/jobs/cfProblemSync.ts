@@ -90,11 +90,7 @@ export async function syncCodeforcesProblems() {
     logger.info(
       `[CF-Problem-Sync] Sync complete. Added ${newProblems.length} new problems.`,
     );
-  } catch (error: any) {
-    logger.error(
-      "[CF-Problem-Sync] Fatal error during Codeforces problem sync:",
-      error,
-    );
-    throw error; // Rethrow to let BullMQ handle attempts and delay
+  } catch (error) {
+    throw error; // Let BullMQ own final failure logging and retries.
   }
 }

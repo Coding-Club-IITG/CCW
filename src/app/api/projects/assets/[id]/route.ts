@@ -11,6 +11,7 @@ import {
   IMAGE_EXTENSION_TO_MIME,
   type ImageExtension,
 } from "@/lib/constants";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -51,7 +52,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       },
     });
   } catch (err) {
-    console.error("[Projects] GET /api/projects/assets/[id] error:", err);
+    logger.error("Project asset read failed", {
+      route: "GET /api/projects/assets/[id]",
+      operation: "read_asset",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

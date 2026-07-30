@@ -34,9 +34,9 @@ async function checkAdmin() {
   if (!session?.user) return null;
   const user = session.user as any;
   if (!canSetPOTD(user.role)) {
-    logger.warn(
-      `[POTD-Admin] Unauthorized access attempt by: ${user.email || "Unknown"}`,
-    );
+    logger.warn("Unauthorized POTD admin access attempt", {
+      action: "requirePotdAdmin",
+    });
     return null;
   }
   return session;

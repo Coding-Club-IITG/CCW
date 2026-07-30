@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
 import CPUser from "@/models/CPUser";
 import mongoose from "mongoose";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function POST(
   request: NextRequest,
@@ -208,9 +209,14 @@ export async function POST(
       { error: "Unsupported teamSize format" },
       { status: 400 },
     );
-  } catch (error: any) {
+  } catch (error) {
+    logger.error("Contest registration failed", {
+      route: "POST /api/contests/[id]/register",
+      operation: "register",
+      ...errorToLogMetadata(error),
+    });
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: "Unable to complete contest registration." },
       { status: 500 },
     );
   }

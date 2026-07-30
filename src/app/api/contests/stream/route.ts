@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getRedis } from "@/lib/redis";
+import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
 import ContestRoom from "@/models/ContestRoom";
-import { logger } from "@/lib/utils";
 import { publishRoom, publishUser } from "@/lib/sse";
 import { reconciliationQueue } from "@/lib/bullmq";
 
@@ -268,10 +268,12 @@ export async function GET(request: NextRequest) {
         subscribedChannels: channels,
       });
 
-      console.log(
-        `[SSE] Client ${userId} connected. Subscribing to channels:`,
-        channels,
-      );
+      logger.info("Contest SSE client connected", {
+        route: "GET /api/contests/stream",
+        operation: "subscribe",
+        contestId: contestIdFromQuery ?? undefined,
+        channelCount: channels.length,
+      });
 
       try {
         await subscriber.subscribe(channels, (message, channel) => {

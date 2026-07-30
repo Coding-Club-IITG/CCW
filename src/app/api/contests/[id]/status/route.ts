@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
 import { publishContest } from "@/lib/sse";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function PATCH(
   request: NextRequest,
@@ -75,13 +76,23 @@ export async function PATCH(
         status: newStatus,
       });
     } catch (sseError) {
-      console.error("Failed to publish SSE status change:", sseError);
+      logger.warn("Contest status SSE publish failed", {
+        route: "PATCH /api/contests/[id]/status",
+        operation: "publish_status_change",
+        resourceId: id,
+        ...errorToLogMetadata(sseError),
+      });
     }
 
     return NextResponse.json(contest);
-  } catch (error: any) {
+  } catch (error) {
+    logger.error("Contest status update failed", {
+      route: "PATCH /api/contests/[id]/status",
+      operation: "update_status",
+      ...errorToLogMetadata(error),
+    });
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: "Unable to update contest status." },
       { status: 500 },
     );
   }

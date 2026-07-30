@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import Hackathon from "@/models/Hackathon";
 import HackathonTeam from "@/models/HackathonTeam";
 import User from "@/models/User";
@@ -54,7 +55,11 @@ export async function GET(
 
     return NextResponse.json({ hackathon, teams: teamsWithMembers });
   } catch (err) {
-    console.error("[Hackathon Teams] GET error:", err);
+    logger.error("Hackathon team listing failed", {
+      route: "GET /api/hackathons/[id]/teams",
+      operation: "list_teams",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
@@ -136,7 +141,11 @@ export async function POST(
 
     return NextResponse.json({ team }, { status: 201 });
   } catch (err) {
-    console.error("[Hackathon Teams] POST error:", err);
+    logger.error("Hackathon team creation failed", {
+      route: "POST /api/hackathons/[id]/teams",
+      operation: "create_team",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

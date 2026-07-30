@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import Hackathon from "@/models/Hackathon";
 
 export async function GET(request: NextRequest) {
@@ -47,7 +48,11 @@ export async function GET(request: NextRequest) {
       paginatedResponse(result.hackathons, result.total, page, limit),
     );
   } catch (err) {
-    console.error("[Hackathons] GET error:", err);
+    logger.error("Hackathon listing failed", {
+      route: "GET /api/hackathons",
+      operation: "list_hackathons",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

@@ -14,6 +14,7 @@ import {
   invalidateCache,
 } from "@/lib/cache";
 import { parsePagination, paginatedResponse } from "@/lib/pagination";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 
 function generateSlug(title: string): string {
@@ -79,7 +80,11 @@ export async function GET(request: NextRequest) {
       paginatedResponse(result.posts, result.total, page, limit),
     );
   } catch (err) {
-    console.error("[Blog Admin] GET error:", err);
+    logger.error("Admin blog listing failed", {
+      route: "GET /api/admin/blog",
+      operation: "list_posts",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
@@ -170,7 +175,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ post }, { status: 201 });
   } catch (err) {
-    console.error("[Blog Admin] POST error:", err);
+    logger.error("Admin blog creation failed", {
+      route: "POST /api/admin/blog",
+      operation: "create_post",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

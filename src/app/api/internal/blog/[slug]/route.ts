@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { canEditBlogDraft } from "@/lib/blogAccess";
 import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 
 type RouteContext = { params: Promise<{ slug: string }> };
@@ -36,7 +37,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ post: result.post.toObject() });
   } catch (err) {
-    console.error("[Blog Internal] GET error:", err);
+    logger.error("Internal blog lookup failed", {
+      route: "GET /api/internal/blog/[slug]",
+      operation: "get_draft",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
@@ -114,7 +119,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ post: post.toObject() });
   } catch (err) {
-    console.error("[Blog Internal] PATCH error:", err);
+    logger.error("Internal blog update failed", {
+      route: "PATCH /api/internal/blog/[slug]",
+      operation: "update_draft",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },

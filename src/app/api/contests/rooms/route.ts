@@ -10,6 +10,7 @@ import { getRedis } from "@/lib/redis";
 import mongoose from "mongoose";
 
 import { auth } from "@/lib/auth";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -189,7 +190,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ roomId });
   } catch (error) {
-    console.error("Room creation error:", error);
+    logger.error("Contest room creation failed", {
+      route: "POST /api/contests/rooms",
+      operation: "create_room",
+      ...errorToLogMetadata(error),
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

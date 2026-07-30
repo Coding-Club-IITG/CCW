@@ -1,15 +1,15 @@
 import { Queue, ConnectionOptions } from "bullmq";
-import { logger } from "./utils";
+import { errorToLogMetadata, logger } from "./utils";
 
 const redisUrlString = process.env.REDIS_URL || "redis://localhost:6379";
 let redisUrl: URL;
 try {
   redisUrl = new URL(redisUrlString);
 } catch (err) {
-  logger.error(
-    `[BullMQ] Invalid REDIS_URL: ${redisUrlString}. Falling back to default localhost.`,
-    err,
-  );
+  logger.error("Invalid BullMQ Redis URL; using localhost fallback", {
+    operation: "parse_redis_url",
+    ...errorToLogMetadata(err),
+  });
   redisUrl = new URL("redis://localhost:6379");
 }
 
@@ -50,5 +50,3 @@ export const reconciliationQueue = new Queue("reconciliation_queue", {
     },
   },
 });
-
-logger.info("[BullMQ] Queues initialized successfully.");

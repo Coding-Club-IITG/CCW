@@ -57,9 +57,9 @@ async function checkAdmin() {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session || !isAdmin((session.user as any).role)) {
-      logger.warn(
-        `[Admin Projects] Unauthorized access attempt by: ${session?.user?.email || "Unknown"}`,
-      );
+      logger.warn("Unauthorized admin projects access attempt", {
+        action: "checkAdmin",
+      });
       return null;
     }
 
@@ -196,7 +196,6 @@ export async function createProject(formData: FormData) {
     logger.info("[Admin Projects] Created project", {
       projectId: String(project._id),
       title,
-      admin: session.user.email,
     });
 
     revalidatePath("/admin/projects");
@@ -296,7 +295,6 @@ export async function updateProject(id: string, formData: FormData) {
     logger.info("[Admin Projects] Updated project", {
       projectId: id,
       title,
-      admin: session.user.email,
     });
 
     revalidatePath("/admin/projects");
@@ -329,7 +327,6 @@ export async function deleteProject(id: string) {
 
     logger.info("[Admin Projects] Deleted project", {
       projectId: id,
-      admin: session.user.email,
     });
 
     revalidatePath("/admin/projects");

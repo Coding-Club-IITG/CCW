@@ -7,6 +7,7 @@ import CPUser from "@/models/CPUser";
 import { dbConnect } from "@/lib/mongodb";
 import { getRedis } from "@/lib/redis";
 import { getUserAffiliation } from "@/lib/platforms/atcoder";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function POST(req: Request) {
   try {
@@ -33,8 +34,16 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ error: "Invalid platform" }, { status: 400 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    logger.error("Competitive-programming handle verification failed", {
+      route: "POST /api/cp/verify-handle",
+      operation: "verify_handle",
+      ...errorToLogMetadata(error),
+    });
+    return NextResponse.json(
+      { error: "Unable to verify the handle right now." },
+      { status: 500 },
+    );
   }
 }
 
@@ -96,6 +105,11 @@ async function verifyCF(cpUserDoc: any, userId: string) {
         { status: 404 },
       );
     }
+    logger.warn("Codeforces verification lookup failed", {
+      route: "POST /api/cp/verify-handle",
+      operation: "fetch_codeforces_user",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Failed to communicate with Codeforces API." },
       { status: 502 },

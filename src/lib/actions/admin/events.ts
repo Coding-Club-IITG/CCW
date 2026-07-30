@@ -109,9 +109,9 @@ async function checkAdmin() {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session || !isAdmin((session.user as any).role)) {
-      logger.warn(
-        `[Admin Events] Unauthorized access attempt by: ${session?.user?.email || "Unknown"}`,
-      );
+      logger.warn("Unauthorized admin events access attempt", {
+        action: "checkAdmin",
+      });
       return null;
     }
 
@@ -275,7 +275,6 @@ export async function createEvent(formData: FormData) {
     logger.info("[Admin Events] Created event", {
       eventId: String(event._id),
       title,
-      admin: session.user.email,
     });
 
     revalidatePath("/admin/events");
@@ -394,7 +393,6 @@ export async function updateEvent(id: string, formData: FormData) {
     logger.info("[Admin Events] Updated event", {
       eventId: id,
       title,
-      admin: session.user.email,
     });
 
     revalidatePath("/admin/events");
@@ -428,7 +426,6 @@ export async function deleteEvent(id: string) {
 
     logger.info("[Admin Events] Deleted event", {
       eventId: id,
-      admin: session.user.email,
     });
 
     revalidatePath("/admin/events");

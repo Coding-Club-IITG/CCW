@@ -10,6 +10,7 @@ import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import { invalidateCache } from "@/lib/cache";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 function generateSlug(title: string): string {
   return title
@@ -53,7 +54,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ post });
   } catch (err) {
-    console.error("[Blog Admin] GET [slug] error:", err);
+    logger.error("Admin blog lookup failed", {
+      route: "GET /api/admin/blog/[slug]",
+      operation: "get_post",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
@@ -169,7 +174,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ post: post.toObject() });
   } catch (err) {
-    console.error("[Blog Admin] PATCH [slug] error:", err);
+    logger.error("Admin blog update failed", {
+      route: "PATCH /api/admin/blog/[slug]",
+      operation: "update_post",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
@@ -198,7 +207,11 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("[Blog Admin] DELETE [slug] error:", err);
+    logger.error("Admin blog deletion failed", {
+      route: "DELETE /api/admin/blog/[slug]",
+      operation: "delete_post",
+      ...errorToLogMetadata(err),
+    });
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 },
