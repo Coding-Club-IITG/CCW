@@ -1100,8 +1100,7 @@ export default function CreateRoomModal({
                       Bracket tournaments use presets to define the problem
                       criteria for all rounds.
                     </span>
-                  </div>
-                )}    {(() => {
+                    {(() => {
                     const selectedMatchPreset = presets.find(
                       (p) => p._id === effectivePresetId,
                     );
@@ -1132,7 +1131,8 @@ export default function CreateRoomModal({
                       </div>
                     ) : null;
                   })()}
-                </div>
+                  </div>
+                )}
 
                 {effectivePresetId === "custom" && renderProblemConfiguration()}
 
