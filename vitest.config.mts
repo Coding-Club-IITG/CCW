@@ -30,6 +30,7 @@ export default defineConfig({
         "src/lib/fileAccess.ts",
         "src/components/files/utils.ts",
         "src/lib/jobs/hackathonReminder.ts",
+        "src/lib/blogAccess.ts",
       ],
       thresholds: {
         branches: 80,

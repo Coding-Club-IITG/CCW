@@ -69,7 +69,6 @@
     "eslint-config-next": "^16.2.12",
     "eventsource": "^4.1.0",
     "jsdom": "^30.0.1",
-    "redis-memory-server": "^0.16.1",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
