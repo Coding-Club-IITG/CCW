@@ -93,11 +93,11 @@ export async function generateBracket(
   );
 
   const cpUsers = await CPUser.find({
-    userId: { $in: groupedTeams.flatMap((t) => t.memberIds) },
+    _id: { $in: groupedTeams.flatMap((t) => t.memberIds) },
   }).lean();
   const ratingMap = new Map<string, number>();
   for (const u of cpUsers) {
-    ratingMap.set(toStr(u.userId), u.cfRating || 0);
+    ratingMap.set(toStr(u._id), u.cfRating || 0);
   }
 
   const seededTeams = groupedTeams.map((team) => {

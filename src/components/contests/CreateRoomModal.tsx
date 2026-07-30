@@ -224,7 +224,43 @@ export default function CreateRoomModal({
     registeredUsers.length,
   ]);
 
+  useEffect(() => {
+    if (
+      formData.problemSelectionMode === "fine-tuned" &&
+      formData.format === "bracket"
+    ) {
+      const maxP = Math.max(2, formData.maxParticipants || 2);
+      const totalRounds = Math.ceil(Math.log2(maxP));
+      const ppm = formData.bulkProblemCount || 3;
+
+      const syncedRounds: { roundNumber: number; problemIds: string[] }[] = [];
+      for (let r = 1; r <= totalRounds; r++) {
+        const matchCount = Math.pow(2, totalRounds - r);
+        const needed = matchCount * ppm;
+        const existing = bracketRoundProblems.find((x) => x.roundNumber === r);
+        const ids = existing ? [...existing.problemIds] : [];
+        while (ids.length < needed) ids.push("");
+        while (ids.length > needed) ids.pop();
+        syncedRounds.push({ roundNumber: r, problemIds: ids });
+      }
+
+      if (
+        JSON.stringify(syncedRounds) !== JSON.stringify(bracketRoundProblems)
+      ) {
+        setBracketRoundProblems(syncedRounds);
+      }
+    }
+  }, [
+    formData.problemSelectionMode,
+    formData.format,
+    formData.maxParticipants,
+    formData.bulkProblemCount,
+    bracketRoundProblems,
+  ]);
+
   if (!isOpen) return null;
+
+  const effectivePresetId = isAdmin ? formData.presetId : "custom";
 
   const isTeamSizeLocked = [
     "1v1",
@@ -313,8 +349,10 @@ export default function CreateRoomModal({
       }
     }
 
+    const finalPresetId = isAdmin ? formData.presetId : "custom";
+
     if (formData.format === "bracket") {
-      if (!formData.presetId) {
+      if (!finalPresetId) {
         alert("Please select a match preset for the bracket.");
         return;
       }
@@ -347,6 +385,7 @@ export default function CreateRoomModal({
       try {
         const res = await createBracketContest({
           ...formData,
+          presetId: finalPresetId,
           deadline: start.toISOString(),
           registrationStartTime: regStartIso,
           registeredUsers: finalRegisteredUsers,
@@ -777,27 +816,7 @@ export default function CreateRoomModal({
           const totalRounds = Math.ceil(Math.log2(maxP));
           const ppm = formData.bulkProblemCount || 3; // problems per match
 
-          // Sync bracketRoundProblems structure with computed rounds
-          const syncedRounds: { roundNumber: number; problemIds: string[] }[] =
-            [];
-          for (let r = 1; r <= totalRounds; r++) {
-            const matchCount = Math.pow(2, totalRounds - r);
-            const needed = matchCount * ppm;
-            const existing = bracketRoundProblems.find(
-              (x) => x.roundNumber === r,
-            );
-            const ids = existing ? [...existing.problemIds] : [];
-            while (ids.length < needed) ids.push("");
-            while (ids.length > needed) ids.pop();
-            syncedRounds.push({ roundNumber: r, problemIds: ids });
-          }
-          if (
-            JSON.stringify(syncedRounds) !==
-            JSON.stringify(bracketRoundProblems)
-          ) {
-            // Use setTimeout to avoid updating state during render
-            setTimeout(() => setBracketRoundProblems(syncedRounds), 0);
-          }
+          const syncedRounds = bracketRoundProblems;
 
           const getRoundLabel = (r: number) => {
             const matchCount = Math.pow(2, totalRounds - r);
@@ -1047,42 +1066,44 @@ export default function CreateRoomModal({
                   )}
                 </div>
 
-                <div
-                  className={`${styles.field} ${
-                    topPresetId ? styles.locked : ""
-                  }`}
-                >
-                  <label className={styles.label} htmlFor="preset-id">
-                    Match Preset
-                  </label>
-                  <select
-                    id="preset-id"
-                    value={formData.presetId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, presetId: e.target.value })
-                    }
-                    disabled={!!topPresetId}
-                    className={`${styles.formInput} ${styles.formSelect}`}
+                {isAdmin && (
+                  <div
+                    className={`${styles.field} ${
+                      topPresetId ? styles.locked : ""
+                    }`}
                   >
-                    <option value="" disabled>
-                      Select a preset...
-                    </option>
-                    <option value="custom">
-                      Custom (Manual Configuration)
-                    </option>
-                    {presets.map((p) => (
-                      <option key={p._id} value={p._id}>
-                        {p.name}
+                    <label className={styles.label} htmlFor="preset-id">
+                      Match Preset
+                    </label>
+                    <select
+                      id="preset-id"
+                      value={formData.presetId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, presetId: e.target.value })
+                      }
+                      disabled={!!topPresetId}
+                      className={`${styles.formInput} ${styles.formSelect}`}
+                    >
+                      <option value="" disabled>
+                        Select a preset...
                       </option>
-                    ))}
-                  </select>
-                  <span className={styles.hint}>
-                    Bracket tournaments use presets to define the problem
-                    criteria for all rounds.
-                  </span>
-                  {(() => {
+                      <option value="custom">
+                        Custom (Manual Configuration)
+                      </option>
+                      {presets.map((p) => (
+                        <option key={p._id} value={p._id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span className={styles.hint}>
+                      Bracket tournaments use presets to define the problem
+                      criteria for all rounds.
+                    </span>
+                  </div>
+                )}    {(() => {
                     const selectedMatchPreset = presets.find(
-                      (p) => p._id === formData.presetId,
+                      (p) => p._id === effectivePresetId,
                     );
                     return selectedMatchPreset ? (
                       <div className={styles.presetInfo}>
@@ -1113,7 +1134,7 @@ export default function CreateRoomModal({
                   })()}
                 </div>
 
-                {formData.presetId === "custom" && renderProblemConfiguration()}
+                {effectivePresetId === "custom" && renderProblemConfiguration()}
 
                 <div className={styles.grid2}>
                   <div className={styles.field}>
@@ -1232,10 +1253,10 @@ export default function CreateRoomModal({
                       <div className={styles.timeChipRow}>
                         <button
                           type="button"
-                          onClick={() => handleRegTimeAdd(3)}
+                          onClick={() => handleRegTimeAdd(4)}
                           className={styles.timeChip}
                         >
-                          +3m
+                          +4m
                         </button>
                         <button
                           type="button"
@@ -1810,7 +1831,7 @@ export default function CreateRoomModal({
                   className={`${styles.formInput} ${styles.dateInput}`}
                 />
                 <div className={styles.timeAddRow}>
-                  {[3, 5, 10, 15].map((mins) => (
+                  {[4, 5, 10, 15].map((mins) => (
                     <button
                       key={mins}
                       type="button"

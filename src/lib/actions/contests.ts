@@ -397,6 +397,11 @@ export async function createRoomContest(
       }));
     }
 
+    const userIds = (data.registeredUsers || []).map((u: any) => new mongoose.Types.ObjectId(u.id));
+    const registeredCPUsers = await CPUser.find({ userId: { $in: userIds } }).lean();
+    const cpUserIdMap = new Map();
+    registeredCPUsers.forEach((cp: any) => cpUserIdMap.set(cp.userId.toString(), cp._id));
+
     const contest = new ContestMatch({
       name: data.name,
       description: data.description,
@@ -421,7 +426,7 @@ export async function createRoomContest(
         maxParticipants: maxParticipants,
       },
       registrations: (data.registeredUsers || []).map((u: any) => ({
-        userId: new mongoose.Types.ObjectId(u.id),
+        userId: cpUserIdMap.get(u.id) || new mongoose.Types.ObjectId(u.id),
         cfHandle: u.cfHandle,
         teamName: u.teamName,
         registeredAt: new Date(),
@@ -491,16 +496,25 @@ export async function getContestRegistrations(contestId: string) {
 
     const User = (await import("@/models/User")).default;
     const userIds = (contest.registrations || []).map((r: any) => r.userId);
-    const users = await User.find({ _id: { $in: userIds } }, "image").lean();
+    const cpUsers = await CPUser.find({ _id: { $in: userIds } }).lean();
+    const actualUserIds = cpUsers.map((cp: any) => cp.userId);
+    const users = await User.find({ _id: { $in: actualUserIds } }, "image").lean();
     const imageMap: Record<string, string> = {};
     users.forEach((u: any) => {
       if (u.image) imageMap[u._id.toString()] = u.image;
     });
 
+    const cpUserMap: Record<string, string> = {};
+    cpUsers.forEach((cp: any) => {
+      if (imageMap[cp.userId.toString()]) {
+        cpUserMap[cp._id.toString()] = imageMap[cp.userId.toString()];
+      }
+    });
+
     const populatedRegistrations = (contest.registrations || []).map(
       (r: any) => ({
         ...r,
-        image: imageMap[r.userId.toString()] || null,
+        image: cpUserMap[r.userId.toString()] || null,
       }),
     );
 
@@ -749,6 +763,11 @@ export async function createBracketContest(data: any) {
     if (isNaN(deadlineMinutes))
       throw new Error("REGISTRATION_DEADLINE_MINUTES must be a valid number.");
 
+    const userIdsBracket = (data.registeredUsers || []).map((u: any) => new mongoose.Types.ObjectId(u.id));
+    const registeredCPUsersBracket = await CPUser.find({ userId: { $in: userIdsBracket } }).lean();
+    const cpUserIdMapBracket = new Map();
+    registeredCPUsersBracket.forEach((cp: any) => cpUserIdMapBracket.set(cp.userId.toString(), cp._id));
+
     const contest = await ContestMatch.create({
       name: data.name.trim(),
       description: data.description?.trim(),
@@ -766,7 +785,7 @@ export async function createBracketContest(data: any) {
       bulkMinContestId: bulkMinContestId || undefined,
       problemSlots: problemSlots,
       registrations: (data.registeredUsers || []).map((u: any) => ({
-        userId: new mongoose.Types.ObjectId(u.id),
+        userId: cpUserIdMapBracket.get(u.id) || new mongoose.Types.ObjectId(u.id),
         cfHandle: u.cfHandle,
         teamName: u.teamName,
         registeredAt: new Date(),

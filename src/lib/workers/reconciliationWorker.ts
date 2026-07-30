@@ -54,7 +54,7 @@ async function determineWinner(
     let totalRating = 0;
     let validMembers = 0;
     for (const mId of members) {
-      const cpUser = await CPUser.findOne({ userId: mId });
+      const cpUser = await CPUser.findById(mId);
       if (cpUser && cpUser.cfRating) {
         totalRating += cpUser.cfRating;
         validMembers++;
@@ -230,7 +230,7 @@ export const reconciliationWorker = new Worker(
           const { fetchCodeforcesUserStatus } = await import("../cf-api");
 
           for (const uid of bracketUserIds) {
-            const cpUser = await CPUser.findOne({ userId: uid });
+            const cpUser = await CPUser.findById(uid);
             if (!cpUser || !cpUser.cfHandle) continue;
             const solvedProblems: any[] = cpUser.solvedProblems || [];
             let latestSolvedMs = 0;
@@ -311,7 +311,7 @@ export const reconciliationWorker = new Worker(
 
         // Build solved union from refreshed CPUser docs
         const bracketRefreshedUsers = await CPUser.find({
-          userId: { $in: bracketUserIds },
+          _id: { $in: bracketUserIds },
         });
         const bracketSolvedIds = new Set<string>(
           bracketRefreshedUsers.flatMap((u) =>
@@ -452,7 +452,7 @@ export const reconciliationWorker = new Worker(
         const { fetchCodeforcesUserStatus } = await import("../cf-api");
 
         for (const uid of allUserIds) {
-          const cpUser = await CPUser.findOne({ userId: uid });
+          const cpUser = await CPUser.findById(uid);
           if (!cpUser || !cpUser.cfHandle) continue;
 
           // Find the timestamp of the most recently recorded solve
@@ -509,7 +509,7 @@ export const reconciliationWorker = new Worker(
       }
 
       // Build union of all solved problem IDs from the (now refreshed) CPUser docs
-      const refreshedUsers = await CPUser.find({ userId: { $in: allUserIds } });
+      const refreshedUsers = await CPUser.find({ _id: { $in: allUserIds } });
       const solvedProblemIds = new Set<string>(
         refreshedUsers.flatMap((u) =>
           (u.solvedProblems || []).map((sp: any) => sp.problemId),
