@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { type ContestListingItem } from "@/lib/actions/contests";
 import Link from "next/link";
@@ -227,7 +227,7 @@ export default function ContestListingClient({
       {showCreateModal && (
         <CreateRoomModal
           isOpen={true}
-          onClose={() => setShowCreateModal(false)}
+          onClose={useCallback(() => setShowCreateModal(false), [])}
           isAdmin={isAdmin}
           presets={presets}
           deadlineMinutes={deadlineMinutes}

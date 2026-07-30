@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import {
   GripVertical,
   Lock,
@@ -17,7 +17,7 @@ import { getDisplayName } from "@/lib/utils";
 import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
 import styles from "./CreateRoomModal.module.scss";
 
-export default function CreateRoomModal({
+const CreateRoomModal = memo(function CreateRoomModal({
   isOpen,
   onClose,
   isAdmin = false,
@@ -1872,4 +1872,6 @@ export default function CreateRoomModal({
       </div>
     </div>
   );
-}
+});
+
+export default CreateRoomModal;
