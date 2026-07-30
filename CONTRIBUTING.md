@@ -98,6 +98,36 @@
 - Maintainers may require a post in the website's existing blog system for a
   larger fix or feature.
 
+## Testing
+
+- Name unit, integration, and component files `*.test.ts` or `*.test.tsx` and
+  colocate them with the production code when they cover one focused module.
+  Put cross-module integration tests in `tests/integration/` and browser flows
+  in `tests/e2e/` as `*.spec.ts`.
+- Use Vitest for unit and integration tests. Component tests run in jsdom and
+  should use React Testing Library, `user-event`, and
+  `tests/utils/render.tsx`. Prefer accessible role and label queries over test
+  IDs, and assert behavior visible to users rather than implementation details.
+- Keep shared environment defaults in `tests/setup/` and reusable test-only
+  helpers in `tests/utils/`. Do not add test-only methods or branches to
+  production code.
+- Database integration tests use `MONGODB_TEST_URI` only. The shared helper
+  creates a uniquely named `ccw-test-*` database and refuses to drop anything
+  outside that namespace. Start the repository's local MongoDB and Redis
+  containers with `docker compose up -d mongodb redis`; tests must never point
+  at production services.
+- Mock only credentials, sessions, network APIs, clocks, or other true external
+  boundaries. No test may require Microsoft credentials, production data,
+  external APIs, or internet access.
+- Run `pnpm test` for a single non-watch pass, `pnpm test:watch` while
+  developing, and `pnpm test:coverage` before submitting meaningful behavior
+  changes. Run `pnpm test:e2e` for browser smoke tests; it starts the web app
+  automatically and requires the local MongoDB container.
+- `pnpm test:ci` is the local CI-equivalent sequence: lint, typecheck, unit and
+  integration tests, coverage, production build, and Playwright smoke tests.
+  Install the Chromium browser once with
+  `pnpm exec playwright install chromium`.
+
 ## Git and Pull Requests
 
 - Normally branch from and target `dev`. Target another branch only when a

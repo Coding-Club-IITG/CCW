@@ -34,13 +34,15 @@ export function parsePagination(
   defaults?: { limit?: number },
 ): PaginationParams {
   const defaultLimit = defaults?.limit ?? DEFAULT_LIMIT;
-  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+  const parsedPage = parseInt(searchParams.get("page") || "1", 10);
+  const parsedLimit = parseInt(
+    searchParams.get("limit") || String(defaultLimit),
+    10,
+  );
+  const page = Number.isFinite(parsedPage) ? Math.max(1, parsedPage) : 1;
   const limit = Math.min(
     MAX_LIMIT,
-    Math.max(
-      1,
-      parseInt(searchParams.get("limit") || String(defaultLimit), 10),
-    ),
+    Number.isFinite(parsedLimit) ? Math.max(1, parsedLimit) : defaultLimit,
   );
   return { page, limit, skip: (page - 1) * limit };
 }

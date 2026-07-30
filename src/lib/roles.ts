@@ -72,8 +72,8 @@ export function cleanUserRoles(
   role: string,
   moduleRoles: ParsedModuleRole[],
 ): ParsedModuleRole[] {
-  if (isAdmin(role)) return []; // Cannot have module roles
   // Heads can only have module, not specific role
   if (role === "Head") return moduleRoles.map((mr) => ({ module: mr.module }));
+  if (isAdmin(role)) return []; // Cannot have module roles
   return moduleRoles;
 }

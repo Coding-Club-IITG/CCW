@@ -220,7 +220,7 @@ export async function setDailyProblem(
   const problemDoc = await Problem.findOneAndUpdate(
     { platform, contestId, problemIndex },
     { $set: { name: problemName, rating: problemRating, tags: problemTags } },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   );
 
   await DailyChallenge.create({
