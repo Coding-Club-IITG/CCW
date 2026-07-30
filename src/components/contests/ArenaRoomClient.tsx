@@ -38,7 +38,12 @@ import {
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import { useRouter } from "next/navigation";
 import { getDisplayName } from "@/lib/utils";
-import { useRoomEventSource } from "./useRoomEventSource";
+import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
+import {
+  formatRoomActivityTime,
+  getContestRoomResultsPath,
+} from "@/components/contests/roomPresentation";
+import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import styles from "./ArenaRoomClient.module.scss";
 
 const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
@@ -166,15 +171,6 @@ export default function ArenaRoomClient({
     return () => clearInterval(t);
   }, []);
 
-  const getRelativeTime = (epochMs: number): string => {
-    const diffSecs = Math.floor((Date.now() - epochMs) / 1000);
-    if (diffSecs < 5) return "just now";
-    if (diffSecs < 60) return `${diffSecs}s ago`;
-    const diffMins = Math.floor(diffSecs / 60);
-    if (diffMins < 60) return `${diffMins}m ago`;
-    return `${Math.floor(diffMins / 60)}h ago`;
-  };
-
   const activityColorClass = (color: string) => {
     switch (color) {
       case "text-primary":
@@ -194,7 +190,7 @@ export default function ArenaRoomClient({
   const [timeLimit, setTimeLimit] = useState<number | undefined>(
     initialTimeLimit,
   );
-  const [timeLeft, setTimeLeft] = useState<string>("00:00");
+  const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
   const getDisplayTeamName = (t: any) => {
@@ -236,7 +232,7 @@ export default function ArenaRoomClient({
   useEffect(() => {
     if (initialMatchState === "completed") {
       router.replace(
-        `/internal/contests/rooms/${roomId}/result${contest.format === "bracket" || contest.mode === "knockout" ? "?from=bracket" : ""}`,
+        getContestRoomResultsPath(roomId, contest.format, contest.mode),
       );
     }
   }, [initialMatchState, roomId, router, contest.format, contest.mode]);
@@ -246,7 +242,7 @@ export default function ArenaRoomClient({
     if (matchState === "completed" && initialMatchState !== "completed") {
       const t = setTimeout(() => {
         router.replace(
-          `/internal/contests/rooms/${roomId}/result${contest.format === "bracket" || contest.mode === "knockout" ? "?from=bracket" : ""}`,
+          getContestRoomResultsPath(roomId, contest.format, contest.mode),
         );
       }, 2000);
       return () => clearTimeout(t);
@@ -259,45 +255,6 @@ export default function ArenaRoomClient({
     contest.format,
     contest.mode,
   ]);
-
-  useEffect(() => {
-    if (matchState !== "active" || !startTime || !timeLimit) {
-      if (matchState === "completed") {
-        setTimeLeft("00:00");
-      } else {
-        // Fallback or waiting state
-        setTimeLeft(
-          timeLimit
-            ? `${Math.floor(timeLimit / 60)
-                .toString()
-                .padStart(
-                  2,
-                  "0",
-                )}:${(timeLimit % 60).toString().padStart(2, "0")}`
-            : "00:00",
-        );
-      }
-      return;
-    }
-
-    const endMs = startTime + timeLimit * 1000;
-
-    const interval = setInterval(() => {
-      const nowMs = Date.now();
-      const diffSecs = Math.floor((endMs - nowMs) / 1000);
-      if (diffSecs <= 0) {
-        setTimeLeft("00:00");
-        return;
-      }
-      const m = Math.floor(diffSecs / 60);
-      const s = diffSecs % 60;
-      setTimeLeft(
-        `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`,
-      );
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [matchState, startTime, timeLimit]);
 
   const stateRef = useRef({ locks, problems, teams, userId });
   useEffect(() => {
@@ -888,7 +845,7 @@ export default function ArenaRoomClient({
                           {act.text}
                         </p>
                         <span className={styles.activityTime}>
-                          {getRelativeTime(act.timestamp)}
+                          {formatRoomActivityTime(act.timestamp)}
                         </span>
                       </div>
                     </div>
@@ -929,7 +886,11 @@ export default function ArenaRoomClient({
             <button
               onClick={() =>
                 router.push(
-                  `/internal/contests/rooms/${roomId}/result${contest.format === "bracket" || contest.mode === "knockout" ? "?from=bracket" : ""}`,
+                  getContestRoomResultsPath(
+                    roomId,
+                    contest.format,
+                    contest.mode,
+                  ),
                 )
               }
               className={styles.toastBtn}

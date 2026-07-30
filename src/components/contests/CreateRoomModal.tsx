@@ -20,6 +20,14 @@ import { useSession } from "@/lib/auth-client";
 import { getDisplayName } from "@/lib/utils";
 import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
 import CompatibleImage from "@/components/shared/CompatibleImage";
+import ContestProblemConfiguration from "@/components/contests/ContestProblemConfiguration";
+import {
+  applyContestFormatDefaults,
+  applyContestPreset,
+  createInitialContestForm,
+  getMaxParticipantsError,
+  reorderContestEntries,
+} from "@/components/contests/contestCreationForm";
 import styles from "./CreateRoomModal.module.scss";
 
 export default function CreateRoomModal({
@@ -51,29 +59,7 @@ export default function CreateRoomModal({
     return styles.ratingRed;
   };
 
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    mode: "blitz",
-    format: "solo-tournament",
-    teamSize: 1,
-    maxParticipants: 16,
-    startTime: "",
-    problemSelectionMode: "bulk",
-    bulkRatingMin: 800,
-    bulkRatingMax: 1200,
-    bulkProblemCount: 3,
-    bulkMinContestId: 0,
-    fineTunedProblemCount: 1 as string | number,
-    fineTunedProblems: [""] as string[],
-    presetId: "",
-    thirdPlacePlayoff: false,
-    seedingMethod: "cf_rating",
-
-    registrationStartMode: "immediate",
-    registrationStartTime: "",
-    registrationType: "open",
-  });
+  const [formData, setFormData] = useState(createInitialContestForm);
 
   const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
   const [manualTeams, setManualTeams] = useState<
@@ -127,32 +113,7 @@ export default function CreateRoomModal({
   }, [manualTeams, registeredUsers, searchQuery]);
 
   useEffect(() => {
-    setFormData((prev) => {
-      let teamSize = prev.teamSize;
-      let maxParticipants = prev.maxParticipants;
-
-      if (prev.format === "1v1") {
-        teamSize = 1;
-        maxParticipants = 2;
-      } else if (prev.format === "solo-tournament") {
-        teamSize = 1;
-        maxParticipants = 16;
-      } else if (prev.format === "team-tournament") {
-        teamSize = 3;
-        maxParticipants = 15;
-      } else if (prev.format === "bracket" && maxParticipants < 2) {
-        maxParticipants = 16;
-      }
-
-      if (
-        teamSize === prev.teamSize &&
-        maxParticipants === prev.maxParticipants
-      ) {
-        return prev;
-      }
-
-      return { ...prev, teamSize, maxParticipants };
-    });
+    setFormData(applyContestFormatDefaults);
   }, [formData.format]);
 
   const handleTopPresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -163,77 +124,15 @@ export default function CreateRoomModal({
 
     const preset = presets.find((p) => p._id === id);
     if (preset) {
-      setFormData((prev) => ({
-        ...prev,
-        name: preset.name || prev.name,
-        description: preset.description || prev.description,
-        mode: preset.mode || prev.mode,
-        format: preset.format || prev.format,
-        problemSelectionMode:
-          preset.problemSelectionMode || prev.problemSelectionMode,
-        bulkRatingMin: preset.bulkRatingMin || prev.bulkRatingMin,
-        bulkRatingMax: preset.bulkRatingMax || prev.bulkRatingMax,
-        bulkProblemCount: preset.bulkProblemCount || prev.bulkProblemCount,
-        bulkMinContestId: preset.bulkMinContestId ?? prev.bulkMinContestId,
-        fineTunedProblems:
-          preset.problemSlots && preset.problemSlots.length > 0
-            ? preset.problemSlots.map((s: any) => s.problemId || "")
-            : prev.fineTunedProblems,
-        fineTunedProblemCount:
-          preset.problemSlots && preset.problemSlots.length > 0
-            ? preset.problemSlots.length
-            : prev.fineTunedProblemCount,
-        presetId: preset.format === "bracket" ? id : prev.presetId,
-      }));
+      setFormData((prev) => applyContestPreset(prev, preset));
     }
   };
 
   const [maxPartError, setMaxPartError] = useState("");
   const [fineTunedCountError, setFineTunedCountError] = useState("");
   useEffect(() => {
-    if (Number.isNaN(formData.maxParticipants)) {
-      setMaxPartError("Must be a valid number.");
-      return;
-    }
-    if (formData.format === "solo-tournament" && formData.maxParticipants < 2) {
-      setMaxPartError("At least 2 participants required.");
-      return;
-    }
-    if (formData.format === "team-tournament") {
-      if (formData.maxParticipants < 6) {
-        setMaxPartError("At least 6 participants required (2 teams).");
-        return;
-      }
-    }
-    if (formData.format === "bracket") {
-      if (formData.maxParticipants < 2) {
-        setMaxPartError("At least 2 participants required.");
-        return;
-      }
-    }
-
-    const isTeamsUI = true;
-    const perTeamLimit = formData.teamSize;
-    if (isTeamsUI) {
-      const maxTeamsAllowed = Math.floor(
-        formData.maxParticipants / perTeamLimit,
-      );
-      if (manualTeams.length > maxTeamsAllowed) {
-        setMaxPartError(
-          `Cannot be less than currently registered teams (${manualTeams.length}).`,
-        );
-        return;
-      }
-    }
-
-    setMaxPartError("");
-  }, [
-    formData.maxParticipants,
-    formData.format,
-    formData.teamSize,
-    manualTeams.length,
-    registeredUsers.length,
-  ]);
+    setMaxPartError(getMaxParticipantsError(formData, manualTeams.length));
+  }, [formData, manualTeams.length]);
 
   if (!isOpen) return null;
 
@@ -459,10 +358,7 @@ export default function CreateRoomModal({
     }
 
     setRegisteredUsers((prev) => {
-      const result = [...prev];
-      const [removed] = result.splice(draggedIdx, 1);
-      result.splice(index, 0, removed);
-      return result;
+      return reorderContestEntries(prev, draggedIdx, index);
     });
 
     handleDragEnd();
@@ -534,337 +430,22 @@ export default function CreateRoomModal({
     }
 
     setManualTeams((prev) => {
-      const result = [...prev];
-      const [removed] = result.splice(draggedIdx, 1);
-      result.splice(index, 0, removed);
-      return result;
+      return reorderContestEntries(prev, draggedIdx, index);
     });
 
     handleTeamDragEnd();
   };
 
   const renderProblemConfiguration = () => (
-    <div
-      className={`${styles.sectionBlock} ${topPresetId ? styles.locked : ""}`}
-    >
-      <div className={styles.sectionTitleRow}>
-        <h3 className={styles.sectionHeading}>Problem Configuration</h3>
-        {!!topPresetId && (
-          <Lock
-            className={`${styles.lockIcon} ${styles.iconFilled}`}
-            size={18}
-          />
-        )}
-      </div>
-
-      <div className={styles.field}>
-        <label className={styles.label} htmlFor="problem-selection-mode">
-          Selection Mode
-        </label>
-        <select
-          id="problem-selection-mode"
-          value={formData.problemSelectionMode}
-          onChange={(e) =>
-            setFormData({ ...formData, problemSelectionMode: e.target.value })
-          }
-          disabled={!!topPresetId}
-          className={`${styles.formInput} ${styles.formSelect}`}
-        >
-          <option value="test">Test</option>
-          <option value="bulk">Bulk</option>
-          <option value="fine-tuned">Fine-Tuned</option>
-        </select>
-        {formData.problemSelectionMode === "test" && (
-          <span className={styles.hint}>
-            A pre-selected test problem will be assigned to verify the room
-            mechanics.
-          </span>
-        )}
-        {formData.problemSelectionMode === "bulk" && (
-          <span className={styles.hint}>
-            Automatically fetch problems unsolved by all registered players,
-            selected based on their rating range.
-          </span>
-        )}
-        {formData.problemSelectionMode === "fine-tuned" && (
-          <span className={styles.hint}>
-            Manually curate and select exactly which problems will be included
-            in the room.
-          </span>
-        )}
-      </div>
-
-      {formData.problemSelectionMode === "bulk" && (
-        <div className={styles.grid3}>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="min-rating">
-              Min Rating
-            </label>
-            <input
-              required={formData.problemSelectionMode === "bulk"}
-              id="min-rating"
-              type="number"
-              step={100}
-              value={
-                Number.isNaN(formData.bulkRatingMin)
-                  ? ""
-                  : formData.bulkRatingMin
-              }
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  bulkRatingMin: parseInt(e.target.value),
-                })
-              }
-              disabled={!!topPresetId}
-              className={styles.formInput}
-            />
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="max-rating">
-              Max Rating
-            </label>
-            <input
-              required={formData.problemSelectionMode === "bulk"}
-              id="max-rating"
-              type="number"
-              step={100}
-              value={
-                Number.isNaN(formData.bulkRatingMax)
-                  ? ""
-                  : formData.bulkRatingMax
-              }
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  bulkRatingMax: parseInt(e.target.value),
-                })
-              }
-              disabled={!!topPresetId}
-              className={styles.formInput}
-            />
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="problem-count">
-              Count
-            </label>
-            <input
-              required={formData.problemSelectionMode === "bulk"}
-              id="problem-count"
-              type="number"
-              min={1}
-              max={10}
-              value={
-                Number.isNaN(formData.bulkProblemCount)
-                  ? ""
-                  : formData.bulkProblemCount
-              }
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  bulkProblemCount: parseInt(e.target.value),
-                })
-              }
-              disabled={!!topPresetId}
-              className={styles.formInput}
-            />
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="bulk-min-contest">
-              Contest Release Date
-            </label>
-            <select
-              id="bulk-min-contest"
-              value={formData.bulkMinContestId}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  bulkMinContestId: Number(e.target.value),
-                })
-              }
-              disabled={!!topPresetId}
-              className={styles.formInput}
-            >
-              {CF_CONTEST_YEAR_OPTIONS.map((opt) => (
-                <option key={opt.minContestId} value={opt.minContestId}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-
-      {formData.problemSelectionMode === "fine-tuned" &&
-        formData.format !== "bracket" && (
-          <div className={styles.fineTunedBlock}>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="fine-tuned-count">
-                Number of Problems
-              </label>
-              <input
-                required={formData.problemSelectionMode === "fine-tuned"}
-                id="fine-tuned-count"
-                type="number"
-                min={1}
-                max={10}
-                value={formData.fineTunedProblemCount}
-                onChange={(e) => {
-                  const valStr = e.target.value;
-                  const isValid = /^[1-9]\d*$/.test(valStr);
-                  const count = parseInt(valStr, 10);
-
-                  if (isValid && count >= 1 && count <= 10) {
-                    setFineTunedCountError("");
-                    const newProblems = [...formData.fineTunedProblems];
-                    while (newProblems.length < count) newProblems.push("");
-                    while (newProblems.length > count) newProblems.pop();
-                    setFormData({
-                      ...formData,
-                      fineTunedProblemCount: valStr,
-                      fineTunedProblems: newProblems,
-                    });
-                  } else {
-                    setFormData({ ...formData, fineTunedProblemCount: valStr });
-                    if (!isValid) {
-                      setFineTunedCountError("Must be a positive integer.");
-                    } else if (count > 10) {
-                      setFineTunedCountError("Must be at most 10.");
-                    }
-                  }
-                }}
-                disabled={!!topPresetId}
-                className={`${styles.formInput} ${
-                  fineTunedCountError ? styles.inputError : ""
-                }`}
-              />
-              {fineTunedCountError && (
-                <span className={styles.errorText}>{fineTunedCountError}</span>
-              )}
-            </div>
-
-            <div className={styles.grid23}>
-              {formData.fineTunedProblems.map((prob, idx) => (
-                <div key={idx} className={styles.field}>
-                  <label className={styles.label} htmlFor={`problem-${idx}`}>
-                    Problem {idx + 1}
-                  </label>
-                  <input
-                    required={formData.problemSelectionMode === "fine-tuned"}
-                    id={`problem-${idx}`}
-                    type="text"
-                    placeholder="Eg. 4A"
-                    value={prob}
-                    onChange={(e) => {
-                      const newProblems = [...formData.fineTunedProblems];
-                      newProblems[idx] = e.target.value;
-                      setFormData({
-                        ...formData,
-                        fineTunedProblems: newProblems,
-                      });
-                    }}
-                    disabled={!!topPresetId}
-                    className={styles.formInput}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-      {/* Bracket-specific fine-tuned UI: problems grouped by round */}
-      {formData.problemSelectionMode === "fine-tuned" &&
-        formData.format === "bracket" &&
-        (() => {
-          const maxP = Math.max(2, formData.maxParticipants || 2);
-          const totalRounds = Math.ceil(Math.log2(maxP));
-          const ppm = formData.bulkProblemCount || 3; // problems per match
-
-          // Sync bracketRoundProblems structure with computed rounds
-          const syncedRounds: { roundNumber: number; problemIds: string[] }[] =
-            [];
-          for (let r = 1; r <= totalRounds; r++) {
-            const matchCount = Math.pow(2, totalRounds - r);
-            const needed = matchCount * ppm;
-            const existing = bracketRoundProblems.find(
-              (x) => x.roundNumber === r,
-            );
-            const ids = existing ? [...existing.problemIds] : [];
-            while (ids.length < needed) ids.push("");
-            while (ids.length > needed) ids.pop();
-            syncedRounds.push({ roundNumber: r, problemIds: ids });
-          }
-          if (
-            JSON.stringify(syncedRounds) !==
-            JSON.stringify(bracketRoundProblems)
-          ) {
-            // Use setTimeout to avoid updating state during render
-            setTimeout(() => setBracketRoundProblems(syncedRounds), 0);
-          }
-
-          const getRoundLabel = (r: number) => {
-            const matchCount = Math.pow(2, totalRounds - r);
-            if (r === totalRounds) return "Final";
-            if (r === totalRounds - 1) return "Semi-Finals";
-            if (r === totalRounds - 2) return "Quarter-Finals";
-            return `Round ${r}`;
-          };
-
-          return (
-            <div className={styles.roundsList}>
-              {syncedRounds.map((rnd) => {
-                const matchCount = Math.pow(2, totalRounds - rnd.roundNumber);
-                const label = getRoundLabel(rnd.roundNumber);
-                return (
-                  <div key={rnd.roundNumber} className={styles.roundCard}>
-                    <div className={styles.roundHeader}>
-                      <span className={styles.roundLabel}>{label}</span>
-                      <span className={styles.roundMeta}>
-                        {matchCount} match{matchCount > 1 ? "es" : ""} × {ppm}{" "}
-                        problems ={" "}
-                        <strong>{rnd.problemIds.length} IDs needed</strong>
-                      </span>
-                    </div>
-                    <div className={styles.grid23}>
-                      {rnd.problemIds.map((pid, idx) => {
-                        const matchNum = Math.floor(idx / ppm) + 1;
-                        const probNum = (idx % ppm) + 1;
-                        return (
-                          <div key={idx} className={styles.roundField}>
-                            <label className={styles.roundFieldLabel}>
-                              Match {matchNum} · P{probNum}
-                            </label>
-                            <input
-                              required
-                              type="text"
-                              placeholder="Eg. 4A"
-                              value={pid}
-                              onChange={(e) => {
-                                const updated = syncedRounds.map((r) =>
-                                  r.roundNumber === rnd.roundNumber
-                                    ? {
-                                        ...r,
-                                        problemIds: r.problemIds.map((p, i) =>
-                                          i === idx ? e.target.value : p,
-                                        ),
-                                      }
-                                    : r,
-                                );
-                                setBracketRoundProblems(updated);
-                              }}
-                              className={styles.formInput}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-    </div>
+    <ContestProblemConfiguration
+      form={formData}
+      setForm={setFormData}
+      presetLocked={!!topPresetId}
+      fineTunedCountError={fineTunedCountError}
+      setFineTunedCountError={setFineTunedCountError}
+      bracketRoundProblems={bracketRoundProblems}
+      setBracketRoundProblems={setBracketRoundProblems}
+    />
   );
 
   return (

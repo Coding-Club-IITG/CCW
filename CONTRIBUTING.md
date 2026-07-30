@@ -16,6 +16,10 @@
   packages, `@/lib`, `@/models`, `@/components`, then relative imports.
 - Use default exports for Mongoose models and named exports for actions,
   constants, and shared utilities.
+- Name React component and Mongoose model files in `PascalCase`, hooks with a
+  `useCamelCase` filename, and other TypeScript domain modules in `camelCase`.
+  Keep framework-required filenames such as `page.tsx`, `layout.tsx`, and
+  `route.ts` lowercase.
 - Use TypeScript domain types for inputs, outputs, and shared data. Avoid `any`
   except at unavoidable external-library boundaries.
 - Put shared enums, literal unions, display maps, and URL patterns in
