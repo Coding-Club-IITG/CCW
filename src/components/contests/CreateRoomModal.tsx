@@ -10,7 +10,11 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { createRoomContest, searchVerifiedUsers, createBracketContest } from "@/lib/actions/contests";
+import {
+  createRoomContest,
+  searchVerifiedUsers,
+  createBracketContest,
+} from "@/lib/actions/contests";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { getDisplayName } from "@/lib/utils";
@@ -357,13 +361,13 @@ export default function CreateRoomModal({
               }
             : {}),
         });
-        if (res.error) {
+        if (!res.success) {
           alert(res.error);
         } else {
           onClose();
           router.refresh();
         }
-      } catch (err: any) {
+      } catch {
         alert("Error creating bracket");
       } finally {
         setLoading(false);

@@ -52,29 +52,44 @@ const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
 
 // SVG sources (matching Lucide icons) for browser desktop notifications
 // Icon color map matching the activity feed color scheme
-const NOTIFICATION_ICON_MAP: Record<string, { component: React.FC<React.SVGProps<SVGSVGElement>>; color: string }> = {
-  info:         { component: IconInfoCircle,  color: "#8b5cf6" },
-  gavel:        { component: IconGavel,       color: "#ef4444" },
-  lock:         { component: IconLock,        color: "#8b5cf6" },
-  sync:         { component: IconSwitchView,  color: "#06b6d4" },
+const NOTIFICATION_ICON_MAP: Record<
+  string,
+  { component: React.FC<React.SVGProps<SVGSVGElement>>; color: string }
+> = {
+  info: { component: IconInfoCircle, color: "#8b5cf6" },
+  gavel: { component: IconGavel, color: "#ef4444" },
+  lock: { component: IconLock, color: "#8b5cf6" },
+  sync: { component: IconSwitchView, color: "#06b6d4" },
   check_circle: { component: IconCheckCircle, color: "#22c55e" },
-  error:        { component: IconWarning,     color: "#ef4444" },
-  person:       { component: IconUsers,       color: "#06b6d4" },
-  person_off:   { component: IconPersonOff,   color: "#ef4444" },
+  error: { component: IconWarning, color: "#ef4444" },
+  person: { component: IconUsers, color: "#06b6d4" },
+  person_off: { component: IconPersonOff, color: "#ef4444" },
 };
 
 function getNotificationIconUri(icon: string): string {
   const entry = NOTIFICATION_ICON_MAP[icon] ?? NOTIFICATION_ICON_MAP.info;
   const svg = renderToStaticMarkup(
-    createElement(entry.component, { width: 24, height: 24, stroke: entry.color }),
+    createElement(entry.component, {
+      width: 24,
+      height: 24,
+      stroke: entry.color,
+    }),
   );
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 function sendBrowserNotification(icon: string, text: string) {
-  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  if (
+    typeof Notification === "undefined" ||
+    Notification.permission !== "granted"
+  )
+    return;
   try {
-    new Notification("CCW Match", { body: text, icon: getNotificationIconUri(icon), silent: true });
+    new Notification("CCW Match", {
+      body: text,
+      icon: getNotificationIconUri(icon),
+      silent: true,
+    });
   } catch (_) {}
 }
 
@@ -200,7 +215,8 @@ export default function ArenaRoomClient({
 
   // Notification permission state — used to render the "Enable Notifications" button
   const [notifGranted, setNotifGranted] = useState(
-    typeof Notification !== "undefined" && Notification.permission === "granted",
+    typeof Notification !== "undefined" &&
+      Notification.permission === "granted",
   );
 
   useEffect(() => {

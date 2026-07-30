@@ -171,15 +171,14 @@ export default function MatchHistoryClient({
 
                   <div className={styles.badgeRow}>
                     {/* Outcome badge — only for participants */}
-                    {participated && (
-                      isVictory ? (
+                    {participated &&
+                      (isVictory ? (
                         <span className={styles.badgeVictory}>VICTORY</span>
                       ) : isTie ? (
                         <span className={styles.badgeTie}>TIE</span>
                       ) : (
                         <span className={styles.badgeDefeat}>DEFEAT</span>
-                      )
-                    )}
+                      ))}
 
                     <span className={styles.badgeNeutral}>
                       {contest.mode || contest.format}
@@ -274,7 +273,6 @@ export default function MatchHistoryClient({
               </div>
             );
           })}
-
         </div>
       </main>
     </div>

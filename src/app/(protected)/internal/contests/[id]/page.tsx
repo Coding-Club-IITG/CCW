@@ -114,9 +114,7 @@ export default async function ContestRoomPage({
           contestId: contest._id,
         }).lean();
         if (anyRoom) {
-          redirect(
-            `/internal/contests/rooms/${anyRoom._id.toString()}/result`,
-          );
+          redirect(`/internal/contests/rooms/${anyRoom._id.toString()}/result`);
         }
         // No rooms at all — contest was cancelled before provisioning
         return (

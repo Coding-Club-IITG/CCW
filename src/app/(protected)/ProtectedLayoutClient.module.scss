@@ -1,9 +1,15 @@
+.protectedShell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
 /* Full-bleed shell for the contests area (provides its own bg + layout) */
 .contestMain {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  min-height: 0;
   overflow: hidden;
 }
 

@@ -1,8 +1,17 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import mongoose from "mongoose";
+import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+
+import { auth } from "@/lib/auth";
+import { reconciliationQueue } from "@/lib/bullmq";
+import {
+  validateBracketContestInput,
+  type BracketContestInput,
+} from "@/lib/contests-validation";
 import dbConnect from "@/lib/mongodb";
+import { logger } from "@/lib/utils";
 import ContestMatch from "@/models/ContestMatch";
 import CPUser from "@/models/CPUser";
 import ContestRoom from "@/models/ContestRoom";
@@ -225,8 +234,6 @@ export async function getContestById(
   }
 }
 
-import { revalidatePath } from "next/cache";
-
 export async function registerForContest(
   contestId: string,
   teamName?: string,
@@ -327,9 +334,6 @@ export async function getAvailableTeamsForContest(
     return [];
   }
 }
-
-import { reconciliationQueue } from "@/lib/bullmq";
-import mongoose from "mongoose";
 
 export async function createRoomContest(
   data: any,
@@ -620,41 +624,86 @@ export async function searchVerifiedUsers(query: string) {
 
 // ─── Bracket / Knockout creation for all authenticated users ──────────────────
 
-export async function createBracketContest(data: any) {
+type ContestActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
+export async function createBracketContest(
+  data: BracketContestInput & Record<string, any>,
+): Promise<ContestActionResult<{ contestId: string }>> {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
-  if (!session) return { error: "Unauthorized" };
+  if (!session) return { success: false, error: "Unauthorized" };
 
   await dbConnect();
 
   // ── Server-side validation ──────────────────────────────────────────────────
   if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
-    return { error: "Contest name is required." };
+    return { success: false, error: "Contest name is required." };
   }
   if (data.name.trim().length > 100) {
-    return { error: "Contest name must be 100 characters or fewer." };
+    return {
+      success: false,
+      error: "Contest name must be 100 characters or fewer.",
+    };
   }
   if (!data.mode || !["blitz", "arena"].includes(data.mode)) {
-    return { error: "Mode must be either 'blitz' or 'arena'." };
+    return {
+      success: false,
+      error: "Mode must be either 'blitz' or 'arena'.",
+    };
   }
   if (!data.startTime || isNaN(new Date(data.startTime).getTime())) {
-    return { error: "A valid start time is required." };
+    return { success: false, error: "A valid start time is required." };
   }
   const deadlineEnvStr = process.env.REGISTRATION_DEADLINE_MINUTES;
   if (!deadlineEnvStr)
-    return { error: "REGISTRATION_DEADLINE_MINUTES is not configured." };
+    return {
+      success: false,
+      error: "Contest scheduling is not configured.",
+    };
   const _deadlineMinutes = parseInt(deadlineEnvStr, 10);
   if (isNaN(_deadlineMinutes))
-    return { error: "REGISTRATION_DEADLINE_MINUTES must be a valid number." };
+    return {
+      success: false,
+      error: "Contest scheduling is not configured correctly.",
+    };
   const _startMs = new Date(data.startTime).getTime();
   const _minStart = Date.now() + (_deadlineMinutes + 1) * 60000;
   if (_startMs < _minStart) {
     return {
+      success: false,
       error: `Start time must be at least ${_deadlineMinutes + 1} minutes in the future.`,
     };
   }
-  if (!data.registrationType || !["open", "closed"].includes(data.registrationType)) {
-    return { error: "Registration type must be 'open' or 'closed'." };
+  const bracketInputValidation = validateBracketContestInput(data);
+  if (!bracketInputValidation.success) {
+    return bracketInputValidation;
+  }
+  if (
+    data.registrationStartTime &&
+    isNaN(new Date(data.registrationStartTime).getTime())
+  ) {
+    return {
+      success: false,
+      error: "Registration start time must be a valid date.",
+    };
+  }
+  const registrationDeadlineMs = _startMs - _deadlineMinutes * 60_000;
+  if (data.registrationType === "open" && data.registrationStartTime) {
+    const registrationStartMs = new Date(data.registrationStartTime).getTime();
+    if (registrationStartMs <= Date.now()) {
+      return {
+        success: false,
+        error: "Scheduled registration must start in the future.",
+      };
+    }
+    if (registrationStartMs >= registrationDeadlineMs) {
+      return {
+        success: false,
+        error: "Registration start time must be before the deadline.",
+      };
+    }
   }
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -670,8 +719,10 @@ export async function createBracketContest(data: any) {
   if (data.presetId && data.presetId !== "custom") {
     const ContestPreset = (await import("@/models/ContestPreset")).default;
     const preset = await ContestPreset.findById(data.presetId);
-    if (!preset) return { error: "Selected preset does not exist" };
-    if (preset.archived) return { error: "Selected preset is archived" };
+    if (!preset)
+      return { success: false, error: "Selected preset does not exist" };
+    if (preset.archived)
+      return { success: false, error: "Selected preset is archived" };
     presetId = preset._id;
     problemSelectionMode = preset.problemSelectionMode;
     bulkPlatform = preset.bulkPlatform;
@@ -685,26 +736,42 @@ export async function createBracketContest(data: any) {
         : preset.problemSlots;
   } else {
     // custom — validate bulk / fine-tuned fields
-    if (!problemSelectionMode || !["bulk", "fine-tuned"].includes(problemSelectionMode)) {
-      return { error: "Problem selection mode must be 'bulk' or 'fine-tuned'." };
+    if (
+      !problemSelectionMode ||
+      !["bulk", "fine-tuned"].includes(problemSelectionMode)
+    ) {
+      return {
+        success: false,
+        error: "Problem selection mode must be 'bulk' or 'fine-tuned'.",
+      };
     }
     if (problemSelectionMode === "bulk") {
       const rMin = Number(bulkRatingMin);
       const rMax = Number(bulkRatingMax);
       const rCount = Number(bulkProblemCount);
       if (isNaN(rMin) || isNaN(rMax) || rMin < 800 || rMax > 3500) {
-        return { error: "Rating range must be between 800 and 3500." };
+        return {
+          success: false,
+          error: "Rating range must be between 800 and 3500.",
+        };
       }
       if (rMin >= rMax) {
-        return { error: "Minimum rating must be less than maximum rating." };
+        return {
+          success: false,
+          error: "Minimum rating must be less than maximum rating.",
+        };
       }
       if (isNaN(rCount) || rCount < 1 || rCount > 20) {
-        return { error: "Problem count must be between 1 and 20." };
+        return {
+          success: false,
+          error: "Problem count must be between 1 and 20.",
+        };
       }
     }
     if (problemSelectionMode === "fine-tuned") {
       if (!Array.isArray(data.problemSlots) || data.problemSlots.length === 0) {
         return {
+          success: false,
           error:
             "Fine-tuned problem slots with round assignments are required for a bracket contest.",
         };
@@ -714,31 +781,53 @@ export async function createBracketContest(data: any) {
       );
       if (problemSlots.length === 0) {
         return {
+          success: false,
           error: "Please provide valid problem IDs for the bracket rounds.",
         };
       }
     }
   }
 
-  // Validate registered user CP-profile eligibility (for closed seeded brackets)
+  const verifiedRegistrations: {
+    userId: mongoose.Types.ObjectId;
+    cfHandle: string;
+    teamName?: string;
+    registeredAt: Date;
+  }[] = [];
+
+  // Validate registered user CP-profile eligibility and persist canonical handles.
   if (Array.isArray(data.registeredUsers) && data.registeredUsers.length > 0) {
     for (const u of data.registeredUsers) {
       if (!u.id || !mongoose.Types.ObjectId.isValid(u.id)) {
-        return { error: `Invalid user ID: ${u.id}` };
+        return { success: false, error: `Invalid user ID: ${u.id}` };
       }
-      const cp = await CPUser.findOne({ userId: new mongoose.Types.ObjectId(u.id) });
+      const cp = await CPUser.findOne({
+        userId: new mongoose.Types.ObjectId(u.id),
+      });
       if (!cp) {
-        return { error: `User ${u.id} does not have a linked CP profile.` };
+        return {
+          success: false,
+          error: `User ${u.id} does not have a linked CP profile.`,
+        };
       }
       if (!cp.cfHandle) {
-        return { error: `User ${u.id} does not have a verified Codeforces handle.` };
+        return {
+          success: false,
+          error: `User ${u.id} does not have a verified Codeforces handle.`,
+        };
       }
+      verifiedRegistrations.push({
+        userId: new mongoose.Types.ObjectId(u.id),
+        cfHandle: cp.cfHandle,
+        teamName: u.teamName?.trim() || undefined,
+        registeredAt: new Date(),
+      });
     }
   }
 
   try {
     const cpUser = await CPUser.findOne({ userId: session.user.id });
-    if (!cpUser) return { error: "CP Profile not found" };
+    if (!cpUser) return { success: false, error: "CP Profile not found" };
 
     const deadlineStr = process.env.REGISTRATION_DEADLINE_MINUTES;
     if (!deadlineStr)
@@ -765,12 +854,7 @@ export async function createBracketContest(data: any) {
       bulkProblemCount: bulkProblemCount,
       bulkMinContestId: bulkMinContestId || undefined,
       problemSlots: problemSlots,
-      registrations: (data.registeredUsers || []).map((u: any) => ({
-        userId: new mongoose.Types.ObjectId(u.id),
-        cfHandle: u.cfHandle,
-        teamName: u.teamName,
-        registeredAt: new Date(),
-      })),
+      registrations: verifiedRegistrations,
       startTime: new Date(data.startTime),
       registrationSettings: {
         type: data.registrationType,
@@ -793,11 +877,6 @@ export async function createBracketContest(data: any) {
       ? new Date(data.registrationStartTime).getTime()
       : now;
     const deadlineTime = contest.registrationSettings!.deadline!.getTime();
-
-    if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
-      await ContestMatch.findByIdAndDelete(contest._id);
-      return { error: "Registration start time must be before the deadline." };
-    }
 
     if (data.registrationType !== "closed") {
       if (regStartTime > now) {
@@ -827,8 +906,15 @@ export async function createBracketContest(data: any) {
     }
 
     revalidatePath("/internal/contests");
-    return { contestId: contest._id.toString() };
-  } catch (err: any) {
-    return { error: err.message || "Failed to create bracket contest" };
+    return {
+      success: true,
+      data: { contestId: contest._id.toString() },
+    };
+  } catch (err: unknown) {
+    logger.error("[createBracketContest] Failed to create bracket contest", {
+      err,
+      userId: session.user.id,
+    });
+    return { success: false, error: "Failed to create bracket contest." };
   }
 }
