@@ -1,439 +1,350 @@
 "use server";
 
-import { auth } from "@/lib/auth";
-import {
-  EVENT_RECURRENCE_TYPES,
-  EVENT_STATUSES,
-  IST_OFFSET_MS,
-  PROJECT_MODULES,
-  type EventRecurrenceType,
-  type EventStatus,
-} from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { isAdmin } from "@/lib/roles";
-import { logger } from "@/lib/utils";
-import { invalidateCache } from "@/lib/cache";
-import Event from "@/models/Event";
+import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { buildScheduleFingerprint } from "@/lib/calendar";
+import { canPublishCalendarEvent } from "@/lib/calendarAccess";
+import {
+  EVENT_PUBLICATION_STATUSES,
+  type EventPublicationStatus,
+  type ModuleName,
+} from "@/lib/constants";
+import { invalidateCache } from "@/lib/cache";
+import dbConnect from "@/lib/mongodb";
+import { isAdmin, parseModuleRoles } from "@/lib/roles";
+import { errorToLogMetadata, logger } from "@/lib/utils";
+import CalendarEvent from "@/models/CalendarEvent";
+import Event from "@/models/Event";
 
-function parseTags(value: string): string[] {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
+type SessionUser = { id: string; role?: string; moduleRoles?: unknown };
+type PublicEventInput = {
+  title: string;
+  shortDescription: string;
+  description: string;
+  poster: string;
+  tags: string[];
+};
+
+async function currentAdmin(): Promise<SessionUser | null> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const user = session?.user as SessionUser | undefined;
+  return user && isAdmin(user.role) ? user : null;
 }
 
-function parseDateInput(value: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return null;
+function targetOf(calendar: { scope: string; module?: string | null }) {
+  return calendar.scope === "module"
+    ? ({ scope: "module", module: calendar.module ?? "" } as const)
+    : ({ scope: "general" } as const);
+}
+
+function mayPublish(
+  user: SessionUser,
+  calendar: { scope: string; module?: string | null },
+) {
+  return canPublishCalendarEvent(
+    user.role,
+    parseModuleRoles(user.moduleRoles),
+    targetOf(calendar),
+  );
+}
+
+function value(source: FormData | Record<string, unknown>, key: string) {
+  const raw = source instanceof FormData ? source.get(key) : source[key];
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function parsePublicInput(source: FormData | Record<string, unknown>) {
+  const rawTags =
+    source instanceof FormData ? value(source, "tags").split(",") : source.tags;
+  const data: PublicEventInput = {
+    title: value(source, "title"),
+    shortDescription: value(source, "shortDescription"),
+    description: value(source, "description"),
+    poster: value(source, "poster"),
+    tags: Array.isArray(rawTags)
+      ? rawTags
+          .filter((tag): tag is string => typeof tag === "string")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+      : [],
+  };
+  if (!data.title || !data.description || !data.poster) {
+    return {
+      success: false as const,
+      error: "Title, description, and poster are required.",
+    };
   }
-
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function getString(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function getDateKey(date: Date | string): string {
-  return new Date(date).toISOString().slice(0, 10);
-}
-
-function getTodayISTDateKey(): string {
-  return new Date(Date.now() + IST_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-function computeEffectiveEndDate(
-  startDate: Date | string,
-  recurrenceType?: EventRecurrenceType,
-  recurrenceCount?: number,
-): Date {
-  const start = new Date(startDate);
-  const count = recurrenceCount ?? 1;
-
-  switch (recurrenceType) {
-    case "daily":
-      start.setDate(start.getDate() + count - 1);
-      break;
-    case "weekly":
-      start.setDate(start.getDate() + (count - 1) * 7);
-      break;
-    case "biweekly":
-      start.setDate(start.getDate() + (count - 1) * 14);
-      break;
-    case "monthly":
-      start.setMonth(start.getMonth() + count - 1);
-      break;
-    default:
-      break;
+  if (data.title.length > 200 || data.shortDescription.length > 200) {
+    return {
+      success: false as const,
+      error: "Title and short description must be 200 characters or fewer.",
+    };
   }
-
-  return start;
+  if (data.description.length > 50_000) {
+    return { success: false as const, error: "Description is too long." };
+  }
+  return { success: true as const, data };
 }
 
-function getEventStatus(
-  startDate: Date | string,
-  endDate?: Date | string | null,
-  recurrenceType?: EventRecurrenceType,
-  recurrenceCount?: number,
-): EventStatus {
-  const today = getTodayISTDateKey();
-  const start = getDateKey(startDate);
-
-  let end: string;
-  if (endDate) {
-    end = getDateKey(endDate);
-  } else if (recurrenceType && recurrenceType !== "none") {
-    end = getDateKey(
-      computeEffectiveEndDate(startDate, recurrenceType, recurrenceCount),
-    );
-  } else {
-    end = start;
-  }
-
-  if (today < start) {
-    return EVENT_STATUSES[0];
-  }
-
-  if (today <= end) {
-    return EVENT_STATUSES[1];
-  }
-
-  return EVENT_STATUSES[2];
+function scheduleValues(calendar: {
+  title: string;
+  scope: "general" | "module";
+  module?: ModuleName;
+  allDay: boolean;
+  startAt: Date;
+  endAt?: Date;
+  recurrenceType: "none" | "daily" | "weekly" | "biweekly" | "monthly";
+  recurrenceCount: number;
+}) {
+  return {
+    startDate: calendar.startAt,
+    endDate: calendar.endAt,
+    allDay: calendar.allDay,
+    module: calendar.module,
+    recurrenceType: calendar.recurrenceType,
+    recurrenceCount: calendar.recurrenceCount,
+    scheduleFingerprint: buildScheduleFingerprint(calendar),
+  };
 }
 
-async function checkAdmin() {
-  try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session || !isAdmin((session.user as any).role)) {
-      logger.warn("Unauthorized admin events access attempt", {
-        action: "checkAdmin",
-      });
-      return null;
-    }
-
-    return session;
-  } catch (err) {
-    logger.error("[Admin Events] checkAdmin error:", err);
-    return null;
-  }
-}
-
-async function invalidateEventCaches() {
+async function refresh(eventId?: string, calendarId?: string) {
   await Promise.all([
     invalidateCache("events"),
     invalidateCache("admin:events"),
+    invalidateCache("calendar"),
   ]);
+  revalidatePath("/events");
+  revalidatePath("/admin/events");
+  revalidatePath("/internal/calendar");
+  if (eventId) revalidatePath(`/events/${eventId}`);
+  if (calendarId) revalidatePath(`/internal/calendar/${calendarId}`);
 }
 
 export async function getEvents() {
   try {
-    const session = await checkAdmin();
-    if (!session) {
+    if (!(await currentAdmin()))
       return { success: false as const, error: "Unauthorized" };
-    }
-
     await dbConnect();
-    const events = await Event.find({}).sort({ startDate: -1 }).lean();
-    const serializedEvents = JSON.parse(JSON.stringify(events)).map(
-      (event: any) => ({
-        ...event,
-        status: getEventStatus(
-          event.startDate,
-          event.endDate,
-          event.recurrenceType,
-          event.recurrenceCount,
-        ),
-      }),
-    );
-
-    return { success: true as const, events: serializedEvents };
-  } catch (err) {
-    logger.error("[Admin Events] getEvents error:", err);
+    const events = await Event.find({}).sort({ updatedAt: -1 }).lean();
+    return {
+      success: true as const,
+      events: JSON.parse(JSON.stringify(events)),
+    };
+  } catch (error) {
+    logger.error("Public event administration listing failed", {
+      operation: "list_public_events",
+      ...errorToLogMetadata(error),
+    });
     return { success: false as const, error: "Failed to fetch events." };
   }
 }
 
 export async function getEvent(id: string) {
   try {
-    const session = await checkAdmin();
-    if (!session) {
+    if (!(await currentAdmin()))
       return { success: false as const, error: "Unauthorized" };
-    }
-
     await dbConnect();
-    const event = await Event.findById(id).lean();
-    if (!event) {
-      return { success: false as const, error: "Event not found." };
-    }
-
-    return {
-      success: true as const,
-      event: JSON.parse(JSON.stringify(event)),
-    };
-  } catch (err) {
-    logger.error("[Admin Events] getEvent error:", err);
+    const event = mongoose.isValidObjectId(id)
+      ? await Event.findById(id).lean()
+      : null;
+    return event
+      ? { success: true as const, event: JSON.parse(JSON.stringify(event)) }
+      : { success: false as const, error: "Event not found." };
+  } catch (error) {
+    logger.error("Public event lookup failed", {
+      operation: "get_public_event",
+      eventId: id,
+      ...errorToLogMetadata(error),
+    });
     return { success: false as const, error: "Failed to fetch event." };
   }
 }
 
-export async function createEvent(formData: FormData) {
+export async function createEvent() {
+  return {
+    success: false as const,
+    error: "Create a calendar event before adding a public version.",
+  };
+}
+
+export async function createPublicEvent(
+  calendarEventId: string,
+  input: FormData | Record<string, unknown>,
+  status: EventPublicationStatus = "draft",
+) {
   try {
-    const session = await checkAdmin();
-    if (!session) {
-      return { success: false as const, error: "Unauthorized" };
-    }
-
-    const title = getString(formData, "title");
-    const shortDescription = getString(formData, "shortDescription");
-    const description = getString(formData, "description");
-    const poster = getString(formData, "poster");
-    const startDateInput = getString(formData, "startDate");
-    const endDateInput = getString(formData, "endDate");
-    const projectModule = getString(formData, "module");
-    const tags = parseTags(getString(formData, "tags"));
-    const recurrenceType = getString(formData, "recurrenceType") || "none";
-    const recurrenceCountStr = getString(formData, "recurrenceCount");
-    const recurrenceCount = recurrenceCountStr
-      ? Math.max(1, Math.min(52, Number(recurrenceCountStr) || 1))
-      : 1;
-
-    if (!title || !description || !poster || !startDateInput) {
-      return {
-        success: false as const,
-        error: "Title, description, poster, and start date are required.",
-      };
-    }
-
-    if (title.length > 200) {
-      return {
-        success: false as const,
-        error: "Title must be 200 characters or fewer.",
-      };
-    }
-
-    if (shortDescription.length > 200) {
-      return {
-        success: false as const,
-        error: "Short description must be 200 characters or fewer.",
-      };
-    }
-
+    const user = await currentAdmin();
+    if (!user) return { success: false as const, error: "Unauthorized" };
     if (
-      projectModule &&
-      !PROJECT_MODULES.includes(
-        projectModule as (typeof PROJECT_MODULES)[number],
-      )
+      !mongoose.isValidObjectId(calendarEventId) ||
+      !EVENT_PUBLICATION_STATUSES.includes(status)
     ) {
-      return { success: false as const, error: "Invalid module selected." };
+      return {
+        success: false as const,
+        error: "Invalid public event request.",
+      };
     }
-
-    if (
-      !EVENT_RECURRENCE_TYPES.includes(recurrenceType as EventRecurrenceType)
-    ) {
-      return { success: false as const, error: "Invalid recurrence type." };
-    }
-
-    const startDate = parseDateInput(startDateInput);
-    if (!startDate) {
-      return { success: false as const, error: "Invalid start date." };
-    }
-
-    let endDate: Date | undefined;
-    if (endDateInput) {
-      const parsedEndDate = parseDateInput(endDateInput);
-      if (!parsedEndDate) {
-        return { success: false as const, error: "Invalid end date." };
-      }
-      if (parsedEndDate < startDate) {
-        return {
-          success: false as const,
-          error: "End date cannot be earlier than start date.",
-        };
-      }
-      endDate = parsedEndDate;
-    }
-
+    const parsed = parsePublicInput(input);
+    if (!parsed.success) return parsed;
     await dbConnect();
-    const event = await Event.create({
-      title,
-      shortDescription,
-      description,
-      poster,
-      startDate,
-      endDate,
-      module: projectModule || undefined,
-      tags,
-      recurrenceType,
-      recurrenceCount,
+    const calendar = await CalendarEvent.findById(calendarEventId);
+    if (!calendar)
+      return { success: false as const, error: "Calendar event not found." };
+    if (!mayPublish(user, calendar))
+      return { success: false as const, error: "Forbidden" };
+    if (calendar.publicEventId || (await Event.exists({ calendarEventId }))) {
+      return {
+        success: false as const,
+        error: "This calendar event already has a public event.",
+      };
+    }
+
+    const dbSession = await mongoose.startSession();
+    let createdId = "";
+    try {
+      await dbSession.withTransaction(async () => {
+        const [event] = await Event.create(
+          [
+            {
+              ...parsed.data,
+              ...scheduleValues(calendar),
+              calendarEventId: calendar._id,
+              status,
+              publishedAt: status === "published" ? new Date() : null,
+            },
+          ],
+          { session: dbSession },
+        );
+        createdId = String(event._id);
+        calendar.publicEventId = event._id;
+        await calendar.save({ session: dbSession });
+      });
+    } finally {
+      await dbSession.endSession();
+    }
+    const event = await Event.findById(createdId).lean();
+    await refresh(createdId, calendarEventId);
+    return { success: true as const, data: JSON.parse(JSON.stringify(event)) };
+  } catch (error) {
+    logger.error("Public event creation failed", {
+      operation: "create_public_event",
+      calendarEventId,
+      ...errorToLogMetadata(error),
     });
-    await invalidateEventCaches();
-
-    logger.info("[Admin Events] Created event", {
-      eventId: String(event._id),
-      title,
-    });
-
-    revalidatePath("/admin/events");
-    revalidatePath("/events");
-
-    return {
-      success: true as const,
-      event: JSON.parse(JSON.stringify(event)),
-    };
-  } catch (err) {
-    logger.error("[Admin Events] createEvent error:", err);
-    return { success: false as const, error: "Failed to create event." };
+    return { success: false as const, error: "Failed to create public event." };
   }
 }
 
-export async function updateEvent(id: string, formData: FormData) {
+export async function updateEvent(
+  id: string,
+  input: FormData | Record<string, unknown>,
+) {
   try {
-    const session = await checkAdmin();
-    if (!session) {
-      return { success: false as const, error: "Unauthorized" };
-    }
-
-    const title = getString(formData, "title");
-    const shortDescription = getString(formData, "shortDescription");
-    const description = getString(formData, "description");
-    const poster = getString(formData, "poster");
-    const startDateInput = getString(formData, "startDate");
-    const endDateInput = getString(formData, "endDate");
-    const projectModule = getString(formData, "module");
-    const tags = parseTags(getString(formData, "tags"));
-    const recurrenceType = getString(formData, "recurrenceType") || "none";
-    const recurrenceCountStr = getString(formData, "recurrenceCount");
-    const recurrenceCount = recurrenceCountStr
-      ? Math.max(1, Math.min(52, Number(recurrenceCountStr) || 1))
-      : 1;
-
-    if (!title || !description || !poster || !startDateInput) {
-      return {
-        success: false as const,
-        error: "Title, description, poster, and start date are required.",
-      };
-    }
-
-    if (title.length > 200) {
-      return {
-        success: false as const,
-        error: "Title must be 200 characters or fewer.",
-      };
-    }
-
-    if (shortDescription.length > 200) {
-      return {
-        success: false as const,
-        error: "Short description must be 200 characters or fewer.",
-      };
-    }
-
-    if (
-      projectModule &&
-      !PROJECT_MODULES.includes(
-        projectModule as (typeof PROJECT_MODULES)[number],
-      )
-    ) {
-      return { success: false as const, error: "Invalid module selected." };
-    }
-
-    if (
-      !EVENT_RECURRENCE_TYPES.includes(recurrenceType as EventRecurrenceType)
-    ) {
-      return { success: false as const, error: "Invalid recurrence type." };
-    }
-
-    const startDate = parseDateInput(startDateInput);
-    if (!startDate) {
-      return { success: false as const, error: "Invalid start date." };
-    }
-
-    let endDate: Date | undefined;
-    if (endDateInput) {
-      const parsedEndDate = parseDateInput(endDateInput);
-      if (!parsedEndDate) {
-        return { success: false as const, error: "Invalid end date." };
-      }
-      if (parsedEndDate < startDate) {
-        return {
-          success: false as const,
-          error: "End date cannot be earlier than start date.",
-        };
-      }
-      endDate = parsedEndDate;
-    }
-
+    const user = await currentAdmin();
+    if (!user) return { success: false as const, error: "Unauthorized" };
+    const parsed = parsePublicInput(input);
+    if (!parsed.success) return parsed;
     await dbConnect();
-    const event = await Event.findByIdAndUpdate(
-      id,
-      {
-        title,
-        shortDescription,
-        description,
-        poster,
-        startDate,
-        endDate,
-        module: projectModule || undefined,
-        tags,
-        recurrenceType,
-        recurrenceCount,
-      },
-      { new: true },
-    ).lean();
-
-    if (!event) {
-      return { success: false as const, error: "Event not found." };
-    }
-    await invalidateEventCaches();
-
-    logger.info("[Admin Events] Updated event", {
-      eventId: id,
-      title,
-    });
-
-    revalidatePath("/admin/events");
-    revalidatePath(`/admin/events/${id}`);
-    revalidatePath("/events");
-    revalidatePath(`/events/${id}`);
-
+    const event = mongoose.isValidObjectId(id)
+      ? await Event.findById(id)
+      : null;
+    if (!event) return { success: false as const, error: "Event not found." };
+    const calendar = await CalendarEvent.findById(event.calendarEventId);
+    if (!calendar || !mayPublish(user, calendar))
+      return { success: false as const, error: "Forbidden" };
+    event.set(parsed.data);
+    await event.save();
+    await refresh(id, String(calendar._id));
     return {
       success: true as const,
-      event: JSON.parse(JSON.stringify(event)),
+      event: JSON.parse(JSON.stringify(event.toObject())),
     };
-  } catch (err) {
-    logger.error("[Admin Events] updateEvent error:", err);
+  } catch (error) {
+    logger.error("Public event update failed", {
+      operation: "update_public_event",
+      eventId: id,
+      ...errorToLogMetadata(error),
+    });
     return { success: false as const, error: "Failed to update event." };
   }
 }
 
-export async function deleteEvent(id: string) {
+export async function setPublicEventStatus(
+  id: string,
+  status: EventPublicationStatus,
+) {
   try {
-    const session = await checkAdmin();
-    if (!session) {
-      return { success: false as const, error: "Unauthorized" };
-    }
-
+    const user = await currentAdmin();
+    if (!user) return { success: false as const, error: "Unauthorized" };
+    if (!EVENT_PUBLICATION_STATUSES.includes(status))
+      return { success: false as const, error: "Invalid publication status." };
     await dbConnect();
-    const event = await Event.findByIdAndDelete(id).lean();
-    if (!event) {
-      return { success: false as const, error: "Event not found." };
-    }
-    await invalidateEventCaches();
-
-    logger.info("[Admin Events] Deleted event", {
+    const event = mongoose.isValidObjectId(id)
+      ? await Event.findById(id)
+      : null;
+    if (!event) return { success: false as const, error: "Event not found." };
+    const calendar = await CalendarEvent.findById(event.calendarEventId);
+    if (!calendar || !mayPublish(user, calendar))
+      return { success: false as const, error: "Forbidden" };
+    event.status = status;
+    if (status === "published" && !event.publishedAt)
+      event.publishedAt = new Date();
+    await event.save();
+    await refresh(id, String(calendar._id));
+    return {
+      success: true as const,
+      data: JSON.parse(JSON.stringify(event.toObject())),
+    };
+  } catch (error) {
+    logger.error("Public event status update failed", {
+      operation: "set_public_event_status",
       eventId: id,
+      ...errorToLogMetadata(error),
     });
-
-    revalidatePath("/admin/events");
-    revalidatePath("/events");
-
-    return { success: true as const };
-  } catch (err) {
-    logger.error("[Admin Events] deleteEvent error:", err);
-    return { success: false as const, error: "Failed to delete event." };
+    return {
+      success: false as const,
+      error: "Failed to update publication status.",
+    };
   }
+}
+
+export async function syncPublicEventSchedule(id: string) {
+  try {
+    const user = await currentAdmin();
+    if (!user) return { success: false as const, error: "Unauthorized" };
+    await dbConnect();
+    const event = mongoose.isValidObjectId(id)
+      ? await Event.findById(id)
+      : null;
+    if (!event) return { success: false as const, error: "Event not found." };
+    const calendar = await CalendarEvent.findById(event.calendarEventId);
+    if (!calendar || !mayPublish(user, calendar))
+      return { success: false as const, error: "Forbidden" };
+    event.set(scheduleValues(calendar));
+    await event.save();
+    await refresh(id, String(calendar._id));
+    return {
+      success: true as const,
+      data: JSON.parse(JSON.stringify(event.toObject())),
+    };
+  } catch (error) {
+    logger.error("Public event schedule sync failed", {
+      operation: "sync_public_event_schedule",
+      eventId: id,
+      ...errorToLogMetadata(error),
+    });
+    return {
+      success: false as const,
+      error: "Failed to synchronize event schedule.",
+    };
+  }
+}
+
+export async function deleteEvent() {
+  return {
+    success: false as const,
+    error: "Delete the linked calendar event instead.",
+  };
 }

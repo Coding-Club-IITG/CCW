@@ -1,272 +1,61 @@
-"use client";
-
-import { use, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { buildScheduleFingerprint } from "@/lib/calendar";
+import { canPublishCalendarEvent } from "@/lib/calendarAccess";
+import dbConnect from "@/lib/mongodb";
+import { parseModuleRoles } from "@/lib/roles";
+import CalendarEvent from "@/models/CalendarEvent";
+import Event from "@/models/Event";
 import BackLink from "@/components/shared/BackLink";
-import MarkdownEditor from "@/components/shared/MarkdownEditor";
-import ImageUpload from "@/components/shared/ImageUpload";
-import { PROJECT_MODULES, EVENT_RECURRENCE_TYPES } from "@/lib/constants";
-import { updateEvent } from "@/lib/actions/admin/events";
+import PublicEventForm from "@/components/calendar/PublicEventForm";
 import styles from "../new/EventForm.module.scss";
 
-interface EventData {
-  _id: string;
-  title: string;
-  shortDescription: string;
-  description: string;
-  poster: string;
-  startDate: string;
-  endDate?: string;
-  module?: string;
-  tags: string[];
-  recurrenceType?: string;
-  recurrenceCount?: number;
-}
-
-export default function EditEventPage({
+export default async function EditPublicEventPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
-  const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [shortDescription, setShortDescription] = useState("");
-  const [description, setDescription] = useState("");
-  const [poster, setPoster] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [module, setModule] = useState("");
-  const [tags, setTags] = useState("");
-  const [recurrenceType, setRecurrenceType] = useState("none");
-  const [recurrenceCount, setRecurrenceCount] = useState("1");
-  const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    async function fetchEvent() {
-      try {
-        const res = await fetch(`/api/admin/events/${id}`);
-        const data = (await res.json()) as {
-          error?: string;
-          event?: EventData;
-        };
-
-        if (!res.ok || !data.event) {
-          throw new Error(data.error || "Failed to load event.");
-        }
-
-        const event = data.event;
-        setTitle(event.title);
-        setShortDescription(event.shortDescription || "");
-        setDescription(event.description);
-        setPoster(event.poster);
-        setStartDate(event.startDate ? event.startDate.slice(0, 10) : "");
-        setEndDate(event.endDate ? event.endDate.slice(0, 10) : "");
-        setModule(event.module || "");
-        setTags(event.tags?.join(", ") || "");
-        setRecurrenceType(event.recurrenceType || "none");
-        setRecurrenceCount(String(event.recurrenceCount || 1));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load event.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void fetchEvent();
-  }, [id]);
-
-  async function handleSubmit() {
-    if (!title.trim() || !description.trim() || !poster || !startDate) {
-      setError("Title, description, poster, and start date are required.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-
-    const formData = new FormData();
-    formData.set("title", title);
-    formData.set("shortDescription", shortDescription);
-    formData.set("description", description);
-    formData.set("poster", poster);
-    formData.set("startDate", startDate);
-    if (endDate) formData.set("endDate", endDate);
-    if (module) formData.set("module", module);
-    if (tags) formData.set("tags", tags);
-    formData.set("recurrenceType", recurrenceType);
-    if (recurrenceType !== "none") {
-      formData.set("recurrenceCount", recurrenceCount);
-    }
-
-    const result = await updateEvent(id, formData);
-    if (result.success) {
-      router.push("/admin/events");
-      router.refresh();
-      return;
-    }
-
-    setError(result.error || "Failed to update event.");
-    setSaving(false);
-  }
-
-  if (loading) {
-    return (
-      <div className={styles.container}>
-        <BackLink href="/admin/events" label="Back to Events" />
-        <p>Loading event...</p>
-      </div>
-    );
-  }
-
+  const { id } = await params;
+  const session = await auth.api.getSession({ headers: await headers() });
+  await dbConnect();
+  const event = await Event.findById(id).lean();
+  if (!event) notFound();
+  const calendar = await CalendarEvent.findById(event.calendarEventId).lean();
+  if (!calendar) notFound();
+  const user = session!.user as { role?: string; moduleRoles?: unknown };
+  const target =
+    calendar.scope === "module"
+      ? { scope: "module" as const, module: calendar.module ?? "" }
+      : { scope: "general" as const };
+  if (
+    !canPublishCalendarEvent(
+      user.role,
+      parseModuleRoles(user.moduleRoles),
+      target,
+    )
+  )
+    redirect("/admin/events");
+  const fingerprint = buildScheduleFingerprint(calendar);
   return (
     <div className={styles.container}>
-      <BackLink href="/admin/events" label="Back to Events" />
-      <h1 className={styles.pageTitle}>Edit Event</h1>
-
-      {error && <div className={styles.error}>{error}</div>}
-
-      <div className={styles.form}>
-        <div className={styles.field}>
-          <label className={styles.label}>Title *</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            className={styles.input}
-            placeholder="Event title"
-            maxLength={200}
-          />
-        </div>
-
-        <div className={styles.field}>
-          <label className={styles.label}>Short Description</label>
-          <input
-            type="text"
-            value={shortDescription}
-            onChange={(event) => setShortDescription(event.target.value)}
-            className={styles.input}
-            placeholder="Brief one-liner shown on the events listing"
-            maxLength={200}
-          />
-        </div>
-
-        <div className={styles.field}>
-          <label className={styles.label}>Poster *</label>
-          <ImageUpload
-            value={poster}
-            onChange={setPoster}
-            uploadEndpoint="/api/admin/events/upload-image"
-            label="Poster"
-            previewClassName={styles.posterPreview}
-          />
-        </div>
-
-        <div className={styles.row}>
-          <div className={styles.field}>
-            <label className={styles.label}>Start Date *</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
-              className={styles.input}
-            />
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label}>End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(event) => setEndDate(event.target.value)}
-              className={styles.input}
-            />
-          </div>
-        </div>
-
-        <div className={styles.row}>
-          <div className={styles.field}>
-            <label className={styles.label}>Module</label>
-            <select
-              value={module}
-              onChange={(event) => setModule(event.target.value)}
-              className={styles.select}
-            >
-              <option value="">Club-wide (no module)</option>
-              {PROJECT_MODULES.map((moduleName) => (
-                <option key={moduleName} value={moduleName}>
-                  {moduleName}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label}>Tags</label>
-            <input
-              type="text"
-              value={tags}
-              onChange={(event) => setTags(event.target.value)}
-              className={styles.input}
-              placeholder="Comma-separated tags"
-            />
-          </div>
-        </div>
-
-        <div className={styles.row}>
-          <div className={styles.field}>
-            <label className={styles.label}>Recurrence</label>
-            <select
-              value={recurrenceType}
-              onChange={(event) => setRecurrenceType(event.target.value)}
-              className={styles.select}
-            >
-              {EVENT_RECURRENCE_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type === "none"
-                    ? "One-time event"
-                    : type.charAt(0).toUpperCase() + type.slice(1)}
-                </option>
-              ))}
-            </select>
-          </div>
-          {recurrenceType !== "none" && (
-            <div className={styles.field}>
-              <label className={styles.label}>Number of Occurrences</label>
-              <input
-                type="number"
-                value={recurrenceCount}
-                onChange={(event) => setRecurrenceCount(event.target.value)}
-                className={styles.input}
-                min={1}
-                max={52}
-              />
-            </div>
-          )}
-        </div>
-
-        <div className={styles.field}>
-          <label className={styles.label}>Description (Markdown) *</label>
-          <MarkdownEditor
-            value={description}
-            onChange={setDescription}
-            uploadEndpoint="/api/admin/events/upload-image"
-            placeholder="Write event details in Markdown..."
-            rows={18}
-          />
-        </div>
-
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.submitBtn}
-            onClick={() => void handleSubmit()}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
-        </div>
-      </div>
+      <BackLink href="/admin/events" label="Back to Public Events" />
+      <h1 className={styles.pageTitle}>Edit public event</h1>
+      <PublicEventForm
+        calendarEventId={String(calendar._id)}
+        calendarTitle={calendar.title}
+        calendarDescription={calendar.description}
+        event={{
+          _id: String(event._id),
+          title: event.title,
+          shortDescription: event.shortDescription,
+          description: event.description,
+          poster: event.poster,
+          tags: event.tags,
+          status: event.status,
+        }}
+        outOfSync={event.scheduleFingerprint !== fingerprint}
+      />
     </div>
   );
 }

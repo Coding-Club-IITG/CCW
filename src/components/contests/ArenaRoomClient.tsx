@@ -211,7 +211,7 @@ export default function ArenaRoomClient({
     }
   }, [syncCooldown]);
 
-  // Notification permission state — used to render the "Enable Notifications" button
+  // Notification permission state - used to render the "Enable Notifications" button
   const [notifGranted, setNotifGranted] = useState(
     typeof Notification !== "undefined" &&
       Notification.permission === "granted",
@@ -615,7 +615,7 @@ export default function ArenaRoomClient({
                   </div>
                   <h2 className={styles.waitingTitle}>Waiting for Players</h2>
                   <p className={styles.waitingText}>
-                    The arena is being prepared. Review your strategy—the match
+                    The arena is being prepared. Review your strategy-the match
                     begins when all teams are ready.
                   </p>
                   <button

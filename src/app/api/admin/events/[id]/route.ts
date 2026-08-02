@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
 import Event from "@/models/Event";
+import CalendarEvent from "@/models/CalendarEvent";
 
 export async function GET(
   request: NextRequest,
@@ -16,7 +17,8 @@ export async function GET(
 
     const { id } = await context.params;
     await dbConnect();
-    const event = await Event.findById(id).lean();
+    void CalendarEvent;
+    const event = await Event.findById(id).populate("calendarEventId").lean();
     if (!event) {
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }

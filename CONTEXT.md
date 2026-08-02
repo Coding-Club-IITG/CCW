@@ -13,7 +13,7 @@ programming systems, content, administration, and background integrations.
 
 - **Public content:** Blogs, events, projects, and club team information.
 - **Member workspace:** A dashboard, member profiles, shared files, and
-  notifications.
+  notifications, plus an internal calendar for general and module events.
 - **Competitive programming:** Platform profiles, contest rooms and
   tournaments, Problem of the Day (POTD), leaderboards, and solving tools.
 - **Collaboration:** Hackathons, participant teams, and related member
@@ -56,6 +56,9 @@ programming systems, content, administration, and background integrations.
 - Redis supports runtime coordination, caching, and queued contest work.
 - The standalone worker runs scheduled synchronization, reminder, cleanup, and
   contest-processing jobs.
+- Internal calendar events are the scheduling source of truth. Public event
+  drafts and publications are linked one-to-one to calendar records. Calendar
+  reminders run through the standalone worker.
 - Platform integrations currently include Codeforces and AtCoder, with contest
   aggregation also covering other competitive-programming platforms.
 

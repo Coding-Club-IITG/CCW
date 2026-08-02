@@ -2,18 +2,13 @@ import Link from "next/link";
 import { type EventRecurrenceType } from "@/lib/constants";
 import { getEventStatus } from "@/lib/eventStatus";
 import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
+import { formatEventDate } from "@/lib/eventDate";
 import dbConnect from "@/lib/mongodb";
-import { formatDate, logger } from "@/lib/utils";
+import { logger } from "@/lib/utils";
 import Event, { type IEvent } from "@/models/Event";
 import StatusBadge from "@/components/shared/StatusBadge";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import styles from "./Events.module.scss";
-
-function formatEventDate(startDate: Date, endDate?: Date): string {
-  const start = formatDate(startDate);
-  if (!endDate) return start;
-  return `${start} - ${formatDate(endDate)}`;
-}
 
 function getRecurrenceLabel(
   recurrenceType?: EventRecurrenceType,
@@ -35,10 +30,12 @@ export default async function EventsPage() {
   try {
     await dbConnect();
     events = await cachedFetch<IEvent[]>(
-      "ccw:events:public",
+      "ccw:events:public:v2",
       CACHE_TTLS.EVENTS,
       async () => {
-        const result = await Event.find({}).sort({ startDate: -1 }).lean();
+        const result = await Event.find({ status: "published" })
+          .sort({ startDate: -1 })
+          .lean();
         return result as unknown as IEvent[];
       },
     );
@@ -107,7 +104,11 @@ export default async function EventsPage() {
                     <p className={styles.shortDesc}>{event.shortDescription}</p>
                   )}
                   <span className={styles.date}>
-                    {formatEventDate(event.startDate, event.endDate)}
+                    {formatEventDate(
+                      event.startDate,
+                      event.endDate,
+                      event.allDay,
+                    )}
                   </span>
                   {recurrenceLabel && (
                     <span className={styles.recurrence}>{recurrenceLabel}</span>

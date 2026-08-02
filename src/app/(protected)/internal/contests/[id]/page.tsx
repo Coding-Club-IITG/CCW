@@ -116,7 +116,7 @@ export default async function ContestRoomPage({
         if (anyRoom) {
           redirect(`/internal/contests/rooms/${anyRoom._id.toString()}/result`);
         }
-        // No rooms at all — contest was cancelled before provisioning
+        // No rooms at all - contest was cancelled before provisioning
         return (
           <div className={styles.stateWrap}>
             <CalendarX

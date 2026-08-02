@@ -1,6 +1,4 @@
-// ============================================================
-// Contests (shared) — GitHub-styled full-bleed contest screens
-// ============================================================
+// Shared Contests styling
 
 @use "layout" as *;
 
@@ -54,7 +52,7 @@
   box-shadow: 0 0 $blur $color;
 }
 
-// Shared keyframes — include at a module's TOP LEVEL, then reference by name.
+// Shared keyframes - include at a module's TOP LEVEL, then reference by name.
 // Split so modules only emit the keyframes they use.
 @mixin contest-kf-pulse {
   @keyframes contestPulse {

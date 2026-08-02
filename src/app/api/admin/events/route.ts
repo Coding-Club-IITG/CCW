@@ -5,6 +5,12 @@ import { logger } from "@/lib/utils";
 import Event from "@/models/Event";
 import { parsePagination, paginatedResponse } from "@/lib/pagination";
 import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache";
+import {
+  EVENT_PUBLICATION_STATUSES,
+  type EventPublicationStatus,
+} from "@/lib/constants";
+import { getPublishableEventModules } from "@/lib/calendarAccess";
+import { parseModuleRoles } from "@/lib/roles";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,20 +23,36 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
+    const status = searchParams.get("status") as EventPublicationStatus | null;
+    const modules = getPublishableEventModules(
+      user.role,
+      parseModuleRoles(user.moduleRoles),
+    );
+    const filter = {
+      ...(status && EVENT_PUBLICATION_STATUSES.includes(status)
+        ? { status }
+        : {}),
+      ...(modules ? { module: { $in: modules } } : {}),
+    };
 
-    const cacheKey = buildCacheKey("admin:events", { page, limit });
+    const cacheKey = buildCacheKey("admin:events", {
+      page,
+      limit,
+      status: status ?? undefined,
+      modules: modules?.sort().join(","),
+    });
 
     const result = await cachedFetch(cacheKey, CACHE_TTLS.EVENTS, async () => {
       const [events, total] = await Promise.all([
-        Event.find({})
+        Event.find(filter)
           .select(
-            "title shortDescription poster startDate endDate module tags recurrenceType recurrenceCount createdAt updatedAt",
+            "title shortDescription poster startDate endDate allDay module tags recurrenceType recurrenceCount status publishedAt calendarEventId scheduleFingerprint createdAt updatedAt",
           )
           .sort({ startDate: -1 })
           .skip(skip)
           .limit(limit)
           .lean(),
-        Event.countDocuments({}),
+        Event.countDocuments(filter),
       ]);
       return { events: JSON.parse(JSON.stringify(events)), total };
     });

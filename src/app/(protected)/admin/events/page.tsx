@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
-import { deleteEvent } from "@/lib/actions/admin/events";
 import { getEventStatus } from "@/lib/eventStatus";
-import type { EventRecurrenceType } from "@/lib/constants";
+import type {
+  EventPublicationStatus,
+  EventRecurrenceType,
+} from "@/lib/constants";
 import styles from "./AdminEvents.module.scss";
 
 interface EventItem {
@@ -14,38 +16,49 @@ interface EventItem {
   title: string;
   startDate: string;
   endDate?: string;
+  allDay?: boolean;
   module?: string;
   recurrenceType?: string;
   recurrenceCount?: number;
+  status: EventPublicationStatus;
+  calendarEventId: string;
 }
 
-function formatEventDate(startDate: string, endDate?: string) {
+function formatEventDate(startDate: string, endDate?: string, allDay = true) {
   const formatOptions: Intl.DateTimeFormatOptions = {
     day: "numeric",
     month: "short",
     year: "numeric",
   };
 
-  const formattedStart = new Date(startDate).toLocaleDateString(
-    "en-IN",
-    formatOptions,
-  );
+  const formattedStart = allDay
+    ? new Date(startDate).toLocaleDateString("en-IN", formatOptions)
+    : new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(startDate));
 
   if (!endDate) {
     return formattedStart;
   }
 
-  const formattedEnd = new Date(endDate).toLocaleDateString(
-    "en-IN",
-    formatOptions,
-  );
+  const formattedEnd = allDay
+    ? new Date(endDate).toLocaleDateString("en-IN", formatOptions)
+    : new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(endDate));
   return `${formattedStart} - ${formattedEnd}`;
 }
 
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [publicationFilter, setPublicationFilter] = useState<
+    "" | EventPublicationStatus
+  >("");
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -55,7 +68,12 @@ export default function AdminEventsPage() {
       setLoading(true);
       try {
         setError("");
-        const res = await fetch(`/api/admin/events?page=${page}&limit=20`);
+        const statusQuery = publicationFilter
+          ? `&status=${publicationFilter}`
+          : "";
+        const res = await fetch(
+          `/api/admin/events?page=${page}&limit=20${statusQuery}`,
+        );
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to fetch events.");
         setEvents(data.items || []);
@@ -71,25 +89,7 @@ export default function AdminEventsPage() {
     }
 
     void fetchEvents();
-  }, [page]);
-
-  async function handleDelete(id: string) {
-    if (!window.confirm("Are you sure you want to delete this event?")) {
-      return;
-    }
-
-    setDeleting(id);
-    setError("");
-
-    const result = await deleteEvent(id);
-    if (result.success) {
-      setEvents((prev) => prev.filter((event) => event._id !== id));
-    } else {
-      setError(result.error || "Failed to delete event.");
-    }
-
-    setDeleting(null);
-  }
+  }, [page, publicationFilter]);
 
   return (
     <div className={styles.container}>
@@ -97,12 +97,31 @@ export default function AdminEventsPage() {
 
       <div className={styles.header}>
         <div>
-          <h1>Event Management</h1>
-          <p>Create, edit, and organize club events.</p>
+          <h1>Public Events</h1>
+          <p>Manage club events linked to the calendar.</p>
         </div>
-        <Link href="/admin/events/new" className={styles.addBtn}>
-          Add Event
+        <Link href="/internal/calendar/new" className={styles.addBtn}>
+          Add Calendar Event
         </Link>
+      </div>
+
+      <div
+        className={styles.publicationFilters}
+        aria-label="Publication filters"
+      >
+        {(["", "draft", "published"] as const).map((value) => (
+          <button
+            key={value || "all"}
+            type="button"
+            className={styles.editBtn}
+            onClick={() => {
+              setPublicationFilter(value);
+              setPage(1);
+            }}
+          >
+            {value ? value[0].toUpperCase() + value.slice(1) : "All"}
+          </button>
+        ))}
       </div>
 
       {error && <div className={styles.error}>{error}</div>}
@@ -128,13 +147,19 @@ export default function AdminEventsPage() {
                     <div className={styles.itemTop}>
                       <span className={styles.itemTitle}>{event.title}</span>
                       <span
-                        className={`${styles.statusBadge} ${styles[status.toLowerCase()]}`}
+                        className={`${styles.statusBadge} ${styles[event.status === "published" ? status.toLowerCase() : "upcoming"]}`}
                       >
-                        {status}
+                        {event.status === "draft"
+                          ? "Draft"
+                          : `Published · ${status}`}
                       </span>
                     </div>
                     <span className={styles.itemMeta}>
-                      {formatEventDate(event.startDate, event.endDate)}
+                      {formatEventDate(
+                        event.startDate,
+                        event.endDate,
+                        event.allDay,
+                      )}
                       {event.module ? ` · ${event.module}` : ""}
                     </span>
                   </div>
@@ -145,14 +170,12 @@ export default function AdminEventsPage() {
                     >
                       Edit
                     </Link>
-                    <button
-                      type="button"
-                      className={styles.deleteBtn}
-                      onClick={() => void handleDelete(event._id)}
-                      disabled={deleting === event._id}
+                    <Link
+                      href={`/internal/calendar/${event.calendarEventId}`}
+                      className={styles.editBtn}
                     >
-                      {deleting === event._id ? "Deleting..." : "Delete"}
-                    </button>
+                      Calendar source
+                    </Link>
                   </div>
                 </div>
               );

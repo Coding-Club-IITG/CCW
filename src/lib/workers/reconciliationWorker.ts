@@ -681,7 +681,7 @@ export const reconciliationWorker = new Worker(
 
       // Schedule the job to open the room at the configured startTime
       // Fire ROOM_PRE_START_SECONDS before startTime so the room is "waiting" by the time
-      // the client-side timer triggers at startTime — prevents a "No Room Found" race condition.
+      // the client-side timer triggers at startTime - prevents a "No Room Found" race condition.
       const { reconciliationQueue } = await import("../bullmq");
       const startTimeMs = contest.startTime
         ? contest.startTime.getTime()
@@ -1130,7 +1130,7 @@ export const reconciliationWorker = new Worker(
       }
     }
 
-    // 2.5 Bracket advancement hook — now handled in room_completed. This path covers
+    // 2.5 Bracket advancement hook - now handled in room_completed. This path covers
     // forfeit/timeout endings for bracket rooms.
     if (contestId) {
       try {

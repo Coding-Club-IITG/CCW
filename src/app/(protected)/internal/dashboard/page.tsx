@@ -48,6 +48,11 @@ export default async function DashboardPage() {
           description="Edit your display name, bio, and linked platform handles."
         />
         <LinkCard
+          href="/internal/calendar"
+          title="Club Calendar"
+          description="See general and module events, agendas, and meeting minutes."
+        />
+        <LinkCard
           href="/internal/files"
           title="File Sharing"
           description="Access shared resources, notes, and module materials."

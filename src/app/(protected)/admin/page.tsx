@@ -22,8 +22,8 @@ export default async function AdminPage() {
         />
         <LinkCard
           href="/admin/events"
-          title="Event Management"
-          description="Create, edit, and maintain event listings for the club."
+          title="Public Events"
+          description="Manage club events linked to the calendar."
         />
         <LinkCard
           href="/admin/projects"

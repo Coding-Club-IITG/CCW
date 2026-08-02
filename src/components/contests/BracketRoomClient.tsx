@@ -516,7 +516,7 @@ function MatchSidePanel({
                       ? "Completed"
                       : displayNode?.status === "pending"
                         ? "Upcoming"
-                        : displayNode?.status || "—"}
+                        : displayNode?.status || "-"}
                 </span>
               </div>
               {isCompleted && winnerId && (
@@ -531,7 +531,7 @@ function MatchSidePanel({
           </div>
         </div>
 
-        {/* Sidebar Footer — action buttons */}
+        {/* Sidebar Footer - action buttons */}
         <div className={styles.sidebarFooter}>
           {/* COMPLETED STATUS */}
           {isCompleted && displayNode?.roomId && (
@@ -750,7 +750,7 @@ export default function BracketRoomClient({
           </div>
         </div>
         <div className={styles.headerRight}>
-          {/* Live SSE indicator — only show "Live" */}
+          {/* Live SSE indicator - only show "Live" */}
           <div className={styles.liveIndicator}>
             <span className={styles.dotError} />
             Live

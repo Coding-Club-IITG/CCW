@@ -1,0 +1,132 @@
+@use "@/styles/mixins" as *;
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 1.5rem;
+}
+.calendar,
+.monthEvents {
+  @include card;
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.monthHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+}
+.monthHeader a {
+  @include btn-secondary;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  text-decoration: none;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.monthHeader h2,
+.monthEvents h2 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--foreground-strong);
+}
+.weekdays,
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.weekdays {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.weekdays span {
+  padding: 0.65rem;
+  text-align: center;
+  color: var(--foreground-secondary);
+  font-size: 0.8rem;
+}
+.day,
+.emptyDay {
+  min-width: 0;
+  min-height: 7rem;
+  padding: 0.45rem;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.day time {
+  color: var(--foreground-secondary);
+  font-size: 0.8rem;
+}
+.dayEvents {
+  display: grid;
+  min-width: 0;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+.compactEvent {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  background: var(--badge-primary-bg);
+  color: var(--badge-primary-text);
+  text-decoration: none;
+  font-size: 0.75rem;
+}
+.eventTitle {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.monthEvents {
+  align-self: start;
+  padding: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.upcomingEvent {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.upcomingEvent:hover {
+  background: var(--surface-secondary);
+  border-color: var(--border-input);
+}
+.eventMeta {
+  color: var(--foreground-secondary);
+  font-size: 0.82rem;
+}
+.scopeBadge {
+  width: fit-content;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--badge-primary-bg);
+  color: var(--badge-primary-text);
+}
+@media (max-width: 800px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .calendar {
+    display: none;
+  }
+}

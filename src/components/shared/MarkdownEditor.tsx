@@ -7,7 +7,7 @@ import styles from "./MarkdownEditor.module.scss";
 interface MarkdownEditorProps {
   value: string;
   onChange: (value: string) => void;
-  uploadEndpoint: string;
+  uploadEndpoint?: string;
   placeholder?: string;
   rows?: number;
 }
@@ -26,6 +26,7 @@ export default function MarkdownEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = async (file: File) => {
+    if (!uploadEndpoint) return;
     setUploading(true);
     setError("");
 
@@ -68,14 +69,16 @@ export default function MarkdownEditor({
     <div className={styles.editor}>
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.toolbar}>
-        <button
-          type="button"
-          className={styles.btnSecondary}
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-        >
-          {uploading ? "Uploading..." : "Insert Image"}
-        </button>
+        {uploadEndpoint && (
+          <button
+            type="button"
+            className={styles.btnSecondary}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? "Uploading..." : "Insert Image"}
+          </button>
+        )}
         <button
           type="button"
           className={`${styles.btnSecondary} ${showPreview ? styles.active : ""}`}
@@ -84,19 +87,19 @@ export default function MarkdownEditor({
           {showPreview ? "Edit" : "Preview"}
         </button>
       </div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-            void handleImageUpload(file);
-          }
-          e.target.value = "";
-        }}
-      />
+      {uploadEndpoint && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleImageUpload(file);
+            e.target.value = "";
+          }}
+        />
+      )}
       {showPreview ? (
         <div className={styles.preview}>
           <MarkdownRenderer content={value} />

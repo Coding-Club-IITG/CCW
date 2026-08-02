@@ -51,6 +51,7 @@ const PUBLIC_LINKS = [
 
 const INTERNAL_LINKS = [
   { href: "/internal/dashboard", label: "Dashboard" },
+  { href: "/internal/calendar", label: "Calendar" },
   { href: "/internal/files", label: "Files" },
   { href: "/internal/cp", label: "CP" },
   { href: "/internal/potd", label: "POTD" },

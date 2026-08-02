@@ -756,7 +756,7 @@ export async function createBracketContest(
         ? data.problemSlots
         : preset.problemSlots;
   } else {
-    // custom — validate bulk / fine-tuned fields
+    // custom - validate bulk / fine-tuned fields
     if (
       !problemSelectionMode ||
       !["bulk", "fine-tuned"].includes(problemSelectionMode)

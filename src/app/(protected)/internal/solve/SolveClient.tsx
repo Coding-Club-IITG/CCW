@@ -138,7 +138,7 @@ export default function SolveClient({
           setSyncResult(`Solved! You earned ${result.pointsAwarded} pts.`);
         } else if (result.status === "Late") {
           setSyncResult(
-            `Grace solve — ${result.pointsAwarded} pts (50% penalty).`,
+            `Grace solve - ${result.pointsAwarded} pts (50% penalty).`,
           );
         } else if (result.status === "Pending") {
           setSyncResult("No accepted submission found yet. Try again later.");

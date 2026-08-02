@@ -21,7 +21,10 @@ export default async function EventDetailPage({ params }: Props) {
 
   try {
     await dbConnect();
-    event = (await Event.findById(id).lean()) as unknown as IEvent | null;
+    event = (await Event.findOne({
+      _id: id,
+      status: "published",
+    }).lean()) as unknown as IEvent | null;
   } catch (error) {
     logger.error("Failed to fetch event", error);
   }
@@ -41,9 +44,17 @@ export default async function EventDetailPage({ params }: Props) {
     recurrenceType,
     recurrenceCount,
   );
+  const eventDateFormatter = event.allDay
+    ? (value: Date) => formatDate(value)
+    : (value: Date) =>
+        new Intl.DateTimeFormat("en-IN", {
+          timeZone: "Asia/Kolkata",
+          dateStyle: "long",
+          timeStyle: "short",
+        }).format(value);
   const dateStr = event.endDate
-    ? `${formatDate(event.startDate)} - ${formatDate(event.endDate)}`
-    : formatDate(event.startDate);
+    ? `${eventDateFormatter(event.startDate)} - ${eventDateFormatter(event.endDate)}`
+    : eventDateFormatter(event.startDate);
 
   function getOccurrenceDates(): Date[] {
     if (!recurrenceType || recurrenceType === "none") return [];
@@ -103,7 +114,7 @@ export default async function EventDetailPage({ params }: Props) {
             <span className={styles.occurrenceLabel}>Occurs on:</span>
             <ul className={styles.occurrenceList}>
               {occurrences.map((date, i) => (
-                <li key={i}>{formatDate(date)}</li>
+                <li key={i}>{eventDateFormatter(date)}</li>
               ))}
             </ul>
           </div>

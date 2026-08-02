@@ -7,6 +7,7 @@ import { syncContests } from "./lib/jobs/contestSync";
 import { cleanupOrphanedImages } from "./lib/jobs/imageCleanup";
 import { sendHackathonDeadlineReminders } from "./lib/jobs/hackathonReminder";
 import { sendPOTDReminders } from "./lib/jobs/potdReminder";
+import { sendCalendarReminders } from "./lib/jobs/calendarReminder";
 import { logger } from "./lib/utils";
 import dbConnect from "./lib/mongodb";
 import { cfSyncWorker } from "./lib/workers/cfSyncWorker";
@@ -73,6 +74,10 @@ async function run() {
     await sendPOTDReminders();
   });
 
+  agenda.define("calendar-reminders", async () => {
+    await sendCalendarReminders();
+  });
+
   // Start agenda
   await agenda.start();
 
@@ -96,6 +101,9 @@ async function run() {
 
   // Schedule POTD reminders every hour
   await agenda.every("1 hour", "potd-reminders");
+
+  // Calendar reminders are due at exact times, so poll more frequently.
+  await agenda.every("15 minutes", "calendar-reminders");
 
   logger.info("[Worker] Agenda started and jobs scheduled.");
 

@@ -166,11 +166,11 @@ export default function MatchHistoryClient({
               >
                 {/* Left: Info */}
                 <div className={styles.info}>
-                  {/* Contest name — always visible */}
+                  {/* Contest name - always visible */}
                   <p className={styles.contestName}>{contest.name}</p>
 
                   <div className={styles.badgeRow}>
-                    {/* Outcome badge — only for participants */}
+                    {/* Outcome badge - only for participants */}
                     {participated &&
                       (isVictory ? (
                         <span className={styles.badgeVictory}>VICTORY</span>
@@ -228,7 +228,7 @@ export default function MatchHistoryClient({
                   </div>
                 </div>
 
-                {/* Middle: Score — only for participants */}
+                {/* Middle: Score - only for participants */}
                 {participated && (
                   <div className={styles.score}>
                     <div className={styles.scoreInner}>

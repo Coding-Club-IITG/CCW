@@ -46,6 +46,13 @@ export const EVENT_RECURRENCE_TYPES = [
 ] as const;
 export type EventRecurrenceType = (typeof EVENT_RECURRENCE_TYPES)[number];
 
+export const EVENT_PUBLICATION_STATUSES = ["draft", "published"] as const;
+export type EventPublicationStatus =
+  (typeof EVENT_PUBLICATION_STATUSES)[number];
+
+export const CALENDAR_SCOPES = ["general", "module"] as const;
+export type CalendarScope = (typeof CALENDAR_SCOPES)[number];
+
 /* CP Platforms */
 
 export const PLATFORMS = ["codeforces", "atcoder"] as const;
@@ -139,6 +146,7 @@ export const NOTIFICATION_TYPES = [
   "hackathon_reminder",
   "potd_reminder",
   "announcement",
+  "calendar_reminder",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
