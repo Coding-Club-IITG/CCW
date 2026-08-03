@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       status: "active",
+      sort: "deadline_desc",
     });
 
     const result = await cachedFetch(
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
       async () => {
         const [hackathons, total] = await Promise.all([
           Hackathon.find({ status: "active" })
-            .sort({ deadline: 1 })
+            .sort({ deadline: -1, _id: -1 })
             .skip(skip)
             .limit(limit)
             .lean(),

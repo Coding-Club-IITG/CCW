@@ -52,7 +52,7 @@ describe("hackathon discovery and deadline reminders", () => {
 
   afterAll(stopTestMongo);
 
-  it("lists only active hackathons ordered by nearest deadline", async () => {
+  it("lists only active hackathons ordered by latest deadline", async () => {
     const Hackathon = (await import("@/models/Hackathon")).default;
     const { GET } = await import("@/app/api/hackathons/route");
     await Hackathon.create([
@@ -74,8 +74,8 @@ describe("hackathon discovery and deadline reminders", () => {
 
     expect(response.status).toBe(200);
     expect(body.items.map((item: { name: string }) => item.name)).toEqual([
-      "Sooner",
       "Later",
+      "Sooner",
     ]);
     expect(body.pagination.total).toBe(2);
   });
