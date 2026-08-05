@@ -5,7 +5,7 @@ import { useSession, signIn, signOut } from "@/lib/auth-client";
 import { useState, useRef, useEffect } from "react";
 import { useThemeStore } from "@/lib/store/theme";
 import { useViewModeStore } from "@/lib/store/view-mode";
-import { isAdmin } from "@/lib/roles";
+import { isHead } from "@/lib/roles";
 import { getDisplayName } from "@/lib/utils";
 import { Moon, Sun, Menu, X } from "lucide-react";
 import { IconSwitchView } from "@/components/shared/Icons";
@@ -85,8 +85,9 @@ export default function Navbar() {
         name?: string;
         email?: string;
         image?: string | null;
-        role?: string;
-        moduleRoles?: any[];
+        access?: string;
+        managedModules?: string | string[];
+        roles?: string | { module?: string; position: string }[];
         pizza_count?: number;
       }
     | undefined;
@@ -153,18 +154,7 @@ export default function Navbar() {
                     </span>
                     {showInternal && (
                       <span className={styles.userMenuRole}>
-                        {user?.role || "Member"}
-                        {user?.moduleRoles && user.moduleRoles.length > 0 && (
-                          <>
-                            {" · "}
-                            {user.moduleRoles
-                              .map(
-                                (mr: any) =>
-                                  mr.module + (mr.role ? ` (${mr.role})` : ""),
-                              )
-                              .join(", ")}
-                          </>
-                        )}
+                        {user?.access || "Member"}
                       </span>
                     )}
                   </div>
@@ -181,7 +171,7 @@ export default function Navbar() {
                       >
                         Profile
                       </Link>
-                      {isAdmin(user?.role) && (
+                      {isHead(user?.access) && (
                         <Link
                           href="/admin"
                           className={styles.userMenuItem}

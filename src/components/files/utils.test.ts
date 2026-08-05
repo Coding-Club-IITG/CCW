@@ -6,8 +6,8 @@ import type { AccessControl, CurrentUser, FileEntry } from "./types";
 const restrictedAcl: AccessControl = {
   allMembers: false,
   allowedModules: [],
-  allowedGlobalRoles: [],
-  allowedModuleRoles: [],
+  allowedClubPositions: [],
+  allowedModulePositions: [],
   allowedUsers: [],
 };
 
@@ -15,11 +15,12 @@ const currentUser: CurrentUser = {
   id: "member-1",
   name: "Member One",
   email: "member@example.test",
-  role: "Member",
-  moduleRoles: [],
+  access: "Member",
+  managedModules: [],
+  roles: [],
   canUpload: false,
-  isGlobalAdmin: false,
   isAdmin: false,
+  isHead: false,
   headModules: [],
 };
 
@@ -69,9 +70,7 @@ describe("file display utilities", () => {
   );
 
   it("mirrors global-admin, module-head, and owner management hints", () => {
-    expect(canManageFile({ ...currentUser, isGlobalAdmin: true }, file)).toBe(
-      true,
-    );
+    expect(canManageFile({ ...currentUser, isAdmin: true }, file)).toBe(true);
     expect(
       canManageFile({ ...currentUser, headModules: ["Design"] }, file),
     ).toBe(true);
@@ -88,10 +87,10 @@ describe("file display utilities", () => {
       aclSummary({
         allMembers: false,
         allowedModules: ["Design"],
-        allowedGlobalRoles: ["Head"],
-        allowedModuleRoles: ["Coordinator"],
+        allowedClubPositions: ["Head"],
+        allowedModulePositions: ["Coordinator"],
         allowedUsers: ["member-1"],
       }),
-    ).toBe("1 module(s), 1 role(s), 1 module role(s), 1 user(s)");
+    ).toBe("1 module(s), 1 role(s), 1 module position(s), 1 user(s)");
   });
 });

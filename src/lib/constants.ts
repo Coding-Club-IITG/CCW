@@ -12,24 +12,35 @@ export const MODULES = [
 
 export type ModuleName = (typeof MODULES)[number];
 
-export const PROJECT_MODULES = [...MODULES, "General"] as const;
-export type ProjectModuleName = (typeof PROJECT_MODULES)[number];
+export const CURRENT_TENURE = "2026-27";
 
-export const LEADERSHIP_ROLES = ["Secretary", "OC", "Projects Head"] as const;
-export type LeadershipRole = (typeof LEADERSHIP_ROLES)[number];
+export const ACCESS_LEVELS = ["Member", "Head", "Admin"] as const;
+export type AccessLevel = (typeof ACCESS_LEVELS)[number];
 
-export const TEAM_ROLES = [...LEADERSHIP_ROLES, "Head"] as const;
-export type TeamRole = (typeof TEAM_ROLES)[number];
+export const CLUB_POSITIONS = ["Secretary", "OC", "Projects Head"] as const;
+export type ClubPosition = (typeof CLUB_POSITIONS)[number];
 
-export const GLOBAL_ROLES = [...TEAM_ROLES, "Core Team", "Member"] as const;
-export type GlobalRole = (typeof GLOBAL_ROLES)[number];
-
-export const MODULE_ROLES = [
+export const MODULE_POSITIONS = [
+  "Head",
+  "Core Team",
   "Senior Coordinator",
   "Coordinator",
   "Member",
 ] as const;
-export type ModuleRoleType = (typeof MODULE_ROLES)[number];
+export type ModulePosition = (typeof MODULE_POSITIONS)[number];
+
+export type UserRole =
+  | { position: ClubPosition; module?: never }
+  | { module: ModuleName; position: ModulePosition };
+
+export const PROJECT_MODULES = [...MODULES, "General"] as const;
+export type ProjectModuleName = (typeof PROJECT_MODULES)[number];
+
+export const LEADERSHIP_ROLES = CLUB_POSITIONS;
+export type LeadershipRole = (typeof LEADERSHIP_ROLES)[number];
+
+export const TEAM_ROLES = [...LEADERSHIP_ROLES, "Head"] as const;
+export type TeamRole = (typeof TEAM_ROLES)[number];
 
 export const PROJECT_STATUSES = ["Upcoming", "Ongoing", "Completed"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];

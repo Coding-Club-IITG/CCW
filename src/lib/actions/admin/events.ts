@@ -13,12 +13,12 @@ import {
 } from "@/lib/constants";
 import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
-import { isAdmin, parseModuleRoles } from "@/lib/roles";
+import { isHead, parseManagedModules } from "@/lib/roles";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
 
-type SessionUser = { id: string; role?: string; moduleRoles?: unknown };
+type SessionUser = { id: string; access?: string; managedModules?: unknown };
 type PublicEventInput = {
   title: string;
   shortDescription: string;
@@ -30,7 +30,7 @@ type PublicEventInput = {
 async function currentAdmin(): Promise<SessionUser | null> {
   const session = await auth.api.getSession({ headers: await headers() });
   const user = session?.user as SessionUser | undefined;
-  return user && isAdmin(user.role) ? user : null;
+  return user && isHead(user.access) ? user : null;
 }
 
 function targetOf(calendar: { scope: string; module?: string | null }) {
@@ -44,8 +44,8 @@ function mayPublish(
   calendar: { scope: string; module?: string | null },
 ) {
   return canPublishCalendarEvent(
-    user.role,
-    parseModuleRoles(user.moduleRoles),
+    user.access,
+    parseManagedModules(user.managedModules),
     targetOf(calendar),
   );
 }

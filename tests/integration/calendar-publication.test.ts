@@ -31,12 +31,14 @@ vi.mock("@/lib/cache", async (importOriginal) => ({
   invalidateCache: mocks.invalidateCache,
 }));
 
-function session(role: string, moduleRoles: unknown = []) {
+function session(access: string, managedModules: unknown = []) {
   return {
     user: {
       id: new mongoose.Types.ObjectId().toString(),
-      role,
-      moduleRoles: JSON.stringify(moduleRoles),
+      access,
+      managedModules: JSON.stringify(
+        (managedModules as any[]).map((item) => item.module ?? item),
+      ),
     },
     session: { id: "s", userId: "u" },
   };
@@ -113,7 +115,7 @@ describe("calendar publication actions", () => {
 
   it("publishes and returns a linked event to draft", async () => {
     const calendar = await seedCalendar("general");
-    mocks.getSession.mockResolvedValue(session("Secretary"));
+    mocks.getSession.mockResolvedValue(session("Admin"));
     const { createPublicEvent, setPublicEventStatus } =
       await import("@/lib/actions/admin/events");
     const created = await createPublicEvent(

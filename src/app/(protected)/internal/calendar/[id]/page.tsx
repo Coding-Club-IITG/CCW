@@ -6,7 +6,7 @@ import {
   canPublishCalendarEvent,
 } from "@/lib/calendarAccess";
 import dbConnect from "@/lib/mongodb";
-import { parseModuleRoles } from "@/lib/roles";
+import { parseManagedModules } from "@/lib/roles";
 import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
 import BackLink from "@/components/shared/BackLink";
@@ -37,14 +37,14 @@ export default async function CalendarEventPage({
     .populate("publicEventId")
     .lean();
   if (!event) notFound();
-  const user = session!.user as { role?: string; moduleRoles?: unknown };
-  const roles = parseModuleRoles(user.moduleRoles);
+  const user = session!.user as { access?: string; managedModules?: unknown };
+  const roles = parseManagedModules(user.managedModules);
   const target =
     event.scope === "module"
       ? { scope: "module" as const, module: event.module ?? "" }
       : { scope: "general" as const };
-  const canManage = canManageCalendarEvent(user.role, roles, target);
-  const canPublish = canPublishCalendarEvent(user.role, roles, target);
+  const canManage = canManageCalendarEvent(user.access, roles, target);
+  const canPublish = canPublishCalendarEvent(user.access, roles, target);
   const publicEvent =
     event.publicEventId &&
     typeof event.publicEventId === "object" &&

@@ -7,8 +7,8 @@ export const FILE_OTHER_MEMBER_ID = new Types.ObjectId();
 export const restrictedAcl = {
   allMembers: false,
   allowedModules: [],
-  allowedGlobalRoles: [],
-  allowedModuleRoles: [],
+  allowedClubPositions: [],
+  allowedModulePositions: [],
   allowedUsers: [],
 };
 
@@ -36,8 +36,9 @@ export function fileSession(overrides: Record<string, unknown> = {}) {
       id: FILE_MEMBER_ID.toString(),
       name: "Test Member",
       email: "member@example.test",
-      role: "Member",
-      moduleRoles: [],
+      access: "Member",
+      managedModules: [],
+      roles: [],
       ...overrides,
     },
     session: {

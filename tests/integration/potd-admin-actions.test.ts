@@ -108,7 +108,7 @@ describe("POTD administration actions", () => {
     const { setDailyProblem } = await import("@/lib/actions/admin/potd");
     mocks.getSession.mockResolvedValueOnce({
       ...adminSession(adminId),
-      user: { ...adminSession(adminId).user, role: "Member" },
+      user: { ...adminSession(adminId).user, access: "Member", roles: "[]" },
     });
 
     await expect(
@@ -397,7 +397,10 @@ function adminSession(adminId: mongoose.Types.ObjectId) {
       id: adminId.toString(),
       name: "POTD Admin",
       email: "potd-admin@example.test",
-      role: "Core Team",
+      access: "Member",
+      roles: JSON.stringify([
+        { module: "Competitive Programming", position: "Core Team" },
+      ]),
     },
     session: {
       id: "admin-session",

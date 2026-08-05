@@ -1,46 +1,44 @@
 import type { ModuleName } from "@/lib/constants";
-import {
-  getHeadModules,
-  isGlobalAdmin,
-  type ParsedModuleRole,
-} from "@/lib/roles";
+import { getHeadModules, isAdmin } from "@/lib/roles";
 
 export type CalendarScopeTarget =
   | { scope: "general"; module?: never }
   | { scope: "module"; module: string };
 
 export function canManageCalendarEvent(
-  role: string | undefined,
-  moduleRoles: ParsedModuleRole[],
+  access: string | undefined,
+  managedModules: ModuleName[],
   target: CalendarScopeTarget,
 ): boolean {
-  if (target.scope === "general") return isGlobalAdmin(role);
-  return getHeadModules(role, moduleRoles).includes(target.module);
+  if (target.scope === "general") return isAdmin(access);
+  return getHeadModules(access, managedModules).includes(
+    target.module as ModuleName,
+  );
 }
 
 export function canPublishCalendarEvent(
-  role: string | undefined,
-  moduleRoles: ParsedModuleRole[],
+  access: string | undefined,
+  managedModules: ModuleName[],
   target: CalendarScopeTarget,
 ): boolean {
   return (
-    isGlobalAdmin(role) || canManageCalendarEvent(role, moduleRoles, target)
+    isAdmin(access) || canManageCalendarEvent(access, managedModules, target)
   );
 }
 
 export function getPublishableEventModules(
-  role: string | undefined,
-  moduleRoles: ParsedModuleRole[],
+  access: string | undefined,
+  managedModules: ModuleName[],
 ): string[] | null {
-  return isGlobalAdmin(role) ? null : getHeadModules(role, moduleRoles);
+  return isAdmin(access) ? null : getHeadModules(access, managedModules);
 }
 
 export function getCreatableCalendarScopes(
-  role: string | undefined,
-  moduleRoles: ParsedModuleRole[],
+  access: string | undefined,
+  managedModules: ModuleName[],
 ): CalendarScopeTarget[] {
-  if (isGlobalAdmin(role)) return [{ scope: "general" }];
-  return getHeadModules(role, moduleRoles).map((module) => ({
+  if (isAdmin(access)) return [{ scope: "general" }];
+  return getHeadModules(access, managedModules).map((module) => ({
     scope: "module" as const,
     module: module as ModuleName,
   }));

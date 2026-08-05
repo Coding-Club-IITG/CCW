@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
+import { isHead } from "@/lib/roles";
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
@@ -57,7 +57,7 @@ export function createImageUploadHandler(options: UploadOptions) {
       }
       const user = session.user as any;
       if (requireAdmin) {
-        if (!isAdmin(user.role)) {
+        if (!isHead(user.access)) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
       }

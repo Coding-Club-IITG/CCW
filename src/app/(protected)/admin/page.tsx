@@ -13,7 +13,7 @@ export default async function AdminPage() {
         <LinkCard
           href="/admin/users"
           title="User Management"
-          description="Manage members, assign global roles, and configure module permissions."
+          description="Manage members, assign club positions, and configure module permissions."
         />
         <LinkCard
           href="/admin/blog"

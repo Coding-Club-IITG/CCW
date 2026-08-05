@@ -54,12 +54,14 @@ function input(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function session(role: string, moduleRoles: unknown = []) {
+function session(access: string, managedModules: unknown = []) {
   return {
     user: {
       id: new mongoose.Types.ObjectId().toString(),
-      role,
-      moduleRoles: JSON.stringify(moduleRoles),
+      access,
+      managedModules: JSON.stringify(
+        (managedModules as any[]).map((item) => item.module ?? item),
+      ),
     },
     session: { id: "session", userId: "user" },
   };
@@ -89,7 +91,7 @@ describe("calendar actions", () => {
   });
 
   it("prevents a global administrator from creating a module event", async () => {
-    mocks.getSession.mockResolvedValue(session("Secretary"));
+    mocks.getSession.mockResolvedValue(session("Admin"));
     const { createCalendarEvent } = await import("@/lib/actions/calendar");
 
     await expect(createCalendarEvent(input())).resolves.toEqual({
@@ -148,7 +150,7 @@ describe("calendar actions", () => {
     });
     calendarEvent.publicEventId = publicEvent._id;
     await calendarEvent.save();
-    mocks.getSession.mockResolvedValue(session("Secretary"));
+    mocks.getSession.mockResolvedValue(session("Admin"));
     const { deleteCalendarEvent } = await import("@/lib/actions/calendar");
 
     await expect(

@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import Link from "next/link";
 import dbConnect from "@/lib/mongodb";
-import { isAdmin } from "@/lib/roles";
+import { isHead } from "@/lib/roles";
 import LinkCard from "@/components/shared/LinkCard";
 import { IconEdit } from "@/components/shared/Icons";
 import { getDisplayName } from "@/lib/utils";
@@ -16,7 +16,7 @@ export default async function DashboardPage() {
 
   // session is guaranteed by proxy
   const user = session!.user as any;
-  const userIsAdmin = isAdmin(user.role);
+  const userIsAdmin = isHead(user.access);
 
   await dbConnect();
   const myBlogs = await BlogPost.find({

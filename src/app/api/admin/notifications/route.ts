@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
-      userFilter = { "moduleRoles.module": moduleName };
+      userFilter = { "roles.module": moduleName };
     } else {
       return NextResponse.json(
         { error: "Target must be 'all' or 'module:<name>'." },

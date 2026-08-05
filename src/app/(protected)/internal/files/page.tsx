@@ -3,10 +3,11 @@ import { headers } from "next/headers";
 import FilesClient from "@/components/files/FilesClient";
 import { canUploadFiles } from "@/lib/fileAccess";
 import {
-  parseModuleRoles,
+  parseManagedModules,
+  parseRoles,
   getHeadModules,
-  isGlobalAdmin,
   isAdmin,
+  isHead,
 } from "@/lib/roles";
 import { getDisplayName } from "@/lib/utils";
 import type { CurrentUser } from "@/components/files/types";
@@ -18,18 +19,20 @@ export default async function FilesPage() {
 
   // Session is guaranteed by the proxy middleware
   const user = session!.user as any;
-  const moduleRoles = parseModuleRoles(user.moduleRoles);
+  const managedModules = parseManagedModules(user.managedModules);
+  const roles = parseRoles(user.roles);
 
   const currentUser: CurrentUser = {
     id: user.id,
     name: getDisplayName(user.name, user.pizza_count),
     email: user.email,
-    role: user.role,
-    moduleRoles,
-    canUpload: canUploadFiles(user.role),
-    isGlobalAdmin: isGlobalAdmin(user.role),
-    isAdmin: isAdmin(user.role),
-    headModules: getHeadModules(user.role, moduleRoles),
+    access: user.access,
+    managedModules,
+    roles,
+    canUpload: canUploadFiles(user.access),
+    isAdmin: isAdmin(user.access),
+    isHead: isHead(user.access),
+    headModules: getHeadModules(user.access, managedModules),
   };
 
   return <FilesClient currentUser={currentUser} />;

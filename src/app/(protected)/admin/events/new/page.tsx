@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { canPublishCalendarEvent } from "@/lib/calendarAccess";
-import { parseModuleRoles } from "@/lib/roles";
+import { parseManagedModules } from "@/lib/roles";
 import dbConnect from "@/lib/mongodb";
 import CalendarEvent from "@/models/CalendarEvent";
 import BackLink from "@/components/shared/BackLink";
@@ -20,15 +20,15 @@ export default async function NewPublicEventPage({
   await dbConnect();
   const calendar = await CalendarEvent.findById(calendarEventId).lean();
   if (!calendar) notFound();
-  const user = session!.user as { role?: string; moduleRoles?: unknown };
+  const user = session!.user as { access?: string; managedModules?: unknown };
   const target =
     calendar.scope === "module"
       ? { scope: "module" as const, module: calendar.module ?? "" }
       : { scope: "general" as const };
   if (
     !canPublishCalendarEvent(
-      user.role,
-      parseModuleRoles(user.moduleRoles),
+      user.access,
+      parseManagedModules(user.managedModules),
       target,
     )
   )

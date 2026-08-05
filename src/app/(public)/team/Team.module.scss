@@ -111,3 +111,46 @@
   border-top: 1px solid var(--border);
   padding-top: 0.5rem;
 }
+
+.rosterTitle {
+  margin: 2rem 0 1rem;
+  font-size: 1.25rem;
+  color: var(--foreground-strong);
+}
+.archives {
+  margin-top: 2.5rem;
+}
+.archive {
+  border-top: 1px solid var(--border);
+}
+.archiveButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--foreground-strong);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.archiveButton:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.arrow,
+.arrowOpen {
+  width: 1rem;
+  transition: transform 0.15s ease;
+}
+.arrowOpen {
+  transform: rotate(90deg);
+}
+.empty {
+  color: var(--muted);
+  font-size: 0.875rem;
+  padding: 0.75rem 0;
+}

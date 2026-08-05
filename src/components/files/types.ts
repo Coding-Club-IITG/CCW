@@ -2,19 +2,20 @@ export interface CurrentUser {
   id: string;
   name: string;
   email: string;
-  role: string;
-  moduleRoles: { module: string; role?: string }[];
+  access: string;
+  managedModules: string[];
+  roles: { module?: string; position: string }[];
   canUpload: boolean;
-  isGlobalAdmin: boolean;
   isAdmin: boolean;
+  isHead: boolean;
   headModules: string[];
 }
 
 export interface AccessControl {
   allMembers: boolean;
   allowedModules: string[];
-  allowedGlobalRoles: string[];
-  allowedModuleRoles: string[];
+  allowedClubPositions: string[];
+  allowedModulePositions: string[];
   allowedUsers: string[];
 }
 

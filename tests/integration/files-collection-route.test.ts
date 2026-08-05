@@ -117,7 +117,7 @@ describe("files collection route", () => {
 
   it("validates required upload metadata before touching disk", async () => {
     const { POST } = await import("@/app/api/files/route");
-    getSession.mockResolvedValueOnce(fileSession({ role: "Secretary" }));
+    getSession.mockResolvedValueOnce(fileSession({ access: "Admin" }));
 
     const response = await POST(uploadRequest({ title: "   " }));
 
@@ -130,8 +130,8 @@ describe("files collection route", () => {
     const { POST } = await import("@/app/api/files/route");
     getSession.mockResolvedValueOnce(
       fileSession({
-        role: "Head",
-        moduleRoles: [{ module: "Design" }],
+        access: "Head",
+        managedModules: ["Design"],
       }),
     );
 
@@ -148,8 +148,8 @@ describe("files collection route", () => {
     const { POST } = await import("@/app/api/files/route");
     getSession.mockResolvedValueOnce(
       fileSession({
-        role: "Head",
-        moduleRoles: [{ module: "Design" }],
+        access: "Head",
+        managedModules: ["Design"],
       }),
     );
 
@@ -183,7 +183,7 @@ describe("files collection route", () => {
   it("removes the disk file when metadata persistence fails", async () => {
     const FileEntry = (await import("@/models/FileEntry")).default;
     const { POST } = await import("@/app/api/files/route");
-    getSession.mockResolvedValueOnce(fileSession({ role: "Secretary" }));
+    getSession.mockResolvedValueOnce(fileSession({ access: "Admin" }));
     const create = vi
       .spyOn(FileEntry, "create")
       .mockRejectedValueOnce(new Error("database unavailable"));

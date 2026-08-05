@@ -10,7 +10,7 @@ import {
   type EventPublicationStatus,
 } from "@/lib/constants";
 import { getPublishableEventModules } from "@/lib/calendarAccess";
-import { parseModuleRoles } from "@/lib/roles";
+import { parseManagedModules } from "@/lib/roles";
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
     const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
     const status = searchParams.get("status") as EventPublicationStatus | null;
     const modules = getPublishableEventModules(
-      user.role,
-      parseModuleRoles(user.moduleRoles),
+      user.access,
+      parseManagedModules(user.managedModules),
     );
     const filter = {
       ...(status && EVENT_PUBLICATION_STATUSES.includes(status)

@@ -9,7 +9,7 @@ import ContestSubmission from "@/models/ContestSubmission";
 import CPUser from "@/models/CPUser";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { isAdmin } from "@/lib/roles";
+import { isHead } from "@/lib/roles";
 import { redirect } from "next/navigation";
 
 export default async function PostMatchResultPage({
@@ -24,8 +24,8 @@ export default async function PostMatchResultPage({
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/");
 
-  const userRole = session?.user?.role as string | undefined;
-  const admin = isAdmin(userRole);
+  const userRole = session?.user?.access as string | undefined;
+  const admin = isHead(userRole);
 
   const currentUserId = session?.user?.id || "";
 

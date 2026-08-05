@@ -15,7 +15,19 @@ import {
   invalidateCache,
 } from "@/lib/cache";
 import { logger } from "@/lib/utils";
-import { isAdmin, cleanUserRoles } from "@/lib/roles";
+import {
+  isHead,
+  normalizeTenure,
+  parseManagedModules,
+  validateRoles,
+} from "@/lib/roles";
+import {
+  ACCESS_LEVELS,
+  AccessLevel,
+  CURRENT_TENURE,
+  ModuleName,
+  UserRole,
+} from "@/lib/constants";
 import { prepareSearchQuery } from "@/lib/search";
 import { ObjectId } from "mongodb";
 
@@ -25,7 +37,7 @@ async function checkAdmin() {
     const session = await auth.api.getSession({
       headers: await headers(),
     });
-    if (!session || !isAdmin((session.user as any).role)) {
+    if (!session || !isHead((session.user as any).access)) {
       logger.warn("Unauthorized admin access attempt", {
         action: "checkAdmin",
       });
@@ -94,8 +106,10 @@ export async function addUser(email: string, name?: string) {
     const newUser = await User.create({
       email,
       name: name || email.split("@")[0],
-      role: "Member",
-      moduleRoles: [],
+      access: "Member",
+      tenure: CURRENT_TENURE,
+      managedModules: [],
+      roles: [],
       emailVerified: true,
     });
 
@@ -115,45 +129,10 @@ export async function addUser(email: string, name?: string) {
   }
 }
 
-export async function updateUserRole(userId: string, role: string) {
-  try {
-    const adminSession = await checkAdmin();
-    if (!adminSession)
-      return { success: false as const, error: "Unauthorized" };
-    await dbConnect();
-
-    const user = await User.findById(userId);
-    if (!user) return { success: false as const, error: "User not found" };
-
-    const cleanedModuleRoles = cleanUserRoles(role, user.moduleRoles);
-
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { role, moduleRoles: cleanedModuleRoles },
-      { new: true },
-    );
-
-    logger.info("User role updated", {
-      action: "updateUserRole",
-      resourceId: userId,
-      role,
-    });
-    await invalidateCache("users");
-    await invalidateCache("team");
-    revalidatePath("/admin");
-    return {
-      success: true as const,
-      user: JSON.parse(JSON.stringify(updatedUser)),
-    };
-  } catch (err) {
-    logger.error("updateUserRole error:", err);
-    return { success: false as const, error: "Failed to update user role." };
-  }
-}
-
-export async function updateUserModuleRoles(
+export async function updateUserAccess(
   userId: string,
-  moduleRoles: any[],
+  access: AccessLevel,
+  managedModules: ModuleName[] = [],
 ) {
   try {
     const adminSession = await checkAdmin();
@@ -161,31 +140,123 @@ export async function updateUserModuleRoles(
       return { success: false as const, error: "Unauthorized" };
     await dbConnect();
 
-    const user = await User.findById(userId);
-    if (!user) return { success: false as const, error: "User not found" };
+    if (!ACCESS_LEVELS.includes(access))
+      return { success: false as const, error: "Invalid access level." };
+    const modules =
+      access === "Head" ? parseManagedModules(managedModules) : [];
+    if (access === "Head" && modules.length === 0)
+      return {
+        success: false as const,
+        error: "Head access requires at least one managed module.",
+      };
 
-    const cleanedModuleRoles = cleanUserRoles(user.role, moduleRoles);
+    const update: Record<string, unknown> = { access, managedModules: modules };
+    if (access === "Head") update.roles = [];
+
+    const updatedUser = await User.findByIdAndUpdate(userId, update, {
+      new: true,
+      runValidators: true,
+    });
+    if (!updatedUser)
+      return { success: false as const, error: "User not found" };
+
+    logger.info("User role updated", {
+      action: "updateUserAccess",
+      resourceId: userId,
+      access,
+    });
+    await invalidateCache("users");
+    await invalidateCache("team");
+    revalidatePath("/admin/users");
+    revalidatePath("/team");
+    return {
+      success: true as const,
+      user: JSON.parse(JSON.stringify(updatedUser)),
+    };
+  } catch (err) {
+    logger.error("updateUserRole error:", err);
+    return { success: false as const, error: "Failed to update user access." };
+  }
+}
+
+export async function updateUserRoles(userId: string, roles: UserRole[]) {
+  try {
+    const adminSession = await checkAdmin();
+    if (!adminSession)
+      return { success: false as const, error: "Unauthorized" };
+    await dbConnect();
+
+    const user = await User.findById(userId).select("access").lean();
+    if (!user) return { success: false as const, error: "User not found" };
+    if (user.access === "Head")
+      return {
+        success: false as const,
+        error:
+          "Head roles are generated from managed modules. Edit Head access instead.",
+      };
+
+    const validation = validateRoles(roles);
+    if (!validation.success) return validation;
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { moduleRoles: cleanedModuleRoles },
-      { new: true },
+      { roles: validation.roles },
+      { new: true, runValidators: true },
     );
 
-    logger.info("User module roles updated", {
-      action: "updateUserModuleRoles",
+    logger.info("User module positions updated", {
+      action: "updateUserRoles",
       resourceId: userId,
     });
     await invalidateCache("users");
     await invalidateCache("team");
-    revalidatePath("/admin");
+    revalidatePath("/admin/users");
+    revalidatePath("/team");
     return {
       success: true as const,
       user: JSON.parse(JSON.stringify(updatedUser)),
     };
   } catch (err) {
     logger.error("updateUserModuleRoles error:", err);
-    return { success: false as const, error: "Failed to update module roles." };
+    return { success: false as const, error: "Failed to update roles." };
+  }
+}
+
+export async function updateUserTenure(userId: string, value: string) {
+  try {
+    const adminSession = await checkAdmin();
+    if (!adminSession)
+      return { success: false as const, error: "Unauthorized" };
+    const tenure = normalizeTenure(value);
+    if (!tenure)
+      return {
+        success: false as const,
+        error: "Tenure must be a consecutive academic year in YYYY-YY format.",
+      };
+    await dbConnect();
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { tenure },
+      { new: true, runValidators: true },
+    );
+    if (!updatedUser)
+      return { success: false as const, error: "User not found" };
+    logger.info("User tenure updated", {
+      action: "updateUserTenure",
+      resourceId: userId,
+      tenure,
+    });
+    await invalidateCache("users");
+    await invalidateCache("team");
+    revalidatePath("/admin/users");
+    revalidatePath("/team");
+    return {
+      success: true as const,
+      user: JSON.parse(JSON.stringify(updatedUser)),
+    };
+  } catch (err) {
+    logger.error("updateUserTenure error:", err);
+    return { success: false as const, error: "Failed to update tenure." };
   }
 }
 

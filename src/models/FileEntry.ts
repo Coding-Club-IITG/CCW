@@ -1,5 +1,12 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
-import { MODULES, type ModuleName } from "@/lib/constants";
+import {
+  CLUB_POSITIONS,
+  MODULES,
+  MODULE_POSITIONS,
+  type ClubPosition,
+  type ModuleName,
+  type ModulePosition,
+} from "@/lib/constants";
 
 // Sub-document interfaces
 
@@ -8,10 +15,10 @@ export interface IAccessControl {
   allMembers: boolean;
   // Allow access if user belongs to any of these modules
   allowedModules: ModuleName[];
-  // Allow access if user has one of these global roles
-  allowedGlobalRoles: string[];
+  // Allow access if user has one of these club positions
+  allowedClubPositions: ClubPosition[];
   // Allow access if user holds one of these roles in ANY module
-  allowedModuleRoles: string[];
+  allowedModulePositions: ModulePosition[];
   // Allow access for specific users by their ID
   allowedUsers: Types.ObjectId[];
 }
@@ -59,8 +66,8 @@ const AccessControlSchema = new Schema<IAccessControl>(
   {
     allMembers: { type: Boolean, default: false },
     allowedModules: [{ type: String, enum: MODULES }],
-    allowedGlobalRoles: [{ type: String }],
-    allowedModuleRoles: [{ type: String }],
+    allowedClubPositions: [{ type: String, enum: CLUB_POSITIONS }],
+    allowedModulePositions: [{ type: String, enum: MODULE_POSITIONS }],
     allowedUsers: [{ type: Schema.Types.ObjectId, ref: "User" }],
   },
   { _id: false },
@@ -90,8 +97,8 @@ const FileEntrySchema = new Schema<IFileEntry>(
       default: () => ({
         allMembers: false,
         allowedModules: [],
-        allowedGlobalRoles: [],
-        allowedModuleRoles: [],
+        allowedClubPositions: [],
+        allowedModulePositions: [],
         allowedUsers: [],
       }),
     },

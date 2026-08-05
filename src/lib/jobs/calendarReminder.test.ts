@@ -20,14 +20,14 @@ describe("calendar reminder job", () => {
       {
         name: "Designer",
         email: "designer@example.test",
-        role: "Member",
-        moduleRoles: [{ module: "Design", role: "Member" }],
+        access: "Member",
+        roles: [{ module: "Design", position: "Member" }],
       },
       {
         name: "Other",
         email: "other@example.test",
-        role: "Member",
-        moduleRoles: [{ module: "Cybersecurity", role: "Member" }],
+        access: "Member",
+        roles: [{ module: "Cybersecurity", position: "Member" }],
       },
     ]);
     await CalendarEvent.create({

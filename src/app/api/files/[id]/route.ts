@@ -10,7 +10,7 @@ import dbConnect from "@/lib/mongodb";
 import FileEntry from "@/models/FileEntry";
 import mongoose from "mongoose";
 import { canAccessFile, canManageFile } from "@/lib/fileAccess";
-import { parseModuleRoles } from "@/lib/roles";
+import { parseManagedModules, parseRoles } from "@/lib/roles";
 import { createReadStream, existsSync } from "fs";
 import { unlink } from "fs/promises";
 import { Readable } from "stream";
@@ -33,7 +33,8 @@ async function resolveSession(request: NextRequest) {
   const user = session.user as any;
   return {
     user,
-    moduleRoles: parseModuleRoles(user.moduleRoles),
+    managedModules: parseManagedModules(user.managedModules),
+    roles: parseRoles(user.roles),
   };
 }
 
@@ -58,8 +59,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "File not found." }, { status: 404 });
     }
 
-    const { user, moduleRoles } = auth_;
-    if (!canAccessFile(user.id, user.role, moduleRoles, file as any)) {
+    const { user, managedModules, roles } = auth_;
+    if (
+      !canAccessFile(user.id, user.access, managedModules, roles, file as any)
+    ) {
       return NextResponse.json({ error: "Forbidden." }, { status: 403 });
     }
 
@@ -155,8 +158,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "File not found." }, { status: 404 });
     }
 
-    const { user, moduleRoles } = auth_;
-    if (!canManageFile(user.id, user.role, moduleRoles, file as any)) {
+    const { user, managedModules } = auth_;
+    if (!canManageFile(user.id, user.access, managedModules, file as any)) {
       return NextResponse.json({ error: "Forbidden." }, { status: 403 });
     }
 
@@ -293,8 +296,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "File not found." }, { status: 404 });
     }
 
-    const { user, moduleRoles } = auth_;
-    if (!canManageFile(user.id, user.role, moduleRoles, file as any)) {
+    const { user, managedModules } = auth_;
+    if (!canManageFile(user.id, user.access, managedModules, file as any)) {
       return NextResponse.json({ error: "Forbidden." }, { status: 403 });
     }
 

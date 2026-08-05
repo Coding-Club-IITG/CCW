@@ -34,7 +34,7 @@ export async function sendCalendarReminders(now = new Date()) {
         continue;
 
       const userFilter =
-        event.scope === "module" ? { "moduleRoles.module": event.module } : {};
+        event.scope === "module" ? { "roles.module": event.module } : {};
       const users = await User.find(userFilter).select("_id").lean();
       if (users.length === 0) continue;
       const session = await mongoose.startSession();

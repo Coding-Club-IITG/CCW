@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   }
 
   const user = session.user as any;
-  if (!canUploadFiles(user.role)) {
+  if (!canUploadFiles(user.access)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 

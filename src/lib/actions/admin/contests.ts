@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
+import { isHead } from "@/lib/roles";
 import { headers } from "next/headers";
 import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
@@ -78,7 +78,7 @@ export async function createBracketContest(data: any) {
   if (!session) return { error: "Unauthorized" };
 
   const user = session.user as any;
-  if (!isAdmin(user.role)) return { error: "Forbidden" };
+  if (!isHead(user.access)) return { error: "Forbidden" };
 
   // Re-run validation server-side for safety
   let step1 = await validateStep(1, data);

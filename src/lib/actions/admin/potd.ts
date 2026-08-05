@@ -17,7 +17,7 @@ import POTDSubmission from "@/models/POTDSubmission";
 );
 
 import { logger } from "@/lib/utils";
-import { canSetPOTD } from "@/lib/roles";
+import { canSetPOTD, parseRoles } from "@/lib/roles";
 import { IST_OFFSET_MS } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
 import {
@@ -33,7 +33,7 @@ async function checkAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
   const user = session.user as any;
-  if (!canSetPOTD(user.role)) {
+  if (!canSetPOTD(user.access, parseRoles(user.roles))) {
     logger.warn("Unauthorized POTD admin access attempt", {
       action: "requirePotdAdmin",
     });

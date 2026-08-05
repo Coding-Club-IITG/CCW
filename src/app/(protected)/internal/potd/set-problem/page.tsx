@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { canSetPOTD } from "@/lib/roles";
+import { canSetPOTD, parseRoles } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import SetProblemClient from "./SetProblemClient";
 
@@ -10,7 +10,7 @@ export default async function SetProblemPage() {
   });
 
   const user = session?.user as any;
-  if (!user || !canSetPOTD(user.role)) {
+  if (!user || !canSetPOTD(user.access, parseRoles(user.roles))) {
     redirect("/internal/potd");
   }
 

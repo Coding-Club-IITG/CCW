@@ -1,8 +1,8 @@
-import { isAdmin } from "@/lib/roles";
+import { isHead } from "@/lib/roles";
 
 interface BlogAccessUser {
   id: string;
-  role?: string;
+  access?: string;
 }
 
 interface BlogAccessPost {
@@ -14,7 +14,7 @@ export function canEditBlogDraft(
   user: BlogAccessUser,
   post: BlogAccessPost,
 ): boolean {
-  if (isAdmin(user.role)) return true;
+  if (isHead(user.access)) return true;
   if (post.status !== "draft") return false;
 
   return post.authors.some(

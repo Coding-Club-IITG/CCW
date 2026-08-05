@@ -12,7 +12,7 @@ import { expandCalendarOccurrences } from "@/lib/calendar";
 import { parseCalendarEventInput } from "@/lib/calendarValidation";
 import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
-import { parseModuleRoles } from "@/lib/roles";
+import { parseManagedModules } from "@/lib/roles";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import CalendarEvent from "@/models/CalendarEvent";
 import CalendarReminderDelivery from "@/models/CalendarReminderDelivery";
@@ -20,8 +20,8 @@ import Event from "@/models/Event";
 
 type SessionUser = {
   id: string;
-  role?: string;
-  moduleRoles?: unknown;
+  access?: string;
+  managedModules?: unknown;
 };
 
 async function currentUser(): Promise<SessionUser | null> {
@@ -37,8 +37,8 @@ function targetOf(event: { scope: string; module?: string | null }) {
 
 function canManage(user: SessionUser, target: CalendarScopeTarget) {
   return canManageCalendarEvent(
-    user.role,
-    parseModuleRoles(user.moduleRoles),
+    user.access,
+    parseManagedModules(user.managedModules),
     target,
   );
 }

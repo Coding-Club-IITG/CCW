@@ -8,7 +8,7 @@ import {
   type ProjectStatus,
 } from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
-import { isAdmin } from "@/lib/roles";
+import { isHead } from "@/lib/roles";
 import { logger } from "@/lib/utils";
 import { invalidateCache } from "@/lib/cache";
 import Project from "@/models/Project";
@@ -56,7 +56,7 @@ function parseMonthInput(value: string): Date | null {
 async function checkAdmin() {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
-    if (!session || !isAdmin((session.user as any).role)) {
+    if (!session || !isHead((session.user as any).access)) {
       logger.warn("Unauthorized admin projects access attempt", {
         action: "checkAdmin",
       });

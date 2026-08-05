@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "@/lib/auth-client";
-import { canSetPOTD } from "@/lib/roles";
+import { canSetPOTD, parseRoles } from "@/lib/roles";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
@@ -30,7 +30,7 @@ export default function PotdLayout({
 }) {
   const { data: session } = useSession();
   const user = session?.user as any;
-  const canSet = user ? canSetPOTD(user.role) : false;
+  const canSet = user ? canSetPOTD(user.access, parseRoles(user.roles)) : false;
 
   const pathname = usePathname();
 

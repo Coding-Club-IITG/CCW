@@ -21,8 +21,8 @@ const files: FileEntry[] = [
     accessControl: {
       allMembers: true,
       allowedModules: [],
-      allowedGlobalRoles: [],
-      allowedModuleRoles: [],
+      allowedClubPositions: [],
+      allowedModulePositions: [],
       allowedUsers: [],
     },
     createdAt: "2026-01-15T00:00:00.000Z",
@@ -42,8 +42,8 @@ const files: FileEntry[] = [
     accessControl: {
       allMembers: false,
       allowedModules: [],
-      allowedGlobalRoles: [],
-      allowedModuleRoles: [],
+      allowedClubPositions: [],
+      allowedModulePositions: [],
       allowedUsers: [],
     },
     createdAt: "2026-01-16T00:00:00.000Z",
@@ -54,11 +54,12 @@ const currentUser: CurrentUser = {
   id: "member-1",
   name: "Test Member",
   email: "member@example.test",
-  role: "Member",
-  moduleRoles: [],
+  access: "Member",
+  managedModules: [],
+  roles: [],
   canUpload: false,
-  isGlobalAdmin: false,
   isAdmin: false,
+  isHead: false,
   headModules: [],
 };
 

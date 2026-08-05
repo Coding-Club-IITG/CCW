@@ -33,13 +33,13 @@ import styles from "./CreateRoomModal.module.scss";
 export default function CreateRoomModal({
   isOpen,
   onClose,
-  isAdmin = false,
+  isHead = false,
   presets = [],
   deadlineMinutes = 1,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  isAdmin?: boolean;
+  isHead?: boolean;
   presets?: any[];
   deadlineMinutes?: number;
 }) {
@@ -465,7 +465,7 @@ export default function CreateRoomModal({
             className={styles.form}
             spellCheck={false}
           >
-            {isAdmin && (
+            {isHead && (
               <div className={styles.templateBox}>
                 <label className={styles.templateLabel} htmlFor="top-preset-id">
                   Load from Template (Optional)

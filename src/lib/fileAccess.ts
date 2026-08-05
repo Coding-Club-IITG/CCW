@@ -11,13 +11,8 @@
  */
 
 import { IFileEntry } from "@/models/FileEntry";
-import {
-  ParsedModuleRole,
-  isAdmin,
-  isGlobalAdmin,
-  isModuleHead,
-  getHeadModules,
-} from "@/lib/roles";
+import type { ModuleName, UserRole } from "@/lib/constants";
+import { isHead, isAdmin, getHeadModules } from "@/lib/roles";
 
 // Shared types
 
@@ -26,25 +21,26 @@ export interface SessionUser {
   id: string;
   name: string;
   email: string;
-  role: string;
-  moduleRoles?: any;
+  access: string;
+  managedModules?: unknown;
+  roles?: unknown;
 }
 
 // Upload permission
-export function canUploadFiles(role: string): boolean {
-  return isAdmin(role) || isModuleHead(role);
+export function canUploadFiles(access: string): boolean {
+  return isHead(access);
 }
 
 // Management permission
 export function canManageFile(
   userId: string,
-  role: string,
-  moduleRoles: ParsedModuleRole[],
+  access: string,
+  managedModules: ModuleName[],
   file: Pick<IFileEntry, "uploadedBy" | "uploaderModule">,
 ): boolean {
-  if (isGlobalAdmin(role)) return true;
+  if (isAdmin(access)) return true;
 
-  const headModules = getHeadModules(role, moduleRoles);
+  const headModules = getHeadModules(access, managedModules);
 
   // Module heads
   if (
@@ -67,33 +63,42 @@ export function canManageFile(
  * Access is granted if any ONE of these conditions is satisfied:
  *  • The user can manage the file.
  *  • accessControl.allMembers is true.
- *  • The user's global role is in accessControl.allowedGlobalRoles.
+ *  • The user's club position is in accessControl.allowedClubPositions.
  *  • Any of the user's modules is in accessControl.allowedModules.
- *  • Any of the user's module roles is in accessControl.allowedModuleRoles.
+ *  • Any of the user's module positions is in accessControl.allowedModulePositions.
  *  • The user's ID is in accessControl.allowedUsers.
  */
 export function canAccessFile(
   userId: string,
-  role: string,
-  moduleRoles: ParsedModuleRole[],
+  access: string,
+  managedModules: ModuleName[],
+  roles: UserRole[],
   file: IFileEntry,
 ): boolean {
-  if (canManageFile(userId, role, moduleRoles, file)) return true;
+  if (canManageFile(userId, access, managedModules, file)) return true;
 
   const acl = file.accessControl;
 
   if (acl.allMembers) return true;
-  if (acl.allowedGlobalRoles.includes(role)) return true;
-
-  const userModules = moduleRoles.map((mr) => mr.module);
-  if (acl.allowedModules.some((m) => userModules.includes(m))) return true;
-
-  const userModuleRoleValues = moduleRoles.map((mr) => mr.role).filter(Boolean);
+  const clubPositions = roles
+    .filter((role) => !role.module)
+    .map((role) => role.position);
   if (
-    acl.allowedModuleRoles.some((r) =>
-      userModuleRoleValues.includes(r as string),
+    acl.allowedClubPositions.some((position) =>
+      clubPositions.includes(position as never),
     )
   )
+    return true;
+
+  const userModules = roles.flatMap((role) =>
+    role.module ? [role.module] : [],
+  );
+  if (acl.allowedModules.some((m) => userModules.includes(m))) return true;
+
+  const userModuleRoleValues = roles
+    .filter((role) => role.module)
+    .map((role) => role.position);
+  if (acl.allowedModulePositions.some((r) => userModuleRoleValues.includes(r)))
     return true;
 
   if (acl.allowedUsers.some((uid) => uid.toString() === userId)) return true;
@@ -107,25 +112,31 @@ export function canAccessFile(
  */
 export function buildAccessFilter(
   userId: string,
-  role: string,
-  moduleRoles: ParsedModuleRole[],
+  access: string,
+  managedModules: ModuleName[],
+  roles: UserRole[],
 ): Record<string, any> {
   // Global admins see everything
-  if (isGlobalAdmin(role)) return {};
+  if (isAdmin(access)) return {};
 
-  const headModules = getHeadModules(role, moduleRoles);
-  const userModules = moduleRoles.map((mr) => mr.module);
-  const userModuleRoleValues = moduleRoles
-    .map((mr) => mr.role)
-    .filter(Boolean) as string[];
+  const headModules = getHeadModules(access, managedModules);
+  const userModules = roles.flatMap((role) =>
+    role.module ? [role.module] : [],
+  );
+  const clubPositions = roles
+    .filter((role) => !role.module)
+    .map((role) => role.position);
+  const userModuleRoleValues = roles
+    .filter((role) => role.module)
+    .map((role) => role.position);
 
   const conditions: Record<string, any>[] = [
     // Owner can always see their own files
     { uploadedBy: userId },
     // Files shared with all members
     { "accessControl.allMembers": true },
-    // Files shared with the user's global role
-    { "accessControl.allowedGlobalRoles": role },
+    // Files shared with the user's club position
+    { "accessControl.allowedClubPositions": { $in: clubPositions } },
     // Files shared with the user directly
     { "accessControl.allowedUsers": userId },
   ];
@@ -140,10 +151,10 @@ export function buildAccessFilter(
     conditions.push({ "accessControl.allowedModules": { $in: userModules } });
   }
 
-  // Files shared with the user's module roles
+  // Files shared with the user's module positions
   if (userModuleRoleValues.length > 0) {
     conditions.push({
-      "accessControl.allowedModuleRoles": { $in: userModuleRoleValues },
+      "accessControl.allowedModulePositions": { $in: userModuleRoleValues },
     });
   }
 

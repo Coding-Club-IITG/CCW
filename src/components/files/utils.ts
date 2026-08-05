@@ -3,8 +3,8 @@ import type { AccessControl, CurrentUser, FileEntry } from "./types";
 export const EMPTY_ACL: AccessControl = {
   allMembers: false,
   allowedModules: [],
-  allowedGlobalRoles: [],
-  allowedModuleRoles: [],
+  allowedClubPositions: [],
+  allowedModulePositions: [],
   allowedUsers: [],
 };
 
@@ -38,7 +38,7 @@ export function isPreviewable(mimeType: string): boolean {
 
 // Client-side mirror of the server canManageFile check (used for UI hints)
 export function canManageFile(user: CurrentUser, file: FileEntry): boolean {
-  if (user.isGlobalAdmin) return true;
+  if (user.isAdmin) return true;
   if (user.headModules.length > 0 && file.uploaderModule) {
     if (user.headModules.includes(file.uploaderModule)) return true;
   }
@@ -50,10 +50,10 @@ export function aclSummary(acl: AccessControl): string {
   const parts: string[] = [];
   if (acl.allowedModules.length)
     parts.push(`${acl.allowedModules.length} module(s)`);
-  if (acl.allowedGlobalRoles.length)
-    parts.push(`${acl.allowedGlobalRoles.length} role(s)`);
-  if (acl.allowedModuleRoles.length)
-    parts.push(`${acl.allowedModuleRoles.length} module role(s)`);
+  if (acl.allowedClubPositions.length)
+    parts.push(`${acl.allowedClubPositions.length} role(s)`);
+  if (acl.allowedModulePositions.length)
+    parts.push(`${acl.allowedModulePositions.length} module position(s)`);
   if (acl.allowedUsers.length) parts.push(`${acl.allowedUsers.length} user(s)`);
   return parts.length ? parts.join(", ") : "Restricted";
 }

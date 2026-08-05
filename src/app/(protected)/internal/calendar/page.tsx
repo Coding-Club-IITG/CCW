@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { listCalendarEvents } from "@/lib/actions/calendar";
 import { getCreatableCalendarScopes } from "@/lib/calendarAccess";
-import { parseModuleRoles } from "@/lib/roles";
+import { parseManagedModules } from "@/lib/roles";
 import CalendarView from "@/components/calendar/CalendarView";
 import type { CalendarEventView } from "@/components/calendar/types";
 import styles from "./Calendar.module.scss";
@@ -38,10 +38,10 @@ export default async function CalendarPage({
     listCalendarEvents(start.toISOString(), end.toISOString()),
     auth.api.getSession({ headers: await headers() }),
   ]);
-  const user = session!.user as { role?: string; moduleRoles?: unknown };
+  const user = session!.user as { access?: string; managedModules?: unknown };
   const scopes = getCreatableCalendarScopes(
-    user.role,
-    parseModuleRoles(user.moduleRoles),
+    user.access,
+    parseManagedModules(user.managedModules),
   );
   let events = result.success ? (result.data as CalendarEventView[]) : [];
   if (query.public === "linked")

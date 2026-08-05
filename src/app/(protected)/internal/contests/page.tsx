@@ -1,7 +1,7 @@
 import { getContestListing } from "@/lib/actions/contests";
 import ContestListingClient from "@/components/contests/ContestListingClient";
 import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
+import { isHead } from "@/lib/roles";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import dbConnect from "@/lib/mongodb";
@@ -11,8 +11,8 @@ export default async function ContestsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/");
 
-  const userRole = session?.user?.role as string | undefined;
-  const admin = isAdmin(userRole);
+  const userRole = session?.user?.access as string | undefined;
+  const admin = isHead(userRole);
 
   const { active, upcoming, completed } = await getContestListing();
 
@@ -33,7 +33,7 @@ export default async function ContestsPage() {
       active={active}
       upcoming={upcoming}
       completed={completed}
-      isAdmin={admin}
+      isHead={admin}
       presets={presets}
       deadlineMinutes={deadlineMinutes}
     />

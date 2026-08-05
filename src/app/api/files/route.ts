@@ -8,7 +8,12 @@ import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import FileEntry from "@/models/FileEntry";
 import { canUploadFiles, buildAccessFilter } from "@/lib/fileAccess";
-import { parseModuleRoles, getHeadModules, isGlobalAdmin } from "@/lib/roles";
+import {
+  parseManagedModules,
+  parseRoles,
+  getHeadModules,
+  isAdmin,
+} from "@/lib/roles";
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
@@ -40,14 +45,20 @@ export async function GET(request: NextRequest) {
     }
 
     const user = session.user as any;
-    const moduleRoles = parseModuleRoles(user.moduleRoles);
+    const managedModules = parseManagedModules(user.managedModules);
+    const roles = parseRoles(user.roles);
 
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
 
-    const accessFilter = buildAccessFilter(user.id, user.role, moduleRoles);
+    const accessFilter = buildAccessFilter(
+      user.id,
+      user.access,
+      managedModules,
+      roles,
+    );
 
     const [files, total] = await Promise.all([
       FileEntry.find(accessFilter)
@@ -79,9 +90,9 @@ export async function POST(request: NextRequest) {
     }
 
     const user = session.user as any;
-    const moduleRoles = parseModuleRoles(user.moduleRoles);
+    const managedModules = parseManagedModules(user.managedModules);
 
-    if (!canUploadFiles(user.role)) {
+    if (!canUploadFiles(user.access)) {
       return NextResponse.json(
         { error: "Only admins and module heads can upload files." },
         { status: 403 },
@@ -143,10 +154,10 @@ export async function POST(request: NextRequest) {
     let uploaderModule: string | null = null;
 
     if (uploaderModuleRaw && uploaderModuleRaw !== "null") {
-      const headModules = getHeadModules(user.role, moduleRoles);
-      if (isGlobalAdmin(user.role)) {
+      const headModules = getHeadModules(user.access, managedModules);
+      if (isAdmin(user.access)) {
         uploaderModule = uploaderModuleRaw;
-      } else if (headModules.includes(uploaderModuleRaw)) {
+      } else if (headModules.includes(uploaderModuleRaw as any)) {
         uploaderModule = uploaderModuleRaw;
       } else {
         return NextResponse.json(
@@ -167,8 +178,8 @@ export async function POST(request: NextRequest) {
     const defaultAcl = {
       allMembers: false,
       allowedModules: [],
-      allowedGlobalRoles: [],
-      allowedModuleRoles: [],
+      allowedClubPositions: [],
+      allowedModulePositions: [],
       allowedUsers: [],
     };
     accessControl = { ...defaultAcl, ...accessControl };

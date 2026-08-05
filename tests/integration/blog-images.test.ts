@@ -37,7 +37,7 @@ describe("blog image uploads and assets", () => {
     uploadDirectory = await startTestBlogDirectory();
     await startTestMongo();
     getSession.mockResolvedValue(
-      blogSession({ role: "Secretary", id: BLOG_AUTHOR_ID.toString() }),
+      blogSession({ access: "Admin", id: BLOG_AUTHOR_ID.toString() }),
     );
   });
 
@@ -47,7 +47,7 @@ describe("blog image uploads and assets", () => {
       await unlink(path.join(uploadDirectory, name));
     }
     getSession.mockResolvedValue(
-      blogSession({ role: "Secretary", id: BLOG_AUTHOR_ID.toString() }),
+      blogSession({ access: "Admin", id: BLOG_AUTHOR_ID.toString() }),
     );
   });
 
@@ -61,7 +61,7 @@ describe("blog image uploads and assets", () => {
     getSession.mockResolvedValueOnce(null);
     expect((await POST(uploadRequest())).status).toBe(401);
 
-    getSession.mockResolvedValueOnce(blogSession({ role: "Member" }));
+    getSession.mockResolvedValueOnce(blogSession({ access: "Member" }));
     expect((await POST(uploadRequest())).status).toBe(403);
     expect(await listTestBlogUploads(uploadDirectory)).toEqual([]);
   });
@@ -158,7 +158,7 @@ describe("blog image uploads and assets", () => {
       }),
       blogPost({ slug: "published-post" }),
     ]);
-    getSession.mockResolvedValue(blogSession({ role: "Member" }));
+    getSession.mockResolvedValue(blogSession({ access: "Member" }));
 
     expect((await POST(uploadRequest({ slug: "my-draft" }))).status).toBe(201);
     expect((await POST(uploadRequest({ slug: "other-draft" }))).status).toBe(

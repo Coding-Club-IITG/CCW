@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { buildScheduleFingerprint } from "@/lib/calendar";
 import { canPublishCalendarEvent } from "@/lib/calendarAccess";
 import dbConnect from "@/lib/mongodb";
-import { parseModuleRoles } from "@/lib/roles";
+import { parseManagedModules } from "@/lib/roles";
 import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
 import BackLink from "@/components/shared/BackLink";
@@ -23,15 +23,15 @@ export default async function EditPublicEventPage({
   if (!event) notFound();
   const calendar = await CalendarEvent.findById(event.calendarEventId).lean();
   if (!calendar) notFound();
-  const user = session!.user as { role?: string; moduleRoles?: unknown };
+  const user = session!.user as { access?: string; managedModules?: unknown };
   const target =
     calendar.scope === "module"
       ? { scope: "module" as const, module: calendar.module ?? "" }
       : { scope: "general" as const };
   if (
     !canPublishCalendarEvent(
-      user.role,
-      parseModuleRoles(user.moduleRoles),
+      user.access,
+      parseManagedModules(user.managedModules),
       target,
     )
   )

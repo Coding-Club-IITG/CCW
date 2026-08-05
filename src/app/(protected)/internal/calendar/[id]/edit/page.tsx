@@ -6,7 +6,7 @@ import {
   getCreatableCalendarScopes,
 } from "@/lib/calendarAccess";
 import dbConnect from "@/lib/mongodb";
-import { parseModuleRoles } from "@/lib/roles";
+import { parseManagedModules } from "@/lib/roles";
 import CalendarEvent from "@/models/CalendarEvent";
 import BackLink from "@/components/shared/BackLink";
 import CalendarEventForm from "@/components/calendar/CalendarEventForm";
@@ -22,15 +22,15 @@ export default async function EditCalendarEventPage({
   await dbConnect();
   const event = await CalendarEvent.findById(id).lean();
   if (!event) notFound();
-  const user = session!.user as { role?: string; moduleRoles?: unknown };
-  const roles = parseModuleRoles(user.moduleRoles);
+  const user = session!.user as { access?: string; managedModules?: unknown };
+  const roles = parseManagedModules(user.managedModules);
   const target =
     event.scope === "module"
       ? { scope: "module" as const, module: event.module ?? "" }
       : { scope: "general" as const };
-  if (!canManageCalendarEvent(user.role, roles, target))
+  if (!canManageCalendarEvent(user.access, roles, target))
     redirect(`/internal/calendar/${id}`);
-  const scopes = getCreatableCalendarScopes(user.role, roles);
+  const scopes = getCreatableCalendarScopes(user.access, roles);
   return (
     <div className={`${styles.container} ${styles.formPage}`}>
       <BackLink

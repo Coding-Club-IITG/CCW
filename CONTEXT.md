@@ -66,12 +66,15 @@ programming systems, content, administration, and background integrations.
 
 Authentication uses better-auth with Microsoft accounts. Public pages are
 available without a session; internal and administrative pages are protected by
-`src/proxy.ts`. Authorization is operation-specific and uses the role helpers in
+`src/proxy.ts`. Authorization is operation-specific and uses the access helpers in
 `src/lib/roles.ts` and resource-specific access helpers where applicable.
 
-`moduleRoles` may arrive from better-auth as a JSON string even though
-application code consumes an array. Use `parseModuleRoles()` from
-`src/lib/roles.ts` at that boundary.
+Each user has one permission level in `access` (`Member`, `Head`, or `Admin`),
+one `YYYY-YY` academic year in `tenure`, Head-only scope in `managedModules`,
+and an independent `roles` array of club or module positions.
+`isHead()` authorizes Head and Admin; `isAdmin()` authorizes Admin only.
+Better-auth can expose `managedModules` and `roles` as JSON strings, so use
+`parseManagedModules()` and `parseRoles()` at that boundary.
 
 Route protection belongs in `src/proxy.ts`; this project does not use
 `middleware.ts`.

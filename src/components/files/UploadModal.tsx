@@ -181,8 +181,7 @@ export default function UploadModal({
                 </span>
               </div>
 
-              {(currentUser.isGlobalAdmin ||
-                currentUser.headModules.length > 1) && (
+              {(currentUser.isAdmin || currentUser.headModules.length > 1) && (
                 <div className={styles.field}>
                   <label>Module context</label>
                   <select
@@ -191,10 +190,10 @@ export default function UploadModal({
                       setForm((p) => ({ ...p, uploaderModule: e.target.value }))
                     }
                   >
-                    {currentUser.isGlobalAdmin && (
+                    {currentUser.isAdmin && (
                       <option value="">None (Admin upload)</option>
                     )}
-                    {(currentUser.isGlobalAdmin
+                    {(currentUser.isAdmin
                       ? MODULES
                       : currentUser.headModules
                     ).map((m) => (

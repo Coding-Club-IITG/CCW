@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Globe, FolderOpen, Shield, Users, Search, X } from "lucide-react";
-import { MODULES, GLOBAL_ROLES, MODULE_ROLES } from "@/lib/constants";
+import { MODULES, CLUB_POSITIONS, MODULE_POSITIONS } from "@/lib/constants";
 import type { AccessControl, UserBasic } from "./types";
 import styles from "./FilesClient.module.scss";
 
@@ -145,19 +145,19 @@ export default function AccessControlForm({ value, onChange }: Props) {
           {/* Global Roles */}
           <div className={styles.aclGroup}>
             <div className={styles.aclGroupLabel}>
-              <Shield size={13} /> Allow by global role
+              <Shield size={13} /> Allow by club position
             </div>
             <div className={styles.checkGrid}>
-              {GLOBAL_ROLES.map((r) => (
+              {CLUB_POSITIONS.map((r) => (
                 <label key={r} className={styles.checkItem}>
                   <input
                     type="checkbox"
-                    checked={value.allowedGlobalRoles.includes(r)}
+                    checked={value.allowedClubPositions.includes(r)}
                     onChange={() =>
                       toggleArr(
-                        value.allowedGlobalRoles,
+                        value.allowedClubPositions,
                         r,
-                        "allowedGlobalRoles",
+                        "allowedClubPositions",
                       )
                     }
                   />
@@ -170,19 +170,19 @@ export default function AccessControlForm({ value, onChange }: Props) {
           {/* Module Roles */}
           <div className={styles.aclGroup}>
             <div className={styles.aclGroupLabel}>
-              <Users size={13} /> Allow by module role
+              <Users size={13} /> Allow by module position
             </div>
             <div className={styles.checkGrid}>
-              {MODULE_ROLES.map((r) => (
+              {MODULE_POSITIONS.map((r) => (
                 <label key={r} className={styles.checkItem}>
                   <input
                     type="checkbox"
-                    checked={value.allowedModuleRoles.includes(r)}
+                    checked={value.allowedModulePositions.includes(r)}
                     onChange={() =>
                       toggleArr(
-                        value.allowedModuleRoles,
+                        value.allowedModulePositions,
                         r,
-                        "allowedModuleRoles",
+                        "allowedModulePositions",
                       )
                     }
                   />

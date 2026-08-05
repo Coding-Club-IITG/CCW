@@ -97,14 +97,14 @@ export default function ContestListingClient({
   active: initialActive,
   upcoming: initialUpcoming,
   completed: initialCompleted,
-  isAdmin = false,
+  isHead = false,
   presets = [],
   deadlineMinutes = 1,
 }: {
   active: ContestListingItem[];
   upcoming: ContestListingItem[];
   completed: ContestListingItem[];
-  isAdmin?: boolean;
+  isHead?: boolean;
   presets?: any[];
   deadlineMinutes?: number;
 }) {
@@ -228,7 +228,7 @@ export default function ContestListingClient({
         <CreateRoomModal
           isOpen={true}
           onClose={() => setShowCreateModal(false)}
-          isAdmin={isAdmin}
+          isHead={isHead}
           presets={presets}
           deadlineMinutes={deadlineMinutes}
         />

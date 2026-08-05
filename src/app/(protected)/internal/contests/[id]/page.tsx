@@ -12,7 +12,7 @@ import User from "@/models/User";
 import CPUser from "@/models/CPUser";
 import { getRedis } from "@/lib/redis";
 import { getBracketSnapshot } from "@/lib/bracket";
-import { isAdmin } from "@/lib/roles";
+import { isHead } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
 import styles from "./page.module.scss";
@@ -42,8 +42,8 @@ export default async function ContestRoomPage({
     return <div>Unauthorized</div>;
   }
 
-  const userRole = session.user.role as string | undefined;
-  const admin = isAdmin(userRole);
+  const userRole = session.user.access as string | undefined;
+  const admin = isHead(userRole);
 
   const userId = session.user.id;
   await dbConnect();

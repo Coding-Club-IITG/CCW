@@ -126,7 +126,7 @@ describe("member-owned blog drafts", () => {
         authors: [{ userId: BLOG_OTHER_ID, name: "Other" }],
       }),
     );
-    getSession.mockResolvedValueOnce(blogSession({ role: "Secretary" }));
+    getSession.mockResolvedValueOnce(blogSession({ access: "Admin" }));
     const response = await PATCH(
       jsonRequest("/api/internal/blog/other-draft", {
         excerpt: "Admin correction",

@@ -1,6 +1,7 @@
 import "../src/lib/env";
 
 import mongoose from "mongoose";
+import { CURRENT_TENURE } from "../src/lib/constants";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -8,8 +9,10 @@ const UserSchema = new mongoose.Schema({
   name: String,
   email: { type: String, unique: true },
   emailVerified: { type: Boolean, default: false },
-  role: String,
-  moduleRoles: Array,
+  access: String,
+  tenure: String,
+  managedModules: Array,
+  roles: Array,
   codeforces_handle: String,
   atcoder_handle: String,
   pizza_count: { type: Number, default: 0 },
@@ -62,8 +65,10 @@ async function seed() {
     const devUser = {
       name: "Coding Club IITG",
       email: "codingclub@iitg.ac.in",
-      role: "Secretary",
-      moduleRoles: [],
+      access: "Admin",
+      tenure: CURRENT_TENURE,
+      managedModules: [],
+      roles: [{ position: "Secretary" }],
       emailVerified: true,
     };
     const createdDevUser = await User.findOneAndUpdate(
@@ -116,8 +121,10 @@ async function seed() {
         { email: testUser.email },
         {
           ...testUser,
-          role: "Member",
-          moduleRoles: [],
+          access: "Member",
+          tenure: CURRENT_TENURE,
+          managedModules: [],
+          roles: [],
           emailVerified: true,
         },
         { upsert: true, returnDocument: "after" },

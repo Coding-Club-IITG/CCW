@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { getClient } from "@/lib/mongodb";
+import { CURRENT_TENURE } from "@/lib/constants";
 
 const client = await getClient();
 const db = client.db();
@@ -31,12 +32,18 @@ export const auth = betterAuth({
   user: {
     modelName: "users",
     additionalFields: {
-      role: {
+      access: {
         type: "string",
         defaultValue: "Member",
       },
-      moduleRoles: {
+      tenure: { type: "string", defaultValue: CURRENT_TENURE },
+      managedModules: {
         type: "string",
+        defaultValue: "[]",
+      },
+      roles: {
+        type: "string",
+        defaultValue: "[]",
       },
       codeforcesId: {
         type: "string",

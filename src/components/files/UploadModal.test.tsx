@@ -9,11 +9,12 @@ const currentUser: CurrentUser = {
   id: "head-1",
   name: "Design Head",
   email: "head@example.test",
-  role: "Head",
-  moduleRoles: [{ module: "Design" }],
+  access: "Head",
+  managedModules: ["Design"],
+  roles: [{ module: "Design", position: "Head" }],
   canUpload: true,
-  isGlobalAdmin: false,
-  isAdmin: true,
+  isAdmin: false,
+  isHead: true,
   headModules: ["Design"],
 };
 

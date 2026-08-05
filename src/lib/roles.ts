@@ -3,77 +3,113 @@
  */
 
 import {
-  LEADERSHIP_ROLES,
-  LeadershipRole,
-  TEAM_ROLES,
-  TeamRole,
+  ACCESS_LEVELS,
+  AccessLevel,
+  CLUB_POSITIONS,
+  CURRENT_TENURE,
+  MODULE_POSITIONS,
+  MODULES,
+  ModuleName,
+  UserRole,
 } from "@/lib/constants";
 
-export interface ParsedModuleRole {
-  module: string;
-  role?: string;
+export function isValidTenure(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})$/.exec(value.trim());
+  return !!match && (Number(match[1]) + 1) % 100 === Number(match[2]);
 }
 
-// Handles both raw array and stringified form
-function isParsedModuleRole(value: unknown): value is ParsedModuleRole {
+export function normalizeTenure(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const tenure = value.trim();
+  return isValidTenure(tenure) ? tenure : null;
+}
+
+export function parseAccess(raw: unknown): AccessLevel {
+  return ACCESS_LEVELS.includes(raw as AccessLevel)
+    ? (raw as AccessLevel)
+    : "Member";
+}
+
+function isUserRole(value: unknown): value is UserRole {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
+  if (typeof item.position !== "string") return false;
+  if (item.module === undefined)
+    return CLUB_POSITIONS.includes(item.position as never);
   return (
-    typeof item.module === "string" &&
-    (item.role === undefined || typeof item.role === "string")
+    MODULES.includes(item.module as ModuleName) &&
+    MODULE_POSITIONS.includes(item.position as never)
   );
 }
 
-export function parseModuleRoles(raw: unknown): ParsedModuleRole[] {
+export function parseRoles(raw: unknown): UserRole[] {
   if (!raw) return [];
-  if (Array.isArray(raw)) return raw.filter(isParsedModuleRole);
+  let value = raw;
   if (typeof raw === "string") {
     try {
-      const parsed: unknown = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.filter(isParsedModuleRole) : [];
+      value = JSON.parse(raw);
     } catch {
       return [];
     }
   }
-  return [];
+  return Array.isArray(value) ? value.filter(isUserRole) : [];
 }
 
+export function parseManagedModules(raw: unknown): ModuleName[] {
+  if (!raw) return [];
+  let value = raw;
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(value)
+    ? [
+        ...new Set(
+          value.filter((item): item is ModuleName =>
+            MODULES.includes(item as ModuleName),
+          ),
+        ),
+      ]
+    : [];
+}
+
+export function validateRoles(
+  raw: unknown,
+): { success: true; roles: UserRole[] } | { success: false; error: string } {
+  if (!Array.isArray(raw))
+    return { success: false, error: "Roles must be an array." };
+  if (!raw.every(isUserRole))
+    return { success: false, error: "Invalid role combination." };
+  const keys = raw.map((role) => `${role.module ?? "club"}:${role.position}`);
+  if (new Set(keys).size !== keys.length)
+    return { success: false, error: "Duplicate roles are not allowed." };
+  return { success: true, roles: raw };
+}
+
+// Handles both raw array and stringified form
 // Global administrators
-export function isGlobalAdmin(role?: string): boolean {
-  return LEADERSHIP_ROLES.includes(role as LeadershipRole);
+export function isHead(access?: string): boolean {
+  return access === "Head" || access === "Admin";
 }
-
-// Checks if a user has an administrative role
-export function isAdmin(role?: string): boolean {
-  return TEAM_ROLES.includes(role as TeamRole);
+export function isAdmin(access?: string): boolean {
+  return access === "Admin";
 }
 
 // Checks if a user can set POTD problems
-export function canSetPOTD(role?: string): boolean {
-  return isAdmin(role) || role === "Core Team";
-}
-
-// Module Heads
-export function isModuleHead(role?: string): boolean {
-  return role === "Head";
+export function canSetPOTD(access?: string, roles: UserRole[] = []): boolean {
+  return (
+    isHead(access) ||
+    roles.some((role) => role.module && role.position === "Core Team")
+  );
 }
 
 // List of modules for which user is Head
 export function getHeadModules(
-  role?: string,
-  moduleRoles?: ParsedModuleRole[],
-): string[] {
-  if (role !== "Head" || !moduleRoles) return [];
-  return moduleRoles.map((mr) => mr.module);
-}
-
-// Enforces role constraints
-export function cleanUserRoles(
-  role: string,
-  moduleRoles: ParsedModuleRole[],
-): ParsedModuleRole[] {
-  // Heads can only have module, not specific role
-  if (role === "Head") return moduleRoles.map((mr) => ({ module: mr.module }));
-  if (isAdmin(role)) return []; // Cannot have module roles
-  return moduleRoles;
+  access?: string,
+  managedModules?: ModuleName[],
+): ModuleName[] {
+  return access === "Head" ? (managedModules ?? []) : [];
 }

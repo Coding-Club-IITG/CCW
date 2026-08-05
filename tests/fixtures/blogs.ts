@@ -25,8 +25,9 @@ export function blogSession(userOverrides: Record<string, unknown> = {}) {
       id: BLOG_AUTHOR_ID.toString(),
       name: "Blog Author",
       email: "author@example.test",
-      role: "Member",
-      moduleRoles: [],
+      access: "Member",
+      managedModules: [],
+      roles: [],
       ...userOverrides,
     },
     session: {
