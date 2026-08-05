@@ -76,6 +76,22 @@ export function parseManagedModules(raw: unknown): ModuleName[] {
     : [];
 }
 
+export function getUserRoleLabels(
+  access: unknown,
+  managedModules: unknown,
+  roles: unknown,
+): string[] {
+  const assignedRoles = parseRoles(roles).map((role) =>
+    role.module ? `${role.module} · ${role.position}` : role.position,
+  );
+  const managedModuleRoles =
+    access === "Head"
+      ? parseManagedModules(managedModules).map((module) => `${module} · Head`)
+      : [];
+  const labels = [...new Set([...assignedRoles, ...managedModuleRoles])];
+  return labels.length > 0 ? labels : [parseAccess(access)];
+}
+
 export function validateRoles(
   raw: unknown,
 ): { success: true; roles: UserRole[] } | { success: false; error: string } {
@@ -102,7 +118,11 @@ export function isAdmin(access?: string): boolean {
 export function canSetPOTD(access?: string, roles: UserRole[] = []): boolean {
   return (
     isHead(access) ||
-    roles.some((role) => role.module && role.position === "Core Team")
+    roles.some(
+      (role) =>
+        role.module === "Competitive Programming" &&
+        role.position === "Core Team",
+    )
   );
 }
 

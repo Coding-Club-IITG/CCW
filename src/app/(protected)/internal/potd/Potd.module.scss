@@ -1,3 +1,5 @@
+@use "../../../../styles/mixins" as *;
+
 .container {
   display: flex;
   flex-direction: column;
@@ -5,11 +7,12 @@
   width: 100%;
 }
 
+.pageHeader {
+  @include standard-page-header($bottom-margin: 2rem);
+}
+
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 1.5rem;
+  @include card;
   color: var(--foreground-strong);
 }
 
@@ -31,10 +34,7 @@
 }
 
 .title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
+  @include standard-page-title($margin: 0);
   line-height: 1.3;
 }
 

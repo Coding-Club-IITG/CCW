@@ -1,5 +1,7 @@
+@use "../../../../../../styles/mixins" as *;
+
 .container {
-  padding: 1rem 0;
+  @include admin-page;
 }
 
 .topBar {

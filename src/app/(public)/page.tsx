@@ -25,11 +25,14 @@ export default async function Home({ searchParams }: Props) {
       </p>
 
       <div className={styles.actions}>
-        <Link href="/projects" className={styles.primaryBtn}>
-          Explore Projects
+        <Link href="/blog" className={styles.primaryBtn}>
+          View the Blog
         </Link>
         <Link href="/events" className={styles.secondaryBtn}>
           Club Events
+        </Link>
+        <Link href="/projects" className={styles.secondaryBtn}>
+          Explore Projects
         </Link>
         <Link href="/team" className={styles.secondaryBtn}>
           Meet the Team
@@ -38,7 +41,7 @@ export default async function Home({ searchParams }: Props) {
 
       <div className={styles.features}>
         <div className={styles.featureCard}>
-          <h3>Software Dev</h3>
+          <h3>Software Development</h3>
           <p>Building scalable solutions and modern applications.</p>
         </div>
         <div className={styles.featureCard}>

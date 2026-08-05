@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canSetPOTD,
   getHeadModules,
+  getUserRoleLabels,
   isAdmin,
   isHead,
   normalizeTenure,
@@ -39,15 +40,39 @@ describe("access and role helpers", () => {
       ]).success,
     ).toBe(false);
   });
+  it("formats assigned positions before falling back to access", () => {
+    expect(
+      getUserRoleLabels(
+        "Admin",
+        [],
+        [
+          { position: "Secretary" },
+          { module: "Design", position: "Coordinator" },
+        ],
+      ),
+    ).toEqual(["Secretary", "Design · Coordinator"]);
+    expect(
+      getUserRoleLabels("Head", '["Competitive Programming"]', "[]"),
+    ).toEqual(["Competitive Programming · Head"]);
+    expect(getUserRoleLabels("Admin", [], [])).toEqual(["Admin"]);
+    expect(getUserRoleLabels(undefined, undefined, undefined)).toEqual([
+      "Member",
+    ]);
+  });
   it("validates consecutive academic years", () => {
     expect(normalizeTenure(" 2026-27 ")).toBe("2026-27");
     expect(normalizeTenure("2026-28")).toBeNull();
   });
-  it("uses managed modules only for Head and permits module Core Team POTD", () => {
+  it("uses managed modules only for Head and permits only CP Core Team POTD", () => {
     expect(getHeadModules("Head", ["Design"])).toEqual(["Design"]);
     expect(getHeadModules("Admin", ["Design"])).toEqual([]);
     expect(
-      canSetPOTD("Member", [{ module: "Design", position: "Core Team" }]),
+      canSetPOTD("Member", [
+        { module: "Competitive Programming", position: "Core Team" },
+      ]),
     ).toBe(true);
+    expect(
+      canSetPOTD("Member", [{ module: "Design", position: "Core Team" }]),
+    ).toBe(false);
   });
 });

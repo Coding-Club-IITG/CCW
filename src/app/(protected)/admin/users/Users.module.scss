@@ -1,28 +1,13 @@
+@use "../../../../styles/mixins" as *;
+
 .container {
-  padding: 1rem 0;
+  @include admin-page;
 }
 
 .header {
-  margin-top: 1rem;
-  margin-bottom: 1.5rem;
-
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 0 0.25rem 0;
-    color: var(--foreground-strong);
-  }
-
-  p {
-    color: var(--muted);
-    margin: 0;
-    font-size: 0.875rem;
-  }
+  @include admin-page-header($top-margin: 1rem);
 }
 
 .section {
-  background: var(--surface);
-  padding: 1.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
+  @include card;
 }

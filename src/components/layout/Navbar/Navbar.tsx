@@ -1,13 +1,13 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Menu, Moon, Sun, X } from "lucide-react";
 import { useSession, signIn, signOut } from "@/lib/auth-client";
-import { useState, useRef, useEffect } from "react";
+import { getUserRoleLabels, isHead } from "@/lib/roles";
 import { useThemeStore } from "@/lib/store/theme";
 import { useViewModeStore } from "@/lib/store/view-mode";
-import { isHead } from "@/lib/roles";
 import { getDisplayName } from "@/lib/utils";
-import { Moon, Sun, Menu, X } from "lucide-react";
 import { IconSwitchView } from "@/components/shared/Icons";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import NotificationBell from "./NotificationBell";
@@ -86,14 +86,19 @@ export default function Navbar() {
         email?: string;
         image?: string | null;
         access?: string;
-        managedModules?: string | string[];
-        roles?: string | { module?: string; position: string }[];
+        managedModules?: unknown;
+        roles?: unknown;
         pizza_count?: number;
       }
     | undefined;
 
   const showInternal = !!session && viewMode === "internal";
   const navLinks = showInternal ? INTERNAL_LINKS : PUBLIC_LINKS;
+  const roleLabels = getUserRoleLabels(
+    user?.access,
+    user?.managedModules,
+    user?.roles,
+  );
 
   return (
     <nav className={styles.navbar} ref={navbarRef}>
@@ -153,9 +158,16 @@ export default function Navbar() {
                       {showInternal ? user?.email || "" : "Viewing as public"}
                     </span>
                     {showInternal && (
-                      <span className={styles.userMenuRole}>
-                        {user?.access || "Member"}
-                      </span>
+                      <div
+                        className={styles.userMenuRoles}
+                        aria-label="Club positions"
+                      >
+                        {roleLabels.map((label) => (
+                          <span className={styles.userMenuRole} key={label}>
+                            {label}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <div className={styles.userMenuDivider} />

@@ -1,9 +1,7 @@
 @use "../../../styles/mixins" as *;
 
 .container {
-  @include page-container;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
+  @include public-page;
 }
 
 .header {
@@ -11,16 +9,11 @@
 }
 
 .title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
-  margin: 0 0 0.25rem 0;
+  @include public-page-title;
 }
 
 .subtitle {
-  font-size: 1rem;
-  color: var(--muted);
-  margin: 0;
+  @include public-page-subtitle(0);
 }
 
 .searchInput {
@@ -38,13 +31,7 @@
 }
 
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.25rem;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-  }
+  @include public-card-grid;
 }
 
 .loading,

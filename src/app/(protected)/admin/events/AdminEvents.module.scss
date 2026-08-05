@@ -1,29 +1,11 @@
 @use "../../../../styles/mixins" as *;
 
 .container {
-  padding: 1rem 0;
+  @include admin-page;
 }
 
 .header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-top: 1rem;
-  margin-bottom: 1.5rem;
-  gap: 1rem;
-
-  h1 {
-    margin: 0 0 0.25rem;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--foreground-strong);
-  }
-
-  p {
-    margin: 0;
-    font-size: 0.875rem;
-    color: var(--muted);
-  }
+  @include admin-page-header($split: true, $top-margin: 1rem);
 }
 
 .addBtn {

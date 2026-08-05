@@ -87,11 +87,13 @@ export async function invalidateCache(prefix: string): Promise<void> {
 
     const pattern = `${CACHE_PREFIX}:${prefix}:*`;
 
-    for await (const key of redis.scanIterator({
+    for await (const keys of redis.scanIterator({
       MATCH: pattern,
       COUNT: 100,
     })) {
-      await redis.del(key);
+      for (const key of keys) {
+        await redis.del(key);
+      }
     }
 
     // Also delete the exact prefix key (no params variant)

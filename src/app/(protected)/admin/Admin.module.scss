@@ -1,22 +1,11 @@
+@use "../../../styles/mixins" as *;
+
 .container {
-  padding: 1rem 0;
+  @include admin-page;
 }
 
 .header {
-  margin-bottom: 1.5rem;
-
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 0 0.25rem 0;
-    color: var(--foreground-strong);
-  }
-
-  p {
-    color: var(--muted);
-    margin: 0;
-    font-size: 0.875rem;
-  }
+  @include admin-page-header;
 }
 
 .grid {

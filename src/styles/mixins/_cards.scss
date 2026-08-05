@@ -5,3 +5,51 @@
   border-radius: 6px;
   padding: 1.5rem;
 }
+
+// Shared collection layout and card anatomy for public content indexes.
+@mixin public-card-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+@mixin public-list-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+
+  &:hover {
+    border-color: var(--primary);
+  }
+}
+
+@mixin public-card-media {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--surface-secondary);
+}
+
+@mixin public-card-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--foreground-strong);
+  line-height: 1.3;
+}
+
+@mixin public-card-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}

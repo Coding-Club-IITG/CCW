@@ -209,7 +209,7 @@
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    width: 200px;
+    width: 240px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -251,10 +251,17 @@
     white-space: nowrap;
   }
 
+  .userMenuRoles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    margin-top: 0.25rem;
+  }
+
   .userMenuRole {
     font-size: 0.6875rem;
     color: var(--muted-light);
-    margin-top: 0.25rem;
+    line-height: 1.35;
   }
 
   .userMenuDivider {

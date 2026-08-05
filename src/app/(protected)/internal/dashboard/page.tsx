@@ -28,10 +28,10 @@ export default async function DashboardPage() {
 
   return (
     <div className={styles.container}>
-      <h1>Member Dashboard</h1>
-      <p className={styles.welcome}>
-        Welcome back, {getDisplayName(user.name, user.pizza_count)}!
-      </p>
+      <header className={styles.header}>
+        <h1>Member Dashboard</h1>
+        <p>Welcome back, {getDisplayName(user.name, user.pizza_count)}!</p>
+      </header>
 
       <h2 className={styles.sectionTitle}>Quick Links</h2>
       <div className={styles.grid}>

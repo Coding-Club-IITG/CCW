@@ -1,0 +1,79 @@
+@use "layout" as *;
+
+// Shared shell and typography for public collection pages.
+@mixin public-page {
+  @include page-container;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+@mixin public-page-title {
+  margin: 0 0 0.25rem;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--foreground-strong);
+}
+
+@mixin public-page-subtitle($margin-bottom: 1.5rem) {
+  margin: 0 0 $margin-bottom;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+// Shared compact heading used by administration and internal workspace pages.
+@mixin standard-page-title($margin: 0 0 0.25rem) {
+  margin: $margin;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground-strong);
+}
+
+@mixin standard-page-subtitle($margin: 0) {
+  margin: $margin;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+@mixin section-title($margin: 0 0 1rem) {
+  margin: $margin;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--foreground-strong);
+}
+
+@mixin standard-page-header(
+  $split: false,
+  $top-margin: 0,
+  $bottom-margin: 1.5rem
+) {
+  margin-top: $top-margin;
+  margin-bottom: $bottom-margin;
+
+  @if $split {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  h1 {
+    @include standard-page-title;
+  }
+
+  p {
+    @include standard-page-subtitle;
+  }
+}
+
+// Shared shell and heading variants for administration pages.
+@mixin admin-page {
+  padding: 1rem 0;
+}
+
+@mixin admin-page-header($split: false, $top-margin: 0) {
+  @include standard-page-header(
+    $split: $split,
+    $top-margin: $top-margin,
+    $bottom-margin: 1.5rem
+  );
+}

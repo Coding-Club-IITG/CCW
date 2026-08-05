@@ -1,58 +1,23 @@
+@use "../../../../styles/mixins" as *;
+
 .container {
-  padding: 1rem 0;
+  @include admin-page;
 }
 
 .header {
-  margin-bottom: 1.5rem;
-
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 0 0.25rem 0;
-    color: var(--foreground-strong);
-  }
-
-  p {
-    color: var(--muted);
-    margin: 0;
-    font-size: 0.875rem;
-  }
+  @include admin-page-header($top-margin: 1rem);
 }
 
 .form {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 1.5rem;
+  @include form-panel;
 }
 
 .field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  margin-bottom: 1rem;
-
-  label {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--foreground-secondary);
-  }
+  @include form-field;
 
   input,
   textarea {
-    background: var(--surface-secondary);
-    border: 1px solid var(--border-input);
-    border-radius: 6px;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
-    color: var(--foreground);
-    transition: border-color 0.15s ease;
-
-    &:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--focus-ring);
-    }
+    @include form-control;
   }
 
   textarea {
@@ -61,43 +26,15 @@
 }
 
 .select {
-  background: var(--surface-secondary);
-  border: 1px solid var(--border-input);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  color: var(--foreground);
-  transition: border-color 0.15s ease;
-
-  &:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--focus-ring);
-  }
+  @include form-control;
 }
 
 .btnPrimary {
+  @include btn-primary;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-  border: none;
-  border-radius: 6px;
   padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease;
-
-  &:hover {
-    background: var(--btn-primary-bg-hover);
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
 }
 
 .success {

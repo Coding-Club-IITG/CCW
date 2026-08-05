@@ -1,25 +1,15 @@
+@use "../../../../styles/mixins" as *;
+
 .container {
   padding: 1.5rem 2rem;
-
-  h1 {
-    margin: 0 0 0.25rem 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--foreground-strong);
-  }
 }
 
-.welcome {
-  color: var(--muted);
-  margin-bottom: 1.5rem;
-  font-size: 0.875rem;
+.header {
+  @include standard-page-header;
 }
 
 .sectionTitle {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--foreground-strong);
-  margin: 0 0 1rem 0;
+  @include section-title;
 }
 
 .myBlogsTitle {

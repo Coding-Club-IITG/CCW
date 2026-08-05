@@ -1,31 +1,19 @@
 @use "../../../styles/mixins" as *;
 
 .container {
-  @include page-container;
-  padding-top: 1.5rem;
-  padding-bottom: 1.5rem;
+  @include public-page;
 
   h1 {
-    margin: 0 0 0.25rem 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--foreground-strong);
+    @include public-page-title;
   }
 }
 
 .subtitle {
-  margin-bottom: 1.5rem;
-  color: var(--muted);
-  font-size: 0.875rem;
+  @include public-page-subtitle;
 }
 
 .errorText {
-  color: var(--error-text);
-  background: var(--error-bg);
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  border: 1px solid var(--error-border);
-  font-size: 0.875rem;
+  @include error-banner;
 }
 
 .section {
@@ -33,10 +21,7 @@
 }
 
 .sectionTitle {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--foreground);
-  margin: 0 0 0.75rem 0;
+  @include section-title($margin: 0 0 0.75rem);
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
 }

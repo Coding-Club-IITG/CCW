@@ -7,28 +7,10 @@
   margin: 0 auto;
 }
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin: 0 0 1.25rem;
-}
-.header h1 {
-  margin: 0 0 0.125rem;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
-}
-.header p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.875rem;
+  @include standard-page-header($split: true, $bottom-margin: 1.25rem);
 }
 .pageTitle {
-  margin: 1rem 0 1.25rem;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
+  @include standard-page-title($margin: 1rem 0 1.25rem);
 }
 .primaryAction,
 .secondaryAction,

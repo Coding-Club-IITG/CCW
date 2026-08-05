@@ -6,6 +6,7 @@ import {
   validateStep,
   createBracketContest,
 } from "@/lib/actions/admin/contests";
+import BackLink from "@/components/shared/BackLink";
 import Step1BasicInfo from "./steps/Step1BasicInfo";
 import Step2Registration from "./steps/Step2Registration";
 import Step3MatchPreset from "./steps/Step3MatchPreset";
@@ -119,6 +120,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
 
   return (
     <div className={styles.wizardContainer}>
+      <BackLink href="/admin" label="Back to Administration" />
       <h1 className={styles.wizardTitle}>Create Bracket Tournament</h1>
 
       {/* Progress Tracker */}

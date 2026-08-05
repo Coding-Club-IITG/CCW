@@ -1,73 +1,35 @@
 @use "../../../styles/mixins" as *;
 
 .container {
-  @include page-container;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
+  @include public-page;
 
   h1 {
-    margin: 0 0 0.25rem 0;
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--foreground-strong);
+    @include public-page-title;
   }
 }
 
 .subtitle {
-  margin: 0 0 1.5rem;
-  color: var(--muted);
-  font-size: 1rem;
+  @include public-page-subtitle;
 }
 
 .errorText {
-  color: var(--error-text);
-  background: var(--error-bg);
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  border: 1px solid var(--error-border);
-  font-size: 0.875rem;
+  @include error-banner;
 }
 
 .emptyState {
-  padding: 3rem;
-  text-align: center;
-  border: 1px dashed var(--border);
-  border-radius: 6px;
-  color: var(--muted);
-  font-size: 0.875rem;
+  @include public-empty-state;
 }
 
 .grid {
-  display: grid;
-  gap: 1.25rem;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-  }
+  @include public-card-grid;
 }
 
 .card {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--card-bg);
-  overflow: hidden;
-  transition: border-color 0.15s ease;
-  text-decoration: none;
-  color: inherit;
-  display: flex;
-  flex-direction: column;
-
-  &:hover {
-    border-color: var(--primary);
-  }
+  @include public-list-card;
 }
 
 .posterWrapper {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: var(--surface-secondary);
+  @include public-card-media;
 }
 
 .poster {
@@ -102,17 +64,13 @@
 }
 
 .eventTitle {
+  @include public-card-title;
   margin: 0.25rem 0 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--foreground-strong);
 }
 
 .shortDesc {
-  font-size: 0.875rem;
-  color: var(--muted);
+  @include public-card-description;
   line-height: 1.4;
-  margin: 0;
 }
 
 .date {

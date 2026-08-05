@@ -1,3 +1,5 @@
+@use "../../styles/mixins" as *;
+
 // Layout
 
 .container {
@@ -5,44 +7,18 @@
 }
 
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-  gap: 1rem;
-
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--foreground-strong);
-    margin-bottom: 0.125rem;
-  }
-
-  p {
-    color: var(--muted);
-    font-size: 0.875rem;
-  }
+  @include standard-page-header($split: true, $bottom-margin: 1.25rem);
 }
 
 .uploadBtn {
+  @include btn-primary;
   display: flex;
   align-items: center;
   gap: 0.4rem;
   padding: 0.4rem 0.875rem;
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-  border: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
   font-weight: 600;
-  cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background 0.15s;
-
-  &:hover {
-    background: var(--btn-primary-bg-hover);
-  }
 }
 
 // Toolbar
@@ -59,11 +35,9 @@
 }
 
 .folderTabs {
-  display: flex;
-  gap: 0;
+  @include underline-tabs;
   flex-wrap: nowrap;
   overflow-x: auto;
-  border-bottom: 1px solid var(--border);
   margin-bottom: 1rem;
 
   scrollbar-width: none;
@@ -73,30 +47,18 @@
 }
 
 .folderTab {
+  @include underline-tab;
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.5rem 0.875rem;
+  padding-inline: 0.875rem;
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  color: var(--muted);
-  transition: all 0.15s;
   white-space: nowrap;
-  margin-bottom: -1px;
-
-  &:hover {
-    color: var(--foreground-strong);
-    border-bottom-color: var(--border);
-  }
 
   &.active {
-    color: var(--foreground-strong);
-    border-bottom-color: var(--tab-active-border);
-    font-weight: 600;
+    @include underline-tab-active;
 
     .folderCount {
       background: var(--badge-primary-bg);
@@ -869,26 +831,15 @@
 // Form buttons & feedback
 
 .primaryBtn {
+  @include btn-primary;
   display: flex;
   align-items: center;
   gap: 0.4rem;
   padding: 0.4rem 0.875rem;
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-  border: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-
-  &:hover:not(:disabled) {
-    background: var(--btn-primary-bg-hover);
-  }
 
   &:disabled {
     opacity: 0.55;
-    cursor: not-allowed;
   }
 }
 

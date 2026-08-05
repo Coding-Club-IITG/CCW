@@ -1,23 +1,17 @@
+@use "../../../../styles/mixins" as *;
+
 .container {
+  @include card;
   max-width: 600px;
   margin: 1.5rem auto;
-  padding: 1.5rem;
-  background: var(--surface);
-  border-radius: 6px;
-  border: 1px solid var(--border);
 }
 
 .title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-  color: var(--foreground-strong);
+  @include standard-page-title;
 }
 
 .subtitle {
-  color: var(--muted);
-  margin-bottom: 1.5rem;
-  font-size: 0.875rem;
+  @include standard-page-subtitle($margin: 0 0 1.5rem);
 }
 
 .form {
