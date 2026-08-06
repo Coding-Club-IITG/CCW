@@ -9,6 +9,10 @@ import {
   updateEvent,
 } from "@/lib/actions/admin/events";
 import type { EventPublicationStatus } from "@/lib/constants";
+import {
+  DEFAULT_IMAGE_FOCAL_POINT,
+  type ImageFocalPoint,
+} from "@/lib/imageFocalPoint";
 import ImageUpload from "@/components/shared/ImageUpload";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import styles from "@/app/(protected)/admin/events/new/EventForm.module.scss";
@@ -19,6 +23,7 @@ interface ExistingPublicEvent {
   shortDescription: string;
   description: string;
   poster: string;
+  posterFocalPoint?: ImageFocalPoint;
   tags: string[];
   status: EventPublicationStatus;
 }
@@ -45,6 +50,9 @@ export default function PublicEventForm({
     event?.description ?? calendarDescription,
   );
   const [poster, setPoster] = useState(event?.poster ?? "");
+  const [posterFocalPoint, setPosterFocalPoint] = useState<ImageFocalPoint>(
+    event?.posterFocalPoint ?? DEFAULT_IMAGE_FOCAL_POINT,
+  );
   const [tags, setTags] = useState(event?.tags.join(", ") ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -55,6 +63,7 @@ export default function PublicEventForm({
       shortDescription,
       description,
       poster,
+      posterFocalPoint,
       tags: tags
         .split(",")
         .map((tag) => tag.trim())
@@ -144,10 +153,16 @@ export default function PublicEventForm({
       <div className={styles.field}>
         <ImageUpload
           value={poster}
-          onChange={setPoster}
+          onChange={(value) => {
+            setPoster(value);
+            if (value !== poster)
+              setPosterFocalPoint(DEFAULT_IMAGE_FOCAL_POINT);
+          }}
           uploadEndpoint="/api/admin/events/upload-image"
           label="Poster"
           previewClassName={styles.posterPreview}
+          focalPoint={posterFocalPoint}
+          onFocalPointChange={setPosterFocalPoint}
         />
       </div>
       <div className={styles.field}>

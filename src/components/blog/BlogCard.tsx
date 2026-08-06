@@ -1,7 +1,8 @@
 import Link from "next/link";
 import TagBadge from "./TagBadge";
 import { IconCalendar, IconEdit } from "@/components/shared/Icons";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+import FocalImage from "@/components/shared/FocalImage";
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import styles from "./BlogCard.module.scss";
 
 interface BlogAuthor {
@@ -14,6 +15,7 @@ interface BlogCardProps {
   title: string;
   excerpt: string;
   coverImage?: string;
+  coverFocalPoint?: ImageFocalPoint;
   authors: BlogAuthor[];
   tags: string[];
   publishedAt: string;
@@ -25,6 +27,7 @@ export default function BlogCard({
   title,
   excerpt,
   coverImage,
+  coverFocalPoint,
   authors,
   tags,
   publishedAt,
@@ -47,8 +50,9 @@ export default function BlogCard({
     <Link href={`/blog/${slug}`} className={styles.card}>
       {coverImage && (
         <div className={styles.coverWrapper}>
-          <CompatibleImage
+          <FocalImage
             src={coverImage}
+            focalPoint={coverFocalPoint}
             alt=""
             className={styles.cover}
             width={640}

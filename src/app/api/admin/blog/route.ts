@@ -16,6 +16,7 @@ import {
 import { parsePagination, paginatedResponse } from "@/lib/pagination";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
+import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 
 function generateSlug(title: string): string {
   return title
@@ -110,7 +111,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, content, excerpt, coverImage, tags, status } = body;
+    const {
+      title,
+      content,
+      excerpt,
+      coverImage,
+      coverFocalPoint,
+      tags,
+      status,
+    } = body;
 
     // Validate title
     if (!title || typeof title !== "string" || title.trim().length === 0) {
@@ -164,6 +173,7 @@ export async function POST(request: NextRequest) {
       content: content || "",
       excerpt: (excerpt || "").trim(),
       coverImage: coverImage || "",
+      coverFocalPoint: parseImageFocalPoint(coverFocalPoint),
       authors: [{ userId: user.id, name: user.name || "Unknown" }],
       tags: validTags,
       status: postStatus,

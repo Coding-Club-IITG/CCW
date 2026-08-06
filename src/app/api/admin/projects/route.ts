@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         const [projects, total] = await Promise.all([
           Project.find({})
             .select(
-              "title description date module status repoLink coverImage tags createdAt updatedAt",
+              "title description date module status repoLink coverImage coverFocalPoint tags createdAt updatedAt",
             )
             .sort({ date: -1 })
             .skip(skip)

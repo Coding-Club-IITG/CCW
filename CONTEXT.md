@@ -59,6 +59,9 @@ programming systems, content, administration, and background integrations.
 - Internal calendar events are the scheduling source of truth. Public event
   drafts and publications are linked one-to-one to calendar records. Calendar
   reminders run through the standalone worker.
+- Public blog, event, and project images store normalized focal points for
+  consistent responsive card crops. Detail-page images retain their natural
+  aspect ratio.
 - Platform integrations currently include Codeforces and AtCoder, with contest
   aggregation also covering other competitive-programming platforms.
 

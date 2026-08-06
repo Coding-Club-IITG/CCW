@@ -5,6 +5,7 @@ import {
   ProjectStatus,
   PROJECT_STATUSES,
 } from "@/lib/constants";
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 
 export interface IProject extends Document {
   title: string;
@@ -14,6 +15,7 @@ export interface IProject extends Document {
   status: ProjectStatus;
   repoLink: string;
   coverImage?: string;
+  coverFocalPoint: ImageFocalPoint;
   tags: string[];
 }
 
@@ -34,6 +36,11 @@ const ProjectSchema: Schema = new Schema(
     },
     repoLink: { type: String, required: true },
     coverImage: { type: String },
+    coverFocalPoint: {
+      x: { type: Number, min: 0, max: 1, default: 0.5 },
+      y: { type: Number, min: 0, max: 1, default: 0.5 },
+      _id: false,
+    },
     tags: { type: [String], default: [] },
   },
   { timestamps: true },

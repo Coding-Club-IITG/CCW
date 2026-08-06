@@ -2,6 +2,8 @@
 
 import { useState, useRef } from "react";
 import CompatibleImage from "./CompatibleImage";
+import FocalPointPicker from "./FocalPointPicker";
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import styles from "./ImageUpload.module.scss";
 
 interface ImageUploadProps {
@@ -10,6 +12,8 @@ interface ImageUploadProps {
   uploadEndpoint: string;
   label?: string;
   previewClassName?: string;
+  focalPoint?: ImageFocalPoint;
+  onFocalPointChange?: (value: ImageFocalPoint) => void;
 }
 
 export default function ImageUpload({
@@ -18,6 +22,8 @@ export default function ImageUpload({
   uploadEndpoint,
   label = "Image",
   previewClassName,
+  focalPoint,
+  onFocalPointChange,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -54,7 +60,7 @@ export default function ImageUpload({
     <div className={styles.wrapper}>
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.row}>
-        {value && (
+        {value && !onFocalPointChange && (
           <CompatibleImage
             src={value}
             alt={`${label} preview`}
@@ -92,6 +98,13 @@ export default function ImageUpload({
           </button>
         )}
       </div>
+      {value && onFocalPointChange && (
+        <FocalPointPicker
+          src={value}
+          value={focalPoint}
+          onChange={onFocalPointChange}
+        />
+      )}
     </div>
   );
 }

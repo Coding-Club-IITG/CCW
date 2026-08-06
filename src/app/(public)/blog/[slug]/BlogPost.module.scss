@@ -1,3 +1,5 @@
+@use "../../../../styles/mixins" as *;
+
 .article {
   max-width: 820px;
   margin: 0 auto;
@@ -7,7 +9,6 @@
 .coverWrapper {
   margin-top: 1.25rem;
   width: 100%;
-  aspect-ratio: 21 / 9;
   overflow: hidden;
   border-radius: 6px;
   border: 1px solid var(--border);
@@ -15,9 +16,7 @@
 }
 
 .cover {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  @include natural-content-image;
 }
 
 .header {

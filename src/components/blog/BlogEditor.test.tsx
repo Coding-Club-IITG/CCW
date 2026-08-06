@@ -84,6 +84,7 @@ describe("BlogEditor", () => {
       content: "# Content",
       excerpt: "Summary",
       coverImage: "",
+      coverFocalPoint: { x: 0.5, y: 0.5 },
       tags: ["Custom"],
       status: "published",
       authors: [{ userId: "author-2", name: "Second Author" }],

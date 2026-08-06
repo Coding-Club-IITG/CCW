@@ -51,6 +51,7 @@ export default async function EditPublicEventPage({
           shortDescription: event.shortDescription,
           description: event.description,
           poster: event.poster,
+          posterFocalPoint: event.posterFocalPoint,
           tags: event.tags,
           status: event.status,
         }}

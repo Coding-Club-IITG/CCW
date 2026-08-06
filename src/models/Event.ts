@@ -7,12 +7,14 @@ import {
   type EventRecurrenceType,
   type ProjectModuleName,
 } from "@/lib/constants";
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 
 export interface IEvent extends Document {
   title: string;
   description: string;
   shortDescription: string;
   poster: string;
+  posterFocalPoint: ImageFocalPoint;
   startDate: Date;
   endDate?: Date;
   allDay: boolean;
@@ -34,6 +36,11 @@ const EventSchema: Schema = new Schema(
     description: { type: String, required: true },
     shortDescription: { type: String, default: "" },
     poster: { type: String, required: true },
+    posterFocalPoint: {
+      x: { type: Number, min: 0, max: 1, default: 0.5 },
+      y: { type: Number, min: 0, max: 1, default: 0.5 },
+      _id: false,
+    },
     startDate: { type: Date, required: true },
     endDate: { type: Date },
     allDay: { type: Boolean, default: true },

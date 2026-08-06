@@ -15,9 +15,7 @@
 }
 
 .poster {
-  width: 100%;
-  height: auto;
-  display: block;
+  @include natural-content-image;
 }
 
 .header {

@@ -7,6 +7,10 @@ import ImageUpload from "@/components/shared/ImageUpload";
 import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
 import { createProject } from "@/lib/actions/admin/projects";
 import styles from "../../events/new/EventForm.module.scss";
+import {
+  DEFAULT_IMAGE_FOCAL_POINT,
+  type ImageFocalPoint,
+} from "@/lib/imageFocalPoint";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -14,6 +18,9 @@ export default function NewProjectPage() {
   const [description, setDescription] = useState("");
   const [repoLink, setRepoLink] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [coverFocalPoint, setCoverFocalPoint] = useState<ImageFocalPoint>(
+    DEFAULT_IMAGE_FOCAL_POINT,
+  );
   const [date, setDate] = useState("");
   const [module, setModule] = useState<(typeof PROJECT_MODULES)[number]>(
     PROJECT_MODULES[0],
@@ -48,6 +55,8 @@ export default function NewProjectPage() {
     formData.set("description", description);
     formData.set("repoLink", repoLink);
     if (coverImage) formData.set("coverImage", coverImage);
+    formData.set("coverFocalPointX", String(coverFocalPoint.x));
+    formData.set("coverFocalPointY", String(coverFocalPoint.y));
     formData.set("date", date);
     formData.set("module", module);
     formData.set("status", status);
@@ -110,10 +119,16 @@ export default function NewProjectPage() {
           <label className={styles.label}>Cover Image</label>
           <ImageUpload
             value={coverImage}
-            onChange={setCoverImage}
+            onChange={(value) => {
+              setCoverImage(value);
+              if (value !== coverImage)
+                setCoverFocalPoint(DEFAULT_IMAGE_FOCAL_POINT);
+            }}
             uploadEndpoint="/api/admin/projects/upload-image"
             label="Image"
             previewClassName={styles.posterPreview}
+            focalPoint={coverFocalPoint}
+            onFocalPointChange={setCoverFocalPoint}
           />
         </div>
 

@@ -9,6 +9,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
+import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 import { invalidateCache } from "@/lib/cache";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 
@@ -126,6 +127,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (body.coverImage !== undefined) {
       post.coverImage = String(body.coverImage);
+    }
+
+    if (body.coverFocalPoint !== undefined) {
+      post.coverFocalPoint = parseImageFocalPoint(body.coverFocalPoint);
     }
 
     if (body.tags !== undefined) {

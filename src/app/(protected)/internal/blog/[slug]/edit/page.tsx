@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import BackLink from "@/components/shared/BackLink";
 import BlogEditor from "@/components/blog/BlogEditor";
 import type { BlogStatus } from "@/lib/constants";
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import styles from "./EditBlog.module.scss";
 
 interface Props {
@@ -15,6 +16,7 @@ interface EditablePost {
   content: string;
   excerpt: string;
   coverImage: string;
+  coverFocalPoint?: ImageFocalPoint;
   tags: string[];
   status: BlogStatus;
   authors: { userId: string; name: string }[];
@@ -57,6 +59,7 @@ export default function EditMyBlogPage({ params }: Props) {
     content: string;
     excerpt: string;
     coverImage: string;
+    coverFocalPoint: ImageFocalPoint;
     tags: string[];
     status: BlogStatus;
     authors: { userId: string; name: string }[];
@@ -69,6 +72,7 @@ export default function EditMyBlogPage({ params }: Props) {
         content: data.content,
         excerpt: data.excerpt,
         coverImage: data.coverImage,
+        coverFocalPoint: data.coverFocalPoint,
         tags: data.tags,
       }),
     });

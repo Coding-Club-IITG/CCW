@@ -5,6 +5,7 @@ import SearchInput from "@/components/shared/SearchInput";
 import BlogCard from "@/components/blog/BlogCard";
 import TagBadge from "@/components/blog/TagBadge";
 import styles from "./Blog.module.scss";
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 
 interface BlogAuthor {
   userId: string;
@@ -17,6 +18,7 @@ interface Post {
   title: string;
   excerpt: string;
   coverImage?: string;
+  coverFocalPoint?: ImageFocalPoint;
   authors: BlogAuthor[];
   tags: string[];
   publishedAt: string;
@@ -114,6 +116,7 @@ export default function BlogPage() {
                 title={post.title}
                 excerpt={post.excerpt}
                 coverImage={post.coverImage}
+                coverFocalPoint={post.coverFocalPoint}
                 authors={post.authors}
                 tags={post.tags}
                 publishedAt={post.publishedAt}

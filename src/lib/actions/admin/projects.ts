@@ -14,6 +14,7 @@ import { invalidateCache } from "@/lib/cache";
 import Project from "@/models/Project";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 
 function parseTags(value: string): string[] {
   return value
@@ -131,6 +132,10 @@ export async function createProject(formData: FormData) {
     const description = getString(formData, "description");
     const repoLink = getString(formData, "repoLink");
     const coverImage = getString(formData, "coverImage");
+    const coverFocalPoint = parseImageFocalPoint({
+      x: formData.get("coverFocalPointX"),
+      y: formData.get("coverFocalPointY"),
+    });
     const dateInput = getString(formData, "date");
     const projectModule = getString(formData, "module");
     const status = getString(formData, "status");
@@ -186,6 +191,7 @@ export async function createProject(formData: FormData) {
       description,
       repoLink,
       coverImage,
+      coverFocalPoint,
       date,
       module: projectModule,
       status,
@@ -222,6 +228,10 @@ export async function updateProject(id: string, formData: FormData) {
     const description = getString(formData, "description");
     const repoLink = getString(formData, "repoLink");
     const coverImage = getString(formData, "coverImage");
+    const coverFocalPoint = parseImageFocalPoint({
+      x: formData.get("coverFocalPointX"),
+      y: formData.get("coverFocalPointY"),
+    });
     const dateInput = getString(formData, "date");
     const projectModule = getString(formData, "module");
     const status = getString(formData, "status");
@@ -279,6 +289,7 @@ export async function updateProject(id: string, formData: FormData) {
         description,
         repoLink,
         coverImage,
+        coverFocalPoint,
         date,
         module: projectModule,
         status,

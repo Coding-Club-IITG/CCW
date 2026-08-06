@@ -15,6 +15,10 @@ import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { isHead, parseManagedModules } from "@/lib/roles";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import {
+  parseImageFocalPoint,
+  type ImageFocalPoint,
+} from "@/lib/imageFocalPoint";
 import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
 
@@ -24,6 +28,7 @@ type PublicEventInput = {
   shortDescription: string;
   description: string;
   poster: string;
+  posterFocalPoint: ImageFocalPoint;
   tags: string[];
 };
 
@@ -63,6 +68,14 @@ function parsePublicInput(source: FormData | Record<string, unknown>) {
     shortDescription: value(source, "shortDescription"),
     description: value(source, "description"),
     poster: value(source, "poster"),
+    posterFocalPoint: parseImageFocalPoint(
+      source instanceof FormData
+        ? {
+            x: source.get("posterFocalPointX"),
+            y: source.get("posterFocalPointY"),
+          }
+        : source.posterFocalPoint,
+    ),
     tags: Array.isArray(rawTags)
       ? rawTags
           .filter((tag): tag is string => typeof tag === "string")

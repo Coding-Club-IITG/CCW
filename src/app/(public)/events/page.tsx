@@ -7,7 +7,7 @@ import dbConnect from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
 import Event, { type IEvent } from "@/models/Event";
 import StatusBadge from "@/components/shared/StatusBadge";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+import FocalImage from "@/components/shared/FocalImage";
 import styles from "./Events.module.scss";
 
 function getRecurrenceLabel(
@@ -83,8 +83,9 @@ export default async function EventsPage() {
               >
                 {event.poster && (
                   <div className={styles.posterWrapper}>
-                    <CompatibleImage
+                    <FocalImage
                       src={event.poster}
+                      focalPoint={event.posterFocalPoint}
                       alt={event.title}
                       className={styles.poster}
                       width={640}

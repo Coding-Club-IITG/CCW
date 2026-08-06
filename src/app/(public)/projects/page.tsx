@@ -2,7 +2,7 @@ import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import Project, { IProject } from "@/models/Project";
 import { logger } from "@/lib/utils";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+import FocalImage from "@/components/shared/FocalImage";
 import styles from "./Projects.module.scss";
 
 function formatMonthYear(date: Date): string {
@@ -60,8 +60,9 @@ export default async function ProjectsPage() {
             >
               {project.coverImage && (
                 <div className={styles.coverWrapper}>
-                  <CompatibleImage
+                  <FocalImage
                     src={project.coverImage}
+                    focalPoint={project.coverFocalPoint}
                     alt={project.title}
                     className={styles.cover}
                     width={640}

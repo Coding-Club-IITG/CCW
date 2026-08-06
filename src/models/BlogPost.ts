@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 import { BLOG_STATUSES } from "@/lib/constants";
 import type { BlogStatus } from "@/lib/constants";
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 
 export interface IBlogAuthor {
   userId: Types.ObjectId;
@@ -13,6 +14,7 @@ export interface IBlogPost extends Document {
   content: string;
   excerpt: string;
   coverImage: string;
+  coverFocalPoint: ImageFocalPoint;
   authors: IBlogAuthor[];
   tags: string[];
   status: BlogStatus;
@@ -36,6 +38,11 @@ const BlogPostSchema = new Schema<IBlogPost>(
     content: { type: String, default: "" },
     excerpt: { type: String, default: "", maxlength: 500 },
     coverImage: { type: String, default: "" },
+    coverFocalPoint: {
+      x: { type: Number, min: 0, max: 1, default: 0.5 },
+      y: { type: Number, min: 0, max: 1, default: 0.5 },
+      _id: false,
+    },
     authors: { type: [BlogAuthorSchema], default: [] },
     tags: [{ type: String }],
     status: { type: String, enum: BLOG_STATUSES, default: "draft" },

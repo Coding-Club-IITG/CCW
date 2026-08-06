@@ -6,6 +6,10 @@ import ImageUpload from "@/components/shared/ImageUpload";
 import TagBadge from "./TagBadge";
 import { IconX } from "@/components/shared/Icons";
 import { BLOG_TAGS, BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
+import {
+  DEFAULT_IMAGE_FOCAL_POINT,
+  type ImageFocalPoint,
+} from "@/lib/imageFocalPoint";
 import styles from "./BlogEditor.module.scss";
 
 interface BlogAuthor {
@@ -19,6 +23,7 @@ interface BlogEditorProps {
     content: string;
     excerpt: string;
     coverImage: string;
+    coverFocalPoint?: ImageFocalPoint;
     tags: string[];
     status: BlogStatus;
     authors: BlogAuthor[];
@@ -28,6 +33,7 @@ interface BlogEditorProps {
     content: string;
     excerpt: string;
     coverImage: string;
+    coverFocalPoint: ImageFocalPoint;
     tags: string[];
     status: BlogStatus;
     authors: BlogAuthor[];
@@ -50,6 +56,9 @@ export default function BlogEditor({
   const [content, setContent] = useState(initialData?.content || "");
   const [excerpt, setExcerpt] = useState(initialData?.excerpt || "");
   const [coverImage, setCoverImage] = useState(initialData?.coverImage || "");
+  const [coverFocalPoint, setCoverFocalPoint] = useState<ImageFocalPoint>(
+    initialData?.coverFocalPoint || DEFAULT_IMAGE_FOCAL_POINT,
+  );
   const [tags, setTags] = useState<string[]>(initialData?.tags || []);
   const [status, setStatus] = useState<BlogStatus>(
     initialData?.status || "draft",
@@ -139,6 +148,7 @@ export default function BlogEditor({
         content,
         excerpt,
         coverImage,
+        coverFocalPoint,
         tags,
         status,
         authors,
@@ -237,9 +247,16 @@ export default function BlogEditor({
         <label className={styles.label}>Cover Image</label>
         <ImageUpload
           value={coverImage}
-          onChange={setCoverImage}
+          onChange={(value) => {
+            setCoverImage(value);
+            if (value !== coverImage) {
+              setCoverFocalPoint(DEFAULT_IMAGE_FOCAL_POINT);
+            }
+          }}
           uploadEndpoint={uploadEndpoint}
           label="Image"
+          focalPoint={coverFocalPoint}
+          onFocalPointChange={setCoverFocalPoint}
         />
       </div>
 

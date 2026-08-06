@@ -5,6 +5,7 @@ import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
+import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -100,6 +101,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (body.coverImage !== undefined) {
       post.coverImage = String(body.coverImage);
+    }
+
+    if (body.coverFocalPoint !== undefined) {
+      post.coverFocalPoint = parseImageFocalPoint(body.coverFocalPoint);
     }
 
     if (body.tags !== undefined && Array.isArray(body.tags)) {

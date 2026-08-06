@@ -8,6 +8,7 @@ import BackLink from "@/components/shared/BackLink";
 import { IconExternalLink } from "@/components/shared/Icons";
 import BlogEditor from "@/components/blog/BlogEditor";
 import type { BlogStatus } from "@/lib/constants";
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import styles from "./EditPost.module.scss";
 
 interface Props {
@@ -46,6 +47,7 @@ export default function EditBlogPostPage({ params }: Props) {
     content: string;
     excerpt: string;
     coverImage: string;
+    coverFocalPoint: ImageFocalPoint;
     tags: string[];
     status: BlogStatus;
     authors: { userId: string; name: string }[];
@@ -106,6 +108,7 @@ export default function EditBlogPostPage({ params }: Props) {
           content: post.content,
           excerpt: post.excerpt,
           coverImage: post.coverImage,
+          coverFocalPoint: post.coverFocalPoint,
           tags: post.tags,
           status: post.status,
           authors: post.authors || [],

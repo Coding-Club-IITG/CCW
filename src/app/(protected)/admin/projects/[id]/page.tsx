@@ -7,6 +7,10 @@ import ImageUpload from "@/components/shared/ImageUpload";
 import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
 import { updateProject } from "@/lib/actions/admin/projects";
 import styles from "../../events/new/EventForm.module.scss";
+import {
+  DEFAULT_IMAGE_FOCAL_POINT,
+  type ImageFocalPoint,
+} from "@/lib/imageFocalPoint";
 
 interface ProjectData {
   _id: string;
@@ -14,6 +18,7 @@ interface ProjectData {
   description: string;
   repoLink: string;
   coverImage?: string;
+  coverFocalPoint?: ImageFocalPoint;
   date: string;
   module: (typeof PROJECT_MODULES)[number];
   status: (typeof PROJECT_STATUSES)[number];
@@ -36,6 +41,9 @@ export default function EditProjectPage({
   const [description, setDescription] = useState("");
   const [repoLink, setRepoLink] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [coverFocalPoint, setCoverFocalPoint] = useState<ImageFocalPoint>(
+    DEFAULT_IMAGE_FOCAL_POINT,
+  );
   const [date, setDate] = useState("");
   const [module, setModule] = useState<(typeof PROJECT_MODULES)[number]>(
     PROJECT_MODULES[0],
@@ -66,6 +74,9 @@ export default function EditProjectPage({
         setDescription(project.description);
         setRepoLink(project.repoLink);
         setCoverImage(project.coverImage || "");
+        setCoverFocalPoint(
+          project.coverFocalPoint || DEFAULT_IMAGE_FOCAL_POINT,
+        );
         setDate(project.date ? toMonthInput(project.date) : "");
         setModule(project.module || PROJECT_MODULES[0]);
         setStatus(project.status || PROJECT_STATUSES[0]);
@@ -105,6 +116,8 @@ export default function EditProjectPage({
     formData.set("description", description);
     formData.set("repoLink", repoLink);
     if (coverImage) formData.set("coverImage", coverImage);
+    formData.set("coverFocalPointX", String(coverFocalPoint.x));
+    formData.set("coverFocalPointY", String(coverFocalPoint.y));
     formData.set("date", date);
     formData.set("module", module);
     formData.set("status", status);
@@ -176,10 +189,16 @@ export default function EditProjectPage({
           <label className={styles.label}>Cover Image</label>
           <ImageUpload
             value={coverImage}
-            onChange={setCoverImage}
+            onChange={(value) => {
+              setCoverImage(value);
+              if (value !== coverImage)
+                setCoverFocalPoint(DEFAULT_IMAGE_FOCAL_POINT);
+            }}
             uploadEndpoint="/api/admin/projects/upload-image"
             label="Image"
             previewClassName={styles.posterPreview}
+            focalPoint={coverFocalPoint}
+            onFocalPointChange={setCoverFocalPoint}
           />
         </div>
 
