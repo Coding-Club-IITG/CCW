@@ -15,7 +15,6 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test",
     "test:ci": "tsx tests/run-ci.ts",
     "seed": "tsx scripts/seed.ts"
   },
@@ -53,22 +52,15 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.0",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^7.0.0",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.4",
     "@vitest/coverage-v8": "^4.1.10",
     "concurrently": "^10.0.0",
     "dotenv": "^17.4.2",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.12",
     "eventsource": "^4.1.0",
-    "jsdom": "^30.0.1",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"

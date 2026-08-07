@@ -14,8 +14,6 @@ backup
 out/
 build/
 coverage/
-playwright-report/
-test-results/
 
 # Typescript
 *.tsbuildinfo

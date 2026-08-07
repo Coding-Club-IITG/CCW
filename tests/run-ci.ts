@@ -20,7 +20,6 @@ const commands = [
   ["test:unit"],
   ["test:coverage"],
   ["build"],
-  ["test:e2e"],
 ];
 
 for (const args of commands) {

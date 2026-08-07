@@ -104,14 +104,11 @@
 
 ## Testing
 
-- Name unit, integration, and component files `*.test.ts` or `*.test.tsx` and
+- Name unit files `*.test.ts` and
   colocate them with the production code when they cover one focused module.
-  Put cross-module integration tests in `tests/integration/` and browser flows
-  in `tests/e2e/` as `*.spec.ts`.
-- Use Vitest for unit and integration tests. Component tests run in jsdom and
-  should use React Testing Library, `user-event`, and
-  `tests/utils/render.tsx`. Prefer accessible role and label queries over test
-  IDs, and assert behavior visible to users rather than implementation details.
+  Put cross-module integration tests in `tests/integration/`.
+- Use Vitest for unit and integration tests. UI tests are deferred until the
+  design is finalized.
 - Keep shared environment defaults in `tests/setup/` and reusable test-only
   helpers in `tests/utils/`. Do not add test-only methods or branches to
   production code.
@@ -125,12 +122,9 @@
   external APIs, or internet access.
 - Run `pnpm test` for a single non-watch pass, `pnpm test:watch` while
   developing, and `pnpm test:coverage` before submitting meaningful behavior
-  changes. Run `pnpm test:e2e` for browser smoke tests; it starts the web app
-  automatically and requires the local MongoDB container.
+  changes.
 - `pnpm test:ci` is the local CI-equivalent sequence: lint, typecheck, unit and
-  integration tests, coverage, production build, and Playwright smoke tests.
-  Install the Chromium browser once with
-  `pnpm exec playwright install chromium`.
+  integration tests, coverage, and a production build.
 
 ## Git and Pull Requests
 

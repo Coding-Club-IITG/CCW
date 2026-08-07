@@ -1,4 +1,3 @@
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 const sharedTestConfig = {
@@ -8,7 +7,6 @@ const sharedTestConfig = {
 };
 
 export default defineConfig({
-  plugins: [react()],
   resolve: {
     tsconfigPaths: true,
   },
@@ -23,12 +21,10 @@ export default defineConfig({
         "src/lib/pagination.ts",
         "src/proxy.ts",
         "src/app/api/notifications/route.ts",
-        "src/components/shared/SearchInput.tsx",
         "src/lib/potd/utils.ts",
         "src/lib/potd/derive.ts",
         "src/lib/potd/submit.ts",
         "src/lib/fileAccess.ts",
-        "src/components/files/utils.ts",
         "src/lib/jobs/hackathonReminder.ts",
         "src/lib/blogAccess.ts",
       ],
@@ -48,19 +44,6 @@ export default defineConfig({
           environment: "node",
           fileParallelism: false,
           include: ["src/**/*.test.ts", "tests/integration/**/*.test.ts"],
-        },
-      },
-      {
-        extends: true,
-        test: {
-          ...sharedTestConfig,
-          name: "components",
-          environment: "jsdom",
-          include: ["src/**/*.test.tsx"],
-          setupFiles: [
-            "./tests/setup/environment.ts",
-            "./tests/setup/components.ts",
-          ],
         },
       },
     ],

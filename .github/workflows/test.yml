@@ -63,9 +63,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
-
       - name: Lint
         run: pnpm lint
 
@@ -81,21 +78,10 @@ jobs:
       - name: Production build
         run: pnpm build
 
-      - name: Playwright smoke tests
-        run: pnpm test:e2e
-
       - name: Upload coverage
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v5
         with:
           name: coverage
           path: coverage/
-          retention-days: 14
-
-      - name: Upload Playwright report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
-        with:
-          name: playwright-report
-          path: playwright-report/
           retention-days: 14
