@@ -25,16 +25,16 @@ import { ContestListingItem } from "@/lib/actions/contests";
 import React, { createElement, useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  IconInfoCircle,
-  IconGavel,
-  IconLock,
-  IconSwitchView,
-  IconCheckCircle,
-  IconWarning,
-  IconUsers,
-  IconPersonOff,
-  IconBell,
-} from "@/components/shared/Icons";
+  Info as IconInfoCircle,
+  Gavel as IconGavel,
+  Lock as IconLock,
+  RefreshCw as IconSwitchView,
+  CircleCheck as IconCheckCircle,
+  TriangleAlert as IconWarning,
+  Users as IconUsers,
+  UserRoundX as IconPersonOff,
+  Bell as IconBell,
+} from "lucide-react";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import { useRouter } from "next/navigation";
 import { getDisplayName } from "@/lib/utils";

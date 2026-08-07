@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import Link from "next/link";
 import styles from "./LinkCard.module.scss";
 
@@ -5,6 +6,7 @@ interface LinkCardProps {
   href: string;
   title: string;
   description: string;
+  icon?: ReactNode;
   external?: boolean;
 }
 
@@ -12,6 +14,7 @@ export default function LinkCard({
   href,
   title,
   description,
+  icon,
   external,
 }: LinkCardProps) {
   if (external) {
@@ -22,7 +25,10 @@ export default function LinkCard({
         target="_blank"
         rel="noopener noreferrer"
       >
-        <h3 className={styles.title}>{title}</h3>
+        <div className={styles.heading}>
+          {icon && <span className={styles.icon}>{icon}</span>}
+          <h3 className={styles.title}>{title}</h3>
+        </div>
         <p className={styles.description}>{description}</p>
       </a>
     );
@@ -30,7 +36,10 @@ export default function LinkCard({
 
   return (
     <Link href={href} className={styles.card}>
-      <h3 className={styles.title}>{title}</h3>
+      <div className={styles.heading}>
+        {icon && <span className={styles.icon}>{icon}</span>}
+        <h3 className={styles.title}>{title}</h3>
+      </div>
       <p className={styles.description}>{description}</p>
     </Link>
   );

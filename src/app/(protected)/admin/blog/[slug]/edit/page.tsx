@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { use } from "react";
 import Link from "next/link";
 import BackLink from "@/components/shared/BackLink";
-import { IconExternalLink } from "@/components/shared/Icons";
+import { ExternalLink as IconExternalLink } from "lucide-react";
 import BlogEditor from "@/components/blog/BlogEditor";
 import type { BlogStatus } from "@/lib/constants";
 import type { ImageFocalPoint } from "@/lib/imageFocalPoint";

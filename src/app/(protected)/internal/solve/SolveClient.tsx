@@ -15,7 +15,10 @@ import {
   LanguageSelector,
   TestCasePanel,
 } from "@/components/shared/code-runner";
-import { IconCopy, IconExternalLink } from "@/components/shared/Icons";
+import {
+  Copy as IconCopy,
+  ExternalLink as IconExternalLink,
+} from "lucide-react";
 import BackLink from "@/components/shared/BackLink";
 
 import styles from "./Solve.module.scss";

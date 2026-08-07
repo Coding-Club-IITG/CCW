@@ -10,10 +10,10 @@ import {
   type ChallengeEntry,
 } from "@/lib/actions/potd";
 import {
-  IconCheckCircle,
-  IconInfoCircle,
-  IconStar,
-} from "@/components/shared/Icons";
+  CircleCheck as IconCheckCircle,
+  Info as IconInfoCircle,
+  Star as IconStar,
+} from "lucide-react";
 import {
   DIFFICULTY_COLORS,
   IST_OFFSET_MS,

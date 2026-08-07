@@ -3,8 +3,8 @@ import {
   IconGithub,
   IconInstagram,
   IconLinkedIn,
-  IconMail,
 } from "@/components/shared/Icons";
+import { Mail as IconMail } from "lucide-react";
 import styles from "./Footer.module.scss";
 
 export default function Footer() {

@@ -6,7 +6,7 @@ import { updateProfile } from "@/lib/actions/user";
 import { requestHandleVerification } from "@/lib/actions/cp-verification";
 import { getCPStatus } from "@/lib/actions/cp-status";
 import ImageUpload from "@/components/shared/ImageUpload";
-import { IconCheck } from "@/components/shared/Icons";
+import { Check as IconCheck } from "lucide-react";
 import styles from "./ProfileForm.module.scss";
 
 export default function ProfileForm() {

@@ -7,12 +7,12 @@ import { usePathname } from "next/navigation";
 import React from "react";
 import styles from "./PotdLayout.module.scss";
 import {
-  IconClock,
-  IconStar,
-  IconFlame,
-  IconArchive,
-  IconEdit,
-} from "@/components/shared/Icons";
+  Clock as IconClock,
+  Star as IconStar,
+  Flame as IconFlame,
+  Archive as IconArchive,
+  PencilLine as IconEdit,
+} from "lucide-react";
 
 // Icons for navigation items
 const Icons = {

@@ -19,12 +19,18 @@ import { prepareSearchQuery } from "@/lib/search";
 import { getDisplayName } from "@/lib/utils";
 import User from "@/models/User";
 
-type MinimalUser = { _id: string; name: string; email: string };
+type MinimalUser = {
+  _id: string;
+  name: string;
+  email: string;
+  image: string | null;
+};
 
 const toMinimal = (u: any): MinimalUser => ({
   _id: u._id.toString(),
   email: u.email,
   name: getDisplayName(u.name, u.pizza_count),
+  image: u.image || null,
 });
 
 export async function GET(request: NextRequest) {
@@ -53,10 +59,13 @@ export async function GET(request: NextRequest) {
 
     if (ids.length === 0) return NextResponse.json({ items: [] });
 
-    const cacheKey = buildCacheKey("users", { ids: [...ids].sort().join(",") });
+    const cacheKey = buildCacheKey("users", {
+      ids: [...ids].sort().join(","),
+      shape: "profile-v2",
+    });
     const items = await cachedFetch(cacheKey, CACHE_TTLS.USERS, async () => {
       const users = await User.find({ _id: { $in: ids } })
-        .select("_id name email pizza_count")
+        .select("_id name email image pizza_count")
         .lean();
       return (users as any[]).map(toMinimal);
     });
@@ -79,12 +88,13 @@ export async function GET(request: NextRequest) {
     page,
     limit,
     search: search?.query,
+    shape: "profile-v2",
   });
 
   const result = await cachedFetch(cacheKey, CACHE_TTLS.USERS, async () => {
     const [users, total] = await Promise.all([
       User.find(filter)
-        .select("_id name email pizza_count")
+        .select("_id name email image pizza_count")
         .sort({ name: 1 })
         .skip(skip)
         .limit(limit)

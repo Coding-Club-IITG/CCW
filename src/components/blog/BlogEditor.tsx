@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import ImageUpload from "@/components/shared/ImageUpload";
+import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
 import TagBadge from "./TagBadge";
-import { IconX } from "@/components/shared/Icons";
+import { X as IconX } from "lucide-react";
 import { BLOG_TAGS, BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import {
   DEFAULT_IMAGE_FOCAL_POINT,
@@ -67,38 +68,8 @@ export default function BlogEditor({
   const [authors, setAuthors] = useState<BlogAuthor[]>(
     initialData?.authors || [],
   );
-  const [authorSearch, setAuthorSearch] = useState("");
-  const [authorResults, setAuthorResults] = useState<
-    { _id: string; name: string }[]
-  >([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  // Debounced server-side member search for the author picker
-  useEffect(() => {
-    const q = authorSearch.trim();
-    if (q.length < 2) {
-      setAuthorResults([]);
-      return;
-    }
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `/api/users?search=${encodeURIComponent(q)}&limit=8`,
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled) setAuthorResults(data.items || []);
-      } catch {
-        if (!cancelled) setAuthorResults([]);
-      }
-    }, 250);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [authorSearch]);
 
   const toggleTag = (tag: string) => {
     setTags((prev) =>
@@ -121,14 +92,12 @@ export default function BlogEditor({
     }
   };
 
-  const addAuthor = (userId: string) => {
-    if (authors.some((a) => a.userId === userId)) return;
-    const user = authorResults.find((u) => u._id === userId);
-    if (user) {
-      setAuthors((prev) => [...prev, { userId: user._id, name: user.name }]);
-      setAuthorSearch("");
-      setAuthorResults([]);
-    }
+  const addAuthor = (user: UserSearchItem) => {
+    if (authors.some((author) => author.userId === user.id)) return;
+    setAuthors((previous) => [
+      ...previous,
+      { userId: user.id, name: user.name },
+    ]);
   };
 
   const removeAuthor = (userId: string) => {
@@ -159,11 +128,6 @@ export default function BlogEditor({
       setSaving(false);
     }
   };
-
-  // Search results not yet added as authors
-  const availableUsers = authorResults.filter(
-    (u) => !authors.some((a) => a.userId === u._id),
-  );
 
   return (
     <div className={styles.editor}>
@@ -216,29 +180,11 @@ export default function BlogEditor({
               ))}
             </div>
           )}
-          <input
-            type="text"
-            className={styles.input}
-            value={authorSearch}
-            onChange={(e) => setAuthorSearch(e.target.value)}
+          <UserSearch
+            excludedIds={authors.map((author) => author.userId)}
             placeholder="Search members by name or email to add as author…"
+            onSelect={addAuthor}
           />
-          {availableUsers.length > 0 && (
-            <select
-              className={styles.select}
-              value=""
-              onChange={(e) => {
-                if (e.target.value) addAuthor(e.target.value);
-              }}
-            >
-              <option value="">Add an author...</option>
-              {availableUsers.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          )}
         </div>
       )}
 

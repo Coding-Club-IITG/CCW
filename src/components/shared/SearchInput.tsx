@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { IconSearch, IconX } from "@/components/shared/Icons";
+import { Search as IconSearch, X as IconX } from "lucide-react";
 import styles from "./SearchInput.module.scss";
 
 type SearchInputProps = {

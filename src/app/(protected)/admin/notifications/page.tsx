@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import BackLink from "@/components/shared/BackLink";
-import { IconSend } from "@/components/shared/Icons";
+import { Send as IconSend } from "lucide-react";
 import { MODULES } from "@/lib/constants";
 import styles from "./Notifications.module.scss";
 

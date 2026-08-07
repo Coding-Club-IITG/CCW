@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "@/lib/auth-client";
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
+import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
 import { getDisplayName, formatDate } from "@/lib/utils";
 import {
-  IconUsers,
-  IconCalendar,
-  IconExternalLink,
-} from "@/components/shared/Icons";
+  Users as IconUsers,
+  CalendarDays as IconCalendar,
+  ExternalLink as IconExternalLink,
+} from "lucide-react";
 import styles from "../Hackathons.module.scss";
 
 interface MemberDetail {
@@ -52,11 +53,25 @@ interface HackathonRequest {
   createdAt: string;
 }
 
-interface SearchUser {
-  id: string;
-  name: string;
-  email: string;
-  pizza_count: number;
+async function searchHackathonUsers(query: string, signal: AbortSignal) {
+  const response = await fetch(
+    `/api/hackathons/users?q=${encodeURIComponent(query)}`,
+    { signal },
+  );
+  if (!response.ok) throw new Error("User search failed");
+  const data = (await response.json()) as {
+    items?: Array<{
+      id: string;
+      name: string;
+      email: string;
+      pizza_count: number;
+    }>;
+  };
+  return (data.items || []).map((user) => ({
+    id: user.id,
+    name: getDisplayName(user.name, user.pizza_count),
+    secondary: user.email,
+  }));
 }
 
 export default function HackathonDetailPage({
@@ -94,8 +109,6 @@ export default function HackathonDetailPage({
   >({});
 
   // Invite search
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [inviting, setInviting] = useState<string | null>(null);
 
   // My pending invites
@@ -311,7 +324,6 @@ export default function HackathonDetailPage({
         return;
       }
 
-      setSearchResults((prev) => prev.filter((u) => u.id !== toUserId));
       alert("Invite sent!");
     } catch {
       setError("Failed to send invite.");
@@ -345,23 +357,6 @@ export default function HackathonDetailPage({
       }
     } catch {
       setError(`Failed to ${action} request.`);
-    }
-  }
-
-  async function handleSearch(q: string) {
-    setSearchQuery(q);
-    if (q.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    try {
-      const res = await fetch(
-        `/api/hackathons/users?q=${encodeURIComponent(q)}`,
-      );
-      const data = await res.json();
-      setSearchResults(data.items || []);
-    } catch {
-      setSearchResults([]);
     }
   }
 
@@ -626,31 +621,16 @@ export default function HackathonDetailPage({
               <label className={styles.muted}>
                 Invite members to your team
               </label>
-              <input
-                type="text"
-                className={styles.searchInput}
-                placeholder="Search by name..."
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
+              <UserSearch
+                search={searchHackathonUsers}
+                excludedIds={myTeam!.members}
+                placeholder={
+                  inviting ? "Sending invitation…" : "Search members to invite…"
+                }
+                onSelect={(user: UserSearchItem) =>
+                  handleInvite(myTeam!._id, user.id)
+                }
               />
-              {searchResults.length > 0 && (
-                <div className={styles.searchResults}>
-                  {searchResults
-                    .filter((u) => !myTeam!.members.includes(u.id))
-                    .map((u) => (
-                      <div key={u.id} className={styles.searchItem}>
-                        <span>{getDisplayName(u.name, u.pizza_count)}</span>
-                        <button
-                          className={`${styles.btnSmall} ${styles.btnAccept}`}
-                          onClick={() => handleInvite(myTeam!._id, u.id)}
-                          disabled={inviting === u.id}
-                        >
-                          {inviting === u.id ? "..." : "Invite"}
-                        </button>
-                      </div>
-                    ))}
-                </div>
-              )}
             </div>
           )}
         </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
-import { IconExternalLink } from "@/components/shared/Icons";
+import { ExternalLink as IconExternalLink } from "lucide-react";
 import Pagination from "@/components/shared/Pagination";
 import type { BlogStatus } from "@/lib/constants";
 import styles from "./AdminBlog.module.scss";

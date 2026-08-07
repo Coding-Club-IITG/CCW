@@ -8,8 +8,7 @@ import {
   deleteScheduledChallenge,
   type ScheduledChallenge,
 } from "@/lib/actions/admin/potd";
-import { IconTrash } from "@/components/shared/Icons";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Trash2 as IconTrash } from "lucide-react";
 import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
 import { ScheduledProblemCard } from "./ScheduledProblemCard";
 import AutoProblemModal from "./AutoProblemModal";

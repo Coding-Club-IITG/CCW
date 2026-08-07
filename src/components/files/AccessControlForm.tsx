@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Globe, FolderOpen, Shield, Users, Search, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Globe, FolderOpen, Shield, Users, X } from "lucide-react";
 import { MODULES, CLUB_POSITIONS, MODULE_POSITIONS } from "@/lib/constants";
+import UserSearch from "@/components/shared/UserSearch";
 import type { AccessControl, UserBasic } from "./types";
 import styles from "./FilesClient.module.scss";
 
@@ -12,54 +13,7 @@ interface Props {
 }
 
 export default function AccessControlForm({ value, onChange }: Props) {
-  const [userSearch, setUserSearch] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [results, setResults] = useState<UserBasic[]>([]);
   const [userCache, setUserCache] = useState<Record<string, UserBasic>>({});
-  const pickerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
-
-  // Debounced server-side search
-  useEffect(() => {
-    const q = userSearch.trim();
-    if (q.length < 2) {
-      setResults([]);
-      return;
-    }
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `/api/users?search=${encodeURIComponent(q)}&limit=8`,
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled) return;
-        const items: UserBasic[] = data.items || [];
-        setResults(items);
-        setUserCache((prev) => {
-          const next = { ...prev };
-          for (const u of items) next[u._id] = u;
-          return next;
-        });
-      } catch {
-        if (!cancelled) setResults([]);
-      }
-    }, 250);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [userSearch]);
 
   // Resolve names for already-selected users not yet in the cache
   useEffect(() => {
@@ -97,10 +51,6 @@ export default function AccessControlForm({ value, onChange }: Props) {
       : [...arr, item];
     onChange({ ...value, [key]: next });
   }
-
-  const availableResults = results.filter(
-    (u) => !value.allowedUsers.includes(u._id),
-  );
 
   const selectedUsers = value.allowedUsers
     .map((id) => userCache[id])
@@ -221,45 +171,23 @@ export default function AccessControlForm({ value, onChange }: Props) {
               </div>
             )}
 
-            <div className={styles.userPickerWrapper} ref={pickerRef}>
-              <div className={styles.userSearchInput}>
-                <Search size={13} />
-                <input
-                  type="text"
-                  placeholder="Search by name or email…"
-                  value={userSearch}
-                  onChange={(e) => {
-                    setUserSearch(e.target.value);
-                    setShowDropdown(true);
-                  }}
-                  onFocus={() => setShowDropdown(true)}
-                />
-              </div>
-              {showDropdown &&
-                userSearch.trim().length >= 2 &&
-                availableResults.length > 0 && (
-                  <div className={styles.userDropdown}>
-                    {availableResults.map((u) => (
-                      <button
-                        key={u._id}
-                        type="button"
-                        className={styles.userDropdownItem}
-                        onClick={() => {
-                          onChange({
-                            ...value,
-                            allowedUsers: [...value.allowedUsers, u._id],
-                          });
-                          setUserSearch("");
-                          setShowDropdown(false);
-                        }}
-                      >
-                        <strong>{u.name}</strong>
-                        <span>{u.email}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-            </div>
+            <UserSearch
+              excludedIds={value.allowedUsers}
+              onSelect={(user) => {
+                setUserCache((previous) => ({
+                  ...previous,
+                  [user.id]: {
+                    _id: user.id,
+                    name: user.name,
+                    email: user.secondary || "",
+                  },
+                }));
+                onChange({
+                  ...value,
+                  allowedUsers: [...value.allowedUsers, user.id],
+                });
+              }}
+            />
           </div>
         </>
       )}

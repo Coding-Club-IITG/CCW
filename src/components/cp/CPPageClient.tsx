@@ -4,7 +4,10 @@ import { useState } from "react";
 import RatingLeaderboardClient from "@/components/leaderboard/RatingLeaderboardClient";
 import ContestCalendar from "@/components/cp/ContestCalendar";
 import styles from "./CPPage.module.scss";
-import { IconTrophy, IconCalendar } from "@/components/shared/Icons";
+import {
+  Trophy as IconTrophy,
+  CalendarDays as IconCalendar,
+} from "lucide-react";
 
 type RatingLeaderboardEntry = {
   id: string;

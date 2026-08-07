@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { IconBell, IconExternalLink } from "@/components/shared/Icons";
+import {
+  Bell as IconBell,
+  ExternalLink as IconExternalLink,
+} from "lucide-react";
 import styles from "./NotificationBell.module.scss";
 
 interface Notification {

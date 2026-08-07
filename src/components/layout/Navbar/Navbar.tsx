@@ -2,44 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Menu, Moon, Sun, X } from "lucide-react";
+import {
+  Menu,
+  Moon,
+  ShieldCheck,
+  Sun,
+  RefreshCw as IconSwitchView,
+  UserRound,
+  Users,
+  X,
+} from "lucide-react";
 import { useSession, signIn, signOut } from "@/lib/auth-client";
 import { getUserRoleLabels, isHead } from "@/lib/roles";
 import { useThemeStore } from "@/lib/store/theme";
 import { useViewModeStore } from "@/lib/store/view-mode";
 import { getDisplayName } from "@/lib/utils";
-import { IconSwitchView } from "@/components/shared/Icons";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+import UserAvatar from "@/components/shared/UserAvatar";
+import CreditsModal from "./CreditsModal";
 import NotificationBell from "./NotificationBell";
 import styles from "./Navbar.module.scss";
-
-function UserAvatar({
-  name,
-  image,
-}: {
-  name: string | undefined;
-  image: string | undefined | null;
-}) {
-  const initials = (name || "U")
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
-  if (image) {
-    return (
-      <CompatibleImage
-        src={image}
-        alt={name || "User"}
-        className={styles.avatarImg}
-        width={32}
-        height={32}
-      />
-    );
-  }
-  return <span className={styles.avatarInitials}>{initials}</span>;
-}
 
 const PUBLIC_LINKS = [
   { href: "/", label: "Home" },
@@ -64,6 +45,7 @@ export default function Navbar() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   const { theme, toggleTheme } = useThemeStore();
   const { viewMode, toggleViewMode } = useViewModeStore();
   const navbarRef = useRef<HTMLElement>(null);
@@ -146,7 +128,13 @@ export default function Navbar() {
                 aria-expanded={menuOpen}
                 type="button"
               >
-                <UserAvatar name={user?.name} image={user?.image} />
+                <UserAvatar
+                  name={user?.name}
+                  image={user?.image}
+                  size={32}
+                  imageClassName={styles.avatarImg}
+                  fallbackClassName={styles.avatarInitials}
+                />
               </button>
               {menuOpen && (
                 <div className={styles.userMenu}>
@@ -181,6 +169,7 @@ export default function Navbar() {
                           setHamburgerOpen(false);
                         }}
                       >
+                        <UserRound aria-hidden="true" size={14} />
                         Profile
                       </Link>
                       {isHead(user?.access) && (
@@ -192,6 +181,7 @@ export default function Navbar() {
                             setHamburgerOpen(false);
                           }}
                         >
+                          <ShieldCheck aria-hidden="true" size={14} />
                           Administration
                         </Link>
                       )}
@@ -208,6 +198,19 @@ export default function Navbar() {
                     <IconSwitchView width={14} height={14} />
                     {showInternal ? "Public View" : "Internal View"}
                   </button>
+                  {showInternal && (
+                    <button
+                      className={styles.userMenuItem}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setHamburgerOpen(false);
+                        setCreditsOpen(true);
+                      }}
+                    >
+                      <Users aria-hidden="true" size={14} />
+                      Credits
+                    </button>
+                  )}
                   <button
                     className={styles.userMenuLogout}
                     onClick={async () => {
@@ -250,6 +253,17 @@ export default function Navbar() {
           </button>
         </div>
       </div>
+      {creditsOpen && (
+        <CreditsModal
+          canEdit={isHead(user?.access)}
+          onClose={() => {
+            setCreditsOpen(false);
+            requestAnimationFrame(() =>
+              menuRef.current?.querySelector("button")?.focus(),
+            );
+          }}
+        />
+      )}
     </nav>
   );
 }

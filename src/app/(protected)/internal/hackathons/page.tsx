@@ -6,10 +6,10 @@ import SearchInput from "@/components/shared/SearchInput";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import { formatDate } from "@/lib/utils";
 import {
-  IconUsers,
-  IconCalendar,
-  IconExternalLink,
-} from "@/components/shared/Icons";
+  Users as IconUsers,
+  CalendarDays as IconCalendar,
+  ExternalLink as IconExternalLink,
+} from "lucide-react";
 import styles from "./Hackathons.module.scss";
 
 interface Hackathon {

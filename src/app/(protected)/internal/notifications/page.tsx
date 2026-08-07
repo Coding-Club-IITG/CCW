@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { IconExternalLink } from "@/components/shared/Icons";
+import { ExternalLink as IconExternalLink } from "lucide-react";
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
 import styles from "./Notifications.module.scss";

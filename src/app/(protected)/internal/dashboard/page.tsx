@@ -1,10 +1,20 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import Link from "next/link";
+import {
+  CalendarDays,
+  Code2,
+  FileText,
+  Flame,
+  PencilLine as IconEdit,
+  ShieldCheck,
+  Swords,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
 import dbConnect from "@/lib/mongodb";
 import { isHead } from "@/lib/roles";
 import LinkCard from "@/components/shared/LinkCard";
-import { IconEdit } from "@/components/shared/Icons";
 import { getDisplayName } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 import styles from "./Dashboard.module.scss";
@@ -40,42 +50,50 @@ export default async function DashboardPage() {
             href="/admin"
             title="Website Administration"
             description="Manage website settings."
+            icon={<ShieldCheck size={18} />}
           />
         )}
         <LinkCard
           href="/internal/profile"
           title="Update Profile"
           description="Edit your display name, bio, and linked platform handles."
+          icon={<UserRound size={18} />}
         />
         <LinkCard
           href="/internal/calendar"
           title="Club Calendar"
           description="See general and module events, agendas, and meeting minutes."
+          icon={<CalendarDays size={18} />}
         />
         <LinkCard
           href="/internal/files"
           title="File Sharing"
           description="Access shared resources, notes, and module materials."
+          icon={<FileText size={18} />}
         />
         <LinkCard
           href="/internal/cp"
           title="Competitive Programming"
           description="Leaderboards, contests, and your CP performance tracker."
+          icon={<Code2 size={18} />}
         />
         <LinkCard
           href="/internal/contests"
           title="Contests & Arena"
           description="Compete in live coding contests and 1v1 arenas."
+          icon={<Swords size={18} />}
         />
         <LinkCard
           href="/internal/potd"
           title="Problem of the Day"
           description="Daily coding challenges, streaks, and submissions."
+          icon={<Flame size={18} />}
         />
         <LinkCard
           href="/internal/hackathons"
           title="Hackathon Finder"
           description="Find active hackathons and build your team."
+          icon={<UsersRound size={18} />}
         />
       </div>
 
