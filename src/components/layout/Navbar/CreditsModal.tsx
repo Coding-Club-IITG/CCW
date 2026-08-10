@@ -125,7 +125,7 @@ export default function CreditsModal({ canEdit, onClose }: CreditsModalProps) {
   return (
     <Modal
       title="Credits"
-      description="The people who helped build CCW."
+      description="The people who helped build and maintain CCW."
       onClose={onClose}
       closeDisabled={saving}
       maxWidth={720}
@@ -214,7 +214,7 @@ export default function CreditsModal({ canEdit, onClose }: CreditsModalProps) {
                         })
                       }
                       aria-label={`Time for ${entry.name}`}
-                      placeholder="e.g. May–July 2026"
+                      placeholder="Eg. May-July 2026"
                       maxLength={80}
                     />
                     <div className={styles.rowActions}>
