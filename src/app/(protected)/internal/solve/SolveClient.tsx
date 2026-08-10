@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import "katex/dist/katex.min.css";
 
 import type { CodeRunnerLanguage, TestCase, Platform } from "@/lib/constants";
 import {
@@ -29,6 +30,16 @@ type Props = {
   problemIndex?: string;
   title?: string;
   challengeId?: string;
+  content?: {
+    statementHtml: string;
+    inputSpecificationHtml: string;
+    outputSpecificationHtml: string;
+    constraintsHtml?: string;
+    notesHtml?: string;
+    samples: Array<{ input: string; output: string }>;
+    timeLimitMs?: number;
+    memoryLimitMb?: number;
+  } | null;
 };
 
 export default function SolveClient({
@@ -37,11 +48,25 @@ export default function SolveClient({
   problemIndex,
   title,
   challengeId,
+  content,
 }: Props) {
   const [language, setLanguage] = useState<CodeRunnerLanguage>("cpp");
   const [code, setCode] = useState<string>("");
-  const [testCases, setTestCases] = useState<TestCase[]>([]);
-  const [activeTestCaseId, setActiveTestCaseId] = useState<string | null>(null);
+  const initialTestCases: TestCase[] = (content?.samples ?? []).map(
+    (sample, index) => ({
+      id: `sample-${index + 1}`,
+      input: sample.input,
+      expectedOutput: sample.output,
+      isCustom: false,
+    }),
+  );
+  const [testCases, setTestCases] = useState<TestCase[]>(initialTestCases);
+  const [activeTestCaseId, setActiveTestCaseId] = useState<string | null>(
+    initialTestCases[0]?.id ?? null,
+  );
+  const [rightPanelTab, setRightPanelTab] = useState<"problem" | "tests">(
+    content ? "problem" : "tests",
+  );
   const [copied, setCopied] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
@@ -230,14 +255,100 @@ export default function SolveClient({
           className={styles.rightPanel}
           style={{ flexBasis: `${rightPanelWidth}%` }}
         >
-          <TestCasePanel
-            testCases={testCases}
-            onTestCasesChange={setTestCases}
-            activeTestCaseId={activeTestCaseId}
-            onSelectTestCase={setActiveTestCaseId}
-            code={code}
-            language={language}
-          />
+          {content && (
+            <div className={styles.panelTabs} role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={rightPanelTab === "problem"}
+                className={
+                  rightPanelTab === "problem"
+                    ? styles.panelTabActive
+                    : styles.panelTab
+                }
+                onClick={() => setRightPanelTab("problem")}
+              >
+                Problem
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={rightPanelTab === "tests"}
+                className={
+                  rightPanelTab === "tests"
+                    ? styles.panelTabActive
+                    : styles.panelTab
+                }
+                onClick={() => setRightPanelTab("tests")}
+              >
+                Sample tests ({testCases.length})
+              </button>
+            </div>
+          )}
+          {content && rightPanelTab === "problem" ? (
+            <article className={styles.problemStatement}>
+              {(content.timeLimitMs || content.memoryLimitMb) && (
+                <div className={styles.problemLimits}>
+                  {content.timeLimitMs && (
+                    <span>Time: {content.timeLimitMs / 1000}s</span>
+                  )}
+                  {content.memoryLimitMb && (
+                    <span>Memory: {content.memoryLimitMb} MB</span>
+                  )}
+                </div>
+              )}
+              <section
+                dangerouslySetInnerHTML={{ __html: content.statementHtml }}
+              />
+              {content.constraintsHtml && (
+                <>
+                  <h2>Constraints</h2>
+                  <section
+                    dangerouslySetInnerHTML={{
+                      __html: content.constraintsHtml,
+                    }}
+                  />
+                </>
+              )}
+              {content.inputSpecificationHtml && (
+                <>
+                  <h2>Input</h2>
+                  <section
+                    dangerouslySetInnerHTML={{
+                      __html: content.inputSpecificationHtml,
+                    }}
+                  />
+                </>
+              )}
+              {content.outputSpecificationHtml && (
+                <>
+                  <h2>Output</h2>
+                  <section
+                    dangerouslySetInnerHTML={{
+                      __html: content.outputSpecificationHtml,
+                    }}
+                  />
+                </>
+              )}
+              {content.notesHtml && (
+                <>
+                  <h2>Notes</h2>
+                  <section
+                    dangerouslySetInnerHTML={{ __html: content.notesHtml }}
+                  />
+                </>
+              )}
+            </article>
+          ) : (
+            <TestCasePanel
+              testCases={testCases}
+              onTestCasesChange={setTestCases}
+              activeTestCaseId={activeTestCaseId}
+              onSelectTestCase={setActiveTestCaseId}
+              code={code}
+              language={language}
+            />
+          )}
         </div>
       </div>
     </div>

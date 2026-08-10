@@ -6,6 +6,7 @@ import type { OnMount } from "@monaco-editor/react";
 
 import type { CodeRunnerLanguage } from "@/lib/constants";
 import { CODE_RUNNER_DEFAULT_CODE } from "@/lib/constants";
+import { useThemeStore } from "@/lib/store/theme";
 
 import styles from "./CodeRunner.module.scss";
 
@@ -19,6 +20,7 @@ type Props = {
 
 export default function CodeEditor({ language, value, onChange }: Props) {
   const [mounted, setMounted] = useState(false);
+  const theme = useThemeStore((state) => state.theme);
 
   const handleMount = useCallback<OnMount>((editorInstance, monaco) => {
     setMounted(true);
@@ -79,7 +81,7 @@ export default function CodeEditor({ language, value, onChange }: Props) {
         value={displayValue}
         onChange={(val) => onChange?.(val ?? "")}
         onMount={handleMount}
-        theme="vs-dark"
+        theme={theme === "light" ? "vs" : "vs-dark"}
         options={{
           fontSize: 14,
           fontFamily:

@@ -66,13 +66,10 @@ export default function TestCasePanel({
     for (let i = 0; i < testCases.length; i++) {
       const tc = testCases[i];
       try {
-        const result = await executeCode(language, code, tc.input);
-
-        // After first successful call, runtime is loaded
-        if (i === 0 && !runtimeLoaded.current[language]) {
+        const result = await executeCode(language, code, tc.input, () => {
           runtimeLoaded.current[language] = true;
           setRunPhase("running");
-        }
+        });
 
         const actualTrimmed = result.stdout.trim();
         const expectedTrimmed = tc.expectedOutput.trim();

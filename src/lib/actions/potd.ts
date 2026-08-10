@@ -8,6 +8,7 @@ import dbConnect from "@/lib/mongodb";
 import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache";
 import { getRedis } from "@/lib/redis";
 import { prepareSearchQuery } from "@/lib/search";
+import { renderProblemMath } from "@/lib/platforms/problemContent";
 import User from "@/models/User";
 import CPUser from "@/models/CPUser";
 import Problem from "@/models/POTDProblem";
@@ -51,6 +52,85 @@ export type TodayChallengeData = {
   graceEnd: string; // ISO - 2:00 AM IST next day (20:29 UTC)
   challenges: ChallengeEntry[]; // sorted Easy -> Medium -> Hard
 };
+
+export type SolveChallengeData = {
+  challengeId: string;
+  platform: Platform;
+  contestId: string;
+  problemIndex: string;
+  title: string;
+  content: {
+    statementHtml: string;
+    inputSpecificationHtml: string;
+    outputSpecificationHtml: string;
+    constraintsHtml?: string;
+    notesHtml?: string;
+    samples: Array<{ input: string; output: string }>;
+    timeLimitMs?: number;
+    memoryLimitMb?: number;
+  } | null;
+};
+
+export async function getSolveChallenge(
+  challengeId: string,
+): Promise<
+  | { success: true; data: SolveChallengeData }
+  | { success: false; error: string }
+> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) return { success: false, error: "Unauthorized" };
+  if (!mongoose.isValidObjectId(challengeId)) {
+    return { success: false, error: "Invalid challenge" };
+  }
+
+  await dbConnect();
+  const challenge =
+    await DailyChallenge.findById(challengeId).populate("problem");
+  if (!challenge) return { success: false, error: "Challenge not found" };
+
+  const now = new Date();
+  if (now < challenge.windowStart || now > challenge.graceEnd) {
+    return { success: false, error: "Challenge is not active" };
+  }
+
+  const problem = challenge.problem as any;
+  const content = problem.content;
+  return {
+    success: true,
+    data: {
+      challengeId: challenge._id.toString(),
+      platform: problem.platform || "codeforces",
+      contestId: problem.contestId,
+      problemIndex: problem.problemIndex,
+      title: problem.name,
+      content: content
+        ? {
+            statementHtml: renderProblemMath(content.statementHtml),
+            inputSpecificationHtml: renderProblemMath(
+              content.inputSpecificationHtml,
+            ),
+            outputSpecificationHtml: renderProblemMath(
+              content.outputSpecificationHtml,
+            ),
+            constraintsHtml: content.constraintsHtml
+              ? renderProblemMath(content.constraintsHtml)
+              : undefined,
+            notesHtml: content.notesHtml
+              ? renderProblemMath(content.notesHtml)
+              : undefined,
+            samples: (content.samples || []).map(
+              (sample: { input: string; output: string }) => ({
+                input: sample.input,
+                output: sample.output,
+              }),
+            ),
+            timeLimitMs: content.timeLimitMs || undefined,
+            memoryLimitMb: content.memoryLimitMb || undefined,
+          }
+        : null,
+    },
+  };
+}
 
 // Get Today's Challenges
 // Only returns challenges during the main window (windowStart <= now <= windowEnd).

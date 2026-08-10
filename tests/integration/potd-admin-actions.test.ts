@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
   getProblemById: vi.fn(),
   getUserSubmissionsSince: vi.fn(),
   syncUserChallenge: vi.fn(),
+  fetchProblemContent: vi.fn(),
 }));
 
 let cachedProblems: unknown[] | null = null;
@@ -60,6 +61,9 @@ vi.mock("@/lib/platforms/atcoder", () => ({
 }));
 vi.mock("@/lib/platforms/codeforces", () => ({
   getUserSubmissionsSince: mocks.getUserSubmissionsSince,
+}));
+vi.mock("@/lib/platforms/problemContent", () => ({
+  fetchProblemContent: mocks.fetchProblemContent,
 }));
 vi.mock("@/lib/potd/finalize", () => ({
   syncUserChallenge: mocks.syncUserChallenge,
@@ -97,6 +101,14 @@ describe("POTD administration actions", () => {
     mocks.syncUserChallenge.mockResolvedValue({
       status: "Accepted",
       pointsAwarded: 100,
+    });
+    mocks.fetchProblemContent.mockResolvedValue({
+      title: "Fetched problem",
+      statementHtml: "<p>Statement</p>",
+      inputSpecificationHtml: "<p>Input</p>",
+      outputSpecificationHtml: "<p>Output</p>",
+      samples: [{ input: "1", output: "2" }],
+      sourceUrl: "https://example.test/problem",
     });
   });
 
@@ -172,6 +184,10 @@ describe("POTD administration actions", () => {
       name: "Next Round",
       rating: 800,
       tags: ["implementation"],
+      content: {
+        statementHtml: "<p>Statement</p>",
+        samples: [{ input: "1", output: "2" }],
+      },
     });
     expect(challenge).toMatchObject(computeWindowTimes("2026-07-31"));
   });
@@ -213,6 +229,25 @@ describe("POTD administration actions", () => {
     expect(
       await Problem.findOne({ platform: "atcoder", problemIndex: "abc123_a" }),
     ).toMatchObject({ contestId: "abc123", rating: 900 });
+    expect(mocks.fetchProblemContent).toHaveBeenCalledWith(
+      "atcoder",
+      "abc123",
+      "abc123_a",
+    );
+  });
+
+  it("still schedules when public problem content is unavailable", async () => {
+    const { setDailyProblem } = await import("@/lib/actions/admin/potd");
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-30T06:00:00.000Z"));
+    mocks.fetchProblemContent.mockRejectedValueOnce(new Error("blocked"));
+
+    await expect(
+      setDailyProblem("2026-07-31", "158A", "Easy"),
+    ).resolves.toEqual({ ok: true });
+    expect(await Problem.findOne({ contestId: "158" }).lean()).toMatchObject({
+      content: null,
+    });
   });
 
   it("does not delete an ended challenge but deletes a future one", async () => {

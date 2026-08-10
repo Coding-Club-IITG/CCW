@@ -1,5 +1,27 @@
 import mongoose from "mongoose";
 
+const ProblemContentSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    statementHtml: { type: String, required: true },
+    inputSpecificationHtml: { type: String, default: "" },
+    outputSpecificationHtml: { type: String, default: "" },
+    constraintsHtml: { type: String, default: null },
+    notesHtml: { type: String, default: null },
+    samples: [
+      {
+        _id: false,
+        input: { type: String, required: true },
+        output: { type: String, required: true },
+      },
+    ],
+    timeLimitMs: { type: Number, default: null },
+    memoryLimitMb: { type: Number, default: null },
+    sourceUrl: { type: String, required: true },
+  },
+  { _id: false },
+);
+
 const ProblemSchema = new mongoose.Schema(
   {
     platform: {
@@ -13,6 +35,8 @@ const ProblemSchema = new mongoose.Schema(
     name: { type: String, required: true },
     rating: { type: Number, default: 0 },
     tags: [{ type: String }],
+    content: { type: ProblemContentSchema, default: null },
+    contentFetchedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

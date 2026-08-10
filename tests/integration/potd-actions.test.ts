@@ -144,6 +144,55 @@ describe("POTD member actions", () => {
     });
   });
 
+  it("returns the cached statement and samples only for an active challenge", async () => {
+    const now = new Date();
+    const problem = await Problem.create({
+      platform: "codeforces",
+      contestId: "158",
+      problemIndex: "A",
+      name: "Next Round",
+      rating: 800,
+      content: {
+        title: "A. Next Round",
+        statementHtml: "<p>Statement</p>",
+        inputSpecificationHtml: "<p>Input</p>",
+        outputSpecificationHtml: "<p>Output</p>",
+        samples: [{ input: "8 5", output: "6" }],
+        sourceUrl: "https://codeforces.com/contest/158/problem/A",
+      },
+    });
+    const challenge = await DailyChallenge.create({
+      windowStart: new Date(now.getTime() - 60_000),
+      windowEnd: new Date(now.getTime() + 60_000),
+      graceEnd: new Date(now.getTime() + 120_000),
+      problem: problem._id,
+      difficulty: "Easy",
+      setBy: new mongoose.Types.ObjectId(),
+    });
+    const { getSolveChallenge } = await import("@/lib/actions/potd");
+
+    await expect(getSolveChallenge(challenge._id.toString())).resolves.toEqual({
+      success: true,
+      data: {
+        challengeId: challenge._id.toString(),
+        platform: "codeforces",
+        contestId: "158",
+        problemIndex: "A",
+        title: "Next Round",
+        content: {
+          statementHtml: "<p>Statement</p>",
+          inputSpecificationHtml: "<p>Input</p>",
+          outputSpecificationHtml: "<p>Output</p>",
+          constraintsHtml: undefined,
+          notesHtml: undefined,
+          samples: [{ input: "8 5", output: "6" }],
+          timeLimitMs: undefined,
+          memoryLimitMb: undefined,
+        },
+      },
+    });
+  });
+
   it("rejects an invalid challenge id before writing a submission", async () => {
     const { markChallengeOpened } = await import("@/lib/actions/potd");
 
