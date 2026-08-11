@@ -1,10 +1,14 @@
 /**
- * Codeforces API utilities
+ * Codeforces utilities
  * Wrapping @ronits2407/cp-api SDK
  */
 
 import { cp } from "@ronits2407/cp-api";
+import { getRedis } from "@/lib/redis";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+
+const DISTRIBUTED_CODEFORCES_SLOT_KEY = "ccw:platform:codeforces:request-slot";
+const DISTRIBUTED_CODEFORCES_SLOT_SECONDS = 2;
 
 // Re-export types from SDK
 export type { CFSubmission, CFUserInfo, CFProblem } from "@ronits2407/cp-api";
@@ -26,13 +30,20 @@ export async function getUserSubmissions(handle: string, count: number = 100) {
 /**
  * Fetch ALL of a user's submissions newer than 'sinceMs'
  */
-export async function getUserSubmissionsSince(
-  handle: string,
-  sinceMs: number,
-  timeoutMs: number = 10_000,
-) {
-  // The SDK handles rate limiting and pagination internally
+export async function getUserSubmissionsSince(handle: string, sinceMs: number) {
   return cp.codeforces.getSubmissionsSince(handle, sinceMs);
+}
+
+/**
+ * Coordinate interactive Codeforces requests across CCW processes
+ */
+export async function acquireDistributedCodeforcesSlot(): Promise<boolean> {
+  const redis = await getRedis();
+  const acquired = await redis.set(DISTRIBUTED_CODEFORCES_SLOT_KEY, "1", {
+    NX: true,
+    EX: DISTRIBUTED_CODEFORCES_SLOT_SECONDS,
+  });
+  return Boolean(acquired);
 }
 
 /**

@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   revalidatePath: vi.fn(),
   syncUserChallenge: vi.fn(),
+  acquireDistributedCodeforcesSlot: vi.fn(),
   getUserSubmissionsSince: vi.fn(),
   getUserSubmissions: vi.fn(),
 }));
@@ -77,6 +78,7 @@ vi.mock("@/lib/potd/finalize", () => ({
   syncUserChallenge: mocks.syncUserChallenge,
 }));
 vi.mock("@/lib/platforms/codeforces", () => ({
+  acquireDistributedCodeforcesSlot: mocks.acquireDistributedCodeforcesSlot,
   getUserSubmissionsSince: mocks.getUserSubmissionsSince,
 }));
 vi.mock("@/lib/platforms/atcoder", () => ({
@@ -99,6 +101,7 @@ describe("POTD member actions", () => {
       status: "Accepted",
       pointsAwarded: 100,
     });
+    mocks.acquireDistributedCodeforcesSlot.mockResolvedValue(true);
     mocks.getUserSubmissionsSince.mockResolvedValue([]);
     mocks.getUserSubmissions.mockResolvedValue([]);
   });

@@ -64,6 +64,10 @@ programming systems, content, administration, and background integrations.
   aspect ratio.
 - Platform integrations currently include Codeforces and AtCoder, with contest
   aggregation also covering other competitive-programming platforms.
+- `@ronits2407/cp-api` owns CP Platform HTTP requests, retries,
+  process-local rate limiting, parsing, and its in-memory L1 cache.
+  CCW keeps Redis-backed user/cron locks, interactive Codeforces
+  request coordination, and shared L2 metadata caches.
 
 ## Authentication and Access
 

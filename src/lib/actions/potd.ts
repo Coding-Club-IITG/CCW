@@ -25,7 +25,10 @@ import { DIFFICULTY_ORDER } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
 import { syncUserChallenge } from "@/lib/potd/finalize";
 import { getUserSubmissions } from "@/lib/platforms/atcoder";
-import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
+import {
+  acquireDistributedCodeforcesSlot,
+  getUserSubmissionsSince,
+} from "@/lib/platforms/codeforces";
 
 // Types
 
@@ -364,12 +367,7 @@ export async function syncMySubmission(challengeId: string): Promise<{
     let platformSubs: any[] = [];
 
     if (platform === "codeforces") {
-      // Global CF API rate limit
-      const globalCFLimitKey = `potd:sync:cf_api_global`;
-      const cfApiLocked = await redis.set(globalCFLimitKey, "1", {
-        NX: true,
-        EX: 2,
-      });
+      const cfApiLocked = await acquireDistributedCodeforcesSlot();
       if (!cfApiLocked) {
         await redis.del(rateLimitKey);
         await redis.del(advisoryKey);

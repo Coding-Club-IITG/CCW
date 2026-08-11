@@ -10,6 +10,8 @@
     "start": "concurrently -k -n web,worker -c cyan,magenta \"next start\" \"tsx src/worker.ts\"",
     "start:web": "next start",
     "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run",
@@ -61,6 +63,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.12",
     "eventsource": "^4.1.0",
+    "prettier": "^3.9.6",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
