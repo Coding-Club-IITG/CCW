@@ -29,7 +29,7 @@ import { syncUserChallenge } from "@/lib/potd/finalize";
 import { fetchUserSubmissions } from "@/lib/potd/recompute";
 import { getProblemById } from "@/lib/platforms/atcoder";
 import {
-  fetchProblemContent,
+  fetchProblemContentForScheduling,
   type ProblemContentSnapshot,
 } from "@/lib/platforms/problemContent";
 
@@ -222,7 +222,7 @@ export async function setDailyProblem(
   }
 
   try {
-    problemContent = await fetchProblemContent(
+    problemContent = await fetchProblemContentForScheduling(
       platform,
       contestId,
       problemIndex,

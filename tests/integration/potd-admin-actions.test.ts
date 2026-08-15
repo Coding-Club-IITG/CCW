@@ -29,7 +29,7 @@ const mocks = vi.hoisted(() => ({
   getProblemById: vi.fn(),
   getUserSubmissionsSince: vi.fn(),
   syncUserChallenge: vi.fn(),
-  fetchProblemContent: vi.fn(),
+  fetchProblemContentForScheduling: vi.fn(),
 }));
 
 let cachedProblems: unknown[] | null = null;
@@ -63,7 +63,7 @@ vi.mock("@/lib/platforms/codeforces", () => ({
   getUserSubmissionsSince: mocks.getUserSubmissionsSince,
 }));
 vi.mock("@/lib/platforms/problemContent", () => ({
-  fetchProblemContent: mocks.fetchProblemContent,
+  fetchProblemContentForScheduling: mocks.fetchProblemContentForScheduling,
 }));
 vi.mock("@/lib/potd/finalize", () => ({
   syncUserChallenge: mocks.syncUserChallenge,
@@ -102,7 +102,7 @@ describe("POTD administration actions", () => {
       status: "Accepted",
       pointsAwarded: 100,
     });
-    mocks.fetchProblemContent.mockResolvedValue({
+    mocks.fetchProblemContentForScheduling.mockResolvedValue({
       title: "Fetched problem",
       statementHtml: "<p>Statement</p>",
       inputSpecificationHtml: "<p>Input</p>",
@@ -229,7 +229,7 @@ describe("POTD administration actions", () => {
     expect(
       await Problem.findOne({ platform: "atcoder", problemIndex: "abc123_a" }),
     ).toMatchObject({ contestId: "abc123", rating: 900 });
-    expect(mocks.fetchProblemContent).toHaveBeenCalledWith(
+    expect(mocks.fetchProblemContentForScheduling).toHaveBeenCalledWith(
       "atcoder",
       "abc123",
       "abc123_a",
@@ -240,7 +240,9 @@ describe("POTD administration actions", () => {
     const { setDailyProblem } = await import("@/lib/actions/admin/potd");
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-30T06:00:00.000Z"));
-    mocks.fetchProblemContent.mockRejectedValueOnce(new Error("blocked"));
+    mocks.fetchProblemContentForScheduling.mockRejectedValueOnce(
+      new Error("blocked"),
+    );
 
     await expect(
       setDailyProblem("2026-07-31", "158A", "Easy"),
