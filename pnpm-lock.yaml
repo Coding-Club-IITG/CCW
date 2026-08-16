@@ -24,8 +24,8 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@ronits2407/cp-api':
-        specifier: ^1.1.0
-        version: 1.1.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
+        specifier: ^1.2.0
+        version: 1.2.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       '@xyflow/react':
         specifier: ^12.11.3
         version: 12.11.3(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -1155,8 +1155,8 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@ronits2407/cp-api@1.1.0':
-    resolution: {integrity: sha512-RmKEkheWFbNNQAapU+0pET+gNHk2QXg9suiPpshhBMIMnKSdX/laTAIC4B1MbppsGoVIRqbZt28/Eb4jG/SKSA==}
+  '@ronits2407/cp-api@1.2.0':
+    resolution: {integrity: sha512-rZrsX52aifbyRpDeWS3QXVl4FX5X2ilttlWrd8DgQXF/nsqDJoV+mv6bgX8exagMVOiGcDJFG9ybyXiAO0z2Dg==}
     engines: {node: '>=20'}
 
   '@rtsao/scc@1.1.0':
@@ -4780,7 +4780,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@ronits2407/cp-api@1.1.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)':
+  '@ronits2407/cp-api@1.2.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)':
     dependencies:
       axios: 1.19.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       cheerio: 1.2.0

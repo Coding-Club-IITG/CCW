@@ -117,7 +117,7 @@ export default function CalendarView({ initialMonth, events }: Props) {
     .flatMap((event) =>
       event.occurrences.map((occurrence) => ({ event, occurrence })),
     )
-    .sort((a, b) => a.occurrence.startAt.localeCompare(b.occurrence.startAt));
+    .sort((a, b) => b.occurrence.startAt.localeCompare(a.occurrence.startAt));
 
   return (
     <div className={styles.layout}>
