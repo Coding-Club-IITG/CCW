@@ -28,6 +28,7 @@ export default async function CalendarPage({
   }>;
 }) {
   const query = await searchParams;
+  const timeFilter = query.time ?? "upcoming";
   const month = validMonth(query.month);
   const [year, monthNumber] = month.split("-").map(Number);
   const start = new Date(`${month}-01T00:00:00+05:30`);
@@ -53,7 +54,7 @@ export default async function CalendarPage({
   if (query.scope === "module")
     events = events.filter((event) => event.scope === "module");
   const now = new Date().toISOString();
-  if (query.time === "upcoming")
+  if (timeFilter === "upcoming")
     events = events
       .map((event) => ({
         ...event,
@@ -62,7 +63,7 @@ export default async function CalendarPage({
         ),
       }))
       .filter((event) => event.occurrences.length > 0);
-  if (query.time === "past")
+  if (timeFilter === "past")
     events = events
       .map((event) => ({
         ...event,
@@ -77,7 +78,7 @@ export default async function CalendarPage({
     for (const [key, value] of Object.entries({
       public: query.public,
       scope: query.scope,
-      time: query.time,
+      time: timeFilter,
       ...changes,
     })) {
       if (value) params.set(key, value);
@@ -104,9 +105,9 @@ export default async function CalendarPage({
             href={filterHref({
               public: undefined,
               scope: undefined,
-              time: undefined,
+              time: "all",
             })}
-            data-active={!query.public && !query.scope && !query.time}
+            data-active={!query.public && !query.scope && timeFilter === "all"}
           >
             All
           </Link>
@@ -136,13 +137,13 @@ export default async function CalendarPage({
           </Link>
           <Link
             href={filterHref({ time: "upcoming" })}
-            data-active={query.time === "upcoming"}
+            data-active={timeFilter === "upcoming"}
           >
             Upcoming
           </Link>
           <Link
             href={filterHref({ time: "past" })}
-            data-active={query.time === "past"}
+            data-active={timeFilter === "past"}
           >
             Past
           </Link>

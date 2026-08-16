@@ -21,8 +21,9 @@ export async function executePython(
   source: string,
   stdin: string,
   timeoutMs: number,
+  onExecutionStart?: () => void,
 ): Promise<ExecutionResult> {
-  const startTime = performance.now();
+  let executionStart: number | null = null;
 
   try {
     const pyodide = await loadPyodide();
@@ -55,7 +56,9 @@ export async function executePython(
       },
     });
 
-    // Run with timeout
+    // Measure execution time
+    executionStart = performance.now();
+    onExecutionStart?.();
     const runPromise = pyodide.runPythonAsync(source);
 
     const timeoutPromise = new Promise<"timeout">((resolve) =>
@@ -78,14 +81,17 @@ export async function executePython(
       stdout,
       stderr,
       exitCode: stderr ? 1 : 0,
-      executionTimeMs: Math.round(performance.now() - startTime),
+      executionTimeMs: Math.round(performance.now() - executionStart),
     };
   } catch (err) {
     return {
       stdout: "",
       stderr: err instanceof Error ? err.message : "Runtime error",
       exitCode: 1,
-      executionTimeMs: Math.round(performance.now() - startTime),
+      executionTimeMs:
+        executionStart === null
+          ? 0
+          : Math.round(performance.now() - executionStart),
     };
   }
 }

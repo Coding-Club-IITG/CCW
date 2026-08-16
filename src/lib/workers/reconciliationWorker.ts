@@ -286,8 +286,6 @@ export const reconciliationWorker = new Worker(
                     lastSub.creationTimeSeconds * 1000 > latestSolvedMs
                   ) {
                     currentFrom += chunkSize;
-                    // Brief pause to respect rate limits
-                    await new Promise((resolve) => setTimeout(resolve, 700));
                   } else {
                     keepFetching = false;
                   }

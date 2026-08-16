@@ -23,14 +23,12 @@ async function run() {
   await dbConnect();
 
   // BullMq sync runs at 2
-  await cfSyncQueue.add(
+  await cfSyncQueue.upsertJobScheduler(
     "nightly-cf-problem-sync",
-    {},
+    { pattern: "0 2 * * *" },
     {
-      repeat: {
-        pattern: "0 2 * * *",
-      },
-      jobId: "nightly-cf-problem-sync",
+      name: "nightly-cf-problem-sync",
+      data: {},
     },
   );
   logger.info(

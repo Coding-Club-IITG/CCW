@@ -7,6 +7,7 @@ import CPUser from "@/models/CPUser";
 import { dbConnect } from "@/lib/mongodb";
 import { getRedis } from "@/lib/redis";
 import { getUserAffiliation } from "@/lib/platforms/atcoder";
+import { acquireDistributedCodeforcesSlot } from "@/lib/platforms/codeforces";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function POST(req: Request) {
@@ -74,11 +75,7 @@ async function verifyCF(cpUserDoc: any, userId: string) {
     );
   }
 
-  const globalCfLimitKey = `cf:api:global_lock`;
-  const cfLocked = await redis.set(globalCfLimitKey, "1", {
-    NX: true,
-    EX: 2,
-  });
+  const cfLocked = await acquireDistributedCodeforcesSlot();
   if (!cfLocked) {
     return NextResponse.json(
       { error: "Codeforces is busy, please try again in a few seconds." },

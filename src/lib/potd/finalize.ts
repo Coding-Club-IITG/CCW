@@ -23,7 +23,6 @@ import type { Platform } from "@/lib/constants";
 
 const HEALTH_CHECK_RETRIES = 3;
 const HEALTH_CHECK_DELAY_MS = 10_000;
-const INTER_USER_DELAY_MS = 2_100; // CF ~1 req/s (under threshold)
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -277,8 +276,6 @@ async function pollChallenge(challenge: any): Promise<void> {
         err,
       });
     }
-
-    await sleep(INTER_USER_DELAY_MS);
   }
 }
 

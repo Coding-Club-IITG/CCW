@@ -19,8 +19,9 @@ export async function executeCpp(
   source: string,
   stdin: string,
   timeoutMs: number,
+  onExecutionStart?: () => void,
 ): Promise<ExecutionResult> {
-  const startTime = performance.now();
+  let executionStart: number | null = null;
 
   try {
     const { compile, wasi } = await loadModules();
@@ -37,7 +38,7 @@ export async function executeCpp(
         stdout: "",
         stderr: compileOutput || "Compilation failed",
         exitCode: 1,
-        executionTimeMs: Math.round(performance.now() - startTime),
+        executionTimeMs: 0,
       };
     }
 
@@ -58,13 +59,16 @@ export async function executeCpp(
 
     const wasiInstance = new WASI([], [], fds);
 
-    // Run with timeout
-    const runPromise = (async () => {
-      const instance = await WebAssembly.instantiate(module, {
-        wasi_snapshot_preview1: wasiInstance.wasiImport,
-      });
+    const instance = await WebAssembly.instantiate(module, {
+      wasi_snapshot_preview1: wasiInstance.wasiImport,
+    });
+
+    // Measure execution time
+    executionStart = performance.now();
+    onExecutionStart?.();
+    const runPromise = Promise.resolve().then(() => {
       wasiInstance.start(instance as any);
-    })();
+    });
 
     const timeoutPromise = new Promise<"timeout">((resolve) =>
       setTimeout(() => resolve("timeout"), timeoutMs),
@@ -86,14 +90,17 @@ export async function executeCpp(
       stdout,
       stderr,
       exitCode: 0,
-      executionTimeMs: Math.round(performance.now() - startTime),
+      executionTimeMs: Math.round(performance.now() - executionStart),
     };
   } catch (err) {
     return {
       stdout: "",
       stderr: err instanceof Error ? err.message : "Runtime error",
       exitCode: 1,
-      executionTimeMs: Math.round(performance.now() - startTime),
+      executionTimeMs:
+        executionStart === null
+          ? 0
+          : Math.round(performance.now() - executionStart),
     };
   }
 }

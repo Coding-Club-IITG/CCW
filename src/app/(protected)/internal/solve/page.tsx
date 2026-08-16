@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getSolveChallenge } from "@/lib/actions/potd";
 
 import SolveClient from "./SolveClient";
 
@@ -19,7 +20,15 @@ export default async function SolvePage({ searchParams }: Props) {
   if (!session) redirect("/");
 
   const params = await searchParams;
-  const { platform, contestId, problemIndex, title, challengeId } = params;
+  let { platform, contestId, problemIndex, title, challengeId } = params;
+  let content = null;
+
+  if (challengeId) {
+    const result = await getSolveChallenge(challengeId);
+    if (!result.success) redirect("/internal/potd");
+    ({ platform, contestId, problemIndex, title, challengeId, content } =
+      result.data);
+  }
 
   return (
     <SolveClient
@@ -28,6 +37,7 @@ export default async function SolvePage({ searchParams }: Props) {
       problemIndex={problemIndex}
       title={title}
       challengeId={challengeId}
+      content={content}
     />
   );
 }

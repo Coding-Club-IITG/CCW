@@ -16,7 +16,7 @@ import POTDSubmission from "@/models/POTDSubmission";
   (m) => m && m.init && m.init(),
 );
 
-import { logger } from "@/lib/utils";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import { canSetPOTD, parseRoles } from "@/lib/roles";
 import { IST_OFFSET_MS } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
@@ -28,6 +28,10 @@ import {
 import { syncUserChallenge } from "@/lib/potd/finalize";
 import { fetchUserSubmissions } from "@/lib/potd/recompute";
 import { getProblemById } from "@/lib/platforms/atcoder";
+import {
+  fetchProblemContentForScheduling,
+  type ProblemContentSnapshot,
+} from "@/lib/platforms/problemContent";
 
 async function checkAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -101,6 +105,7 @@ export async function setDailyProblem(
   let problemName: string;
   let problemRating: number;
   let problemTags: string[];
+  let problemContent: ProblemContentSnapshot | null = null;
 
   if (platform === "codeforces") {
     // Parse CF problem ID format: "158A" or "1234B1"
@@ -216,10 +221,33 @@ export async function setDailyProblem(
     }
   }
 
+  try {
+    problemContent = await fetchProblemContentForScheduling(
+      platform,
+      contestId,
+      problemIndex,
+    );
+  } catch (err) {
+    logger.warn("[setDailyProblem] Problem content fetch failed", {
+      platform,
+      resourceId: `${contestId}/${problemIndex}`,
+      ...errorToLogMetadata(err),
+    });
+  }
+
   // Upsert Problem doc
+  const problemUpdate: Record<string, unknown> = {
+    name: problemName,
+    rating: problemRating,
+    tags: problemTags,
+  };
+  if (problemContent) {
+    problemUpdate.content = problemContent;
+    problemUpdate.contentFetchedAt = new Date();
+  }
   const problemDoc = await Problem.findOneAndUpdate(
     { platform, contestId, problemIndex },
-    { $set: { name: problemName, rating: problemRating, tags: problemTags } },
+    { $set: problemUpdate },
     { upsert: true, returnDocument: "after" },
   );
 

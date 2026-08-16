@@ -3,12 +3,6 @@ import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
 import { getUserInfo, getACRankFromRating } from "@/lib/platforms/atcoder";
 
-const INTER_USER_DELAY_MS = 1_000; // AtCoder doesn't rate-limit as aggressively
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export async function syncAtCoderRatings() {
   logger.info("[AC-Sync] Starting AtCoder rating sync...");
   await dbConnect();
@@ -53,8 +47,6 @@ export async function syncAtCoderRatings() {
           err,
         });
       }
-
-      await sleep(INTER_USER_DELAY_MS);
     }
 
     logger.info(

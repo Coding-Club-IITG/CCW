@@ -164,16 +164,11 @@ export async function resetSubmissionStatuses(
   });
 }
 
-const CF_DELAY_MS = 2_100;
-const AC_DELAY_MS = 1_100;
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 interface BackfillOptions {
   targets: any[];
   handleMap: Map<string, string>;
   challenges: any[];
   platform: Platform;
-  delayMs: number;
   fromWindowStart: number;
 }
 
@@ -185,7 +180,6 @@ async function runPlatformBackfill({
   handleMap,
   challenges,
   platform,
-  delayMs,
   fromWindowStart,
 }: BackfillOptions): Promise<void> {
   if (challenges.length === 0) return;
@@ -193,24 +187,13 @@ async function runPlatformBackfill({
   for (let i = 0; i < targets.length; i++) {
     const userId = targets[i].userId;
     const handle = handleMap.get(userId.toString())!;
-    let subs: any[] = [];
-    let ok = false;
-    for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
-      try {
-        subs = await fetchUserSubmissions(handle, platform, fromWindowStart);
-        ok = true;
-      } catch (e: any) {
-        console.log(
-          `  [${platform} ${i + 1}/${targets.length}] ${handle} attempt ${attempt} failed: ${e?.message}`,
-        );
-        if (attempt < 3) await sleep(3000);
-      }
-    }
-    if (!ok) {
+    let subs: any[];
+    try {
+      subs = await fetchUserSubmissions(handle, platform, fromWindowStart);
+    } catch (e: any) {
       console.log(
-        `  [${platform} ${i + 1}/${targets.length}] ${handle} - skipped`,
+        `  [${platform} ${i + 1}/${targets.length}] ${handle} failed: ${e?.message}`,
       );
-      await sleep(delayMs);
       continue;
     }
     const solved = await backfillSolvedAt(userId, challenges, subs, platform);
@@ -219,7 +202,6 @@ async function runPlatformBackfill({
         `  [${platform} ${i + 1}/${targets.length}] ${handle}: ${solved} solves`,
       );
     }
-    await sleep(delayMs);
   }
 }
 
@@ -280,7 +262,6 @@ async function runBackfillsAndRecompute(
     handleMap: targets.cfHandle,
     challenges: cfChallenges,
     platform: "codeforces",
-    delayMs: CF_DELAY_MS,
     fromWindowStart,
   });
 
@@ -289,7 +270,6 @@ async function runBackfillsAndRecompute(
     handleMap: targets.acHandle,
     challenges: acChallenges,
     platform: "atcoder",
-    delayMs: AC_DELAY_MS,
     fromWindowStart,
   });
 
