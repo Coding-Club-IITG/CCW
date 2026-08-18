@@ -89,6 +89,13 @@
   }
 
   @media (max-width: 768px) {
+    padding-inline: 1rem;
+
+    .rightSection,
+    .actionsSection {
+      gap: 0.75rem;
+    }
+
     .hamburgerButton {
       display: flex; // Show on mobile
     }

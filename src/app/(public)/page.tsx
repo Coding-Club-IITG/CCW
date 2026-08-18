@@ -54,13 +54,17 @@ export default async function Home({ searchParams }: Props) {
           this application.
         </div>
       )}
+      {/* TODO */}
+      <div className={styles.wipBanner} role="status">
+        <strong>Work in progress:</strong> This website is still under heavy
+        development.
+      </div>
 
       <h1 className={styles.title}>Coding Club IITG</h1>
       <p className={styles.subtitle}>
         The heartbeat of technology and innovation at IIT Guwahati. We build, we
         learn, and we excel together.
       </p>
-
       <div className={styles.actions}>
         <Link href="/blog" className={styles.primaryBtn}>
           View the Blog
@@ -75,7 +79,6 @@ export default async function Home({ searchParams }: Props) {
           Meet the Team
         </Link>
       </div>
-
       <div className={styles.features}>
         <div className={styles.featureCard}>
           <h3>Software Development</h3>

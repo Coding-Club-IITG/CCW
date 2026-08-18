@@ -94,3 +94,15 @@
 .content {
   padding-bottom: 3rem;
 }
+
+@media (max-width: 600px) {
+  .container {
+    padding: 1.5rem 1rem;
+  }
+
+  .title {
+    font-size: 1.75rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+}

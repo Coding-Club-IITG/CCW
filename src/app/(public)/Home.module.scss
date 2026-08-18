@@ -22,6 +22,18 @@
   font-size: 0.875rem;
 }
 
+.wipBanner {
+  max-width: 600px;
+  width: 100%;
+  margin-bottom: 2rem;
+  padding: 0.75rem 1rem;
+  color: var(--warning-text);
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
 .title {
   font-size: 3rem;
   font-weight: 800;
@@ -67,6 +79,53 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
   max-width: 900px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    justify-content: flex-start;
+    min-height: auto;
+    padding: 2rem 1rem;
+  }
+
+  .title {
+    font-size: clamp(2.25rem, 12vw, 3rem);
+    line-height: 1.1;
+  }
+
+  .subtitle {
+    font-size: 1.0625rem;
+    margin-bottom: 2rem;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    max-width: 24rem;
+  }
+
+  .primaryBtn,
+  .secondaryBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding-inline: 0.75rem;
+  }
+
+  .features {
+    grid-template-columns: 1fr;
+    width: 100%;
+    margin-top: 3rem;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 .featureCard {

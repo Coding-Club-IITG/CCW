@@ -76,3 +76,22 @@
 .content {
   padding-bottom: 3rem;
 }
+
+@media (max-width: 600px) {
+  .article {
+    padding: 1.5rem 1rem;
+  }
+
+  .title {
+    font-size: 1.75rem;
+    overflow-wrap: anywhere;
+  }
+
+  .excerpt {
+    font-size: 1rem;
+  }
+
+  .meta {
+    flex-wrap: wrap;
+  }
+}
