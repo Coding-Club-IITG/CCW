@@ -13,6 +13,7 @@ import styles from "./AdminEvents.module.scss";
 
 interface EventItem {
   _id: string;
+  slug: string;
   title: string;
   startDate: string;
   endDate?: string;

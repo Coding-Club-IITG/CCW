@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
@@ -17,24 +18,12 @@ import { parsePagination, paginatedResponse } from "@/lib/pagination";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
-
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 100);
-}
+import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 
 async function uniqueSlug(base: string): Promise<string> {
-  let slug = base;
-  let counter = 1;
-  while (await BlogPost.exists({ slug })) {
-    slug = `${base}-${++counter}`;
-  }
-  return slug;
+  return findUniqueSlug(base, async (slug) =>
+    Boolean(await BlogPost.exists({ slug })),
+  );
 }
 
 // GET /api/admin/blog
@@ -165,7 +154,7 @@ export async function POST(request: NextRequest) {
 
     await dbConnect();
 
-    const slug = await uniqueSlug(generateSlug(title.trim()));
+    const slug = await uniqueSlug(titleToSlug(title.trim()));
 
     const post = await BlogPost.create({
       title: title.trim(),
@@ -182,6 +171,7 @@ export async function POST(request: NextRequest) {
 
     await invalidateCache("blog");
     await invalidateCache("admin:blog");
+    revalidatePath("/sitemap.xml");
 
     return NextResponse.json({ post }, { status: 201 });
   } catch (err) {

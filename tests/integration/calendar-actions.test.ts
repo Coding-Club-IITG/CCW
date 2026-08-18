@@ -137,6 +137,7 @@ describe("calendar actions", () => {
     });
     const publicEvent = await Event.create({
       title: "Public",
+      slug: "public",
       description: "Details",
       poster: "/poster.png",
       startDate: calendarEvent.startAt,
@@ -160,6 +161,7 @@ describe("calendar actions", () => {
     });
     expect(await CalendarEvent.countDocuments()).toBe(0);
     expect(await Event.countDocuments()).toBe(0);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
   });
 });
 

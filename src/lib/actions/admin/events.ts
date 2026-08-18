@@ -15,6 +15,7 @@ import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { isHead, parseManagedModules } from "@/lib/roles";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 import {
   parseImageFocalPoint,
   type ImageFocalPoint,
@@ -122,17 +123,29 @@ function scheduleValues(calendar: {
   };
 }
 
-async function refresh(eventId?: string, calendarId?: string) {
+async function refresh(eventSlug?: string, calendarId?: string) {
   await Promise.all([
     invalidateCache("events"),
     invalidateCache("admin:events"),
     invalidateCache("calendar"),
   ]);
   revalidatePath("/events");
+  revalidatePath("/sitemap.xml");
   revalidatePath("/admin/events");
   revalidatePath("/internal/calendar");
-  if (eventId) revalidatePath(`/events/${eventId}`);
+  if (eventSlug) revalidatePath(`/events/${eventSlug}`);
   if (calendarId) revalidatePath(`/internal/calendar/${calendarId}`);
+}
+
+async function uniqueEventSlug(base: string, currentId?: string) {
+  return findUniqueSlug(base, async (slug) =>
+    Boolean(
+      await Event.exists({
+        slug,
+        ...(currentId ? { _id: { $ne: currentId } } : {}),
+      }),
+    ),
+  );
 }
 
 export async function getEvents() {
@@ -215,13 +228,19 @@ export async function createPublicEvent(
     }
 
     const dbSession = await mongoose.startSession();
+    const eventId = new mongoose.Types.ObjectId();
+    const slug = await uniqueEventSlug(
+      titleToSlug(parsed.data.title) || `event-${String(eventId)}`,
+    );
     let createdId = "";
     try {
       await dbSession.withTransaction(async () => {
         const [event] = await Event.create(
           [
             {
+              _id: eventId,
               ...parsed.data,
+              slug,
               ...scheduleValues(calendar),
               calendarEventId: calendar._id,
               status,
@@ -238,7 +257,7 @@ export async function createPublicEvent(
       await dbSession.endSession();
     }
     const event = await Event.findById(createdId).lean();
-    await refresh(createdId, calendarEventId);
+    await refresh(event?.slug, calendarEventId);
     return { success: true as const, data: JSON.parse(JSON.stringify(event)) };
   } catch (error) {
     logger.error("Public event creation failed", {
@@ -267,9 +286,15 @@ export async function updateEvent(
     const calendar = await CalendarEvent.findById(event.calendarEventId);
     if (!calendar || !mayPublish(user, calendar))
       return { success: false as const, error: "Forbidden" };
+    if (event.title !== parsed.data.title) {
+      event.slug = await uniqueEventSlug(
+        titleToSlug(parsed.data.title) || `event-${String(event._id)}`,
+        String(event._id),
+      );
+    }
     event.set(parsed.data);
     await event.save();
-    await refresh(id, String(calendar._id));
+    await refresh(event.slug, String(calendar._id));
     return {
       success: true as const,
       event: JSON.parse(JSON.stringify(event.toObject())),
@@ -305,7 +330,7 @@ export async function setPublicEventStatus(
     if (status === "published" && !event.publishedAt)
       event.publishedAt = new Date();
     await event.save();
-    await refresh(id, String(calendar._id));
+    await refresh(event.slug, String(calendar._id));
     return {
       success: true as const,
       data: JSON.parse(JSON.stringify(event.toObject())),
@@ -337,7 +362,7 @@ export async function syncPublicEventSchedule(id: string) {
       return { success: false as const, error: "Forbidden" };
     event.set(scheduleValues(calendar));
     await event.save();
-    await refresh(id, String(calendar._id));
+    await refresh(event.slug, String(calendar._id));
     return {
       success: true as const,
       data: JSON.parse(JSON.stringify(event.toObject())),

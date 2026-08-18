@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const tag = searchParams.get("tag")?.trim() || null;
     const searchQuery = prepareSearchQuery(searchParams.get("search"));
 
-    const cacheKey = buildCacheKey("blog", {
+    const cacheKey = buildCacheKey("blog:list:v2", {
       page,
       limit,
       tag: tag || undefined,
@@ -48,13 +48,13 @@ export async function GET(request: NextRequest) {
         BlogPost.distinct("tags", { status: "published" }),
       ]);
 
-      return { posts, total, availableTags };
+      return {
+        ...paginatedResponse(posts, total, page, limit),
+        availableTags,
+      };
     });
 
-    return NextResponse.json({
-      ...paginatedResponse(result.posts, result.total, page, limit),
-      availableTags: result.availableTags,
-    });
+    return NextResponse.json(result);
   } catch (err) {
     logger.error("Published blog listing failed", {
       route: "GET /api/blog",

@@ -57,6 +57,7 @@ async function refreshCalendarPaths(id?: string) {
   if (id) revalidatePath(`/internal/calendar/${id}`);
   revalidatePath("/admin/events");
   revalidatePath("/events");
+  revalidatePath("/sitemap.xml");
 }
 
 export async function listCalendarEvents(rangeStart: string, rangeEnd: string) {

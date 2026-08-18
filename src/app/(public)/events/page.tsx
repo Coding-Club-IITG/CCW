@@ -9,6 +9,15 @@ import Event, { type IEvent } from "@/models/Event";
 import StatusBadge from "@/components/shared/StatusBadge";
 import FocalImage from "@/components/shared/FocalImage";
 import styles from "./Events.module.scss";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Events",
+  description:
+    "Workshops, competitions, and technical activities organized by Coding Club IITG.",
+  path: "/events",
+});
 
 function getRecurrenceLabel(
   recurrenceType?: EventRecurrenceType,
@@ -78,7 +87,7 @@ export default async function EventsPage() {
             return (
               <Link
                 key={String(event._id)}
-                href={`/events/${String(event._id)}`}
+                href={`/events/${event.slug}`}
                 className={styles.card}
               >
                 {event.poster && (

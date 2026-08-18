@@ -5,6 +5,15 @@ import { logger } from "@/lib/utils";
 import User from "@/models/User";
 import TeamRosters, { type PublicTeamMember } from "./TeamRosters";
 import styles from "./Team.module.scss";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Team",
+  description:
+    "Meet the students leading Coding Club IITG and its technical communities.",
+  path: "/team",
+});
 
 export default async function TeamPage() {
   let members: PublicTeamMember[] = [];

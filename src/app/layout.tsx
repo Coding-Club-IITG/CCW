@@ -3,10 +3,26 @@ import { Hanken_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import "@/styles/globals.scss";
 import Providers from "@/components/layout/Providers";
+import { ogImage, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Coding Club IITG",
-  description: "Internal Workspace for Coding Club IITG",
+  metadataBase: new URL(SITE_URL),
+  title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    images: [{ url: ogImage(SITE_NAME), width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: [ogImage(SITE_NAME)],
+  },
 };
 
 const hankenGrotesk = Hanken_Grotesk({

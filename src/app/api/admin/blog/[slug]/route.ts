@@ -5,6 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/requireAdmin";
 import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
@@ -12,26 +13,13 @@ import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 import { invalidateCache } from "@/lib/cache";
 import { errorToLogMetadata, logger } from "@/lib/utils";
-
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 100);
-}
+import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 
 async function uniqueSlug(base: string, currentSlug?: string): Promise<string> {
-  let slug = base;
-  let counter = 1;
-  while (true) {
+  return findUniqueSlug(base, async (slug) => {
     const existing = await BlogPost.findOne({ slug }).select("slug").lean();
-    if (!existing || (currentSlug && existing.slug === currentSlug)) break;
-    slug = `${base}-${++counter}`;
-  }
-  return slug;
+    return Boolean(existing && (!currentSlug || existing.slug !== currentSlug));
+  });
 }
 
 type RouteContext = { params: Promise<{ slug: string }> };
@@ -103,11 +91,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
       post.title = title;
       // Regenerate slug from new title
-      const newSlugBase = generateSlug(title);
-      if (newSlugBase) {
-        const newSlug = await uniqueSlug(newSlugBase, slug);
-        post.slug = newSlug;
-      }
+      const newSlugBase = titleToSlug(title);
+      if (newSlugBase) post.slug = await uniqueSlug(newSlugBase, slug);
     }
 
     if (body.content !== undefined) {
@@ -175,6 +160,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     await post.save();
     await invalidateCache("blog");
     await invalidateCache("admin:blog");
+    revalidatePath("/sitemap.xml");
 
     return NextResponse.json({ post: post.toObject() });
   } catch (err) {
@@ -208,6 +194,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     await invalidateCache("blog");
     await invalidateCache("admin:blog");
+    revalidatePath("/sitemap.xml");
 
     return NextResponse.json({ success: true });
   } catch (err) {

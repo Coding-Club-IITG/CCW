@@ -40,6 +40,7 @@ export default function BlogCard({
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: "Asia/Kolkata",
   };
   const date = new Date(publishedAt).toLocaleDateString("en-IN", dateOpts);
   const editedDate =
@@ -69,13 +70,13 @@ export default function BlogCard({
         <div className={styles.meta}>
           <span className={styles.author}>{authorNames}</span>
           <span className={styles.dot}>·</span>
-          <time className={styles.date}>
+          <time className={styles.date} dateTime={publishedAt}>
             <IconCalendar width={12} height={12} /> {date}
           </time>
           {editedDate && (
             <>
               <span className={styles.dot}>·</span>
-              <time className={styles.date}>
+              <time className={styles.date} dateTime={updatedAt}>
                 <IconEdit width={12} height={12} /> {editedDate}
               </time>
             </>

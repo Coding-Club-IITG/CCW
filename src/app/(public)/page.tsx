@@ -1,5 +1,22 @@
 import Link from "next/link";
 import styles from "./Home.module.scss";
+import type { Metadata } from "next";
+import JsonLd from "@/components/shared/JsonLd";
+import {
+  CLUB_EMAIL,
+  IITG_ADDRESS,
+  pageMetadata,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_URL,
+  SOCIAL_PROFILES,
+} from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Technology, projects, and community",
+  description: SITE_DESCRIPTION,
+  path: "/",
+});
 
 interface Props {
   searchParams: Promise<{ error?: string }>;
@@ -11,6 +28,26 @@ export default async function Home({ searchParams }: Props) {
 
   return (
     <div className={styles.container}>
+      <JsonLd
+        data={[
+          {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: SITE_NAME,
+            url: SITE_URL,
+            email: CLUB_EMAIL,
+            address: { "@type": "PostalAddress", ...IITG_ADDRESS },
+            sameAs: SOCIAL_PROFILES,
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: SITE_NAME,
+            url: SITE_URL,
+            description: SITE_DESCRIPTION,
+          },
+        ]}
+      />
       {isUnauthorized && (
         <div className={styles.errorBanner}>
           <strong>Access denied.</strong> Your account is not authorised to use

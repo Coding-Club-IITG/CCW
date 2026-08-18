@@ -57,8 +57,12 @@ programming systems, content, administration, and background integrations.
 - The standalone worker runs scheduled synchronization, reminder, cleanup, and
   contest-processing jobs.
 - Internal calendar events are the scheduling source of truth. Public event
-  drafts and publications are linked one-to-one to calendar records. Calendar
-  reminders run through the standalone worker.
+  drafts and publications are linked one-to-one to calendar records.
+  The linked calendar location is displayed publicly, while its external
+  URL, agenda, minutes, and reminders remain internal.
+- Public discovery is server rendered. The blog listing renders its current
+  archive page and article links on the server, while focused search, tag, and
+  pagination interactions hydrate on the client.
 - Public blog, event, and project images store normalized focal points for
   consistent responsive card crops. Detail-page images retain their natural
   aspect ratio.

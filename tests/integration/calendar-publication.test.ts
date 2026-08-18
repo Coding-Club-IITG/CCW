@@ -92,6 +92,7 @@ describe("calendar publication actions", () => {
     expect(result.success).toBe(true);
     const event = await Event.findOne().lean();
     expect(event).toMatchObject({
+      slug: "public-design-sync",
       status: "draft",
       calendarEventId: calendar._id,
       module: "Design",
@@ -100,6 +101,10 @@ describe("calendar publication actions", () => {
     expect(
       (await CalendarEvent.findById(calendar._id).lean())?.publicEventId,
     ).toEqual(event?._id);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      "/events/public-design-sync",
+    );
   });
 
   it("prevents a head from publishing another module", async () => {

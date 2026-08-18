@@ -6,9 +6,37 @@ import TagBadge from "@/components/blog/TagBadge";
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import styles from "./BlogPost.module.scss";
+import type { Metadata } from "next";
+import JsonLd from "@/components/shared/JsonLd";
+import {
+  ogImage,
+  pageMetadata,
+  plainText,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/seo";
 
 interface Props {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  await dbConnect();
+  const post = await BlogPost.findOne({ slug, status: "published" })
+    .select("title slug excerpt content coverImage")
+    .lean();
+  if (!post) return {};
+  const description = plainText(
+    post.excerpt || post.content,
+    `Read ${post.title} from Coding Club IITG.`,
+  );
+  return pageMetadata({
+    title: post.title,
+    description,
+    path: `/blog/${post.slug}`,
+    image: ogImage(post.title, post.coverImage),
+  });
 }
 
 export default async function BlogPostPage({ params }: Props) {
@@ -40,10 +68,38 @@ export default async function BlogPostPage({ params }: Props) {
     post.updatedAt.getTime() - post.publishedAt!.getTime() > 60000;
 
   const authorNames =
-    post.authors.map((a: any) => a.name).join(", ") || "Unknown";
+    post.authors.map((author: { name: string }) => author.name).join(", ") ||
+    SITE_NAME;
+  const description = plainText(
+    post.excerpt || post.content,
+    `Read ${post.title} from Coding Club IITG.`,
+  );
+  const image = ogImage(post.title, post.coverImage);
 
   return (
     <article className={styles.article}>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          headline: post.title,
+          description,
+          url: `${SITE_URL}/blog/${post.slug}`,
+          image,
+          datePublished: post.publishedAt!.toISOString(),
+          dateModified: post.updatedAt.toISOString(),
+          author: post.authors.map((author: { name: string }) => ({
+            "@type": "Person",
+            name: author.name,
+          })),
+          publisher: {
+            "@type": "Organization",
+            name: SITE_NAME,
+            url: SITE_URL,
+          },
+          keywords: post.tags,
+        }}
+      />
       <BackLink href="/blog" label="Back to Blog" />
 
       {post.coverImage && (

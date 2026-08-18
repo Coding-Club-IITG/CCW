@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       const [events, total] = await Promise.all([
         Event.find(filter)
           .select(
-            "title shortDescription poster posterFocalPoint startDate endDate allDay module tags recurrenceType recurrenceCount status publishedAt calendarEventId scheduleFingerprint createdAt updatedAt",
+            "title slug shortDescription poster posterFocalPoint startDate endDate allDay module tags recurrenceType recurrenceCount status publishedAt calendarEventId scheduleFingerprint createdAt updatedAt",
           )
           .sort({ startDate: -1 })
           .skip(skip)

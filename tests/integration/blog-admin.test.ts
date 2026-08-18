@@ -17,7 +17,9 @@ import { BLOG_ADMIN_ID, BLOG_AUTHOR_ID, blogPost } from "../fixtures/blogs";
 
 const requireAdmin = vi.hoisted(() => vi.fn());
 const invalidateCache = vi.hoisted(() => vi.fn());
+const revalidatePath = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/requireAdmin", () => ({ requireAdmin }));
+vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("@/lib/cache", async () => {
   const actual =
     await vi.importActual<typeof import("@/lib/cache")>("@/lib/cache");
@@ -45,6 +47,7 @@ describe("admin blog routes", () => {
       id: BLOG_ADMIN_ID.toString(),
       name: "Blog Admin",
     });
+    revalidatePath.mockClear();
     invalidateCache.mockReset();
     vi.useRealTimers();
   });
@@ -106,6 +109,7 @@ describe("admin blog routes", () => {
     });
     expect(invalidateCache).toHaveBeenCalledWith("blog");
     expect(invalidateCache).toHaveBeenCalledWith("admin:blog");
+    expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
   });
 
   it("sets the first publication time, changes slug safely, and attributes the editor", async () => {
@@ -148,6 +152,7 @@ describe("admin blog routes", () => {
         expect.objectContaining({ userId: BLOG_ADMIN_ID.toString() }),
       ]),
     );
+    expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
   });
 
   it("filters admin listing and deletes the selected post", async () => {
@@ -171,6 +176,7 @@ describe("admin blog routes", () => {
     );
     expect(deleted.status).toBe(200);
     expect(await BlogPost.findOne({ slug: "draft" })).toBeNull();
+    expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
   });
 });
 

@@ -126,6 +126,11 @@ export default function PublicEventForm({
           </button>
         </div>
       )}
+      <div className={styles.notice} role="note">
+        The linked calendar location will be publicly displayed when this event
+        is published. Agenda, minutes, reminders, and internal links stay
+        private.
+      </div>
       <div className={styles.field}>
         <label className={styles.label} htmlFor="public-title">
           Title

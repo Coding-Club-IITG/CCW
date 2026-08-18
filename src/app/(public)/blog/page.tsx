@@ -1,153 +1,111 @@
-"use client";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
+import dbConnect from "@/lib/mongodb";
+import { parsePagination, paginatedResponse } from "@/lib/pagination";
+import { prepareSearchQuery } from "@/lib/search";
+import { pageMetadata } from "@/lib/seo";
+import { errorToLogMetadata, logger } from "@/lib/utils";
+import BlogPost from "@/models/BlogPost";
+import BlogExplorer, { type BlogListingData } from "./BlogExplorer";
 
-import { useState, useEffect } from "react";
-import SearchInput from "@/components/shared/SearchInput";
-import BlogCard from "@/components/blog/BlogCard";
-import TagBadge from "@/components/blog/TagBadge";
-import styles from "./Blog.module.scss";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+type SearchParams = { page?: string; tag?: string; search?: string };
+type Props = { searchParams: Promise<SearchParams> };
 
-interface BlogAuthor {
-  userId: string;
-  name: string;
+function pageNumber(value?: string) {
+  const parsed = Number.parseInt(value ?? "1", 10);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
-interface Post {
-  _id: string;
-  slug: string;
-  title: string;
-  excerpt: string;
-  coverImage?: string;
-  coverFocalPoint?: ImageFocalPoint;
-  authors: BlogAuthor[];
-  tags: string[];
-  publishedAt: string;
-  updatedAt?: string;
+export async function generateMetadata({
+  searchParams,
+}: Props): Promise<Metadata> {
+  const query = await searchParams;
+  const page = pageNumber(query.page);
+  const filtered = Boolean(query.tag?.trim() || query.search?.trim());
+  const path = !filtered && page > 1 ? `/blog?page=${page}` : "/blog";
+  return pageMetadata({
+    title: page > 1 && !filtered ? `Blog - Page ${page}` : "Blog",
+    description:
+      "Insights, tutorials, and updates from the Coding Club IITG community.",
+    path,
+    robots: filtered ? { index: false, follow: true } : undefined,
+  });
 }
 
-export default function BlogPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+async function getListing(query: SearchParams): Promise<BlogListingData> {
+  const page = pageNumber(query.page);
+  const limit = 12;
+  const skip = (page - 1) * limit;
+  const tag = query.tag?.trim() || null;
+  const searchQuery = prepareSearchQuery(query.search ?? null);
+  await dbConnect();
 
-  useEffect(() => {
-    async function fetchPosts() {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({ page: String(page), limit: "12" });
-        if (activeTag) params.set("tag", activeTag);
-        if (search) params.set("search", search);
-
-        const res = await fetch(`/api/blog?${params}`);
-        const data = await res.json();
-        setPosts(data.items || []);
-        setTotalPages(data.pagination?.totalPages || 1);
-        if (data.availableTags) {
-          setAvailableTags(data.availableTags);
-        }
-      } catch {
-        setPosts([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void fetchPosts();
-  }, [activeTag, page, search]);
-
-  const handleTagFilter = (tag: string) => {
-    setActiveTag((prev) => (prev === tag ? null : tag));
-    setPage(1);
-  };
-
-  const handleSearch = (value: string) => {
-    setSearch(value.trim());
-    setPage(1);
-  };
-
-  return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Blog</h1>
-        <p className={styles.subtitle}>
-          Insights, tutorials, and updates from the Coding Club IITG community.
-        </p>
-        <SearchInput
-          placeholder="Search posts by title"
-          onSearch={handleSearch}
-          className={styles.searchInput}
-        />
-      </header>
-
-      {availableTags.length > 0 && (
-        <div className={styles.filters}>
-          {availableTags.map((tag) => (
-            <TagBadge
-              key={tag}
-              tag={tag}
-              active={activeTag === tag}
-              onClick={() => handleTagFilter(tag)}
-            />
-          ))}
-        </div>
-      )}
-
-      {loading ? (
-        <div className={styles.loading}>Loading posts...</div>
-      ) : posts.length === 0 ? (
-        <div className={styles.empty}>
-          <p>
-            No posts found
-            {activeTag ? ` for tag "${activeTag}"` : ""}
-            {search ? `${activeTag ? " and" : " for"} search "${search}"` : ""}.
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className={styles.grid}>
-            {posts.map((post) => (
-              <BlogCard
-                key={post._id}
-                slug={post.slug}
-                title={post.title}
-                excerpt={post.excerpt}
-                coverImage={post.coverImage}
-                coverFocalPoint={post.coverFocalPoint}
-                authors={post.authors}
-                tags={post.tags}
-                publishedAt={post.publishedAt}
-                updatedAt={post.updatedAt}
-              />
-            ))}
-          </div>
-
-          {totalPages > 1 && (
-            <div className={styles.pagination}>
-              <button
-                className={styles.pageBtn}
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Previous
-              </button>
-              <span className={styles.pageInfo}>
-                Page {page} of {totalPages}
-              </span>
-              <button
-                className={styles.pageBtn}
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+  return cachedFetch(
+    buildCacheKey("blog:list:v2", {
+      page,
+      limit,
+      tag: tag ?? undefined,
+      search: searchQuery?.query,
+    }),
+    CACHE_TTLS.BLOG,
+    async () => {
+      const filter: Record<string, unknown> = { status: "published" };
+      if (tag) filter.tags = tag;
+      if (searchQuery)
+        filter.title = { $regex: searchQuery.pattern, $options: "i" };
+      const [posts, total, availableTags] = await Promise.all([
+        BlogPost.find(filter)
+          .select(
+            "title slug excerpt coverImage coverFocalPoint authors tags publishedAt updatedAt",
+          )
+          .sort({ publishedAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        BlogPost.countDocuments(filter),
+        BlogPost.distinct("tags", { status: "published" }),
+      ]);
+      return JSON.parse(
+        JSON.stringify({
+          ...paginatedResponse(posts, total, page, limit),
+          availableTags,
+        }),
+      ) as BlogListingData;
+    },
   );
+}
+
+export default async function BlogPage({ searchParams }: Props) {
+  const query = await searchParams;
+  let initialData: BlogListingData = {
+    items: [],
+    availableTags: [],
+    pagination: {
+      page: pageNumber(query.page),
+      limit: 12,
+      total: 0,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
+  let listingLoaded = false;
+  try {
+    initialData = await getListing(query);
+    listingLoaded = true;
+  } catch (error) {
+    logger.error("Server-rendered blog listing failed", {
+      route: "/blog",
+      operation: "list_posts",
+      ...errorToLogMetadata(error),
+    });
+  }
+  if (
+    listingLoaded &&
+    initialData.pagination.page > Math.max(1, initialData.pagination.totalPages)
+  ) {
+    notFound();
+  }
+  return <BlogExplorer initialData={initialData} initialQuery={query} />;
 }

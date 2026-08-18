@@ -49,7 +49,11 @@ export default async function CalendarEventPage({
     event.publicEventId &&
     typeof event.publicEventId === "object" &&
     "_id" in event.publicEventId
-      ? (event.publicEventId as unknown as { _id: unknown; status: string })
+      ? (event.publicEventId as unknown as {
+          _id: unknown;
+          slug: string;
+          status: string;
+        })
       : null;
   const format = event.allDay ? DATE : DATE_TIME;
   return (
@@ -109,7 +113,7 @@ export default async function CalendarEventPage({
             <p>Status: {publicEvent.status}</p>
             {publicEvent.status === "published" && (
               <BackLink
-                href={`/events/${publicEvent._id}`}
+                href={`/events/${publicEvent.slug}`}
                 label="View public page"
               />
             )}
