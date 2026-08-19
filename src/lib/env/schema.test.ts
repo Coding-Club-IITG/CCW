@@ -27,7 +27,7 @@ describe("runtime environment schemas", () => {
       ROOM_PRE_START_SECONDS: 5,
       DISCONNECT_FORFEIT_TIMEOUT_SECONDS: 90,
       ROOM_READY_TIMEOUT_MINUTES: 2,
-      SYNC_COOLDOWN: 5,
+      SYNC_COOLDOWN: 60,
       FILE_UPLOAD_DIR: "uploads/files",
     });
   });
@@ -74,19 +74,21 @@ describe("runtime environment schemas", () => {
     ).toBe(false);
   });
 
-  it("parses browser booleans and numeric bounds", () => {
+  it("parses browser booleans", () => {
     expect(
       parseBrowserEnv({
-        NEXT_PUBLIC_DISABLE_NOTIFICATION_POLLING: "true",
-        NEXT_PUBLIC_SYNC_COOLDOWN: "12",
+        DISABLE_NOTIFICATION_POLLING: "true",
       }),
     ).toEqual({
-      NEXT_PUBLIC_DISABLE_NOTIFICATION_POLLING: true,
-      NEXT_PUBLIC_SYNC_COOLDOWN: 12,
+      DISABLE_NOTIFICATION_POLLING: true,
     });
-    expect(() => parseBrowserEnv({ NEXT_PUBLIC_SYNC_COOLDOWN: "-1" })).toThrow(
-      /NEXT_PUBLIC_SYNC_COOLDOWN/,
-    );
+    expect(
+      parseBrowserEnv({
+        DISABLE_NOTIFICATION_POLLING: "false",
+      }),
+    ).toEqual({
+      DISABLE_NOTIFICATION_POLLING: false,
+    });
   });
 
   it("aggregates invalid variable names without secret values", () => {

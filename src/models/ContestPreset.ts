@@ -28,7 +28,7 @@ const ProblemSlotSchema = new Schema<IProblemSlot>({
 
 const ContestPresetSchema = new Schema<IContestPreset>(
   {
-    name: { type: String, required: true, unique: true, index: true },
+    name: { type: String, required: true, unique: true },
     description: { type: String },
     format: {
       type: String,

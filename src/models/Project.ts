@@ -46,5 +46,9 @@ const ProjectSchema: Schema = new Schema(
   { timestamps: true },
 );
 
+ProjectSchema.index({ date: -1 });
+ProjectSchema.index({ status: 1, date: -1 });
+ProjectSchema.index({ module: 1, status: 1, date: -1 });
+
 export default mongoose.models.Project ||
   mongoose.model<IProject>("Project", ProjectSchema);

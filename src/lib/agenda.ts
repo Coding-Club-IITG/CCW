@@ -7,10 +7,9 @@ import { workerEnv } from "./env/worker";
 const mongodbUri = workerEnv.MONGODB_URI;
 const redisUrl = workerEnv.REDIS_URL;
 
-// Attach an error listener BEFORE passing to Agenda - ioredis emits 'error'
-// as an EventEmitter event, which Node.js re-throws if there is no listener,
-// crashing the entire process. This keeps the worker alive during Redis blips;
-// Agenda falls back to polling MongoDB every `processEvery` interval.
+// Attach an error listener BEFORE passing to Agenda
+// Redis notification channel emits 'error' as an EventEmitter event,
+// which Node re-throws if there is no listener, crashing the entire process.
 const redisNotificationChannel = new RedisNotificationChannel({
   connectionString: redisUrl,
 });

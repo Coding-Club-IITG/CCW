@@ -151,7 +151,7 @@ const operationalSchema = z.object({
     86400,
   ),
   ROOM_READY_TIMEOUT_MINUTES: integer("ROOM_READY_TIMEOUT_MINUTES", 2, 1, 1440),
-  SYNC_COOLDOWN: integer("SYNC_COOLDOWN", 5, 0, 3600),
+  SYNC_COOLDOWN: integer("SYNC_COOLDOWN", 60, 0, 3600),
 });
 
 const uploadSchema = z.object({
@@ -212,11 +212,7 @@ export const testEnvSchema = baseSchema.extend({
 });
 
 export const browserEnvSchema = z.object({
-  NEXT_PUBLIC_DISABLE_NOTIFICATION_POLLING: boolean(
-    "NEXT_PUBLIC_DISABLE_NOTIFICATION_POLLING",
-    false,
-  ),
-  NEXT_PUBLIC_SYNC_COOLDOWN: integer("NEXT_PUBLIC_SYNC_COOLDOWN", 5, 0, 3600),
+  DISABLE_NOTIFICATION_POLLING: boolean("DISABLE_NOTIFICATION_POLLING", false),
 });
 
 export type SharedServerEnv = z.infer<typeof sharedServerEnvSchema>;

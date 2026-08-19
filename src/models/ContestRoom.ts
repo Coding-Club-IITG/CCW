@@ -34,7 +34,6 @@ const ContestRoomSchema = new Schema<IContestRoom>(
       type: Schema.Types.ObjectId,
       ref: "ContestMatch",
       required: true,
-      index: true,
     },
     name: { type: String, required: true },
     status: {
@@ -42,9 +41,8 @@ const ContestRoomSchema = new Schema<IContestRoom>(
       required: true,
       enum: ["waiting", "active", "ended", "pending"],
       default: "waiting",
-      index: true,
     },
-    participants: [{ type: Schema.Types.ObjectId, ref: "CPUser", index: true }],
+    participants: [{ type: Schema.Types.ObjectId, ref: "CPUser" }],
     teams: [{ type: Schema.Types.ObjectId, ref: "ContestTeam" }],
     currentRoundId: { type: Schema.Types.ObjectId, ref: "ContestRound" },
     currentProblemIndex: { type: Number, required: true, default: 0 },
@@ -55,6 +53,9 @@ const ContestRoomSchema = new Schema<IContestRoom>(
   },
   { timestamps: true },
 );
+
+ContestRoomSchema.index({ contestId: 1, status: 1 });
+ContestRoomSchema.index({ participants: 1, status: 1 });
 
 const ContestRoom =
   mongoose.models.ContestRoom ||

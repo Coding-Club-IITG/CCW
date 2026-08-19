@@ -1,14 +1,17 @@
 "use client";
 
 import { expectAppData } from "@/lib/api/result";
+import { clientEnv } from "@/lib/env/client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   Bell as IconBell,
   ExternalLink as IconExternalLink,
 } from "lucide-react";
 import styles from "./NotificationBell.module.scss";
+
+const NOTIFICATION_POLL_INTERVAL_MS = 30_000;
 
 interface Notification {
   _id: string;
@@ -24,13 +27,63 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const isFetchingRef = useRef(false);
+
+  const fetchNotifications = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const res = await fetch("/api/notifications?unread=true");
+      const data = await expectAppData(res);
+      setUnreadCount(data.unreadCount || 0);
+      setNotifications((data.items || []).slice(0, 5));
+    } catch {
+      // silent
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, []);
 
   useEffect(() => {
-    fetchNotifications();
+    if (clientEnv.DISABLE_NOTIFICATION_POLLING) return;
 
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    let intervalId: NodeJS.Timeout | null = null;
+
+    const startPolling = () => {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(
+        fetchNotifications,
+        NOTIFICATION_POLL_INTERVAL_MS,
+      );
+    };
+
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchNotifications();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    if (document.visibilityState === "visible") {
+      fetchNotifications();
+      startPolling();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [fetchNotifications]);
 
   useEffect(() => {
     if (!open) return;
@@ -42,17 +95,6 @@ export default function NotificationBell() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
-
-  async function fetchNotifications() {
-    try {
-      const res = await fetch("/api/notifications?unread=true");
-      const data = await expectAppData(res);
-      setUnreadCount(data.unreadCount || 0);
-      setNotifications((data.items || []).slice(0, 5));
-    } catch {
-      // silent
-    }
-  }
 
   async function markRead(id: string) {
     try {

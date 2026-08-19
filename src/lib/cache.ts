@@ -91,13 +91,15 @@ export async function invalidateCache(prefix: string): Promise<void> {
       MATCH: pattern,
       COUNT: 100,
     })) {
-      for (const key of keys) {
-        await redis.del(key);
+      if (Array.isArray(keys)) {
+        if (keys.length > 0) await redis.unlink(keys);
+      } else if (keys) {
+        await redis.unlink(keys);
       }
     }
 
     // Also delete the exact prefix key (no params variant)
-    await redis.del(`${CACHE_PREFIX}:${prefix}`);
+    await redis.unlink(`${CACHE_PREFIX}:${prefix}`);
   } catch (err) {
     logger.warn("[cache] invalidateCache failed:", err);
   }
@@ -111,7 +113,7 @@ export async function invalidateCacheKeys(...keys: string[]): Promise<void> {
   try {
     const redis = await getRedisWithTimeout();
     if (!redis) return;
-    await redis.del(keys);
+    await redis.unlink(keys);
   } catch (err) {
     logger.warn("[cache] invalidateCacheKeys failed:", err);
   }

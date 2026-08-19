@@ -33,7 +33,6 @@
     "better-auth": "^1.6.27",
     "browsercc": "^0.1.1",
     "bullmq": "^6.1.0",
-    "ioredis": "^6.0.0",
     "katex": "^0.18.4",
     "lucide-react": "^1.31.0",
     "mongodb": "^7.5.0",

@@ -23,7 +23,6 @@ const ContestStandingSchema = new Schema<IContestStanding>(
       type: Schema.Types.ObjectId,
       ref: "ContestRoom",
       required: true,
-      index: true,
     },
     contestId: {
       type: Schema.Types.ObjectId,
@@ -47,6 +46,9 @@ const ContestStandingSchema = new Schema<IContestStanding>(
   },
   { timestamps: true },
 );
+
+ContestStandingSchema.index({ contestId: 1, score: -1 });
+ContestStandingSchema.index({ roomId: 1, userId: 1 });
 
 const ContestStanding =
   mongoose.models.ContestStanding ||

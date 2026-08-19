@@ -141,6 +141,14 @@ CPUserSchema.index(
   { unique: true, partialFilterExpression: { acHandle: { $gt: "" } } },
 );
 CPUserSchema.index({ "solvedProblems.problemId": 1 });
+CPUserSchema.index({ cfVerified: 1, cfRating: -1 });
+CPUserSchema.index({ acVerified: 1, acRating: -1 });
+CPUserSchema.index({
+  potdTotalSolved: 1,
+  potdCurrentStreak: -1,
+  potdTotalPoints: -1,
+  potdLongestStreak: -1,
+});
 
 export default mongoose.models.CPUser ||
   mongoose.model("CPUser", CPUserSchema, "cpusers");

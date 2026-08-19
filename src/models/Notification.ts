@@ -3,7 +3,7 @@ import { NOTIFICATION_TYPES } from "@/lib/constants";
 
 const NotificationSchema = new mongoose.Schema(
   {
-    userId: { type: String, required: true, index: true },
+    userId: { type: String, required: true },
     type: {
       type: String,
       enum: NOTIFICATION_TYPES,
