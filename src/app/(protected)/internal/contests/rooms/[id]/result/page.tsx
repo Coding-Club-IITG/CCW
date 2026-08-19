@@ -9,7 +9,7 @@ import ContestSubmission from "@/models/ContestSubmission";
 import CPUser from "@/models/CPUser";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
 import { redirect } from "next/navigation";
 
 export default async function PostMatchResultPage({
@@ -39,10 +39,11 @@ export default async function PostMatchResultPage({
 
   const isProcessing = room.status !== "ended";
 
-  const contest = await getContestById(room.contestId.toString());
-  if (!contest) {
+  const contestResult = await getContestById(room.contestId.toString());
+  if (!contestResult.ok || !contestResult.data) {
     notFound();
   }
+  const contest = contestResult.data;
 
   // 2. Fetch all match data
   const teams = await ContestTeam.find({ roomId }).lean();

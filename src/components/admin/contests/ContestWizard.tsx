@@ -81,8 +81,10 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     setIsSubmitting(true);
     try {
       const result = await validateStep(currentStep, formData);
-      if (!result.valid) {
-        setErrors(result.errors);
+      if (!result.ok) {
+        alert(result.error.message);
+      } else if (!result.data.valid) {
+        setErrors(result.data.errors);
       } else {
         setErrors({});
         setCurrentStep((prev) => prev + 1);
@@ -105,8 +107,8 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     setIsSubmitting(true);
     try {
       const result = await createBracketContest(formData);
-      if ("error" in result) {
-        alert(result.error);
+      if (!result.ok) {
+        alert(result.error.message);
       } else {
         alert("Contest created successfully!");
         router.push(`/admin`);

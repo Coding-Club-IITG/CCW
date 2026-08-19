@@ -3,30 +3,32 @@
  * POST /api/files  - upload a new file
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import FileEntry from "@/models/FileEntry";
-import { canUploadFiles, buildAccessFilter } from "@/lib/fileAccess";
-import {
-  parseManagedModules,
-  parseRoles,
-  getHeadModules,
-  isAdmin,
-} from "@/lib/roles";
+import { canUploadFiles, buildAccessFilter } from "@/lib/access/files";
+import { getHeadModules, isAdmin } from "@/lib/access/roles";
+import { parseManagedModules, parseRoles } from "@/lib/roles";
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
+import { webEnv } from "@/lib/env/web";
 import crypto from "crypto";
 import { parsePagination, paginatedResponse } from "@/lib/pagination";
 import { logger } from "@/lib/utils";
+import { parseFormData, parseSearchParams } from "@/lib/api/result";
+import {
+  formDataObjectSchema,
+  paginationQuerySchema,
+} from "@/lib/api/schemas/boundary";
 
 export const runtime = "nodejs";
 
 // Configuration
 
-const UPLOAD_DIR =
-  process.env.FILE_UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
+const UPLOAD_DIR = path.resolve(webEnv.FILE_UPLOAD_DIR);
 
 async function ensureUploadDir(): Promise<void> {
   if (!existsSync(UPLOAD_DIR)) {
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const user = session.user as any;
@@ -51,6 +53,8 @@ export async function GET(request: NextRequest) {
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const query = parseSearchParams(searchParams, paginationQuerySchema);
+    if (!query.ok) return jsonResult(query);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
 
     const accessFilter = buildAccessFilter(
@@ -70,13 +74,10 @@ export async function GET(request: NextRequest) {
       FileEntry.countDocuments(accessFilter),
     ]);
 
-    return NextResponse.json(paginatedResponse(files, total, page, limit));
+    return jsonOk(paginatedResponse(files, total, page, limit));
   } catch (err) {
     logger.error("[Files] GET /api/files error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
@@ -86,16 +87,16 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const user = session.user as any;
     const managedModules = parseManagedModules(user.managedModules);
 
     if (!canUploadFiles(user.access)) {
-      return NextResponse.json(
-        { error: "Only admins and module heads can upload files." },
-        { status: 403 },
+      return jsonError(
+        "FORBIDDEN",
+        "Only admins and module heads can upload files.",
       );
     }
 
@@ -103,48 +104,47 @@ export async function POST(request: NextRequest) {
     try {
       formData = await request.formData();
     } catch {
-      return NextResponse.json(
-        { error: "Failed to parse form data. Check Content-Type header." },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Failed to parse form data. Check Content-Type header.",
       );
     }
+    const parsedForm = parseFormData(formData, formDataObjectSchema);
+    if (!parsedForm.ok) return jsonResult(parsedForm);
 
     // Extract fields
 
     const file = formData.get("file") as File | null;
     if (!file || file.size === 0) {
-      return NextResponse.json({ error: "No file provided." }, { status: 400 });
+      return jsonError("VALIDATION_ERROR", "No file provided.");
     }
 
     const title = (formData.get("title") as string | null)?.trim();
     if (!title) {
-      return NextResponse.json(
-        { error: "Title is required." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Title is required.");
     }
     if (title.length > 200) {
-      return NextResponse.json(
-        { error: "Title must be 200 characters or fewer." },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Title must be 200 characters or fewer.",
       );
     }
 
     const description =
       (formData.get("description") as string | null)?.trim() ?? "";
     if (description.length > 1000) {
-      return NextResponse.json(
-        { error: "Description must be 1000 characters or fewer." },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Description must be 1000 characters or fewer.",
       );
     }
 
     const folder =
       (formData.get("folder") as string | null)?.trim() || "General";
     if (folder.length > 100) {
-      return NextResponse.json(
-        { error: "Folder name must be 100 characters or fewer." },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Folder name must be 100 characters or fewer.",
       );
     }
 
@@ -160,9 +160,9 @@ export async function POST(request: NextRequest) {
       } else if (headModules.includes(uploaderModuleRaw as any)) {
         uploaderModule = uploaderModuleRaw;
       } else {
-        return NextResponse.json(
-          { error: "You cannot upload files under that module." },
-          { status: 403 },
+        return jsonError(
+          "FORBIDDEN",
+          "You cannot upload files under that module.",
         );
       }
     }
@@ -195,10 +195,7 @@ export async function POST(request: NextRequest) {
       await writeFile(path.join(UPLOAD_DIR, storedName), buffer);
     } catch (err) {
       logger.error("[Files] Disk write error:", err);
-      return NextResponse.json(
-        { error: "Failed to save file to disk." },
-        { status: 500 },
-      );
+      return jsonError("INTERNAL_ERROR", "Failed to save file to disk.");
     }
 
     // Persist metadata
@@ -226,7 +223,7 @@ export async function POST(request: NextRequest) {
         resourceId: newFile._id.toString(),
         fileSize: file.size,
       });
-      return NextResponse.json({ file: newFile }, { status: 201 });
+      return jsonOk({ file: newFile }, { status: 201 });
     } catch (err) {
       // Best-effort cleanup of the disk file if DB write fails
       try {
@@ -235,16 +232,10 @@ export async function POST(request: NextRequest) {
       } catch {}
 
       logger.error("[Files] DB write error:", err);
-      return NextResponse.json(
-        { error: "Failed to save file metadata." },
-        { status: 500 },
-      );
+      return jsonError("INTERNAL_ERROR", "Failed to save file metadata.");
     }
   } catch (err) {
     logger.error("[Files] POST /api/files error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

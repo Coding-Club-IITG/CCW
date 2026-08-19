@@ -5,13 +5,12 @@
  */
 
 import path from "path";
-import { createImageUploadHandler } from "@/lib/uploadHandler";
+import { webEnv } from "@/lib/env/web";
+import { createImageUploadHandler } from "@/lib/api/uploads/image";
 
 export const runtime = "nodejs";
 
-const AVATAR_UPLOAD_DIR =
-  process.env.AVATAR_UPLOAD_DIR ??
-  path.join(process.cwd(), "uploads", "avatars");
+const AVATAR_UPLOAD_DIR = path.resolve(webEnv.AVATAR_UPLOAD_DIR);
 
 const AVATAR_ALLOWED_MIME_TYPES = [
   "image/jpeg",

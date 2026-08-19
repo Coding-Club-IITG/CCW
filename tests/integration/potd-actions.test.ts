@@ -116,7 +116,7 @@ describe("POTD member actions", () => {
 
     await expect(getTodayChallenge()).resolves.toEqual({
       ok: false,
-      error: "Unauthorized",
+      error: { code: "UNAUTHENTICATED", message: "Unauthorized" },
     });
   });
 
@@ -137,11 +137,14 @@ describe("POTD member actions", () => {
     const result = await getTodayChallenge();
 
     expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
     expect(
-      result.data?.challenges.map((challenge) => challenge.difficulty),
+      result.data.challenges.map(
+        (challenge: { difficulty: string }) => challenge.difficulty,
+      ),
     ).toEqual(["Easy", "Hard"]);
-    expect(result.data?.challenges[0].mySubmission.status).toBe("none");
-    expect(result.data?.challenges[1].mySubmission).toMatchObject({
+    expect(result.data.challenges[0].mySubmission.status).toBe("none");
+    expect(result.data.challenges[1].mySubmission).toMatchObject({
       status: "Accepted",
       pointsAwarded: 140,
     });
@@ -175,7 +178,7 @@ describe("POTD member actions", () => {
     const { getSolveChallenge } = await import("@/lib/actions/potd");
 
     await expect(getSolveChallenge(challenge._id.toString())).resolves.toEqual({
-      success: true,
+      ok: true,
       data: {
         challengeId: challenge._id.toString(),
         platform: "codeforces",
@@ -201,7 +204,7 @@ describe("POTD member actions", () => {
 
     await expect(markChallengeOpened("not-an-object-id")).resolves.toEqual({
       ok: false,
-      error: "Invalid challenge",
+      error: { code: "VALIDATION_ERROR", message: "Invalid challenge" },
     });
     expect(await POTDSubmission.countDocuments()).toBe(0);
   });
@@ -219,7 +222,10 @@ describe("POTD member actions", () => {
       markChallengeOpened(challenge._id.toString()),
     ).resolves.toEqual({
       ok: false,
-      error: "Codeforces handle not verified",
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Codeforces handle not verified",
+      },
     });
   });
 
@@ -235,9 +241,11 @@ describe("POTD member actions", () => {
 
     expect(await markChallengeOpened(challenge._id.toString())).toEqual({
       ok: true,
+      data: {},
     });
     expect(await markChallengeOpened(challenge._id.toString())).toEqual({
       ok: true,
+      data: {},
     });
     expect(
       await POTDSubmission.countDocuments({
@@ -254,7 +262,10 @@ describe("POTD member actions", () => {
 
     await expect(syncMySubmission(challenge._id.toString())).resolves.toEqual({
       ok: false,
-      error: "Please wait 42s before syncing again",
+      error: {
+        code: "RATE_LIMITED",
+        message: "Please wait 42s before syncing again",
+      },
     });
   });
 
@@ -268,7 +279,7 @@ describe("POTD member actions", () => {
 
     await expect(syncMySubmission(challenge._id.toString())).resolves.toEqual({
       ok: false,
-      error: "Sync already in progress",
+      error: { code: "CONFLICT", message: "Sync already in progress" },
     });
     expect(redisValues.has(`potd:sync:ratelimit:${userId}`)).toBe(false);
   });
@@ -280,7 +291,10 @@ describe("POTD member actions", () => {
 
     await expect(syncMySubmission(challenge._id.toString())).resolves.toEqual({
       ok: false,
-      error: "Auto-sync is running. Your result will be updated shortly.",
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "Auto-sync is running. Your result will be updated shortly.",
+      },
     });
     expect(redisValues.has(`potd:sync:ratelimit:${userId}`)).toBe(false);
     expect(
@@ -297,7 +311,10 @@ describe("POTD member actions", () => {
 
     await expect(syncMySubmission(challenge._id.toString())).resolves.toEqual({
       ok: false,
-      error: "Failed to reach Codeforces API",
+      error: {
+        code: "EXTERNAL_DEPENDENCY_FAILURE",
+        message: "Failed to reach Codeforces API",
+      },
     });
     expect(
       redisValues.has(`potd:sync:lock:${userId}:${challenge._id.toString()}`),
@@ -313,8 +330,7 @@ describe("POTD member actions", () => {
 
     await expect(syncMySubmission(challenge._id.toString())).resolves.toEqual({
       ok: true,
-      status: "Accepted",
-      pointsAwarded: 100,
+      data: { status: "Accepted", pointsAwarded: 100 },
     });
     expect(redisValues.has(`potd:sync:ratelimit:${userId}`)).toBe(true);
     expect(
@@ -392,14 +408,16 @@ describe("POTD member actions", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      total: 1,
-      data: [
-        {
-          difficulty: "Medium",
-          solvedBy: 1,
-          problem: { name: "A+B literal" },
-        },
-      ],
+      data: {
+        total: 1,
+        items: [
+          {
+            difficulty: "Medium",
+            solvedBy: 1,
+            problem: { name: "A+B literal" },
+          },
+        ],
+      },
     });
   });
 
@@ -442,11 +460,13 @@ describe("POTD member actions", () => {
 
     const result = await getPotdLeaderboard("weekly");
 
-    expect(result.data?.map((entry) => entry.name)).toEqual([
-      "First",
-      "Second",
-    ]);
-    expect(result.data?.map((entry) => entry.totalPoints)).toEqual([120, 40]);
+    expect(
+      result.ok && result.data.map((entry: { name: string }) => entry.name),
+    ).toEqual(["First", "Second"]);
+    expect(
+      result.ok &&
+        result.data.map((entry: { totalPoints: number }) => entry.totalPoints),
+    ).toEqual([120, 40]);
   });
 });
 

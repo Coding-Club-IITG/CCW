@@ -1,5 +1,12 @@
 "use server";
 
+import { err as appError, ok } from "@/lib/api/result";
+
+import { defineAction } from "@/lib/actions/defineAction";
+
+export const getCredits = defineAction("getCredits", getCreditsAction);
+export const saveCredits = defineAction("saveCredits", saveCreditsAction);
+
 import mongoose from "mongoose";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -11,7 +18,7 @@ import {
   CreditSectionInput,
 } from "@/lib/credits";
 import dbConnect from "@/lib/mongodb";
-import { isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
 import { errorToLogMetadata, getDisplayName, logger } from "@/lib/utils";
 import Credits from "@/models/Credits";
 import User from "@/models/User";
@@ -21,15 +28,14 @@ async function getSessionUser() {
   return session?.user as { id: string; access?: string } | undefined;
 }
 
-export async function getCredits() {
+async function getCreditsAction() {
   try {
     if (!(await getSessionUser()))
-      return { success: false as const, error: "Unauthorized" };
+      return appError("UNAUTHENTICATED", "Unauthorized");
 
     await dbConnect();
     const credits = await Credits.findOne({ key: "main" }).lean();
-    if (!credits)
-      return { success: true as const, data: [] as CreditSection[] };
+    if (!credits) return ok([] as CreditSection[]);
 
     const userIds = credits.sections.flatMap((section: any) =>
       section.entries.map((entry: any) => entry.user),
@@ -56,13 +62,13 @@ export async function getCredits() {
       }),
     }));
 
-    return { success: true as const, data };
+    return ok(data);
   } catch (error) {
     logger.error("Credits fetch failed", {
       action: "getCredits",
       ...errorToLogMetadata(error),
     });
-    return { success: false as const, error: "Failed to load credits." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
@@ -119,15 +125,15 @@ function validateSections(input: unknown) {
   return { sections } as const;
 }
 
-export async function saveCredits(input: unknown) {
+async function saveCreditsAction(input: unknown) {
   try {
     const user = await getSessionUser();
     if (!user || !isHead(user.access))
-      return { success: false as const, error: "Unauthorized" };
+      return appError("UNAUTHENTICATED", "Unauthorized");
 
     const validated = validateSections(input);
     if ("error" in validated)
-      return { success: false as const, error: validated.error };
+      return appError("INTERNAL_ERROR", "An unexpected error occurred.");
 
     await dbConnect();
     const userIds = [
@@ -139,10 +145,7 @@ export async function saveCredits(input: unknown) {
     ];
     const existingUsers = await User.countDocuments({ _id: { $in: userIds } });
     if (existingUsers !== userIds.length)
-      return {
-        success: false as const,
-        error: "One or more selected users no longer exist.",
-      };
+      return appError("INTERNAL_ERROR", "An unexpected error occurred.");
 
     await Credits.findOneAndUpdate(
       { key: "main" },
@@ -161,12 +164,12 @@ export async function saveCredits(input: unknown) {
     );
     revalidatePath("/", "layout");
     logger.info("Credits updated", { action: "saveCredits", actorId: user.id });
-    return { success: true as const };
+    return ok({});
   } catch (error) {
     logger.error("Credits update failed", {
       action: "saveCredits",
       ...errorToLogMetadata(error),
     });
-    return { success: false as const, error: "Failed to save credits." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }

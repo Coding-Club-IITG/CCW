@@ -131,11 +131,11 @@ export default function AutoProblemModal({
     setLoading(true);
     try {
       const res = await autoFetchPOTDCandidates(slotsToFetch);
-      if (!res.ok || !res.candidates) {
-        setErrorMsg(res.error || "Failed to fetch candidate problems.");
+      if (!res.ok) {
+        setErrorMsg(res.error.message);
         return;
       }
-      setCandidates(res.candidates);
+      setCandidates(res.data.candidates);
       setStep("preview");
     } catch (err: any) {
       setErrorMsg(err.message || "An unexpected error occurred.");
@@ -170,8 +170,8 @@ export default function AutoProblemModal({
         otherPickedProblemIds,
       );
 
-      if (res.ok && res.candidates && res.candidates.length > 0) {
-        const newCand = res.candidates[0];
+      if (res.ok && res.data.candidates.length > 0) {
+        const newCand = res.data.candidates[0];
         setCandidates((prev) =>
           prev.map((item) => (item.id === candidateId ? newCand : item)),
         );
@@ -201,7 +201,7 @@ export default function AutoProblemModal({
     try {
       const res = await bulkSetDailyProblems(validItems);
       if (!res.ok) {
-        setErrorMsg(res.error || "Failed to save scheduled problems.");
+        setErrorMsg(res.error.message);
         return;
       }
       onSuccess();

@@ -1,5 +1,7 @@
 "use client";
 
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
+
 import { useState } from "react";
 import { X, Shield, AlertCircle } from "lucide-react";
 import type { FileEntry } from "./types";
@@ -46,14 +48,10 @@ export default function EditModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Update failed.");
-        return;
-      }
+      await expectAppData(res);
       onSuccess();
-    } catch {
-      setError("Network error. Please try again.");
+    } catch (error) {
+      setError(appErrorMessage(error, "Network error. Please try again."));
     } finally {
       setLoading(false);
     }

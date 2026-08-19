@@ -1,4 +1,5 @@
 import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
+import { toBsonSafe } from "@/lib/api/result";
 import { CURRENT_TENURE } from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
@@ -44,7 +45,7 @@ export default async function TeamPage() {
             "name image access tenure managedModules roles bio pizza_count",
           )
           .lean();
-        return JSON.parse(JSON.stringify(users));
+        return toBsonSafe(users) as unknown as PublicTeamMember[];
       },
     );
   } catch (error) {

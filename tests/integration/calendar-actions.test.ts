@@ -81,7 +81,7 @@ describe("calendar actions", () => {
 
     const result = await createCalendarEvent(input());
 
-    expect(result.success).toBe(true);
+    expect(result.ok).toBe(true);
     expect(await CalendarEvent.findOne().lean()).toMatchObject({
       title: "Design sync",
       scope: "module",
@@ -95,8 +95,11 @@ describe("calendar actions", () => {
     const { createCalendarEvent } = await import("@/lib/actions/calendar");
 
     await expect(createCalendarEvent(input())).resolves.toEqual({
-      success: false,
-      error: "You cannot manage events in that scope.",
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "You cannot manage events in that scope.",
+      },
     });
     expect(await CalendarEvent.countDocuments()).toBe(0);
   });
@@ -124,8 +127,8 @@ describe("calendar actions", () => {
       "2026-09-01T00:00:00.000Z",
     );
 
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data).toHaveLength(2);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data).toHaveLength(2);
   });
 
   it("cascade-deletes the linked public event", async () => {
@@ -156,9 +159,7 @@ describe("calendar actions", () => {
 
     await expect(
       deleteCalendarEvent(String(calendarEvent._id)),
-    ).resolves.toEqual({
-      success: true,
-    });
+    ).resolves.toEqual({ ok: true, data: {} });
     expect(await CalendarEvent.countDocuments()).toBe(0);
     expect(await Event.countDocuments()).toBe(0);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/sitemap.xml");

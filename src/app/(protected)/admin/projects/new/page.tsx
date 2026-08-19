@@ -63,13 +63,13 @@ export default function NewProjectPage() {
     if (tags) formData.set("tags", tags);
 
     const result = await createProject(formData);
-    if (result.success) {
+    if (result.ok) {
       router.push("/admin/projects");
       router.refresh();
       return;
     }
 
-    setError(result.error || "Failed to create project.");
+    setError(result.error.message);
     setSaving(false);
   }
 

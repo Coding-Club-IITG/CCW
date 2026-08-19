@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { responseData, responseError } from "../utils/result";
 import { Types } from "mongoose";
 import {
   afterAll,
@@ -97,7 +98,7 @@ describe("hackathon join requests and invites", () => {
         type: "join_request",
       }),
     );
-    expect(duplicate.status).toBe(400);
+    expect(duplicate.status).toBe(409);
     expect(await Request.countDocuments({ teamId: team._id })).toBe(1);
   });
 
@@ -114,7 +115,7 @@ describe("hackathon join requests and invites", () => {
       }),
     );
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error });
+    expect(await responseError(response)).toMatchObject({ message: error });
   });
 
   it("rejects a join request from a member already on another team", async () => {
@@ -134,8 +135,10 @@ describe("hackathon join requests and invites", () => {
         type: "join_request",
       }),
     );
-    expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain("already in a team");
+    expect(response.status).toBe(409);
+    expect((await responseError(response)).message).toContain(
+      "already in a team",
+    );
   });
 
   it("allows only the owner to invite a non-member", async () => {
@@ -273,7 +276,7 @@ describe("hackathon join requests and invites", () => {
       }),
       context(pending._id.toString()),
     );
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(409);
     expect((await Request.findById(pending._id).lean())?.status).toBe(
       "rejected",
     );
@@ -338,7 +341,7 @@ describe("hackathon join requests and invites", () => {
         `http://localhost/api/hackathons/requests?teamId=${team._id}`,
       ),
     );
-    const body = await response.json();
+    const body = await responseData(response);
     expect(response.status).toBe(200);
     expect(body.items).toHaveLength(1);
     expect(body.users[requester._id.toString()]).toEqual({

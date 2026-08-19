@@ -74,21 +74,32 @@ export default function PublicEventForm({
   async function save(status: EventPublicationStatus) {
     setSaving(true);
     setError("");
-    const result = event
-      ? await updateEvent(event._id, payload())
-      : await createPublicEvent(calendarEventId, payload(), status);
-    if (!result.success) {
-      setError(result.error);
-      setSaving(false);
-      return;
+    let eventId: string;
+    if (event) {
+      const result = await updateEvent(event._id, payload());
+      if (!result.ok) {
+        setError(result.error.message);
+        setSaving(false);
+        return;
+      }
+      eventId = event._id;
+    } else {
+      const result = await createPublicEvent(
+        calendarEventId,
+        payload(),
+        status,
+      );
+      if (!result.ok) {
+        setError(result.error.message);
+        setSaving(false);
+        return;
+      }
+      eventId = result.data._id;
     }
-    const eventId =
-      event?._id ??
-      String("data" in result ? result.data._id : result.event._id);
     if (event && event.status !== status) {
       const statusResult = await setPublicEventStatus(eventId, status);
-      if (!statusResult.success) {
-        setError(statusResult.error);
+      if (!statusResult.ok) {
+        setError(statusResult.error.message);
         setSaving(false);
         return;
       }
@@ -101,7 +112,7 @@ export default function PublicEventForm({
     if (!event) return;
     setSaving(true);
     const result = await syncPublicEventSchedule(event._id);
-    if (!result.success) setError(result.error);
+    if (!result.ok) setError(result.error.message);
     else router.refresh();
     setSaving(false);
   }

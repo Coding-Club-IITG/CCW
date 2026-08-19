@@ -1,5 +1,7 @@
 "use client";
 
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
+
 import { useState, useEffect, useCallback } from "react";
 import {
   Upload,
@@ -13,7 +15,8 @@ import {
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
 import type { CurrentUser, FileEntry } from "./types";
-import { formatBytes, formatDate, canManageFile, aclSummary } from "./utils";
+import { formatBytes, formatDate, aclSummary } from "./utils";
+import { canManageFile } from "@/lib/access/files";
 import FileViewer from "./FileViewer";
 import UploadModal from "./UploadModal";
 import EditModal from "./EditModal";
@@ -47,15 +50,11 @@ export default function FilesClient({ currentUser }: Props) {
     setError(null);
     try {
       const res = await fetch(`/api/files?page=${page}&limit=30`);
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Failed to load files.");
-        return;
-      }
+      const data = await expectAppData(res);
       setFiles(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
-    } catch {
-      setError("Network error. Please try again.");
+    } catch (error) {
+      setError(appErrorMessage(error, "Network error. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -77,14 +76,10 @@ export default function FilesClient({ currentUser }: Props) {
 
     try {
       const res = await fetch(`/api/files/${file._id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        alert(data.error ?? "Delete failed.");
-        return;
-      }
+      await expectAppData(res);
       fetchFiles();
-    } catch {
-      alert("Network error. Please try again.");
+    } catch (error) {
+      alert(appErrorMessage(error, "Network error. Please try again."));
     }
   }
 
@@ -185,7 +180,12 @@ export default function FilesClient({ currentUser }: Props) {
               </thead>
               <tbody>
                 {filteredFiles.map((file) => {
-                  const canManage = canManageFile(currentUser, file);
+                  const canManage = canManageFile(
+                    currentUser.id,
+                    currentUser.access,
+                    currentUser.headModules,
+                    file,
+                  );
                   return (
                     <tr key={file._id}>
                       <td>

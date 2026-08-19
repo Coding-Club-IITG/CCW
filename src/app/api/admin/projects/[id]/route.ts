@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseRouteParams, toBsonSafe } from "@/lib/api/result";
+import { requireHead } from "@/lib/api/auth";
+import { objectIdParamsSchema } from "@/lib/api/schemas/boundary";
 import dbConnect from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
 import Project from "@/models/Project";
@@ -9,27 +12,24 @@ export async function GET(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
 
-    const { id } = await context.params;
+    const validatedParams = parseRouteParams(
+      await context.params,
+      objectIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
     await dbConnect();
     const project = await Project.findById(id).lean();
     if (!project) {
-      return NextResponse.json(
-        { error: "Project not found." },
-        { status: 404 },
-      );
+      return jsonError("NOT_FOUND", "Project not found.");
     }
 
-    return NextResponse.json({ project: JSON.parse(JSON.stringify(project)) });
+    return jsonOk({ project: toBsonSafe(project) });
   } catch (err) {
     logger.error("[Admin Projects API] GET [id] error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

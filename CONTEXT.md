@@ -38,9 +38,15 @@ programming systems, content, administration, and background integrations.
 - `src/app/(protected)`: authenticated internal and administrative pages
 - `src/app/api`: API route handlers
 - `src/components`: feature and shared React components
-- `src/lib/actions`: server actions
 - `src/lib`: authentication, authorization, integrations, jobs, queues, caching,
   and shared utilities
+- `src/lib/actions`: server actions and their strict exception boundary
+- `src/lib/access`: role and resource-specific authorization policies
+- `src/lib/api`: shared API/action contracts, HTTP response helpers,
+  session authorization, request schemas, and upload boundaries
+- `src/lib/env`: pure Zod runtime schemas and process-specific validated exports
+- `src/lib/platforms`: Competitive Programming platform integration adapters
+  and shared coordination
 - `src/models`: Mongoose models
 - `src/styles`: global theme variables and reusable SCSS mixins
 - `src/worker.ts`: standalone Agenda and BullMQ worker entry point
@@ -52,6 +58,16 @@ programming systems, content, administration, and background integrations.
 - Client Components provide focused browser-side interaction.
 - Server actions and API routes perform data access, authentication,
   authorization, and input validation.
+- JSON APIs and exported server actions use `AppResult<T>`: successful values
+  are `{ ok: true, data }`; failures are `{ ok: false, error: { code, message,
+fields?, requestId? } }`. HTTP routes derive their status from the stable
+  error code. Better Auth, successful SSE streams, binary asset responses,
+  redirects, and metadata retain their framework/library transport formats.
+- Runtime configuration has separate web, worker, CLI, test, and browser
+  profiles. Web requires MongoDB, Redis, authentication, trusted origins, and
+  Microsoft credentials. Worker requires MongoDB and Redis, but not web-only
+  credentials or upload settings. Standalone entry points load dotenv before
+  importing their validated profile.
 - MongoDB is the persistent application store.
 - Redis supports runtime coordination, caching, and queued contest work.
 - The standalone worker runs scheduled synchronization, reminder, cleanup, and
@@ -77,8 +93,8 @@ programming systems, content, administration, and background integrations.
 
 Authentication uses better-auth with Microsoft accounts. Public pages are
 available without a session; internal and administrative pages are protected by
-`src/proxy.ts`. Authorization is operation-specific and uses the access helpers in
-`src/lib/roles.ts` and resource-specific access helpers where applicable.
+`src/proxy.ts`. Authorization policies live in `src/lib/access`; parsing and
+display formatting for role data live in `src/lib/roles.ts`.
 
 Each user has one permission level in `access` (`Member`, `Head`, or `Admin`),
 one `YYYY-YY` academic year in `tenure`, Head-only scope in `managedModules`,

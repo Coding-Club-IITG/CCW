@@ -9,8 +9,8 @@ export default async function PotdLeaderboardPage() {
 
   return (
     <LeaderboardClient
-      initialWeekly={weekly.data ?? []}
-      initialMonthly={monthly.data ?? []}
+      initialWeekly={weekly.ok ? weekly.data : []}
+      initialMonthly={monthly.ok ? monthly.data : []}
     />
   );
 }

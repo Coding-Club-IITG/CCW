@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { responseData, responseError } from "../utils/result";
 import path from "path";
 import { readFile } from "fs/promises";
 import {
@@ -66,7 +67,10 @@ describe("files collection route", () => {
     const response = await GET(new NextRequest("http://localhost/api/files"));
 
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: "Unauthorized" });
+    expect(await responseError(response)).toMatchObject({
+      code: "UNAUTHENTICATED",
+      message: "Unauthorized",
+    });
   });
 
   it("lists only ACL-accessible files with pagination and no stored names", async () => {
@@ -93,7 +97,7 @@ describe("files collection route", () => {
     const response = await GET(
       new NextRequest("http://localhost/api/files?page=1&limit=1"),
     );
-    const body = await response.json();
+    const body = await responseData(response);
 
     expect(response.status).toBe(200);
     expect(body.items).toHaveLength(1);
@@ -122,7 +126,9 @@ describe("files collection route", () => {
     const response = await POST(uploadRequest({ title: "   " }));
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Title is required." });
+    expect(await responseError(response)).toMatchObject({
+      message: "Title is required.",
+    });
     expect(await listTestUploads(uploadDirectory)).toEqual([]);
   });
 
@@ -162,7 +168,7 @@ describe("files collection route", () => {
         }),
       }),
     );
-    const body = await response.json();
+    const body = await responseData(response);
     const saved = await FileEntry.findById(body.file._id).lean();
 
     expect(response.status).toBe(201);

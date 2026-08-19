@@ -9,10 +9,17 @@
  * Only accessible to users who can upload.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseSearchParams } from "@/lib/api/result";
+import {
+  optionalSearchQuerySchema,
+  paginationQueryFields,
+} from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
-import { canUploadFiles } from "@/lib/fileAccess";
+import { canUploadFiles } from "@/lib/access/files";
 import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
 import { prepareSearchQuery } from "@/lib/search";
@@ -36,18 +43,40 @@ const toMinimal = (u: any): MinimalUser => ({
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonError("UNAUTHENTICATED", "Unauthorized");
   }
 
   const user = session.user as any;
   if (!canUploadFiles(user.access)) {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    return jsonError("FORBIDDEN", "Forbidden.");
   }
 
   await dbConnect();
 
   const { searchParams } = new URL(request.url);
-  const idsParam = searchParams.get("ids")?.trim();
+  const query = parseSearchParams(
+    searchParams,
+    z.object({
+      ...paginationQueryFields,
+      ids: z
+        .string()
+        .trim()
+        .max(2_500)
+        .refine(
+          (value) =>
+            !value ||
+            value
+              .split(",")
+              .filter(Boolean)
+              .every((id) => /^[a-f\d]{24}$/i.test(id.trim())),
+          "ids must be a comma-separated list of ObjectIds",
+        )
+        .optional(),
+      search: optionalSearchQuerySchema,
+    }),
+  );
+  if (!query.ok) return jsonResult(query);
+  const idsParam = query.data.ids;
 
   // Resolve specific users by id
   if (idsParam) {
@@ -57,7 +86,7 @@ export async function GET(request: NextRequest) {
       .filter(Boolean)
       .slice(0, 100);
 
-    if (ids.length === 0) return NextResponse.json({ items: [] });
+    if (ids.length === 0) return jsonOk({ items: [] });
 
     const cacheKey = buildCacheKey("users", {
       ids: [...ids].sort().join(","),
@@ -70,11 +99,11 @@ export async function GET(request: NextRequest) {
       return (users as any[]).map(toMinimal);
     });
 
-    return NextResponse.json({ items });
+    return jsonOk({ items });
   }
 
   const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
-  const search = prepareSearchQuery(searchParams.get("search"));
+  const search = prepareSearchQuery(query.data.search);
   const filter = search
     ? {
         $or: [
@@ -105,7 +134,5 @@ export async function GET(request: NextRequest) {
     return { data: (users as any[]).map(toMinimal), total };
   });
 
-  return NextResponse.json(
-    paginatedResponse(result.data, result.total, page, limit),
-  );
+  return jsonOk(paginatedResponse(result.data, result.total, page, limit));
 }

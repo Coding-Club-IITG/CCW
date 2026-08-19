@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import Link from "next/link";
 import { ArrowLeft, BarChart3, LogIn, Trophy, X } from "lucide-react";
 import { ContestListingItem } from "@/lib/actions/contests";
@@ -638,7 +640,7 @@ export default function BracketRoomClient({
             `/api/contests/${contest._id}/bracket/snapshot`,
           );
           if (res.ok) {
-            const data = await res.json();
+            const data = await expectAppData(res);
             setSnapshot(data);
           }
         }

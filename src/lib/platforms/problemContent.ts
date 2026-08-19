@@ -2,6 +2,7 @@ import { cp } from "@ronits2407/cp-api";
 import katex from "katex";
 
 import type { Platform } from "@/lib/constants";
+import { getIntegrationEnv } from "@/lib/env/integrations";
 
 export type ProblemContentSnapshot = {
   title: string;
@@ -115,7 +116,7 @@ export const fetchCodeforcesProblemHtml: ProblemContentFetcher = async (
 
   // Jina accepts the target URL as part of the Reader endpoint path
   target.protocol = "http:";
-  const apiKey = process.env.JINA_API_KEY?.trim();
+  const apiKey = getIntegrationEnv().JINA_API_KEY;
   const response = await fetch(`${READER_URL}${target.toString()}`, {
     headers: {
       "X-Return-Format": "html",

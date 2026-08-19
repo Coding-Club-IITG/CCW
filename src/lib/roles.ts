@@ -104,32 +104,3 @@ export function validateRoles(
     return { success: false, error: "Duplicate roles are not allowed." };
   return { success: true, roles: raw };
 }
-
-// Handles both raw array and stringified form
-// Global administrators
-export function isHead(access?: string): boolean {
-  return access === "Head" || access === "Admin";
-}
-export function isAdmin(access?: string): boolean {
-  return access === "Admin";
-}
-
-// Checks if a user can set POTD problems
-export function canSetPOTD(access?: string, roles: UserRole[] = []): boolean {
-  return (
-    isHead(access) ||
-    roles.some(
-      (role) =>
-        role.module === "Competitive Programming" &&
-        role.position === "Core Team",
-    )
-  );
-}
-
-// List of modules for which user is Head
-export function getHeadModules(
-  access?: string,
-  managedModules?: ModuleName[],
-): ModuleName[] {
-  return access === "Head" ? (managedModules ?? []) : [];
-}

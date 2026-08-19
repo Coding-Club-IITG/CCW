@@ -3,9 +3,16 @@
  * POST /api/admin/blog - Create a new blog post (admin only)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseJson, parseSearchParams } from "@/lib/api/result";
+import {
+  jsonObjectSchema,
+  paginationQueryFields,
+} from "@/lib/api/schemas/boundary";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { requireHead } from "@/lib/api/auth";
 import dbConnect from "@/lib/mongodb";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import {
@@ -29,16 +36,23 @@ async function uniqueSlug(base: string): Promise<string> {
 // GET /api/admin/blog
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
+    const user = authorization.data.user;
 
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const query = parseSearchParams(
+      searchParams,
+      z.object({
+        ...paginationQueryFields,
+        status: z.enum(BLOG_STATUSES).optional(),
+      }),
+    );
+    if (!query.ok) return jsonResult(query);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
-    const status = searchParams.get("status") as BlogStatus | null;
+    const status: BlogStatus | undefined = query.data.status;
 
     const filter: Record<string, any> = {};
     if (status && BLOG_STATUSES.includes(status as BlogStatus)) {
@@ -66,39 +80,27 @@ export async function GET(request: NextRequest) {
       return { posts, total };
     });
 
-    return NextResponse.json(
-      paginatedResponse(result.posts, result.total, page, limit),
-    );
+    return jsonOk(paginatedResponse(result.posts, result.total, page, limit));
   } catch (err) {
     logger.error("Admin blog listing failed", {
       route: "GET /api/admin/blog",
       operation: "list_posts",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
 // POST /api/admin/blog
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
+    const user = authorization.data.user;
 
-    let body: Record<string, any>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body." },
-        { status: 400 },
-      );
-    }
+    const parsedBody = await parseJson(request, jsonObjectSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const body = parsedBody.data;
 
     const {
       title,
@@ -112,23 +114,20 @@ export async function POST(request: NextRequest) {
 
     // Validate title
     if (!title || typeof title !== "string" || title.trim().length === 0) {
-      return NextResponse.json(
-        { error: "Title is required." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Title is required.");
     }
     if (title.trim().length > 200) {
-      return NextResponse.json(
-        { error: "Title must be 200 characters or fewer." },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Title must be 200 characters or fewer.",
       );
     }
 
     // Validate excerpt
     if (excerpt && typeof excerpt === "string" && excerpt.length > 500) {
-      return NextResponse.json(
-        { error: "Excerpt must be 500 characters or fewer." },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Excerpt must be 500 characters or fewer.",
       );
     }
 
@@ -159,9 +158,9 @@ export async function POST(request: NextRequest) {
     const post = await BlogPost.create({
       title: title.trim(),
       slug,
-      content: content || "",
-      excerpt: (excerpt || "").trim(),
-      coverImage: coverImage || "",
+      content: typeof content === "string" ? content : "",
+      excerpt: typeof excerpt === "string" ? excerpt.trim() : "",
+      coverImage: typeof coverImage === "string" ? coverImage : "",
       coverFocalPoint: parseImageFocalPoint(coverFocalPoint),
       authors: [{ userId: user.id, name: user.name || "Unknown" }],
       tags: validTags,
@@ -173,16 +172,13 @@ export async function POST(request: NextRequest) {
     await invalidateCache("admin:blog");
     revalidatePath("/sitemap.xml");
 
-    return NextResponse.json({ post }, { status: 201 });
+    return jsonOk({ post }, { status: 201 });
   } catch (err) {
     logger.error("Admin blog creation failed", {
       route: "POST /api/admin/blog",
       operation: "create_post",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

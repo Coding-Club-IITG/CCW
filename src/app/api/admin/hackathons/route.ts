@@ -3,8 +3,15 @@
  * POST /api/admin/hackathons - Create a new hackathon (admin only)
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseJson, parseSearchParams } from "@/lib/api/result";
+import {
+  jsonObjectSchema,
+  paginationQueryFields,
+} from "@/lib/api/schemas/boundary";
+import { requireHead } from "@/lib/api/auth";
 import dbConnect from "@/lib/mongodb";
 import {
   cachedFetch,
@@ -21,16 +28,23 @@ import User from "@/models/User";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
+    const user = authorization.data.user;
 
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const query = parseSearchParams(
+      searchParams,
+      z.object({
+        ...paginationQueryFields,
+        status: z.enum(["active", "archived"]).optional(),
+      }),
+    );
+    if (!query.ok) return jsonResult(query);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
-    const status = searchParams.get("status");
+    const status = query.data.status;
 
     const filter: Record<string, any> = {};
     if (status === "active" || status === "archived") {
@@ -59,7 +73,7 @@ export async function GET(request: NextRequest) {
       },
     );
 
-    return NextResponse.json(
+    return jsonOk(
       paginatedResponse(result.hackathons, result.total, page, limit),
     );
   } catch (err) {
@@ -68,29 +82,19 @@ export async function GET(request: NextRequest) {
       operation: "list_hackathons",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
+    const user = authorization.data.user;
 
-    let body: Record<string, any>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body." },
-        { status: 400 },
-      );
-    }
+    const parsedBody = await parseJson(request, jsonObjectSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const body = parsedBody.data;
 
     const {
       name,
@@ -104,7 +108,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return NextResponse.json({ error: "Name is required." }, { status: 400 });
+      return jsonError("VALIDATION_ERROR", "Name is required.");
     }
 
     if (
@@ -112,17 +116,11 @@ export async function POST(request: NextRequest) {
       typeof organization !== "string" ||
       organization.trim().length === 0
     ) {
-      return NextResponse.json(
-        { error: "Organization is required." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Organization is required.");
     }
 
     if (!maxMembers || typeof maxMembers !== "number" || maxMembers < 1) {
-      return NextResponse.json(
-        { error: "Max members must be at least 1." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Max members must be at least 1.");
     }
 
     const resolvedMin =
@@ -131,17 +129,14 @@ export async function POST(request: NextRequest) {
         : 1;
 
     if (resolvedMin > maxMembers) {
-      return NextResponse.json(
-        { error: "Min members cannot exceed max members." },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Min members cannot exceed max members.",
       );
     }
 
-    if (!deadline) {
-      return NextResponse.json(
-        { error: "Deadline is required." },
-        { status: 400 },
-      );
+    if (!deadline || typeof deadline !== "string") {
+      return jsonError("VALIDATION_ERROR", "Deadline is required.");
     }
 
     if (
@@ -149,18 +144,12 @@ export async function POST(request: NextRequest) {
       typeof websiteUrl !== "string" ||
       websiteUrl.trim().length === 0
     ) {
-      return NextResponse.json(
-        { error: "Website URL is required." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Website URL is required.");
     }
 
     const deadlineDate = new Date(deadline);
     if (isNaN(deadlineDate.getTime())) {
-      return NextResponse.json(
-        { error: "Invalid deadline date." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Invalid deadline date.");
     }
 
     await dbConnect();
@@ -189,7 +178,7 @@ export async function POST(request: NextRequest) {
       websiteUrl: websiteUrl || "",
       ogImage,
       deadline: deadlineDate,
-      description: (description || "").trim(),
+      description: typeof description === "string" ? description.trim() : "",
       status: "active",
       createdBy: user.id,
     });
@@ -207,16 +196,13 @@ export async function POST(request: NextRequest) {
       link: `/internal/hackathons/${hackathon._id}`,
     });
 
-    return NextResponse.json({ hackathon }, { status: 201 });
+    return jsonOk({ hackathon }, { status: 201 });
   } catch (err) {
     logger.error("Admin hackathon creation failed", {
       route: "POST /api/admin/hackathons",
       operation: "create_hackathon",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

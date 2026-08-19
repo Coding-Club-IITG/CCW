@@ -27,8 +27,8 @@ export default function CalendarEventActions({
     if (!window.confirm(message)) return;
     setDeleting(true);
     const result = await deleteCalendarEvent(id);
-    if (!result.success) {
-      setError(result.error);
+    if (!result.ok) {
+      setError(result.error.message);
       setDeleting(false);
       return;
     }

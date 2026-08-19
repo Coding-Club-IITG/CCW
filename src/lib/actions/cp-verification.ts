@@ -1,5 +1,14 @@
 "use server";
 
+import { err as appError, ok } from "@/lib/api/result";
+
+import { defineAction } from "@/lib/actions/defineAction";
+
+export const requestHandleVerification = defineAction(
+  "requestHandleVerification",
+  requestHandleVerificationAction,
+);
+
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import CPUser from "@/models/CPUser";
@@ -16,15 +25,15 @@ function generateToken(prefix: string) {
   return token;
 }
 
-export async function requestHandleVerification(
+async function requestHandleVerificationAction(
   handle: string,
   platform: Platform = "codeforces",
-): Promise<{ ok: boolean; token?: string; error?: string }> {
+) {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
     });
-    if (!session?.user) return { ok: false, error: "Unauthorized" };
+    if (!session?.user) return appError("UNAUTHENTICATED", "Unauthorized");
 
     await dbConnect();
 
@@ -50,7 +59,7 @@ export async function requestHandleVerification(
         },
         { upsert: true, new: true },
       );
-      return { ok: true, token };
+      return ok({ token });
     } else {
       const token = generateToken("AC");
       await CPUser.findOneAndUpdate(
@@ -68,10 +77,10 @@ export async function requestHandleVerification(
         },
         { upsert: true, new: true },
       );
-      return { ok: true, token };
+      return ok({ token });
     }
   } catch (err) {
     logger.error("[cp-verification] requestHandleVerification error:", err);
-    return { ok: false, error: "Failed to generate verification token." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }

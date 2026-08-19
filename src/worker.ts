@@ -1,4 +1,5 @@
 import "./lib/env";
+import { workerEnv } from "./lib/env/worker";
 import agenda from "./lib/agenda";
 import { syncCodeforcesRatings } from "./lib/jobs/cfSync";
 import { syncAtCoderRatings } from "./lib/jobs/acSync";
@@ -15,6 +16,7 @@ import { reconciliationWorker } from "./lib/workers/reconciliationWorker";
 import { cfSyncQueue } from "./lib/bullmq";
 import ContestQuestion from "./models/ContestQuestion";
 async function run() {
+  void workerEnv;
   logger.info(
     "[Worker] Starting standalone background worker (Agenda + BullMQ)...",
   );

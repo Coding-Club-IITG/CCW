@@ -1,11 +1,13 @@
 import { getContestListing } from "@/lib/actions/contests";
+import { toBsonSafe } from "@/lib/api/result";
 import ContestListingClient from "@/components/contests/ContestListingClient";
 import { auth } from "@/lib/auth";
-import { isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import dbConnect from "@/lib/mongodb";
 import ContestPreset from "@/models/ContestPreset";
+import { webEnv } from "@/lib/env/web";
 
 export default async function ContestsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -14,7 +16,10 @@ export default async function ContestsPage() {
   const userRole = session?.user?.access as string | undefined;
   const admin = isHead(userRole);
 
-  const { active, upcoming, completed } = await getContestListing();
+  const contestsResult = await getContestListing();
+  const { active, upcoming, completed } = contestsResult.ok
+    ? contestsResult.data
+    : { active: [], upcoming: [], completed: [] };
 
   let presets = [];
   if (admin) {
@@ -22,11 +27,10 @@ export default async function ContestsPage() {
     const presetsJson = await ContestPreset.find({ archived: { $ne: true } })
       .sort({ name: 1 })
       .lean();
-    presets = JSON.parse(JSON.stringify(presetsJson));
+    presets = toBsonSafe(presetsJson) as any[];
   }
 
-  const deadlineMinutesStr = process.env.REGISTRATION_DEADLINE_MINUTES || "1";
-  const deadlineMinutes = parseInt(deadlineMinutesStr, 10);
+  const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
 
   return (
     <ContestListingClient

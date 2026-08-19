@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseRouteParams, toBsonSafe } from "@/lib/api/result";
+import { requireHead } from "@/lib/api/auth";
+import { objectIdParamsSchema } from "@/lib/api/schemas/boundary";
 import dbConnect from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
 import Event from "@/models/Event";
@@ -10,25 +13,25 @@ export async function GET(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
 
-    const { id } = await context.params;
+    const validatedParams = parseRouteParams(
+      await context.params,
+      objectIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
     await dbConnect();
     void CalendarEvent;
     const event = await Event.findById(id).populate("calendarEventId").lean();
     if (!event) {
-      return NextResponse.json({ error: "Event not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Event not found.");
     }
 
-    return NextResponse.json({ event: JSON.parse(JSON.stringify(event)) });
+    return jsonOk({ event: toBsonSafe(event) });
   } catch (err) {
     logger.error("[Admin Events API] GET [id] error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

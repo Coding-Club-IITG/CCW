@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ExternalLink as IconExternalLink } from "lucide-react";
@@ -34,7 +36,7 @@ export default function NotificationsPage() {
       });
       if (search) params.set("search", search);
       const res = await fetch(`/api/notifications?${params}`);
-      const data = await res.json();
+      const data = await expectAppData(res);
       setNotifications(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
       setUnreadCount(data.unreadCount ?? 0);
@@ -51,11 +53,12 @@ export default function NotificationsPage() {
 
   async function markAllRead() {
     try {
-      await fetch("/api/notifications", {
+      const response = await fetch("/api/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ all: true }),
       });
+      await expectAppData(response);
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch {
@@ -65,7 +68,8 @@ export default function NotificationsPage() {
 
   async function clearAllRead() {
     try {
-      await fetch("/api/notifications", { method: "DELETE" });
+      const response = await fetch("/api/notifications", { method: "DELETE" });
+      await expectAppData(response);
       void fetchNotifications();
     } catch {
       // silent
@@ -74,11 +78,12 @@ export default function NotificationsPage() {
 
   async function markRead(id: string) {
     try {
-      await fetch("/api/notifications", {
+      const response = await fetch("/api/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: [id] }),
       });
+      await expectAppData(response);
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, read: true } : n)),
       );

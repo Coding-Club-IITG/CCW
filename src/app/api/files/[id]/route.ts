@@ -4,24 +4,30 @@
  * DELETE /api/files/[id]  - delete a file (disk + metadata)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseJson, parseRouteParams } from "@/lib/api/result";
+import {
+  jsonObjectSchema,
+  objectIdParamsSchema,
+} from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import FileEntry from "@/models/FileEntry";
-import mongoose from "mongoose";
-import { canAccessFile, canManageFile } from "@/lib/fileAccess";
+import { canAccessFile, canManageFile } from "@/lib/access/files";
 import { parseManagedModules, parseRoles } from "@/lib/roles";
 import { createReadStream, existsSync } from "fs";
 import { unlink } from "fs/promises";
 import { Readable } from "stream";
 import path from "path";
+import { webEnv } from "@/lib/env/web";
 import { invalidateCache } from "@/lib/cache";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
-const UPLOAD_DIR =
-  process.env.FILE_UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
+const UPLOAD_DIR = path.resolve(webEnv.FILE_UPLOAD_DIR);
 
 // Shared helpers
 
@@ -42,28 +48,28 @@ async function resolveSession(request: NextRequest) {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const { id } = await context.params;
+    const rawParams = await context.params;
 
     const auth_ = await resolveSession(request);
     if (!auth_) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid file ID." }, { status: 400 });
-    }
+    const validatedParams = parseRouteParams(rawParams, objectIdParamsSchema);
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
     await dbConnect();
     const file = await FileEntry.findById(id).lean();
     if (!file) {
-      return NextResponse.json({ error: "File not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "File not found.");
     }
 
     const { user, managedModules, roles } = auth_;
     if (
       !canAccessFile(user.id, user.access, managedModules, roles, file as any)
     ) {
-      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+      return jsonError("FORBIDDEN", "Forbidden.");
     }
 
     // Block direct navigation to view-only files
@@ -77,9 +83,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         secFetchDest === "document" && secFetchMode === "navigate";
 
       if (isDirectNavigation) {
-        return NextResponse.json(
-          { error: "This file is view-only and cannot be opened directly." },
-          { status: 403 },
+        return jsonError(
+          "FORBIDDEN",
+          "This file is view-only and cannot be opened directly.",
         );
       }
     }
@@ -89,9 +95,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       logger.warn(
         `[Files] File missing on disk: ${file.storedName} (id: ${id})`,
       );
-      return NextResponse.json(
-        { error: "File data not found on server. Contact an admin." },
-        { status: 410 },
+      return jsonError(
+        "NOT_FOUND",
+        "File data not found on server. Contact an admin.",
       );
     }
 
@@ -130,10 +136,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return new NextResponse(webStream, { headers });
   } catch (err) {
     logger.error("[Files] GET /api/files/[id] error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
@@ -141,37 +144,31 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const { id } = await context.params;
+    const rawParams = await context.params;
 
     const auth_ = await resolveSession(request);
     if (!auth_) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid file ID." }, { status: 400 });
-    }
+    const validatedParams = parseRouteParams(rawParams, objectIdParamsSchema);
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
     await dbConnect();
     const file = await FileEntry.findById(id);
     if (!file) {
-      return NextResponse.json({ error: "File not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "File not found.");
     }
 
     const { user, managedModules } = auth_;
     if (!canManageFile(user.id, user.access, managedModules, file as any)) {
-      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+      return jsonError("FORBIDDEN", "Forbidden.");
     }
 
-    let body: Record<string, any>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body." },
-        { status: 400 },
-      );
-    }
+    const parsedBody = await parseJson(request, jsonObjectSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const body = parsedBody.data;
 
     // Whitelist of editable fields (are immutable)
     const EDITABLE = [
@@ -191,15 +188,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (update.title !== undefined) {
       update.title = String(update.title).trim();
       if (!update.title) {
-        return NextResponse.json(
-          { error: "Title cannot be empty." },
-          { status: 400 },
-        );
+        return jsonError("VALIDATION_ERROR", "Title cannot be empty.");
       }
       if (update.title.length > 200) {
-        return NextResponse.json(
-          { error: "Title must be 200 characters or fewer." },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "Title must be 200 characters or fewer.",
         );
       }
     }
@@ -208,9 +202,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (update.description !== undefined) {
       update.description = String(update.description).trim();
       if (update.description.length > 1000) {
-        return NextResponse.json(
-          { error: "Description must be 1000 characters or fewer." },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "Description must be 1000 characters or fewer.",
         );
       }
     }
@@ -219,15 +213,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (update.folder !== undefined) {
       update.folder = String(update.folder).trim();
       if (!update.folder) {
-        return NextResponse.json(
-          { error: "Folder cannot be empty." },
-          { status: 400 },
-        );
+        return jsonError("VALIDATION_ERROR", "Folder cannot be empty.");
       }
       if (update.folder.length > 100) {
-        return NextResponse.json(
-          { error: "Folder name must be 100 characters or fewer." },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "Folder name must be 100 characters or fewer.",
         );
       }
     }
@@ -237,19 +228,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       update.isDownloadable !== undefined &&
       typeof update.isDownloadable !== "boolean"
     ) {
-      return NextResponse.json(
-        { error: "isDownloadable must be a boolean." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "isDownloadable must be a boolean.");
     }
 
     // Validate accessControl structure
     if (update.accessControl !== undefined) {
       const acl = update.accessControl;
       if (typeof acl !== "object" || acl === null || Array.isArray(acl)) {
-        return NextResponse.json(
-          { error: "accessControl must be an object." },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "accessControl must be an object.",
         );
       }
     }
@@ -265,13 +253,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       operation: "update_metadata",
       resourceId: id,
     });
-    return NextResponse.json({ file: updated });
+    return jsonOk({ file: updated });
   } catch (err) {
     logger.error("[Files] PATCH /api/files/[id] error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
@@ -279,26 +264,26 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    const { id } = await context.params;
+    const rawParams = await context.params;
 
     const auth_ = await resolveSession(request);
     if (!auth_) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid file ID." }, { status: 400 });
-    }
+    const validatedParams = parseRouteParams(rawParams, objectIdParamsSchema);
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
     await dbConnect();
     const file = await FileEntry.findById(id);
     if (!file) {
-      return NextResponse.json({ error: "File not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "File not found.");
     }
 
     const { user, managedModules } = auth_;
     if (!canManageFile(user.id, user.access, managedModules, file as any)) {
-      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+      return jsonError("FORBIDDEN", "Forbidden.");
     }
 
     // Remove from disk first, if it fails we log but still remove the DB entry
@@ -323,12 +308,9 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       operation: "delete_file",
       resourceId: id,
     });
-    return NextResponse.json({ success: true });
+    return jsonOk({ success: true });
   } catch (err) {
     logger.error("[Files] DELETE /api/files/[id] error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

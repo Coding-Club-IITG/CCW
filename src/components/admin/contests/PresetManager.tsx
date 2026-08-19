@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useState } from "react";
 import { Plus, Edit2, Archive, Loader2 } from "lucide-react";
 import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
@@ -108,12 +110,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to save preset");
-      }
-
-      const savedPreset = await res.json();
+      const savedPreset = await expectAppData<any>(res);
 
       if (editingPreset) {
         setPresets(
@@ -148,12 +145,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
         body: JSON.stringify({ archived: !preset.archived }),
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to update archive status");
-      }
-
-      const updated = await res.json();
+      const updated = await expectAppData<any>(res);
       setPresets(presets.map((p) => (p._id === updated._id ? updated : p)));
     } catch (err: any) {
       alert(err.message);

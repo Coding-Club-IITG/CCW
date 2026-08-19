@@ -5,7 +5,7 @@ import {
   canAccessFile,
   canManageFile,
   canUploadFiles,
-} from "./fileAccess";
+} from "./files";
 import type { IFileEntry } from "@/models/FileEntry";
 const ownerId = new Types.ObjectId();
 const memberId = new Types.ObjectId();

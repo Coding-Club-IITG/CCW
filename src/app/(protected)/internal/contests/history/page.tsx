@@ -3,7 +3,7 @@ import MatchHistoryClient from "@/components/contests/MatchHistoryClient";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
 
 export default async function MatchHistoryPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -12,7 +12,8 @@ export default async function MatchHistoryPage() {
   const userRole = session?.user?.access as string | undefined;
   const admin = isHead(userRole);
 
-  const { completed } = await getContestListing();
+  const result = await getContestListing();
+  const completed = result.ok ? result.data.completed : [];
 
   return <MatchHistoryClient history={completed} />;
 }

@@ -51,6 +51,7 @@
     "remark-github-blockquote-alert": "^2.1.0",
     "remark-math": "^6.0.0",
     "sass": "^1.102.0",
+    "zod": "^4.4.3",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

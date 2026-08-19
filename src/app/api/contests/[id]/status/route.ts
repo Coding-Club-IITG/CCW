@@ -1,69 +1,59 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { requireHead } from "@/lib/api/auth";
 import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
 import { publishContest } from "@/lib/sse";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import { parseJson, parseRouteParams } from "@/lib/api/result";
+import {
+  contestIdParamsSchema,
+  contestStatusSchema,
+} from "@/lib/api/schemas/contestRoute";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const resolvedParams = await params;
-    const { id } = resolvedParams;
-    const admin = await requireAdmin(request);
-    if (!admin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
+    const validatedParams = parseRouteParams(
+      await params,
+      contestIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
-    const body = await request.json();
-    const { action } = body;
-
-    if (!action) {
-      return NextResponse.json(
-        { error: "Action is required" },
-        { status: 400 },
-      );
-    }
+    const body = await parseJson(request, contestStatusSchema);
+    if (!body.ok) return jsonResult(body);
+    const { action } = body.data;
 
     await dbConnect();
     const contest = await ContestMatch.findById(id);
     if (!contest) {
-      return NextResponse.json({ error: "Contest not found" }, { status: 404 });
+      return jsonError("NOT_FOUND", "Contest not found");
     }
 
     let newStatus: "draft" | "registration" | "active" | "completed";
 
     if (action === "publish") {
       if (contest.status !== "draft") {
-        return NextResponse.json(
-          { error: "Invalid status transition" },
-          { status: 400 },
-        );
+        return jsonError("VALIDATION_ERROR", "Invalid status transition");
       }
       newStatus = "registration";
     } else if (action === "start") {
       if (contest.status !== "registration") {
-        return NextResponse.json(
-          { error: "Invalid status transition" },
-          { status: 400 },
-        );
+        return jsonError("VALIDATION_ERROR", "Invalid status transition");
       }
       newStatus = "active";
     } else if (action === "complete") {
       if (contest.status !== "active") {
-        return NextResponse.json(
-          { error: "Invalid status transition" },
-          { status: 400 },
-        );
+        return jsonError("VALIDATION_ERROR", "Invalid status transition");
       }
       newStatus = "completed";
     } else {
-      return NextResponse.json(
-        { error: "Invalid status transition" },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Invalid status transition");
     }
 
     contest.status = newStatus;
@@ -84,16 +74,13 @@ export async function PATCH(
       });
     }
 
-    return NextResponse.json(contest);
+    return jsonOk(contest);
   } catch (error) {
     logger.error("Contest status update failed", {
       route: "PATCH /api/contests/[id]/status",
       operation: "update_status",
       ...errorToLogMetadata(error),
     });
-    return NextResponse.json(
-      { error: "Unable to update contest status." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Unable to update contest status.");
   }
 }

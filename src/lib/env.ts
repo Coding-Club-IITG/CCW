@@ -1,9 +1,12 @@
 import * as dotenv from "dotenv";
-import path from "path";
+import path from "node:path";
 
-/**
- * Loads environment variables from .env.local and .env files.
- * This should be imported as early as possible in entry points.
- */
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local"), quiet: true });
-dotenv.config({ path: path.resolve(process.cwd(), ".env"), quiet: true });
+/** Load local dotenv files for standalone workers and scripts. Next.js does this itself. */
+export function loadEnvironmentFiles(cwd = process.cwd()): void {
+  dotenv.config({ path: path.resolve(cwd, ".env.local"), quiet: true });
+  dotenv.config({ path: path.resolve(cwd, ".env"), quiet: true });
+}
+
+loadEnvironmentFiles();
+
+export * from "@/lib/env/schema";

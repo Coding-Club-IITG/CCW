@@ -21,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import { ContestListingItem } from "@/lib/actions/contests";
+import { readAppResult } from "@/lib/api/result";
 
 import React, { createElement, useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -448,7 +449,10 @@ export default function ArenaRoomClient({
 
   const handleReady = async () => {
     setIsReady(true);
-    await fetch(`/api/contests/rooms/${roomId}/ready`, { method: "POST" });
+    const response = await fetch(`/api/contests/rooms/${roomId}/ready`, {
+      method: "POST",
+    });
+    if (!(await readAppResult(response)).ok) setIsReady(false);
   };
 
   const handleSync = async (problemId: string) => {
@@ -471,7 +475,7 @@ export default function ArenaRoomClient({
     setSyncCooldown(syncCooldownSeconds); // Apply frontend cooldown directly
     localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
 
-    if (!res.ok) {
+    if (!(await readAppResult(res)).ok) {
       setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
     }
   };

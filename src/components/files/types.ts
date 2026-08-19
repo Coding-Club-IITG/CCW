@@ -1,21 +1,28 @@
+import type {
+  ClubPosition,
+  ModuleName,
+  ModulePosition,
+  UserRole,
+} from "@/lib/constants";
+
 export interface CurrentUser {
   id: string;
   name: string;
   email: string;
   access: string;
-  managedModules: string[];
-  roles: { module?: string; position: string }[];
+  managedModules: ModuleName[];
+  roles: UserRole[];
   canUpload: boolean;
   isAdmin: boolean;
   isHead: boolean;
-  headModules: string[];
+  headModules: ModuleName[];
 }
 
 export interface AccessControl {
   allMembers: boolean;
-  allowedModules: string[];
-  allowedClubPositions: string[];
-  allowedModulePositions: string[];
+  allowedModules: ModuleName[];
+  allowedClubPositions: ClubPosition[];
+  allowedModulePositions: ModulePosition[];
   allowedUsers: string[];
 }
 
@@ -29,7 +36,7 @@ export interface FileEntry {
   folder: string;
   uploadedBy: string;
   uploadedByName: string;
-  uploaderModule: string | null;
+  uploaderModule: ModuleName | null;
   isDownloadable: boolean;
   accessControl: AccessControl;
   createdAt: string;

@@ -1,5 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import {
+  parseSearchParams,
+  toBsonSafe,
+  type JsonValue,
+} from "@/lib/api/result";
+import { paginationQuerySchema } from "@/lib/api/schemas/boundary";
+import { requireHead } from "@/lib/api/auth";
 import dbConnect from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
 import Project from "@/models/Project";
@@ -8,14 +15,14 @@ import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
 
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const query = parseSearchParams(searchParams, paginationQuerySchema);
+    if (!query.ok) return jsonResult(query);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
 
     const cacheKey = buildCacheKey("admin:projects", { page, limit });
@@ -35,18 +42,15 @@ export async function GET(request: NextRequest) {
             .lean(),
           Project.countDocuments({}),
         ]);
-        return { projects: JSON.parse(JSON.stringify(projects)), total };
+        return { projects: toBsonSafe(projects) as JsonValue[], total };
       },
     );
 
-    return NextResponse.json(
+    return jsonOk(
       paginatedResponse(result.projects, result.total, page, limit),
     );
   } catch (err) {
     logger.error("[Admin Projects API] GET error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

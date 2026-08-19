@@ -1,29 +1,34 @@
 /**
  * File Access Control utilities
  *
- * Permission tiers (in order of privilege):
- *  1. Global File Admins (Secretary / OC)  - full control over every file.
- *  2. Admins (+ Core Team)                 - can upload; manage their own uploads
- *                                            and files in modules where they are Head.
- *  3. Module Heads                         - can upload; manage files whose
- *                                            uploaderModule matches one of their modules.
- *  4. Standard members                     - read-only, subject to per-file ACL.
+ * - Admins can manage every file.
+ * - Heads can upload and manage their own uploads + files in their managed modules.
+ * - Members are read-only, subject to each file's ACL.
  */
 
-import { IFileEntry } from "@/models/FileEntry";
-import type { ModuleName, UserRole } from "@/lib/constants";
-import { isHead, isAdmin, getHeadModules } from "@/lib/roles";
+import type {
+  ClubPosition,
+  ModuleName,
+  ModulePosition,
+  UserRole,
+} from "@/lib/constants";
+import { isHead, isAdmin, getHeadModules } from "@/lib/access/roles";
 
-// Shared types
+interface ManageableFile {
+  uploadedBy: unknown;
+  uploaderModule?: ModuleName | null;
+}
 
-// Minimal user shape
-export interface SessionUser {
-  id: string;
-  name: string;
-  email: string;
-  access: string;
-  managedModules?: unknown;
-  roles?: unknown;
+interface FileAccessControl {
+  allMembers: boolean;
+  allowedClubPositions: readonly ClubPosition[];
+  allowedModules: readonly ModuleName[];
+  allowedModulePositions: readonly ModulePosition[];
+  allowedUsers: readonly unknown[];
+}
+
+interface AccessibleFile extends ManageableFile {
+  accessControl: FileAccessControl;
 }
 
 // Upload permission
@@ -35,8 +40,8 @@ export function canUploadFiles(access: string): boolean {
 export function canManageFile(
   userId: string,
   access: string,
-  managedModules: ModuleName[],
-  file: Pick<IFileEntry, "uploadedBy" | "uploaderModule">,
+  managedModules: readonly ModuleName[],
+  file: ManageableFile,
 ): boolean {
   if (isAdmin(access)) return true;
 
@@ -46,13 +51,13 @@ export function canManageFile(
   if (
     headModules.length > 0 &&
     file.uploaderModule &&
-    headModules.includes(file.uploaderModule)
+    headModules.some((module) => module === file.uploaderModule)
   ) {
     return true;
   }
 
   // Anyone who can upload can always manage their own uploads
-  if (file.uploadedBy.toString() === userId) return true;
+  if (String(file.uploadedBy) === userId) return true;
 
   return false;
 }
@@ -71,9 +76,9 @@ export function canManageFile(
 export function canAccessFile(
   userId: string,
   access: string,
-  managedModules: ModuleName[],
+  managedModules: readonly ModuleName[],
   roles: UserRole[],
-  file: IFileEntry,
+  file: AccessibleFile,
 ): boolean {
   if (canManageFile(userId, access, managedModules, file)) return true;
 
@@ -93,15 +98,20 @@ export function canAccessFile(
   const userModules = roles.flatMap((role) =>
     role.module ? [role.module] : [],
   );
-  if (acl.allowedModules.some((m) => userModules.includes(m))) return true;
+  if (acl.allowedModules.some((module) => userModules.includes(module)))
+    return true;
 
   const userModuleRoleValues = roles
     .filter((role) => role.module)
     .map((role) => role.position);
-  if (acl.allowedModulePositions.some((r) => userModuleRoleValues.includes(r)))
+  if (
+    acl.allowedModulePositions.some((position) =>
+      userModuleRoleValues.includes(position),
+    )
+  )
     return true;
 
-  if (acl.allowedUsers.some((uid) => uid.toString() === userId)) return true;
+  if (acl.allowedUsers.some((uid) => String(uid) === userId)) return true;
 
   return false;
 }
@@ -113,9 +123,9 @@ export function canAccessFile(
 export function buildAccessFilter(
   userId: string,
   access: string,
-  managedModules: ModuleName[],
+  managedModules: readonly ModuleName[],
   roles: UserRole[],
-): Record<string, any> {
+): Record<string, unknown> {
   // Global admins see everything
   if (isAdmin(access)) return {};
 
@@ -130,7 +140,7 @@ export function buildAccessFilter(
     .filter((role) => role.module)
     .map((role) => role.position);
 
-  const conditions: Record<string, any>[] = [
+  const conditions: Record<string, unknown>[] = [
     // Owner can always see their own files
     { uploadedBy: userId },
     // Files shared with all members

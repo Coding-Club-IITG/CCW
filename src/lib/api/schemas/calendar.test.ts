@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCalendarEventInput } from "@/lib/calendarValidation";
+import { parseCalendarEventInput } from "@/lib/api/schemas/calendar";
 
 function validInput(overrides: Record<string, unknown> = {}) {
   return {

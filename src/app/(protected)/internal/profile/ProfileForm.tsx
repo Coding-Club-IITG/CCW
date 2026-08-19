@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useState, useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
 import { updateProfile } from "@/lib/actions/user";
@@ -57,12 +59,12 @@ export default function ProfileForm() {
 
     getCPStatus().then((res) => {
       if (res.ok) {
-        setCfVerified(res.cfVerified ?? false);
-        setCfVerificationToken(res.cfVerificationToken ?? "");
-        setTokenHandleCF(res.cfHandle ?? "");
-        setAcVerified(res.acVerified ?? false);
-        setAcVerificationToken(res.acVerificationToken ?? "");
-        setTokenHandleAC(res.acHandle ?? "");
+        setCfVerified(res.data.cfVerified ?? false);
+        setCfVerificationToken(res.data.cfVerificationToken ?? "");
+        setTokenHandleCF(res.data.cfHandle ?? "");
+        setAcVerified(res.data.acVerified ?? false);
+        setAcVerificationToken(res.data.acVerificationToken ?? "");
+        setTokenHandleAC(res.data.acHandle ?? "");
       }
     });
   }, [session]);
@@ -74,14 +76,7 @@ export default function ProfileForm() {
       const res = await fetch(`/api/cp/verify-handle?platform=${platform}`, {
         method: "POST",
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage({
-          type: "error",
-          text: data.error || "Verification failed",
-        });
-        return;
-      }
+      await expectAppData(res);
       if (platform === "codeforces") {
         setCfVerified(true);
         setCfVerificationToken("");
@@ -112,11 +107,11 @@ export default function ProfileForm() {
     if (!result.ok) {
       setMessage({
         type: "error",
-        text: result.error || "Failed to generate token",
+        text: result.error.message,
       });
     } else {
       if (platform === "codeforces") {
-        setCfVerificationToken(result.token!);
+        setCfVerificationToken(result.data.token!);
         setTokenHandleCF(formData.codeforcesId);
         setCfVerified(false);
         setMessage({
@@ -124,7 +119,7 @@ export default function ProfileForm() {
           text: "Token generated. Please update your CF profile.",
         });
       } else {
-        setAcVerificationToken(result.token!);
+        setAcVerificationToken(result.data.token!);
         setTokenHandleAC(formData.atcoderId);
         setAcVerified(false);
         setMessage({
@@ -143,13 +138,13 @@ export default function ProfileForm() {
     const result = await updateProfile(formData);
     setLoading(false);
 
-    if (!result.success) {
+    if (!result.ok) {
       setMessage({
         type: "error",
-        text: result.error || "Failed to update profile.",
+        text: result.error.message,
       });
     } else {
-      if (result.handleChanged) {
+      if (result.data.handleChanged) {
         setCfVerified(false);
         setCfVerificationToken("");
       }

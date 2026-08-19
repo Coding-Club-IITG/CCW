@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useEffect, useMemo, useState } from "react";
 import { LoaderCircle, Plus, Search } from "lucide-react";
 
@@ -26,15 +28,14 @@ async function defaultSearch(query: string, signal: AbortSignal) {
     `/api/users?search=${encodeURIComponent(query)}&limit=8`,
     { signal },
   );
-  if (!response.ok) throw new Error("User search failed");
-  const data = (await response.json()) as {
+  const data = await expectAppData<{
     items?: Array<{
       _id: string;
       name: string;
       email?: string;
       image?: string | null;
     }>;
-  };
+  }>(response);
   return (data.items || []).map((user) => ({
     id: user._id,
     name: user.name,

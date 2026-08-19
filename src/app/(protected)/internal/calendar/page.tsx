@@ -2,7 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { listCalendarEvents } from "@/lib/actions/calendar";
-import { getCreatableCalendarScopes } from "@/lib/calendarAccess";
+import { getCreatableCalendarScopes } from "@/lib/access/calendar";
 import { parseManagedModules } from "@/lib/roles";
 import CalendarView from "@/components/calendar/CalendarView";
 import type { CalendarEventView } from "@/components/calendar/types";
@@ -44,7 +44,7 @@ export default async function CalendarPage({
     user.access,
     parseManagedModules(user.managedModules),
   );
-  let events = result.success ? (result.data as CalendarEventView[]) : [];
+  let events = result.ok ? (result.data as CalendarEventView[]) : [];
   if (query.public === "linked")
     events = events.filter((event) => event.publicEventId);
   if (query.public === "unlinked")
@@ -149,7 +149,7 @@ export default async function CalendarPage({
           </Link>
         </nav>
       )}
-      {!result.success && <p className={styles.error}>{result.error}</p>}
+      {!result.ok && <p className={styles.error}>{result.error.message}</p>}
       <CalendarView initialMonth={month} events={events} />
     </div>
   );

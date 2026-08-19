@@ -1,9 +1,11 @@
 "use client";
 
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
+
 import { useRef, useState } from "react";
 import { Upload, X, FileIcon, Shield, AlertCircle } from "lucide-react";
-import { MODULES } from "@/lib/constants";
-import type { CurrentUser } from "./types";
+import { MODULES, type ModuleName } from "@/lib/constants";
+import type { AccessControl, CurrentUser } from "./types";
 import { EMPTY_ACL, DEFAULT_FOLDER, formatBytes } from "./utils";
 import AccessControlForm from "./AccessControlForm";
 import styles from "./FilesClient.module.scss";
@@ -15,6 +17,16 @@ interface Props {
   onClose: () => void;
 }
 
+interface UploadFormState {
+  file: File | null;
+  title: string;
+  description: string;
+  folder: string;
+  uploaderModule: ModuleName | "";
+  isDownloadable: boolean;
+  accessControl: AccessControl;
+}
+
 export default function UploadModal({
   currentUser,
   existingFolders,
@@ -24,8 +36,8 @@ export default function UploadModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    file: null as File | null,
+  const [form, setForm] = useState<UploadFormState>({
+    file: null,
     title: "",
     description: "",
     folder: DEFAULT_FOLDER,
@@ -68,14 +80,10 @@ export default function UploadModal({
 
     try {
       const res = await fetch("/api/files", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Upload failed.");
-        return;
-      }
+      await expectAppData(res);
       onSuccess();
-    } catch {
-      setError("Network error. Please try again.");
+    } catch (error) {
+      setError(appErrorMessage(error, "Network error. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -187,7 +195,10 @@ export default function UploadModal({
                   <select
                     value={form.uploaderModule}
                     onChange={(e) =>
-                      setForm((p) => ({ ...p, uploaderModule: e.target.value }))
+                      setForm((p) => ({
+                        ...p,
+                        uploaderModule: e.target.value as ModuleName | "",
+                      }))
                     }
                   >
                     {currentUser.isAdmin && (

@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { ContestListingItem } from "@/lib/actions/contests";
+import { readAppResult } from "@/lib/api/result";
 
 import React, { useEffect, useState, useRef, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -451,7 +452,10 @@ export default function BlitzRoomClient({
 
   const handleReady = async () => {
     setIsReady(true);
-    await fetch(`/api/contests/rooms/${roomId}/ready`, { method: "POST" });
+    const response = await fetch(`/api/contests/rooms/${roomId}/ready`, {
+      method: "POST",
+    });
+    if (!(await readAppResult(response)).ok) setIsReady(false);
   };
 
   const handleSync = async () => {
@@ -474,7 +478,7 @@ export default function BlitzRoomClient({
     setSyncCooldown(syncCooldownSeconds);
     localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
 
-    if (!res.ok) {
+    if (!(await readAppResult(res)).ok) {
       // If it failed immediately (Eg. 429), turn off syncing spinner since SSE won't fire
       setSyncing(false);
     }

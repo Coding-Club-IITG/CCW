@@ -5,12 +5,12 @@
  */
 
 import path from "path";
-import { createImageUploadHandler } from "@/lib/uploadHandler";
+import { webEnv } from "@/lib/env/web";
+import { createImageUploadHandler } from "@/lib/api/uploads/image";
 
 export const runtime = "nodejs";
 
-const BLOG_UPLOAD_DIR =
-  process.env.BLOG_UPLOAD_DIR ?? path.join(process.cwd(), "uploads", "blog");
+const BLOG_UPLOAD_DIR = path.resolve(webEnv.BLOG_UPLOAD_DIR);
 
 export const POST = createImageUploadHandler({
   uploadDir: BLOG_UPLOAD_DIR,

@@ -1,15 +1,58 @@
 "use server";
 
+import { err as appError, ok } from "@/lib/api/result";
+
+import { defineAction } from "@/lib/actions/defineAction";
+import { toBsonSafe } from "@/lib/api/result";
+
+export const getContestListing = defineAction(
+  "getContestListing",
+  getContestListingAction,
+);
+export const getContestById = defineAction(
+  "getContestById",
+  getContestByIdAction,
+);
+export const registerForContest = defineAction(
+  "registerForContest",
+  registerForContestAction,
+);
+export const getAvailableTeamsForContest = defineAction(
+  "getAvailableTeamsForContest",
+  getAvailableTeamsForContestAction,
+);
+export const createRoomContest = defineAction(
+  "createRoomContest",
+  createRoomContestAction,
+);
+export const getContestRegistrations = defineAction(
+  "getContestRegistrations",
+  getContestRegistrationsAction,
+);
+export const unregisterFromContest = defineAction(
+  "unregisterFromContest",
+  unregisterFromContestAction,
+);
+export const searchVerifiedUsers = defineAction(
+  "searchVerifiedUsers",
+  searchVerifiedUsersAction,
+);
+export const createBracketContest = defineAction(
+  "createBracketContest",
+  createBracketContestAction,
+);
+
 import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { webEnv } from "@/lib/env/web";
 
 import { auth } from "@/lib/auth";
 import { reconciliationQueue } from "@/lib/bullmq";
 import {
   validateBracketContestInput,
   type BracketContestInput,
-} from "@/lib/contests-validation";
+} from "@/lib/api/schemas/contestAction";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import { prepareSearchQuery } from "@/lib/search";
@@ -45,11 +88,7 @@ export type ContestListingItem = {
   actualStartTime?: Date | null;
 };
 
-export async function getContestListing(): Promise<{
-  active: ContestListingItem[];
-  upcoming: ContestListingItem[];
-  completed: ContestListingItem[];
-}> {
+async function getContestListingAction() {
   const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user?.id;
 
@@ -166,12 +205,10 @@ export async function getContestListing(): Promise<{
       : 0,
   ); // desc
 
-  return { active, upcoming, completed };
+  return ok({ active, upcoming, completed });
 }
 
-export async function getContestById(
-  id: string,
-): Promise<ContestListingItem | null> {
+async function getContestByIdAction(id: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user?.id;
 
@@ -187,7 +224,7 @@ export async function getContestById(
 
   try {
     const contest = await ContestMatch.findById(id).lean();
-    if (!contest) return null;
+    if (!contest) return appError("NOT_FOUND", "Contest not found");
 
     const isRegistered = userId
       ? (contest.registrations || []).some(
@@ -211,7 +248,7 @@ export async function getContestById(
       }
     }
 
-    return {
+    return ok({
       _id: contest._id.toString(),
       name: contest.name,
       description: contest.description || "",
@@ -228,44 +265,41 @@ export async function getContestById(
       registrationDeadline: contest.registrationSettings?.deadline || null,
       maxParticipants: contest.registrationSettings?.maxParticipants || 999,
       registrationType: contest.registrationSettings?.type,
-    };
+    });
   } catch (error) {
     logger.error("Contest lookup failed", {
       action: "getContestById",
       ...errorToLogMetadata(error),
     });
-    return null;
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function registerForContest(
-  contestId: string,
-  teamName?: string,
-): Promise<{ success: boolean; message: string }> {
+async function registerForContestAction(contestId: string, teamName?: string) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
-    if (!userId) return { success: false, message: "Unauthorized" };
+    if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
     await dbConnect();
     const cpUser = await CPUser.findOne({ userId });
-    if (!cpUser) return { success: false, message: "CP Profile not found" };
+    if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
     const contest = await ContestMatch.findById(contestId);
-    if (!contest) return { success: false, message: "Contest not found" };
+    if (!contest) return appError("NOT_FOUND", "Contest not found");
 
     if (contest.status !== "registration") {
-      return {
-        success: false,
-        message: "Contest is not open for registration",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Contest is not open for registration",
+      );
     }
 
     const isAlreadyRegistered = contest.registrations?.some(
       (r: any) => r.userId.toString() === userId,
     );
     if (isAlreadyRegistered) {
-      return { success: false, message: "Already registered" };
+      return appError("CONFLICT", "Already registered");
     }
 
     if (!contest.registrations) contest.registrations = [];
@@ -277,7 +311,7 @@ export async function registerForContest(
         (r: any) => r.teamName === tName,
       );
       if (teamMembers.length >= contest.teamSize) {
-        return { success: false, message: "Team is already full." };
+        return appError("CONFLICT", "Team is already full.");
       }
     } else {
       // For solo, ensure no duplicate team name
@@ -285,7 +319,7 @@ export async function registerForContest(
         (r: any) => r.teamName === tName,
       );
       if (teamExists) {
-        return { success: false, message: "Display name already taken." };
+        return appError("CONFLICT", "Display name already taken.");
       }
     }
 
@@ -300,23 +334,21 @@ export async function registerForContest(
 
     // Revalidate the contests listing page
     revalidatePath("/internal/contests");
-    return { success: true, message: "Successfully registered" };
+    return ok({ message: "Successfully registered" });
   } catch (error) {
     logger.error("Contest registration failed", {
       action: "registerForContest",
       ...errorToLogMetadata(error),
     });
-    return { success: false, message: "Internal server error" };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function getAvailableTeamsForContest(
-  contestId: string,
-): Promise<{ teamName: string; memberCount: number; maxCapacity: number }[]> {
+async function getAvailableTeamsForContestAction(contestId: string) {
   try {
     await dbConnect();
     const contest = await ContestMatch.findById(contestId).lean();
-    if (!contest || contest.teamSize <= 1) return [];
+    if (!contest || contest.teamSize <= 1) return ok([]);
 
     const registrations = contest.registrations || [];
     const teamCounts: Record<string, number> = {};
@@ -335,49 +367,37 @@ export async function getAvailableTeamsForContest(
         maxCapacity: contest.teamSize,
       }));
 
-    return availableTeams;
+    return ok(availableTeams);
   } catch (error) {
     logger.error("Available contest teams lookup failed", {
       action: "getAvailableTeams",
       ...errorToLogMetadata(error),
     });
-    return [];
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function createRoomContest(
-  data: any,
-): Promise<{ success: boolean; message?: string; error?: string }> {
+async function createRoomContestAction(data: any) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
-    if (!userId) return { success: false, error: "Unauthorized" };
+    if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
     await dbConnect();
     const cpUser = await CPUser.findOne({ userId });
-    if (!cpUser) return { success: false, error: "CP Profile not found" };
+    if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
     const start = new Date(data.startTime);
-    const deadlineStr = process.env.REGISTRATION_DEADLINE_MINUTES;
-    if (!deadlineStr) {
-      throw new Error(
-        "REGISTRATION_DEADLINE_MINUTES is not set in environment variables.",
-      );
-    }
-    const deadlineMinutes = parseInt(deadlineStr, 10);
-    if (isNaN(deadlineMinutes)) {
-      throw new Error("REGISTRATION_DEADLINE_MINUTES must be a valid number.");
-    }
+    const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
     const deadline = new Date(start.getTime() - deadlineMinutes * 60000);
 
     // Validate start time is at least 2 minutes from now (1 min registration + 1 min buffer)
     if (start.getTime() < Date.now() + 2 * 60000 - 5000) {
       // 5s grace period
-      return {
-        success: false,
-        error:
-          "Start time must be strictly at least 2 minutes ahead of current time",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Start time must be strictly at least 2 minutes ahead of current time",
+      );
     }
 
     // Format-specific backend validations and overrides
@@ -389,14 +409,17 @@ export async function createRoomContest(
     } else if (format === "solo-tournament") {
       teamSize = 1;
       if (maxParticipants < 2)
-        return { success: false, error: "At least 2 participants required." };
+        return appError(
+          "VALIDATION_ERROR",
+          "At least 2 participants required.",
+        );
     } else if (format === "team-tournament") {
       teamSize = 3;
       if (maxParticipants < 6)
-        return {
-          success: false,
-          error: "Team battles require at least 6 participants.",
-        };
+        return appError(
+          "VALIDATION_ERROR",
+          "Team battles require at least 6 participants.",
+        );
       maxParticipants = maxParticipants - (maxParticipants % 3);
     }
 
@@ -454,10 +477,10 @@ export async function createRoomContest(
     // Validate registration starts before it ends (only for open registration)
     if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
       await ContestMatch.findByIdAndDelete(contest._id);
-      return {
-        success: false,
-        error: "Registration start time must be before the deadline.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Registration start time must be before the deadline.",
+      );
     }
 
     if (data.registrationType !== "closed") {
@@ -490,21 +513,21 @@ export async function createRoomContest(
     }
 
     revalidatePath("/internal/contests");
-    return { success: true };
+    return ok({});
   } catch (err: any) {
     logger.error("Contest room creation failed", {
       action: "createRoomContest",
       ...errorToLogMetadata(err),
     });
-    return { success: false, error: "Failed to create contest" };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function getContestRegistrations(contestId: string) {
+async function getContestRegistrationsAction(contestId: string) {
   try {
     await dbConnect();
     const contest = await ContestMatch.findById(contestId).lean();
-    if (!contest) return { success: false, error: "Contest not found" };
+    if (!contest) return appError("NOT_FOUND", "Contest not found");
 
     const User = (await import("@/models/User")).default;
     const userIds = (contest.registrations || []).map((r: any) => r.userId);
@@ -515,9 +538,14 @@ export async function getContestRegistrations(contestId: string) {
     });
 
     const populatedRegistrations = (contest.registrations || []).map(
-      (r: any) => ({
-        ...r,
-        image: imageMap[r.userId.toString()] || null,
+      (registration: any) => ({
+        userId: registration.userId.toString(),
+        cfHandle: registration.cfHandle ?? "",
+        teamName: registration.teamName ?? "",
+        registeredAt: registration.registeredAt
+          ? new Date(registration.registeredAt).toISOString()
+          : null,
+        image: imageMap[registration.userId.toString()] || null,
       }),
     );
 
@@ -525,45 +553,41 @@ export async function getContestRegistrations(contestId: string) {
       ? new Date() > new Date(contest.registrationSettings.deadline)
       : false;
 
-    return {
-      success: true,
+    return ok({
       format: contest.format,
       teamSize: contest.teamSize,
       registrationType: contest.registrationSettings?.type,
       isDeadlinePassed,
-      registrations: JSON.parse(JSON.stringify(populatedRegistrations)),
-    };
+      registrations: populatedRegistrations,
+    });
   } catch (error) {
     logger.error("Contest registrations lookup failed", {
       action: "getContestRegistrations",
       ...errorToLogMetadata(error),
     });
-    return { success: false, error: "Failed to fetch registrations" };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function unregisterFromContest(
-  contestId: string,
-): Promise<{ success: boolean; message: string }> {
+async function unregisterFromContestAction(contestId: string) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
-    if (!userId) return { success: false, message: "Unauthorized" };
+    if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
     await dbConnect();
 
     const contest = await ContestMatch.findById(contestId);
-    if (!contest) return { success: false, message: "Contest not found" };
+    if (!contest) return appError("NOT_FOUND", "Contest not found");
 
     if (contest.status !== "registration") {
-      return {
-        success: false,
-        message: "Cannot unregister after registration has closed.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Cannot unregister after registration has closed.",
+      );
     }
 
-    if (!contest.registrations)
-      return { success: false, message: "Not registered" };
+    if (!contest.registrations) return appError("NOT_FOUND", "Not registered");
 
     const initialLength = contest.registrations.length;
     contest.registrations = contest.registrations.filter(
@@ -571,33 +595,33 @@ export async function unregisterFromContest(
     );
 
     if (contest.registrations.length === initialLength) {
-      return { success: false, message: "Not registered" };
+      return appError("NOT_FOUND", "Not registered");
     }
 
     await contest.save();
 
     revalidatePath("/internal/contests");
-    return { success: true, message: "Successfully unregistered" };
+    return ok({ message: "Successfully unregistered" });
   } catch (error) {
     logger.error("Contest unregistration failed", {
       action: "unregisterFromContest",
       ...errorToLogMetadata(error),
     });
-    return { success: false, message: "Internal server error" };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function searchVerifiedUsers(query: string) {
+async function searchVerifiedUsersAction(query: string) {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
-  if (!session) return { error: "Unauthorized" };
+  if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
 
-  if (!query || query.length < 2) return { users: [] };
+  if (!query || query.length < 2) return ok({ users: [] });
 
   await dbConnect();
 
   const search = prepareSearchQuery(query);
-  if (!search) return { users: [] };
+  if (!search) return ok({ users: [] });
 
   const users = await User.find({
     name: { $regex: search.pattern, $options: "i" },
@@ -606,7 +630,7 @@ export async function searchVerifiedUsers(query: string) {
     .limit(20)
     .lean();
 
-  if (users.length === 0) return { users: [] };
+  if (users.length === 0) return ok({ users: [] });
 
   const userIds = users.map((u: any) => u._id);
 
@@ -640,90 +664,75 @@ export async function searchVerifiedUsers(query: string) {
       };
     });
 
-  return { users: result };
+  return ok({ users: result });
 }
 
 // ─── Bracket / Knockout creation for all authenticated users ──────────────────
 
-type ContestActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
-
-export async function createBracketContest(
+async function createBracketContestAction(
   data: BracketContestInput & Record<string, any>,
-): Promise<ContestActionResult<{ contestId: string }>> {
+) {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
-  if (!session) return { success: false, error: "Unauthorized" };
+  if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
 
   await dbConnect();
 
   // ── Server-side validation ──────────────────────────────────────────────────
   if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
-    return { success: false, error: "Contest name is required." };
+    return appError("VALIDATION_ERROR", "Contest name is required.");
   }
   if (data.name.trim().length > 100) {
-    return {
-      success: false,
-      error: "Contest name must be 100 characters or fewer.",
-    };
+    return appError(
+      "VALIDATION_ERROR",
+      "Contest name must be 100 characters or fewer.",
+    );
   }
   if (!data.mode || !["blitz", "arena"].includes(data.mode)) {
-    return {
-      success: false,
-      error: "Mode must be either 'blitz' or 'arena'.",
-    };
+    return appError(
+      "VALIDATION_ERROR",
+      "Mode must be either 'blitz' or 'arena'.",
+    );
   }
   if (!data.startTime || isNaN(new Date(data.startTime).getTime())) {
-    return { success: false, error: "A valid start time is required." };
+    return appError("VALIDATION_ERROR", "A valid start time is required.");
   }
-  const deadlineEnvStr = process.env.REGISTRATION_DEADLINE_MINUTES;
-  if (!deadlineEnvStr)
-    return {
-      success: false,
-      error: "Contest scheduling is not configured.",
-    };
-  const _deadlineMinutes = parseInt(deadlineEnvStr, 10);
-  if (isNaN(_deadlineMinutes))
-    return {
-      success: false,
-      error: "Contest scheduling is not configured correctly.",
-    };
+  const _deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
   const _startMs = new Date(data.startTime).getTime();
   const _minStart = Date.now() + (_deadlineMinutes + 1) * 60000;
   if (_startMs < _minStart) {
-    return {
-      success: false,
-      error: `Start time must be at least ${_deadlineMinutes + 1} minutes in the future.`,
-    };
+    return appError(
+      "VALIDATION_ERROR",
+      `Start time must be at least ${_deadlineMinutes + 1} minutes in the future.`,
+    );
   }
   const bracketInputValidation = validateBracketContestInput(data);
   if (!bracketInputValidation.success) {
-    return bracketInputValidation;
+    return appError("VALIDATION_ERROR", bracketInputValidation.error);
   }
   if (
     data.registrationStartTime &&
     isNaN(new Date(data.registrationStartTime).getTime())
   ) {
-    return {
-      success: false,
-      error: "Registration start time must be a valid date.",
-    };
+    return appError(
+      "VALIDATION_ERROR",
+      "Registration start time must be a valid date.",
+    );
   }
   const registrationDeadlineMs = _startMs - _deadlineMinutes * 60_000;
   if (data.registrationType === "open" && data.registrationStartTime) {
     const registrationStartMs = new Date(data.registrationStartTime).getTime();
     if (registrationStartMs <= Date.now()) {
-      return {
-        success: false,
-        error: "Scheduled registration must start in the future.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Scheduled registration must start in the future.",
+      );
     }
     if (registrationStartMs >= registrationDeadlineMs) {
-      return {
-        success: false,
-        error: "Registration start time must be before the deadline.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Registration start time must be before the deadline.",
+      );
     }
   }
   // ───────────────────────────────────────────────────────────────────────────
@@ -740,10 +749,9 @@ export async function createBracketContest(
   if (data.presetId && data.presetId !== "custom") {
     const ContestPreset = (await import("@/models/ContestPreset")).default;
     const preset = await ContestPreset.findById(data.presetId);
-    if (!preset)
-      return { success: false, error: "Selected preset does not exist" };
+    if (!preset) return appError("NOT_FOUND", "Selected preset does not exist");
     if (preset.archived)
-      return { success: false, error: "Selected preset is archived" };
+      return appError("INTERNAL_ERROR", "An unexpected error occurred.");
     presetId = preset._id;
     problemSelectionMode = preset.problemSelectionMode;
     bulkPlatform = preset.bulkPlatform;
@@ -761,50 +769,46 @@ export async function createBracketContest(
       !problemSelectionMode ||
       !["bulk", "fine-tuned"].includes(problemSelectionMode)
     ) {
-      return {
-        success: false,
-        error: "Problem selection mode must be 'bulk' or 'fine-tuned'.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Problem selection mode must be 'bulk' or 'fine-tuned'.",
+      );
     }
     if (problemSelectionMode === "bulk") {
       const rMin = Number(bulkRatingMin);
       const rMax = Number(bulkRatingMax);
       const rCount = Number(bulkProblemCount);
       if (isNaN(rMin) || isNaN(rMax) || rMin < 800 || rMax > 3500) {
-        return {
-          success: false,
-          error: "Rating range must be between 800 and 3500.",
-        };
+        return appError(
+          "VALIDATION_ERROR",
+          "Rating range must be between 800 and 3500.",
+        );
       }
       if (rMin >= rMax) {
-        return {
-          success: false,
-          error: "Minimum rating must be less than maximum rating.",
-        };
+        return appError(
+          "VALIDATION_ERROR",
+          "Minimum rating must be less than maximum rating.",
+        );
       }
       if (isNaN(rCount) || rCount < 1 || rCount > 20) {
-        return {
-          success: false,
-          error: "Problem count must be between 1 and 20.",
-        };
+        return appError(
+          "VALIDATION_ERROR",
+          "Problem count must be between 1 and 20.",
+        );
       }
     }
     if (problemSelectionMode === "fine-tuned") {
       if (!Array.isArray(data.problemSlots) || data.problemSlots.length === 0) {
-        return {
-          success: false,
-          error:
-            "Fine-tuned problem slots with round assignments are required for a bracket contest.",
-        };
+        return appError(
+          "VALIDATION_ERROR",
+          "Fine-tuned problem slots with round assignments are required for a bracket contest.",
+        );
       }
       problemSlots = data.problemSlots.filter(
         (s: any) => s.problemId && s.problemId.trim() !== "",
       );
       if (problemSlots.length === 0) {
-        return {
-          success: false,
-          error: "Please provide valid problem IDs for the bracket rounds.",
-        };
+        return appError("INTERNAL_ERROR", "An unexpected error occurred.");
       }
     }
   }
@@ -820,22 +824,16 @@ export async function createBracketContest(
   if (Array.isArray(data.registeredUsers) && data.registeredUsers.length > 0) {
     for (const u of data.registeredUsers) {
       if (!u.id || !mongoose.Types.ObjectId.isValid(u.id)) {
-        return { success: false, error: `Invalid user ID: ${u.id}` };
+        return appError("VALIDATION_ERROR", `Invalid user ID: ${u.id}`);
       }
       const cp = await CPUser.findOne({
         userId: new mongoose.Types.ObjectId(u.id),
       });
       if (!cp) {
-        return {
-          success: false,
-          error: `User ${u.id} does not have a linked CP profile.`,
-        };
+        return appError("INTERNAL_ERROR", "An unexpected error occurred.");
       }
       if (!cp.cfHandle) {
-        return {
-          success: false,
-          error: `User ${u.id} does not have a verified Codeforces handle.`,
-        };
+        return appError("INTERNAL_ERROR", "An unexpected error occurred.");
       }
       verifiedRegistrations.push({
         userId: new mongoose.Types.ObjectId(u.id),
@@ -848,16 +846,9 @@ export async function createBracketContest(
 
   try {
     const cpUser = await CPUser.findOne({ userId: session.user.id });
-    if (!cpUser) return { success: false, error: "CP Profile not found" };
+    if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
-    const deadlineStr = process.env.REGISTRATION_DEADLINE_MINUTES;
-    if (!deadlineStr)
-      throw new Error(
-        "REGISTRATION_DEADLINE_MINUTES is not set in environment variables.",
-      );
-    const deadlineMinutes = parseInt(deadlineStr, 10);
-    if (isNaN(deadlineMinutes))
-      throw new Error("REGISTRATION_DEADLINE_MINUTES must be a valid number.");
+    const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
 
     const contest = await ContestMatch.create({
       name: data.name.trim(),
@@ -927,15 +918,12 @@ export async function createBracketContest(
     }
 
     revalidatePath("/internal/contests");
-    return {
-      success: true,
-      data: { contestId: contest._id.toString() },
-    };
+    return ok({ contestId: contest._id.toString() });
   } catch (err: unknown) {
     logger.error("[createBracketContest] Failed to create bracket contest", {
       err,
       userId: session.user.id,
     });
-    return { success: false, error: "Failed to create bracket contest." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }

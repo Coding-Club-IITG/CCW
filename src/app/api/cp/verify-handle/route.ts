@@ -1,4 +1,6 @@
-import { NextResponse } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseSearchParams } from "@/lib/api/result";
+import { z } from "zod";
 import { cp } from "@ronits2407/cp-api";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -17,12 +19,19 @@ export async function POST(req: Request) {
     });
 
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     // Determine platform from query param
     const { searchParams } = new URL(req.url);
-    const platform = searchParams.get("platform") || "codeforces";
+    const query = parseSearchParams(
+      searchParams,
+      z.object({
+        platform: z.enum(["codeforces", "atcoder"]).default("codeforces"),
+      }),
+    );
+    if (!query.ok) return jsonResult(query);
+    const platform = query.data.platform;
 
     await dbConnect();
 
@@ -33,35 +42,27 @@ export async function POST(req: Request) {
     } else if (platform === "atcoder") {
       return verifyAC(cpUserDoc, session.user.id);
     }
-
-    return NextResponse.json({ error: "Invalid platform" }, { status: 400 });
   } catch (error) {
     logger.error("Competitive-programming handle verification failed", {
       route: "POST /api/cp/verify-handle",
       operation: "verify_handle",
       ...errorToLogMetadata(error),
     });
-    return NextResponse.json(
-      { error: "Unable to verify the handle right now." },
-      { status: 500 },
+    return jsonError(
+      "INTERNAL_ERROR",
+      "Unable to verify the handle right now.",
     );
   }
 }
 
 async function verifyCF(cpUserDoc: any, userId: string) {
   if (!cpUserDoc?.cfVerificationToken || cpUserDoc.cfVerified) {
-    return NextResponse.json(
-      { error: "Already verified or no token found." },
-      { status: 400 },
-    );
+    return jsonError("CONFLICT", "Already verified or no token found.");
   }
 
   const handle = cpUserDoc.cfHandle;
   if (!handle) {
-    return NextResponse.json(
-      { error: "No handle pending verification." },
-      { status: 400 },
-    );
+    return jsonError("VALIDATION_ERROR", "No handle pending verification.");
   }
 
   const redis = await getRedis();
@@ -69,17 +70,14 @@ async function verifyCF(cpUserDoc: any, userId: string) {
   const isLocked = await redis.get(redisKey);
   if (isLocked) {
     const ttl = await redis.ttl(redisKey);
-    return NextResponse.json(
-      { error: `Try again in ${ttl} seconds` },
-      { status: 429 },
-    );
+    return jsonError("RATE_LIMITED", `Try again in ${ttl} seconds`);
   }
 
   const cfLocked = await acquireDistributedCodeforcesSlot();
   if (!cfLocked) {
-    return NextResponse.json(
-      { error: "Codeforces is busy, please try again in a few seconds." },
-      { status: 429 },
+    return jsonError(
+      "RATE_LIMITED",
+      "Codeforces is busy, please try again in a few seconds.",
     );
   }
 
@@ -89,27 +87,21 @@ async function verifyCF(cpUserDoc: any, userId: string) {
   try {
     const users = await cp.codeforces.getUser(handle);
     if (!users || users.length === 0) {
-      return NextResponse.json(
-        { error: "Handle not found on Codeforces." },
-        { status: 404 },
-      );
+      return jsonError("NOT_FOUND", "Handle not found on Codeforces.");
     }
     userInfo = users[0];
   } catch (err: any) {
     if (err.message && err.message.toLowerCase().includes("not found")) {
-      return NextResponse.json(
-        { error: "Handle not found on Codeforces." },
-        { status: 404 },
-      );
+      return jsonError("NOT_FOUND", "Handle not found on Codeforces.");
     }
     logger.warn("Codeforces verification lookup failed", {
       route: "POST /api/cp/verify-handle",
       operation: "fetch_codeforces_user",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Failed to communicate with Codeforces API." },
-      { status: 502 },
+    return jsonError(
+      "EXTERNAL_DEPENDENCY_FAILURE",
+      "Failed to communicate with Codeforces API.",
     );
   }
 
@@ -121,34 +113,26 @@ async function verifyCF(cpUserDoc: any, userId: string) {
 
     await User.findByIdAndUpdate(userId, { codeforcesId: handle });
 
-    return NextResponse.json({
+    return jsonOk({
       success: true,
       message: "Codeforces handle verified successfully.",
     });
   } else {
-    return NextResponse.json(
-      {
-        error: `Token not found in CF profile. Make sure '${cpUserDoc.cfVerificationToken}' is in your First Name.`,
-      },
-      { status: 400 },
+    return jsonError(
+      "VALIDATION_ERROR",
+      `Token not found in CF profile. Make sure '${cpUserDoc.cfVerificationToken}' is in your First Name.`,
     );
   }
 }
 
 async function verifyAC(cpUserDoc: any, userId: string) {
   if (!cpUserDoc?.acVerificationToken || cpUserDoc.acVerified) {
-    return NextResponse.json(
-      { error: "Already verified or no token found." },
-      { status: 400 },
-    );
+    return jsonError("CONFLICT", "Already verified or no token found.");
   }
 
   const handle = cpUserDoc.acHandle;
   if (!handle) {
-    return NextResponse.json(
-      { error: "No handle pending verification." },
-      { status: 400 },
-    );
+    return jsonError("VALIDATION_ERROR", "No handle pending verification.");
   }
 
   const redis = await getRedis();
@@ -156,10 +140,7 @@ async function verifyAC(cpUserDoc: any, userId: string) {
   const isLocked = await redis.get(redisKey);
   if (isLocked) {
     const ttl = await redis.ttl(redisKey);
-    return NextResponse.json(
-      { error: `Try again in ${ttl} seconds` },
-      { status: 429 },
-    );
+    return jsonError("RATE_LIMITED", `Try again in ${ttl} seconds`);
   }
 
   await redis.set(redisKey, "1", { EX: 60 });
@@ -167,9 +148,9 @@ async function verifyAC(cpUserDoc: any, userId: string) {
   // AtCoder verification: check affiliation field
   const affiliation = await getUserAffiliation(handle);
   if (affiliation === null) {
-    return NextResponse.json(
-      { error: "Could not fetch AtCoder profile. Please try again." },
-      { status: 502 },
+    return jsonError(
+      "EXTERNAL_DEPENDENCY_FAILURE",
+      "Could not fetch AtCoder profile. Please try again.",
     );
   }
 
@@ -181,16 +162,14 @@ async function verifyAC(cpUserDoc: any, userId: string) {
 
     await User.findByIdAndUpdate(userId, { atcoderId: handle });
 
-    return NextResponse.json({
+    return jsonOk({
       success: true,
       message: "AtCoder handle verified successfully.",
     });
   } else {
-    return NextResponse.json(
-      {
-        error: `Token not found in AtCoder profile. Make sure '${cpUserDoc.acVerificationToken}' is set as your Affiliation.`,
-      },
-      { status: 400 },
+    return jsonError(
+      "VALIDATION_ERROR",
+      `Token not found in AtCoder profile. Make sure '${cpUserDoc.acVerificationToken}' is set as your Affiliation.`,
     );
   }
 }

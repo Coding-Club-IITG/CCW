@@ -1,5 +1,7 @@
 "use client";
 
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
+
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "@/lib/auth-client";
 import BackLink from "@/components/shared/BackLink";
@@ -58,15 +60,14 @@ async function searchHackathonUsers(query: string, signal: AbortSignal) {
     `/api/hackathons/users?q=${encodeURIComponent(query)}`,
     { signal },
   );
-  if (!response.ok) throw new Error("User search failed");
-  const data = (await response.json()) as {
+  const data = await expectAppData<{
     items?: Array<{
       id: string;
       name: string;
       email: string;
       pizza_count: number;
     }>;
-  };
+  }>(response);
   return (data.items || []).map((user) => ({
     id: user.id,
     name: getDisplayName(user.name, user.pizza_count),
@@ -117,7 +118,7 @@ export default function HackathonDetailPage({
   const fetchData = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/hackathons/${id}/teams`);
-      const data = await res.json();
+      const data = await expectAppData(res);
       setHackathon(data.hackathon);
       setTeams(data.teams || []);
     } catch {
@@ -148,7 +149,7 @@ export default function HackathonDetailPage({
   async function fetchMyRequests() {
     try {
       const res = await fetch("/api/hackathons/requests");
-      const data = await res.json();
+      const data = await expectAppData(res);
       setMyInvites(
         (data.items || []).filter(
           (r: HackathonRequest) =>
@@ -176,18 +177,14 @@ export default function HackathonDetailPage({
         body: JSON.stringify({ name: teamName, description: teamDesc }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to create team.");
-        return;
-      }
+      await expectAppData(res);
 
       setTeamName("");
       setTeamDesc("");
       setShowCreateForm(false);
       fetchData(hackathonId);
-    } catch {
-      setError("Failed to create team.");
+    } catch (error) {
+      setError(appErrorMessage(error, "Failed to create team."));
     } finally {
       setCreating(false);
     }
@@ -206,16 +203,12 @@ export default function HackathonDetailPage({
         body: JSON.stringify({ name: editName, description: editDesc }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to update team.");
-        return;
-      }
+      await expectAppData(res);
 
       setEditing(false);
       fetchData(hackathonId);
-    } catch {
-      setError("Failed to update team.");
+    } catch (error) {
+      setError(appErrorMessage(error, "Failed to update team."));
     } finally {
       setSaving(false);
     }
@@ -238,14 +231,10 @@ export default function HackathonDetailPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "remove_member", memberId }),
       });
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to remove member.");
-        return;
-      }
+      await expectAppData(res);
       fetchData(hackathonId);
-    } catch {
-      setError("Failed to remove member.");
+    } catch (error) {
+      setError(appErrorMessage(error, "Failed to remove member."));
     }
   }
 
@@ -258,14 +247,10 @@ export default function HackathonDetailPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "toggle_status" }),
       });
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to update team status.");
-        return;
-      }
+      await expectAppData(res);
       fetchData(hackathonId);
-    } catch {
-      setError("Failed to update team status.");
+    } catch (error) {
+      setError(appErrorMessage(error, "Failed to update team status."));
     }
   }
 
@@ -277,14 +262,10 @@ export default function HackathonDetailPage({
       const res = await fetch(`/api/hackathons/teams/${myTeam._id}`, {
         method: "DELETE",
       });
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to delete team.");
-        return;
-      }
+      await expectAppData(res);
       fetchData(hackathonId);
-    } catch {
-      setError("Failed to delete team.");
+    } catch (error) {
+      setError(appErrorMessage(error, "Failed to delete team."));
     }
   }
 
@@ -297,15 +278,11 @@ export default function HackathonDetailPage({
         body: JSON.stringify({ teamId, type: "join_request" }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to send join request.");
-        return;
-      }
+      await expectAppData(res);
 
       alert("Join request sent!");
-    } catch {
-      setError("Failed to send request.");
+    } catch (error) {
+      setError(appErrorMessage(error, "Failed to send request."));
     }
   }
 
@@ -318,15 +295,11 @@ export default function HackathonDetailPage({
         body: JSON.stringify({ teamId, type: "invite", toUserId }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to send invite.");
-        return;
-      }
+      await expectAppData(res);
 
       alert("Invite sent!");
-    } catch {
-      setError("Failed to send invite.");
+    } catch (error) {
+      setError(appErrorMessage(error, "Failed to send invite."));
     } finally {
       setInviting(null);
     }
@@ -343,11 +316,7 @@ export default function HackathonDetailPage({
         body: JSON.stringify({ action }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || `Failed to ${action} request.`);
-        return;
-      }
+      await expectAppData(res);
 
       // Refresh
       fetchData(hackathonId);
@@ -355,8 +324,8 @@ export default function HackathonDetailPage({
       if (myTeam) {
         loadTeamRequests(myTeam._id);
       }
-    } catch {
-      setError(`Failed to ${action} request.`);
+    } catch (error) {
+      setError(appErrorMessage(error, `Failed to ${action} request.`));
     }
   }
 
@@ -364,7 +333,7 @@ export default function HackathonDetailPage({
   async function loadTeamRequests(teamId: string) {
     try {
       const res = await fetch(`/api/hackathons/requests?teamId=${teamId}`);
-      const data = await res.json();
+      const data = await expectAppData(res);
       setPendingRequests(data.items || []);
       setRequestUsers(data.users || {});
     } catch {

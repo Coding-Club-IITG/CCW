@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
@@ -11,23 +12,22 @@ import mongoose from "mongoose";
 
 import { auth } from "@/lib/auth";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import { parseJson } from "@/lib/api/result";
+import { createContestRoomSchema } from "@/lib/api/schemas/contestRoute";
 
 export async function POST(req: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
     if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    const body = await req.json();
-    const { contestId, teams } = body;
-
-    if (!contestId || !teams || !Array.isArray(teams) || teams.length < 2) {
-      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-    }
+    const body = await parseJson(req, createContestRoomSchema);
+    if (!body.ok) return jsonResult(body);
+    const { contestId, teams } = body.data;
 
     // Validate team sizes: each team must have 1 or 3 members
-    const teamSizes = teams.map((t: any) => t.members.length);
+    const teamSizes = teams.map((team) => team.members.length);
     const validSizes = teamSizes.every(
       (size: number) => size === 1 || size === 3,
     );
@@ -36,20 +36,13 @@ export async function POST(req: NextRequest) {
     );
 
     if (!validSizes || !consistentSizes) {
-      return NextResponse.json(
-        {
-          error: "Invalid team sizes",
-          details:
-            "Each team must have 1 or 3 members, and all teams must have the same size",
-        },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Invalid team sizes");
     }
 
     await dbConnect();
     const contest = await ContestMatch.findById(contestId);
     if (!contest) {
-      return NextResponse.json({ error: "Contest not found" }, { status: 404 });
+      return jsonError("NOT_FOUND", "Contest not found");
     }
 
     const problemCount = contest.bulkProblemCount || 3;
@@ -85,13 +78,7 @@ export async function POST(req: NextRequest) {
     ]);
 
     if (availableProblems.length < problemCount) {
-      return NextResponse.json(
-        {
-          error: "insufficient_problems",
-          minimumRatingRange: [minRating, maxRating],
-        },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "insufficient_problems");
     }
 
     // Write stub ContestRoom to MongoDB
@@ -188,16 +175,13 @@ export async function POST(req: NextRequest) {
     // Add roomId to contest:<contestId>:rooms Set
     await redis.sAdd(`contest:${contestId}:rooms`, roomId);
 
-    return NextResponse.json({ roomId });
+    return jsonOk({ roomId });
   } catch (error) {
     logger.error("Contest room creation failed", {
       route: "POST /api/contests/rooms",
       operation: "create_room",
       ...errorToLogMetadata(error),
     });
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error");
   }
 }

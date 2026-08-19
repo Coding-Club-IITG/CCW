@@ -55,10 +55,10 @@ export default function CreditsModal({ canEdit, onClose }: CreditsModalProps) {
 
   useEffect(() => {
     void getCredits().then((result) => {
-      if (result.success) {
+      if (result.ok) {
         setSections(result.data);
         setDraft(result.data);
-      } else setError(result.error);
+      } else setError(result.error.message);
       setLoading(false);
     });
   }, []);
@@ -82,10 +82,10 @@ export default function CreditsModal({ canEdit, onClose }: CreditsModalProps) {
         })),
       })),
     );
-    if (result.success) {
+    if (result.ok) {
       setSections(draft);
       setEditing(false);
-    } else setError(result.error || "Failed to save credits.");
+    } else setError(result.error.message);
     setSaving(false);
   };
 

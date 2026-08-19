@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Menu,
   Moon,
@@ -13,7 +14,8 @@ import {
   X,
 } from "lucide-react";
 import { useSession, signIn, signOut } from "@/lib/auth-client";
-import { getUserRoleLabels, isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
+import { getUserRoleLabels } from "@/lib/roles";
 import { useThemeStore } from "@/lib/store/theme";
 import { useViewModeStore } from "@/lib/store/view-mode";
 import { getDisplayName } from "@/lib/utils";
@@ -41,6 +43,7 @@ const INTERNAL_LINKS = [
 ];
 
 export default function Navbar() {
+  const router = useRouter();
   const { data: session, isPending } = useSession();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -217,7 +220,8 @@ export default function Navbar() {
                       setMenuOpen(false);
                       setHamburgerOpen(false);
                       await signOut();
-                      window.location.href = "/";
+                      router.replace("/");
+                      router.refresh();
                     }}
                   >
                     Logout

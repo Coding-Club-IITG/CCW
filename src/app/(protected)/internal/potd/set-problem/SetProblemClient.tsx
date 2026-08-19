@@ -58,7 +58,7 @@ export default function SetProblemClient() {
     setLoadingInitial(true);
     try {
       const result = await getScheduledChallenges();
-      if (result.ok && result.data) {
+      if (result.ok) {
         setProblems(result.data);
       }
     } finally {
@@ -133,17 +133,13 @@ export default function SetProblemClient() {
         force,
       );
       if (!result.ok) {
-        if (result.reuse) {
-          if (
-            confirm(
-              result.error ?? "This problem was already used. Set it again?",
-            )
-          ) {
+        if (/already used/i.test(result.error.message)) {
+          if (confirm(result.error.message)) {
             await handleSave(true);
           }
           return;
         }
-        setFormError(result.error ?? "Failed to save problem");
+        setFormError(result.error.message);
         return;
       }
       setIsAdding(false);
@@ -168,7 +164,7 @@ export default function SetProblemClient() {
     try {
       const result = await deleteScheduledChallenge(id);
       if (!result.ok) {
-        alert(result.error ?? "Failed to delete");
+        alert(result.error.message);
         return;
       }
       await fetchScheduled();

@@ -92,10 +92,10 @@ export default function CreateRoomModal({
       setIsSearching(true);
       try {
         const res = await searchVerifiedUsers(searchQuery);
-        if (res.users) {
+        if (res.ok && res.data.users) {
           const isUserInAnyTeam = (id: string) =>
             manualTeams.some((t) => t.members.some((m) => m.id === id));
-          const filtered = res.users.filter(
+          const filtered = res.data.users.filter(
             (u: any) =>
               !registeredUsers.some((inv) => inv.id === u.id) &&
               !isUserInAnyTeam(u.id),
@@ -267,8 +267,8 @@ export default function CreateRoomModal({
               }
             : {}),
         });
-        if (!res.success) {
-          alert(res.error);
+        if (!res.ok) {
+          alert(res.error.message);
         } else {
           onClose();
           router.refresh();
@@ -289,8 +289,8 @@ export default function CreateRoomModal({
         registrationStartTime: regStartIso,
         registeredUsers: finalRegisteredUsers,
       });
-      if (res.error) {
-        alert(res.error);
+      if (!res.ok) {
+        alert(res.error.message);
       } else {
         onClose();
         router.refresh();

@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { use, useEffect, useState } from "react";
 import BackLink from "@/components/shared/BackLink";
 import BlogEditor from "@/components/blog/BlogEditor";
@@ -34,10 +36,7 @@ export default function EditMyBlogPage({ params }: Props) {
     async function fetchPost() {
       try {
         const response = await fetch(`/api/internal/blog/${slug}`);
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to load blog.");
-        }
+        const data = await expectAppData(response);
         if (!cancelled) setPost(data.post);
       } catch (err) {
         if (!cancelled) {
@@ -76,12 +75,7 @@ export default function EditMyBlogPage({ params }: Props) {
         tags: data.tags,
       }),
     });
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || "Failed to save blog.");
-    }
-
+    const result = await expectAppData(response);
     setPost(result.post);
   };
 

@@ -3,12 +3,12 @@
  */
 
 import path from "path";
-import { createImageUploadHandler } from "@/lib/uploadHandler";
+import { webEnv } from "@/lib/env/web";
+import { createImageUploadHandler } from "@/lib/api/uploads/image";
 
 export const runtime = "nodejs";
 
-const UPLOAD_DIR =
-  process.env.EVENT_UPLOAD_DIR ?? path.join(process.cwd(), "uploads", "events");
+const UPLOAD_DIR = path.resolve(webEnv.EVENT_UPLOAD_DIR);
 
 export const POST = createImageUploadHandler({
   uploadDir: UPLOAD_DIR,

@@ -2,7 +2,10 @@
  * GET /api/hackathons - List active hackathons
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseSearchParams } from "@/lib/api/result";
+import { paginationQuerySchema } from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
@@ -14,12 +17,14 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const query = parseSearchParams(searchParams, paginationQuerySchema);
+    if (!query.ok) return jsonResult(query);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
 
     const cacheKey = buildCacheKey("hackathons", {
@@ -45,7 +50,7 @@ export async function GET(request: NextRequest) {
       },
     );
 
-    return NextResponse.json(
+    return jsonOk(
       paginatedResponse(result.hackathons, result.total, page, limit),
     );
   } catch (err) {
@@ -54,9 +59,6 @@ export async function GET(request: NextRequest) {
       operation: "list_hackathons",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

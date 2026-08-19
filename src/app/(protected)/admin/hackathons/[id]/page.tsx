@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useState, useEffect } from "react";
 import BackLink from "@/components/shared/BackLink";
 import { getDisplayName } from "@/lib/utils";
@@ -45,7 +47,7 @@ export default function AdminHackathonMonitorPage({
   async function fetchData(id: string) {
     try {
       const res = await fetch(`/api/hackathons/${id}/teams`);
-      const data = await res.json();
+      const data = await expectAppData(res);
       setHackathon(data.hackathon);
       setTeams(data.teams || []);
     } catch {

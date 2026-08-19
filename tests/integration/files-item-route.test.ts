@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { responseData, responseError } from "../utils/result";
 import path from "path";
 import { writeFile } from "fs/promises";
 import {
@@ -80,7 +81,10 @@ describe("individual file route", () => {
     const response = await GET(fileRequest("bad-id"), context("bad-id"));
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Invalid file ID." });
+    expect(await responseError(response)).toMatchObject({
+      code: "VALIDATION_ERROR",
+      fields: { id: expect.any(Array) },
+    });
   });
 
   it("does not serve file bytes when the ACL denies access", async () => {
@@ -95,7 +99,9 @@ describe("individual file route", () => {
     );
 
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "Forbidden." });
+    expect(await responseError(response)).toMatchObject({
+      message: "Forbidden.",
+    });
   });
 
   it("blocks direct navigation to a view-only file", async () => {
@@ -118,8 +124,8 @@ describe("individual file route", () => {
     );
 
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({
-      error: "This file is view-only and cannot be opened directly.",
+    expect(await responseError(response)).toMatchObject({
+      message: "This file is view-only and cannot be opened directly.",
     });
   });
 
@@ -194,7 +200,7 @@ describe("individual file route", () => {
       context(saved._id.toString()),
     );
 
-    expect(response.status).toBe(410);
+    expect(response.status).toBe(404);
   });
 
   it("prevents non-managers from editing metadata", async () => {
@@ -240,7 +246,7 @@ describe("individual file route", () => {
       }),
       context(saved._id.toString()),
     );
-    const body = await response.json();
+    const body = await responseData(response);
     const updated = await FileEntry.findById(saved._id).lean();
 
     expect(response.status).toBe(200);
@@ -266,7 +272,7 @@ describe("individual file route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ success: true });
+    expect(await responseData(response)).toEqual({ success: true });
     expect(await FileEntry.findById(saved._id)).toBeNull();
     expect(await listTestUploads(uploadDirectory)).toEqual([]);
     expect(invalidateCache).toHaveBeenCalledWith("files");

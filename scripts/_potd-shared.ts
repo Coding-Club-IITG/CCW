@@ -3,6 +3,7 @@
  */
 
 import "../src/lib/env";
+import { cliEnv } from "../src/lib/env/cli";
 
 import mongoose from "mongoose";
 import path from "path";
@@ -26,9 +27,7 @@ export {
 
 /** Connect to Mongo and register all POTD-related models */
 export async function connect(): Promise<void> {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("MONGODB_URI not set in .env.local");
-  await mongoose.connect(uri);
+  await mongoose.connect(cliEnv.MONGODB_URI);
   [User, CPUser, Problem, DailyChallenge, POTDSubmission, POTDOutage].forEach(
     (m: any) => m && m.init && m.init(),
   );

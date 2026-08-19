@@ -4,7 +4,7 @@ import {
   canPublishCalendarEvent,
   getCreatableCalendarScopes,
   getPublishableEventModules,
-} from "@/lib/calendarAccess";
+} from "@/lib/access/calendar";
 
 describe("calendar access", () => {
   it("scopes Heads and grants Admin club-wide publishing", () => {

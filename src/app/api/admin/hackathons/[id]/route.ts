@@ -3,10 +3,16 @@
  * DELETE /api/admin/hackathons/[id] - Archive a hackathon (admin only)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseJson, parseRouteParams } from "@/lib/api/result";
+import {
+  jsonObjectSchema,
+  objectIdParamsSchema,
+} from "@/lib/api/schemas/boundary";
 import { HACKATHON_STATUSES, type HackathonStatus } from "@/lib/constants";
 import { logger } from "@/lib/utils";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { requireHead } from "@/lib/api/auth";
 import dbConnect from "@/lib/mongodb";
 import { invalidateCache } from "@/lib/cache";
 import Hackathon from "@/models/Hackathon";
@@ -99,26 +105,23 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
 
-    const { id } = await params;
+    const validatedParams = parseRouteParams(
+      await params,
+      objectIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body." },
-        { status: 400 },
-      );
-    }
+    const parsedBody = await parseJson(request, jsonObjectSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const body = parsedBody.data;
 
     const parsed = parseHackathonUpdate(body);
     if ("error" in parsed) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 });
+      return jsonError("VALIDATION_ERROR", parsed.error);
     }
 
     await dbConnect();
@@ -126,14 +129,14 @@ export async function PATCH(
       .select("minMembers maxMembers")
       .lean<{ minMembers: number; maxMembers: number }>();
     if (!existing) {
-      return NextResponse.json({ error: "Not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Not found.");
     }
     const minMembers = parsed.update.minMembers ?? existing.minMembers;
     const maxMembers = parsed.update.maxMembers ?? existing.maxMembers;
     if (minMembers > maxMembers) {
-      return NextResponse.json(
-        { error: "Min members cannot exceed max members." },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Min members cannot exceed max members.",
       );
     }
 
@@ -142,19 +145,16 @@ export async function PATCH(
       runValidators: true,
     }).lean();
     if (!hackathon) {
-      return NextResponse.json({ error: "Not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Not found.");
     }
 
     await invalidateCache("hackathons");
     await invalidateCache("admin:hackathons");
 
-    return NextResponse.json({ hackathon });
+    return jsonOk({ hackathon });
   } catch (err) {
     logger.error("[Hackathon Admin] PATCH error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
@@ -163,12 +163,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
 
-    const { id } = await params;
+    const validatedParams = parseRouteParams(
+      await params,
+      objectIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
     await dbConnect();
 
     // Soft archive instead of hard delete
@@ -179,18 +182,15 @@ export async function DELETE(
     ).lean();
 
     if (!hackathon) {
-      return NextResponse.json({ error: "Not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Not found.");
     }
 
     await invalidateCache("hackathons");
     await invalidateCache("admin:hackathons");
 
-    return NextResponse.json({ hackathon });
+    return jsonOk({ hackathon });
   } catch (err) {
     logger.error("[Hackathon Admin] DELETE error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

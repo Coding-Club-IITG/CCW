@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useState, useRef } from "react";
 import CompatibleImage from "./CompatibleImage";
 import FocalPointPicker from "./FocalPointPicker";
@@ -42,12 +44,7 @@ export default function ImageUpload({
         body: formData,
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Upload failed");
-      }
-
-      const { url } = await res.json();
+      const { url } = await expectAppData(res);
       onChange(url);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to upload image.");

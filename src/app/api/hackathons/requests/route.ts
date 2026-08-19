@@ -2,7 +2,15 @@
  * POST /api/hackathons/requests - Create a join request or invite
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseJson, parseSearchParams } from "@/lib/api/result";
+import {
+  jsonObjectSchema,
+  paginationQueryFields,
+} from "@/lib/api/schemas/boundary";
+import { objectIdStringSchema } from "@/lib/api/schemas/contestRoute";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import Hackathon from "@/models/Hackathon";
@@ -17,66 +25,45 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const user = session.user as any;
 
-    let body: Record<string, any>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body." },
-        { status: 400 },
-      );
-    }
+    const parsedBody = await parseJson(request, jsonObjectSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const body = parsedBody.data;
 
     const { teamId, type, toUserId } = body;
 
     if (!teamId || !type) {
-      return NextResponse.json(
-        { error: "teamId and type are required." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "teamId and type are required.");
     }
 
     if (type !== "join_request" && type !== "invite") {
-      return NextResponse.json(
-        { error: "Invalid request type." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Invalid request type.");
     }
 
     await dbConnect();
 
     const team = (await HackathonTeam.findById(teamId).lean()) as any;
     if (!team) {
-      return NextResponse.json({ error: "Team not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Team not found.");
     }
 
     if (team.status === "full" || team.status === "closed") {
-      return NextResponse.json(
-        { error: "Team is not accepting members." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Team is not accepting members.");
     }
 
     const hackathon = (await Hackathon.findById(
       team.hackathonId,
     ).lean()) as any;
     if (!hackathon || hackathon.status !== "active") {
-      return NextResponse.json(
-        { error: "Hackathon is not active." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Hackathon is not active.");
     }
 
     if (new Date(hackathon.deadline) < new Date()) {
-      return NextResponse.json(
-        { error: "Hackathon deadline has passed." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Hackathon deadline has passed.");
     }
 
     const requestType = type as HackathonRequestType;
@@ -84,10 +71,7 @@ export async function POST(request: NextRequest) {
     if (requestType === "join_request") {
       // User wants to join a team
       if (team.members.includes(user.id)) {
-        return NextResponse.json(
-          { error: "You are already a member of this team." },
-          { status: 400 },
-        );
+        return jsonError("CONFLICT", "You are already a member of this team.");
       }
 
       // Check if user is already in another team for this hackathon
@@ -96,9 +80,9 @@ export async function POST(request: NextRequest) {
         members: user.id,
       });
       if (existingTeam) {
-        return NextResponse.json(
-          { error: "You are already in a team for this hackathon." },
-          { status: 400 },
+        return jsonError(
+          "CONFLICT",
+          "You are already in a team for this hackathon.",
         );
       }
 
@@ -110,9 +94,9 @@ export async function POST(request: NextRequest) {
         status: "pending",
       });
       if (existing) {
-        return NextResponse.json(
-          { error: "You already have a pending request for this team." },
-          { status: 400 },
+        return jsonError(
+          "CONFLICT",
+          "You already have a pending request for this team.",
         );
       }
 
@@ -134,35 +118,26 @@ export async function POST(request: NextRequest) {
         link: `/internal/hackathons/${hackathon._id}`,
       });
 
-      return NextResponse.json({ request: req }, { status: 201 });
+      return jsonOk({ request: req }, { status: 201 });
     } else {
       // Invite: team owner invites a user
       if (team.owner !== user.id) {
-        return NextResponse.json(
-          { error: "Only the team owner can send invites." },
-          { status: 403 },
-        );
+        return jsonError("FORBIDDEN", "Only the team owner can send invites.");
       }
 
-      if (!toUserId) {
-        return NextResponse.json(
-          { error: "toUserId is required for invites." },
-          { status: 400 },
+      if (typeof toUserId !== "string" || !toUserId) {
+        return jsonError(
+          "VALIDATION_ERROR",
+          "toUserId is required for invites.",
         );
       }
 
       if (toUserId === user.id) {
-        return NextResponse.json(
-          { error: "You cannot invite yourself." },
-          { status: 400 },
-        );
+        return jsonError("VALIDATION_ERROR", "You cannot invite yourself.");
       }
 
       if (team.members.includes(toUserId)) {
-        return NextResponse.json(
-          { error: "User is already a member of this team." },
-          { status: 400 },
-        );
+        return jsonError("CONFLICT", "User is already a member of this team.");
       }
 
       // Check if target user is already in a team for this hackathon
@@ -171,9 +146,9 @@ export async function POST(request: NextRequest) {
         members: toUserId,
       });
       if (existingTeam) {
-        return NextResponse.json(
-          { error: "User is already in a team for this hackathon." },
-          { status: 400 },
+        return jsonError(
+          "CONFLICT",
+          "User is already in a team for this hackathon.",
         );
       }
 
@@ -185,9 +160,9 @@ export async function POST(request: NextRequest) {
         status: "pending",
       });
       if (existing) {
-        return NextResponse.json(
-          { error: "An invite is already pending for this user." },
-          { status: 400 },
+        return jsonError(
+          "CONFLICT",
+          "An invite is already pending for this user.",
         );
       }
 
@@ -209,7 +184,7 @@ export async function POST(request: NextRequest) {
         link: `/internal/hackathons/${hackathon._id}`,
       });
 
-      return NextResponse.json({ request: req }, { status: 201 });
+      return jsonOk({ request: req }, { status: 201 });
     }
   } catch (err) {
     logger.error("Hackathon request creation failed", {
@@ -217,10 +192,7 @@ export async function POST(request: NextRequest) {
       operation: "create_request",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
@@ -228,22 +200,30 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const user = session.user as any;
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const query = parseSearchParams(
+      searchParams,
+      z.object({
+        ...paginationQueryFields,
+        teamId: objectIdStringSchema.optional(),
+      }),
+    );
+    if (!query.ok) return jsonResult(query);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
-    const teamId = searchParams.get("teamId");
+    const teamId = query.data.teamId;
 
     let filter: Record<string, any> = {};
 
     if (teamId) {
       const team = (await HackathonTeam.findById(teamId).lean()) as any;
       if (!team || team.owner !== user.id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return jsonError("FORBIDDEN", "Forbidden");
       }
       filter = { teamId, type: "join_request", status: "pending" };
     } else {
@@ -279,7 +259,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return jsonOk({
       ...paginatedResponse(requests, total, page, limit),
       users,
     });
@@ -289,9 +269,6 @@ export async function GET(request: NextRequest) {
       operation: "list_requests",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

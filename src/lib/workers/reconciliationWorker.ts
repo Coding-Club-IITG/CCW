@@ -13,6 +13,7 @@ import ContestSubmission from "../../models/ContestSubmission";
 import Notification from "../../models/Notification";
 import CPUser from "../../models/CPUser";
 import ContestQuestion from "../../models/ContestQuestion";
+import { workerEnv } from "../env/worker";
 
 async function determineWinner(
   redis: any,
@@ -227,7 +228,8 @@ export const reconciliationWorker = new Worker(
         // Incremental CF sync for all bracket registrants
         // OPTIMIZATION: Only do this if problemSelectionMode is "bulk"
         if (contest.problemSelectionMode === "bulk") {
-          const { fetchCodeforcesUserStatus } = await import("../cf-api");
+          const { fetchCodeforcesUserStatus } =
+            await import("../platforms/codeforces");
 
           for (const uid of bracketUserIds) {
             const cpUser = await CPUser.findOne({ userId: uid });
@@ -328,10 +330,7 @@ export const reconciliationWorker = new Worker(
           const startTimeMs = contest.startTime
             ? contest.startTime.getTime()
             : Date.now();
-          const preStartSeconds = parseInt(
-            process.env.ROOM_PRE_START_SECONDS || "5",
-            10,
-          );
+          const preStartSeconds = workerEnv.ROOM_PRE_START_SECONDS;
           const delayToStart = Math.max(
             0,
             startTimeMs - Date.now() - preStartSeconds * 1000,
@@ -451,7 +450,8 @@ export const reconciliationWorker = new Worker(
       // OPTIMIZATION: Only do this if problemSelectionMode is "bulk", because "test" mode
       // uses manual problem slots and ignores the solved array anyway!
       if (contest.problemSelectionMode === "bulk") {
-        const { fetchCodeforcesUserStatus } = await import("../cf-api");
+        const { fetchCodeforcesUserStatus } =
+          await import("../platforms/codeforces");
 
         for (const uid of allUserIds) {
           const cpUser = await CPUser.findOne({ userId: uid });
@@ -684,10 +684,7 @@ export const reconciliationWorker = new Worker(
       const startTimeMs = contest.startTime
         ? contest.startTime.getTime()
         : Date.now();
-      const preStartSeconds = parseInt(
-        process.env.ROOM_PRE_START_SECONDS || "5",
-        10,
-      );
+      const preStartSeconds = workerEnv.ROOM_PRE_START_SECONDS;
       const delayToStart = Math.max(
         0,
         startTimeMs - Date.now() - preStartSeconds * 1000,
@@ -754,10 +751,7 @@ export const reconciliationWorker = new Worker(
       );
 
       // Schedule a ready_timeout to cancel if players don't ready up in time
-      const timeoutMins = parseInt(
-        process.env.ROOM_READY_TIMEOUT_MINUTES || "5",
-        10,
-      );
+      const timeoutMins = workerEnv.ROOM_READY_TIMEOUT_MINUTES;
       const { reconciliationQueue } = await import("../bullmq");
       await reconciliationQueue.add(
         "ready_timeout",

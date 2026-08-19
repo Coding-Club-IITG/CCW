@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { auth } from "@/lib/auth";
 import { getRedis } from "@/lib/redis";
 import ContestRoom from "@/models/ContestRoom";
@@ -8,6 +9,9 @@ import ContestMatch from "@/models/ContestMatch";
 import { publishRoom } from "@/lib/sse";
 import { reconciliationQueue } from "@/lib/bullmq";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import { webEnv } from "@/lib/env/web";
+import { parseRouteParams } from "@/lib/api/result";
+import { contestIdParamsSchema } from "@/lib/api/schemas/contestRoute";
 
 export async function POST(
   req: NextRequest,
@@ -17,37 +21,38 @@ export async function POST(
     let userId = "";
 
     const testUserId = req.headers.get("x-test-user-id");
-    if (process.env.NODE_ENV === "development" && testUserId) {
+    if (webEnv.NODE_ENV === "development" && testUserId) {
       userId = testUserId;
     } else {
       const session = await auth.api.getSession({ headers: req.headers });
       if (!session || !session.user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return jsonError("UNAUTHENTICATED", "Unauthorized");
       }
       userId = session.user.id;
     }
 
-    // Await params for Next.js 15+
-    const { id: roomId } = await params;
+    const validatedParams = parseRouteParams(
+      await params,
+      contestIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id: roomId } = validatedParams.data;
 
     await dbConnect();
     const room = await ContestRoom.findById(roomId);
     if (!room) {
-      return NextResponse.json({ error: "Room not found" }, { status: 404 });
+      return jsonError("NOT_FOUND", "Room not found");
     }
 
     if (!room.participants.some((p: any) => p.toString() === userId)) {
-      return NextResponse.json({ error: "Not a participant" }, { status: 403 });
+      return jsonError("FORBIDDEN", "Not a participant");
     }
 
     const redis = await getRedis();
     const state = await redis.hGetAll(`room:${roomId}:state`);
 
     if (!state || state.status !== "waiting") {
-      return NextResponse.json(
-        { error: "Room is not waiting" },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Room is not waiting");
     }
 
     // Determine which team this user belongs to
@@ -62,10 +67,7 @@ export async function POST(
     }
 
     if (!userTeamId) {
-      return NextResponse.json(
-        { error: "User is not part of any team" },
-        { status: 403 },
-      );
+      return jsonError("FORBIDDEN", "User is not part of any team");
     }
 
     const readyAdded = await redis.sAdd(`room:${roomId}:ready_users`, userId);
@@ -205,16 +207,13 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ success: true });
+    return jsonOk({ success: true });
   } catch (err) {
     logger.error("Contest room ready check failed", {
       route: "POST /api/contests/rooms/[id]/ready",
       operation: "mark_ready",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error");
   }
 }

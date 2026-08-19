@@ -1,5 +1,35 @@
 "use server";
 
+import { err as appError, ok } from "@/lib/api/result";
+
+import { defineAction } from "@/lib/actions/defineAction";
+
+export const setDailyProblem = defineAction(
+  "setDailyProblem",
+  setDailyProblemAction,
+);
+export const getScheduledChallenges = defineAction(
+  "getScheduledChallenges",
+  getScheduledChallengesAction,
+);
+export const deleteScheduledChallenge = defineAction(
+  "deleteScheduledChallenge",
+  deleteScheduledChallengeAction,
+);
+export const getPendingSubmissions = defineAction(
+  "getPendingSubmissions",
+  getPendingSubmissionsAction,
+);
+export const forceSyncUser = defineAction("forceSyncUser", forceSyncUserAction);
+export const autoFetchPOTDCandidates = defineAction(
+  "autoFetchPOTDCandidates",
+  autoFetchPOTDCandidatesAction,
+);
+export const bulkSetDailyProblems = defineAction(
+  "bulkSetDailyProblems",
+  bulkSetDailyProblemsAction,
+);
+
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -17,7 +47,8 @@ import POTDSubmission from "@/models/POTDSubmission";
 );
 
 import { errorToLogMetadata, logger } from "@/lib/utils";
-import { canSetPOTD, parseRoles } from "@/lib/roles";
+import { canSetPOTD } from "@/lib/access/potd";
+import { parseRoles } from "@/lib/roles";
 import { IST_OFFSET_MS } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
 import {
@@ -53,32 +84,35 @@ async function checkAdmin() {
  * `dateStr` = YYYY-MM-DD in IST. `difficulty` = Easy | Medium | Hard.
  * Same-day scheduling is allowed; the challenge window ends at EOD IST.
  */
-export async function setDailyProblem(
+async function setDailyProblemAction(
   dateStr: string,
   problemId: string,
   difficulty: "Easy" | "Medium" | "Hard",
   platform: Platform = "codeforces",
   force: boolean = false,
-): Promise<{ ok: boolean; error?: string; reuse?: boolean }> {
+) {
   const session = await checkAdmin();
-  if (!session) return { ok: false, error: "Forbidden" };
+  if (!session) return appError("FORBIDDEN", "Forbidden");
 
   if (!dateStr || !problemId || !difficulty)
-    return { ok: false, error: "Missing required fields" };
+    return appError("VALIDATION_ERROR", "Missing required fields");
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr))
-    return { ok: false, error: "Invalid date format (YYYY-MM-DD)" };
+    return appError("VALIDATION_ERROR", "Invalid date format (YYYY-MM-DD)");
 
   const parsedDate = new Date(dateStr + "T00:00:00Z");
   if (
     isNaN(parsedDate.getTime()) ||
     parsedDate.toISOString().slice(0, 10) !== dateStr
   )
-    return { ok: false, error: "Invalid date value" };
+    return appError("VALIDATION_ERROR", "Invalid date value");
 
   const todayIST = getTodayISTDateStr();
   if (dateStr < todayIST)
-    return { ok: false, error: "Cannot schedule problems for past dates" };
+    return appError(
+      "VALIDATION_ERROR",
+      "Cannot schedule problems for past dates",
+    );
 
   const tenDaysAhead = (() => {
     const d = new Date(Date.now() + IST_OFFSET_MS);
@@ -86,7 +120,10 @@ export async function setDailyProblem(
     return d.toISOString().slice(0, 10);
   })();
   if (dateStr > tenDaysAhead)
-    return { ok: false, error: "Cannot schedule more than 10 days in advance" };
+    return appError(
+      "VALIDATION_ERROR",
+      "Cannot schedule more than 10 days in advance",
+    );
 
   await dbConnect();
 
@@ -95,10 +132,10 @@ export async function setDailyProblem(
   // Check if this (date, difficulty) slot is already taken
   const existing = await DailyChallenge.findOne({ windowStart, difficulty });
   if (existing)
-    return {
-      ok: false,
-      error: `A ${difficulty} problem is already set for this date`,
-    };
+    return appError(
+      "CONFLICT",
+      `A ${difficulty} problem is already set for this date`,
+    );
 
   let contestId: string;
   let problemIndex: string;
@@ -111,10 +148,10 @@ export async function setDailyProblem(
     // Parse CF problem ID format: "158A" or "1234B1"
     const idMatches = problemId.match(/^(\d+)\s*([A-Z0-9]+)$/i);
     if (!idMatches) {
-      return {
-        ok: false,
-        error: "Invalid CF Problem ID. Use format like '158A' or '1234B1'.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Invalid CF Problem ID. Use format like '158A' or '1234B1'.",
+      );
     }
     contestId = idMatches[1];
     problemIndex = idMatches[2].toUpperCase();
@@ -131,11 +168,10 @@ export async function setDailyProblem(
       });
       if (previousUsage && !force) {
         const usedDate = windowStartToISTDateStr(previousUsage.windowStart);
-        return {
-          ok: false,
-          reuse: true,
-          error: `This problem was already used for a POTD on ${usedDate}. Set it again?`,
-        };
+        return appError(
+          "CONFLICT",
+          `This problem was already used for a POTD on ${usedDate}. Set it again?`,
+        );
       }
     }
 
@@ -151,11 +187,11 @@ export async function setDailyProblem(
       } else {
         try {
           allProblems = await cp.codeforces.getProblems();
-        } catch (e: any) {
-          return {
-            ok: false,
-            error: `CF API error: ${e.message}`,
-          };
+        } catch {
+          return appError(
+            "EXTERNAL_DEPENDENCY_FAILURE",
+            "Codeforces could not provide its problem set.",
+          );
         }
         await redis.set(CACHE_KEY, JSON.stringify(allProblems), { EX: 86_400 });
       }
@@ -166,17 +202,20 @@ export async function setDailyProblem(
           p.index.toUpperCase() === problemIndex,
       );
       if (!cfProblem)
-        return {
-          ok: false,
-          error: `Problem ${contestId}${problemIndex} not found in CF problemset`,
-        };
+        return appError(
+          "NOT_FOUND",
+          `Problem ${contestId}${problemIndex} not found in CF problemset`,
+        );
 
       problemName = cfProblem.name;
       problemRating = cfProblem.rating ?? 0;
       problemTags = cfProblem.tags ?? [];
     } catch (err) {
       logger.error("[setDailyProblem] CF API fetch failed", { err });
-      return { ok: false, error: "Failed to fetch problem from Codeforces" };
+      return appError(
+        "EXTERNAL_DEPENDENCY_FAILURE",
+        "Failed to fetch problem from Codeforces",
+      );
     }
   } else {
     // Parse AC problem ID format: "abc123_a" or "contest_id/task_id"
@@ -193,11 +232,10 @@ export async function setDailyProblem(
       });
       if (previousUsage && !force) {
         const usedDate = windowStartToISTDateStr(previousUsage.windowStart);
-        return {
-          ok: false,
-          reuse: true,
-          error: `This problem was already used for a POTD on ${usedDate}. Set it again?`,
-        };
+        return appError(
+          "CONFLICT",
+          `This problem was already used for a POTD on ${usedDate}. Set it again?`,
+        );
       }
     }
 
@@ -205,10 +243,10 @@ export async function setDailyProblem(
     try {
       const result = await getProblemById(normalizedId);
       if (!result)
-        return {
-          ok: false,
-          error: `Problem "${problemId}" not found in AtCoder`,
-        };
+        return appError(
+          "NOT_FOUND",
+          `Problem "${problemId}" not found in AtCoder`,
+        );
 
       contestId = result.problem.contest_id;
       problemIndex = result.problem.id;
@@ -217,7 +255,10 @@ export async function setDailyProblem(
       problemTags = [];
     } catch (err) {
       logger.error("[setDailyProblem] AtCoder API fetch failed", { err });
-      return { ok: false, error: "Failed to fetch problem from AtCoder" };
+      return appError(
+        "EXTERNAL_DEPENDENCY_FAILURE",
+        "Failed to fetch problem from AtCoder",
+      );
     }
   }
 
@@ -269,7 +310,7 @@ export async function setDailyProblem(
   });
   revalidatePath("/internal/potd");
 
-  return { ok: true };
+  return ok({});
 }
 
 // Get Scheduled Challenges
@@ -290,13 +331,9 @@ export type ScheduledChallenge = {
   };
 };
 
-export async function getScheduledChallenges(): Promise<{
-  ok: boolean;
-  data?: ScheduledChallenge[];
-  error?: string;
-}> {
+async function getScheduledChallengesAction() {
   const session = await checkAdmin();
-  if (!session) return { ok: false, error: "Forbidden" };
+  if (!session) return appError("FORBIDDEN", "Forbidden");
 
   await dbConnect();
 
@@ -333,32 +370,30 @@ export async function getScheduledChallenges(): Promise<{
     };
   });
 
-  return { ok: true, data };
+  return ok(data);
 }
 
 // Delete Scheduled Challenge
 
-export async function deleteScheduledChallenge(
-  challengeId: string,
-): Promise<{ ok: boolean; error?: string }> {
+async function deleteScheduledChallengeAction(challengeId: string) {
   const session = await checkAdmin();
-  if (!session) return { ok: false, error: "Forbidden" };
+  if (!session) return appError("FORBIDDEN", "Forbidden");
 
   await dbConnect();
 
   const challenge = await DailyChallenge.findById(challengeId);
-  if (!challenge) return { ok: false, error: "Challenge not found" };
+  if (!challenge) return appError("NOT_FOUND", "Challenge not found");
 
   if (challenge.graceEnd < new Date())
-    return {
-      ok: false,
-      error: "Cannot delete a challenge that has already ended",
-    };
+    return appError(
+      "CONFLICT",
+      "Cannot delete a challenge that has already ended",
+    );
 
   await DailyChallenge.deleteOne({ _id: challengeId });
   revalidatePath("/internal/potd");
 
-  return { ok: true };
+  return ok({});
 }
 
 // Get Pending Submissions
@@ -372,13 +407,9 @@ export type PendingSubmissionEntry = {
   lastCheckedAt: string | null;
 };
 
-export async function getPendingSubmissions(challengeId: string): Promise<{
-  ok: boolean;
-  data?: PendingSubmissionEntry[];
-  error?: string;
-}> {
+async function getPendingSubmissionsAction(challengeId: string) {
   const session = await checkAdmin();
-  if (!session) return { ok: false, error: "Forbidden" };
+  if (!session) return appError("FORBIDDEN", "Forbidden");
 
   await dbConnect();
 
@@ -399,7 +430,7 @@ export async function getPendingSubmissions(challengeId: string): Promise<{
     };
   });
 
-  return { ok: true, data };
+  return ok(data);
 }
 
 // Force Sync User
@@ -412,21 +443,18 @@ export async function getPendingSubmissions(challengeId: string): Promise<{
  *   "Late"      -> 50% points, streak preserved (not incremented)
  *   "NotSolved "-> no stat changes (streak resets via end-of-day cron)
  */
-export async function forceSyncUser(
-  targetUserId: string,
-  challengeId: string,
-): Promise<{ ok: boolean; status?: string; error?: string }> {
+async function forceSyncUserAction(targetUserId: string, challengeId: string) {
   const session = await checkAdmin();
-  if (!session) return { ok: false, error: "Forbidden" };
+  if (!session) return appError("FORBIDDEN", "Forbidden");
 
   await dbConnect();
 
   const targetUser = await User.findById(targetUserId);
-  if (!targetUser) return { ok: false, error: "User not found" };
+  if (!targetUser) return appError("NOT_FOUND", "User not found");
 
   const challenge =
     await DailyChallenge.findById(challengeId).populate("problem");
-  if (!challenge) return { ok: false, error: "Challenge not found" };
+  if (!challenge) return appError("NOT_FOUND", "Challenge not found");
 
   const problem = challenge.problem as any;
   const platform: Platform = problem.platform || "codeforces";
@@ -435,14 +463,14 @@ export async function forceSyncUser(
 
   if (platform === "codeforces") {
     if (!targetUser.codeforcesId)
-      return { ok: false, error: "User's CF handle not set" };
+      return appError("VALIDATION_ERROR", "User's CF handle not set");
     if (!targetCPUser?.cfVerified)
-      return { ok: false, error: "User's CF handle not verified" };
+      return appError("VALIDATION_ERROR", "User's CF handle not verified");
   } else {
     if (!targetUser.atcoderId)
-      return { ok: false, error: "User's AtCoder handle not set" };
+      return appError("VALIDATION_ERROR", "User's AtCoder handle not set");
     if (!targetCPUser?.acVerified)
-      return { ok: false, error: "User's AtCoder handle not verified" };
+      return appError("VALIDATION_ERROR", "User's AtCoder handle not verified");
   }
 
   const handle =
@@ -457,7 +485,10 @@ export async function forceSyncUser(
     );
   } catch (err) {
     logger.warn("[forceSyncUser] API error", { err });
-    return { ok: false, error: `Failed to reach ${platform} API` };
+    return appError(
+      "EXTERNAL_DEPENDENCY_FAILURE",
+      `Failed to reach ${platform} API`,
+    );
   }
 
   const { status: newStatus } = await syncUserChallenge(
@@ -474,7 +505,7 @@ export async function forceSyncUser(
   });
   revalidatePath("/internal/potd");
 
-  return { ok: true, status: newStatus };
+  return ok({ status: newStatus });
 }
 
 // Auto Problem Setting
@@ -507,19 +538,15 @@ export type POTDCandidateResult = {
   error?: string;
 };
 
-export async function autoFetchPOTDCandidates(
+async function autoFetchPOTDCandidatesAction(
   slots: POTDAutoSlotConfig[],
   excludeProblemIds: string[] = [],
-): Promise<{
-  ok: boolean;
-  candidates?: POTDCandidateResult[];
-  error?: string;
-}> {
+) {
   const session = await checkAdmin();
-  if (!session) return { ok: false, error: "Forbidden" };
+  if (!session) return appError("FORBIDDEN", "Forbidden");
 
   if (!Array.isArray(slots) || slots.length === 0) {
-    return { ok: false, error: "No slots requested" };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 
   await dbConnect();
@@ -601,29 +628,29 @@ export async function autoFetchPOTDCandidates(
     }
   }
 
-  return { ok: true, candidates };
+  return ok({ candidates });
 }
 
-export async function bulkSetDailyProblems(
+async function bulkSetDailyProblemsAction(
   items: Array<{
     dateStr: string;
     difficulty: "Easy" | "Medium" | "Hard";
     problemId: string;
     platform: Platform;
   }>,
-): Promise<{ ok: boolean; count?: number; error?: string }> {
+) {
   const session = await checkAdmin();
-  if (!session) return { ok: false, error: "Forbidden" };
+  if (!session) return appError("FORBIDDEN", "Forbidden");
 
   if (!Array.isArray(items) || items.length === 0) {
-    return { ok: false, error: "No problems provided to save" };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 
   let count = 0;
   const errors: string[] = [];
 
   for (const item of items) {
-    const res = await setDailyProblem(
+    const res = await setDailyProblemAction(
       item.dateStr,
       item.problemId,
       item.difficulty,
@@ -632,7 +659,7 @@ export async function bulkSetDailyProblems(
     );
     if (!res.ok) {
       errors.push(
-        `Failed to set ${item.difficulty} for ${item.dateStr}: ${res.error}`,
+        `Failed to set ${item.difficulty} for ${item.dateStr}: ${res.error.message}`,
       );
     } else {
       count++;
@@ -642,12 +669,14 @@ export async function bulkSetDailyProblems(
   revalidatePath("/internal/potd");
 
   if (errors.length > 0) {
-    return {
-      ok: count > 0,
+    if (count === 0) {
+      return appError("VALIDATION_ERROR", errors.join("; "));
+    }
+    return ok({
       count,
       error: `Saved ${count} problems. Errors: ${errors.join("; ")}`,
-    };
+    });
   }
 
-  return { ok: true, count };
+  return ok({ count, error: undefined as string | undefined });
 }

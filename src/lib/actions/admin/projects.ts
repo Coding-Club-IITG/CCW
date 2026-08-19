@@ -1,5 +1,16 @@
 "use server";
 
+import { err as appError, ok } from "@/lib/api/result";
+
+import { defineAction } from "@/lib/actions/defineAction";
+import { toBsonSafe } from "@/lib/api/result";
+
+export const getProjects = defineAction("getProjects", getProjectsAction);
+export const getProject = defineAction("getProject", getProjectAction);
+export const createProject = defineAction("createProject", createProjectAction);
+export const updateProject = defineAction("updateProject", updateProjectAction);
+export const deleteProject = defineAction("deleteProject", deleteProjectAction);
+
 import { auth } from "@/lib/auth";
 import {
   PROJECT_MODULES,
@@ -8,7 +19,7 @@ import {
   type ProjectStatus,
 } from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
-import { isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
 import { logger } from "@/lib/utils";
 import { invalidateCache } from "@/lib/cache";
 import Project from "@/models/Project";
@@ -78,54 +89,48 @@ async function invalidateProjectCaches() {
   ]);
 }
 
-export async function getProjects() {
+async function getProjectsAction() {
   try {
     const session = await checkAdmin();
     if (!session) {
-      return { success: false as const, error: "Unauthorized" };
+      return appError("UNAUTHENTICATED", "Unauthorized");
     }
 
     await dbConnect();
     const projects = await Project.find({}).sort({ date: -1 }).lean();
 
-    return {
-      success: true as const,
-      projects: JSON.parse(JSON.stringify(projects)),
-    };
+    return ok({ projects: toBsonSafe(projects) });
   } catch (err) {
     logger.error("[Admin Projects] getProjects error:", err);
-    return { success: false as const, error: "Failed to fetch projects." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function getProject(id: string) {
+async function getProjectAction(id: string) {
   try {
     const session = await checkAdmin();
     if (!session) {
-      return { success: false as const, error: "Unauthorized" };
+      return appError("UNAUTHENTICATED", "Unauthorized");
     }
 
     await dbConnect();
     const project = await Project.findById(id).lean();
     if (!project) {
-      return { success: false as const, error: "Project not found." };
+      return appError("NOT_FOUND", "Project not found.");
     }
 
-    return {
-      success: true as const,
-      project: JSON.parse(JSON.stringify(project)),
-    };
+    return ok({ project: toBsonSafe(project) });
   } catch (err) {
     logger.error("[Admin Projects] getProject error:", err);
-    return { success: false as const, error: "Failed to fetch project." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function createProject(formData: FormData) {
+async function createProjectAction(formData: FormData) {
   try {
     const session = await checkAdmin();
     if (!session) {
-      return { success: false as const, error: "Unauthorized" };
+      return appError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const title = getString(formData, "title");
@@ -149,40 +154,39 @@ export async function createProject(formData: FormData) {
       !projectModule ||
       !status
     ) {
-      return {
-        success: false as const,
-        error:
-          "Title, description, repo link, date, module, and status are required.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Title, description, repo link, date, module, and status are required.",
+      );
     }
 
     if (title.length > 200) {
-      return {
-        success: false as const,
-        error: "Title must be 200 characters or fewer.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Title must be 200 characters or fewer.",
+      );
     }
 
     if (!PROJECT_MODULES.includes(projectModule as ProjectModuleName)) {
-      return { success: false as const, error: "Invalid module selected." };
+      return appError("VALIDATION_ERROR", "Invalid module selected.");
     }
 
     if (!PROJECT_STATUSES.includes(status as ProjectStatus)) {
-      return { success: false as const, error: "Invalid status selected." };
+      return appError("VALIDATION_ERROR", "Invalid status selected.");
     }
 
     try {
       new URL(repoLink);
     } catch {
-      return {
-        success: false as const,
-        error: "Repository link must be a valid URL.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Repository link must be a valid URL.",
+      );
     }
 
     const date = parseMonthInput(dateInput);
     if (!date) {
-      return { success: false as const, error: "Invalid project date." };
+      return appError("VALIDATION_ERROR", "Invalid project date.");
     }
 
     await dbConnect();
@@ -207,21 +211,18 @@ export async function createProject(formData: FormData) {
     revalidatePath("/admin/projects");
     revalidatePath("/projects");
 
-    return {
-      success: true as const,
-      project: JSON.parse(JSON.stringify(project)),
-    };
+    return ok({ project: toBsonSafe(project) });
   } catch (err) {
     logger.error("[Admin Projects] createProject error:", err);
-    return { success: false as const, error: "Failed to create project." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function updateProject(id: string, formData: FormData) {
+async function updateProjectAction(id: string, formData: FormData) {
   try {
     const session = await checkAdmin();
     if (!session) {
-      return { success: false as const, error: "Unauthorized" };
+      return appError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const title = getString(formData, "title");
@@ -245,40 +246,39 @@ export async function updateProject(id: string, formData: FormData) {
       !projectModule ||
       !status
     ) {
-      return {
-        success: false as const,
-        error:
-          "Title, description, repo link, date, module, and status are required.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Title, description, repo link, date, module, and status are required.",
+      );
     }
 
     if (title.length > 200) {
-      return {
-        success: false as const,
-        error: "Title must be 200 characters or fewer.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Title must be 200 characters or fewer.",
+      );
     }
 
     if (!PROJECT_MODULES.includes(projectModule as ProjectModuleName)) {
-      return { success: false as const, error: "Invalid module selected." };
+      return appError("VALIDATION_ERROR", "Invalid module selected.");
     }
 
     if (!PROJECT_STATUSES.includes(status as ProjectStatus)) {
-      return { success: false as const, error: "Invalid status selected." };
+      return appError("VALIDATION_ERROR", "Invalid status selected.");
     }
 
     try {
       new URL(repoLink);
     } catch {
-      return {
-        success: false as const,
-        error: "Repository link must be a valid URL.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Repository link must be a valid URL.",
+      );
     }
 
     const date = parseMonthInput(dateInput);
     if (!date) {
-      return { success: false as const, error: "Invalid project date." };
+      return appError("VALIDATION_ERROR", "Invalid project date.");
     }
 
     await dbConnect();
@@ -299,7 +299,7 @@ export async function updateProject(id: string, formData: FormData) {
     ).lean();
 
     if (!project) {
-      return { success: false as const, error: "Project not found." };
+      return appError("NOT_FOUND", "Project not found.");
     }
     await invalidateProjectCaches();
 
@@ -312,27 +312,24 @@ export async function updateProject(id: string, formData: FormData) {
     revalidatePath(`/admin/projects/${id}`);
     revalidatePath("/projects");
 
-    return {
-      success: true as const,
-      project: JSON.parse(JSON.stringify(project)),
-    };
+    return ok({ project: toBsonSafe(project) });
   } catch (err) {
     logger.error("[Admin Projects] updateProject error:", err);
-    return { success: false as const, error: "Failed to update project." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function deleteProject(id: string) {
+async function deleteProjectAction(id: string) {
   try {
     const session = await checkAdmin();
     if (!session) {
-      return { success: false as const, error: "Unauthorized" };
+      return appError("UNAUTHENTICATED", "Unauthorized");
     }
 
     await dbConnect();
     const project = await Project.findByIdAndDelete(id).lean();
     if (!project) {
-      return { success: false as const, error: "Project not found." };
+      return appError("NOT_FOUND", "Project not found.");
     }
     await invalidateProjectCaches();
 
@@ -343,9 +340,9 @@ export async function deleteProject(id: string) {
     revalidatePath("/admin/projects");
     revalidatePath("/projects");
 
-    return { success: true as const };
+    return ok({});
   } catch (err) {
     logger.error("[Admin Projects] deleteProject error:", err);
-    return { success: false as const, error: "Failed to delete project." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }

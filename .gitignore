@@ -9,7 +9,7 @@ node_modules/
 .log*
 backup
 
-# NextJS
+# Next.js
 .next/
 out/
 build/

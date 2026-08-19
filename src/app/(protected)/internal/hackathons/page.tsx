@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import SearchInput from "@/components/shared/SearchInput";
@@ -32,7 +34,7 @@ export default function HackathonsPage() {
 
   useEffect(() => {
     fetch("/api/hackathons")
-      .then((res) => res.json())
+      .then((res) => expectAppData(res))
       .then((data) => setHackathons(data.items || []))
       .finally(() => setLoading(false));
   }, []);

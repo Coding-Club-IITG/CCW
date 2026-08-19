@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useRef, useState } from "react";
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
 import styles from "./MarkdownEditor.module.scss";
@@ -39,12 +41,7 @@ export default function MarkdownEditor({
         body: formData,
       });
 
-      if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        throw new Error(data.error || "Upload failed");
-      }
-
-      const { url } = (await res.json()) as { url: string };
+      const { url } = await expectAppData<{ url: string }>(res);
       const textarea = textareaRef.current;
 
       if (textarea) {

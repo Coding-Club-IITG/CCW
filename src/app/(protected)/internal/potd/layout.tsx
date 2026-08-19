@@ -1,7 +1,8 @@
 "use client";
 
 import { useSession } from "@/lib/auth-client";
-import { canSetPOTD, parseRoles } from "@/lib/roles";
+import { canSetPOTD } from "@/lib/access/potd";
+import { parseRoles } from "@/lib/roles";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";

@@ -31,6 +31,7 @@ import {
   updateUserRoles,
   updateUserTenure,
 } from "@/lib/actions/user";
+import type { AppResult } from "@/lib/api/result";
 import styles from "./UserManagement.module.scss";
 
 interface AdminUser {
@@ -66,9 +67,9 @@ export default function UserManagement() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     const result = await getUsers(page, 50, search);
-    if (result.success) {
-      setUsers(result.users as AdminUser[]);
-      setTotalPages(Math.max(1, Math.ceil(result.total / 50)));
+    if (result.ok) {
+      setUsers(result.data.users);
+      setTotalPages(Math.max(1, Math.ceil(result.data.total / 50)));
     }
     setLoading(false);
   }, [page, search]);
@@ -77,10 +78,10 @@ export default function UserManagement() {
     void fetchUsers();
   }, [fetchUsers]);
 
-  async function run(result: Promise<{ success: boolean; error?: string }>) {
+  async function run(result: Promise<AppResult<unknown>>) {
     const value = await result;
-    if (!value.success) {
-      alert(value.error);
+    if (!value.ok) {
+      alert(value.error.message);
       return false;
     }
     await fetchUsers();

@@ -125,7 +125,10 @@ describe("POTD administration actions", () => {
 
     await expect(
       setDailyProblem("2026-07-31", "158A", "Easy"),
-    ).resolves.toEqual({ ok: false, error: "Forbidden" });
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "FORBIDDEN", message: "Forbidden" },
+    });
   });
 
   it("rejects invalid, past, and overly distant schedule dates", async () => {
@@ -135,18 +138,27 @@ describe("POTD administration actions", () => {
 
     await expect(
       setDailyProblem("2026-02-30", "158A", "Easy"),
-    ).resolves.toEqual({ ok: false, error: "Invalid date value" });
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: "Invalid date value" },
+    });
     await expect(
       setDailyProblem("2026-07-29", "158A", "Easy"),
     ).resolves.toEqual({
       ok: false,
-      error: "Cannot schedule problems for past dates",
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Cannot schedule problems for past dates",
+      },
     });
     await expect(
       setDailyProblem("2026-08-10", "158A", "Easy"),
     ).resolves.toEqual({
       ok: false,
-      error: "Cannot schedule more than 10 days in advance",
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Cannot schedule more than 10 days in advance",
+      },
     });
   });
 
@@ -159,7 +171,10 @@ describe("POTD administration actions", () => {
       setDailyProblem("2026-07-31", "not-a-problem", "Easy"),
     ).resolves.toEqual({
       ok: false,
-      error: "Invalid CF Problem ID. Use format like '158A' or '1234B1'.",
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Invalid CF Problem ID. Use format like '158A' or '1234B1'.",
+      },
     });
   });
 
@@ -170,7 +185,7 @@ describe("POTD administration actions", () => {
 
     await expect(
       setDailyProblem("2026-07-31", "158a", "Easy"),
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toEqual({ ok: true, data: {} });
 
     const problem = await Problem.findOne({
       platform: "codeforces",
@@ -200,14 +215,14 @@ describe("POTD administration actions", () => {
 
     await expect(setDailyProblem("2026-07-31", "4A", "Easy")).resolves.toEqual({
       ok: false,
-      error: "A Easy problem is already set for this date",
+      error: {
+        code: "CONFLICT",
+        message: "A Easy problem is already set for this date",
+      },
     });
     await expect(
       setDailyProblem("2026-08-01", "158A", "Hard"),
-    ).resolves.toMatchObject({
-      ok: false,
-      reuse: true,
-    });
+    ).resolves.toMatchObject({ ok: false, error: { code: "CONFLICT" } });
   });
 
   it("schedules an AtCoder problem without making a live API request", async () => {
@@ -225,7 +240,7 @@ describe("POTD administration actions", () => {
 
     await expect(
       setDailyProblem("2026-07-31", "abc123/a", "Medium", "atcoder"),
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toEqual({ ok: true, data: {} });
     expect(
       await Problem.findOne({ platform: "atcoder", problemIndex: "abc123_a" }),
     ).toMatchObject({ contestId: "abc123", rating: 900 });
@@ -246,7 +261,7 @@ describe("POTD administration actions", () => {
 
     await expect(
       setDailyProblem("2026-07-31", "158A", "Easy"),
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toEqual({ ok: true, data: {} });
     expect(await Problem.findOne({ contestId: "158" }).lean()).toMatchObject({
       content: null,
     });
@@ -281,11 +296,14 @@ describe("POTD administration actions", () => {
       deleteScheduledChallenge(ended._id.toString()),
     ).resolves.toEqual({
       ok: false,
-      error: "Cannot delete a challenge that has already ended",
+      error: {
+        code: "CONFLICT",
+        message: "Cannot delete a challenge that has already ended",
+      },
     });
     await expect(
       deleteScheduledChallenge(future._id.toString()),
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toEqual({ ok: true, data: {} });
     expect(await DailyChallenge.findById(ended._id)).not.toBeNull();
     expect(await DailyChallenge.findById(future._id)).toBeNull();
   });
@@ -298,14 +316,18 @@ describe("POTD administration actions", () => {
     await seedChallenge("2026-07-30", "Easy", adminId);
 
     const result = await getScheduledChallenges();
+    if (!result.ok) throw new Error(result.error.message);
 
     expect(
-      result.data?.map((entry) => [entry.dateStr, entry.difficulty]),
+      result.data.map((entry: { dateStr: string; difficulty: string }) => [
+        entry.dateStr,
+        entry.difficulty,
+      ]),
     ).toEqual([
       ["2026-07-30", "Easy"],
       ["2026-08-01", "Hard"],
     ]);
-    expect(result.data?.[0].isToday).toBe(true);
+    expect(result.data[0].isToday).toBe(true);
   });
 
   it("lists pending member submissions with safe display fields", async () => {
@@ -323,6 +345,7 @@ describe("POTD administration actions", () => {
     });
 
     const result = await getPendingSubmissions(challenge._id.toString());
+    if (!result.ok) throw new Error(result.error.message);
 
     expect(result.data).toEqual([
       expect.objectContaining({
@@ -347,13 +370,19 @@ describe("POTD administration actions", () => {
       forceSyncUser(member._id.toString(), challenge._id.toString()),
     ).resolves.toEqual({
       ok: false,
-      error: "User's CF handle not verified",
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "User's CF handle not verified",
+      },
     });
 
     await CPUser.create({ userId: member._id, cfVerified: true });
     await expect(
       forceSyncUser(member._id.toString(), challenge._id.toString()),
-    ).resolves.toEqual({ ok: true, status: "Accepted" });
+    ).resolves.toEqual({
+      ok: true,
+      data: { status: "Accepted" },
+    });
   });
 
   it("selects unused automatic candidates within each slot's constraints", async () => {
@@ -394,12 +423,14 @@ describe("POTD administration actions", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      candidates: [
-        {
-          id: "slot-1",
-          problem: { problemId: "200A", rating: 900 },
-        },
-      ],
+      data: {
+        candidates: [
+          {
+            id: "slot-1",
+            problem: { problemId: "200A", rating: 900 },
+          },
+        ],
+      },
     });
   });
 
@@ -423,8 +454,10 @@ describe("POTD administration actions", () => {
       },
     ]);
 
-    expect(result).toMatchObject({ ok: true, count: 1 });
-    expect(result.error).toContain("Failed to set Hard for 2026-07-31");
+    expect(result).toMatchObject({ ok: true, data: { count: 1 } });
+    expect(result.ok && result.data.error).toContain(
+      "Failed to set Hard for 2026-07-31",
+    );
   });
 });
 

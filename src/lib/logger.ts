@@ -70,7 +70,6 @@ export function errorToLogMetadata(error: unknown): LogMetadata {
     return {
       errorName: error.name,
       errorMessage: redactString(error.message),
-      ...(error.stack ? { errorStack: redactString(error.stack) } : {}),
     };
   }
 
@@ -81,8 +80,6 @@ export function errorToLogMetadata(error: unknown): LogMetadata {
 }
 
 function writeLog(level: LogLevel, message: string, metadata?: unknown): void {
-  if (level === "debug" && process.env.NODE_ENV !== "development") return;
-
   const entry: LogMetadata = {};
 
   if (metadata !== undefined) {

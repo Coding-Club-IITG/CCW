@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
@@ -44,8 +46,7 @@ export default function NotificationBell() {
   async function fetchNotifications() {
     try {
       const res = await fetch("/api/notifications?unread=true");
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await expectAppData(res);
       setUnreadCount(data.unreadCount || 0);
       setNotifications((data.items || []).slice(0, 5));
     } catch {
@@ -55,11 +56,12 @@ export default function NotificationBell() {
 
   async function markRead(id: string) {
     try {
-      await fetch("/api/notifications", {
+      const response = await fetch("/api/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: [id] }),
       });
+      await expectAppData(response);
       setNotifications((prev) => prev.filter((n) => n._id !== id));
       setUnreadCount((c) => Math.max(0, c - 1));
     } catch {

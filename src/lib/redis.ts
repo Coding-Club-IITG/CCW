@@ -1,8 +1,9 @@
 import { createClient, type RedisClientType } from "redis";
 import { logger } from "@/lib/utils";
+import { sharedServerEnv } from "@/lib/env/shared";
 
 const redisClient = createClient({
-  url: process.env.REDIS_URL || "redis://localhost:6379",
+  url: sharedServerEnv.REDIS_URL,
 });
 
 export async function claimProblem(

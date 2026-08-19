@@ -2,7 +2,7 @@ import { Worker, Job } from "bullmq";
 import { connection } from "../bullmq";
 import { logger } from "../utils";
 import { syncCodeforcesProblems } from "../jobs/cfProblemSync";
-import { fetchCodeforcesUserStatus } from "../cf-api";
+import { fetchCodeforcesUserStatus } from "../platforms/codeforces";
 import { publishUser, publishRoom } from "../sse";
 import { getRedis, claimProblem } from "../redis";
 import { reconciliationQueue } from "../bullmq";
@@ -10,6 +10,7 @@ import dbConnect from "../mongodb";
 import ContestRoom from "../../models/ContestRoom";
 import ContestMatch from "../../models/ContestMatch";
 import mongoose from "mongoose";
+import { workerEnv } from "../env/worker";
 
 // Circuit breaker removed, relying on BullMQ job-level retries
 
@@ -120,7 +121,7 @@ export const cfSyncWorker = new Worker(
 
         // 2. Fetch CF Submissions (last 20)
         let submissions: any[] = [];
-        if (process.env.NODE_ENV === "development") {
+        if (workerEnv.NODE_ENV === "development") {
           const match = problemId.match(/^(\d+)([A-Za-z].*)$/);
           const cId = match ? parseInt(match[1]) : 0;
           const idx = match ? match[2] : problemId;

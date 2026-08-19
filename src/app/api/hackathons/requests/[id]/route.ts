@@ -2,7 +2,13 @@
  * PATCH /api/hackathons/requests/[id] - Accept or reject a request
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseJson, parseRouteParams } from "@/lib/api/result";
+import {
+  jsonObjectSchema,
+  objectIdParamsSchema,
+} from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import HackathonTeam from "@/models/HackathonTeam";
@@ -18,27 +24,26 @@ export async function PATCH(
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const user = session.user as any;
-    const { id } = await params;
+    const validatedParams = parseRouteParams(
+      await params,
+      objectIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
-    let body: Record<string, any>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body." },
-        { status: 400 },
-      );
-    }
+    const parsedBody = await parseJson(request, jsonObjectSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const body = parsedBody.data;
 
     const { action } = body;
     if (action !== "accept" && action !== "reject") {
-      return NextResponse.json(
-        { error: "Action must be 'accept' or 'reject'." },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Action must be 'accept' or 'reject'.",
       );
     }
 
@@ -46,15 +51,12 @@ export async function PATCH(
 
     const req = (await HackathonRequest.findById(id).lean()) as any;
     if (!req || req.status !== "pending") {
-      return NextResponse.json(
-        { error: "Request not found or already resolved." },
-        { status: 404 },
-      );
+      return jsonError("NOT_FOUND", "Request not found or already resolved.");
     }
 
     const team = (await HackathonTeam.findById(req.teamId).lean()) as any;
     if (!team) {
-      return NextResponse.json({ error: "Team not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Team not found.");
     }
 
     const hackathon = (await Hackathon.findById(req.hackathonId).lean()) as any;
@@ -63,12 +65,12 @@ export async function PATCH(
     if (req.type === "join_request") {
       // Only team owner can accept/reject join requests
       if (team.owner !== user.id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return jsonError("FORBIDDEN", "Forbidden");
       }
     } else {
       // Only the invited user can accept/reject invites
       if (req.toUserId !== user.id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return jsonError("FORBIDDEN", "Forbidden");
       }
     }
 
@@ -86,7 +88,7 @@ export async function PATCH(
         link: `/internal/hackathons/${req.hackathonId}`,
       });
 
-      return NextResponse.json({ status: "rejected" });
+      return jsonOk({ status: "rejected" });
     }
 
     // Accept: add user to team
@@ -100,9 +102,9 @@ export async function PATCH(
     });
     if (existingTeam) {
       await HackathonRequest.findByIdAndUpdate(id, { status: "rejected" });
-      return NextResponse.json(
-        { error: "User is already in a team for this hackathon." },
-        { status: 400 },
+      return jsonError(
+        "CONFLICT",
+        "User is already in a team for this hackathon.",
       );
     }
 
@@ -119,10 +121,7 @@ export async function PATCH(
 
     if (!updated) {
       await HackathonRequest.findByIdAndUpdate(id, { status: "rejected" });
-      return NextResponse.json(
-        { error: "Team is already full." },
-        { status: 400 },
-      );
+      return jsonError("CONFLICT", "Team is already full.");
     }
 
     // Update team status if now full
@@ -157,16 +156,13 @@ export async function PATCH(
       link: `/internal/hackathons/${req.hackathonId}`,
     });
 
-    return NextResponse.json({ status: "accepted" });
+    return jsonOk({ status: "accepted" });
   } catch (err) {
     logger.error("Hackathon request update failed", {
       route: "PATCH /api/hackathons/requests/[id]",
       operation: "update_request",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

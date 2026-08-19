@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { responseData } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -60,7 +61,7 @@ describe("public blog routes", () => {
     const response = await GET(
       new NextRequest("http://localhost/api/blog?page=1&limit=10"),
     );
-    const body = await response.json();
+    const body = await responseData(response);
 
     expect(response.status).toBe(200);
     expect(body.items.map((post: { title: string }) => post.title)).toEqual([
@@ -87,7 +88,7 @@ describe("public blog routes", () => {
         "http://localhost/api/blog?tag=Design&search=%5Bguide%5D&page=1&limit=1",
       ),
     );
-    const body = await response.json();
+    const body = await responseData(response);
 
     expect(body.items).toHaveLength(1);
     expect(body.items[0].slug).toBe("literal");
@@ -107,7 +108,7 @@ describe("public blog routes", () => {
       context("public-post"),
     );
     expect(published.status).toBe(200);
-    expect((await published.json()).post.slug).toBe("public-post");
+    expect((await responseData(published)).post.slug).toBe("public-post");
 
     const draft = await GET(
       new NextRequest("http://localhost/api/blog/private-draft"),

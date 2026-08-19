@@ -47,12 +47,11 @@ export default function PastProblemsClient({
     void getPastProblems(page, PAGE_SIZE, search)
       .then((result) => {
         if (requestIdRef.current !== requestId) return;
-        if (result.ok) {
-          setPastProblems(result.data ?? []);
-          setTotalPages(
-            Math.max(1, Math.ceil((result.total ?? 0) / PAGE_SIZE)),
-          );
-        }
+        if (!result.ok) return;
+        setPastProblems(result.data.items ?? []);
+        setTotalPages(
+          Math.max(1, Math.ceil((result.data.total ?? 0) / PAGE_SIZE)),
+        );
       })
       .finally(() => {
         if (requestIdRef.current === requestId) {

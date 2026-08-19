@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { responseData, responseError } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -15,10 +16,10 @@ import {
 } from "../utils/mongodb";
 import { BLOG_ADMIN_ID, BLOG_AUTHOR_ID, blogPost } from "../fixtures/blogs";
 
-const requireAdmin = vi.hoisted(() => vi.fn());
+const getSession = vi.hoisted(() => vi.fn());
 const invalidateCache = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/requireAdmin", () => ({ requireAdmin }));
+vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("@/lib/cache", async () => {
   const actual =
@@ -36,16 +37,22 @@ vi.mock("@/lib/cache", async () => {
 describe("admin blog routes", () => {
   beforeAll(async () => {
     await startTestMongo();
-    requireAdmin.mockResolvedValue({
-      id: BLOG_ADMIN_ID.toString(),
-      name: "Blog Admin",
+    getSession.mockResolvedValue({
+      user: {
+        id: BLOG_ADMIN_ID.toString(),
+        name: "Blog Admin",
+        access: "Head",
+      },
     });
   });
   afterEach(async () => {
     await clearTestMongo();
-    requireAdmin.mockResolvedValue({
-      id: BLOG_ADMIN_ID.toString(),
-      name: "Blog Admin",
+    getSession.mockResolvedValue({
+      user: {
+        id: BLOG_ADMIN_ID.toString(),
+        name: "Blog Admin",
+        access: "Head",
+      },
     });
     revalidatePath.mockClear();
     invalidateCache.mockReset();
@@ -53,12 +60,15 @@ describe("admin blog routes", () => {
   });
   afterAll(stopTestMongo);
 
-  it("forbids non-admin listing and creation", async () => {
+  it("distinguishes unauthenticated and non-admin access", async () => {
     const { GET, POST } = await import("@/app/api/admin/blog/route");
-    requireAdmin.mockResolvedValue(null);
+    getSession.mockResolvedValueOnce(null);
     expect(
       (await GET(new NextRequest("http://localhost/api/admin/blog"))).status,
-    ).toBe(403);
+    ).toBe(401);
+    getSession.mockResolvedValueOnce({
+      user: { id: "member", access: "Member" },
+    });
     expect(
       (
         await POST(
@@ -81,7 +91,7 @@ describe("admin blog routes", () => {
     const { POST } = await import("@/app/api/admin/blog/route");
     const response = await POST(jsonRequest("/api/admin/blog", "POST", body));
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error });
+    expect(await responseError(response)).toMatchObject({ message: error });
   });
 
   it("creates deterministic unique slugs and normalizes draft metadata", async () => {
@@ -97,7 +107,7 @@ describe("admin blog routes", () => {
         status: "unknown",
       }),
     );
-    const body = await response.json();
+    const body = await responseData(response);
     expect(response.status).toBe(201);
     expect(body.post).toMatchObject({
       slug: "hello-world-2",
@@ -136,7 +146,7 @@ describe("admin blog routes", () => {
       }),
       context("draft-title"),
     );
-    const body = await response.json();
+    const body = await responseData(response);
 
     expect(response.status).toBe(200);
     expect(body.post).toMatchObject({
@@ -166,7 +176,7 @@ describe("admin blog routes", () => {
     const listed = await collection.GET(
       new NextRequest("http://localhost/api/admin/blog?status=draft"),
     );
-    expect((await listed.json()).items).toHaveLength(1);
+    expect((await responseData(listed)).items).toHaveLength(1);
 
     const deleted = await item.DELETE(
       new NextRequest("http://localhost/api/admin/blog/draft", {

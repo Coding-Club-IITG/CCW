@@ -12,8 +12,7 @@ export type BracketContestInput = {
 };
 
 export type BracketInputValidationResult =
-  | { success: true }
-  | { success: false; error: string };
+  { success: true } | { success: false; error: string };
 
 export function validateBracketContestInput(
   data: BracketContestInput,

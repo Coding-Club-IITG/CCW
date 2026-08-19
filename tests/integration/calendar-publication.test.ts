@@ -89,7 +89,7 @@ describe("calendar publication actions", () => {
       publicInput,
       "draft",
     );
-    expect(result.success).toBe(true);
+    expect(result.ok).toBe(true);
     const event = await Event.findOne().lean();
     expect(event).toMatchObject({
       slug: "public-design-sync",
@@ -115,7 +115,10 @@ describe("calendar publication actions", () => {
     const { createPublicEvent } = await import("@/lib/actions/admin/events");
     await expect(
       createPublicEvent(String(calendar._id), publicInput, "published"),
-    ).resolves.toEqual({ success: false, error: "Forbidden" });
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "FORBIDDEN", message: "Forbidden" },
+    });
   });
 
   it("publishes and returns a linked event to draft", async () => {
@@ -128,10 +131,10 @@ describe("calendar publication actions", () => {
       publicInput,
       "draft",
     );
-    if (!created.success) throw new Error(created.error);
+    if (!created.ok) throw new Error(created.error.message);
     await expect(
       setPublicEventStatus(String(created.data._id), "published"),
-    ).resolves.toMatchObject({ success: true });
+    ).resolves.toMatchObject({ ok: true });
     expect(await Event.findById(created.data._id).lean()).toMatchObject({
       status: "published",
       publishedAt: expect.any(Date),

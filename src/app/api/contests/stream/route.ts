@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonResult } from "@/lib/api/result.server";
+import { webEnv } from "@/lib/env/web";
 import { auth } from "@/lib/auth";
 import { getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
@@ -6,6 +8,8 @@ import dbConnect from "@/lib/mongodb";
 import ContestRoom from "@/models/ContestRoom";
 import { publishRoom, publishUser } from "@/lib/sse";
 import { reconciliationQueue } from "@/lib/bullmq";
+import { parseSearchParams } from "@/lib/api/result";
+import { contestStreamQuerySchema } from "@/lib/api/schemas/contestRoute";
 
 export const dynamic = "force-dynamic";
 
@@ -13,17 +17,23 @@ export async function GET(request: NextRequest) {
   let userId = "";
 
   if (
-    process.env.NODE_ENV === "development" &&
+    webEnv.NODE_ENV === "development" &&
     request.headers.get("x-test-user-id")
   ) {
     userId = request.headers.get("x-test-user-id")!;
   } else {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
     userId = session.user.id;
   }
+
+  const query = parseSearchParams(
+    request.nextUrl.searchParams,
+    contestStreamQuerySchema,
+  );
+  if (!query.ok) return jsonResult(query);
 
   await dbConnect();
 
@@ -132,18 +142,16 @@ export async function GET(request: NextRequest) {
     channels.push(`events:contest:${contestId}`);
   }
 
-  const contestIdFromQuery = request.nextUrl.searchParams.get("contestId");
-  if (contestIdFromQuery && /^[0-9a-fA-F]{24}$/.test(contestIdFromQuery)) {
+  const contestIdFromQuery = query.data.contestId;
+  if (contestIdFromQuery) {
     const contestChannel = `events:contest:${contestIdFromQuery}`;
     if (!channels.includes(contestChannel)) {
       channels.push(contestChannel);
     }
   }
 
-  const roomIdFromQuery =
-    request.nextUrl.searchParams.get("roomId") ||
-    request.nextUrl.searchParams.get("rooms");
-  if (roomIdFromQuery && /^[0-9a-fA-F]{24}$/.test(roomIdFromQuery)) {
+  const roomIdFromQuery = query.data.roomId ?? query.data.rooms;
+  if (roomIdFromQuery) {
     const roomChannel = `events:room:${roomIdFromQuery}`;
     if (!channels.includes(roomChannel)) {
       channels.push(roomChannel);
@@ -202,10 +210,7 @@ export async function GET(request: NextRequest) {
           }
 
           if (activeTeamsCount <= 1) {
-            const timeoutSeconds = parseInt(
-              process.env.DISCONNECT_FORFEIT_TIMEOUT_SECONDS || "60",
-              10,
-            );
+            const timeoutSeconds = webEnv.DISCONNECT_FORFEIT_TIMEOUT_SECONDS;
 
             // Publish offline status with timeout warning
             await publishRoom(roomId, {

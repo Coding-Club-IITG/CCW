@@ -1,7 +1,8 @@
 import { Queue, ConnectionOptions } from "bullmq";
 import { errorToLogMetadata, logger } from "./utils";
+import { sharedServerEnv } from "./env/shared";
 
-const redisUrlString = process.env.REDIS_URL || "redis://localhost:6379";
+const redisUrlString = sharedServerEnv.REDIS_URL;
 let redisUrl: URL;
 try {
   redisUrl = new URL(redisUrlString);

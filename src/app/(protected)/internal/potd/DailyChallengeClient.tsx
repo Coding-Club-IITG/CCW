@@ -129,6 +129,7 @@ export default function DailyChallengeClient({
       setCooldowns((p) => ({ ...p, [challengeId]: 60 }));
 
       if (result.ok) {
+        const submission = result.data;
         setData((prev) => {
           if (!prev) return prev;
           return {
@@ -138,9 +139,9 @@ export default function DailyChallengeClient({
                 ? {
                     ...c,
                     mySubmission: {
-                      status: result.status as any,
+                      status: submission.status as any,
                       solvedAt: null,
-                      pointsAwarded: result.pointsAwarded ?? 0,
+                      pointsAwarded: submission.pointsAwarded ?? 0,
                     },
                   }
                 : c,
@@ -148,21 +149,21 @@ export default function DailyChallengeClient({
           };
         });
 
-        if (result.status === "Accepted") {
-          alert(`Sync complete! You earned ${result.pointsAwarded} pts.`);
-        } else if (result.status === "Late") {
+        if (submission.status === "Accepted") {
+          alert(`Sync complete! You earned ${submission.pointsAwarded} pts.`);
+        } else if (submission.status === "Late") {
           alert(
-            `Sync complete! Grace window solve - ${result.pointsAwarded} pts earned (50% penalty applied, streak saved).`,
+            `Sync complete! Grace window solve - ${submission.pointsAwarded} pts earned (50% penalty applied, streak saved).`,
           );
-        } else if (result.status === "Pending") {
+        } else if (submission.status === "Pending") {
           alert("No accepted submission found yet. Try again later.");
-        } else if (result.status === "NotSolved") {
+        } else if (submission.status === "NotSolved") {
           alert("The window has closed and no solve was detected.");
         }
       } else {
         setSyncErrors((p) => ({
           ...p,
-          [challengeId]: result.error ?? "Sync failed",
+          [challengeId]: result.error.message,
         }));
       }
     } catch {

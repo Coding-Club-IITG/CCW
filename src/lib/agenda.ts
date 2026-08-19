@@ -2,9 +2,10 @@ import { Agenda } from "agenda";
 import { MongoBackend } from "@agendajs/mongo-backend";
 import { RedisNotificationChannel } from "@agendajs/redis-backend";
 import { logger } from "./utils";
+import { workerEnv } from "./env/worker";
 
-const mongodbUri = process.env.MONGODB_URI!;
-const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+const mongodbUri = workerEnv.MONGODB_URI;
+const redisUrl = workerEnv.REDIS_URL;
 
 // Attach an error listener BEFORE passing to Agenda - ioredis emits 'error'
 // as an EventEmitter event, which Node.js re-throws if there is no listener,

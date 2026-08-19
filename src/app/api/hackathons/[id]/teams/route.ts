@@ -3,7 +3,13 @@
  * POST /api/hackathons/[id]/teams - Create a team for a hackathon
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseJson, parseRouteParams } from "@/lib/api/result";
+import {
+  jsonObjectSchema,
+  objectIdParamsSchema,
+} from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
@@ -19,18 +25,20 @@ export async function GET(
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    const { id } = await params;
+    const validatedParams = parseRouteParams(
+      await params,
+      objectIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
     await dbConnect();
 
     const hackathon = await Hackathon.findById(id).lean();
     if (!hackathon) {
-      return NextResponse.json(
-        { error: "Hackathon not found." },
-        { status: 404 },
-      );
+      return jsonError("NOT_FOUND", "Hackathon not found.");
     }
 
     const teams = await HackathonTeam.find({ hackathonId: id })
@@ -56,17 +64,14 @@ export async function GET(
       }),
     }));
 
-    return NextResponse.json({ hackathon, teams: teamsWithMembers });
+    return jsonOk({ hackathon, teams: teamsWithMembers });
   } catch (err) {
     logger.error("Hackathon team listing failed", {
       route: "GET /api/hackathons/[id]/teams",
       operation: "list_teams",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
@@ -77,46 +82,39 @@ export async function POST(
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const user = session.user as any;
-    const { id } = await params;
+    const validatedParams = parseRouteParams(
+      await params,
+      objectIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
-    let body: Record<string, any>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body." },
-        { status: 400 },
-      );
-    }
+    const parsedBody = await parseJson(request, jsonObjectSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const body = parsedBody.data;
 
     const { name, description } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return NextResponse.json(
-        { error: "Team name is required." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Team name is required.");
     }
 
     await dbConnect();
 
     const hackathon = (await Hackathon.findById(id).lean()) as any;
     if (!hackathon || hackathon.status !== "active") {
-      return NextResponse.json(
-        { error: "Hackathon not found or not active." },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Hackathon not found or not active.",
       );
     }
 
     if (new Date(hackathon.deadline) < new Date()) {
-      return NextResponse.json(
-        { error: "Hackathon deadline has passed." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Hackathon deadline has passed.");
     }
 
     // Check if user is already in a team for this hackathon
@@ -125,9 +123,9 @@ export async function POST(
       members: user.id,
     });
     if (existingTeam) {
-      return NextResponse.json(
-        { error: "You are already in a team for this hackathon." },
-        { status: 400 },
+      return jsonError(
+        "CONFLICT",
+        "You are already in a team for this hackathon.",
       );
     }
 
@@ -138,20 +136,17 @@ export async function POST(
       name: name.trim(),
       owner: user.id,
       members: [user.id],
-      description: (description || "").trim(),
+      description: typeof description === "string" ? description.trim() : "",
       status: teamStatus,
     });
 
-    return NextResponse.json({ team }, { status: 201 });
+    return jsonOk({ team }, { status: 201 });
   } catch (err) {
     logger.error("Hackathon team creation failed", {
       route: "POST /api/hackathons/[id]/teams",
       operation: "create_team",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

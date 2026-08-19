@@ -1,14 +1,9 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import FilesClient from "@/components/files/FilesClient";
-import { canUploadFiles } from "@/lib/fileAccess";
-import {
-  parseManagedModules,
-  parseRoles,
-  getHeadModules,
-  isAdmin,
-  isHead,
-} from "@/lib/roles";
+import { canUploadFiles } from "@/lib/access/files";
+import { getHeadModules, isAdmin, isHead } from "@/lib/access/roles";
+import { parseManagedModules, parseRoles } from "@/lib/roles";
 import { getDisplayName } from "@/lib/utils";
 import type { CurrentUser } from "@/components/files/types";
 

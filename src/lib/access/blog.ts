@@ -1,4 +1,4 @@
-import { isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
 
 interface BlogAccessUser {
   id: string;

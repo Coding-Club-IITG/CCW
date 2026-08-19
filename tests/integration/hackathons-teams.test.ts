@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { responseData, responseError } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -72,7 +73,7 @@ describe("hackathon team routes", () => {
       request(`/api/hackathons/${event._id}/teams`),
       context(event._id.toString()),
     );
-    const body = await response.json();
+    const body = await responseData(response);
     expect(response.status).toBe(200);
     expect(body.teams[0].memberDetails).toEqual([
       { id: known._id.toString(), name: "Known Member", pizza_count: 4 },
@@ -93,7 +94,7 @@ describe("hackathon team routes", () => {
       context(event._id.toString()),
     );
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain("deadline");
+    expect((await responseError(response)).message).toContain("deadline");
   });
 
   it("creates one normalized team per member and marks solo teams full", async () => {
@@ -122,7 +123,7 @@ describe("hackathon team routes", () => {
       }),
       context(event._id.toString()),
     );
-    expect(duplicate.status).toBe(400);
+    expect(duplicate.status).toBe(409);
   });
 
   it("allows only the owner to edit a team", async () => {

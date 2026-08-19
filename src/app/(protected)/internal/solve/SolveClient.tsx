@@ -162,19 +162,19 @@ export default function SolveClient({
     try {
       const result = await syncMySubmission(challengeId);
       if (result.ok) {
-        if (result.status === "Accepted") {
-          setSyncResult(`Solved! You earned ${result.pointsAwarded} pts.`);
-        } else if (result.status === "Late") {
+        if (result.data.status === "Accepted") {
+          setSyncResult(`Solved! You earned ${result.data.pointsAwarded} pts.`);
+        } else if (result.data.status === "Late") {
           setSyncResult(
-            `Grace solve - ${result.pointsAwarded} pts (50% penalty).`,
+            `Grace solve - ${result.data.pointsAwarded} pts (50% penalty).`,
           );
-        } else if (result.status === "Pending") {
+        } else if (result.data.status === "Pending") {
           setSyncResult("No accepted submission found yet. Try again later.");
         } else {
-          setSyncResult(`Status: ${result.status}`);
+          setSyncResult(`Status: ${result.data.status}`);
         }
       } else {
-        setSyncResult(result.error ?? "Sync failed");
+        setSyncResult(result.error.message);
       }
     } catch {
       setSyncResult("An unexpected error occurred");

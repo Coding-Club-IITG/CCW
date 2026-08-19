@@ -1,8 +1,19 @@
 "use server";
 
+import { err as appError, ok } from "@/lib/api/result";
+
+import { defineAction } from "@/lib/actions/defineAction";
+
+export const validateStep = defineAction("validateStep", validateStepAction);
+export const createBracketContest = defineAction(
+  "createBracketContest",
+  createBracketContestAction,
+);
+
 import { auth } from "@/lib/auth";
-import { isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
 import { headers } from "next/headers";
+import { webEnv } from "@/lib/env/web";
 import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
 import ContestPreset from "@/models/ContestPreset";
@@ -11,7 +22,7 @@ import CPUser from "@/models/CPUser";
 import { reconciliationQueue } from "@/lib/bullmq";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 
-export async function validateStep(step: number, data: Record<string, any>) {
+async function validateStepAction(step: number, data: Record<string, any>) {
   const errors: Record<string, string> = {};
 
   if (step === 1) {
@@ -66,35 +77,38 @@ export async function validateStep(step: number, data: Record<string, any>) {
     }
   }
 
-  return {
-    valid: Object.keys(errors).length === 0,
-    errors,
-  };
+  return ok({ valid: Object.keys(errors).length === 0, errors });
 }
 
-export async function createBracketContest(data: any) {
+async function createBracketContestAction(data: any) {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
-  if (!session) return { error: "Unauthorized" };
+  if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
 
   const user = session.user as any;
-  if (!isHead(user.access)) return { error: "Forbidden" };
+  if (!isHead(user.access)) return appError("FORBIDDEN", "Forbidden");
 
   // Re-run validation server-side for safety
-  let step1 = await validateStep(1, data);
-  let step2 = await validateStep(2, data);
-  let step3 = await validateStep(3, data);
-  let step4 = await validateStep(4, data);
-  let step5 = await validateStep(5, data);
+  const step1 = await validateStepAction(1, data);
+  const step2 = await validateStepAction(2, data);
+  const step3 = await validateStepAction(3, data);
+  const step4 = await validateStepAction(4, data);
+  const step5 = await validateStepAction(5, data);
+
+  if (!step1.ok) return step1;
+  if (!step2.ok) return step2;
+  if (!step3.ok) return step3;
+  if (!step4.ok) return step4;
+  if (!step5.ok) return step5;
 
   if (
-    !step1.valid ||
-    !step2.valid ||
-    !step3.valid ||
-    !step4.valid ||
-    !step5.valid
+    !step1.data.valid ||
+    !step2.data.valid ||
+    !step3.data.valid ||
+    !step4.data.valid ||
+    !step5.data.valid
   ) {
-    return { error: "Invalid form data submission" };
+    return appError("VALIDATION_ERROR", "Invalid form data submission");
   }
 
   await dbConnect();
@@ -111,10 +125,10 @@ export async function createBracketContest(data: any) {
   if (data.presetId === "custom") {
     if (problemSelectionMode === "fine-tuned") {
       if (!Array.isArray(data.problemSlots) || data.problemSlots.length === 0) {
-        return {
-          error:
-            "Fine-tuned problem slots with round assignments are required for a bracket contest.",
-        };
+        return appError(
+          "VALIDATION_ERROR",
+          "Fine-tuned problem slots with round assignments are required for a bracket contest.",
+        );
       }
       // Per-round bracket fine-tuned: problemSlots already has roundNumber set by the UI
       problemSlots = data.problemSlots.filter(
@@ -122,14 +136,12 @@ export async function createBracketContest(data: any) {
       );
 
       if (problemSlots.length === 0) {
-        return {
-          error: "Please provide valid problem IDs for the bracket rounds.",
-        };
+        return appError("INTERNAL_ERROR", "An unexpected error occurred.");
       }
     }
   } else {
     const preset = await ContestPreset.findById(data.presetId);
-    if (!preset) return { error: "Selected preset does not exist" };
+    if (!preset) return appError("NOT_FOUND", "Selected preset does not exist");
     presetId = preset._id;
     problemSelectionMode = preset.problemSelectionMode;
     bulkPlatform = preset.bulkPlatform;
@@ -145,18 +157,9 @@ export async function createBracketContest(data: any) {
 
   try {
     const cpUser = await CPUser.findOne({ userId: user.id });
-    if (!cpUser) return { error: "CP Profile not found" };
+    if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
-    const deadlineStr = process.env.REGISTRATION_DEADLINE_MINUTES;
-    if (!deadlineStr) {
-      throw new Error(
-        "REGISTRATION_DEADLINE_MINUTES is not set in environment variables.",
-      );
-    }
-    const deadlineMinutes = parseInt(deadlineStr, 10);
-    if (isNaN(deadlineMinutes)) {
-      throw new Error("REGISTRATION_DEADLINE_MINUTES must be a valid number.");
-    }
+    const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
     const contest = await ContestMatch.create({
       name: data.name.trim(),
       description: data.description?.trim(),
@@ -206,7 +209,10 @@ export async function createBracketContest(data: any) {
     // Validate registration starts before it ends (only for open registration)
     if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
       await ContestMatch.findByIdAndDelete(contest._id);
-      return { error: "Registration start time must be before the deadline." };
+      return appError(
+        "VALIDATION_ERROR",
+        "Registration start time must be before the deadline.",
+      );
     }
 
     // Only handle start_registration scheduling for open contests
@@ -243,12 +249,12 @@ export async function createBracketContest(data: any) {
       );
     }
 
-    return { contestId: contest._id.toString() };
+    return ok({ contestId: contest._id.toString() });
   } catch (err) {
     logger.error("Admin contest creation failed", {
       action: "createContest",
       ...errorToLogMetadata(err),
     });
-    return { error: "Failed to create contest." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }

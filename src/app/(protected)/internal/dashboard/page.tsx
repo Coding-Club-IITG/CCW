@@ -13,7 +13,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import dbConnect from "@/lib/mongodb";
-import { isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
 import LinkCard from "@/components/shared/LinkCard";
 import { getDisplayName } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";

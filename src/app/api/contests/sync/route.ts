@@ -1,34 +1,32 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { webEnv } from "@/lib/env/web";
 import { auth } from "@/lib/auth";
 import { getRedis } from "@/lib/redis";
 import { cfSyncQueue } from "@/lib/bullmq";
 import { publishUser } from "@/lib/sse";
 import { logger } from "@/lib/utils";
+import { parseJson } from "@/lib/api/result";
+import { contestSyncSchema } from "@/lib/api/schemas/contestRoute";
 
 export async function POST(request: NextRequest) {
   try {
     let userId = "";
 
     const testUserId = request.headers.get("x-test-user-id");
-    if (process.env.NODE_ENV === "development" && testUserId) {
+    if (webEnv.NODE_ENV === "development" && testUserId) {
       userId = testUserId;
     } else {
       const session = await auth.api.getSession({ headers: request.headers });
       if (!session || !session.user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return jsonError("UNAUTHENTICATED", "Unauthorized");
       }
       userId = session.user.id;
     }
 
-    const body = await request.json();
-    const { roomId, teamId, cfHandle, problemId } = body;
-
-    if (!roomId || !cfHandle || !problemId) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 },
-      );
-    }
+    const body = await parseJson(request, contestSyncSchema);
+    if (!body.ok) return jsonResult(body);
+    const { roomId, teamId, cfHandle, problemId } = body.data;
 
     const redis = await getRedis();
 
@@ -44,9 +42,9 @@ export async function POST(request: NextRequest) {
         }
       }
       if (!resolvedTeamId) {
-        return NextResponse.json(
-          { error: "User is not part of any team in this room" },
-          { status: 403 },
+        return jsonError(
+          "FORBIDDEN",
+          "User is not part of any team in this room",
         );
       }
     }
@@ -54,18 +52,13 @@ export async function POST(request: NextRequest) {
     const rateLimitKey = `ratelimit:sync:${userId}`;
 
     // 1. Check ratelimit
-    if (process.env.NODE_ENV !== "development") {
-      const cooldown = parseInt(
-        process.env.NEXT_PUBLIC_SYNC_COOLDOWN ||
-          process.env.SYNC_COOLDOWN ||
-          "60",
-        10,
-      );
+    if (webEnv.NODE_ENV !== "development") {
+      const cooldown = webEnv.SYNC_COOLDOWN;
       const isRateLimited = await redis.exists(rateLimitKey);
       if (isRateLimited) {
-        return NextResponse.json(
-          { error: `Rate limit exceeded. Please wait ${cooldown} seconds.` },
-          { status: 429 },
+        return jsonError(
+          "RATE_LIMITED",
+          `Rate limit exceeded. Please wait ${cooldown} seconds.`,
         );
       }
 
@@ -103,12 +96,9 @@ export async function POST(request: NextRequest) {
     await publishUser(userId, { type: "sync.queued", position, problemId });
 
     // 6. Return 202
-    return NextResponse.json({ queued: true }, { status: 202 });
+    return jsonOk({ queued: true }, { status: 202 });
   } catch (error: any) {
     logger.error("[/api/contests/sync] Error enqueuing sync job:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal Server Error");
   }
 }

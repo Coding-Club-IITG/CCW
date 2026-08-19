@@ -1,5 +1,8 @@
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
+import { z } from "zod";
+import { jsonResult } from "@/lib/api/result.server";
+import { parseSearchParams } from "@/lib/api/result";
 import { SITE_NAME } from "@/lib/seo";
 
 export const revalidate = 86400;
@@ -15,7 +18,12 @@ export function boundedTitle(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
-  const title = boundedTitle(request.nextUrl.searchParams.get("title"));
+  const query = parseSearchParams(
+    request.nextUrl.searchParams,
+    z.object({ title: z.string().max(500).optional() }),
+  );
+  if (!query.ok) return jsonResult(query);
+  const title = boundedTitle(query.data.title ?? null);
 
   // TODO: Replace later with 1200×630 cover
   return new ImageResponse(

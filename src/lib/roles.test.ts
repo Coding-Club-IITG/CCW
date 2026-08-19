@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  canSetPOTD,
-  getHeadModules,
   getUserRoleLabels,
-  isAdmin,
-  isHead,
   normalizeTenure,
   parseManagedModules,
   parseRoles,
@@ -12,13 +8,6 @@ import {
 } from "@/lib/roles";
 
 describe("access and role helpers", () => {
-  it("implements Head and Admin access semantics", () => {
-    expect(isHead("Head")).toBe(true);
-    expect(isHead("Admin")).toBe(true);
-    expect(isHead("Member")).toBe(false);
-    expect(isAdmin("Admin")).toBe(true);
-    expect(isAdmin("Head")).toBe(false);
-  });
   it("strictly parses serialized arrays", () => {
     expect(parseManagedModules('["Design","unknown","Design"]')).toEqual([
       "Design",
@@ -62,17 +51,5 @@ describe("access and role helpers", () => {
   it("validates consecutive academic years", () => {
     expect(normalizeTenure(" 2026-27 ")).toBe("2026-27");
     expect(normalizeTenure("2026-28")).toBeNull();
-  });
-  it("uses managed modules only for Head and permits only CP Core Team POTD", () => {
-    expect(getHeadModules("Head", ["Design"])).toEqual(["Design"]);
-    expect(getHeadModules("Admin", ["Design"])).toEqual([]);
-    expect(
-      canSetPOTD("Member", [
-        { module: "Competitive Programming", position: "Core Team" },
-      ]),
-    ).toBe(true);
-    expect(
-      canSetPOTD("Member", [{ module: "Design", position: "Core Team" }]),
-    ).toBe(false);
   });
 });

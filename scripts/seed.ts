@@ -1,9 +1,10 @@
 import "../src/lib/env";
+import { cliEnv } from "../src/lib/env/cli";
 
 import mongoose from "mongoose";
 import { CURRENT_TENURE } from "../src/lib/constants";
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = cliEnv.MONGODB_URI;
 
 const UserSchema = new mongoose.Schema({
   name: String,
@@ -58,7 +59,7 @@ const ContestMatch =
 
 async function seed() {
   try {
-    await mongoose.connect(MONGODB_URI!);
+    await mongoose.connect(MONGODB_URI);
     console.log("✅ Connected to MongoDB");
 
     // Seed main dev user

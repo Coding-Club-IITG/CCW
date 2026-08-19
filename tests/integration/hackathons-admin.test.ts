@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { responseData, responseError } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -16,12 +17,12 @@ import {
 } from "../utils/mongodb";
 import { hackathon } from "../fixtures/hackathons";
 
-const requireAdmin = vi.hoisted(() => vi.fn());
+const getSession = vi.hoisted(() => vi.fn());
 const invalidateCache = vi.hoisted(() => vi.fn());
 const notifyMany = vi.hoisted(() => vi.fn());
 const fetchOgImage = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/requireAdmin", () => ({ requireAdmin }));
+vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
 vi.mock("@/lib/cache", async () => {
   const actual =
     await vi.importActual<typeof import("@/lib/cache")>("@/lib/cache");
@@ -40,24 +41,31 @@ vi.mock("@/lib/ogImage", () => ({ fetchOgImage }));
 describe("admin hackathon routes", () => {
   beforeAll(async () => {
     await startTestMongo();
-    requireAdmin.mockResolvedValue({ id: "admin-1" });
+    getSession.mockResolvedValue({
+      user: { id: "admin-1", access: "Head" },
+    });
     fetchOgImage.mockResolvedValue("https://example.test/cover.png");
   });
 
   afterEach(async () => {
     await clearTestMongo();
-    requireAdmin.mockResolvedValue({ id: "admin-1" });
+    getSession.mockResolvedValue({
+      user: { id: "admin-1", access: "Head" },
+    });
     invalidateCache.mockReset();
     notifyMany.mockReset();
   });
 
   afterAll(stopTestMongo);
 
-  it("forbids non-admin access", async () => {
+  it("distinguishes unauthenticated and non-admin access", async () => {
     const { GET } = await import("@/app/api/admin/hackathons/route");
-    requireAdmin.mockResolvedValueOnce(null);
-    const response = await GET(request("/api/admin/hackathons"));
-    expect(response.status).toBe(403);
+    getSession.mockResolvedValueOnce(null);
+    expect((await GET(request("/api/admin/hackathons"))).status).toBe(401);
+    getSession.mockResolvedValueOnce({
+      user: { id: "member-1", access: "Member" },
+    });
+    expect((await GET(request("/api/admin/hackathons"))).status).toBe(403);
   });
 
   it("filters and paginates archived hackathons", async () => {
@@ -70,7 +78,7 @@ describe("admin hackathon routes", () => {
     const response = await GET(
       request("/api/admin/hackathons?status=archived&page=1&limit=1"),
     );
-    const body = await response.json();
+    const body = await responseData(response);
     expect(body.items).toHaveLength(1);
     expect(body.items[0].name).toBe("Archived");
     expect(body.pagination.total).toBe(1);
@@ -90,7 +98,7 @@ describe("admin hackathon routes", () => {
       }),
     );
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error });
+    expect(await responseError(response)).toMatchObject({ message: error });
   });
 
   it("creates a normalized hackathon and broadcasts it", async () => {
@@ -103,7 +111,7 @@ describe("admin hackathon routes", () => {
     const response = await POST(
       jsonRequest("/api/admin/hackathons", "POST", creationBody()),
     );
-    const body = await response.json();
+    const body = await responseData(response);
     expect(response.status).toBe(201);
     expect(body.hackathon).toMatchObject({
       name: "Build Sprint",
@@ -151,7 +159,7 @@ describe("admin hackathon routes", () => {
       context(saved._id.toString()),
     );
     expect(updated.status).toBe(200);
-    expect((await updated.json()).hackathon.name).toBe("Updated Sprint");
+    expect((await responseData(updated)).hackathon.name).toBe("Updated Sprint");
     expect((await Hackathon.findById(saved._id).lean())?.createdBy).toBe(
       "admin-1",
     );

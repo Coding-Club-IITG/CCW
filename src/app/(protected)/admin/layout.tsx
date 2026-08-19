@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
 
 export default async function AdminLayout({
   children,

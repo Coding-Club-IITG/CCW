@@ -1,14 +1,15 @@
 import "../src/lib/env";
+import { cliEnv } from "../src/lib/env/cli";
 
 import mongoose from "mongoose";
 import { createClient } from "redis";
 
-const MONGODB_URI = process.env.MONGODB_URI;
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+const MONGODB_URI = cliEnv.MONGODB_URI;
+const REDIS_URL = cliEnv.REDIS_URL;
 
 async function clearContests() {
   try {
-    await mongoose.connect(MONGODB_URI!);
+    await mongoose.connect(MONGODB_URI);
     console.log("✅ Connected to MongoDB");
 
     const redis = createClient({ url: REDIS_URL });

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { getCreatableCalendarScopes } from "@/lib/calendarAccess";
+import { getCreatableCalendarScopes } from "@/lib/access/calendar";
 import { parseManagedModules } from "@/lib/roles";
 import BackLink from "@/components/shared/BackLink";
 import CalendarEventForm from "@/components/calendar/CalendarEventForm";

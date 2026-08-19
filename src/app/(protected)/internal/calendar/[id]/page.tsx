@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import {
   canManageCalendarEvent,
   canPublishCalendarEvent,
-} from "@/lib/calendarAccess";
+} from "@/lib/access/calendar";
 import dbConnect from "@/lib/mongodb";
 import { parseManagedModules } from "@/lib/roles";
 import CalendarEvent from "@/models/CalendarEvent";

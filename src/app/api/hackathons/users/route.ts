@@ -2,7 +2,14 @@
  * GET /api/hackathons/users?q=search - Search members for team invites
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseSearchParams } from "@/lib/api/result";
+import {
+  optionalSearchQuerySchema,
+  paginationQueryFields,
+} from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
@@ -14,16 +21,24 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const { searchParams } = new URL(request.url);
-    const search = prepareSearchQuery(searchParams.get("q"), {
+    const query = parseSearchParams(
+      searchParams,
+      z.object({
+        ...paginationQueryFields,
+        q: optionalSearchQuerySchema,
+      }),
+    );
+    if (!query.ok) return jsonResult(query);
+    const search = prepareSearchQuery(query.data.q, {
       minLength: 2,
     });
 
     if (!search) {
-      return NextResponse.json(paginatedResponse([], 0, 1, 20));
+      return jsonOk(paginatedResponse([], 0, 1, 20));
     }
 
     await dbConnect();
@@ -49,16 +64,13 @@ export async function GET(request: NextRequest) {
       pizza_count: u.pizza_count,
     }));
 
-    return NextResponse.json(paginatedResponse(data, total, page, limit));
+    return jsonOk(paginatedResponse(data, total, page, limit));
   } catch (err) {
     logger.error("Hackathon user search failed", {
       route: "GET /api/hackathons/users",
       operation: "search_users",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

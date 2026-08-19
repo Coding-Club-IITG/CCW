@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { getBracketSnapshot } from "@/lib/bracket";
 import { auth } from "@/lib/auth";
+import { parseRouteParams } from "@/lib/api/result";
+import { contestIdParamsSchema } from "@/lib/api/schemas/contestRoute";
 
 export const dynamic = "force-dynamic";
 
@@ -10,17 +13,16 @@ export async function GET(
 ) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonError("UNAUTHENTICATED", "Unauthorized");
   }
 
-  const { id } = await params;
+  const validatedParams = parseRouteParams(await params, contestIdParamsSchema);
+  if (!validatedParams.ok) return jsonResult(validatedParams);
+  const { id } = validatedParams.data;
   try {
     const snapshot = await getBracketSnapshot(id);
-    return NextResponse.json(snapshot);
+    return jsonOk(snapshot);
   } catch (err) {
-    return NextResponse.json(
-      { error: "Failed to fetch bracket snapshot" },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Failed to fetch bracket snapshot");
   }
 }

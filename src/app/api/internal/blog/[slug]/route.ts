@@ -1,6 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import {
+  err as appError,
+  ok,
+  parseJson,
+  parseRouteParams,
+} from "@/lib/api/result";
+import { jsonObjectSchema, slugParamsSchema } from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
-import { canEditBlogDraft } from "@/lib/blogAccess";
+import { canEditBlogDraft } from "@/lib/access/blog";
 import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
@@ -11,75 +19,63 @@ type RouteContext = { params: Promise<{ slug: string }> };
 
 async function getAuthorizedDraft(request: NextRequest, slug: string) {
   const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) return { error: "Unauthorized", status: 401 } as const;
+  if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
 
   await dbConnect();
   const post = await BlogPost.findOne({ slug });
-  if (!post) return { error: "Post not found.", status: 404 } as const;
+  if (!post) return appError("NOT_FOUND", "Post not found.");
 
   const user = session.user as any;
   if (!canEditBlogDraft(user, post)) {
-    return { error: "Forbidden", status: 403 } as const;
+    return appError("FORBIDDEN", "Forbidden");
   }
 
-  return { post } as const;
+  return ok({ post });
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const { slug } = await context.params;
+    const validatedParams = parseRouteParams(
+      await context.params,
+      slugParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { slug } = validatedParams.data;
     const result = await getAuthorizedDraft(request, slug);
-    if ("error" in result) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: result.status },
-      );
-    }
+    if (!result.ok) return jsonResult(result);
 
-    return NextResponse.json({ post: result.post.toObject() });
+    return jsonOk({ post: result.data.post.toObject() });
   } catch (err) {
     logger.error("Internal blog lookup failed", {
       route: "GET /api/internal/blog/[slug]",
       operation: "get_draft",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const { slug } = await context.params;
+    const validatedParams = parseRouteParams(
+      await context.params,
+      slugParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { slug } = validatedParams.data;
     const result = await getAuthorizedDraft(request, slug);
-    if ("error" in result) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: result.status },
-      );
-    }
+    if (!result.ok) return jsonResult(result);
 
-    let body: Record<string, unknown>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body." },
-        { status: 400 },
-      );
-    }
+    const parsedBody = await parseJson(request, jsonObjectSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const body = parsedBody.data;
 
-    const post = result.post;
+    const post = result.data.post;
 
     if (body.title !== undefined) {
       const title = String(body.title).trim();
       if (!title || title.length > 200) {
-        return NextResponse.json(
-          { error: "Title must be 1-200 characters." },
-          { status: 400 },
-        );
+        return jsonError("VALIDATION_ERROR", "Title must be 1-200 characters.");
       }
       post.title = title;
     }
@@ -91,9 +87,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (body.excerpt !== undefined) {
       const excerpt = String(body.excerpt).trim();
       if (excerpt.length > 500) {
-        return NextResponse.json(
-          { error: "Excerpt must be 500 characters or fewer." },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "Excerpt must be 500 characters or fewer.",
         );
       }
       post.excerpt = excerpt;
@@ -122,16 +118,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     await invalidateCache("blog");
     await invalidateCache("admin:blog");
 
-    return NextResponse.json({ post: post.toObject() });
+    return jsonOk({ post: post.toObject() });
   } catch (err) {
     logger.error("Internal blog update failed", {
       route: "PATCH /api/internal/blog/[slug]",
       operation: "update_draft",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

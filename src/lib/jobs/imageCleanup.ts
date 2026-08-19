@@ -7,16 +7,13 @@ import Event from "@/models/Event";
 import Project from "@/models/Project";
 import { logger } from "@/lib/utils";
 import { ALLOWED_IMAGE_EXTENSIONS } from "@/lib/constants";
+import { workerEnv } from "@/lib/env/worker";
 
-const BLOG_UPLOAD_DIR =
-  process.env.BLOG_UPLOAD_DIR ?? path.join(process.cwd(), "uploads", "blog");
+const BLOG_UPLOAD_DIR = path.resolve(workerEnv.BLOG_UPLOAD_DIR);
 
-const EVENT_UPLOAD_DIR =
-  process.env.EVENT_UPLOAD_DIR ?? path.join(process.cwd(), "uploads", "events");
+const EVENT_UPLOAD_DIR = path.resolve(workerEnv.EVENT_UPLOAD_DIR);
 
-const PROJECT_UPLOAD_DIR =
-  process.env.PROJECT_UPLOAD_DIR ??
-  path.join(process.cwd(), "uploads", "projects");
+const PROJECT_UPLOAD_DIR = path.resolve(workerEnv.PROJECT_UPLOAD_DIR);
 
 const BLOG_ASSET_PATTERN = /\/api\/blog\/assets\/([0-9a-f-]+\.\w+)/g;
 const EVENT_ASSET_PATTERN = /\/api\/events\/assets\/([0-9a-f]+\.\w+)/g;

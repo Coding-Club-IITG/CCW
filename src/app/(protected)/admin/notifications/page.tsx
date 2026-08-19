@@ -1,5 +1,7 @@
 "use client";
 
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
+
 import { useState } from "react";
 import BackLink from "@/components/shared/BackLink";
 import { Send as IconSend } from "lucide-react";
@@ -35,17 +37,15 @@ export default function AdminNotificationsPage() {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setResult({ error: data.error || "Failed to send." });
-      } else {
-        setResult({ success: true, sent: data.sent });
-        setTitle("");
-        setMessage("");
-        setLink("");
-      }
-    } catch {
-      setResult({ error: "Failed to send notification." });
+      const data = await expectAppData(res);
+      setResult({ success: true, sent: data.sent });
+      setTitle("");
+      setMessage("");
+      setLink("");
+    } catch (error) {
+      setResult({
+        error: appErrorMessage(error, "Failed to send notification."),
+      });
     } finally {
       setSending(false);
     }

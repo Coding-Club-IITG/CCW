@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { responseData } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -70,7 +71,7 @@ describe("hackathon discovery and deadline reminders", () => {
     const response = await GET(
       new NextRequest("http://localhost/api/hackathons?page=1&limit=10"),
     );
-    const body = await response.json();
+    const body = await responseData(response);
 
     expect(response.status).toBe(200);
     expect(body.items.map((item: { name: string }) => item.name)).toEqual([
@@ -86,7 +87,7 @@ describe("hackathon discovery and deadline reminders", () => {
       new NextRequest("http://localhost/api/hackathons/users?q=a"),
     );
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
+    expect(await responseData(response)).toMatchObject({
       items: [],
       pagination: { total: 0 },
     });
@@ -105,7 +106,7 @@ describe("hackathon discovery and deadline reminders", () => {
         "http://localhost/api/hackathons/users?q=%5Bteam%5D&limit=10",
       ),
     );
-    const body = await response.json();
+    const body = await responseData(response);
 
     expect(body.items).toHaveLength(1);
     expect(body.items[0]).toMatchObject({

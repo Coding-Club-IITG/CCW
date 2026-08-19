@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { responseData, responseError } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -64,7 +65,7 @@ describe("notifications route", () => {
     const response = await GET(
       new NextRequest("http://localhost/api/notifications?unread=true"),
     );
-    const body = await response.json();
+    const body = await responseData(response);
 
     expect(response.status).toBe(200);
     expect(body.items).toHaveLength(1);
@@ -86,7 +87,10 @@ describe("notifications route", () => {
     );
 
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: "Unauthorized" });
+    expect(await responseError(response)).toEqual({
+      code: "UNAUTHENTICATED",
+      message: "Unauthorized",
+    });
   });
 
   it("marks selected notifications as read without changing another member's data", async () => {
@@ -144,8 +148,9 @@ describe("notifications route", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: "Provide 'ids' array or 'all: true'.",
+    expect(await responseError(response)).toEqual({
+      code: "VALIDATION_ERROR",
+      message: "Provide 'ids' array or 'all: true'.",
     });
   });
 
@@ -163,7 +168,7 @@ describe("notifications route", () => {
         method: "DELETE",
       }),
     );
-    const body = await response.json();
+    const body = await responseData(response);
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ success: true, deleted: 1 });

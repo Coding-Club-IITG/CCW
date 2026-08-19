@@ -4,21 +4,25 @@
  * or any image uploaded via the blog image upload endpoint.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { jsonError, jsonResult } from "@/lib/api/result.server";
 import { createReadStream, existsSync } from "fs";
 import { Readable } from "stream";
 import path from "path";
+import { webEnv } from "@/lib/env/web";
 import {
   IMAGE_EXTENSIONS_REGEX_FRAGMENT,
   IMAGE_EXTENSION_TO_MIME,
   type ImageExtension,
 } from "@/lib/constants";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import { parseRouteParams } from "@/lib/api/result";
+import { imageAssetParamsSchema } from "@/lib/api/schemas/boundary";
 
 export const runtime = "nodejs";
 
-const BLOG_UPLOAD_DIR =
-  process.env.BLOG_UPLOAD_DIR ?? path.join(process.cwd(), "uploads", "blog");
+const BLOG_UPLOAD_DIR = path.resolve(webEnv.BLOG_UPLOAD_DIR);
 
 const ASSET_ID_REGEX = new RegExp(
   `^[0-9a-f-]+\\.(${IMAGE_EXTENSIONS_REGEX_FRAGMENT})$`,
@@ -29,15 +33,20 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
-    const { id } = await context.params;
+    const validatedParams = parseRouteParams(
+      await context.params,
+      imageAssetParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
     if (!ASSET_ID_REGEX.test(id)) {
-      return NextResponse.json({ error: "Invalid asset ID." }, { status: 400 });
+      return jsonError("VALIDATION_ERROR", "Invalid asset ID.");
     }
 
     const filePath = path.join(BLOG_UPLOAD_DIR, id);
     if (!existsSync(filePath)) {
-      return NextResponse.json({ error: "Asset not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Asset not found.");
     }
 
     const ext = path.extname(id).toLowerCase() as ImageExtension;
@@ -58,9 +67,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       operation: "read_asset",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

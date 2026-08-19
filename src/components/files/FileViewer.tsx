@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useEffect, useRef, useState } from "react";
 import { X, FileIcon, AlertCircle } from "lucide-react";
 import CompatibleImage from "@/components/shared/CompatibleImage";
@@ -163,7 +165,11 @@ export default function FileViewer({ file, onClose }: Props) {
       try {
         const res = await fetch(`/api/files/${file._id}`);
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
+          const data = await expectAppData<{ error?: string }>(res).catch(
+            (error: unknown) => ({
+              error: error instanceof Error ? error.message : undefined,
+            }),
+          );
           if (!revoked) setLoadError(data.error ?? "Failed to load file.");
           return;
         }

@@ -1,5 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import {
+  parseSearchParams,
+  toBsonSafe,
+  type JsonValue,
+} from "@/lib/api/result";
+import { paginationQueryFields } from "@/lib/api/schemas/boundary";
+import { requireHead } from "@/lib/api/auth";
 import dbConnect from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
 import Event from "@/models/Event";
@@ -9,21 +17,28 @@ import {
   EVENT_PUBLICATION_STATUSES,
   type EventPublicationStatus,
 } from "@/lib/constants";
-import { getPublishableEventModules } from "@/lib/calendarAccess";
+import { getPublishableEventModules } from "@/lib/access/calendar";
 import { parseManagedModules } from "@/lib/roles";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
+    const user = authorization.data.user;
 
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const query = parseSearchParams(
+      searchParams,
+      z.object({
+        ...paginationQueryFields,
+        status: z.enum(EVENT_PUBLICATION_STATUSES).optional(),
+      }),
+    );
+    if (!query.ok) return jsonResult(query);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
-    const status = searchParams.get("status") as EventPublicationStatus | null;
+    const status: EventPublicationStatus | undefined = query.data.status;
     const modules = getPublishableEventModules(
       user.access,
       parseManagedModules(user.managedModules),
@@ -54,17 +69,12 @@ export async function GET(request: NextRequest) {
           .lean(),
         Event.countDocuments(filter),
       ]);
-      return { events: JSON.parse(JSON.stringify(events)), total };
+      return { events: toBsonSafe(events) as JsonValue[], total };
     });
 
-    return NextResponse.json(
-      paginatedResponse(result.events, result.total, page, limit),
-    );
+    return jsonOk(paginatedResponse(result.events, result.total, page, limit));
   } catch (err) {
     logger.error("[Admin Events API] GET error:", err);
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

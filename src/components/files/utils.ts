@@ -1,4 +1,4 @@
-import type { AccessControl, CurrentUser, FileEntry } from "./types";
+import type { AccessControl } from "./types";
 
 export const EMPTY_ACL: AccessControl = {
   allMembers: false,
@@ -34,15 +34,6 @@ export function isPreviewable(mimeType: string): boolean {
     mimeType === "video/webm" ||
     mimeType.startsWith("audio/")
   );
-}
-
-// Client-side mirror of the server canManageFile check (used for UI hints)
-export function canManageFile(user: CurrentUser, file: FileEntry): boolean {
-  if (user.isAdmin) return true;
-  if (user.headModules.length > 0 && file.uploaderModule) {
-    if (user.headModules.includes(file.uploaderModule)) return true;
-  }
-  return file.uploadedBy === user.id;
 }
 
 export function aclSummary(acl: AccessControl): string {

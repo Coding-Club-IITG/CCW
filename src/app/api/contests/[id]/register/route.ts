@@ -1,29 +1,40 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
 import CPUser from "@/models/CPUser";
 import mongoose from "mongoose";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import { webEnv } from "@/lib/env/web";
+import { parseJson, parseRouteParams } from "@/lib/api/result";
+import {
+  contestIdParamsSchema,
+  teamRegistrationSchema,
+} from "@/lib/api/schemas/contestRoute";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const resolvedParams = await params;
-    const { id } = resolvedParams;
+    const validatedParams = parseRouteParams(
+      await params,
+      contestIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
     // Support mock authentication for testing script
     const testUserId = request.headers.get("x-test-user-id");
     let userId: string;
 
-    if (process.env.NODE_ENV === "development" && testUserId) {
+    if (webEnv.NODE_ENV === "development" && testUserId) {
       userId = testUserId;
     } else {
       const session = await auth.api.getSession({ headers: request.headers });
       if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return jsonError("UNAUTHENTICATED", "Unauthorized");
       }
       userId = session.user.id;
     }
@@ -31,29 +42,23 @@ export async function POST(
     await dbConnect();
     const contest = await ContestMatch.findById(id);
     if (!contest) {
-      return NextResponse.json({ error: "Contest not found" }, { status: 404 });
+      return jsonError("NOT_FOUND", "Contest not found");
     }
 
     if (contest.status !== "registration") {
-      return NextResponse.json(
-        { error: "Contest not accepting registrations" },
-        { status: 400 },
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Contest not accepting registrations",
       );
     }
 
     const regSettings = contest.registrationSettings;
     if (!regSettings) {
-      return NextResponse.json(
-        { error: "Registration settings not found" },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Registration settings not found");
     }
 
     if (new Date() > new Date(regSettings.deadline)) {
-      return NextResponse.json(
-        { error: "Registration deadline passed" },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Registration deadline passed");
     }
 
     const registrations = contest.registrations || [];
@@ -63,9 +68,9 @@ export async function POST(
       // Look up verified handle
       const cpUser = await CPUser.findOne({ userId });
       if (!cpUser || !cpUser.cfHandle) {
-        return NextResponse.json(
-          { error: "User must have a Codeforces handle" },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "User must have a Codeforces handle",
         );
       }
 
@@ -92,43 +97,29 @@ export async function POST(
       );
 
       if (result.modifiedCount === 0) {
-        return NextResponse.json(
-          {
-            error:
-              "Could not register. Contest might be full or you are already registered.",
-          },
-          { status: 409 },
+        return jsonError(
+          "CONFLICT",
+          "Could not register. Contest might be full or you are already registered.",
         );
       }
 
-      return NextResponse.json({ registered: true });
+      return jsonOk({ registered: true });
     } else if (contest.teamSize === 3) {
       // Team Registration
-      const body = await request.json();
-      const { teamName, memberIds } = body;
-
-      if (
-        !teamName ||
-        !memberIds ||
-        !Array.isArray(memberIds) ||
-        memberIds.length !== 3
-      ) {
-        return NextResponse.json(
-          { error: "teamName and memberIds array of size 3 are required" },
-          { status: 400 },
-        );
-      }
+      const body = await parseJson(request, teamRegistrationSchema);
+      if (!body.ok) return jsonResult(body);
+      const { teamName, memberIds } = body.data;
 
       if (!memberIds.includes(userId)) {
-        return NextResponse.json(
-          { error: "Registrant must be part of the team members" },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "Registrant must be part of the team members",
         );
       }
 
       // Check max limit
       if (registrations.length >= regSettings.maxParticipants) {
-        return NextResponse.json({ error: "Contest is full" }, { status: 400 });
+        return jsonError("VALIDATION_ERROR", "Contest is full");
       }
 
       // Validate all members exist, have verified handles, and are not already registered
@@ -136,17 +127,14 @@ export async function POST(
         userId: { $in: memberIds.map((id) => new mongoose.Types.ObjectId(id)) },
       });
       if (cpUsers.length !== 3) {
-        return NextResponse.json(
-          { error: "All 3 member users must exist" },
-          { status: 400 },
-        );
+        return jsonError("VALIDATION_ERROR", "All 3 member users must exist");
       }
 
       const allHaveHandles = cpUsers.every((u) => !!u.cfHandle);
       if (!allHaveHandles) {
-        return NextResponse.json(
-          { error: "All members must have a verified Codeforces handle" },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "All members must have a verified Codeforces handle",
         );
       }
 
@@ -156,10 +144,7 @@ export async function POST(
       );
       for (const memberId of memberIds) {
         if (registeredUserIds.has(memberId)) {
-          return NextResponse.json(
-            { error: "Member already registered" },
-            { status: 409 },
-          );
+          return jsonError("CONFLICT", "Member already registered");
         }
       }
 
@@ -193,31 +178,25 @@ export async function POST(
       );
 
       if (result.modifiedCount === 0) {
-        return NextResponse.json(
-          {
-            error:
-              "Could not register team. Contest might be full or members are already registered.",
-          },
-          { status: 409 },
+        return jsonError(
+          "CONFLICT",
+          "Could not register team. Contest might be full or members are already registered.",
         );
       }
 
-      return NextResponse.json({ registered: true });
+      return jsonOk({ registered: true });
     }
 
-    return NextResponse.json(
-      { error: "Unsupported teamSize format" },
-      { status: 400 },
-    );
+    return jsonError("VALIDATION_ERROR", "Unsupported teamSize format");
   } catch (error) {
     logger.error("Contest registration failed", {
       route: "POST /api/contests/[id]/register",
       operation: "register",
       ...errorToLogMetadata(error),
     });
-    return NextResponse.json(
-      { error: "Unable to complete contest registration." },
-      { status: 500 },
+    return jsonError(
+      "INTERNAL_ERROR",
+      "Unable to complete contest registration.",
     );
   }
 }

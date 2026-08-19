@@ -1,93 +1,65 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import ContestPreset from "@/models/ContestPreset";
-import { requireAdmin } from "@/lib/requireAdmin";
-import { logger } from "@/lib/utils";
-
-function errorMessage(error: unknown) {
-  logger.error("[Contest Presets] Request failed:", error);
-  return "Internal Server Error";
-}
+import { parseJson, parseSearchParams } from "@/lib/api/result";
+import {
+  boundaryErrorResponse,
+  jsonError,
+  jsonOk,
+} from "@/lib/api/result.server";
+import { requireHead } from "@/lib/api/auth";
+import {
+  contestPresetQuerySchema,
+  createContestPresetSchema,
+} from "@/lib/api/schemas/contestPreset";
 
 export async function GET(request: NextRequest) {
+  const query = parseSearchParams(
+    request.nextUrl.searchParams,
+    contestPresetQuerySchema,
+  );
+  if (!query.ok) {
+    return jsonError(query.error.code, query.error.message, {
+      fields: query.error.fields,
+    });
+  }
+
   try {
     await dbConnect();
-    const { searchParams } = new URL(request.url);
-    const includeArchived = searchParams.get("includeArchived") === "true";
-
-    const query = includeArchived ? {} : { archived: { $ne: true } };
-    const presets = await ContestPreset.find(query).sort({ name: 1 });
-
-    return NextResponse.json(presets);
-  } catch (error: unknown) {
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    const filter = query.data.includeArchived
+      ? {}
+      : { archived: { $ne: true } };
+    const presets = await ContestPreset.find(filter).sort({ name: 1 }).lean();
+    return jsonOk(presets);
+  } catch (error) {
+    return boundaryErrorResponse("list_contest_presets", error, request);
   }
 }
 
 export async function POST(request: NextRequest) {
+  const authorization = await requireHead(request);
+  if (!authorization.ok) {
+    return jsonError(authorization.error.code, authorization.error.message);
+  }
+  const body = await parseJson(request, createContestPresetSchema);
+  if (!body.ok) {
+    return jsonError(body.error.code, body.error.message, {
+      fields: body.error.fields,
+    });
+  }
+
   try {
-    const admin = await requireAdmin(request);
-    if (!admin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     await dbConnect();
-    const body: unknown = await request.json();
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return NextResponse.json(
-        { error: "Request body must be an object" },
-        { status: 400 },
-      );
-    }
-    const {
-      name,
-      description,
-      format,
-      mode,
-      durationSeconds,
-      problemSelectionMode,
-      bulkPlatform,
-      bulkRatingMin,
-      bulkRatingMax,
-      bulkProblemCount,
-      bulkMinContestId,
-      problemSlots,
-    } = body as Record<string, unknown>;
-
-    if (typeof name !== "string" || name.trim().length < 3) {
-      return NextResponse.json(
-        { error: "Name must be at least 3 characters long" },
-        { status: 400 },
-      );
-    }
-
-    // Check unique name
-    const existing = await ContestPreset.findOne({ name: name.trim() });
+    const existing = await ContestPreset.exists({ name: body.data.name });
     if (existing) {
-      return NextResponse.json(
-        { error: "Preset name already exists" },
-        { status: 409 },
-      );
+      return jsonError("CONFLICT", "Preset name already exists");
     }
-
     const preset = await ContestPreset.create({
-      name: name.trim(),
-      description,
-      format,
-      mode,
-      durationSeconds,
-      problemSelectionMode,
-      bulkPlatform,
-      bulkRatingMin,
-      bulkRatingMax,
-      bulkProblemCount,
-      bulkMinContestId,
-      problemSlots,
+      ...body.data,
       archived: false,
     });
-
-    return NextResponse.json(preset, { status: 201 });
-  } catch (error: unknown) {
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    return jsonOk(preset.toObject(), { status: 201 });
+  } catch (error) {
+    return boundaryErrorResponse("create_contest_preset", error, request);
   }
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -34,7 +36,7 @@ export default function AdminBlogPage() {
       setLoading(true);
       try {
         const res = await fetch(`/api/admin/blog?page=${page}&limit=20`);
-        const json = await res.json();
+        const json = await expectAppData(res);
         setPosts(json.items || []);
         setTotalPages(json.pagination?.totalPages || 1);
       } catch {
@@ -51,7 +53,10 @@ export default function AdminBlogPage() {
   const handleDelete = async (slug: string) => {
     if (!confirm("Are you sure you want to delete this post?")) return;
     try {
-      await fetch(`/api/admin/blog/${slug}`, { method: "DELETE" });
+      const response = await fetch(`/api/admin/blog/${slug}`, {
+        method: "DELETE",
+      });
+      await expectAppData(response);
       setPosts((prev) => prev.filter((p) => p.slug !== slug));
     } catch {
       alert("Failed to delete post.");
@@ -71,7 +76,7 @@ export default function AdminBlogPage() {
           status: "draft",
         }),
       });
-      const data = await res.json();
+      const data = await expectAppData(res);
       if (data.post?.slug) {
         router.push(`/admin/blog/${data.post.slug}/edit`);
       }

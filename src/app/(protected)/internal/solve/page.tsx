@@ -25,7 +25,7 @@ export default async function SolvePage({ searchParams }: Props) {
 
   if (challengeId) {
     const result = await getSolveChallenge(challengeId);
-    if (!result.success) redirect("/internal/potd");
+    if (!result.ok) redirect("/internal/potd");
     ({ platform, contestId, problemIndex, title, challengeId, content } =
       result.data);
   }

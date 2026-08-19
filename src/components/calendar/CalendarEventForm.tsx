@@ -7,7 +7,7 @@ import {
   updateCalendarEvent,
 } from "@/lib/actions/calendar";
 import { EVENT_RECURRENCE_TYPES } from "@/lib/constants";
-import type { CalendarScopeTarget } from "@/lib/calendarAccess";
+import type { CalendarScopeTarget } from "@/lib/access/calendar";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import styles from "./CalendarEventForm.module.scss";
 
@@ -102,13 +102,13 @@ export default function CalendarEventForm({
     const result = initialEvent
       ? await updateCalendarEvent(initialEvent._id, payload)
       : await createCalendarEvent(payload);
-    if (result.success) {
+    if (result.ok) {
       const id = initialEvent?._id ?? String(result.data._id);
       router.push(`/internal/calendar/${id}`);
       router.refresh();
       return;
     }
-    setError(result.error);
+    setError(result.error.message);
     setSaving(false);
   }
 

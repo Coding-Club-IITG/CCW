@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { canPublishCalendarEvent } from "@/lib/calendarAccess";
+import { canPublishCalendarEvent } from "@/lib/access/calendar";
 import { parseManagedModules } from "@/lib/roles";
 import dbConnect from "@/lib/mongodb";
 import CalendarEvent from "@/models/CalendarEvent";

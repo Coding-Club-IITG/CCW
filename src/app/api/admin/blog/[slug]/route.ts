@@ -4,9 +4,12 @@
  * DELETE /api/admin/blog/[slug] - Delete a blog post (admin only)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseJson, parseRouteParams } from "@/lib/api/result";
+import { jsonObjectSchema, slugParamsSchema } from "@/lib/api/schemas/boundary";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { requireHead } from "@/lib/api/auth";
 import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
@@ -27,67 +30,62 @@ type RouteContext = { params: Promise<{ slug: string }> };
 // GET /api/admin/blog/[slug]
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
 
-    const { slug } = await context.params;
+    const validatedParams = parseRouteParams(
+      await context.params,
+      slugParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { slug } = validatedParams.data;
     await dbConnect();
 
     const post = await BlogPost.findOne({ slug }).lean();
     if (!post) {
-      return NextResponse.json({ error: "Post not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Post not found.");
     }
 
-    return NextResponse.json({ post });
+    return jsonOk({ post });
   } catch (err) {
     logger.error("Admin blog lookup failed", {
       route: "GET /api/admin/blog/[slug]",
       operation: "get_post",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
 // PATCH /api/admin/blog/[slug]
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
+    const user = authorization.data.user;
 
-    const { slug } = await context.params;
+    const validatedParams = parseRouteParams(
+      await context.params,
+      slugParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { slug } = validatedParams.data;
     await dbConnect();
 
     const post = await BlogPost.findOne({ slug });
     if (!post) {
-      return NextResponse.json({ error: "Post not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Post not found.");
     }
 
-    let body: Record<string, any>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body." },
-        { status: 400 },
-      );
-    }
+    const parsedBody = await parseJson(request, jsonObjectSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const body = parsedBody.data;
 
     // Updatable fields
     if (body.title !== undefined) {
       const title = String(body.title).trim();
       if (!title || title.length > 200) {
-        return NextResponse.json(
-          { error: "Title must be 1-200 characters." },
-          { status: 400 },
-        );
+        return jsonError("VALIDATION_ERROR", "Title must be 1-200 characters.");
       }
       post.title = title;
       // Regenerate slug from new title
@@ -102,9 +100,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (body.excerpt !== undefined) {
       const excerpt = String(body.excerpt).trim();
       if (excerpt.length > 500) {
-        return NextResponse.json(
-          { error: "Excerpt must be 500 characters or fewer." },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "Excerpt must be 500 characters or fewer.",
         );
       }
       post.excerpt = excerpt;
@@ -162,50 +160,47 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     await invalidateCache("admin:blog");
     revalidatePath("/sitemap.xml");
 
-    return NextResponse.json({ post: post.toObject() });
+    return jsonOk({ post: post.toObject() });
   } catch (err) {
     logger.error("Admin blog update failed", {
       route: "PATCH /api/admin/blog/[slug]",
       operation: "update_post",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
 // DELETE /api/admin/blog/[slug]
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireAdmin(request);
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
 
-    const { slug } = await context.params;
+    const validatedParams = parseRouteParams(
+      await context.params,
+      slugParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { slug } = validatedParams.data;
     await dbConnect();
 
     const result = await BlogPost.findOneAndDelete({ slug });
     if (!result) {
-      return NextResponse.json({ error: "Post not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Post not found.");
     }
 
     await invalidateCache("blog");
     await invalidateCache("admin:blog");
     revalidatePath("/sitemap.xml");
 
-    return NextResponse.json({ success: true });
+    return jsonOk({ success: true });
   } catch (err) {
     logger.error("Admin blog deletion failed", {
       route: "DELETE /api/admin/blog/[slug]",
       operation: "delete_post",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

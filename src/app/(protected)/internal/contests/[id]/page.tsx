@@ -3,6 +3,7 @@ import BlitzRoomClient from "@/components/contests/BlitzRoomClient";
 import ArenaRoomClient from "@/components/contests/ArenaRoomClient";
 import BracketRoomClient from "@/components/contests/BracketRoomClient";
 import { notFound } from "next/navigation";
+import { webEnv } from "@/lib/env/web";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import dbConnect from "@/lib/mongodb";
@@ -12,7 +13,7 @@ import User from "@/models/User";
 import CPUser from "@/models/CPUser";
 import { getRedis } from "@/lib/redis";
 import { getBracketSnapshot } from "@/lib/bracket";
-import { isHead } from "@/lib/roles";
+import { isHead } from "@/lib/access/roles";
 import { redirect } from "next/navigation";
 import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
 import styles from "./page.module.scss";
@@ -28,11 +29,12 @@ export default async function ContestRoomPage({
 }) {
   const { id } = await params;
   const { from, matchRoomId } = await searchParams;
-  const contest = await getContestById(id);
+  const contestResult = await getContestById(id);
 
-  if (!contest) {
+  if (!contestResult.ok || !contestResult.data) {
     notFound();
   }
+  const contest = contestResult.data;
 
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -249,12 +251,7 @@ export default async function ContestRoomPage({
     const userDoc = userMap.get(userId);
     const cfHandle = cpUser?.cfHandle || userDoc?.codeforcesId || "dummy0";
 
-    const syncCooldown = parseInt(
-      process.env.NEXT_PUBLIC_SYNC_COOLDOWN ||
-        process.env.SYNC_COOLDOWN ||
-        "60",
-      10,
-    );
+    const syncCooldown = webEnv.SYNC_COOLDOWN;
 
     if (contest.mode === "blitz") {
       return (

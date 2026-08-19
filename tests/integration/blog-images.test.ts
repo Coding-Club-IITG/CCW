@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { responseData, responseError } from "../utils/result";
 import path from "path";
 import { readFile, unlink } from "fs/promises";
 import {
@@ -73,7 +74,7 @@ describe("blog image uploads and assets", () => {
     const { POST } = await import("@/app/api/admin/blog/upload-image/route");
     const response = await POST(uploadRequest({ mime, name }));
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error });
+    expect(await responseError(response)).toMatchObject({ message: error });
     expect(await listTestBlogUploads(uploadDirectory)).toEqual([]);
   });
 
@@ -93,8 +94,8 @@ describe("blog image uploads and assets", () => {
       }),
     );
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: "File too large. Maximum size is 5MB.",
+    expect(await responseError(response)).toMatchObject({
+      message: "File too large. Maximum size is 5MB.",
     });
     expect(await listTestBlogUploads(uploadDirectory)).toEqual([]);
   });
@@ -103,7 +104,7 @@ describe("blog image uploads and assets", () => {
     const upload = await import("@/app/api/admin/blog/upload-image/route");
     const asset = await import("@/app/api/blog/assets/[id]/route");
     const response = await upload.POST(uploadRequest());
-    const body = await response.json();
+    const body = await responseData(response);
 
     expect(response.status).toBe(201);
     expect(body.filename).toMatch(/^[0-9a-f]{32}\.png$/);

@@ -3,6 +3,9 @@
  * Provides consistent offset-based pagination.
  */
 
+import { paginationQuerySchema } from "@/lib/api/schemas/boundary";
+import { z } from "zod";
+
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 20;
 
@@ -34,11 +37,19 @@ export function parsePagination(
   defaults?: { limit?: number },
 ): PaginationParams {
   const defaultLimit = defaults?.limit ?? DEFAULT_LIMIT;
-  const parsedPage = parseInt(searchParams.get("page") || "1", 10);
-  const parsedLimit = parseInt(
-    searchParams.get("limit") || String(defaultLimit),
-    10,
+  const input = Object.fromEntries(searchParams.entries());
+  const parsed = paginationQuerySchema.safeParse(input);
+  const integer = z.coerce.number().int();
+  const pageInput = integer.safeParse(
+    parsed.success ? (parsed.data.page ?? "1") : (input.page ?? "1"),
   );
+  const limitInput = integer.safeParse(
+    parsed.success
+      ? (parsed.data.limit ?? String(defaultLimit))
+      : (input.limit ?? String(defaultLimit)),
+  );
+  const parsedPage = pageInput.success ? pageInput.data : 1;
+  const parsedLimit = limitInput.success ? limitInput.data : defaultLimit;
   const page = Number.isFinite(parsedPage) ? Math.max(1, parsedPage) : 1;
   const limit = Math.min(
     MAX_LIMIT,

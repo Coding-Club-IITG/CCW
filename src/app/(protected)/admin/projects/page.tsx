@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import BackLink from "@/components/shared/BackLink";
@@ -36,11 +38,7 @@ export default function AdminProjectsPage() {
       try {
         setError("");
         const res = await fetch(`/api/admin/projects?page=${page}&limit=20`);
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || "Failed to fetch projects.");
-        }
+        const data = await expectAppData(res);
 
         setProjects(data.items || []);
         setTotalPages(data.pagination?.totalPages || 1);
@@ -66,10 +64,10 @@ export default function AdminProjectsPage() {
     setError("");
 
     const result = await deleteProject(id);
-    if (result.success) {
+    if (result.ok) {
       setProjects((prev) => prev.filter((project) => project._id !== id));
     } else {
-      setError(result.error || "Failed to delete project.");
+      setError(result.error.message);
     }
 
     setDeleting(null);

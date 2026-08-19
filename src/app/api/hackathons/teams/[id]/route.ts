@@ -3,7 +3,13 @@
  * DELETE /api/hackathons/teams/[id] - Delete team (owner only)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseJson, parseRouteParams } from "@/lib/api/result";
+import {
+  jsonObjectSchema,
+  objectIdParamsSchema,
+} from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import HackathonTeam from "@/models/HackathonTeam";
@@ -18,49 +24,42 @@ export async function PATCH(
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const user = session.user as any;
-    const { id } = await params;
+    const validatedParams = parseRouteParams(
+      await params,
+      objectIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
-    let body: Record<string, any>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body." },
-        { status: 400 },
-      );
-    }
+    const parsedBody = await parseJson(request, jsonObjectSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const body = parsedBody.data;
 
     await dbConnect();
 
     const team = await HackathonTeam.findById(id);
     if (!team) {
-      return NextResponse.json({ error: "Team not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Team not found.");
     }
 
     if (team.owner !== user.id) {
-      return NextResponse.json(
-        { error: "Only the team owner can manage the team." },
-        { status: 403 },
-      );
+      return jsonError("FORBIDDEN", "Only the team owner can manage the team.");
     }
 
     // Remove member action
     if (body.action === "remove_member" && body.memberId) {
       const memberId = body.memberId as string;
       if (memberId === team.owner) {
-        return NextResponse.json(
-          { error: "Cannot remove the team owner." },
-          { status: 400 },
-        );
+        return jsonError("VALIDATION_ERROR", "Cannot remove the team owner.");
       }
       if (!team.members.includes(memberId)) {
-        return NextResponse.json(
-          { error: "User is not a member of this team." },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "User is not a member of this team.",
         );
       }
 
@@ -78,7 +77,7 @@ export async function PATCH(
         link: `/internal/hackathons/${team.hackathonId}`,
       });
 
-      return NextResponse.json({ success: true });
+      return jsonOk({ success: true });
     }
 
     // Toggle team open/closed status
@@ -90,15 +89,15 @@ export async function PATCH(
       const maxMembers = hackathon?.maxMembers || 999;
 
       if (team.members.length >= maxMembers) {
-        return NextResponse.json(
-          { error: "Cannot open team - max members reached." },
-          { status: 400 },
+        return jsonError(
+          "VALIDATION_ERROR",
+          "Cannot open team - max members reached.",
         );
       }
 
       const newStatus = team.status === "open" ? "closed" : "open";
       await HackathonTeam.findByIdAndUpdate(id, { status: newStatus });
-      return NextResponse.json({ success: true, status: newStatus });
+      return jsonOk({ success: true, status: newStatus });
     }
 
     // Regular update (name/description)
@@ -118,26 +117,20 @@ export async function PATCH(
     }
 
     if (Object.keys(update).length === 0) {
-      return NextResponse.json(
-        { error: "Nothing to update." },
-        { status: 400 },
-      );
+      return jsonError("VALIDATION_ERROR", "Nothing to update.");
     }
 
     const updated = await HackathonTeam.findByIdAndUpdate(id, update, {
       returnDocument: "after",
     }).lean();
-    return NextResponse.json({ team: updated });
+    return jsonOk({ team: updated });
   } catch (err) {
     logger.error("Hackathon team update failed", {
       route: "PATCH /api/hackathons/teams/[id]",
       operation: "update_team",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
 
@@ -148,24 +141,26 @@ export async function DELETE(
   try {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const user = session.user as any;
-    const { id } = await params;
+    const validatedParams = parseRouteParams(
+      await params,
+      objectIdParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { id } = validatedParams.data;
 
     await dbConnect();
 
     const team = await HackathonTeam.findById(id);
     if (!team) {
-      return NextResponse.json({ error: "Team not found." }, { status: 404 });
+      return jsonError("NOT_FOUND", "Team not found.");
     }
 
     if (team.owner !== user.id) {
-      return NextResponse.json(
-        { error: "Only the team owner can delete the team." },
-        { status: 403 },
-      );
+      return jsonError("FORBIDDEN", "Only the team owner can delete the team.");
     }
 
     // Delete the team and all associated requests
@@ -183,16 +178,13 @@ export async function DELETE(
       });
     }
 
-    return NextResponse.json({ success: true });
+    return jsonOk({ success: true });
   } catch (err) {
     logger.error("Hackathon team deletion failed", {
       route: "DELETE /api/hackathons/teams/[id]",
       operation: "delete_team",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

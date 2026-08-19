@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useEffect, useState } from "react";
 import { Globe, FolderOpen, Shield, Users, X } from "lucide-react";
 import { MODULES, CLUB_POSITIONS, MODULE_POSITIONS } from "@/lib/constants";
@@ -26,7 +28,7 @@ export default function AccessControlForm({ value, onChange }: Props) {
           `/api/users?ids=${encodeURIComponent(missing.join(","))}`,
         );
         if (!res.ok) return;
-        const data = await res.json();
+        const data = await expectAppData(res);
         if (cancelled) return;
         const additions: Record<string, UserBasic> = {};
         for (const u of (data.items || []) as UserBasic[]) additions[u._id] = u;

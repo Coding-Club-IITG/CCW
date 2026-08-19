@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { use } from "react";
@@ -26,11 +28,7 @@ export default function EditBlogPostPage({ params }: Props) {
     async function fetchPost() {
       try {
         const res = await fetch(`/api/admin/blog/${slug}`);
-        if (!res.ok) {
-          setError("Post not found.");
-          return;
-        }
-        const data = await res.json();
+        const data = await expectAppData(res);
         setPost(data.post);
       } catch {
         setError("Failed to load post.");
@@ -58,12 +56,7 @@ export default function EditBlogPostPage({ params }: Props) {
       body: JSON.stringify(data),
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "Failed to save.");
-    }
-
-    const updated = await res.json();
+    const updated = await expectAppData(res);
     // If slug changed (shouldn't normally), redirect
     if (updated.post?.slug && updated.post.slug !== slug) {
       router.push(`/admin/blog/${updated.post.slug}/edit`);

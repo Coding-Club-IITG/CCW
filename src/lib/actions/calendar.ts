@@ -1,5 +1,31 @@
 "use server";
 
+import { err as appError, ok } from "@/lib/api/result";
+
+import { defineAction } from "@/lib/actions/defineAction";
+import { toBsonSafe } from "@/lib/api/result";
+
+export const listCalendarEvents = defineAction(
+  "listCalendarEvents",
+  listCalendarEventsAction,
+);
+export const getCalendarEvent = defineAction(
+  "getCalendarEvent",
+  getCalendarEventAction,
+);
+export const createCalendarEvent = defineAction(
+  "createCalendarEvent",
+  createCalendarEventAction,
+);
+export const updateCalendarEvent = defineAction(
+  "updateCalendarEvent",
+  updateCalendarEventAction,
+);
+export const deleteCalendarEvent = defineAction(
+  "deleteCalendarEvent",
+  deleteCalendarEventAction,
+);
+
 import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
@@ -7,9 +33,9 @@ import { auth } from "@/lib/auth";
 import {
   canManageCalendarEvent,
   type CalendarScopeTarget,
-} from "@/lib/calendarAccess";
+} from "@/lib/access/calendar";
 import { expandCalendarOccurrences } from "@/lib/calendar";
-import { parseCalendarEventInput } from "@/lib/calendarValidation";
+import { parseCalendarEventInput } from "@/lib/api/schemas/calendar";
 import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { parseManagedModules } from "@/lib/roles";
@@ -44,7 +70,7 @@ function canManage(user: SessionUser, target: CalendarScopeTarget) {
 }
 
 function serialize<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+  return toBsonSafe(value) as T;
 }
 
 async function refreshCalendarPaths(id?: string) {
@@ -60,10 +86,10 @@ async function refreshCalendarPaths(id?: string) {
   revalidatePath("/sitemap.xml");
 }
 
-export async function listCalendarEvents(rangeStart: string, rangeEnd: string) {
+async function listCalendarEventsAction(rangeStart: string, rangeEnd: string) {
   try {
     if (!(await currentUser())) {
-      return { success: false as const, error: "Unauthorized" };
+      return appError("UNAUTHENTICATED", "Unauthorized");
     }
     const start = new Date(rangeStart);
     const end = new Date(rangeEnd);
@@ -73,7 +99,7 @@ export async function listCalendarEvents(rangeStart: string, rangeEnd: string) {
       end <= start ||
       end.getTime() - start.getTime() > 400 * 24 * 60 * 60 * 1000
     ) {
-      return { success: false as const, error: "Invalid calendar range." };
+      return appError("VALIDATION_ERROR", "Invalid calendar range.");
     }
 
     await dbConnect();
@@ -95,53 +121,50 @@ export async function listCalendarEvents(rangeStart: string, rangeEnd: string) {
         ),
       }))
       .filter((event) => event.occurrences.length > 0);
-    return { success: true as const, data: serialize(data) };
+    return ok(serialize(data));
   } catch (error) {
     logger.error("Calendar listing failed", {
       operation: "list_calendar_events",
       ...errorToLogMetadata(error),
     });
-    return {
-      success: false as const,
-      error: "Failed to load calendar events.",
-    };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function getCalendarEvent(id: string) {
+async function getCalendarEventAction(id: string) {
   try {
     if (!(await currentUser())) {
-      return { success: false as const, error: "Unauthorized" };
+      return appError("UNAUTHENTICATED", "Unauthorized");
     }
     if (!mongoose.isValidObjectId(id)) {
-      return { success: false as const, error: "Event not found." };
+      return appError("NOT_FOUND", "Event not found.");
     }
     await dbConnect();
     const event = await CalendarEvent.findById(id).lean();
     return event
-      ? { success: true as const, data: serialize(event) }
-      : { success: false as const, error: "Event not found." };
+      ? ok(serialize(event))
+      : appError("NOT_FOUND", "Event not found.");
   } catch (error) {
     logger.error("Calendar event lookup failed", {
       operation: "get_calendar_event",
       calendarEventId: id,
       ...errorToLogMetadata(error),
     });
-    return { success: false as const, error: "Failed to load calendar event." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function createCalendarEvent(raw: unknown) {
+async function createCalendarEventAction(raw: unknown) {
   try {
     const user = await currentUser();
-    if (!user) return { success: false as const, error: "Unauthorized" };
+    if (!user) return appError("UNAUTHENTICATED", "Unauthorized");
     const parsed = parseCalendarEventInput(raw);
-    if (!parsed.success) return parsed;
+    if (!parsed.success) return appError("VALIDATION_ERROR", parsed.error);
     if (!canManage(user, targetOf(parsed.data))) {
-      return {
-        success: false as const,
-        error: "You cannot manage events in that scope.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "You cannot manage events in that scope.",
+      );
     }
 
     await dbConnect();
@@ -150,74 +173,66 @@ export async function createCalendarEvent(raw: unknown) {
       createdBy: user.id,
     });
     await refreshCalendarPaths(String(event._id));
-    return { success: true as const, data: serialize(event.toObject()) };
+    return ok(serialize(event.toObject()));
   } catch (error) {
     logger.error("Calendar event creation failed", {
       operation: "create_calendar_event",
       ...errorToLogMetadata(error),
     });
-    return {
-      success: false as const,
-      error: "Failed to create calendar event.",
-    };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function updateCalendarEvent(id: string, raw: unknown) {
+async function updateCalendarEventAction(id: string, raw: unknown) {
   try {
     const user = await currentUser();
-    if (!user) return { success: false as const, error: "Unauthorized" };
+    if (!user) return appError("UNAUTHENTICATED", "Unauthorized");
     if (!mongoose.isValidObjectId(id)) {
-      return { success: false as const, error: "Event not found." };
+      return appError("NOT_FOUND", "Event not found.");
     }
     const parsed = parseCalendarEventInput(raw);
-    if (!parsed.success) return parsed;
+    if (!parsed.success) return appError("VALIDATION_ERROR", parsed.error);
     await dbConnect();
     const existing = await CalendarEvent.findById(id);
-    if (!existing)
-      return { success: false as const, error: "Event not found." };
+    if (!existing) return appError("NOT_FOUND", "Event not found.");
     if (
       !canManage(user, targetOf(existing)) ||
       !canManage(user, targetOf(parsed.data))
     ) {
-      return {
-        success: false as const,
-        error: "You cannot manage events in that scope.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "You cannot manage events in that scope.",
+      );
     }
     existing.set(parsed.data);
     await existing.save();
     await refreshCalendarPaths(id);
-    return { success: true as const, data: serialize(existing.toObject()) };
+    return ok(serialize(existing.toObject()));
   } catch (error) {
     logger.error("Calendar event update failed", {
       operation: "update_calendar_event",
       calendarEventId: id,
       ...errorToLogMetadata(error),
     });
-    return {
-      success: false as const,
-      error: "Failed to update calendar event.",
-    };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function deleteCalendarEvent(id: string) {
+async function deleteCalendarEventAction(id: string) {
   try {
     const user = await currentUser();
-    if (!user) return { success: false as const, error: "Unauthorized" };
+    if (!user) return appError("UNAUTHENTICATED", "Unauthorized");
     if (!mongoose.isValidObjectId(id)) {
-      return { success: false as const, error: "Event not found." };
+      return appError("NOT_FOUND", "Event not found.");
     }
     await dbConnect();
     const existing = await CalendarEvent.findById(id).lean();
-    if (!existing)
-      return { success: false as const, error: "Event not found." };
+    if (!existing) return appError("NOT_FOUND", "Event not found.");
     if (!canManage(user, targetOf(existing))) {
-      return {
-        success: false as const,
-        error: "You cannot manage events in that scope.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "You cannot manage events in that scope.",
+      );
     }
 
     const dbSession = await mongoose.startSession();
@@ -234,16 +249,13 @@ export async function deleteCalendarEvent(id: string) {
       await dbSession.endSession();
     }
     await refreshCalendarPaths(id);
-    return { success: true as const };
+    return ok({});
   } catch (error) {
     logger.error("Calendar event deletion failed", {
       operation: "delete_calendar_event",
       calendarEventId: id,
       ...errorToLogMetadata(error),
     });
-    return {
-      success: false as const,
-      error: "Failed to delete calendar event.",
-    };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }

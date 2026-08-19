@@ -1,7 +1,34 @@
 "use server";
 
+import { err as appError, ok } from "@/lib/api/result";
+
+import { defineAction } from "@/lib/actions/defineAction";
+import { toBsonSafe } from "@/lib/api/result";
+
+export const getUsers = defineAction("getUsers", getUsersAction);
+export const addUser = defineAction("addUser", addUserAction);
+export const updateUserAccess = defineAction(
+  "updateUserAccess",
+  updateUserAccessAction,
+);
+export const updateUserRoles = defineAction(
+  "updateUserRoles",
+  updateUserRolesAction,
+);
+export const updateUserTenure = defineAction(
+  "updateUserTenure",
+  updateUserTenureAction,
+);
+export const deleteUser = defineAction("deleteUser", deleteUserAction);
+export const updateUserPizzaCount = defineAction(
+  "updateUserPizzaCount",
+  updateUserPizzaCountAction,
+);
+export const updateProfile = defineAction("updateProfile", updateProfileAction);
+
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { webEnv } from "@/lib/env/web";
 import dbConnect from "@/lib/mongodb";
 import { getClient } from "@/lib/mongodb";
 import User from "@/models/User";
@@ -15,10 +42,11 @@ import {
   invalidateCache,
 } from "@/lib/cache";
 import { logger } from "@/lib/utils";
+import { isHead } from "@/lib/access/roles";
 import {
-  isHead,
   normalizeTenure,
   parseManagedModules,
+  parseRoles,
   validateRoles,
 } from "@/lib/roles";
 import {
@@ -30,6 +58,34 @@ import {
 } from "@/lib/constants";
 import { prepareSearchQuery } from "@/lib/search";
 import { ObjectId } from "mongodb";
+
+export type AdminUserDto = {
+  _id: string;
+  name?: string;
+  email: string;
+  access?: AccessLevel;
+  tenure?: string;
+  managedModules?: ModuleName[];
+  roles?: UserRole[];
+  pizza_count?: number;
+};
+
+function adminUserDto(value: unknown): AdminUserDto {
+  const user = value as Record<string, unknown>;
+  return {
+    _id: String(user._id),
+    name: typeof user.name === "string" ? user.name : undefined,
+    email: typeof user.email === "string" ? user.email : "",
+    access: ACCESS_LEVELS.includes(user.access as AccessLevel)
+      ? (user.access as AccessLevel)
+      : undefined,
+    tenure: typeof user.tenure === "string" ? user.tenure : undefined,
+    managedModules: parseManagedModules(user.managedModules),
+    roles: parseRoles(user.roles),
+    pizza_count:
+      typeof user.pizza_count === "number" ? user.pizza_count : undefined,
+  };
+}
 
 // Returns the session if user is admin, or null if unauthorized
 async function checkAdmin() {
@@ -50,10 +106,10 @@ async function checkAdmin() {
   }
 }
 
-export async function getUsers(page = 1, limit = 50, search = "") {
+async function getUsersAction(page = 1, limit = 50, search = "") {
   try {
     const session = await checkAdmin();
-    if (!session) return { success: false as const, error: "Unauthorized" };
+    if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
     await dbConnect();
 
     const preparedSearch = prepareSearchQuery(search);
@@ -81,26 +137,25 @@ export async function getUsers(page = 1, limit = 50, search = "") {
           .lean(),
         User.countDocuments(filter),
       ]);
-      return { users: JSON.parse(JSON.stringify(users)), total };
+      return { users: users.map(adminUserDto), total };
     });
 
-    return { success: true as const, users: result.users, total: result.total };
+    return ok({ users: result.users, total: result.total });
   } catch (err) {
     logger.error("getUsers error:", err);
-    return { success: false as const, error: "Failed to fetch users." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function addUser(email: string, name?: string) {
+async function addUserAction(email: string, name?: string) {
   try {
     const adminSession = await checkAdmin();
-    if (!adminSession)
-      return { success: false as const, error: "Unauthorized" };
+    if (!adminSession) return appError("UNAUTHENTICATED", "Unauthorized");
     await dbConnect();
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return { success: false as const, error: "User already exists" };
+      return appError("CONFLICT", "User already exists");
     }
 
     const newUser = await User.create({
@@ -119,36 +174,32 @@ export async function addUser(email: string, name?: string) {
     });
     await invalidateCache("users");
     revalidatePath("/admin");
-    return {
-      success: true as const,
-      user: JSON.parse(JSON.stringify(newUser)),
-    };
+    return ok({ user: toBsonSafe(newUser) });
   } catch (err) {
     logger.error("addUser error:", err);
-    return { success: false as const, error: "Failed to add user." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function updateUserAccess(
+async function updateUserAccessAction(
   userId: string,
   access: AccessLevel,
   managedModules: ModuleName[] = [],
 ) {
   try {
     const adminSession = await checkAdmin();
-    if (!adminSession)
-      return { success: false as const, error: "Unauthorized" };
+    if (!adminSession) return appError("UNAUTHENTICATED", "Unauthorized");
     await dbConnect();
 
     if (!ACCESS_LEVELS.includes(access))
-      return { success: false as const, error: "Invalid access level." };
+      return appError("VALIDATION_ERROR", "Invalid access level.");
     const modules =
       access === "Head" ? parseManagedModules(managedModules) : [];
     if (access === "Head" && modules.length === 0)
-      return {
-        success: false as const,
-        error: "Head access requires at least one managed module.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Head access requires at least one managed module.",
+      );
 
     const update: Record<string, unknown> = { access, managedModules: modules };
     if (access === "Head") update.roles = [];
@@ -157,8 +208,7 @@ export async function updateUserAccess(
       new: true,
       runValidators: true,
     });
-    if (!updatedUser)
-      return { success: false as const, error: "User not found" };
+    if (!updatedUser) return appError("NOT_FOUND", "User not found");
 
     logger.info("User role updated", {
       action: "updateUserAccess",
@@ -169,34 +219,27 @@ export async function updateUserAccess(
     await invalidateCache("team");
     revalidatePath("/admin/users");
     revalidatePath("/team");
-    return {
-      success: true as const,
-      user: JSON.parse(JSON.stringify(updatedUser)),
-    };
+    return ok({ user: toBsonSafe(updatedUser) });
   } catch (err) {
     logger.error("updateUserRole error:", err);
-    return { success: false as const, error: "Failed to update user access." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function updateUserRoles(userId: string, roles: UserRole[]) {
+async function updateUserRolesAction(userId: string, roles: UserRole[]) {
   try {
     const adminSession = await checkAdmin();
-    if (!adminSession)
-      return { success: false as const, error: "Unauthorized" };
+    if (!adminSession) return appError("UNAUTHENTICATED", "Unauthorized");
     await dbConnect();
 
     const user = await User.findById(userId).select("access").lean();
-    if (!user) return { success: false as const, error: "User not found" };
+    if (!user) return appError("NOT_FOUND", "User not found");
     if (user.access === "Head")
-      return {
-        success: false as const,
-        error:
-          "Head roles are generated from managed modules. Edit Head access instead.",
-      };
+      return appError("INTERNAL_ERROR", "An unexpected error occurred.");
 
     const validation = validateRoles(roles);
-    if (!validation.success) return validation;
+    if (!validation.success)
+      return appError("VALIDATION_ERROR", validation.error);
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
@@ -212,35 +255,30 @@ export async function updateUserRoles(userId: string, roles: UserRole[]) {
     await invalidateCache("team");
     revalidatePath("/admin/users");
     revalidatePath("/team");
-    return {
-      success: true as const,
-      user: JSON.parse(JSON.stringify(updatedUser)),
-    };
+    return ok({ user: toBsonSafe(updatedUser) });
   } catch (err) {
     logger.error("updateUserModuleRoles error:", err);
-    return { success: false as const, error: "Failed to update roles." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function updateUserTenure(userId: string, value: string) {
+async function updateUserTenureAction(userId: string, value: string) {
   try {
     const adminSession = await checkAdmin();
-    if (!adminSession)
-      return { success: false as const, error: "Unauthorized" };
+    if (!adminSession) return appError("UNAUTHENTICATED", "Unauthorized");
     const tenure = normalizeTenure(value);
     if (!tenure)
-      return {
-        success: false as const,
-        error: "Tenure must be a consecutive academic year in YYYY-YY format.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Tenure must be a consecutive academic year in YYYY-YY format.",
+      );
     await dbConnect();
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { tenure },
       { new: true, runValidators: true },
     );
-    if (!updatedUser)
-      return { success: false as const, error: "User not found" };
+    if (!updatedUser) return appError("NOT_FOUND", "User not found");
     logger.info("User tenure updated", {
       action: "updateUserTenure",
       resourceId: userId,
@@ -250,27 +288,23 @@ export async function updateUserTenure(userId: string, value: string) {
     await invalidateCache("team");
     revalidatePath("/admin/users");
     revalidatePath("/team");
-    return {
-      success: true as const,
-      user: JSON.parse(JSON.stringify(updatedUser)),
-    };
+    return ok({ user: toBsonSafe(updatedUser) });
   } catch (err) {
     logger.error("updateUserTenure error:", err);
-    return { success: false as const, error: "Failed to update tenure." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function deleteUser(userId: string) {
+async function deleteUserAction(userId: string) {
   try {
     const adminSession = await checkAdmin();
-    if (!adminSession)
-      return { success: false as const, error: "Unauthorized" };
+    if (!adminSession) return appError("UNAUTHENTICATED", "Unauthorized");
     await dbConnect();
 
     const userToDelete = await User.findById(userId);
     if (!userToDelete) {
       revalidatePath("/admin");
-      return { success: true as const };
+      return ok({});
     }
 
     logger.warn("User deletion started", {
@@ -328,22 +362,21 @@ export async function deleteUser(userId: string) {
     await invalidateCache("cp");
     await invalidateCache("potd");
     revalidatePath("/admin");
-    return { success: true as const };
+    return ok({});
   } catch (err) {
     logger.error("deleteUser error:", err);
-    return { success: false as const, error: "Failed to delete user." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function updateUserPizzaCount(userId: string, delta: 1 | -1) {
+async function updateUserPizzaCountAction(userId: string, delta: 1 | -1) {
   try {
     const adminSession = await checkAdmin();
-    if (!adminSession)
-      return { success: false as const, error: "Unauthorized" };
+    if (!adminSession) return appError("UNAUTHENTICATED", "Unauthorized");
     await dbConnect();
 
     const user = await User.findById(userId);
-    if (!user) return { success: false as const, error: "User not found" };
+    if (!user) return appError("NOT_FOUND", "User not found");
 
     const newCount = Math.max(0, (user.pizza_count || 0) + delta);
     const updatedUser = await User.findByIdAndUpdate(
@@ -362,20 +395,14 @@ export async function updateUserPizzaCount(userId: string, delta: 1 | -1) {
     await invalidateCache("cp");
     await invalidateCache("potd");
     revalidatePath("/admin");
-    return {
-      success: true as const,
-      pizza_count: newCount,
-    };
+    return ok({ pizza_count: newCount });
   } catch (err) {
     logger.error("updateUserPizzaCount error:", err);
-    return {
-      success: false as const,
-      error: "Failed to update pizza count.",
-    };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
 
-export async function updateProfile(data: {
+async function updateProfileAction(data: {
   name: string;
   image?: string;
   codeforcesId?: string;
@@ -388,15 +415,15 @@ export async function updateProfile(data: {
     const session = await auth.api.getSession({
       headers: await headers(),
     });
-    if (!session) return { success: false as const, error: "Unauthorized" };
+    if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
 
     // Input validation
     const name = data.name?.trim();
     if (!name || name.length > 100) {
-      return {
-        success: false as const,
-        error: "Name is required and must be 100 characters or fewer.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Name is required and must be 100 characters or fewer.",
+      );
     }
 
     // Validate image URL
@@ -404,54 +431,47 @@ export async function updateProfile(data: {
     const AVATAR_URL_REGEX =
       /^\/api\/profile\/assets\/[0-9a-f]+\.(jpe?g|png|gif|webp|avif)$/i;
     if (image && !AVATAR_URL_REGEX.test(image)) {
-      return {
-        success: false as const,
-        error: "Invalid profile image URL.",
-      };
+      return appError("VALIDATION_ERROR", "Invalid profile image URL.");
     }
 
     const codeforcesId = data.codeforcesId?.trim() || "";
     if (codeforcesId.length > 50 || !/^[\w.-]*$/.test(codeforcesId)) {
-      return {
-        success: false as const,
-        error:
-          "Codeforces ID must be 50 characters or fewer and contain only letters, numbers, underscores, hyphens, or periods.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Codeforces ID must be 50 characters or fewer and contain only letters, numbers, underscores, hyphens, or periods.",
+      );
     }
 
     const atcoderId = data.atcoderId?.trim() || "";
     if (atcoderId.length > 50 || !/^[\w.-]*$/.test(atcoderId)) {
-      return {
-        success: false as const,
-        error:
-          "AtCoder ID must be 50 characters or fewer and contain only letters, numbers, underscores, hyphens, or periods.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "AtCoder ID must be 50 characters or fewer and contain only letters, numbers, underscores, hyphens, or periods.",
+      );
     }
 
     const githubId = data.githubId?.trim() || "";
     if (githubId.length > 50 || !/^[\w.-]*$/.test(githubId)) {
-      return {
-        success: false as const,
-        error:
-          "GitHub ID must be 50 characters or fewer and contain only letters, numbers, underscores, hyphens, or periods.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "GitHub ID must be 50 characters or fewer and contain only letters, numbers, underscores, hyphens, or periods.",
+      );
     }
 
     const bio = data.bio?.trim() || "";
     if (bio.length > 500) {
-      return {
-        success: false as const,
-        error: "Bio must be 500 characters or fewer.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Bio must be 500 characters or fewer.",
+      );
     }
 
     const phoneNumber = data.phoneNumber?.trim() || "";
     if (phoneNumber.length > 20 || !/^[\d\s+()-]*$/.test(phoneNumber)) {
-      return {
-        success: false as const,
-        error:
-          "Phone number must be 20 characters or fewer and contain only digits, spaces, +, (, ), or -.",
-      };
+      return appError(
+        "VALIDATION_ERROR",
+        "Phone number must be 20 characters or fewer and contain only digits, spaces, +, (, ), or -.",
+      );
     }
 
     await dbConnect();
@@ -491,9 +511,7 @@ export async function updateProfile(data: {
         if (oldFilename) {
           const { unlink } = await import("fs/promises");
           const pathMod = await import("path");
-          const avatarDir =
-            process.env.AVATAR_UPLOAD_DIR ??
-            pathMod.default.join(process.cwd(), "uploads", "avatars");
+          const avatarDir = pathMod.default.resolve(webEnv.AVATAR_UPLOAD_DIR);
           const filePath = pathMod.default.join(avatarDir, oldFilename);
           await unlink(filePath).catch(() => {});
         }
@@ -547,13 +565,9 @@ export async function updateProfile(data: {
     await invalidateCache("potd");
     revalidatePath("/internal/dashboard");
     revalidatePath("/team");
-    return {
-      success: true as const,
-      user: JSON.parse(JSON.stringify(updatedUser)),
-      handleChanged,
-    };
+    return ok({ user: toBsonSafe(updatedUser), handleChanged });
   } catch (err) {
     logger.error("updateProfile error:", err);
-    return { success: false as const, error: "Failed to update profile." };
+    return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }

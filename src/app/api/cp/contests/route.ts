@@ -1,4 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseSearchParams } from "@/lib/api/result";
+import { paginationQuerySchema } from "@/lib/api/schemas/boundary";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
@@ -8,6 +11,8 @@ export async function GET(request: NextRequest) {
   await dbConnect();
 
   const { searchParams } = new URL(request.url);
+  const query = parseSearchParams(searchParams, paginationQuerySchema);
+  if (!query.ok) return jsonResult(query);
   const { page, limit, skip } = parsePagination(searchParams, { limit: 50 });
 
   const cacheKey = buildCacheKey("contests", { page, limit });
@@ -38,7 +43,5 @@ export async function GET(request: NextRequest) {
     return { data, total };
   });
 
-  return NextResponse.json(
-    paginatedResponse(result.data, result.total, page, limit),
-  );
+  return jsonOk(paginatedResponse(result.data, result.total, page, limit));
 }

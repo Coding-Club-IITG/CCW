@@ -1,7 +1,7 @@
 import ContestQuestion from "@/models/ContestQuestion";
 import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
-import { cp } from "@/lib/cf-api";
+import { cp } from "@/lib/platforms/codeforces";
 
 const BATCH_SIZE = 1000;
 

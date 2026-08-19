@@ -6,10 +6,10 @@ import styles from "./Potd.module.scss";
 export default async function PotdPage() {
   const cpStatusResult = await getCPStatus();
   const cfVerified = cpStatusResult.ok
-    ? (cpStatusResult.cfVerified ?? false)
+    ? (cpStatusResult.data.cfVerified ?? false)
     : false;
   const acVerified = cpStatusResult.ok
-    ? (cpStatusResult.acVerified ?? false)
+    ? (cpStatusResult.data.acVerified ?? false)
     : false;
 
   const challengeResult = await getTodayChallenge();
@@ -22,7 +22,7 @@ export default async function PotdPage() {
       <DailyChallengeClient
         cfVerified={cfVerified}
         acVerified={acVerified}
-        initialData={challengeResult.data ?? null}
+        initialData={challengeResult.ok ? challengeResult.data : null}
       />
     </div>
   );

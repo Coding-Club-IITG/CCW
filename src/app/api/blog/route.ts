@@ -2,7 +2,14 @@
  * GET /api/blog - List published blog posts (public)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseSearchParams } from "@/lib/api/result";
+import {
+  optionalSearchQuerySchema,
+  paginationQueryFields,
+} from "@/lib/api/schemas/boundary";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
@@ -15,9 +22,18 @@ export async function GET(request: NextRequest) {
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
+    const query = parseSearchParams(
+      searchParams,
+      z.object({
+        ...paginationQueryFields,
+        tag: z.string().trim().min(1).max(100).optional(),
+        search: optionalSearchQuerySchema,
+      }),
+    );
+    if (!query.ok) return jsonResult(query);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 12 });
-    const tag = searchParams.get("tag")?.trim() || null;
-    const searchQuery = prepareSearchQuery(searchParams.get("search"));
+    const tag = query.data.tag ?? null;
+    const searchQuery = prepareSearchQuery(query.data.search);
 
     const cacheKey = buildCacheKey("blog:list:v2", {
       page,
@@ -54,16 +70,13 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json(result);
+    return jsonOk(result);
   } catch (err) {
     logger.error("Published blog listing failed", {
       route: "GET /api/blog",
       operation: "list_posts",
       ...errorToLogMetadata(err),
     });
-    return NextResponse.json(
-      { error: "Internal server error." },
-      { status: 500 },
-    );
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }

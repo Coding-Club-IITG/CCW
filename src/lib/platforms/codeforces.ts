@@ -3,12 +3,14 @@
  * Wrapping @ronits2407/cp-api SDK
  */
 
-import { cp } from "@ronits2407/cp-api";
+import { cp, type CFSubmission } from "@ronits2407/cp-api";
 import { getRedis } from "@/lib/redis";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 
 const DISTRIBUTED_CODEFORCES_SLOT_KEY = "ccw:platform:codeforces:request-slot";
 const DISTRIBUTED_CODEFORCES_SLOT_SECONDS = 2;
+
+export { cp };
 
 // Re-export types from SDK
 export type { CFSubmission, CFUserInfo, CFProblem } from "@ronits2407/cp-api";
@@ -25,6 +27,41 @@ export async function getUserInfo(handles: string | string[]) {
  */
 export async function getUserSubmissions(handle: string, count: number = 100) {
   return cp.codeforces.getSubmissions(handle, { count });
+}
+
+export async function fetchCodeforcesUserStatus(
+  handle: string,
+  count?: number,
+  from: number = 1,
+): Promise<CFSubmission[]> {
+  logger.debug("Codeforces submissions fetch started", {
+    operation: "fetch_submissions",
+    count,
+    from,
+  });
+  return cp.codeforces.getSubmissions(handle, { count, from });
+}
+
+/** Cache a user's solved problem IDs in Redis for six hours. */
+export async function prefetchUserSolvedHistory(handle: string): Promise<void> {
+  const solvedProblems = await cp.codeforces.getUserSolvedProblems(handle);
+  const solvedProblemIds = new Set(
+    solvedProblems.map((problem) => `${problem.contestId}${problem.index}`),
+  );
+  const redis = await getRedis();
+  const key = `solved:${handle.toLowerCase()}`;
+  const pipeline = redis.multi();
+  pipeline.del(key);
+  pipeline.sAdd(
+    key,
+    solvedProblemIds.size ? [...solvedProblemIds] : ["__empty__"],
+  );
+  pipeline.expire(key, 6 * 60 * 60);
+  await pipeline.exec();
+  logger.info("Codeforces solved-history prefetch completed", {
+    operation: "prefetch_solved_history",
+    solvedProblemCount: solvedProblemIds.size,
+  });
 }
 
 /**

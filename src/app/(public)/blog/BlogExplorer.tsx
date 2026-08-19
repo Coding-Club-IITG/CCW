@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import BlogCard from "@/components/blog/BlogCard";
@@ -60,7 +62,7 @@ export default function BlogExplorer({
     setLoading(true);
     window.history.replaceState(null, "", `/blog?${params}`);
     fetch(`/api/blog?${params}`, { signal: controller.signal })
-      .then((response) => response.json())
+      .then((response) => expectAppData(response))
       .then((next) => setData(next))
       .catch((error: unknown) => {
         if (!(error instanceof DOMException && error.name === "AbortError"))

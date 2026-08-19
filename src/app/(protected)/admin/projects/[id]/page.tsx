@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
@@ -60,14 +62,11 @@ export default function EditProjectPage({
     async function fetchProject() {
       try {
         const res = await fetch(`/api/admin/projects/${id}`);
-        const data = (await res.json()) as {
-          error?: string;
+        const data = await expectAppData<{
           project?: ProjectData;
-        };
+        }>(res);
 
-        if (!res.ok || !data.project) {
-          throw new Error(data.error || "Failed to load project.");
-        }
+        if (!data.project) throw new Error("Failed to load project.");
 
         const project = data.project;
         setTitle(project.title);
@@ -124,13 +123,13 @@ export default function EditProjectPage({
     if (tags) formData.set("tags", tags);
 
     const result = await updateProject(id, formData);
-    if (result.success) {
+    if (result.ok) {
       router.push("/admin/projects");
       router.refresh();
       return;
     }
 
-    setError(result.error || "Failed to update project.");
+    setError(result.error.message);
     setSaving(false);
   }
 

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import {
   registerForContest,
   getAvailableTeamsForContest,
+  getContestRegistrations,
+  unregisterFromContest,
 } from "@/lib/actions/contests";
 import { useRouter } from "next/navigation";
 import {
@@ -58,8 +60,8 @@ export default function RegisterContestModal({
     if (isOpen && teamSize > 1 && !viewOnly) {
       setLoadingTeams(true);
       getAvailableTeamsForContest(contestId)
-        .then((teams) => {
-          setAvailableTeams(teams);
+        .then((result) => {
+          if (result.ok) setAvailableTeams(result.data);
           setLoadingTeams(false);
         })
         .catch(() => {
@@ -71,15 +73,15 @@ export default function RegisterContestModal({
   useEffect(() => {
     if (isOpen) {
       setLoadingRegistrations(true);
-      import("@/lib/actions/contests")
-        .then(({ getContestRegistrations }) => {
+      Promise.resolve()
+        .then(() => {
           getContestRegistrations(contestId)
             .then((res) => {
-              if (res.success) {
-                setRegistrations(res.registrations || []);
-                setFormat(res.format || "unknown");
-                setIsDeadlinePassed(res.isDeadlinePassed || false);
-                setRegistrationType(res.registrationType || "open");
+              if (res.ok) {
+                setRegistrations(res.data.registrations || []);
+                setFormat(res.data.format || "unknown");
+                setIsDeadlinePassed(res.data.isDeadlinePassed || false);
+                setRegistrationType(res.data.registrationType || "open");
               }
               setLoadingRegistrations(false);
             })
@@ -106,12 +108,12 @@ export default function RegisterContestModal({
     setLoading(true);
     try {
       const res = await registerForContest(contestId, teamName);
-      if (res.success) {
+      if (res.ok) {
         alert("Registered successfully!");
         onClose();
         router.refresh();
       } else {
-        alert(res.message || "Error registering");
+        alert(res.error.message);
       }
     } catch (err) {
       alert("Error registering");
@@ -124,14 +126,13 @@ export default function RegisterContestModal({
     if (!confirm("Are you sure you want to leave this contest?")) return;
     setLoading(true);
     try {
-      const { unregisterFromContest } = await import("@/lib/actions/contests");
       const res = await unregisterFromContest(contestId);
-      if (res.success) {
+      if (res.ok) {
         alert("Successfully unregistered!");
         onClose();
         router.refresh();
       } else {
-        alert(res.message || "Failed to unregister");
+        alert(res.error.message);
       }
     } catch (e) {
       alert("Error unregistering");

@@ -25,7 +25,10 @@ The official web platform for Coding Club IITG.
    ```bash
    cp .env.example .env.local
    ```
-2. Fill in all the variables
+2. Fill in the required values.
+
+Runtime configuration is validated independently for web, worker, CLI, test,
+and browser processes. Keep browser values under `NEXT_PUBLIC_*`.
 
 ## Docker Setup
 
@@ -34,6 +37,8 @@ You can use Docker Compose to start the required services (MongoDB and Redis):
 ```bash
 docker compose up -d
 ```
+
+Tests use `MONGODB_TEST_URI` to create isolated `ccw-test-*` databases.
 
 ## Getting Started
 

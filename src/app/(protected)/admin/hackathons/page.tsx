@@ -1,5 +1,7 @@
 "use client";
 
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
+
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
@@ -46,7 +48,7 @@ export default function AdminHackathonsPage() {
     try {
       setError("");
       const res = await fetch(`/api/admin/hackathons?page=${page}&limit=20`);
-      const data = await res.json();
+      const data = await expectAppData(res);
       setHackathons(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
     } catch {
@@ -118,20 +120,18 @@ export default function AdminHackathonsPage() {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(
-          data.error ||
-            `Failed to ${editingId ? "update" : "create"} hackathon.`,
-        );
-        return;
-      }
+      await expectAppData(res);
 
       resetForm();
       setShowForm(false);
       void fetchHackathons();
-    } catch {
-      setError(`Failed to ${editingId ? "update" : "create"} hackathon.`);
+    } catch (error) {
+      setError(
+        appErrorMessage(
+          error,
+          `Failed to ${editingId ? "update" : "create"} hackathon.`,
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -140,7 +140,10 @@ export default function AdminHackathonsPage() {
   async function handleArchive(id: string) {
     if (!confirm("Archive this hackathon?")) return;
     try {
-      await fetch(`/api/admin/hackathons/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/admin/hackathons/${id}`, {
+        method: "DELETE",
+      });
+      await expectAppData(response);
       void fetchHackathons();
     } catch {
       setError("Failed to archive hackathon.");

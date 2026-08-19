@@ -1,5 +1,7 @@
 "use client";
 
+import { expectAppData } from "@/lib/api/result";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import BackLink from "@/components/shared/BackLink";
@@ -75,8 +77,7 @@ export default function AdminEventsPage() {
         const res = await fetch(
           `/api/admin/events?page=${page}&limit=20${statusQuery}`,
         );
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to fetch events.");
+        const data = await expectAppData(res);
         setEvents(data.items || []);
         setTotalPages(data.pagination?.totalPages || 1);
       } catch (err) {
