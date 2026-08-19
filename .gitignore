@@ -25,4 +25,4 @@ next-env.d.ts
 .direnv/
 
 # File uploads
-uploads/
+/uploads/
