@@ -4,7 +4,7 @@ import { useState } from "react";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import ImageUpload from "@/components/shared/ImageUpload";
 import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
-import TagBadge from "./TagBadge";
+import TagBadge from "@/components/shared/TagBadge";
 import { X as IconX } from "lucide-react";
 import { BLOG_TAGS, BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import {

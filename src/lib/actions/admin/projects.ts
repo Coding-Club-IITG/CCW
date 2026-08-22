@@ -39,6 +39,15 @@ function getString(formData: FormData, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function parseMonthInput(value: string): Date | null {
   // Accept YYYY-MM (native input[type=month]) or MM/YYYY (manual entry)
   let year: number;
@@ -136,6 +145,7 @@ async function createProjectAction(formData: FormData) {
     const title = getString(formData, "title");
     const description = getString(formData, "description");
     const repoLink = getString(formData, "repoLink");
+    const liveUrl = getString(formData, "liveUrl");
     const coverImage = getString(formData, "coverImage");
     const coverFocalPoint = parseImageFocalPoint({
       x: formData.get("coverFocalPointX"),
@@ -175,12 +185,17 @@ async function createProjectAction(formData: FormData) {
       return appError("VALIDATION_ERROR", "Invalid status selected.");
     }
 
-    try {
-      new URL(repoLink);
-    } catch {
+    if (!isHttpUrl(repoLink)) {
       return appError(
         "VALIDATION_ERROR",
-        "Repository link must be a valid URL.",
+        "Repository link must be a valid HTTP or HTTPS URL.",
+      );
+    }
+
+    if (liveUrl && !isHttpUrl(liveUrl)) {
+      return appError(
+        "VALIDATION_ERROR",
+        "Live site URL must be a valid HTTP or HTTPS URL.",
       );
     }
 
@@ -194,6 +209,7 @@ async function createProjectAction(formData: FormData) {
       title,
       description,
       repoLink,
+      liveUrl: liveUrl || undefined,
       coverImage,
       coverFocalPoint,
       date,
@@ -228,6 +244,7 @@ async function updateProjectAction(id: string, formData: FormData) {
     const title = getString(formData, "title");
     const description = getString(formData, "description");
     const repoLink = getString(formData, "repoLink");
+    const liveUrl = getString(formData, "liveUrl");
     const coverImage = getString(formData, "coverImage");
     const coverFocalPoint = parseImageFocalPoint({
       x: formData.get("coverFocalPointX"),
@@ -267,12 +284,17 @@ async function updateProjectAction(id: string, formData: FormData) {
       return appError("VALIDATION_ERROR", "Invalid status selected.");
     }
 
-    try {
-      new URL(repoLink);
-    } catch {
+    if (!isHttpUrl(repoLink)) {
       return appError(
         "VALIDATION_ERROR",
-        "Repository link must be a valid URL.",
+        "Repository link must be a valid HTTP or HTTPS URL.",
+      );
+    }
+
+    if (liveUrl && !isHttpUrl(liveUrl)) {
+      return appError(
+        "VALIDATION_ERROR",
+        "Live site URL must be a valid HTTP or HTTPS URL.",
       );
     }
 
@@ -285,15 +307,19 @@ async function updateProjectAction(id: string, formData: FormData) {
     const project = await Project.findByIdAndUpdate(
       id,
       {
-        title,
-        description,
-        repoLink,
-        coverImage,
-        coverFocalPoint,
-        date,
-        module: projectModule,
-        status,
-        tags,
+        $set: {
+          title,
+          description,
+          repoLink,
+          coverImage,
+          coverFocalPoint,
+          date,
+          module: projectModule,
+          status,
+          tags,
+          ...(liveUrl ? { liveUrl } : {}),
+        },
+        ...(liveUrl ? {} : { $unset: { liveUrl: 1 } }),
       },
       { new: true },
     ).lean();

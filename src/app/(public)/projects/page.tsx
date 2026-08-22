@@ -2,7 +2,7 @@ import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import Project, { IProject } from "@/models/Project";
 import { logger } from "@/lib/utils";
-import FocalImage from "@/components/shared/FocalImage";
+import ProjectCard from "@/components/projects/ProjectCard";
 import styles from "./Projects.module.scss";
 import type { Metadata } from "next";
 import JsonLd from "@/components/shared/JsonLd";
@@ -14,13 +14,6 @@ export const metadata: Metadata = pageMetadata({
     "Explore open-source software, machine learning, design, and security projects built by Coding Club IITG members.",
   path: "/projects",
 });
-
-function formatMonthYear(date: Date): string {
-  return new Date(date).toLocaleDateString("en-IN", {
-    month: "short",
-    year: "numeric",
-  });
-}
 
 export default async function ProjectsPage() {
   let projects: IProject[] = [];
@@ -77,35 +70,19 @@ export default async function ProjectsPage() {
       ) : (
         <div className={styles.grid}>
           {projects.map((project) => (
-            <a
+            <ProjectCard
               key={String(project._id)}
-              href={project.repoLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.card}
-            >
-              {project.coverImage && (
-                <div className={styles.coverWrapper}>
-                  <FocalImage
-                    src={project.coverImage}
-                    focalPoint={project.coverFocalPoint}
-                    alt={project.title}
-                    className={styles.cover}
-                    width={640}
-                    height={360}
-                  />
-                </div>
-              )}
-              <div className={styles.cardContent}>
-                <span className={styles.moduleBadge}>{project.module}</span>
-                <h2 className={styles.projectTitle}>{project.title}</h2>
-                <p className={styles.description}>{project.description}</p>
-                <div className={styles.meta}>
-                  <span>{formatMonthYear(project.date)}</span>
-                  <span className={styles.status}>{project.status}</span>
-                </div>
-              </div>
-            </a>
+              title={project.title}
+              description={project.description}
+              date={project.date}
+              module={project.module}
+              status={project.status}
+              repoLink={project.repoLink}
+              liveUrl={project.liveUrl}
+              coverImage={project.coverImage}
+              coverFocalPoint={project.coverFocalPoint}
+              tags={project.tags}
+            />
           ))}
         </div>
       )}

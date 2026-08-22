@@ -1,8 +1,8 @@
-import { type EventStatus } from "@/lib/constants";
+import type { EventStatus, ProjectStatus } from "@/lib/constants";
 import styles from "./StatusBadge.module.scss";
 
 interface StatusBadgeProps {
-  status: EventStatus;
+  status: EventStatus | ProjectStatus;
 }
 
 export default function StatusBadge({ status }: StatusBadgeProps) {

@@ -19,6 +19,7 @@ interface ProjectData {
   title: string;
   description: string;
   repoLink: string;
+  liveUrl?: string;
   coverImage?: string;
   coverFocalPoint?: ImageFocalPoint;
   date: string;
@@ -42,6 +43,7 @@ export default function EditProjectPage({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [repoLink, setRepoLink] = useState("");
+  const [liveUrl, setLiveUrl] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [coverFocalPoint, setCoverFocalPoint] = useState<ImageFocalPoint>(
     DEFAULT_IMAGE_FOCAL_POINT,
@@ -72,6 +74,7 @@ export default function EditProjectPage({
         setTitle(project.title);
         setDescription(project.description);
         setRepoLink(project.repoLink);
+        setLiveUrl(project.liveUrl || "");
         setCoverImage(project.coverImage || "");
         setCoverFocalPoint(
           project.coverFocalPoint || DEFAULT_IMAGE_FOCAL_POINT,
@@ -114,6 +117,7 @@ export default function EditProjectPage({
     formData.set("title", title);
     formData.set("description", description);
     formData.set("repoLink", repoLink);
+    formData.set("liveUrl", liveUrl);
     if (coverImage) formData.set("coverImage", coverImage);
     formData.set("coverFocalPointX", String(coverFocalPoint.x));
     formData.set("coverFocalPointY", String(coverFocalPoint.y));
@@ -170,6 +174,17 @@ export default function EditProjectPage({
             onChange={(event) => setRepoLink(event.target.value)}
             className={styles.input}
             placeholder="https://github.com/..."
+          />
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>Live site URL</label>
+          <input
+            type="url"
+            value={liveUrl}
+            onChange={(event) => setLiveUrl(event.target.value)}
+            className={styles.input}
+            placeholder="https://example.com"
           />
         </div>
 

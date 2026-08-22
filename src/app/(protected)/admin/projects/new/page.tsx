@@ -17,6 +17,7 @@ export default function NewProjectPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [repoLink, setRepoLink] = useState("");
+  const [liveUrl, setLiveUrl] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [coverFocalPoint, setCoverFocalPoint] = useState<ImageFocalPoint>(
     DEFAULT_IMAGE_FOCAL_POINT,
@@ -54,6 +55,7 @@ export default function NewProjectPage() {
     formData.set("title", title);
     formData.set("description", description);
     formData.set("repoLink", repoLink);
+    formData.set("liveUrl", liveUrl);
     if (coverImage) formData.set("coverImage", coverImage);
     formData.set("coverFocalPointX", String(coverFocalPoint.x));
     formData.set("coverFocalPointY", String(coverFocalPoint.y));
@@ -101,6 +103,17 @@ export default function NewProjectPage() {
             onChange={(event) => setRepoLink(event.target.value)}
             className={styles.input}
             placeholder="https://github.com/..."
+          />
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>Live site URL</label>
+          <input
+            type="url"
+            value={liveUrl}
+            onChange={(event) => setLiveUrl(event.target.value)}
+            className={styles.input}
+            placeholder="https://example.com"
           />
         </div>
 

@@ -5,7 +5,7 @@ import { expectAppData } from "@/lib/api/result";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import BlogCard from "@/components/blog/BlogCard";
-import TagBadge from "@/components/blog/TagBadge";
+import TagBadge from "@/components/shared/TagBadge";
 import SearchInput from "@/components/shared/SearchInput";
 import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import styles from "./Blog.module.scss";

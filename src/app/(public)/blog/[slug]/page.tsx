@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import dbConnect from "@/lib/mongodb";
 import BlogPost from "@/models/BlogPost";
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
-import TagBadge from "@/components/blog/TagBadge";
+import TagBadge from "@/components/shared/TagBadge";
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import styles from "./BlogPost.module.scss";

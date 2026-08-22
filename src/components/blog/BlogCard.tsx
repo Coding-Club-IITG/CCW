@@ -1,10 +1,10 @@
 import Link from "next/link";
-import TagBadge from "./TagBadge";
 import {
   CalendarDays as IconCalendar,
   PencilLine as IconEdit,
 } from "lucide-react";
 import FocalImage from "@/components/shared/FocalImage";
+import TagBadge from "@/components/shared/TagBadge";
 import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import styles from "./BlogCard.module.scss";
 

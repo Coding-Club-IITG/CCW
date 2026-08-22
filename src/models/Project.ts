@@ -14,6 +14,7 @@ export interface IProject extends Document {
   module: ProjectModuleName;
   status: ProjectStatus;
   repoLink: string;
+  liveUrl?: string;
   coverImage?: string;
   coverFocalPoint: ImageFocalPoint;
   tags: string[];
@@ -35,6 +36,7 @@ const ProjectSchema: Schema = new Schema(
       required: true,
     },
     repoLink: { type: String, required: true },
+    liveUrl: { type: String },
     coverImage: { type: String },
     coverFocalPoint: {
       x: { type: Number, min: 0, max: 1, default: 0.5 },
