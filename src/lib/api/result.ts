@@ -22,7 +22,8 @@ export type AppError = {
 };
 
 export type AppResult<T> =
-  { ok: true; data: T } | { ok: false; error: AppError };
+  | { ok: true; data: T }
+  | { ok: false; error: AppError };
 
 export const HTTP_STATUS_BY_ERROR_CODE: Record<AppErrorCode, number> = {
   VALIDATION_ERROR: 400,
@@ -131,7 +132,9 @@ export function parseRouteParams<T>(
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue =
-  JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+  | JsonPrimitive
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 /** Convert BSON/Mongoose values into explicitly JSON-safe plain values */
 export function toBsonSafe(value: unknown): JsonValue {

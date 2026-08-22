@@ -7,6 +7,7 @@ import {
   getContestRegistrations,
   unregisterFromContest,
 } from "@/lib/actions/contests";
+import type { ContestRegistrationDto } from "@/lib/contests/dtos";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -44,7 +45,9 @@ export default function RegisterContestModal({
   >([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
 
-  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [registrations, setRegistrations] = useState<ContestRegistrationDto[]>(
+    [],
+  );
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
   const [format, setFormat] = useState<string>("unknown");
   const [isDeadlinePassed, setIsDeadlinePassed] = useState(false);
@@ -115,7 +118,7 @@ export default function RegisterContestModal({
       } else {
         alert(res.error.message);
       }
-    } catch (err) {
+    } catch {
       alert("Error registering");
     } finally {
       setLoading(false);
@@ -134,7 +137,7 @@ export default function RegisterContestModal({
       } else {
         alert(res.error.message);
       }
-    } catch (e) {
+    } catch {
       alert("Error unregistering");
     } finally {
       setLoading(false);
@@ -182,7 +185,7 @@ export default function RegisterContestModal({
         </div>
       );
     } else {
-      const teams: Record<string, any[]> = {};
+      const teams: Record<string, ContestRegistrationDto[]> = {};
       registrations.forEach((r) => {
         if (!teams[r.teamName]) teams[r.teamName] = [];
         teams[r.teamName].push(r);

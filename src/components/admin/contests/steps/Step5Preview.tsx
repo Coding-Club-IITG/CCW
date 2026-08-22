@@ -1,8 +1,12 @@
 import styles from "../ContestWizard.module.scss";
+import type {
+  AdminContestWizardForm,
+  ContestCreationPreset,
+} from "@/components/contests/contestCreationForm";
 
 interface Step5Props {
-  formData: any;
-  presets: any[];
+  formData: AdminContestWizardForm;
+  presets: ContestCreationPreset[];
 }
 
 export default function Step5Preview({ formData, presets }: Step5Props) {
@@ -75,7 +79,7 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
               <strong className={styles.previewValue}>
                 {selectedPreset.problemSelectionMode === "bulk"
                   ? `Bulk (${selectedPreset.bulkProblemCount} problems from ${selectedPreset.bulkPlatform}, rating ${selectedPreset.bulkRatingMin}-${selectedPreset.bulkRatingMax})`
-                  : `Fine-tuned slots (${selectedPreset.problemSlots?.map((s: any) => s.rating).join(", ")})`}
+                  : `Fine-tuned slots (${selectedPreset.problemSlots?.map((slot) => slot.rating).join(", ")})`}
               </strong>
             </>
           )}

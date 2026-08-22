@@ -1,6 +1,6 @@
 import dbConnect from "@/lib/mongodb";
 import ContestPreset from "@/models/ContestPreset";
-import { toBsonSafe } from "@/lib/api/result";
+import { toContestPresetDto } from "@/lib/contests/dtos";
 import PresetManager from "@/components/admin/contests/PresetManager";
 import BackLink from "@/components/shared/BackLink";
 import styles from "./presets.module.scss";
@@ -16,7 +16,7 @@ export default async function PresetsPage() {
   const presetsJson = await ContestPreset.find().sort({ name: 1 }).lean();
 
   // Serialize Mongo _id and Dates
-  const presets = toBsonSafe(presetsJson) as any[];
+  const presets = presetsJson.map(toContestPresetDto);
 
   return (
     <div className={styles.pageContainer}>

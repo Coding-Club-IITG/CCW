@@ -21,18 +21,38 @@ export interface ContestCreationForm {
   registrationType: string;
 }
 
-export interface ContestCreationPreset {
-  _id: string;
-  name?: string;
-  description?: string;
-  mode?: string;
-  format?: string;
-  problemSelectionMode?: string;
-  bulkRatingMin?: number;
-  bulkRatingMax?: number;
+export type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
+import type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
+
+export interface AdminContestWizardForm {
+  name: string;
+  description: string;
+  mode: "blitz" | "arena";
+  format: "bracket";
+  teamSize: 1 | 3;
+  maxParticipants: number;
+  startTime: string;
+  registrationType: "open" | "closed";
+  presetId: string;
+  problemSelectionMode: "bulk" | "fine-tuned";
+  problemSlots: Array<{
+    platform: string;
+    problemId: string;
+    roundNumber: number;
+  }>;
   bulkProblemCount?: number;
-  bulkMinContestId?: number;
-  problemSlots?: Array<{ problemId?: string }>;
+  thirdPlacePlayoff: boolean;
+  seedingMethod: "cf_rating" | "manual";
+}
+
+export interface ContestParticipant {
+  id: string;
+  name: string;
+  image?: string | null;
+  pizza_count: number;
+  cfHandle: string;
+  cfRating: number;
+  teamName?: string;
 }
 
 export function createInitialContestForm(): ContestCreationForm {

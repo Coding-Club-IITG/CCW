@@ -1,21 +1,30 @@
-import mongoose, { type ObjectId } from "mongoose";
-import dbConnect from "./mongodb";
-import ContestMatch from "../models/ContestMatch";
-import ContestRound from "../models/ContestRound";
-import ContestRoom from "../models/ContestRoom";
-import ContestTeam from "../models/ContestTeam";
-import { getRedis } from "./redis";
-import { publishContest } from "./sse";
-import { logger } from "./utils";
-import CPUser from "../models/CPUser";
-import User from "../models/User";
+import mongoose from "mongoose";
+
+import dbConnect from "@/lib/mongodb";
+import { getRedis } from "@/lib/redis";
+import { publishContest } from "@/lib/contests/events";
+import { logger } from "@/lib/utils";
+import ContestMatch, { type IProblemSlot } from "@/models/ContestMatch";
+import ContestProblemSet from "@/models/ContestProblemSet";
+import ContestQuestion from "@/models/ContestQuestion";
+import ContestRound, { type IContestRound } from "@/models/ContestRound";
+import ContestRoom from "@/models/ContestRoom";
+import ContestTeam from "@/models/ContestTeam";
+import CPUser from "@/models/CPUser";
+import User, { type UserRecord } from "@/models/User";
 import {
   type BracketNode,
   type BracketSnapshot,
   getRoundName,
   snakeSeed,
   nextPowerOf2,
-} from "../types/bracket";
+} from "@/types/bracket";
+
+type BracketProblem = {
+  problemId: string;
+  name?: string;
+  rating?: number;
+};
 
 function toStr(id: mongoose.Types.ObjectId | string): string {
   return typeof id === "string" ? id : id.toString();
@@ -83,7 +92,7 @@ export async function generateBracket(
   const mode = contest.mode || "blitz";
 
   const groupedTeams = groupRegistrationsIntoTeams(
-    contest.registrations,
+    contest.registrations ?? [],
     teamSize,
   );
 
@@ -140,20 +149,17 @@ export async function generateBracket(
   const allRoomIds: string[] = [];
   let roundIndex = 0;
 
-  const ContestQuestion = (await import("../models/ContestQuestion")).default;
-  const ContestProblemSet = (await import("../models/ContestProblemSet"))
-    .default;
   const problemCount = contest.bulkProblemCount || 3;
   const minRating = contest.bulkRatingMin || 800;
   const maxRating = contest.bulkRatingMax || 1200;
   const minContestId = contest.bulkMinContestId || 0;
 
-  let bulkProblemPool: any[] = [];
+  let bulkProblemPool: BracketProblem[] = [];
   if (contest.problemSelectionMode === "bulk") {
     const totalRooms = bracketSize - 1;
     const totalProblemsNeeded = totalRooms * problemCount;
     const excludeIds = solvedProblemIds ? Array.from(solvedProblemIds) : [];
-    bulkProblemPool = await ContestQuestion.aggregate([
+    bulkProblemPool = await ContestQuestion.aggregate<BracketProblem>([
       {
         $match: {
           rating: { $gte: minRating, $lte: maxRating },
@@ -165,7 +171,10 @@ export async function generateBracket(
       { $sort: { rating: 1 } },
     ]);
   }
-  let fineTunedPool = [...(contest.problemSlots || [])];
+  const fineTunedPool = (contest.problemSlots || []).filter(
+    (slot): slot is IProblemSlot & { problemId: string } =>
+      Boolean(slot.problemId),
+  );
 
   for (const round of rounds) {
     const matchesInRound = Math.pow(2, totalRounds - roundIndex - 1);
@@ -243,10 +252,10 @@ export async function generateBracket(
 
       await room.save();
 
-      let assignedProblems: any[] = [];
+      let assignedProblems: BracketProblem[] = [];
       if (contest.problemSelectionMode === "fine-tuned") {
         const roundSlots = fineTunedPool.filter(
-          (p: any) => p.roundNumber === roundIndex + 1,
+          (problem) => problem.roundNumber === roundIndex + 1,
         );
         const toAssign = roundSlots.slice(0, problemCount);
         assignedProblems = toAssign;
@@ -271,22 +280,22 @@ export async function generateBracket(
         const problemSet = new ContestProblemSet({
           contestId: contest._id,
           roomId: room._id,
-          problems: assignedProblems.map((p: any) => ({
+          problems: assignedProblems.map((problem) => ({
             platform: "codeforces",
-            problemId: p.problemId,
-            name: p.name || p.problemId,
-            rating: p.rating || 0,
-            points: Math.floor((p.rating || 1000) / 10),
+            problemId: problem.problemId,
+            name: problem.name || problem.problemId,
+            rating: problem.rating || 0,
+            points: Math.floor((problem.rating || 1000) / 10),
           })),
         });
         await problemSet.save();
 
-        const redisProblems = assignedProblems.map((p: any) =>
+        const redisProblems = assignedProblems.map((problem) =>
           JSON.stringify({
-            problemId: p.problemId,
-            name: p.name || p.problemId,
-            rating: p.rating || 0,
-            points: Math.floor((p.rating || 1000) / 10),
+            problemId: problem.problemId,
+            name: problem.name || problem.problemId,
+            rating: problem.rating || 0,
+            points: Math.floor((problem.rating || 1000) / 10),
             revealedAt: null,
           }),
         );
@@ -302,7 +311,7 @@ export async function generateBracket(
           redis,
           toStr(room._id),
           mode,
-          round1TeamDocs as any[],
+          round1TeamDocs,
           contest.durationSeconds || 3600,
           toStr(contest._id),
         );
@@ -454,17 +463,13 @@ async function seedTeamToRound(
 
     // Initialise Redis state so the ready route can find the room
     const redis = await getRedis();
-    const contest = await (
-      await import("../models/ContestMatch")
-    ).default
-      .findById(contestId)
-      .lean();
+    const contest = await ContestMatch.findById(contestId).lean();
     await initBracketRoomRedis(
       redis,
       toStr(targetRoom._id),
-      (contest as any)?.mode || "blitz",
-      allTeamDocs as any[],
-      (contest as any)?.durationSeconds || 3600,
+      contest?.mode || "blitz",
+      allTeamDocs,
+      contest?.durationSeconds || 3600,
       toStr(contestId),
     );
 
@@ -485,7 +490,9 @@ export async function advanceWinner(
   }
 
   await dbConnect();
-  const room = await ContestRoom.findById(roomId).populate("currentRoundId");
+  const room = await ContestRoom.findById(roomId).populate<{
+    currentRoundId: IContestRound;
+  }>("currentRoundId");
   if (!room) {
     logger.warn(`[Bracket] Room ${roomId} not found for advancement`);
     return;
@@ -494,10 +501,7 @@ export async function advanceWinner(
   const contest = await ContestMatch.findById(contestId);
   if (!contest || contest.format !== "bracket") return;
 
-  let currentRound = room.currentRoundId as any;
-  if (currentRound && typeof currentRound.roundNumber !== "number") {
-    currentRound = await ContestRound.findById(currentRound);
-  }
+  const currentRound = room.currentRoundId;
 
   if (!currentRound) return;
 
@@ -586,7 +590,7 @@ export async function advanceWinner(
       redis,
       toStr(nextRoom._id),
       contest.mode || "blitz",
-      allAdvancedTeamDocs as any[],
+      allAdvancedTeamDocs,
       contest.durationSeconds || 3600,
       contestId,
     );
@@ -644,7 +648,7 @@ export async function checkRoundCompletion(
     for (const room of rooms) {
       if (room.teams.length === 2) {
         const teamScores = await Promise.all(
-          room.teams.map((tId: ObjectId) => ContestTeam.findById(tId)),
+          room.teams.map((teamId) => ContestTeam.findById(teamId)),
         );
         const winner = teamScores.reduce(
           (best, t) => (t && (!best || t.score > best.score) ? t : best),
@@ -721,8 +725,8 @@ export async function getBracketSnapshot(
     });
     for (const room of rooms) {
       const teams = await Promise.all(
-        room.teams.map((tId: ObjectId) =>
-          ContestTeam.findById(tId).populate({
+        room.teams.map((teamId) =>
+          ContestTeam.findById(teamId).populate<{ members: UserRecord[] }>({
             path: "members",
             model: User,
             select: "image",
@@ -740,7 +744,7 @@ export async function getBracketSnapshot(
           teamNames[i] = teams[i]!.name || null;
           scores[i] = teams[i]!.score;
 
-          const firstMember = (teams[i]!.members as any)?.[0];
+          const firstMember = teams[i]!.members[0];
           teamImages[i] = firstMember?.image || null;
         }
       }

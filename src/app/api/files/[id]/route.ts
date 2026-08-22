@@ -36,7 +36,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 async function resolveSession(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return null;
-  const user = session.user as any;
+  const user = session.user;
   return {
     user,
     managedModules: parseManagedModules(user.managedModules),

@@ -1,34 +1,48 @@
-import { Worker, Job } from "bullmq";
-import { connection } from "../bullmq";
-import { logger } from "../utils";
-import { syncCodeforcesProblems } from "../jobs/cfProblemSync";
-import { fetchCodeforcesUserStatus } from "../platforms/codeforces";
-import { publishUser, publishRoom } from "../sse";
-import { getRedis, claimProblem } from "../redis";
-import { reconciliationQueue } from "../bullmq";
-import dbConnect from "../mongodb";
-import ContestRoom from "../../models/ContestRoom";
-import ContestMatch from "../../models/ContestMatch";
+import { type Job, Worker } from "bullmq";
 import mongoose from "mongoose";
-import { workerEnv } from "../env/worker";
+
+import { publishRoom, publishUser } from "@/lib/contests/events";
+import { connection, reconciliationQueue } from "@/lib/contests/queues";
+import {
+  cfSyncJobDataSchema,
+  contestRoomStateSchema,
+  nightlyProblemSyncJobDataSchema,
+  parseContestRoomProblems,
+  type CfSyncJobName,
+  type CfSyncQueueData,
+  type UserEvent,
+} from "@/lib/contests/runtime";
+import { workerEnv } from "@/lib/env/worker";
+import { syncCodeforcesProblems } from "@/lib/jobs/cfProblemSync";
+import dbConnect from "@/lib/mongodb";
+import {
+  fetchCodeforcesUserStatus,
+  type CFSubmission,
+} from "@/lib/platforms/codeforces";
+import { claimProblem, getRedis } from "@/lib/redis";
+import { logger } from "@/lib/utils";
+import ContestMatch from "@/models/ContestMatch";
+import ContestRoom from "@/models/ContestRoom";
 
 // Circuit breaker removed, relying on BullMQ job-level retries
 
-export const cfSyncWorker = new Worker(
+export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
   "cf_sync_queue",
-  async (job: Job) => {
+  async (job: Job<CfSyncQueueData, void, CfSyncJobName>) => {
     logger.info(
       `[cfSyncWorker] Processing job ${job.id} (name: ${job.name})`,
       job.data,
     );
 
     if (job.name === "nightly-cf-problem-sync") {
+      nightlyProblemSyncJobDataSchema.parse(job.data);
       await syncCodeforcesProblems();
       return;
     }
 
     if (job.name === "cf_sync") {
-      const { roomId, userId, teamId, cfHandle, problemId } = job.data;
+      const { roomId, userId, teamId, cfHandle, problemId } =
+        cfSyncJobDataSchema.parse(job.data);
 
       try {
         await dbConnect();
@@ -94,21 +108,23 @@ export const cfSyncWorker = new Worker(
           return;
         }
 
-        const state = await redis.hGetAll(`room:${roomId}:state`);
+        const state = contestRoomStateSchema.parse(
+          await redis.hGetAll(`room:${roomId}:state`),
+        );
         const problemsRaw = await redis.lRange(
           `room:${roomId}:problems`,
           0,
           -1,
         );
-        const problems = problemsRaw.map((p) => JSON.parse(p));
+        const problems = parseContestRoomProblems(problemsRaw);
 
         let lowerTimestamp = room.actualStartTime
           ? room.actualStartTime.getTime()
-          : contest.startTime.getTime();
+          : contest.startTime!.getTime();
 
         if (state && state.type !== "arena") {
           const targetProblem = problems.find(
-            (p: any) => p.problemId === problemId,
+            (problem) => problem.problemId === problemId,
           );
           if (targetProblem && targetProblem.revealedAt) {
             lowerTimestamp = targetProblem.revealedAt;
@@ -120,7 +136,7 @@ export const cfSyncWorker = new Worker(
           lowerTimestamp + (contest.durationSeconds || 3600) * 1000 + 120000;
 
         // 2. Fetch CF Submissions (last 20)
-        let submissions: any[] = [];
+        let submissions: CFSubmission[] = [];
         if (workerEnv.NODE_ENV === "development") {
           const match = problemId.match(/^(\d+)([A-Za-z].*)$/);
           const cId = match ? parseInt(match[1]) : 0;
@@ -139,8 +155,6 @@ export const cfSyncWorker = new Worker(
               },
               author: {
                 members: [{ handle: cfHandle }],
-                participantType: "CONTESTANT",
-                ghost: false,
               },
               programmingLanguage: "C++",
               verdict: "OK",
@@ -156,11 +170,11 @@ export const cfSyncWorker = new Worker(
 
         // 3. Validation Matrix
         let isValid = false;
-        let matchedSubmission = null;
+        let matchedSubmission: CFSubmission | null = null;
         let hasSubmissionForProblem = false;
         let bestVerdict = "not_found";
 
-        let wrongSubIds: number[] = [];
+        const wrongSubIds: number[] = [];
 
         for (const sub of submissions) {
           const subProblemId = `${sub.problem.contestId || ""}${sub.problem.index}`;
@@ -175,9 +189,11 @@ export const cfSyncWorker = new Worker(
             }
 
             // Check handle match
-            const authorHandle = sub.author.members.some(
-              (m: any) => m.handle.toLowerCase() === cfHandle.toLowerCase(),
-            );
+            const authorHandle =
+              sub.author?.members.some(
+                (member) =>
+                  member.handle.toLowerCase() === cfHandle.toLowerCase(),
+              ) ?? false;
 
             if (
               authorHandle &&
@@ -210,7 +226,7 @@ export const cfSyncWorker = new Worker(
 
         // 4. Result Handling
         if (isValid && matchedSubmission) {
-          const eventPayload = {
+          const eventPayload: UserEvent = {
             type: "sync.detected",
             roomId,
             userId,
@@ -227,7 +243,7 @@ export const cfSyncWorker = new Worker(
           if (state && state.status === "active") {
             if (state.type === "arena") {
               const targetProblem = problems.find(
-                (p: any) => p.problemId === problemId,
+                (problem) => problem.problemId === problemId,
               );
               if (targetProblem) {
                 const points = targetProblem.points || 100;
@@ -352,7 +368,7 @@ export const cfSyncWorker = new Worker(
                 10,
               );
               const targetProblemIndex = problems.findIndex(
-                (p: any) => p.problemId === problemId,
+                (problem) => problem.problemId === problemId,
               );
               const startTime = parseInt(state.startTime || "0", 10);
 
@@ -540,27 +556,39 @@ export const cfSyncWorker = new Worker(
   },
 );
 
-cfSyncWorker.on("completed", (job: Job) => {
+cfSyncWorker.on("completed", (job) => {
   logger.info(`[cfSyncWorker] Job ${job.id} completed successfully`);
 });
 
-cfSyncWorker.on("failed", async (job: Job | undefined, err: any) => {
-  const errorDetails = err.isAxiosError
-    ? { status: err.response?.status, data: err.response?.data }
-    : err.message;
-  logger.error(
-    `[cfSyncWorker] Job ${job?.id} failed with error: ${err.message}`,
-    errorDetails,
-  );
-
-  if (job?.name === "cf_sync" && job.attemptsMade >= (job.opts.attempts || 3)) {
-    const { userId } = job.data;
+cfSyncWorker.on(
+  "failed",
+  async (
+    job,
+    err: Error & {
+      isAxiosError?: boolean;
+      response?: { status?: number; data?: unknown };
+    },
+  ) => {
+    const errorDetails = err.isAxiosError
+      ? { status: err.response?.status, data: err.response?.data }
+      : err.message;
     logger.error(
-      `[cfSyncWorker] Permanent failure for sync job ${job.id}. Publishing cf_unavailable to user ${userId}`,
+      `[cfSyncWorker] Job ${job?.id} failed with error: ${err.message}`,
+      errorDetails,
     );
-    await publishUser(userId, {
-      type: "sync.failed",
-      reason: "cf_unavailable",
-    });
-  }
-});
+
+    if (
+      job?.name === "cf_sync" &&
+      job.attemptsMade >= (job.opts.attempts || 3)
+    ) {
+      const { userId } = cfSyncJobDataSchema.parse(job.data);
+      logger.error(
+        `[cfSyncWorker] Permanent failure for sync job ${job.id}. Publishing cf_unavailable to user ${userId}`,
+      );
+      await publishUser(userId, {
+        type: "sync.failed",
+        reason: "cf_unavailable",
+      });
+    }
+  },
+);

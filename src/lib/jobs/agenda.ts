@@ -1,8 +1,9 @@
 import { Agenda } from "agenda";
 import { MongoBackend } from "@agendajs/mongo-backend";
 import { RedisNotificationChannel } from "@agendajs/redis-backend";
-import { logger } from "./utils";
-import { workerEnv } from "./env/worker";
+
+import { workerEnv } from "@/lib/env/worker";
+import { logger } from "@/lib/utils";
 
 const mongodbUri = workerEnv.MONGODB_URI;
 const redisUrl = workerEnv.REDIS_URL;

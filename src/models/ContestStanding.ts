@@ -51,7 +51,9 @@ ContestStandingSchema.index({ contestId: 1, score: -1 });
 ContestStandingSchema.index({ roomId: 1, userId: 1 });
 
 const ContestStanding =
-  mongoose.models.ContestStanding ||
+  (mongoose.models.ContestStanding as
+    | mongoose.Model<IContestStanding>
+    | undefined) ||
   mongoose.model<IContestStanding>(
     "ContestStanding",
     ContestStandingSchema,

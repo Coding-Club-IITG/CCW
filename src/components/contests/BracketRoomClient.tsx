@@ -10,7 +10,13 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { BracketSnapshot, BracketNode, getRoundName } from "@/types/bracket";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { Handle, Position, type Node, type Edge } from "@xyflow/react";
+import {
+  Handle,
+  Position,
+  type Node,
+  type Edge,
+  type NodeProps,
+} from "@xyflow/react";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import "@xyflow/react/dist/style.css";
 import styles from "./BracketRoomClient.module.scss";
@@ -182,7 +188,15 @@ function TeamRow({
 }
 
 // ── Grand Final Node ──────────────────────────────────────────────
-function GrandFinalNode({ data }: { data: any }) {
+type BracketFlowNodeData = {
+  node: BracketNode;
+  totalRounds: number;
+  openMatchDetails: (event: React.MouseEvent, node: BracketNode) => void;
+};
+
+type BracketFlowNode = Node<BracketFlowNodeData>;
+
+function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
   const { node, openMatchDetails } = data;
   const t1 = node.teams[0],
     t2 = node.teams[1];
@@ -249,7 +263,7 @@ function GrandFinalNode({ data }: { data: any }) {
 }
 
 // ── Standard Match Card ───────────────────────────────────────────
-function MatchCardNode({ data }: { data: any }) {
+function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
   const { node, openMatchDetails, totalRounds } = data;
   const t1 = node.teams[0],
     t2 = node.teams[1];
@@ -266,10 +280,10 @@ function MatchCardNode({ data }: { data: any }) {
   const matchLabel = `${roundName === "Final" || roundName.startsWith("Semi") ? roundName.replace("s", "") : roundName} ${node.matchIndex + 1}`;
 
   const winnerId = node.winner;
-  const t1Win = isCompleted && t1 && t1 === winnerId;
-  const t2Win = isCompleted && t2 && t2 === winnerId;
-  const t1Lose = isCompleted && t1 && t1 !== winnerId;
-  const t2Lose = isCompleted && t2 && t2 !== winnerId;
+  const t1Win = Boolean(isCompleted && t1 && t1 === winnerId);
+  const t2Win = Boolean(isCompleted && t2 && t2 === winnerId);
+  const t1Lose = Boolean(isCompleted && t1 && t1 !== winnerId);
+  const t2Lose = Boolean(isCompleted && t2 && t2 !== winnerId);
 
   const badge = isCompleted ? (
     <span className={`${styles.badge} ${styles.badgePrimary}`}>Final</span>
@@ -328,6 +342,19 @@ function MatchCardNode({ data }: { data: any }) {
 }
 
 const nodeTypes = { matchNode: MatchCardNode, grandFinalNode: GrandFinalNode };
+
+function isBracketNode(value: unknown): value is BracketNode {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "roomId" in value &&
+    typeof value.roomId === "string" &&
+    "roundNumber" in value &&
+    typeof value.roundNumber === "number" &&
+    "teams" in value &&
+    Array.isArray(value.teams),
+  );
+}
 
 // ── Match Detail Side Panel ────────────────────────────────────────
 function MatchSidePanel({
@@ -640,7 +667,7 @@ export default function BracketRoomClient({
             `/api/contests/${contest._id}/bracket/snapshot`,
           );
           if (res.ok) {
-            const data = await expectAppData(res);
+            const data = await expectAppData<BracketSnapshot>(res);
             setSnapshot(data);
           }
         }
@@ -673,7 +700,7 @@ export default function BracketRoomClient({
   const hasActiveMatches = snapshot.nodes.some((n) => n.status === "active");
 
   const { nodes, edges } = useMemo(() => {
-    const flowNodes: Node[] = [];
+    const flowNodes: BracketFlowNode[] = [];
     const flowEdges: Edge[] = [];
     const rounds: BracketNode[][] = Array.from(
       { length: snapshot.totalRounds },
@@ -775,9 +802,11 @@ export default function BracketRoomClient({
           nodesConnectable={false}
           elementsSelectable={true}
           onPaneClick={closeSidebar}
-          onNodeClick={(e, node) =>
-            openMatchDetails(e as any, node.data.node as any)
-          }
+          onNodeClick={(event, node) => {
+            if (isBracketNode(node.data.node)) {
+              openMatchDetails(event, node.data.node);
+            }
+          }}
         >
           <Background gap={20} size={1} />
           <Controls showInteractive={false} />

@@ -4,6 +4,11 @@ import ArenaRoomClient from "@/components/contests/ArenaRoomClient";
 import BracketRoomClient from "@/components/contests/BracketRoomClient";
 import { notFound } from "next/navigation";
 import { webEnv } from "@/lib/env/web";
+import {
+  contestRoomStateSchema,
+  parseContestRoomProblems,
+} from "@/lib/contests/runtime";
+import type { ContestRoomProblemDto } from "@/lib/contests/dtos";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import dbConnect from "@/lib/mongodb";
@@ -12,7 +17,7 @@ import ContestTeam from "@/models/ContestTeam";
 import User from "@/models/User";
 import CPUser from "@/models/CPUser";
 import { getRedis } from "@/lib/redis";
-import { getBracketSnapshot } from "@/lib/bracket";
+import { getBracketSnapshot } from "@/lib/contests/bracket";
 import { isHead } from "@/lib/access/roles";
 import { redirect } from "next/navigation";
 import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
@@ -177,12 +182,12 @@ export default async function ContestRoomPage({
       _id: t._id.toString(),
       name: t.name,
       score: t.score || 0,
-      members: t.members.map((mId: any) => {
-        const u = userMap.get(mId.toString());
-        const cp = cpUserMap.get(mId.toString());
+      members: t.members.map((memberId) => {
+        const u = userMap.get(memberId.toString());
+        const cp = cpUserMap.get(memberId.toString());
         return {
-          id: mId.toString(),
-          name: u ? u.name : "Unknown Player",
+          id: memberId.toString(),
+          name: u?.name || "Unknown Player",
           pizza_count: u?.pizza_count || 0,
           handle: cp?.cfHandle || u?.name || "Unknown",
           avatar:
@@ -218,24 +223,24 @@ export default async function ContestRoomPage({
     }
 
     // Fetch current state from Redis
-    const stateObj = await redis.hGetAll(`room:${roomId}:state`);
-    const status = (stateObj?.status as any) || room.status || "waiting";
+    const stateObj = contestRoomStateSchema.parse(
+      await redis.hGetAll(`room:${roomId}:state`),
+    );
+    const rawStatus = stateObj.status || room.status;
+    const status =
+      rawStatus === "active"
+        ? "active"
+        : rawStatus === "completed" || rawStatus === "ended"
+          ? "completed"
+          : "waiting";
 
-    let initialProblems = [];
+    let initialProblems: ContestRoomProblemDto[] = [];
     let initialScores: Record<string, number> = {};
     let initialLocks: Record<string, string> = {};
 
     if (status === "active" || status === "completed") {
       const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
-      initialProblems = problemsRaw
-        .map((p) => {
-          try {
-            return JSON.parse(p);
-          } catch (e) {
-            return null;
-          }
-        })
-        .filter(Boolean);
+      initialProblems = parseContestRoomProblems(problemsRaw);
 
       for (const t of populatedTeams) {
         const s = await redis.zScore(`room:${roomId}:scores`, t._id);
@@ -258,7 +263,7 @@ export default async function ContestRoomPage({
         <BlitzRoomClient
           contest={contest}
           roomId={roomId!}
-          roomName={roomName}
+          roomName={roomName!}
           teamId={teamId}
           userId={userId}
           cfHandle={cfHandle}
@@ -288,7 +293,7 @@ export default async function ContestRoomPage({
         <ArenaRoomClient
           contest={contest}
           roomId={roomId!}
-          roomName={roomName}
+          roomName={roomName!}
           teamId={teamId}
           userId={userId}
           cfHandle={cfHandle}

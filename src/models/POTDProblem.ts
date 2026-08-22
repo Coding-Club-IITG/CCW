@@ -47,5 +47,10 @@ ProblemSchema.index(
   { unique: true },
 );
 
-export default mongoose.models.Problem ||
-  mongoose.model("Problem", ProblemSchema);
+export type POTDProblemRecord = mongoose.InferSchemaType<typeof ProblemSchema>;
+
+const POTDProblem =
+  (mongoose.models.Problem as mongoose.Model<POTDProblemRecord> | undefined) ||
+  mongoose.model<POTDProblemRecord>("Problem", ProblemSchema);
+
+export default POTDProblem;

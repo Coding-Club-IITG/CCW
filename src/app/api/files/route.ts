@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    const user = session.user as any;
+    const user = session.user;
     const managedModules = parseManagedModules(user.managedModules);
     const roles = parseRoles(user.roles);
 
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    const user = session.user as any;
+    const user = session.user;
     const managedModules = parseManagedModules(user.managedModules);
 
     if (!canUploadFiles(user.access)) {

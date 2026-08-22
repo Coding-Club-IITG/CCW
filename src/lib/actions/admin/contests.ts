@@ -1,6 +1,6 @@
 "use server";
 
-import { err as appError, ok } from "@/lib/api/result";
+import { err as appError, ok, validationError } from "@/lib/api/result";
 
 import { defineAction } from "@/lib/actions/defineAction";
 
@@ -19,10 +19,18 @@ import ContestMatch from "@/models/ContestMatch";
 import ContestPreset from "@/models/ContestPreset";
 import mongoose from "mongoose";
 import CPUser from "@/models/CPUser";
-import { reconciliationQueue } from "@/lib/bullmq";
+import { reconciliationQueue } from "@/lib/contests/queues";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import {
+  contestCreationDraftSchema,
+  contestCreationPayloadSchema,
+  type ContestProblemSlot,
+} from "@/lib/api/schemas/contestAction";
 
-async function validateStepAction(step: number, data: Record<string, any>) {
+async function validateStepAction(step: number, input: unknown) {
+  const parsed = contestCreationDraftSchema.safeParse(input);
+  if (!parsed.success) return validationError(parsed.error);
+  const data = parsed.data;
   const errors: Record<string, string> = {};
 
   if (step === 1) {
@@ -35,6 +43,12 @@ async function validateStepAction(step: number, data: Record<string, any>) {
   }
 
   if (step === 2) {
+    if (
+      !data.startTime ||
+      !Number.isFinite(new Date(data.startTime).getTime())
+    ) {
+      errors.startTime = "A valid tournament start time is required";
+    }
     if (
       data.registrationType !== "open" &&
       data.registrationType !== "closed"
@@ -80,13 +94,17 @@ async function validateStepAction(step: number, data: Record<string, any>) {
   return ok({ valid: Object.keys(errors).length === 0, errors });
 }
 
-async function createBracketContestAction(data: any) {
+async function createBracketContestAction(input: unknown) {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
   if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
 
-  const user = session.user as any;
+  const user = session.user;
   if (!isHead(user.access)) return appError("FORBIDDEN", "Forbidden");
+
+  const parsed = contestCreationPayloadSchema.safeParse(input);
+  if (!parsed.success) return validationError(parsed.error);
+  const data = parsed.data;
 
   // Re-run validation server-side for safety
   const step1 = await validateStepAction(1, data);
@@ -120,7 +138,7 @@ async function createBracketContestAction(data: any) {
   let bulkRatingMax = data.bulkRatingMax;
   let bulkProblemCount = data.bulkProblemCount;
   let bulkMinContestId = data.bulkMinContestId;
-  let problemSlots: any[] = [];
+  let problemSlots: ContestProblemSlot[] = [];
 
   if (data.presetId === "custom") {
     if (problemSelectionMode === "fine-tuned") {
@@ -132,7 +150,7 @@ async function createBracketContestAction(data: any) {
       }
       // Per-round bracket fine-tuned: problemSlots already has roundNumber set by the UI
       problemSlots = data.problemSlots.filter(
-        (s: any) => s.problemId && s.problemId.trim() !== "",
+        (slot) => slot.problemId.trim() !== "",
       );
 
       if (problemSlots.length === 0) {
@@ -143,16 +161,26 @@ async function createBracketContestAction(data: any) {
     const preset = await ContestPreset.findById(data.presetId);
     if (!preset) return appError("NOT_FOUND", "Selected preset does not exist");
     presetId = preset._id;
-    problemSelectionMode = preset.problemSelectionMode;
-    bulkPlatform = preset.bulkPlatform;
+    problemSelectionMode = preset.problemSelectionMode ?? "bulk";
+    bulkPlatform = preset.bulkPlatform ?? "codeforces";
     bulkRatingMin = preset.bulkRatingMin;
     bulkRatingMax = preset.bulkRatingMax;
     bulkProblemCount = data.bulkProblemCount || preset.bulkProblemCount;
     bulkMinContestId = data.bulkMinContestId ?? preset.bulkMinContestId;
     problemSlots =
-      data.problemSlots && data.problemSlots.length > 0
+      data.problemSlots.length > 0
         ? data.problemSlots
-        : preset.problemSlots;
+        : (preset.problemSlots ?? [])
+            .filter(
+              (slot): slot is typeof slot & { problemId: string } =>
+                typeof slot.problemId === "string" &&
+                slot.problemId.trim().length > 0,
+            )
+            .map((slot) => ({
+              platform: slot.platform,
+              problemId: slot.problemId,
+              roundNumber: slot.roundNumber,
+            }));
   }
 
   try {
@@ -176,10 +204,10 @@ async function createBracketContestAction(data: any) {
       bulkProblemCount: bulkProblemCount,
       bulkMinContestId: bulkMinContestId,
       problemSlots: problemSlots,
-      registrations: (data.registeredUsers || []).map((u: any) => ({
-        userId: new mongoose.Types.ObjectId(u.id),
-        cfHandle: u.cfHandle,
-        teamName: u.teamName,
+      registrations: data.registeredUsers.map((registeredUser) => ({
+        userId: new mongoose.Types.ObjectId(registeredUser.id),
+        cfHandle: registeredUser.cfHandle,
+        teamName: registeredUser.teamName,
         registeredAt: new Date(),
       })),
       startTime: new Date(data.startTime),

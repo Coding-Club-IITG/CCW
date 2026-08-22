@@ -22,6 +22,12 @@ import {
 } from "lucide-react";
 import { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
+import type {
+  ContestRoomProblemDto,
+  ContestRoomTeamDto,
+  RoomActivityDto,
+  RoomEventPayloadDto,
+} from "@/lib/contests/dtos";
 
 import React, { createElement, useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -101,11 +107,6 @@ function sendBrowserNotification(icon: string, text: string) {
   } catch (_) {}
 }
 
-interface EventPayload {
-  type: string;
-  [key: string]: any;
-}
-
 export default function ArenaRoomClient({
   contest,
   roomId,
@@ -131,9 +132,9 @@ export default function ArenaRoomClient({
   teamId: string;
   userId: string;
   cfHandle?: string;
-  teams?: any[];
+  teams?: ContestRoomTeamDto[];
   initialMatchState?: "waiting" | "active" | "completed";
-  initialProblems?: any[];
+  initialProblems?: ContestRoomProblemDto[];
   initialScores?: Record<string, number>;
   initialLocks?: Record<string, string>;
   initialReadyUserIds?: string[];
@@ -149,7 +150,8 @@ export default function ArenaRoomClient({
     "waiting" | "active" | "completed"
   >(initialMatchState);
   const matchStateRef = useRef(initialMatchState);
-  const [problems, setProblems] = useState<any[]>(initialProblems);
+  const [problems, setProblems] =
+    useState<ContestRoomProblemDto[]>(initialProblems);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
   const [locks, setLocks] = useState<Record<string, string>>(initialLocks);
   const [readyUserIds, setReadyUserIds] = useState<Set<string>>(
@@ -165,7 +167,7 @@ export default function ArenaRoomClient({
 
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
   const [syncCooldown, setSyncCooldown] = useState(0);
-  const [activityFeed, setActivityFeed] = useState<any[]>([]);
+  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
   const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1000);
@@ -194,12 +196,12 @@ export default function ArenaRoomClient({
   const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
-  const getDisplayTeamName = (t: any) => {
-    if (!t) return "Unknown";
-    if (isSoloFormat && t.members && t.members.length > 0) {
-      return getDisplayName(t.members[0].name, t.members[0].pizza_count);
+  const getDisplayTeamName = (team?: ContestRoomTeamDto) => {
+    if (!team) return "Unknown";
+    if (isSoloFormat && team.members.length > 0) {
+      return getDisplayName(team.members[0].name, team.members[0].pizza_count);
     }
-    return t.name;
+    return team.name;
   };
 
   useEffect(() => {
@@ -262,11 +264,19 @@ export default function ArenaRoomClient({
     stateRef.current = { locks, problems, teams, userId };
   }, [locks, problems, teams, userId]);
 
-  const handleEvent = (payload: EventPayload) => {
+  const handleEvent = (payload: RoomEventPayloadDto) => {
     switch (payload.type) {
       case "room.state_sync":
-        matchStateRef.current = payload.state.status;
-        setMatchState(payload.state.status);
+        const nextStatus = payload.state.status;
+        if (
+          nextStatus !== "waiting" &&
+          nextStatus !== "active" &&
+          nextStatus !== "completed"
+        ) {
+          break;
+        }
+        matchStateRef.current = nextStatus;
+        setMatchState(nextStatus);
         if (payload.state.startTime)
           setStartTime(parseInt(payload.state.startTime));
         if (payload.state.timeLimit)
@@ -274,7 +284,7 @@ export default function ArenaRoomClient({
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
         if (payload.locks) setLocks(payload.locks);
-        if (payload.state.status === "active") {
+        if (nextStatus === "active") {
           addActivity("info", "Arena match started! Good luck.");
         }
         break;
@@ -325,7 +335,8 @@ export default function ArenaRoomClient({
         break;
       case "sync.queued":
         if (payload.problemId) {
-          setSyncingMap((prev) => ({ ...prev, [payload.problemId]: true }));
+          const problemId = payload.problemId;
+          setSyncingMap((prev) => ({ ...prev, [problemId]: true }));
         }
         addActivity(
           "sync",
@@ -335,7 +346,8 @@ export default function ArenaRoomClient({
         break;
       case "sync.detected":
         if (payload.problemId) {
-          setSyncingMap((prev) => ({ ...prev, [payload.problemId]: false }));
+          const problemId = payload.problemId;
+          setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
         }
         if (payload.verdict === "OK") {
           addActivity(
@@ -353,7 +365,8 @@ export default function ArenaRoomClient({
         break;
       case "sync.failed":
         if (payload.problemId) {
-          setSyncingMap((prev) => ({ ...prev, [payload.problemId]: false }));
+          const problemId = payload.problemId;
+          setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
         }
         addActivity(
           "error",
@@ -562,7 +575,7 @@ export default function ArenaRoomClient({
                       {team.name}
                     </span>
                   )}
-                  {team.members.map((member: any) => {
+                  {team.members.map((member) => {
                     const memberIsReady = readyUserIds.has(member.id);
                     const memberIsOnline = onlineUserIds.has(member.id);
 

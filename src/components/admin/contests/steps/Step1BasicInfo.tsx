@@ -5,7 +5,12 @@ interface Step1Props {
   description: string;
   mode: string;
   teamSize: number;
-  updateFields: (fields: any) => void;
+  updateFields: (fields: {
+    name?: string;
+    description?: string;
+    mode?: "blitz" | "arena";
+    teamSize?: 1 | 3;
+  }) => void;
   errors: Record<string, string>;
 }
 

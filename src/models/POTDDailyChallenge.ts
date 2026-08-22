@@ -36,5 +36,20 @@ DailyChallengeSchema.index({ windowStart: 1, difficulty: 1 }, { unique: true });
 // Find unfinalized days past their grace window
 DailyChallengeSchema.index({ graceEnd: 1, finalizedAt: 1 });
 
-export default mongoose.models.DailyChallenge ||
-  mongoose.model("DailyChallenge", DailyChallengeSchema);
+// Find challenges entering the reminder window.
+DailyChallengeSchema.index({ windowEnd: 1 });
+
+export type POTDDailyChallengeRecord = mongoose.InferSchemaType<
+  typeof DailyChallengeSchema
+>;
+
+const DailyChallenge =
+  (mongoose.models.DailyChallenge as
+    | mongoose.Model<POTDDailyChallengeRecord>
+    | undefined) ||
+  mongoose.model<POTDDailyChallengeRecord>(
+    "DailyChallenge",
+    DailyChallengeSchema,
+  );
+
+export default DailyChallenge;

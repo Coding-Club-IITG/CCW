@@ -43,5 +43,14 @@ POTDSubmissionSchema.index({ challengeId: 1, pointsAwarded: 1 });
 // For user profile solve history
 POTDSubmissionSchema.index({ userId: 1, solvedAt: 1 });
 
-export default mongoose.models.POTDSubmission ||
-  mongoose.model("POTDSubmission", POTDSubmissionSchema);
+export type POTDSubmissionRecord = mongoose.InferSchemaType<
+  typeof POTDSubmissionSchema
+>;
+
+const POTDSubmission =
+  (mongoose.models.POTDSubmission as
+    | mongoose.Model<POTDSubmissionRecord>
+    | undefined) ||
+  mongoose.model<POTDSubmissionRecord>("POTDSubmission", POTDSubmissionSchema);
+
+export default POTDSubmission;

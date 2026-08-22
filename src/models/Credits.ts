@@ -24,5 +24,10 @@ const CreditsSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export default mongoose.models.Credits ||
-  mongoose.model("Credits", CreditsSchema);
+export type CreditsRecord = mongoose.InferSchemaType<typeof CreditsSchema>;
+
+const Credits =
+  (mongoose.models.Credits as mongoose.Model<CreditsRecord> | undefined) ||
+  mongoose.model<CreditsRecord>("Credits", CreditsSchema);
+
+export default Credits;

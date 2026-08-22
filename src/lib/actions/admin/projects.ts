@@ -68,7 +68,7 @@ function parseMonthInput(value: string): Date | null {
 async function checkAdmin() {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
-    if (!session || !isHead((session.user as any).access)) {
+    if (!session || !isHead(session.user.access)) {
       logger.warn("Unauthorized admin projects access attempt", {
         action: "checkAdmin",
       });

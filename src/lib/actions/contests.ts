@@ -1,6 +1,6 @@
 "use server";
 
-import { err as appError, ok } from "@/lib/api/result";
+import { err as appError, ok, validationError } from "@/lib/api/result";
 
 import { defineAction } from "@/lib/actions/defineAction";
 import { toBsonSafe } from "@/lib/api/result";
@@ -48,10 +48,11 @@ import { headers } from "next/headers";
 import { webEnv } from "@/lib/env/web";
 
 import { auth } from "@/lib/auth";
-import { reconciliationQueue } from "@/lib/bullmq";
+import { reconciliationQueue } from "@/lib/contests/queues";
 import {
+  contestCreationPayloadSchema,
   validateBracketContestInput,
-  type BracketContestInput,
+  type ContestProblemSlot,
 } from "@/lib/api/schemas/contestAction";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
@@ -115,7 +116,7 @@ async function getContestListingAction() {
   for (const contest of contests) {
     const isRegistered = userId
       ? (contest.registrations || []).some(
-          (r: any) => r.userId.toString() === userId,
+          (registration) => registration.userId.toString() === userId,
         )
       : false;
     const item: ContestListingItem = {
@@ -162,20 +163,20 @@ async function getContestListingAction() {
         }).lean();
         if (room) {
           const teams = await ContestTeam.find({ roomId: room._id }).lean();
-          const userTeam = teams.find((t: any) =>
-            t.members.some((m: any) => m.toString() === userId),
+          const userTeam = teams.find((team) =>
+            team.members.some((memberId) => memberId.toString() === userId),
           );
           if (userTeam) {
             item.userScore = userTeam.score;
             const otherTeams = teams.filter(
-              (t: any) => t._id.toString() !== userTeam._id.toString(),
+              (team) => team._id.toString() !== userTeam._id.toString(),
             );
             item.opponentScore =
               otherTeams.length > 0
-                ? Math.max(...otherTeams.map((t: any) => t.score))
+                ? Math.max(...otherTeams.map((team) => team.score))
                 : 0;
             item.otherScores = otherTeams
-              .map((t: any) => t.score)
+              .map((team) => team.score)
               .sort((a: number, b: number) => b - a);
             const us = item.userScore ?? 0;
             const op = item.opponentScore ?? 0;
@@ -228,7 +229,7 @@ async function getContestByIdAction(id: string) {
 
     const isRegistered = userId
       ? (contest.registrations || []).some(
-          (r: any) => r.userId.toString() === userId,
+          (registration) => registration.userId.toString() === userId,
         )
       : false;
 
@@ -296,7 +297,7 @@ async function registerForContestAction(contestId: string, teamName?: string) {
     }
 
     const isAlreadyRegistered = contest.registrations?.some(
-      (r: any) => r.userId.toString() === userId,
+      (registration) => registration.userId.toString() === userId,
     );
     if (isAlreadyRegistered) {
       return appError("CONFLICT", "Already registered");
@@ -306,17 +307,18 @@ async function registerForContestAction(contestId: string, teamName?: string) {
 
     const tName = teamName || cpUser.cfHandle || "unknown";
 
-    if (contest.teamSize > 1) {
+    const teamSize = contest.teamSize ?? 1;
+    if (teamSize > 1) {
       const teamMembers = contest.registrations.filter(
-        (r: any) => r.teamName === tName,
+        (registration) => registration.teamName === tName,
       );
-      if (teamMembers.length >= contest.teamSize) {
+      if (teamMembers.length >= teamSize) {
         return appError("CONFLICT", "Team is already full.");
       }
     } else {
       // For solo, ensure no duplicate team name
       const teamExists = contest.registrations.some(
-        (r: any) => r.teamName === tName,
+        (registration) => registration.teamName === tName,
       );
       if (teamExists) {
         return appError("CONFLICT", "Display name already taken.");
@@ -348,7 +350,8 @@ async function getAvailableTeamsForContestAction(contestId: string) {
   try {
     await dbConnect();
     const contest = await ContestMatch.findById(contestId).lean();
-    if (!contest || contest.teamSize <= 1) return ok([]);
+    const teamSize = contest?.teamSize ?? 1;
+    if (!contest || teamSize <= 1) return ok([]);
 
     const registrations = contest.registrations || [];
     const teamCounts: Record<string, number> = {};
@@ -360,11 +363,11 @@ async function getAvailableTeamsForContestAction(contestId: string) {
     }
 
     const availableTeams = Object.entries(teamCounts)
-      .filter(([_, count]) => count < contest.teamSize)
+      .filter(([_, count]) => count < teamSize)
       .map(([teamName, count]) => ({
         teamName,
         memberCount: count,
-        maxCapacity: contest.teamSize,
+        maxCapacity: teamSize,
       }));
 
     return ok(availableTeams);
@@ -377,11 +380,15 @@ async function getAvailableTeamsForContestAction(contestId: string) {
   }
 }
 
-async function createRoomContestAction(data: any) {
+async function createRoomContestAction(input: unknown) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
+
+    const parsed = contestCreationPayloadSchema.safeParse(input);
+    if (!parsed.success) return validationError(parsed.error);
+    const data = parsed.data;
 
     await dbConnect();
     const cpUser = await CPUser.findOne({ userId });
@@ -423,7 +430,7 @@ async function createRoomContestAction(data: any) {
       maxParticipants = maxParticipants - (maxParticipants % 3);
     }
 
-    let problemSlots: any[] = [];
+    let problemSlots: ContestProblemSlot[] = [];
     if (
       data.problemSelectionMode === "fine-tuned" &&
       Array.isArray(data.fineTunedProblems)
@@ -457,10 +464,10 @@ async function createRoomContestAction(data: any) {
         deadline: deadline,
         maxParticipants: maxParticipants,
       },
-      registrations: (data.registeredUsers || []).map((u: any) => ({
-        userId: new mongoose.Types.ObjectId(u.id),
-        cfHandle: u.cfHandle,
-        teamName: u.teamName,
+      registrations: data.registeredUsers.map((user) => ({
+        userId: new mongoose.Types.ObjectId(user.id),
+        cfHandle: user.cfHandle,
+        teamName: user.teamName,
         registeredAt: new Date(),
       })),
     });
@@ -514,7 +521,7 @@ async function createRoomContestAction(data: any) {
 
     revalidatePath("/internal/contests");
     return ok({});
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error("Contest room creation failed", {
       action: "createRoomContest",
       ...errorToLogMetadata(err),
@@ -530,15 +537,17 @@ async function getContestRegistrationsAction(contestId: string) {
     if (!contest) return appError("NOT_FOUND", "Contest not found");
 
     const User = (await import("@/models/User")).default;
-    const userIds = (contest.registrations || []).map((r: any) => r.userId);
+    const userIds = (contest.registrations || []).map(
+      (registration) => registration.userId,
+    );
     const users = await User.find({ _id: { $in: userIds } }, "image").lean();
     const imageMap: Record<string, string> = {};
-    users.forEach((u: any) => {
-      if (u.image) imageMap[u._id.toString()] = u.image;
+    users.forEach((user) => {
+      if (user.image) imageMap[user._id.toString()] = user.image;
     });
 
     const populatedRegistrations = (contest.registrations || []).map(
-      (registration: any) => ({
+      (registration) => ({
         userId: registration.userId.toString(),
         cfHandle: registration.cfHandle ?? "",
         teamName: registration.teamName ?? "",
@@ -591,7 +600,7 @@ async function unregisterFromContestAction(contestId: string) {
 
     const initialLength = contest.registrations.length;
     contest.registrations = contest.registrations.filter(
-      (r: any) => r.userId.toString() !== userId,
+      (registration) => registration.userId.toString() !== userId,
     );
 
     if (contest.registrations.length === initialLength) {
@@ -632,7 +641,7 @@ async function searchVerifiedUsersAction(query: string) {
 
   if (users.length === 0) return ok({ users: [] });
 
-  const userIds = users.map((u: any) => u._id);
+  const userIds = users.map((user) => user._id);
 
   // Find which of these users are CPUsers with verified handles
   const cpUsers = await CPUser.find({
@@ -642,7 +651,7 @@ async function searchVerifiedUsersAction(query: string) {
     .select("userId cfHandle cfRating")
     .lean();
 
-  const cpUserMap = new Map();
+  const cpUserMap = new Map<string, { cfHandle: string; cfRating: number }>();
   for (const c of cpUsers) {
     cpUserMap.set(c.userId.toString(), {
       cfHandle: c.cfHandle,
@@ -651,14 +660,14 @@ async function searchVerifiedUsersAction(query: string) {
   }
 
   const result = users
-    .filter((u: any) => cpUserMap.has(u._id.toString()))
-    .map((u: any) => {
-      const cpData = cpUserMap.get(u._id.toString());
+    .filter((user) => cpUserMap.has(user._id.toString()))
+    .map((user) => {
+      const cpData = cpUserMap.get(user._id.toString())!;
       return {
-        id: u._id.toString(),
-        name: u.name,
-        image: u.image,
-        pizza_count: u.pizza_count || 0,
+        id: user._id.toString(),
+        name: user.name ?? "",
+        image: user.image,
+        pizza_count: user.pizza_count || 0,
         cfHandle: cpData.cfHandle,
         cfRating: cpData.cfRating || 0,
       };
@@ -669,12 +678,14 @@ async function searchVerifiedUsersAction(query: string) {
 
 // ─── Bracket / Knockout creation for all authenticated users ──────────────────
 
-async function createBracketContestAction(
-  data: BracketContestInput & Record<string, any>,
-) {
+async function createBracketContestAction(input: unknown) {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
   if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
+
+  const parsed = contestCreationPayloadSchema.safeParse(input);
+  if (!parsed.success) return validationError(parsed.error);
+  const data = parsed.data;
 
   await dbConnect();
 
@@ -744,7 +755,7 @@ async function createBracketContestAction(
   let bulkRatingMax = data.bulkRatingMax;
   let bulkProblemCount = data.bulkProblemCount;
   let bulkMinContestId = data.bulkMinContestId ?? 0;
-  let problemSlots: any[] = [];
+  let problemSlots: ContestProblemSlot[] = [];
 
   if (data.presetId && data.presetId !== "custom") {
     const ContestPreset = (await import("@/models/ContestPreset")).default;
@@ -753,16 +764,26 @@ async function createBracketContestAction(
     if (preset.archived)
       return appError("INTERNAL_ERROR", "An unexpected error occurred.");
     presetId = preset._id;
-    problemSelectionMode = preset.problemSelectionMode;
-    bulkPlatform = preset.bulkPlatform;
+    problemSelectionMode = preset.problemSelectionMode ?? "bulk";
+    bulkPlatform = preset.bulkPlatform ?? "codeforces";
     bulkRatingMin = preset.bulkRatingMin;
     bulkRatingMax = preset.bulkRatingMax;
     bulkProblemCount = data.bulkProblemCount || preset.bulkProblemCount;
     bulkMinContestId = data.bulkMinContestId ?? preset.bulkMinContestId ?? 0;
     problemSlots =
-      data.problemSlots && data.problemSlots.length > 0
+      data.problemSlots.length > 0
         ? data.problemSlots
-        : preset.problemSlots;
+        : (preset.problemSlots ?? [])
+            .filter(
+              (slot): slot is typeof slot & { problemId: string } =>
+                typeof slot.problemId === "string" &&
+                slot.problemId.trim().length > 0,
+            )
+            .map((slot) => ({
+              platform: slot.platform,
+              problemId: slot.problemId,
+              roundNumber: slot.roundNumber,
+            }));
   } else {
     // custom - validate bulk / fine-tuned fields
     if (
@@ -805,7 +826,7 @@ async function createBracketContestAction(
         );
       }
       problemSlots = data.problemSlots.filter(
-        (s: any) => s.problemId && s.problemId.trim() !== "",
+        (slot) => slot.problemId.trim() !== "",
       );
       if (problemSlots.length === 0) {
         return appError("INTERNAL_ERROR", "An unexpected error occurred.");

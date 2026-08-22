@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { requireHead } from "@/lib/api/auth";
-import { processWalkover } from "@/lib/bracket";
+import { processWalkover } from "@/lib/contests/bracket";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import { webEnv } from "@/lib/env/web";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
@@ -24,18 +24,17 @@ export async function POST(
 
     const isDev = webEnv.NODE_ENV === "development";
     const testUserId = request.headers.get("x-test-user-id");
-    let admin: any = null;
+    let adminUserId = "dev-bypass";
     if (!isDev || !testUserId) {
       const authorization = await requireHead(request);
       if (!authorization.ok) return jsonResult(authorization);
-      admin = authorization.data.user;
+      adminUserId = authorization.data.user.id;
     }
 
     const body = await parseJson(request, contestWalkoverSchema);
     if (!body.ok) return jsonResult(body);
     const { winnerTeamId, note } = body.data;
 
-    const adminUserId = admin?.id || admin?._id?.toString() || "dev-bypass";
     const snapshot = await processWalkover(
       roomId,
       winnerTeamId,

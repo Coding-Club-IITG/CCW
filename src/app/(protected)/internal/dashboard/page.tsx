@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   });
 
   // session is guaranteed by proxy
-  const user = session!.user as any;
+  const user = session!.user;
   const userIsAdmin = isHead(user.access);
 
   await dbConnect();

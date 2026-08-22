@@ -42,7 +42,7 @@ const ContestTeamSchema = new Schema<IContestTeam>(
 );
 
 const ContestTeam =
-  mongoose.models.ContestTeam ||
+  (mongoose.models.ContestTeam as mongoose.Model<IContestTeam> | undefined) ||
   mongoose.model<IContestTeam>(
     "ContestTeam",
     ContestTeamSchema,

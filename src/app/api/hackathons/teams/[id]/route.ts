@@ -27,7 +27,7 @@ export async function PATCH(
       return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    const user = session.user as any;
+    const user = session.user;
     const validatedParams = parseRouteParams(
       await params,
       objectIdParamsSchema,
@@ -144,7 +144,7 @@ export async function DELETE(
       return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    const user = session.user as any;
+    const user = session.user;
     const validatedParams = parseRouteParams(
       await params,
       objectIdParamsSchema,

@@ -31,14 +31,15 @@ export const bulkSetDailyProblems = defineAction(
 );
 
 import { auth } from "@/lib/auth";
+import mongoose from "mongoose";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { cp } from "@ronits2407/cp-api";
 import dbConnect from "@/lib/mongodb";
 import { getRedis } from "@/lib/redis";
-import User from "@/models/User";
+import User, { type UserRecord } from "@/models/User";
 import CPUser from "@/models/CPUser";
-import Problem from "@/models/POTDProblem";
+import Problem, { type POTDProblemRecord } from "@/models/POTDProblem";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
 
@@ -64,10 +65,32 @@ import {
   type ProblemContentSnapshot,
 } from "@/lib/platforms/problemContent";
 
+type WithId<T> = T & { _id: mongoose.Types.ObjectId };
+type CodeforcesProblem = {
+  contestId: number;
+  index: string;
+  name: string;
+  rating?: number;
+  tags?: string[];
+};
+
+function isCodeforcesProblem(value: unknown): value is CodeforcesProblem {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "contestId" in value &&
+    typeof value.contestId === "number" &&
+    "index" in value &&
+    typeof value.index === "string" &&
+    "name" in value &&
+    typeof value.name === "string",
+  );
+}
+
 async function checkAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
-  const user = session.user as any;
+  const user = session.user;
   if (!canSetPOTD(user.access, parseRoles(user.roles))) {
     logger.warn("Unauthorized POTD admin access attempt", {
       action: "requirePotdAdmin",
@@ -180,10 +203,17 @@ async function setDailyProblemAction(
       const CACHE_KEY = "cf:problemset:problems:v1";
       const redis = await getRedis();
 
-      let allProblems: any[];
+      let allProblems: CodeforcesProblem[];
       const cached = await redis.get(CACHE_KEY);
       if (cached) {
-        allProblems = JSON.parse(cached);
+        const parsed: unknown = JSON.parse(cached);
+        if (!Array.isArray(parsed)) {
+          return appError(
+            "EXTERNAL_DEPENDENCY_FAILURE",
+            "Cached Codeforces problem data is invalid.",
+          );
+        }
+        allProblems = parsed.filter(isCodeforcesProblem);
       } else {
         try {
           allProblems = await cp.codeforces.getProblems();
@@ -197,9 +227,9 @@ async function setDailyProblemAction(
       }
 
       const cfProblem = allProblems.find(
-        (p: any) =>
-          String(p.contestId) === contestId &&
-          p.index.toUpperCase() === problemIndex,
+        (problem) =>
+          String(problem.contestId) === contestId &&
+          problem.index.toUpperCase() === problemIndex,
       );
       if (!cfProblem)
         return appError(
@@ -348,24 +378,24 @@ async function getScheduledChallengesAction() {
     windowStart: { $gte: todayWindowStart, $lte: futureLimit },
   })
     .sort({ windowStart: 1, difficulty: 1 })
-    .populate("problem");
+    .populate<{ problem: WithId<POTDProblemRecord> }>("problem");
 
-  const data: ScheduledChallenge[] = challenges.map((c: any) => {
-    const p = c.problem as any;
-    const istDate = windowStartToISTDateStr(c.windowStart);
+  const data: ScheduledChallenge[] = challenges.map((challenge) => {
+    const problem = challenge.problem;
+    const istDate = windowStartToISTDateStr(challenge.windowStart);
     return {
-      id: c._id.toString(),
+      id: challenge._id.toString(),
       dateStr: istDate,
-      windowStart: c.windowStart.toISOString(),
-      windowEnd: c.windowEnd.toISOString(),
-      difficulty: c.difficulty,
-      platform: (p.platform || "codeforces") as Platform,
+      windowStart: challenge.windowStart.toISOString(),
+      windowEnd: challenge.windowEnd.toISOString(),
+      difficulty: challenge.difficulty,
+      platform: problem.platform || "codeforces",
       isToday: istDate === todayIST,
       problem: {
-        contestId: p.contestId,
-        problemIndex: p.problemIndex,
-        name: p.name,
-        rating: p.rating,
+        contestId: problem.contestId,
+        problemIndex: problem.problemIndex,
+        name: problem.name,
+        rating: problem.rating,
       },
     };
   });
@@ -416,17 +446,21 @@ async function getPendingSubmissionsAction(challengeId: string) {
   const subs = await POTDSubmission.find({
     challengeId,
     status: "Pending",
-  }).populate("userId", "name codeforcesId");
+  }).populate<{
+    userId: Pick<WithId<UserRecord>, "_id" | "name" | "codeforcesId">;
+  }>("userId", "name codeforcesId");
 
-  const data: PendingSubmissionEntry[] = subs.map((s: any) => {
-    const u = s.userId as any;
+  const data: PendingSubmissionEntry[] = subs.map((submission) => {
+    const user = submission.userId;
     return {
-      submissionId: s._id.toString(),
-      userId: u._id.toString(),
-      userName: u.name ?? "",
-      codeforcesId: u.codeforcesId ?? "",
-      status: s.status,
-      lastCheckedAt: s.lastCheckedAt ? s.lastCheckedAt.toISOString() : null,
+      submissionId: submission._id.toString(),
+      userId: user._id.toString(),
+      userName: user.name ?? "",
+      codeforcesId: user.codeforcesId ?? "",
+      status: submission.status,
+      lastCheckedAt: submission.lastCheckedAt
+        ? submission.lastCheckedAt.toISOString()
+        : null,
     };
   });
 
@@ -452,11 +486,12 @@ async function forceSyncUserAction(targetUserId: string, challengeId: string) {
   const targetUser = await User.findById(targetUserId);
   if (!targetUser) return appError("NOT_FOUND", "User not found");
 
-  const challenge =
-    await DailyChallenge.findById(challengeId).populate("problem");
+  const challenge = await DailyChallenge.findById(challengeId).populate<{
+    problem: WithId<POTDProblemRecord>;
+  }>("problem");
   if (!challenge) return appError("NOT_FOUND", "Challenge not found");
 
-  const problem = challenge.problem as any;
+  const problem = challenge.problem;
   const platform: Platform = problem.platform || "codeforces";
 
   const targetCPUser = await CPUser.findOne({ userId: targetUserId });
@@ -476,7 +511,7 @@ async function forceSyncUserAction(targetUserId: string, challengeId: string) {
   const handle =
     platform === "codeforces" ? targetUser.codeforcesId : targetUser.atcoderId;
 
-  let subs: any[] = [];
+  let subs: unknown[] = [];
   try {
     subs = await fetchUserSubmissions(
       handle,
@@ -554,9 +589,11 @@ async function autoFetchPOTDCandidatesAction(
   // Get all used POTD problem IDs to avoid repeating problems
   const usedProblems = await Problem.find({});
   const usedProblemIds = new Set<string>();
-  usedProblems.forEach((p: any) => {
-    if (p.contestId && p.problemIndex) {
-      usedProblemIds.add(`${p.contestId}${p.problemIndex}`.toUpperCase());
+  usedProblems.forEach((problem) => {
+    if (problem.contestId && problem.problemIndex) {
+      usedProblemIds.add(
+        `${problem.contestId}${problem.problemIndex}`.toUpperCase(),
+      );
     }
   });
 
@@ -577,7 +614,7 @@ async function autoFetchPOTDCandidatesAction(
 
     const excludeList = Array.from(currentBatchExcluded);
 
-    const matchStage: any = {
+    const matchStage: Record<string, unknown> = {
       rating: { $gte: minRating, $lte: maxRating },
     };
     if (minContestId > 0) {

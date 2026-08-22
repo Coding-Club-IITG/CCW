@@ -143,11 +143,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Set room:<id>:state Hash
-    const stateObj: any = {
+    const stateObj: Record<string, string | number> = {
       status: "waiting",
       type: contest.mode || "blitz",
       startTime: "",
-      timeLimit: contest.durationSeconds.toString(),
+      timeLimit: (contest.durationSeconds ?? 3600).toString(),
       contestId: contestId.toString(),
       readyCount: 0,
     };
@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
       await redis.hSet(`team:${tId}:meta`, { name: t.name, score: 0 });
       await redis.sAdd(
         `team:${tId}:users`,
-        t.members.map((m: any) => m.toString()),
+        t.members.map((member) => member.toString()),
       );
     }
 

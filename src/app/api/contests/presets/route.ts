@@ -1,17 +1,19 @@
 import { NextRequest } from "next/server";
-import dbConnect from "@/lib/mongodb";
-import ContestPreset from "@/models/ContestPreset";
+
+import { requireHead } from "@/lib/api/auth";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
 import {
   boundaryErrorResponse,
   jsonError,
   jsonOk,
 } from "@/lib/api/result.server";
-import { requireHead } from "@/lib/api/auth";
 import {
   contestPresetQuerySchema,
   createContestPresetSchema,
 } from "@/lib/api/schemas/contestPreset";
+import { toContestPresetDto } from "@/lib/contests/dtos";
+import dbConnect from "@/lib/mongodb";
+import ContestPreset from "@/models/ContestPreset";
 
 export async function GET(request: NextRequest) {
   const query = parseSearchParams(
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
       ? {}
       : { archived: { $ne: true } };
     const presets = await ContestPreset.find(filter).sort({ name: 1 }).lean();
-    return jsonOk(presets);
+    return jsonOk(presets.map(toContestPresetDto));
   } catch (error) {
     return boundaryErrorResponse("list_contest_presets", error, request);
   }
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
       ...body.data,
       archived: false,
     });
-    return jsonOk(preset.toObject(), { status: 201 });
+    return jsonOk(toContestPresetDto(preset), { status: 201 });
   } catch (error) {
     return boundaryErrorResponse("create_contest_preset", error, request);
   }

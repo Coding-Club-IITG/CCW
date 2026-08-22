@@ -37,14 +37,14 @@ async function getCreditsAction() {
     const credits = await Credits.findOne({ key: "main" }).lean();
     if (!credits) return ok([] as CreditSection[]);
 
-    const userIds = credits.sections.flatMap((section: any) =>
-      section.entries.map((entry: any) => entry.user),
+    const userIds = credits.sections.flatMap((section) =>
+      section.entries.map((entry) => entry.user),
     );
     const users = await User.find({ _id: { $in: userIds } })
       .select("_id name image pizza_count")
       .lean();
     const userMap = new Map(
-      users.map((user: any) => [
+      users.map((user) => [
         user._id.toString(),
         {
           name: getDisplayName(user.name || "Member", user.pizza_count),
@@ -53,9 +53,9 @@ async function getCreditsAction() {
       ]),
     );
 
-    const data: CreditSection[] = credits.sections.map((section: any) => ({
+    const data: CreditSection[] = credits.sections.map((section) => ({
       heading: section.heading,
-      entries: section.entries.flatMap((entry: any) => {
+      entries: section.entries.flatMap((entry) => {
         const userId = entry.user.toString();
         const user = userMap.get(userId);
         return user ? [{ userId, period: entry.period, ...user }] : [];

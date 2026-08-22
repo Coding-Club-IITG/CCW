@@ -30,7 +30,7 @@ export default function PotdLayout({
   children: React.ReactNode;
 }) {
   const { data: session } = useSession();
-  const user = session?.user as any;
+  const user = session?.user;
   const canSet = user ? canSetPOTD(user.access, parseRoles(user.roles)) : false;
 
   const pathname = usePathname();

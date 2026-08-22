@@ -50,7 +50,9 @@ const ContestQuestionSchema = new Schema<IContestQuestion>(
 ContestQuestionSchema.index({ contestId: 1, index: 1 }, { unique: true });
 
 const ContestQuestion =
-  mongoose.models.ContestQuestion ||
+  (mongoose.models.ContestQuestion as
+    | mongoose.Model<IContestQuestion>
+    | undefined) ||
   mongoose.model<IContestQuestion>(
     "ContestQuestion",
     ContestQuestionSchema,

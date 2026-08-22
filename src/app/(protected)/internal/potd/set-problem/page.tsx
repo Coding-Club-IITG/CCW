@@ -10,7 +10,7 @@ export default async function SetProblemPage() {
     headers: await headers(),
   });
 
-  const user = session?.user as any;
+  const user = session?.user;
   if (!user || !canSetPOTD(user.access, parseRoles(user.roles))) {
     redirect("/internal/potd");
   }

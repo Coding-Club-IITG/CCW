@@ -47,28 +47,40 @@ describe("runtime environment schemas", () => {
   it("accepts MongoDB multi-host replica-set URLs", () => {
     const uri =
       "mongodb://user:password@mongo-0.example.test:27017,mongo-1.example.test:27017/ccw?replicaSet=rs0";
-    expect(parseWorkerEnv({ MONGODB_URI: uri }).MONGODB_URI).toBe(uri);
+    expect(
+      parseWorkerEnv({ MONGODB_URI: uri, REDIS_URL: required.REDIS_URL })
+        .MONGODB_URI,
+    ).toBe(uri);
   });
 
-  it("uses the Redis fallback only in development", () => {
-    expect(
+  it("requires Redis in every non-test runtime profile", () => {
+    expect(() =>
       parseWorkerEnv({
         NODE_ENV: "development",
         MONGODB_URI: required.MONGODB_URI,
-      }).REDIS_URL,
-    ).toBe("redis://localhost:6379");
+      }),
+    ).toThrow(/REDIS_URL/);
     expect(() =>
       parseWorkerEnv({
         NODE_ENV: "production",
         MONGODB_URI: required.MONGODB_URI,
       }),
     ).toThrow(/REDIS_URL/);
+    expect(() => parseCliEnv({ MONGODB_URI: required.MONGODB_URI })).toThrow(
+      /REDIS_URL/,
+    );
   });
 
-  it("parses CLI and test profiles", () => {
-    expect(parseCliEnv({ MONGODB_URI: required.MONGODB_URI }).REDIS_URL).toBe(
-      "redis://localhost:6379",
-    );
+  it("parses CLI and keeps connection defaults test-only", () => {
+    expect(
+      parseCliEnv({
+        MONGODB_URI: required.MONGODB_URI,
+        REDIS_URL: required.REDIS_URL,
+      }).REDIS_URL,
+    ).toBe(required.REDIS_URL);
+    expect(
+      parseTestEnv({ MONGODB_TEST_URI: required.MONGODB_URI }).REDIS_URL,
+    ).toBe("redis://localhost:6379");
     expect(
       parseTestEnv({ MONGODB_TEST_URI: required.MONGODB_URI }).MOCK_CF_API,
     ).toBe(false);
@@ -125,6 +137,15 @@ describe("runtime environment schemas", () => {
         TRUSTED_ORIGINS: "javascript:alert(1)",
       }),
     ).toThrow(/REDIS_URL|TRUSTED_ORIGINS/);
+  });
+
+  it("rejects connection URLs without a hostname", () => {
+    expect(() =>
+      parseWorkerEnv({
+        MONGODB_URI: required.MONGODB_URI,
+        REDIS_URL: "redis:///15",
+      }),
+    ).toThrow(/REDIS_URL.*hostname/);
   });
 
   it("rejects URLs and null bytes as upload paths", () => {

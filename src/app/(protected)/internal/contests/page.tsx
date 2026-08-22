@@ -1,5 +1,5 @@
 import { getContestListing } from "@/lib/actions/contests";
-import { toBsonSafe } from "@/lib/api/result";
+import { toContestPresetDto, type ContestPresetDto } from "@/lib/contests/dtos";
 import ContestListingClient from "@/components/contests/ContestListingClient";
 import { auth } from "@/lib/auth";
 import { isHead } from "@/lib/access/roles";
@@ -21,13 +21,13 @@ export default async function ContestsPage() {
     ? contestsResult.data
     : { active: [], upcoming: [], completed: [] };
 
-  let presets = [];
+  let presets: ContestPresetDto[] = [];
   if (admin) {
     await dbConnect();
     const presetsJson = await ContestPreset.find({ archived: { $ne: true } })
       .sort({ name: 1 })
       .lean();
-    presets = toBsonSafe(presetsJson) as any[];
+    presets = presetsJson.map(toContestPresetDto);
   }
 
   const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;

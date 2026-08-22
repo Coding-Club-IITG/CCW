@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     return jsonError("UNAUTHENTICATED", "Unauthorized");
   }
 
-  const user = session.user as any;
+  const user = session.user;
   if (!canUploadFiles(user.access)) {
     return jsonError("FORBIDDEN", "Forbidden.");
   }

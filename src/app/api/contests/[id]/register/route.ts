@@ -140,7 +140,7 @@ export async function POST(
 
       // Check registrations for duplicates (quick in-memory fail)
       const registeredUserIds = new Set(
-        registrations.map((reg: any) => reg.userId.toString()),
+        registrations.map((registration) => registration.userId.toString()),
       );
       for (const memberId of memberIds) {
         if (registeredUserIds.has(memberId)) {

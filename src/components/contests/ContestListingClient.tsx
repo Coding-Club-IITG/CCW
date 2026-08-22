@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { type ContestListingItem } from "@/lib/actions/contests";
+import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -105,7 +106,7 @@ export default function ContestListingClient({
   upcoming: ContestListingItem[];
   completed: ContestListingItem[];
   isHead?: boolean;
-  presets?: any[];
+  presets?: ContestCreationPreset[];
   deadlineMinutes?: number;
 }) {
   const router = useRouter();

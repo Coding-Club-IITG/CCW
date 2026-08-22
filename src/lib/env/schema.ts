@@ -23,6 +23,12 @@ const urlWithProtocols = (name: string, protocols: string[]) =>
           message: `${name} must use ${protocols.join(" or ")}`,
         });
       }
+      if (!url.hostname) {
+        ctx.addIssue({
+          code: "custom",
+          message: `${name} must include a hostname`,
+        });
+      }
     } catch {
       ctx.addIssue({ code: "custom", message: `${name} must be a valid URL` });
     }
@@ -118,22 +124,7 @@ const sharedServerSchema = baseSchema.extend({
   REDIS_URL: redisUrl,
 });
 
-function withDevelopmentRedisDefault<T>(schema: z.ZodType<T>) {
-  return z.preprocess((input) => {
-    if (!input || typeof input !== "object") return input;
-    const env = input as RuntimeEnvironment;
-    if (
-      !env.REDIS_URL &&
-      (env.NODE_ENV === undefined || env.NODE_ENV === "development")
-    ) {
-      return { ...env, REDIS_URL: "redis://localhost:6379" };
-    }
-    return input;
-  }, schema);
-}
-
-export const sharedServerEnvSchema =
-  withDevelopmentRedisDefault(sharedServerSchema);
+export const sharedServerEnvSchema = sharedServerSchema;
 
 const operationalSchema = z.object({
   JINA_API_KEY: z.string().trim().min(1).optional(),
@@ -162,44 +153,42 @@ const uploadSchema = z.object({
   AVATAR_UPLOAD_DIR: uploadPath("uploads/avatars"),
 });
 
-export const webEnvSchema = withDevelopmentRedisDefault(
-  sharedServerSchema
-    .extend({
-      AUTH_SECRET: secret("AUTH_SECRET", 32),
-      BASE_URL: httpUrl("BASE_URL"),
-      TRUSTED_ORIGINS: origins,
-      AZURE_CLIENT_ID: nonempty("AZURE_CLIENT_ID"),
-      AZURE_CLIENT_SECRET: secret("AZURE_CLIENT_SECRET"),
-      AZURE_TENANT_ID: nonempty("AZURE_TENANT_ID"),
-    })
-    .extend(operationalSchema.shape)
-    .extend(uploadSchema.shape)
-    .superRefine((value, ctx) => {
-      if (value.NODE_ENV !== "production") return;
-      for (const name of [
-        "AUTH_SECRET",
-        "AZURE_CLIENT_ID",
-        "AZURE_CLIENT_SECRET",
-        "AZURE_TENANT_ID",
-      ] as const) {
-        if (PLACEHOLDER.test(value[name])) {
-          ctx.addIssue({
-            code: "custom",
-            path: [name],
-            message: `${name} must not use a placeholder in production`,
-          });
-        }
+export const webEnvSchema = sharedServerSchema
+  .extend({
+    AUTH_SECRET: secret("AUTH_SECRET", 32),
+    BASE_URL: httpUrl("BASE_URL"),
+    TRUSTED_ORIGINS: origins,
+    AZURE_CLIENT_ID: nonempty("AZURE_CLIENT_ID"),
+    AZURE_CLIENT_SECRET: secret("AZURE_CLIENT_SECRET"),
+    AZURE_TENANT_ID: nonempty("AZURE_TENANT_ID"),
+  })
+  .extend(operationalSchema.shape)
+  .extend(uploadSchema.shape)
+  .superRefine((value, ctx) => {
+    if (value.NODE_ENV !== "production") return;
+    for (const name of [
+      "AUTH_SECRET",
+      "AZURE_CLIENT_ID",
+      "AZURE_CLIENT_SECRET",
+      "AZURE_TENANT_ID",
+    ] as const) {
+      if (PLACEHOLDER.test(value[name])) {
+        ctx.addIssue({
+          code: "custom",
+          path: [name],
+          message: `${name} must not use a placeholder in production`,
+        });
       }
-    }),
-);
+    }
+  });
 
-export const workerEnvSchema = withDevelopmentRedisDefault(
-  sharedServerSchema.extend(operationalSchema.shape).extend(uploadSchema.shape),
-);
+export const workerEnvSchema = sharedServerSchema
+  .extend(operationalSchema.shape)
+  .extend(uploadSchema.shape);
 
-export const cliEnvSchema = withDevelopmentRedisDefault(
-  sharedServerSchema.extend(operationalSchema.shape).extend(uploadSchema.shape),
-);
+export const cliEnvSchema = sharedServerSchema
+  .extend(operationalSchema.shape)
+  .extend(uploadSchema.shape);
 
 export const testEnvSchema = baseSchema.extend({
   MONGODB_TEST_URI: urlWithProtocols("MONGODB_TEST_URI", [

@@ -13,7 +13,7 @@ export default async function FilesPage() {
   });
 
   // Session is guaranteed by the proxy middleware
-  const user = session!.user as any;
+  const user = session!.user;
   const managedModules = parseManagedModules(user.managedModules);
   const roles = parseRoles(user.roles);
 

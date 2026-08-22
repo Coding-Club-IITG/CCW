@@ -3,13 +3,19 @@ import styles from "../ContestWizard.module.scss";
 interface Step2Props {
   registrationType: string;
   maxParticipants: number;
-  updateFields: (fields: any) => void;
+  startTime: string;
+  updateFields: (fields: {
+    registrationType?: "open" | "closed";
+    maxParticipants?: number;
+    startTime?: string;
+  }) => void;
   errors: Record<string, string>;
 }
 
 export default function Step2Registration({
   registrationType,
   maxParticipants,
+  startTime,
   updateFields,
   errors,
 }: Step2Props) {
@@ -41,6 +47,20 @@ export default function Step2Registration({
             Closed (Invite-only / Manual registration)
           </label>
         </div>
+      </div>
+
+      <div className={`${styles.field} ${styles.fieldFlush}`}>
+        <label className={styles.label}>Tournament Start</label>
+        <input
+          type="datetime-local"
+          value={startTime}
+          onChange={(event) => updateFields({ startTime: event.target.value })}
+          className={`${styles.input} ${errors.startTime ? styles.inputError : ""}`}
+          required
+        />
+        {errors.startTime && (
+          <span className={styles.error}>{errors.startTime}</span>
+        )}
       </div>
 
       <div className={`${styles.field} ${styles.fieldFlush}`}>

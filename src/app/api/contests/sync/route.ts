@@ -3,8 +3,8 @@ import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { webEnv } from "@/lib/env/web";
 import { auth } from "@/lib/auth";
 import { getRedis } from "@/lib/redis";
-import { cfSyncQueue } from "@/lib/bullmq";
-import { publishUser } from "@/lib/sse";
+import { publishUser } from "@/lib/contests/events";
+import { cfSyncQueue } from "@/lib/contests/queues";
 import { logger } from "@/lib/utils";
 import { parseJson } from "@/lib/api/result";
 import { contestSyncSchema } from "@/lib/api/schemas/contestRoute";
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     // 6. Return 202
     return jsonOk({ queued: true }, { status: 202 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error("[/api/contests/sync] Error enqueuing sync job:", error);
     return jsonError("INTERNAL_ERROR", "Internal Server Error");
   }

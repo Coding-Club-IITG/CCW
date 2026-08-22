@@ -27,6 +27,8 @@ import {
   createInitialContestForm,
   getMaxParticipantsError,
   reorderContestEntries,
+  type ContestCreationPreset,
+  type ContestParticipant,
 } from "@/components/contests/contestCreationForm";
 import styles from "./CreateRoomModal.module.scss";
 
@@ -40,7 +42,7 @@ export default function CreateRoomModal({
   isOpen: boolean;
   onClose: () => void;
   isHead?: boolean;
-  presets?: any[];
+  presets?: ContestCreationPreset[];
   deadlineMinutes?: number;
 }) {
   const router = useRouter();
@@ -61,9 +63,11 @@ export default function CreateRoomModal({
 
   const [formData, setFormData] = useState(createInitialContestForm);
 
-  const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<ContestParticipant[]>(
+    [],
+  );
   const [manualTeams, setManualTeams] = useState<
-    { id: string; name: string; members: any[] }[]
+    { id: string; name: string; members: ContestParticipant[] }[]
   >([]);
   // bracketRoundProblems: per-round problem ID arrays for fine-tuned bracket creation
   const [bracketRoundProblems, setBracketRoundProblems] = useState<
@@ -73,7 +77,7 @@ export default function CreateRoomModal({
     null,
   );
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<ContestParticipant[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedUserIndex, setSelectedUserIndex] = useState(0);
   const [draggedUserIndex, setDraggedUserIndex] = useState<number | null>(null);
@@ -96,9 +100,9 @@ export default function CreateRoomModal({
           const isUserInAnyTeam = (id: string) =>
             manualTeams.some((t) => t.members.some((m) => m.id === id));
           const filtered = res.data.users.filter(
-            (u: any) =>
-              !registeredUsers.some((inv) => inv.id === u.id) &&
-              !isUserInAnyTeam(u.id),
+            (user) =>
+              !registeredUsers.some((invitee) => invitee.id === user.id) &&
+              !isUserInAnyTeam(user.id),
           );
           setSearchResults(filtered);
           setSelectedUserIndex(0);
@@ -295,7 +299,7 @@ export default function CreateRoomModal({
         onClose();
         router.refresh();
       }
-    } catch (err: any) {
+    } catch {
       alert("Error creating room");
     } finally {
       setLoading(false);

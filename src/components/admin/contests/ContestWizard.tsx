@@ -14,9 +14,13 @@ import Step3aFineTuned from "./steps/Step3aFineTuned";
 import Step4BracketSettings from "./steps/Step4BracketSettings";
 import Step5Preview from "./steps/Step5Preview";
 import styles from "./ContestWizard.module.scss";
+import type {
+  AdminContestWizardForm,
+  ContestCreationPreset,
+} from "@/components/contests/contestCreationForm";
 
 interface ContestWizardProps {
-  presets: any[];
+  presets: ContestCreationPreset[];
 }
 
 export default function ContestWizard({ presets }: ContestWizardProps) {
@@ -25,14 +29,17 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<AdminContestWizardForm>({
     name: "",
     description: "",
     mode: "blitz",
+    format: "bracket",
+    startTime: "",
     teamSize: 1,
     registrationType: "open",
     maxParticipants: 8,
     presetId: "",
+    problemSelectionMode: "bulk",
     problemSlots: [] as {
       platform: string;
       problemId: string;
@@ -89,8 +96,8 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
         setErrors({});
         setCurrentStep((prev) => prev + 1);
       }
-    } catch (err: any) {
-      alert(err.message || "Validation failed");
+    } catch {
+      alert("Validation failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -113,8 +120,8 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
         alert("Contest created successfully!");
         router.push(`/admin`);
       }
-    } catch (err: any) {
-      alert(err.message || "Failed to create contest");
+    } catch {
+      alert("Failed to create contest");
     } finally {
       setIsSubmitting(false);
     }
@@ -162,6 +169,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
           <Step2Registration
             registrationType={formData.registrationType}
             maxParticipants={formData.maxParticipants}
+            startTime={formData.startTime}
             updateFields={updateFields}
             errors={errors}
           />

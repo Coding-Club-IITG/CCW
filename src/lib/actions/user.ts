@@ -93,7 +93,7 @@ async function checkAdmin() {
     const session = await auth.api.getSession({
       headers: await headers(),
     });
-    if (!session || !isHead((session.user as any).access)) {
+    if (!session || !isHead(session.user.access)) {
       logger.warn("Unauthorized admin access attempt", {
         action: "checkAdmin",
       });
@@ -477,9 +477,9 @@ async function updateProfileAction(data: {
     await dbConnect();
 
     // Check if CF or AC handles changed
-    const currentUser = (await User.findById(session.user.id)
+    const currentUser = await User.findById(session.user.id)
       .select("codeforcesId atcoderId image")
-      .lean()) as any;
+      .lean();
     const oldCfHandle = currentUser?.codeforcesId?.trim() || "";
     const oldAcHandle = currentUser?.atcoderId?.trim() || "";
     const oldImage = currentUser?.image || "";

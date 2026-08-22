@@ -4,12 +4,23 @@
  * 6 hours before closing.
  */
 
+import type { Types } from "mongoose";
+
+import type { Difficulty } from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
+import { notifyMany } from "@/lib/notify";
+import { logger } from "@/lib/utils";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
 import User from "@/models/User";
-import { notifyMany } from "@/lib/notify";
-import { logger } from "@/lib/utils";
+
+type ReminderChallenge = {
+  _id: Types.ObjectId;
+  difficulty: Difficulty;
+};
+
+type ReminderSubmission = { userId: Types.ObjectId };
+type ReminderUser = { _id: Types.ObjectId };
 
 export async function sendPOTDReminders() {
   await dbConnect();
@@ -22,32 +33,31 @@ export async function sendPOTDReminders() {
 
   const challenges = await DailyChallenge.find({
     windowEnd: { $gte: sixHoursLater, $lte: sevenHoursLater },
-  }).lean();
+  })
+    .select("_id difficulty")
+    .lean<ReminderChallenge[]>();
 
   if (challenges.length === 0) return;
 
   // Collect users who solved at least one of today's challenges
-  const solvedUserIds = new Set<string>();
-  for (const challenge of challenges as any[]) {
-    const submissions = await POTDSubmission.find({
-      challengeId: challenge._id,
-    })
-      .select("userId")
-      .lean();
-    for (const s of submissions as any[]) {
-      solvedUserIds.add(s.userId.toString());
-    }
-  }
+  const submissions = await POTDSubmission.find({
+    challengeId: { $in: challenges.map((challenge) => challenge._id) },
+  })
+    .select("userId")
+    .lean<ReminderSubmission[]>();
+  const solvedUserIds = new Set(
+    submissions.map((submission) => submission.userId.toString()),
+  );
 
   // Get all users who haven't solved any challenge
-  const allUsers = await User.find({}).select("_id").lean();
-  const unsolvedUsers = (allUsers as any[]).filter(
+  const allUsers = await User.find({}).select("_id").lean<ReminderUser[]>();
+  const unsolvedUsers = allUsers.filter(
     (u) => !solvedUserIds.has(u._id.toString()),
   );
 
   if (unsolvedUsers.length === 0) return;
 
-  const difficulties = (challenges as any[]).map((c) => c.difficulty);
+  const difficulties = challenges.map((challenge) => challenge.difficulty);
   const difficultyText =
     difficulties.length === 1
       ? `a ${difficulties[0]} problem`

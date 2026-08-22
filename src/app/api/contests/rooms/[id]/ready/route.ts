@@ -6,8 +6,13 @@ import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
-import { publishRoom } from "@/lib/sse";
-import { reconciliationQueue } from "@/lib/bullmq";
+import { publishRoom } from "@/lib/contests/events";
+import { reconciliationQueue } from "@/lib/contests/queues";
+import {
+  contestRoomProblemSchema,
+  contestRoomStateSchema,
+  parseContestRoomProblems,
+} from "@/lib/contests/runtime";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import { webEnv } from "@/lib/env/web";
 import { parseRouteParams } from "@/lib/api/result";
@@ -44,12 +49,18 @@ export async function POST(
       return jsonError("NOT_FOUND", "Room not found");
     }
 
-    if (!room.participants.some((p: any) => p.toString() === userId)) {
+    if (
+      !room.participants.some(
+        (participant) => participant.toString() === userId,
+      )
+    ) {
       return jsonError("FORBIDDEN", "Not a participant");
     }
 
     const redis = await getRedis();
-    const state = await redis.hGetAll(`room:${roomId}:state`);
+    const state = contestRoomStateSchema.parse(
+      await redis.hGetAll(`room:${roomId}:state`),
+    );
 
     if (!state || state.status !== "waiting") {
       return jsonError("VALIDATION_ERROR", "Room is not waiting");
@@ -121,13 +132,17 @@ export async function POST(
         );
         if (state.type === "arena") {
           for (let i = 0; i < problemsRaw.length; i++) {
-            const p = JSON.parse(problemsRaw[i]);
+            const p = contestRoomProblemSchema.parse(
+              JSON.parse(problemsRaw[i]),
+            );
             p.revealedAt = now;
             await redis.lSet(`room:${roomId}:problems`, i, JSON.stringify(p));
           }
         } else {
           if (problemsRaw.length > 0) {
-            const firstProblem = JSON.parse(problemsRaw[0]);
+            const firstProblem = contestRoomProblemSchema.parse(
+              JSON.parse(problemsRaw[0]),
+            );
             firstProblem.revealedAt = now;
             await redis.lSet(
               `room:${roomId}:problems`,
@@ -168,7 +183,7 @@ export async function POST(
           type: "room.state_sync",
           roomId,
           state: updatedState,
-          problems: updatedProblems.map((p) => JSON.parse(p)),
+          problems: parseContestRoomProblems(updatedProblems),
           scores,
         });
 

@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import styles from "../ContestWizard.module.scss";
+import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
 
 interface Step3aFineTunedProps {
   maxParticipants: number;
   problemSlots: { platform: string; problemId: string; roundNumber: number }[];
-  updateFields: (fields: any) => void;
+  updateFields: (fields: {
+    problemSlots?: Step3aFineTunedProps["problemSlots"];
+    bulkProblemCount?: number;
+  }) => void;
   errors: Record<string, string>;
-  preset: any;
+  preset?: ContestCreationPreset;
 }
 
 export default function Step3aFineTuned({

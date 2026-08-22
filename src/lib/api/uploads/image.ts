@@ -58,7 +58,7 @@ export function createImageUploadHandler(options: UploadOptions) {
       if (!session) {
         return jsonError("UNAUTHENTICATED", "Unauthorized");
       }
-      const user = session.user as any;
+      const user = session.user;
       if (requireAdmin) {
         if (!isHead(user.access)) {
           return jsonError("FORBIDDEN", "Forbidden");

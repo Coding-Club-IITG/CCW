@@ -6,8 +6,12 @@ import { getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
 import ContestRoom from "@/models/ContestRoom";
-import { publishRoom, publishUser } from "@/lib/sse";
-import { reconciliationQueue } from "@/lib/bullmq";
+import { publishRoom, publishUser } from "@/lib/contests/events";
+import { reconciliationQueue } from "@/lib/contests/queues";
+import {
+  contestRoomStateSchema,
+  parseContestRoomProblems,
+} from "@/lib/contests/runtime";
 import { parseSearchParams } from "@/lib/api/result";
 import { contestStreamQuerySchema } from "@/lib/api/schemas/contestRoute";
 
@@ -53,7 +57,9 @@ export async function GET(request: NextRequest) {
     await redis.set(presenceKey, "online");
     await redis.persist(presenceKey);
 
-    const stateObj = await redis.hGetAll(`room:${roomId}:state`);
+    const stateObj = contestRoomStateSchema.parse(
+      await redis.hGetAll(`room:${roomId}:state`),
+    );
     const currentStatus = stateObj?.status || "unknown";
 
     let cancelled = false;
@@ -106,7 +112,7 @@ export async function GET(request: NextRequest) {
           0,
           -1,
         );
-        const problems = problemsRaw.map((p: string) => JSON.parse(p));
+        const problems = parseContestRoomProblems(problemsRaw);
 
         const allTeams = await redis.sMembers(`room:${roomId}:teams`);
         const scores: Record<string, number> = {};
@@ -252,7 +258,7 @@ export async function GET(request: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const sendEvent = (event: string, data: any) => {
+      const sendEvent = (event: string, data: unknown) => {
         if (isClosed) return;
         try {
           const formatted = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;

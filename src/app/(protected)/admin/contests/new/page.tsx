@@ -1,6 +1,6 @@
 import dbConnect from "@/lib/mongodb";
 import ContestPreset from "@/models/ContestPreset";
-import { toBsonSafe } from "@/lib/api/result";
+import { toContestPresetDto } from "@/lib/contests/dtos";
 import ContestWizard from "@/components/admin/contests/ContestWizard";
 
 export const metadata = {
@@ -15,7 +15,7 @@ export default async function NewContestPage() {
     .sort({ name: 1 })
     .lean();
 
-  const presets = toBsonSafe(presetsJson) as any[];
+  const presets = presetsJson.map(toContestPresetDto);
 
   return (
     <div>

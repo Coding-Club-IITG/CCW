@@ -26,6 +26,12 @@ import {
 } from "lucide-react";
 import { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
+import type {
+  ContestRoomProblemDto,
+  ContestRoomTeamDto,
+  RoomActivityDto,
+  RoomEventPayloadDto,
+} from "@/lib/contests/dtos";
 
 import React, { useEffect, useState, useRef, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -103,11 +109,6 @@ function sendBrowserNotification(icon: string, text: string) {
   } catch (_) {}
 }
 
-interface EventPayload {
-  type: string;
-  [key: string]: any;
-}
-
 export default function BlitzRoomClient({
   contest,
   roomId,
@@ -133,11 +134,11 @@ export default function BlitzRoomClient({
   teamId: string;
   userId: string;
   cfHandle?: string;
-  teams?: any[];
+  teams?: ContestRoomTeamDto[];
   initialReadyUserIds?: string[];
   initialOnlineUserIds?: string[];
   initialMatchState?: "waiting" | "active" | "completed";
-  initialProblems?: any[];
+  initialProblems?: ContestRoomProblemDto[];
   initialScores?: Record<string, number>;
   initialProblemIndex?: number;
   initialStartTime?: number;
@@ -152,7 +153,8 @@ export default function BlitzRoomClient({
   >(initialMatchState);
   const matchStateRef = useRef(initialMatchState);
   const [showMatchStartedModal, setShowMatchStartedModal] = useState(false);
-  const [problems, setProblems] = useState<any[]>(initialProblems);
+  const [problems, setProblems] =
+    useState<ContestRoomProblemDto[]>(initialProblems);
   const [currentProblemIndex, setCurrentProblemIndex] =
     useState(initialProblemIndex);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
@@ -184,12 +186,12 @@ export default function BlitzRoomClient({
   );
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
-  const getDisplayTeamName = (t: any) => {
-    if (!t) return "Unknown";
-    if (isSoloFormat && t.members && t.members.length > 0) {
-      return getDisplayName(t.members[0].name, t.members[0].pizza_count);
+  const getDisplayTeamName = (team?: ContestRoomTeamDto) => {
+    if (!team) return "Unknown";
+    if (isSoloFormat && team.members.length > 0) {
+      return getDisplayName(team.members[0].name, team.members[0].pizza_count);
     }
-    return t.name;
+    return team.name;
   };
 
   useEffect(() => {
@@ -213,7 +215,7 @@ export default function BlitzRoomClient({
   }, [roomId, userId, syncCooldownSeconds]);
 
   // Each entry stores { icon, text, timestamp (epoch ms), color, id }
-  const [activityFeed, setActivityFeed] = useState<any[]>([]);
+  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
   const [, setTick] = useState(0); // forces re-render every second to update relative times
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1000);
@@ -263,15 +265,23 @@ export default function BlitzRoomClient({
     contest.mode,
   ]);
 
-  const handleEvent = (payload: EventPayload) => {
+  const handleEvent = (payload: RoomEventPayloadDto) => {
     switch (payload.type) {
       case "room.state_sync":
-        matchStateRef.current = payload.state.status;
+        const nextStatus = payload.state.status;
+        if (
+          nextStatus !== "waiting" &&
+          nextStatus !== "active" &&
+          nextStatus !== "completed"
+        ) {
+          break;
+        }
+        matchStateRef.current = nextStatus;
         setMatchState((prev) => {
-          if (prev !== "active" && payload.state.status === "active") {
+          if (prev !== "active" && nextStatus === "active") {
             setShowMatchStartedModal(true);
           }
-          return payload.state.status;
+          return nextStatus;
         });
         if (payload.state.startTime)
           setStartTime(parseInt(payload.state.startTime));
@@ -279,7 +289,7 @@ export default function BlitzRoomClient({
           setTimeLimit(parseInt(payload.state.timeLimit));
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
-        if (payload.state.status === "active") {
+        if (nextStatus === "active") {
           addActivity("info", "Match started! Good luck.");
         }
         break;
@@ -302,7 +312,7 @@ export default function BlitzRoomClient({
         setScores(payload.scores);
         break;
       case "room.reclaimed": {
-        const team = teams?.find((t: any) => t._id === payload.teamId);
+        const team = teams?.find((item) => item._id === payload.teamId);
         const tName = getDisplayTeamName(team);
         addActivity(
           "gavel",
@@ -604,7 +614,7 @@ export default function BlitzRoomClient({
                       {team.name}
                     </span>
                   )}
-                  {team.members.map((member: any) => {
+                  {team.members.map((member) => {
                     const memberIsReady = readyUserIds.has(member.id);
                     const memberIsOnline = onlineUserIds.has(member.id);
 

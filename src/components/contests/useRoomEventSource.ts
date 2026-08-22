@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-
-interface RoomEventPayload {
-  type: string;
-  [key: string]: unknown;
-}
+import type { RoomEventPayloadDto } from "@/lib/contests/dtos";
+import { roomStreamEventSchema } from "@/lib/contests/runtime";
 
 export function useRoomEventSource(
   roomId: string,
-  onEvent: (payload: RoomEventPayload) => void,
+  onEvent: (payload: RoomEventPayloadDto) => void,
 ) {
   const onEventRef = useRef(onEvent);
 
@@ -24,9 +21,12 @@ export function useRoomEventSource(
 
     eventSource.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        if (data.payload) {
-          onEventRef.current(data.payload);
+        const data: unknown = JSON.parse(event.data);
+        if (data && typeof data === "object" && "payload" in data) {
+          const result = roomStreamEventSchema.safeParse(data.payload);
+          if (result.success) {
+            onEventRef.current(result.data);
+          }
         }
       } catch {
         // Ignore malformed events and keep the stream connected.

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { requireHead } from "@/lib/api/auth";
-import { generateBracket, getBracketSnapshot } from "@/lib/bracket";
+import { generateBracket, getBracketSnapshot } from "@/lib/contests/bracket";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import { webEnv } from "@/lib/env/web";
 import { parseRouteParams } from "@/lib/api/result";

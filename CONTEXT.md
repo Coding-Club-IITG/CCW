@@ -44,7 +44,11 @@ programming systems, content, administration, and background integrations.
 - `src/lib/access`: role and resource-specific authorization policies
 - `src/lib/api`: shared API/action contracts, HTTP response helpers,
   session authorization, request schemas, and upload boundaries
+- `src/lib/contests`: contest runtime schemas, client DTOs, bracket domain
+  logic, queues, and realtime event publishers
 - `src/lib/env`: pure Zod runtime schemas and process-specific validated exports
+- `src/lib/jobs`: Agenda setup, scheduled job implementations, and their shared
+  schedule configuration
 - `src/lib/platforms`: Competitive Programming platform integration adapters
   and shared coordination
 - `src/models`: Mongoose models

@@ -34,7 +34,7 @@ export interface IContestMatch extends Document {
   endTime?: Date;
   durationSeconds?: number;
   format: "1v1" | "solo-tournament" | "team-tournament" | "bracket";
-  mode: "blitz" | "arena";
+  mode: "blitz" | "arena" | "knockout";
   status: "draft" | "registration" | "provisioning" | "active" | "completed";
   teamSize?: number;
   presetId?: mongoose.Types.ObjectId;
@@ -149,7 +149,7 @@ ContestMatchSchema.index({ status: 1, startTime: 1 });
 ContestMatchSchema.index({ format: 1, status: 1 });
 
 const ContestMatch =
-  mongoose.models.ContestMatch ||
+  (mongoose.models.ContestMatch as mongoose.Model<IContestMatch> | undefined) ||
   mongoose.model<IContestMatch>(
     "ContestMatch",
     ContestMatchSchema,

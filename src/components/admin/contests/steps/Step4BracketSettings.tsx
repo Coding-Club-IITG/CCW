@@ -2,8 +2,11 @@ import styles from "../ContestWizard.module.scss";
 
 interface Step4Props {
   thirdPlacePlayoff: boolean;
-  seedingMethod: string;
-  updateFields: (fields: any) => void;
+  seedingMethod: "cf_rating" | "manual";
+  updateFields: (fields: {
+    thirdPlacePlayoff?: boolean;
+    seedingMethod?: "cf_rating" | "manual";
+  }) => void;
   errors: Record<string, string>;
 }
 

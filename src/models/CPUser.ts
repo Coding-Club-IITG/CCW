@@ -143,12 +143,22 @@ CPUserSchema.index(
 CPUserSchema.index({ "solvedProblems.problemId": 1 });
 CPUserSchema.index({ cfVerified: 1, cfRating: -1 });
 CPUserSchema.index({ acVerified: 1, acRating: -1 });
-CPUserSchema.index({
-  potdTotalSolved: 1,
-  potdCurrentStreak: -1,
-  potdTotalPoints: -1,
-  potdLongestStreak: -1,
-});
+CPUserSchema.index(
+  {
+    potdCurrentStreak: -1,
+    potdTotalPoints: -1,
+    potdLongestStreak: -1,
+  },
+  {
+    name: "potd_streak_leaderboard",
+    partialFilterExpression: { potdTotalSolved: { $gt: 0 } },
+  },
+);
 
-export default mongoose.models.CPUser ||
-  mongoose.model("CPUser", CPUserSchema, "cpusers");
+export type CPUserRecord = mongoose.InferSchemaType<typeof CPUserSchema>;
+
+const CPUser =
+  (mongoose.models.CPUser as mongoose.Model<CPUserRecord> | undefined) ||
+  mongoose.model<CPUserRecord>("CPUser", CPUserSchema, "cpusers");
+
+export default CPUser;

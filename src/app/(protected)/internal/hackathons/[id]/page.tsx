@@ -81,7 +81,7 @@ export default function HackathonDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { data: session } = useSession();
-  const currentUserId = (session?.user as any)?.id || "";
+  const currentUserId = session?.user.id || "";
 
   const [hackathonId, setHackathonId] = useState("");
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);

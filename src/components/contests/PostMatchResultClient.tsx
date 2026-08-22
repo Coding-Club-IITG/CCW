@@ -119,7 +119,7 @@ export default function PostMatchResultClient({
   const isSoloFormat = ["1v1", "solo-tournament"].includes(
     matchData.format || "",
   );
-  const getDisplayTeamName = (t: any) => {
+  const getDisplayTeamName = (t: MatchData["teams"][number]) => {
     if (isSoloFormat && t.members && t.members.length > 0) {
       return getDisplayName(
         t.members[0].handle || t.members[0].name,

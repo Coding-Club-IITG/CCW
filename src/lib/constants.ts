@@ -14,6 +14,8 @@ export type ModuleName = (typeof MODULES)[number];
 
 export const CURRENT_TENURE = "2026-27";
 
+export const APP_TIME_ZONE = "Asia/Kolkata";
+
 export const ACCESS_LEVELS = ["Member", "Head", "Admin"] as const;
 export type AccessLevel = (typeof ACCESS_LEVELS)[number];
 

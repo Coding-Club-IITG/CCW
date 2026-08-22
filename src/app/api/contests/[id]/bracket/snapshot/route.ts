@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { getBracketSnapshot } from "@/lib/bracket";
+import { getBracketSnapshot } from "@/lib/contests/bracket";
 import { auth } from "@/lib/auth";
 import { parseRouteParams } from "@/lib/api/result";
 import { contestIdParamsSchema } from "@/lib/api/schemas/contestRoute";

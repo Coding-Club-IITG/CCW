@@ -9,7 +9,7 @@ export interface IFirstSolver {
 export interface IContestRoom extends Document {
   contestId: mongoose.Types.ObjectId;
   name: string;
-  status: "waiting" | "active" | "ended" | "pending";
+  status: "waiting" | "active" | "ended" | "pending" | "completed";
   participants: mongoose.Types.ObjectId[];
   teams: mongoose.Types.ObjectId[];
   currentRoundId?: mongoose.Types.ObjectId;
@@ -58,7 +58,7 @@ ContestRoomSchema.index({ contestId: 1, status: 1 });
 ContestRoomSchema.index({ participants: 1, status: 1 });
 
 const ContestRoom =
-  mongoose.models.ContestRoom ||
+  (mongoose.models.ContestRoom as mongoose.Model<IContestRoom> | undefined) ||
   mongoose.model<IContestRoom>(
     "ContestRoom",
     ContestRoomSchema,

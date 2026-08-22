@@ -36,7 +36,7 @@ const ContestRoundSchema = new Schema<IContestRound>(
 ContestRoundSchema.index({ contestId: 1, roundNumber: 1 });
 
 const ContestRound =
-  mongoose.models.ContestRound ||
+  (mongoose.models.ContestRound as mongoose.Model<IContestRound> | undefined) ||
   mongoose.model<IContestRound>(
     "ContestRound",
     ContestRoundSchema,

@@ -1,20 +1,27 @@
 import "./lib/env";
-import { workerEnv } from "./lib/env/worker";
-import agenda from "./lib/agenda";
-import { syncCodeforcesRatings } from "./lib/jobs/cfSync";
-import { syncAtCoderRatings } from "./lib/jobs/acSync";
-import { syncPOTDSubmissions } from "./lib/jobs/potdSync";
-import { syncContests } from "./lib/jobs/contestSync";
-import { cleanupOrphanedImages } from "./lib/jobs/imageCleanup";
-import { sendHackathonDeadlineReminders } from "./lib/jobs/hackathonReminder";
-import { sendPOTDReminders } from "./lib/jobs/potdReminder";
-import { sendCalendarReminders } from "./lib/jobs/calendarReminder";
-import { logger } from "./lib/utils";
-import dbConnect from "./lib/mongodb";
-import { cfSyncWorker } from "./lib/workers/cfSyncWorker";
-import { reconciliationWorker } from "./lib/workers/reconciliationWorker";
-import { cfSyncQueue } from "./lib/bullmq";
-import ContestQuestion from "./models/ContestQuestion";
+
+import { cfSyncQueue } from "@/lib/contests/queues";
+import { workerEnv } from "@/lib/env/worker";
+import agenda from "@/lib/jobs/agenda";
+import { syncAtCoderRatings } from "@/lib/jobs/acSync";
+import { sendCalendarReminders } from "@/lib/jobs/calendarReminder";
+import { syncCodeforcesRatings } from "@/lib/jobs/cfSync";
+import { syncContests } from "@/lib/jobs/contestSync";
+import { sendHackathonDeadlineReminders } from "@/lib/jobs/hackathonReminder";
+import { cleanupOrphanedImages } from "@/lib/jobs/imageCleanup";
+import { sendPOTDReminders } from "@/lib/jobs/potdReminder";
+import { syncPOTDSubmissions } from "@/lib/jobs/potdSync";
+import {
+  AGENDA_JOB_SCHEDULES,
+  AGENDA_SCHEDULE_OPTIONS,
+  NIGHTLY_CF_PROBLEM_SCHEDULE,
+} from "@/lib/jobs/schedules";
+import dbConnect from "@/lib/mongodb";
+import { logger } from "@/lib/utils";
+import { cfSyncWorker } from "@/lib/workers/cfSyncWorker";
+import { reconciliationWorker } from "@/lib/workers/reconciliationWorker";
+import ContestQuestion from "@/models/ContestQuestion";
+
 async function run() {
   void workerEnv;
   logger.info(
@@ -27,7 +34,7 @@ async function run() {
   // BullMq sync runs at 2
   await cfSyncQueue.upsertJobScheduler(
     "nightly-cf-problem-sync",
-    { pattern: "0 2 * * *" },
+    NIGHTLY_CF_PROBLEM_SCHEDULE,
     {
       name: "nightly-cf-problem-sync",
       data: {},
@@ -81,29 +88,14 @@ async function run() {
   // Start agenda
   await agenda.start();
 
-  // Schedule the CF ratings sync every 6 hours
-  await agenda.every("6 hours", "sync-cf-ratings");
-
-  // Schedule the AC ratings sync every 6 hours
-  await agenda.every("6 hours", "sync-ac-ratings");
-
-  // Schedule POTD sync daily at 2:05 AM IST, after grace window close
-  await agenda.every("0 5 2 * * *", "sync-potd-submissions");
-
-  // Schedule contest sync every 3 hours
-  await agenda.every("3 hours", "sync-contests");
-
-  // Schedule image orphan cleanup weekly, Sunday 3:00 AM IST
-  await agenda.every("0 0 3 * * 0", "cleanup-images");
-
-  // Schedule hackathon deadline reminders every hour
-  await agenda.every("1 hour", "hackathon-deadline-reminders");
-
-  // Schedule POTD reminders every hour
-  await agenda.every("1 hour", "potd-reminders");
-
-  // Calendar reminders are due at exact times, so poll more frequently.
-  await agenda.every("15 minutes", "calendar-reminders");
+  for (const schedule of AGENDA_JOB_SCHEDULES) {
+    await agenda.every(
+      schedule.interval,
+      schedule.name,
+      undefined,
+      AGENDA_SCHEDULE_OPTIONS,
+    );
+  }
 
   logger.info("[Worker] Agenda started and jobs scheduled.");
 

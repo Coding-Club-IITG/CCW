@@ -75,4 +75,10 @@ UserSchema.pre("validate", function () {
   }
 });
 
-export default mongoose.models.User || mongoose.model("User", UserSchema);
+export type UserRecord = mongoose.InferSchemaType<typeof UserSchema>;
+
+const User =
+  (mongoose.models.User as mongoose.Model<UserRecord> | undefined) ||
+  mongoose.model<UserRecord>("User", UserSchema);
+
+export default User;

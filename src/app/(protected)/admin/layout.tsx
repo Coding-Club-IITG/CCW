@@ -12,7 +12,7 @@ export default async function AdminLayout({
     headers: await headers(),
   });
 
-  if (!session || !isHead((session.user as any).access)) {
+  if (!session || !isHead(session.user.access)) {
     redirect("/internal/dashboard");
   }
 

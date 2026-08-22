@@ -40,11 +40,11 @@ async function getCPStatusAction() {
   ).lean();
 
   return ok({
-    cfVerified: (cpUser as any)?.cfVerified ?? false,
-    cfVerificationToken: (cpUser as any)?.cfVerificationToken ?? "",
-    cfHandle: (cpUser as any)?.cfHandle ?? "",
-    acVerified: (cpUser as any)?.acVerified ?? false,
-    acVerificationToken: (cpUser as any)?.acVerificationToken ?? "",
-    acHandle: (cpUser as any)?.acHandle ?? "",
+    cfVerified: cpUser?.cfVerified ?? false,
+    cfVerificationToken: cpUser?.cfVerificationToken ?? "",
+    cfHandle: cpUser?.cfHandle ?? "",
+    acVerified: cpUser?.acVerified ?? false,
+    acVerificationToken: cpUser?.acVerificationToken ?? "",
+    acHandle: cpUser?.acHandle ?? "",
   });
 }

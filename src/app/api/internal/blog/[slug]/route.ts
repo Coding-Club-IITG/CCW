@@ -25,7 +25,7 @@ async function getAuthorizedDraft(request: NextRequest, slug: string) {
   const post = await BlogPost.findOne({ slug });
   if (!post) return appError("NOT_FOUND", "Post not found.");
 
-  const user = session.user as any;
+  const user = session.user;
   if (!canEditBlogDraft(user, post)) {
     return appError("FORBIDDEN", "Forbidden");
   }

@@ -3,7 +3,7 @@ import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { requireHead } from "@/lib/api/auth";
 import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
-import { publishContest } from "@/lib/sse";
+import { publishContest } from "@/lib/contests/events";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import {

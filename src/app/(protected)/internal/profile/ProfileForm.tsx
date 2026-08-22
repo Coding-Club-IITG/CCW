@@ -43,16 +43,16 @@ export default function ProfileForm() {
   useEffect(() => {
     if (!session?.user) return;
 
-    const cfHandle = (session.user as any).codeforcesId || "";
-    const acHandle = (session.user as any).atcoderId || "";
+    const cfHandle = session.user.codeforcesId || "";
+    const acHandle = session.user.atcoderId || "";
     setFormData({
       name: session.user.name || "",
       image: session.user.image || "",
       codeforcesId: cfHandle,
       atcoderId: acHandle,
-      githubId: (session.user as any).githubId || "",
-      bio: (session.user as any).bio || "",
-      phoneNumber: (session.user as any).phoneNumber || "",
+      githubId: session.user.githubId || "",
+      bio: session.user.bio || "",
+      phoneNumber: session.user.phoneNumber || "",
     });
     setSavedCodeforcesId(cfHandle);
     setSavedAtcoderId(acHandle);

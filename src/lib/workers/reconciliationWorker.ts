@@ -1,27 +1,38 @@
-import { Worker, Job } from "bullmq";
-import { connection } from "../bullmq";
-import { logger } from "../utils";
-import { getRedis } from "../redis";
-import dbConnect from "../mongodb";
-import ContestRoom from "../../models/ContestRoom";
-import ContestRound from "../../models/ContestRound";
-import ContestMatch from "../../models/ContestMatch";
-import { publishRoom } from "../sse";
-import ContestProblemSet from "../../models/ContestProblemSet";
-import ContestTeam from "../../models/ContestTeam";
-import ContestSubmission from "../../models/ContestSubmission";
-import Notification from "../../models/Notification";
-import CPUser from "../../models/CPUser";
-import ContestQuestion from "../../models/ContestQuestion";
-import { workerEnv } from "../env/worker";
+import { type Job, Worker } from "bullmq";
+
+import { publishRoom } from "@/lib/contests/events";
+import { connection } from "@/lib/contests/queues";
+import {
+  contestRoomProblemSchema,
+  contestRoomStateSchema,
+  contestSubmissionEventSchema,
+  parseContestRoomProblems,
+  reconciliationJobDataSchema,
+  type ContestRoomState,
+  type ReconciliationJobData,
+  type ReconciliationJobName,
+} from "@/lib/contests/runtime";
+import { workerEnv } from "@/lib/env/worker";
+import dbConnect from "@/lib/mongodb";
+import { getRedis } from "@/lib/redis";
+import { logger } from "@/lib/utils";
+import CPUser from "@/models/CPUser";
+import ContestMatch from "@/models/ContestMatch";
+import ContestProblemSet from "@/models/ContestProblemSet";
+import ContestQuestion from "@/models/ContestQuestion";
+import ContestRoom from "@/models/ContestRoom";
+import ContestRound from "@/models/ContestRound";
+import ContestSubmission from "@/models/ContestSubmission";
+import ContestTeam from "@/models/ContestTeam";
+import Notification from "@/models/Notification";
 
 async function determineWinner(
-  redis: any,
+  redis: Awaited<ReturnType<typeof getRedis>>,
   roomId: string,
   teams: string[],
-  stateObj: any,
+  stateObj: ContestRoomState,
 ): Promise<{ winnerId: string | null; teamScores: Record<string, number> }> {
-  let winnerId = null;
+  let winnerId: string | null = null;
 
   interface TeamStats {
     id: string;
@@ -107,20 +118,27 @@ async function determineWinner(
   return { winnerId, teamScores };
 }
 
-export const reconciliationWorker = new Worker(
+export const reconciliationWorker = new Worker<
+  ReconciliationJobData,
+  void,
+  ReconciliationJobName
+>(
   "reconciliation_queue",
-  async (job: Job) => {
+  async (job: Job<ReconciliationJobData, void, ReconciliationJobName>) => {
     logger.info(
       `[reconciliationWorker] Processing job ${job.id} (name: ${job.name})`,
       job.data,
     );
-    let { roomId, contestId, trigger, forfeitedUserId, teamId } = job.data;
+    let { roomId, contestId, trigger, forfeitedUserId, teamId, userId } =
+      reconciliationJobDataSchema.parse(job.data);
     const redis = await getRedis();
     await dbConnect();
 
     // Handle team ready timeout
     if (job.name === "team_ready_timeout") {
-      const state = await redis.hGetAll(`room:${roomId}:state`);
+      const state = contestRoomStateSchema.parse(
+        await redis.hGetAll(`room:${roomId}:state`),
+      );
 
       // Only process if room is still waiting
       if (state && state.status === "waiting") {
@@ -221,32 +239,31 @@ export const reconciliationWorker = new Worker(
         contest.status = "provisioning";
         await contest.save();
 
-        const bracketUserIds = (contest.registrations || []).map((r: any) =>
-          r.userId.toString(),
+        const bracketUserIds = (contest.registrations || []).map(
+          (registration) => registration.userId.toString(),
         );
 
         // Incremental CF sync for all bracket registrants
         // OPTIMIZATION: Only do this if problemSelectionMode is "bulk"
         if (contest.problemSelectionMode === "bulk") {
           const { fetchCodeforcesUserStatus } =
-            await import("../platforms/codeforces");
+            await import("@/lib/platforms/codeforces");
 
           for (const uid of bracketUserIds) {
             const cpUser = await CPUser.findOne({ userId: uid });
             if (!cpUser || !cpUser.cfHandle) continue;
-            const solvedProblems: any[] = cpUser.solvedProblems || [];
+            const solvedProblems = cpUser.solvedProblems || [];
             let latestSolvedMs = 0;
             for (const sp of solvedProblems) {
-              const ts = sp.submittedAt
-                ? new Date(sp.submittedAt).getTime()
-                : 0;
+              const ts = sp.solvedAt ? new Date(sp.solvedAt).getTime() : 0;
               if (ts > latestSolvedMs) latestSolvedMs = ts;
             }
             try {
               const existingSolvedIds = new Set(
-                solvedProblems.map((sp: any) => sp.problemId),
+                solvedProblems.map((problem) => problem.problemId),
               );
-              const newSolves: any[] = [];
+              const newSolves: Array<{ problemId: string; solvedAt: Date }> =
+                [];
 
               let currentFrom = 1;
               const chunkSize = 200;
@@ -270,7 +287,7 @@ export const reconciliationWorker = new Worker(
                     if (!existingSolvedIds.has(pid)) {
                       newSolves.push({
                         problemId: pid,
-                        submittedAt: new Date(sub.creationTimeSeconds * 1000),
+                        solvedAt: new Date(sub.creationTimeSeconds * 1000),
                       });
                       existingSolvedIds.add(pid);
                     }
@@ -303,7 +320,7 @@ export const reconciliationWorker = new Worker(
                   solvedCount: newSolves.length,
                 });
               }
-            } catch (cfErr: any) {
+            } catch (cfErr: unknown) {
               logger.warn("Bracket solve-history fetch failed", {
                 worker: "reconciliationWorker",
                 operation: "fetch_solve_history",
@@ -319,12 +336,12 @@ export const reconciliationWorker = new Worker(
         });
         const bracketSolvedIds = new Set<string>(
           bracketRefreshedUsers.flatMap((u) =>
-            (u.solvedProblems || []).map((sp: any) => sp.problemId),
+            (u.solvedProblems || []).map((problem) => problem.problemId),
           ),
         );
 
         try {
-          const { generateBracket } = await import("../bracket");
+          const { generateBracket } = await import("@/lib/contests/bracket");
           await generateBracket(contestId, bracketSolvedIds);
 
           const startTimeMs = contest.startTime
@@ -336,7 +353,7 @@ export const reconciliationWorker = new Worker(
             startTimeMs - Date.now() - preStartSeconds * 1000,
           );
 
-          const { reconciliationQueue } = await import("../bullmq");
+          const { reconciliationQueue } = await import("@/lib/contests/queues");
           await reconciliationQueue.add(
             "activate_bracket",
             { contestId: contestId.toString(), trigger: "activate_bracket" },
@@ -346,7 +363,7 @@ export const reconciliationWorker = new Worker(
           logger.info(
             `[reconciliationWorker] check_start: bracket ${contestId} generated. Scheduled activate_bracket in ${delayToStart}ms.`,
           );
-        } catch (err: any) {
+        } catch (err: unknown) {
           logger.error(
             `[reconciliationWorker] check_start: bracket generation failed for ${contestId}:`,
             err,
@@ -451,17 +468,17 @@ export const reconciliationWorker = new Worker(
       // uses manual problem slots and ignores the solved array anyway!
       if (contest.problemSelectionMode === "bulk") {
         const { fetchCodeforcesUserStatus } =
-          await import("../platforms/codeforces");
+          await import("@/lib/platforms/codeforces");
 
         for (const uid of allUserIds) {
           const cpUser = await CPUser.findOne({ userId: uid });
           if (!cpUser || !cpUser.cfHandle) continue;
 
           // Find the timestamp of the most recently recorded solve
-          const solvedProblems: any[] = cpUser.solvedProblems || [];
+          const solvedProblems = cpUser.solvedProblems || [];
           let latestSolvedMs = 0;
           for (const sp of solvedProblems) {
-            const ts = sp.submittedAt ? new Date(sp.submittedAt).getTime() : 0;
+            const ts = sp.solvedAt ? new Date(sp.solvedAt).getTime() : 0;
             if (ts > latestSolvedMs) latestSolvedMs = ts;
           }
 
@@ -471,9 +488,9 @@ export const reconciliationWorker = new Worker(
               200,
             );
             const existingSolvedIds = new Set(
-              solvedProblems.map((sp: any) => sp.problemId),
+              solvedProblems.map((problem) => problem.problemId),
             );
-            const newSolves: any[] = [];
+            const newSolves: Array<{ problemId: string; solvedAt: Date }> = [];
 
             for (const sub of submissions) {
               if (
@@ -486,7 +503,7 @@ export const reconciliationWorker = new Worker(
                 if (!existingSolvedIds.has(pid)) {
                   newSolves.push({
                     problemId: pid,
-                    submittedAt: new Date(sub.creationTimeSeconds * 1000),
+                    solvedAt: new Date(sub.creationTimeSeconds * 1000),
                   });
                   existingSolvedIds.add(pid);
                 }
@@ -503,7 +520,7 @@ export const reconciliationWorker = new Worker(
                 solvedCount: newSolves.length,
               });
             }
-          } catch (cfErr: any) {
+          } catch (cfErr: unknown) {
             logger.warn("Contest solve-history fetch failed", {
               worker: "reconciliationWorker",
               operation: "fetch_solve_history",
@@ -518,11 +535,15 @@ export const reconciliationWorker = new Worker(
       const refreshedUsers = await CPUser.find({ userId: { $in: allUserIds } });
       const solvedProblemIds = new Set<string>(
         refreshedUsers.flatMap((u) =>
-          (u.solvedProblems || []).map((sp: any) => sp.problemId),
+          (u.solvedProblems || []).map((problem) => problem.problemId),
         ),
       );
 
-      let availableProblems: any[] = [];
+      let availableProblems: Array<{
+        problemId: string;
+        name: string;
+        rating?: number;
+      }> = [];
       if (contest.problemSelectionMode === "test") {
         availableProblems = [
           { problemId: "4A", name: "Watermelon", rating: 800 },
@@ -531,7 +552,9 @@ export const reconciliationWorker = new Worker(
         ].slice(0, problemCount || 2);
       } else if (contest.problemSelectionMode === "fine-tuned") {
         const slots = contest.problemSlots || [];
-        const slotIds = slots.map((s: any) => s.problemId).filter(Boolean);
+        const slotIds = slots
+          .map((slot) => slot.problemId)
+          .filter((problemId): problemId is string => Boolean(problemId));
         const questions = await ContestQuestion.find({
           problemId: { $in: slotIds },
         });
@@ -554,7 +577,11 @@ export const reconciliationWorker = new Worker(
           }
         }
       } else {
-        availableProblems = await ContestQuestion.aggregate([
+        availableProblems = await ContestQuestion.aggregate<{
+          problemId: string;
+          name: string;
+          rating?: number;
+        }>([
           {
             $match: {
               rating: { $gte: minRating, $lte: maxRating },
@@ -606,12 +633,12 @@ export const reconciliationWorker = new Worker(
       const problemSet = new ContestProblemSet({
         contestId: contest._id,
         roomId: room._id,
-        problems: availableProblems.map((p: any) => ({
+        problems: availableProblems.map((problem) => ({
           platform: "codeforces",
-          problemId: p.problemId,
-          name: p.name,
-          rating: p.rating,
-          points: Math.floor((p.rating || 1000) / 10),
+          problemId: problem.problemId,
+          name: problem.name,
+          rating: problem.rating,
+          points: Math.floor((problem.rating || 1000) / 10),
         })),
       });
 
@@ -628,19 +655,19 @@ export const reconciliationWorker = new Worker(
         await team.save();
         createdTeams.push(team);
       }
-      room.teams = createdTeams.map((t: any) => t._id);
+      room.teams = createdTeams.map((team) => team._id);
 
       await room.save();
       await problemSet.save();
 
       const newRoomId = room._id.toString();
 
-      const redisProblems = availableProblems.map((p: any) =>
+      const redisProblems = availableProblems.map((problem) =>
         JSON.stringify({
-          problemId: p.problemId,
-          name: p.name,
-          rating: p.rating,
-          points: Math.floor((p.rating || 1000) / 10),
+          problemId: problem.problemId,
+          name: problem.name,
+          rating: problem.rating,
+          points: Math.floor((problem.rating || 1000) / 10),
           revealedAt: null,
         }),
       );
@@ -649,7 +676,7 @@ export const reconciliationWorker = new Worker(
         await redis.rPush(`room:${newRoomId}:problems`, redisProblems);
       }
 
-      const stateObj: any = {
+      const stateObj: Record<string, string | number> = {
         status: "pending",
         type: contest.mode || "blitz",
         startTime: "", // Empty for now, set when all ready
@@ -663,7 +690,7 @@ export const reconciliationWorker = new Worker(
       await redis.hSet(`room:${newRoomId}:state`, stateObj);
       await redis.sAdd(
         `room:${newRoomId}:teams`,
-        createdTeams.map((t: any) => t._id.toString()),
+        createdTeams.map((team) => team._id.toString()),
       );
 
       for (const t of createdTeams) {
@@ -671,7 +698,7 @@ export const reconciliationWorker = new Worker(
         await redis.hSet(`team:${tId}:meta`, { name: t.name, score: 0 });
         await redis.sAdd(
           `team:${tId}:users`,
-          t.members.map((m: any) => m.toString()),
+          t.members.map((member) => member.toString()),
         );
       }
 
@@ -680,7 +707,7 @@ export const reconciliationWorker = new Worker(
       // Schedule the job to open the room at the configured startTime
       // Fire ROOM_PRE_START_SECONDS before startTime so the room is "waiting" by the time
       // the client-side timer triggers at startTime - prevents a "No Room Found" race condition.
-      const { reconciliationQueue } = await import("../bullmq");
+      const { reconciliationQueue } = await import("@/lib/contests/queues");
       const startTimeMs = contest.startTime
         ? contest.startTime.getTime()
         : Date.now();
@@ -752,7 +779,7 @@ export const reconciliationWorker = new Worker(
 
       // Schedule a ready_timeout to cancel if players don't ready up in time
       const timeoutMins = workerEnv.ROOM_READY_TIMEOUT_MINUTES;
-      const { reconciliationQueue } = await import("../bullmq");
+      const { reconciliationQueue } = await import("@/lib/contests/queues");
       await reconciliationQueue.add(
         "ready_timeout",
         { roomId, contestId: contestId.toString() },
@@ -788,7 +815,9 @@ export const reconciliationWorker = new Worker(
               -1,
             );
             if (problemsRaw.length > 0) {
-              const firstProblem = JSON.parse(problemsRaw[0]);
+              const firstProblem = contestRoomProblemSchema.parse(
+                JSON.parse(problemsRaw[0]),
+              );
               firstProblem.revealedAt = now;
               await redis.lSet(
                 `room:${roomId}:problems`,
@@ -808,11 +837,13 @@ export const reconciliationWorker = new Worker(
 
             // Re-fetch and sync to clients
             const updatedState = await redis.hGetAll(`room:${roomId}:state`);
-            const updatedProblems = await redis.lRange(
+            const updatedProblemsRaw = await redis.lRange(
               `room:${roomId}:problems`,
               0,
               -1,
             );
+            const updatedProblems =
+              parseContestRoomProblems(updatedProblemsRaw);
             const teamIds = await redis.sMembers(`room:${roomId}:teams`);
             const scores: Record<string, number> = {};
             for (const tId of teamIds) {
@@ -824,13 +855,14 @@ export const reconciliationWorker = new Worker(
               type: "room.state_sync",
               roomId,
               state: updatedState,
-              problems: updatedProblems.map((p) => JSON.parse(p)),
+              problems: updatedProblems,
               scores,
             });
 
             // Start the match timer
             const timeLimitSecs = parseInt(state.timeLimit || "3600", 10);
-            const { reconciliationQueue } = await import("../bullmq");
+            const { reconciliationQueue } =
+              await import("@/lib/contests/queues");
             await reconciliationQueue.add(
               "room_timeout",
               { roomId, contestId: contestId.toString(), trigger: "timeout" },
@@ -959,7 +991,7 @@ export const reconciliationWorker = new Worker(
 
             try {
               const { advanceWinner, checkRoundCompletion } =
-                await import("../bracket");
+                await import("@/lib/contests/bracket");
               await advanceWinner(roomId, contestId, bracketWinnerId);
               if (completedRoom.currentRoundId) {
                 const roundDoc = await ContestRound.findById(
@@ -1035,7 +1067,7 @@ export const reconciliationWorker = new Worker(
 
     // Handle mid-match disconnect timeout
     if (job.name === "mid_match_disconnect_timeout") {
-      const { userId: disconnectedUserId } = job.data;
+      const disconnectedUserId = userId;
 
       // Check if user is still offline
       const presenceKey = `room:${roomId}:presence:${disconnectedUserId}`;
@@ -1129,7 +1161,7 @@ export const reconciliationWorker = new Worker(
         const bracketContest = await ContestMatch.findById(contestId).lean();
         if (bracketContest?.format === "bracket" && winnerId) {
           const { advanceWinner, checkRoundCompletion } =
-            await import("../bracket");
+            await import("@/lib/contests/bracket");
           await advanceWinner(roomId, contestId, winnerId);
           const bracketRoom = await ContestRoom.findById(roomId).lean();
           if (bracketRoom?.currentRoundId) {
@@ -1155,7 +1187,9 @@ export const reconciliationWorker = new Worker(
       "+",
     );
     for (const sub of submissions) {
-      const data = JSON.parse(sub.message.data);
+      const data = contestSubmissionEventSchema.parse(
+        JSON.parse(sub.message.data),
+      );
       // Construct and save ContestSubmission
       const submission = new ContestSubmission({
         roomId,
@@ -1176,16 +1210,17 @@ export const reconciliationWorker = new Worker(
     // 4. Finalise ContestProblemSet
     const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
     if (problemsRaw.length > 0) {
-      const problems = problemsRaw.map((p) => JSON.parse(p));
+      const problems = parseContestRoomProblems(problemsRaw);
       const problemSet = new ContestProblemSet({
         contestId,
         roomId,
-        problems: problems.map((p: any) => ({
+        problems: problems.map((problem) => ({
           platform: "codeforces",
-          problemId: p.problemId,
-          name: p.name || p.problemId,
-          rating: p.rating || 0,
-          points: p.points || 100,
+          problemId: problem.problemId,
+          name:
+            typeof problem.name === "string" ? problem.name : problem.problemId,
+          rating: typeof problem.rating === "number" ? problem.rating : 0,
+          points: problem.points || 100,
         })),
       });
       await problemSet.save();

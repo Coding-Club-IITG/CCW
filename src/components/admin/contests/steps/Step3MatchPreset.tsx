@@ -1,9 +1,10 @@
 import styles from "../ContestWizard.module.scss";
+import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
 
 interface Step3Props {
-  presets: any[];
+  presets: ContestCreationPreset[];
   selectedPresetId: string;
-  updateFields: (fields: any) => void;
+  updateFields: (fields: { presetId?: string }) => void;
   errors: Record<string, string>;
 }
 
@@ -114,7 +115,7 @@ export default function Step3MatchPreset({
                 <span className={styles.detailLabel}>Problem Ratings:</span>{" "}
                 <strong className={styles.detailValue}>
                   {selectedPreset.problemSlots
-                    ?.map((s: any) => s.rating)
+                    ?.map((slot) => slot.rating)
                     .join(", ")}
                 </strong>
               </div>

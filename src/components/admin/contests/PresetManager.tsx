@@ -1,6 +1,7 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
+import type { ContestPresetDto } from "@/lib/contests/dtos";
 
 import { useState } from "react";
 import { Plus, Edit2, Archive, Loader2 } from "lucide-react";
@@ -8,14 +9,16 @@ import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
 import styles from "./PresetManager.module.scss";
 
 interface PresetManagerProps {
-  initialPresets: any[];
+  initialPresets: ContestPresetDto[];
 }
 
 export default function PresetManager({ initialPresets }: PresetManagerProps) {
-  const [presets, setPresets] = useState<any[]>(initialPresets);
+  const [presets, setPresets] = useState<ContestPresetDto[]>(initialPresets);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingPreset, setEditingPreset] = useState<any | null>(null);
+  const [editingPreset, setEditingPreset] = useState<ContestPresetDto | null>(
+    null,
+  );
 
   // Form states
   const [name, setName] = useState("");
@@ -58,7 +61,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
     setModalOpen(true);
   }
 
-  function openEdit(preset: any) {
+  function openEdit(preset: ContestPresetDto) {
     setEditingPreset(preset);
     setName(preset.name || "");
     setDescription(preset.description || "");
@@ -72,7 +75,10 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
     setBulkProblemCount(preset.bulkProblemCount || 3);
     setBulkMinContestId(preset.bulkMinContestId || 0);
     setProblemSlots(
-      preset.problemSlots || [{ platform: "codeforces", rating: 800 }],
+      preset.problemSlots?.map((slot) => ({
+        platform: slot.platform || "codeforces",
+        rating: slot.rating || 800,
+      })) || [{ platform: "codeforces", rating: 800 }],
     );
     setModalOpen(true);
   }
@@ -110,7 +116,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
         body: JSON.stringify(payload),
       });
 
-      const savedPreset = await expectAppData<any>(res);
+      const savedPreset = await expectAppData<ContestPresetDto>(res);
 
       if (editingPreset) {
         setPresets(
@@ -126,14 +132,14 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
 
       setModalOpen(false);
       resetForm();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (error: unknown) {
+      alert(appErrorMessage(error, "Unable to save the preset."));
     } finally {
       setLoading(false);
     }
   }
 
-  async function toggleArchive(preset: any) {
+  async function toggleArchive(preset: ContestPresetDto) {
     const action = preset.archived ? "unarchive" : "archive";
     if (!confirm(`Are you sure you want to ${action} this preset?`)) return;
 
@@ -145,10 +151,10 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
         body: JSON.stringify({ archived: !preset.archived }),
       });
 
-      const updated = await expectAppData<any>(res);
+      const updated = await expectAppData<ContestPresetDto>(res);
       setPresets(presets.map((p) => (p._id === updated._id ? updated : p)));
-    } catch (err: any) {
-      alert(err.message);
+    } catch (error: unknown) {
+      alert(appErrorMessage(error, "Unable to update the preset."));
     } finally {
       setLoading(false);
     }
