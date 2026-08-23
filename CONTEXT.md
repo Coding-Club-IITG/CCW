@@ -83,6 +83,10 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
 - Public discovery is server rendered. The blog listing renders its current
   archive page and article links on the server, while focused search, tag, and
   pagination interactions hydrate on the client.
+- Atlas is the global command-and-search surface, opened from the navbar
+  or with Ctrl/Cmd+K outside editable controls. Anonymous searches include
+  public content, while signed-in searches can include every internal
+  record already permitted by the existing resource policies.
 - Public blog, event, and project images store normalized focal points for
   consistent responsive card crops. Detail-page images retain their natural
   aspect ratio.

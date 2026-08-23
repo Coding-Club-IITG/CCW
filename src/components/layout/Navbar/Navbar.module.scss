@@ -51,6 +51,39 @@
     gap: 1rem;
   }
 
+  .searchButton {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.38rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8rem;
+
+    &:hover {
+      border-color: var(--muted-light);
+      color: var(--foreground);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    kbd {
+      padding: 0.08rem 0.28rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--background-secondary);
+      font-family: var(--font-jetbrains-mono), monospace;
+      font-size: 0.65rem;
+    }
+  }
+
   .hamburgerButton {
     display: none; // Hidden on desktop
     align-items: center;
@@ -98,6 +131,13 @@
 
     .hamburgerButton {
       display: flex; // Show on mobile
+    }
+
+    .searchButton {
+      span,
+      kbd {
+        display: none;
+      }
     }
 
     .navLinks {

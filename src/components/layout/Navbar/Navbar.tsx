@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Menu,
   Moon,
+  Search,
   ShieldCheck,
   Sun,
   RefreshCw as IconSwitchView,
@@ -20,6 +21,7 @@ import { useThemeStore } from "@/lib/store/theme";
 import { useViewModeStore } from "@/lib/store/view-mode";
 import { getDisplayName } from "@/lib/utils";
 import UserAvatar from "@/components/shared/UserAvatar";
+import { useCommandConsole } from "@/components/atlas/CommandConsole";
 import CreditsModal from "./CreditsModal";
 import NotificationBell from "./NotificationBell";
 import styles from "./Navbar.module.scss";
@@ -51,6 +53,7 @@ export default function Navbar() {
   const [creditsOpen, setCreditsOpen] = useState(false);
   const { theme, toggleTheme } = useThemeStore();
   const { viewMode, toggleViewMode } = useViewModeStore();
+  const commandConsole = useCommandConsole();
   const navbarRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -120,6 +123,16 @@ export default function Navbar() {
         </div>
 
         <div className={styles.actionsSection}>
+          <button
+            className={styles.searchButton}
+            onClick={commandConsole.open}
+            aria-label="Open Atlas search"
+            type="button"
+          >
+            <Search aria-hidden="true" size={16} />
+            <span>Search</span>
+            <kbd>⌘K</kbd>
+          </button>
           {showInternal && <NotificationBell />}
           {session ? (
             <div className={styles.avatarWrapper} ref={menuRef}>

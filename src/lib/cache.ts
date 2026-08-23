@@ -134,4 +134,5 @@ export const CACHE_TTLS = {
   POTD: 120, // 2min
   HACKATHONS: 300, // 5min
   HACKATHON_REQUESTS: 60, // 1min
+  ATLAS: 120, // 2min
 } as const;
