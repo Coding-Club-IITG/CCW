@@ -54,13 +54,21 @@ export default function CreditsModal({ canEdit, onClose }: CreditsModalProps) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     void getCredits().then((result) => {
+      if (cancelled) return;
+
       if (result.ok) {
         setSections(result.data);
         setDraft(result.data);
       } else setError(result.error.message);
       setLoading(false);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const updateSection = (index: number, update: Partial<CreditSection>) =>
@@ -218,32 +226,6 @@ export default function CreditsModal({ canEdit, onClose }: CreditsModalProps) {
                       maxLength={80}
                     />
                     <div className={styles.rowActions}>
-                      <Button
-                        variant="ghost"
-                        iconOnly
-                        aria-label={`Move ${entry.name} up`}
-                        disabled={entryIndex === 0}
-                        onClick={() =>
-                          updateSection(sectionIndex, {
-                            entries: moveItem(section.entries, entryIndex, -1),
-                          })
-                        }
-                      >
-                        <ChevronUp size={16} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        iconOnly
-                        aria-label={`Move ${entry.name} down`}
-                        disabled={entryIndex === section.entries.length - 1}
-                        onClick={() =>
-                          updateSection(sectionIndex, {
-                            entries: moveItem(section.entries, entryIndex, 1),
-                          })
-                        }
-                      >
-                        <ChevronDown size={16} />
-                      </Button>
                       <Button
                         variant="danger"
                         iconOnly

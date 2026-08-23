@@ -12,11 +12,14 @@ import {
   SOCIAL_PROFILES,
 } from "@/lib/seo";
 
-export const metadata: Metadata = pageMetadata({
-  title: "Technology, projects, and community",
-  description: SITE_DESCRIPTION,
-  path: "/",
-});
+export const metadata: Metadata = {
+  ...pageMetadata({
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    path: "/",
+  }),
+  title: { absolute: SITE_NAME },
+};
 
 interface Props {
   searchParams: Promise<{ error?: string }>;

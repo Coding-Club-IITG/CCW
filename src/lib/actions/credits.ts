@@ -16,6 +16,7 @@ import {
   CREDIT_LIMITS,
   CreditSection,
   CreditSectionInput,
+  shuffleCreditEntries,
 } from "@/lib/credits";
 import dbConnect from "@/lib/mongodb";
 import { isHead } from "@/lib/access/roles";
@@ -55,11 +56,13 @@ async function getCreditsAction() {
 
     const data: CreditSection[] = credits.sections.map((section) => ({
       heading: section.heading,
-      entries: section.entries.flatMap((entry) => {
-        const userId = entry.user.toString();
-        const user = userMap.get(userId);
-        return user ? [{ userId, period: entry.period, ...user }] : [];
-      }),
+      entries: shuffleCreditEntries(
+        section.entries.flatMap((entry) => {
+          const userId = entry.user.toString();
+          const user = userMap.get(userId);
+          return user ? [{ userId, period: entry.period, ...user }] : [];
+        }),
+      ),
     }));
 
     return ok(data);
