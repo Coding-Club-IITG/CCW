@@ -41,6 +41,14 @@ const mongoUrl = nonempty("MONGODB_URI").regex(
 const redisUrl = urlWithProtocols("REDIS_URL", ["redis:", "rediss:"]);
 const httpUrl = (name: string) => urlWithProtocols(name, ["http:", "https:"]);
 
+const vapidKey = (name: string, length: number) =>
+  z
+    .string()
+    .trim()
+    .length(length, `${name} must be a valid VAPID key`)
+    .regex(/^[A-Za-z0-9_-]+$/, `${name} must be a valid VAPID key`)
+    .optional();
+
 const integer = (name: string, fallback: number, min: number, max: number) =>
   z.preprocess(
     (value) => (value === undefined || value === "" ? fallback : value),
@@ -122,9 +130,55 @@ const baseSchema = z.object({
 const sharedServerSchema = baseSchema.extend({
   MONGODB_URI: mongoUrl,
   REDIS_URL: redisUrl,
+  WEB_PUSH_PUBLIC_KEY: vapidKey("WEB_PUSH_PUBLIC_KEY", 87),
+  WEB_PUSH_PRIVATE_KEY: vapidKey("WEB_PUSH_PRIVATE_KEY", 43),
+  WEB_PUSH_SUBJECT: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(
+      (value) =>
+        /^mailto:[^\s@]+@[^\s@]+$/.test(value) ||
+        (() => {
+          try {
+            return new URL(value).protocol === "https:";
+          } catch {
+            return false;
+          }
+        })(),
+      "WEB_PUSH_SUBJECT must be a mailto: or HTTPS URL",
+    )
+    .optional(),
 });
 
-export const sharedServerEnvSchema = sharedServerSchema;
+function validateWebPushGroup(
+  value: {
+    WEB_PUSH_PUBLIC_KEY?: string;
+    WEB_PUSH_PRIVATE_KEY?: string;
+    WEB_PUSH_SUBJECT?: string;
+  },
+  ctx: z.RefinementCtx,
+) {
+  const names = [
+    "WEB_PUSH_PUBLIC_KEY",
+    "WEB_PUSH_PRIVATE_KEY",
+    "WEB_PUSH_SUBJECT",
+  ] as const;
+  const supplied = names.filter((name) => value[name] !== undefined);
+  if (supplied.length === 0 || supplied.length === names.length) return;
+  for (const name of names) {
+    if (value[name] === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: [name],
+        message: "All WEB_PUSH_* settings must be configured together",
+      });
+    }
+  }
+}
+
+export const sharedServerEnvSchema =
+  sharedServerSchema.superRefine(validateWebPushGroup);
 
 const operationalSchema = z.object({
   JINA_API_KEY: z.string().trim().min(1).optional(),
@@ -165,6 +219,7 @@ export const webEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
   .superRefine((value, ctx) => {
+    validateWebPushGroup(value, ctx);
     if (value.NODE_ENV !== "production") return;
     for (const name of [
       "AUTH_SECRET",
@@ -184,11 +239,13 @@ export const webEnvSchema = sharedServerSchema
 
 export const workerEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
-  .extend(uploadSchema.shape);
+  .extend(uploadSchema.shape)
+  .superRefine(validateWebPushGroup);
 
 export const cliEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
-  .extend(uploadSchema.shape);
+  .extend(uploadSchema.shape)
+  .superRefine(validateWebPushGroup);
 
 export const testEnvSchema = baseSchema.extend({
   MONGODB_TEST_URI: urlWithProtocols("MONGODB_TEST_URI", [

@@ -18,6 +18,8 @@ programming systems, content, administration, and background integrations.
   tournaments, Problem of the Day (POTD), leaderboards, and solving tools.
 - **Collaboration:** Hackathons, participant teams, and related member
   workflows.
+- **Browser notifications:** Opt-in Web Push on supported desktop and mobile
+  browsers.
 - **Administration:** Management surfaces for users, content, events, projects,
   notifications, hackathons, and contests.
 
@@ -73,7 +75,8 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
   credentials or upload settings. Standalone entry points load dotenv before
   importing their validated profile.
 - MongoDB is the persistent application store.
-- Redis supports runtime coordination, caching, and queued contest work.
+- Redis supports runtime coordination, caching, and queued contest work,
+  including best-effort Web Push delivery through BullMQ.
 - The standalone worker runs scheduled synchronization, reminder, cleanup, and
   contest-processing jobs.
 - Internal calendar events are the scheduling source of truth. Public event

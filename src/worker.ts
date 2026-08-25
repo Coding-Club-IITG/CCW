@@ -20,6 +20,7 @@ import dbConnect from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
 import { cfSyncWorker } from "@/lib/workers/cfSyncWorker";
 import { reconciliationWorker } from "@/lib/workers/reconciliationWorker";
+import { pushNotificationWorker } from "@/lib/workers/pushNotificationWorker";
 import ContestQuestion from "@/models/ContestQuestion";
 
 async function run() {
@@ -107,6 +108,7 @@ async function run() {
         agenda.stop(),
         cfSyncWorker.close(),
         reconciliationWorker.close(),
+        pushNotificationWorker.close(),
       ]);
       logger.info("[Worker] All services stopped successfully.");
     } catch (err) {

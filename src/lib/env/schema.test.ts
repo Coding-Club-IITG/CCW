@@ -44,6 +44,31 @@ describe("runtime environment schemas", () => {
     });
   });
 
+  it("accepts complete optional VAPID settings", () => {
+    expect(
+      parseWorkerEnv({
+        MONGODB_URI: required.MONGODB_URI,
+        REDIS_URL: required.REDIS_URL,
+        WEB_PUSH_PUBLIC_KEY: "A".repeat(87),
+        WEB_PUSH_PRIVATE_KEY: "B".repeat(43),
+        WEB_PUSH_SUBJECT: "mailto:maintainer@example.test",
+      }),
+    ).toMatchObject({
+      WEB_PUSH_PUBLIC_KEY: "A".repeat(87),
+      WEB_PUSH_SUBJECT: "mailto:maintainer@example.test",
+    });
+  });
+
+  it("rejects partial VAPID configuration", () => {
+    expect(() =>
+      parseWorkerEnv({
+        MONGODB_URI: required.MONGODB_URI,
+        REDIS_URL: required.REDIS_URL,
+        WEB_PUSH_PUBLIC_KEY: "A".repeat(87),
+      }),
+    ).toThrow(/WEB_PUSH_PRIVATE_KEY|WEB_PUSH_SUBJECT/);
+  });
+
   it("accepts MongoDB multi-host replica-set URLs", () => {
     const uri =
       "mongodb://user:password@mongo-0.example.test:27017,mongo-1.example.test:27017/ccw?replicaSet=rs0";

@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
   description: SITE_DESCRIPTION,
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "CC IITG" },
+  // TODO: Apple touch icon
+  icons: { apple: "/icons/cc-apple-touch.png" },
   openGraph: {
     type: "website",
     siteName: SITE_NAME,

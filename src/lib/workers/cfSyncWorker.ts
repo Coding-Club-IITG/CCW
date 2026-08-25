@@ -2,7 +2,7 @@ import { type Job, Worker } from "bullmq";
 import mongoose from "mongoose";
 
 import { publishRoom, publishUser } from "@/lib/contests/events";
-import { connection, reconciliationQueue } from "@/lib/contests/queues";
+import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   cfSyncJobDataSchema,
   contestRoomStateSchema,
@@ -15,6 +15,7 @@ import {
 import { workerEnv } from "@/lib/env/worker";
 import { syncCodeforcesProblems } from "@/lib/jobs/cfProblemSync";
 import dbConnect from "@/lib/mongodb";
+import { bullMqConnection } from "@/lib/bullmq";
 import {
   fetchCodeforcesUserStatus,
   type CFSubmission,
@@ -547,7 +548,7 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
     }
   },
   {
-    connection,
+    connection: bullMqConnection,
     concurrency: 1, // Serialize cf_sync jobs to prevent Blitz concurrent-solve race condition
     limiter: {
       max: 2,

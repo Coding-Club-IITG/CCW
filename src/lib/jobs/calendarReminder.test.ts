@@ -1,5 +1,13 @@
 import mongoose from "mongoose";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import CalendarEvent from "@/models/CalendarEvent";
 import CalendarReminderDelivery from "@/models/CalendarReminderDelivery";
 import Notification from "@/models/Notification";
@@ -9,6 +17,13 @@ import {
   startTestMongo,
   stopTestMongo,
 } from "../../../tests/utils/mongodb";
+
+const addBulk = vi.hoisted(() => vi.fn().mockResolvedValue([]));
+vi.mock("@/lib/push/config", () => ({ webPushConfigured: true }));
+vi.mock("@/lib/push/queue", () => ({
+  PUSH_JOB_NAME: "deliver_notification",
+  pushNotificationQueue: { addBulk },
+}));
 
 describe("calendar reminder job", () => {
   beforeAll(startTestMongo);
@@ -52,12 +67,19 @@ describe("calendar reminder job", () => {
     await sendCalendarReminders(new Date("2026-08-03T09:01:00.000Z"));
     await sendCalendarReminders(new Date("2026-08-03T09:02:00.000Z"));
 
-    expect(
-      await Notification.find({ userId: String(designMember._id) }).lean(),
-    ).toHaveLength(1);
+    const notifications = await Notification.find({
+      userId: String(designMember._id),
+    }).lean();
+    expect(notifications).toHaveLength(1);
     expect(
       await Notification.find({ userId: String(otherMember._id) }).lean(),
     ).toHaveLength(0);
     expect(await CalendarReminderDelivery.countDocuments()).toBe(1);
+    expect(addBulk).toHaveBeenCalledOnce();
+    expect(addBulk).toHaveBeenCalledWith([
+      expect.objectContaining({
+        data: { notificationId: String(notifications[0]._id) },
+      }),
+    ]);
   });
 });

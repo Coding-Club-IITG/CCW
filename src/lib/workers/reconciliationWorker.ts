@@ -1,7 +1,6 @@
 import { type Job, Worker } from "bullmq";
 
 import { publishRoom } from "@/lib/contests/events";
-import { connection } from "@/lib/contests/queues";
 import {
   contestRoomProblemSchema,
   contestRoomStateSchema,
@@ -14,6 +13,8 @@ import {
 } from "@/lib/contests/runtime";
 import { workerEnv } from "@/lib/env/worker";
 import dbConnect from "@/lib/mongodb";
+import { notify } from "@/lib/notify";
+import { bullMqConnection } from "@/lib/bullmq";
 import { getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
 import CPUser from "@/models/CPUser";
@@ -24,7 +25,6 @@ import ContestRoom from "@/models/ContestRoom";
 import ContestRound from "@/models/ContestRound";
 import ContestSubmission from "@/models/ContestSubmission";
 import ContestTeam from "@/models/ContestTeam";
-import Notification from "@/models/Notification";
 
 async function determineWinner(
   redis: Awaited<ReturnType<typeof getRedis>>,
@@ -225,8 +225,8 @@ export const reconciliationWorker = new Worker<
           await ContestMatch.findByIdAndDelete(contestId);
           const creator = await CPUser.findById(contest.creatorId);
           if (creator && creator.userId) {
-            await Notification.create({
-              userId: creator.userId,
+            await notify({
+              userId: String(creator.userId),
               type: "announcement",
               title: "Tournament Cancelled",
               message: `Your bracket tournament '${contest.name}' was cancelled due to insufficient registrations.`,
@@ -371,10 +371,8 @@ export const reconciliationWorker = new Worker<
           await ContestMatch.findByIdAndDelete(contestId);
           const creator = await CPUser.findById(contest.creatorId);
           if (creator && creator.userId) {
-            const Notification = (await import("@/models/Notification"))
-              .default;
-            await Notification.create({
-              userId: creator.userId,
+            await notify({
+              userId: String(creator.userId),
               type: "announcement",
               title: "Tournament Failed",
               message: `Your bracket tournament '${contest.name}' failed to generate (likely due to 0 suitable problems found).`,
@@ -416,8 +414,8 @@ export const reconciliationWorker = new Worker<
         // Notify creator
         const creator = await CPUser.findById(contest.creatorId);
         if (creator && creator.userId) {
-          await Notification.create({
-            userId: creator.userId,
+          await notify({
+            userId: String(creator.userId),
             type: "announcement",
             title: "Contest Cancelled",
             message: `Your contest '${contest.name}' was cancelled because some registered teams were incomplete.`,
@@ -438,8 +436,8 @@ export const reconciliationWorker = new Worker<
         // Notify creator
         const creator = await CPUser.findById(contest.creatorId);
         if (creator && creator.userId) {
-          await Notification.create({
-            userId: creator.userId,
+          await notify({
+            userId: String(creator.userId),
             type: "announcement",
             title: "Contest Cancelled",
             message: `Your contest '${contest.name}' was cancelled due to insufficient registrations.`,
@@ -603,9 +601,8 @@ export const reconciliationWorker = new Worker<
         await ContestMatch.findByIdAndDelete(contestId);
         const creator = await CPUser.findById(contest.creatorId);
         if (creator && creator.userId) {
-          const Notification = (await import("@/models/Notification")).default;
-          await Notification.create({
-            userId: creator.userId,
+          await notify({
+            userId: String(creator.userId),
             type: "announcement",
             title: "Contest Failed",
             message: `Your contest '${contest.name}' failed because no suitable problems were found.`,
@@ -882,8 +879,8 @@ export const reconciliationWorker = new Worker<
           // Notify creator
           const creator = await CPUser.findById(c.creatorId);
           if (creator && creator.userId) {
-            await Notification.create({
-              userId: creator.userId,
+            await notify({
+              userId: String(creator.userId),
               type: "announcement",
               title: "Contest Cancelled",
               message: `Your contest '${c.name}' was cancelled because players didn't click Ready in time.`,
@@ -1274,7 +1271,7 @@ export const reconciliationWorker = new Worker<
     );
   },
   {
-    connection,
+    connection: bullMqConnection,
     concurrency: 1,
     lockDuration: 600000, // Extended lock to 10 minutes (600,000 ms) for long API polling loop
   },

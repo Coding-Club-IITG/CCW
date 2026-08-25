@@ -20,6 +20,7 @@ import { getUserRoleLabels } from "@/lib/roles";
 import { useThemeStore } from "@/lib/store/theme";
 import { useViewModeStore } from "@/lib/store/view-mode";
 import { getDisplayName } from "@/lib/utils";
+import { cleanupPushBeforeLogout } from "@/lib/push/client";
 import UserAvatar from "@/components/shared/UserAvatar";
 import { useCommandConsole } from "@/components/atlas/CommandConsole";
 import CreditsModal from "./CreditsModal";
@@ -232,6 +233,7 @@ export default function Navbar() {
                     onClick={async () => {
                       setMenuOpen(false);
                       setHamburgerOpen(false);
+                      await cleanupPushBeforeLogout();
                       await signOut();
                       router.replace("/");
                       router.refresh();

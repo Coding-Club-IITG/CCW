@@ -13,6 +13,53 @@
   font-size: 0.875rem;
 }
 
+.pushCard {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1.125rem;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+.pushIcon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  color: var(--primary);
+  background: var(--primary-alpha);
+  border-radius: 10px;
+}
+
+.pushContent {
+  flex: 1;
+  min-width: 0;
+
+  h2 {
+    margin: 0 0 0.2rem;
+    color: var(--foreground-strong);
+    font-size: 0.9375rem;
+  }
+
+  p {
+    margin: 0;
+    color: var(--foreground-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+}
+
+.btnPrimary {
+  @include btn-primary;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
 .btnSecondary {
   @include btn-secondary;
   padding: 0.375rem 0.75rem;
@@ -84,5 +131,20 @@
 
   &:hover {
     text-decoration: underline;
+  }
+}
+
+@media (max-width: 640px) {
+  .pushCard {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .pushContent {
+    width: calc(100% - 3.375rem);
+  }
+
+  .pushCard button {
+    width: 100%;
   }
 }

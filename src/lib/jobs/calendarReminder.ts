@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import { expandCalendarOccurrences, getReminderAt } from "@/lib/calendar";
 import dbConnect from "@/lib/mongodb";
+import { enqueuePushNotifications, notifyBatch } from "@/lib/notify";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import CalendarEvent from "@/models/CalendarEvent";
 import CalendarReminderDelivery from "@/models/CalendarReminderDelivery";
-import Notification from "@/models/Notification";
 import User from "@/models/User";
 
 const FUTURE_WINDOW_MS = 2 * 366 * 24 * 60 * 60 * 1000;
@@ -39,6 +39,7 @@ export async function sendCalendarReminders(now = new Date()) {
       if (users.length === 0) continue;
       const session = await mongoose.startSession();
       try {
+        let notificationIds: string[] = [];
         await session.withTransaction(async () => {
           await CalendarReminderDelivery.create(
             [
@@ -51,7 +52,7 @@ export async function sendCalendarReminders(now = new Date()) {
             ],
             { session },
           );
-          await Notification.insertMany(
+          const notifications = await notifyBatch(
             users.map((user) => ({
               userId: String(user._id),
               type: "calendar_reminder",
@@ -59,9 +60,13 @@ export async function sendCalendarReminders(now = new Date()) {
               message: `“${event.title}” is coming up tomorrow.`,
               link: `/internal/calendar/${event._id}`,
             })),
-            { session, ordered: false },
+            { session },
+          );
+          notificationIds = notifications.map((notification) =>
+            String(notification._id),
           );
         });
+        await enqueuePushNotifications(notificationIds);
         logger.info("Calendar reminder sent", {
           operation: "send_calendar_reminder",
           calendarEventId: String(event._id),

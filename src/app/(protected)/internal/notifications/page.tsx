@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ExternalLink as IconExternalLink } from "lucide-react";
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
+import PushNotificationSetup from "./PushNotificationSetup";
 import styles from "./Notifications.module.scss";
 
 interface Notification {
@@ -108,6 +109,8 @@ export default function NotificationsPage() {
             : "You're all caught up!"}
         </p>
       </header>
+
+      <PushNotificationSetup />
 
       <div className={styles.actions}>
         <SearchInput
