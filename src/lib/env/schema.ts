@@ -130,6 +130,8 @@ const baseSchema = z.object({
 const sharedServerSchema = baseSchema.extend({
   MONGODB_URI: mongoUrl,
   REDIS_URL: redisUrl,
+  OPS_LOGGING_ENABLED: boolean("OPS_LOGGING_ENABLED", false),
+  OPS_LOG_STREAM_KEY: nonempty("OPS_LOG_STREAM_KEY").default("ops:logs:v1"),
   WEB_PUSH_PUBLIC_KEY: vapidKey("WEB_PUSH_PUBLIC_KEY", 87),
   WEB_PUSH_PRIVATE_KEY: vapidKey("WEB_PUSH_PRIVATE_KEY", 43),
   WEB_PUSH_SUBJECT: z

@@ -9,6 +9,8 @@ module.exports = {
       instances: 1,
       exec_mode: "fork",
       env: {
+        NODE_ENV: "production",
+        OPS_LOGGING_ENABLED: "true",
         PORT: 3077,
       },
     },
@@ -18,6 +20,10 @@ module.exports = {
       args: "worker",
       instances: 1,
       exec_mode: "fork",
+      env: {
+        NODE_ENV: "production",
+        OPS_LOGGING_ENABLED: "true",
+      },
     },
   ],
 };
