@@ -92,6 +92,7 @@ function EventLink({
 
 export default function CalendarView({ initialMonth, events }: Props) {
   const { year, month } = monthParts(initialMonth);
+  const todayKey = istDateKey(new Date().toISOString());
   const firstDay = new Date(Date.UTC(year, month, 1));
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const offset = firstDay.getUTCDay();
@@ -149,9 +150,18 @@ export default function CalendarView({ initialMonth, events }: Props) {
           {Array.from({ length: daysInMonth }, (_, index) => {
             const day = index + 1;
             const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const isToday = key === todayKey;
             return (
-              <div key={key} className={styles.day}>
-                <time dateTime={key}>{day}</time>
+              <div
+                key={key}
+                className={`${styles.day} ${isToday ? styles.currentDay : ""}`}
+              >
+                <time
+                  dateTime={key}
+                  aria-current={isToday ? "date" : undefined}
+                >
+                  {day}
+                </time>
                 <div className={styles.dayEvents}>
                   {(byDate.get(key) ?? []).map(({ event, occurrence }) => (
                     <EventLink

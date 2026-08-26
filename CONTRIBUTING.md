@@ -31,6 +31,9 @@
   account name only when the feature intentionally requires it.
 - Keep comments short, useful, and easy to understand. Do not restate obvious
   code.
+- On NixOS, run `nix-shell` to load the Node, pnpm, native build, and Chromium
+  toolchain. Playwright uses the shell-provided Chromium binary and skips its
+  browser download.
 
 ## Next.js and Server Code
 

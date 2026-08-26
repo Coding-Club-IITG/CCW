@@ -28,7 +28,7 @@ export default async function CalendarPage({
   }>;
 }) {
   const query = await searchParams;
-  const timeFilter = query.time ?? "upcoming";
+  const timeFilter = query.time ?? "all";
   const month = validMonth(query.month);
   const [year, monthNumber] = month.split("-").map(Number);
   const start = new Date(`${month}-01T00:00:00+05:30`);

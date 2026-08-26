@@ -62,6 +62,13 @@
   color: var(--foreground-secondary);
   font-size: 0.8rem;
 }
+.currentDay {
+  background: var(--primary-alpha);
+}
+.currentDay time {
+  color: var(--primary);
+  font-weight: 600;
+}
 .dayEvents {
   display: grid;
   min-width: 0;
