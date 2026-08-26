@@ -18,7 +18,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ci": "tsx tests/run-ci.ts",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "clear-contests": "tsx scripts/clear-contests.ts",
+    "test-contest-setup": "tsx scripts/test-contest-setup.ts"
   },
   "dependencies": {
     "@agendajs/mongo-backend": "^4.0.3",

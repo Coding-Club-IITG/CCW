@@ -14,12 +14,18 @@ import { auth } from "@/lib/auth";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import { parseJson } from "@/lib/api/result";
 import { createContestRoomSchema } from "@/lib/api/schemas/contestRoute";
+import { webEnv } from "@/lib/env/web";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
-    if (!session || !session.user) {
-      return jsonError("UNAUTHENTICATED", "Unauthorized");
+    const testUserId = req.headers.get("x-test-user-id");
+    if (webEnv.NODE_ENV === "development" && testUserId) {
+      // Dev bypass: skip session auth
+    } else {
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (!session || !session.user) {
+        return jsonError("UNAUTHENTICATED", "Unauthorized");
+      }
     }
 
     const body = await parseJson(req, createContestRoomSchema);
