@@ -32,6 +32,7 @@ import type {
   RoomActivityDto,
   RoomEventPayloadDto,
 } from "@/lib/contests/dtos";
+import { getCFProblemUrl } from "@/lib/constants";
 
 import React, { useEffect, useState, useRef, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -742,7 +743,7 @@ export default function BlitzRoomClient({
 
                     <div className={styles.problemActions}>
                       <a
-                        href={`https://codeforces.com/contest/${activeProblem.problemId?.replace(/[^0-9]/g, "")}/problem/${activeProblem.problemId?.replace(/[0-9]/g, "")}`}
+                        href={getCFProblemUrl(activeProblem.problemId ?? "")}
                         target="_blank"
                         rel="noreferrer"
                         className={styles.cfLink}

@@ -125,6 +125,14 @@ export const PLATFORM_PROBLEM_URLS: Record<
     `https://atcoder.jp/contests/${contestId}/tasks/${index}`,
 };
 
+export const getCFProblemUrl = (problemId: string): string => {
+  const match = problemId.match(/^(\d+)([A-Za-z].*)$/);
+  if (match) {
+    return `https://codeforces.com/problemset/problem/${match[1]}/${match[2]}`;
+  }
+  return `https://codeforces.com/problemset/problem/${problemId}`;
+};
+
 /* Contest Platforms */
 
 export const CONTEST_PLATFORMS = [

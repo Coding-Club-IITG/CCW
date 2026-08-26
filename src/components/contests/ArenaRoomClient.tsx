@@ -28,6 +28,7 @@ import type {
   RoomActivityDto,
   RoomEventPayloadDto,
 } from "@/lib/contests/dtos";
+import { getCFProblemUrl } from "@/lib/constants";
 
 import React, { createElement, useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -760,7 +761,7 @@ export default function ArenaRoomClient({
 
                             <div className={styles.gridCardActions}>
                               <a
-                                href={`https://codeforces.com/contest/${prob.problemId.replace(/[^0-9]/g, "")}/problem/${prob.problemId.replace(/[0-9]/g, "")}`}
+                                href={getCFProblemUrl(prob.problemId)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className={styles.cfIconBtn}

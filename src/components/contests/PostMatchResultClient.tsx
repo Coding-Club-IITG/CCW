@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
+import { getCFProblemUrl } from "@/lib/constants";
 import { getDisplayName } from "@/lib/utils";
 import styles from "./PostMatchResultClient.module.scss";
 
@@ -107,14 +108,6 @@ export default function PostMatchResultClient({
   const currentUserTeam = matchData.teams.find((t) =>
     t.members.some((m) => m.id === currentUserId),
   );
-
-  const getProblemUrl = (problemId: string) => {
-    const match = problemId.match(/^(\d+)([A-Za-z].*)$/);
-    if (match) {
-      return `https://codeforces.com/problemset/problem/${match[1]}/${match[2]}`;
-    }
-    return `https://codeforces.com/problemset/problem/${problemId}`; // fallback
-  };
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(
     matchData.format || "",
@@ -326,7 +319,7 @@ export default function PostMatchResultClient({
                   return (
                     <a
                       key={prob.id}
-                      href={getProblemUrl(prob.id)}
+                      href={getCFProblemUrl(prob.id)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`${styles.problemCard} ${

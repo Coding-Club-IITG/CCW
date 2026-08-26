@@ -10,7 +10,7 @@ export const contestFormatSchema = z.enum([
   "bracket",
 ]);
 export const contestRegistrationTypeSchema = z.enum(["open", "closed"]);
-export const contestProblemSelectionModeSchema = z.enum(["bulk", "fine-tuned"]);
+export const contestProblemSelectionModeSchema = z.enum(["bulk", "fine-tuned", "test"]);
 export const contestSeedingMethodSchema = z.enum(["cf_rating", "manual"]);
 
 const dateStringSchema = z

@@ -261,6 +261,7 @@ export default function CreateRoomModal({
       try {
         const res = await createBracketContest({
           ...formData,
+          fineTunedProblems: formData.fineTunedProblems.filter((p) => p.trim()),
           deadline: start.toISOString(),
           registrationStartTime: regStartIso,
           registeredUsers: finalRegisteredUsers,
@@ -289,6 +290,7 @@ export default function CreateRoomModal({
     try {
       const res = await createRoomContest({
         ...formData,
+        fineTunedProblems: formData.fineTunedProblems.filter((p) => p.trim()),
         startTime: start.toISOString(),
         registrationStartTime: regStartIso,
         registeredUsers: finalRegisteredUsers,
