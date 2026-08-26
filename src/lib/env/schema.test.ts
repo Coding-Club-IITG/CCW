@@ -41,7 +41,38 @@ describe("runtime environment schemas", () => {
     ).toMatchObject({
       MONGODB_URI: required.MONGODB_URI,
       REDIS_URL: required.REDIS_URL,
+      OPS_LOG_INGEST_URL: "http://localhost:3005/api/ingest/logs",
     });
+  });
+
+  it("requires a non-default ingestion secret when production logging is enabled", () => {
+    expect(() =>
+      parseWorkerEnv({
+        NODE_ENV: "production",
+        MONGODB_URI: required.MONGODB_URI,
+        REDIS_URL: required.REDIS_URL,
+        OPS_LOGGING_ENABLED: "true",
+      }),
+    ).toThrow(/OPS_LOG_INGEST_SECRET/);
+    expect(() =>
+      parseWorkerEnv({
+        NODE_ENV: "production",
+        MONGODB_URI: required.MONGODB_URI,
+        REDIS_URL: required.REDIS_URL,
+        OPS_LOGGING_ENABLED: "true",
+        OPS_LOG_INGEST_SECRET: "replace_with_same_32_char_secret_as_ops",
+      }),
+    ).toThrow(/OPS_LOG_INGEST_SECRET/);
+    expect(
+      parseWorkerEnv({
+        NODE_ENV: "production",
+        MONGODB_URI: required.MONGODB_URI,
+        REDIS_URL: required.REDIS_URL,
+        OPS_LOGGING_ENABLED: "true",
+        OPS_LOG_INGEST_URL: "https://ops.example.test/api/ingest/logs",
+        OPS_LOG_INGEST_SECRET: "production-ingestion-secret-32-characters",
+      }).OPS_LOGGING_ENABLED,
+    ).toBe(true);
   });
 
   it("accepts complete optional VAPID settings", () => {

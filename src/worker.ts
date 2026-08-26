@@ -28,9 +28,9 @@ import { reconciliationWorker } from "@/lib/workers/reconciliationWorker";
 import { pushNotificationWorker } from "@/lib/workers/pushNotificationWorker";
 import ContestQuestion from "@/models/ContestQuestion";
 
-function emitWorkerEvent(input: ApplicationEventInput): void {
+function emitWorkerEvent(input: ApplicationEventInput, error?: unknown): void {
   try {
-    void publishLogEvent(buildApplicationEvent(input));
+    void publishLogEvent(buildApplicationEvent(input), error);
   } catch {
     // Invalid telemetry must never affect worker execution
   }
@@ -127,20 +127,23 @@ async function run() {
       },
     });
   });
-  agenda.on("fail", (_error, job) => {
-    emitWorkerEvent({
-      service: "ccw-worker",
-      level: "error",
-      message: "Background job failed",
-      error: { name: "AgendaJobError", code: "JOB_FAILED" },
-      attributes: {
-        component: "agenda",
-        jobName: job.attrs.name,
-        operation: "execute",
-        outcome: "failure",
-        retryable: true,
+  agenda.on("fail", (error, job) => {
+    emitWorkerEvent(
+      {
+        service: "ccw-worker",
+        level: "error",
+        message: "Background job failed",
+        error: { name: "AgendaJobError", code: "JOB_FAILED" },
+        attributes: {
+          component: "agenda",
+          jobName: job.attrs.name,
+          operation: "execute",
+          outcome: "failure",
+          retryable: true,
+        },
       },
-    });
+      error,
+    );
   });
 
   for (const schedule of AGENDA_JOB_SCHEDULES) {
@@ -215,6 +218,7 @@ async function run() {
             outcome: "failure",
           },
         }),
+        err,
       );
     }
     await closeOpsTelemetry();
@@ -239,5 +243,6 @@ run().catch((err) => {
         outcome: "failure",
       },
     }),
+    err,
   ).finally(() => process.exit(1));
 });

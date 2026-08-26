@@ -3,6 +3,7 @@ import { z } from "zod";
 export type RuntimeEnvironment = Record<string, string | undefined>;
 
 const PLACEHOLDER = /^(?:change[-_ ]?me|your[_-]|replace[_-]|example$)/i;
+const LOCAL_OPS_INGEST_SECRET = "local-log-ingest-secret-change-me-now";
 
 const nonempty = (name: string) =>
   z
@@ -131,7 +132,12 @@ const sharedServerSchema = baseSchema.extend({
   MONGODB_URI: mongoUrl,
   REDIS_URL: redisUrl,
   OPS_LOGGING_ENABLED: boolean("OPS_LOGGING_ENABLED", false),
-  OPS_LOG_STREAM_KEY: nonempty("OPS_LOG_STREAM_KEY").default("ops:logs:v1"),
+  OPS_LOG_INGEST_URL: httpUrl("OPS_LOG_INGEST_URL").default(
+    "http://localhost:3005/api/ingest/logs",
+  ),
+  OPS_LOG_INGEST_SECRET: secret("OPS_LOG_INGEST_SECRET", 32).default(
+    LOCAL_OPS_INGEST_SECRET,
+  ),
   WEB_PUSH_PUBLIC_KEY: vapidKey("WEB_PUSH_PUBLIC_KEY", 87),
   WEB_PUSH_PRIVATE_KEY: vapidKey("WEB_PUSH_PRIVATE_KEY", 43),
   WEB_PUSH_SUBJECT: z
@@ -179,8 +185,29 @@ function validateWebPushGroup(
   }
 }
 
-export const sharedServerEnvSchema =
-  sharedServerSchema.superRefine(validateWebPushGroup);
+function validateSharedConfiguration(
+  value: z.infer<typeof sharedServerSchema>,
+  ctx: z.RefinementCtx,
+) {
+  validateWebPushGroup(value, ctx);
+  if (
+    value.NODE_ENV === "production" &&
+    value.OPS_LOGGING_ENABLED &&
+    (value.OPS_LOG_INGEST_SECRET === LOCAL_OPS_INGEST_SECRET ||
+      PLACEHOLDER.test(value.OPS_LOG_INGEST_SECRET))
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["OPS_LOG_INGEST_SECRET"],
+      message:
+        "OPS_LOG_INGEST_SECRET must be configured for production logging",
+    });
+  }
+}
+
+export const sharedServerEnvSchema = sharedServerSchema.superRefine(
+  validateSharedConfiguration,
+);
 
 const operationalSchema = z.object({
   JINA_API_KEY: z.string().trim().min(1).optional(),
@@ -221,7 +248,7 @@ export const webEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
   .superRefine((value, ctx) => {
-    validateWebPushGroup(value, ctx);
+    validateSharedConfiguration(value, ctx);
     if (value.NODE_ENV !== "production") return;
     for (const name of [
       "AUTH_SECRET",
@@ -242,12 +269,12 @@ export const webEnvSchema = sharedServerSchema
 export const workerEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
-  .superRefine(validateWebPushGroup);
+  .superRefine(validateSharedConfiguration);
 
 export const cliEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
-  .superRefine(validateWebPushGroup);
+  .superRefine(validateSharedConfiguration);
 
 export const testEnvSchema = baseSchema.extend({
   MONGODB_TEST_URI: urlWithProtocols("MONGODB_TEST_URI", [
