@@ -344,11 +344,11 @@ packages:
     hasBin: true
 
   '@coding-club-iitg/ops-contract@0.2.0':
-    resolution: {integrity: sha512-w+P2M6QuL84gXRyAef/UpTbc4HlZsPUtZPaEh0G6U1sVM7MY+neIwUeiDmpcPiXpKR0rl46ta7jhhpUMzWjgSQ==}
+    resolution: {integrity: sha512-kTZmAnhdGf0tN6dcp/M2BNdyxO5bEjfvinQcpp157XVoZbXsxcp1AjAf/3LbNkdW6u1mh6/6h0APaDqo/pb02g==}
     engines: {node: '>=18'}
 
   '@coding-club-iitg/ops-logger@0.2.0':
-    resolution: {integrity: sha512-3xtA4sXItZ8ZeI0MNTdWbxmRrpMkdS4jcwaYMqO+RBx2vTFvDtbo5efOiNH5Znp6N/EpU6FM3jvMNlbH0/sVSA==}
+    resolution: {integrity: sha512-d2jpF4Na7LSOnttjzgK4fXEc/srMdS7EU3ZPfE5Tej4G/MaP+Arj2qxjZOn1SzrBsqLYzVXDA2p0uQo9p1Uthw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
