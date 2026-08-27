@@ -2,6 +2,63 @@ type LogLevel = "info" | "warn" | "error" | "debug";
 
 export type LogMetadata = Record<string, unknown>;
 
+export type OpsLogReport = {
+  level: Extract<LogLevel, "warn" | "error">;
+  message: string;
+  metadata?: unknown;
+  error?: unknown;
+};
+
+export type OpsLogReporter = (report: OpsLogReport) => void;
+
+const ORIGINAL_ERROR = Symbol("ccw.original-error");
+let opsLogReporter: OpsLogReporter | undefined;
+
+export function setOpsLogReporter(reporter?: OpsLogReporter): void {
+  opsLogReporter = reporter;
+}
+
+const OPS_ATTRIBUTE_KEYS = [
+  "attempt",
+  "component",
+  "dependency",
+  "exitCode",
+  "jobName",
+  "operation",
+  "outcome",
+  "queueName",
+  "retryable",
+  "signal",
+] as const;
+
+export function opsDetailsFromReport(report: OpsLogReport) {
+  const metadata =
+    report.metadata && typeof report.metadata === "object"
+      ? (report.metadata as Record<string, unknown>)
+      : undefined;
+  const attributes: Record<string, string | number | boolean> = {};
+
+  for (const key of OPS_ATTRIBUTE_KEYS) {
+    const value = metadata?.[key];
+    if (
+      typeof value === "string" ||
+      typeof value === "boolean" ||
+      (typeof value === "number" && Number.isFinite(value))
+    ) {
+      attributes[key] = value;
+    }
+  }
+  if (attributes.operation === undefined) {
+    const action = metadata?.action;
+    if (typeof action === "string") attributes.operation = action;
+  }
+
+  return {
+    ...(report.error !== undefined ? { error: report.error } : {}),
+    ...(Object.keys(attributes).length ? { attributes } : {}),
+  };
+}
+
 const REDACTED = "[REDACTED]";
 const SENSITIVE_KEY =
   /authorization|cookie|token|secret|password|credential|submission|source.?code|request.?body|profile|email/i;
@@ -68,18 +125,60 @@ function serializeForLog(
 export function errorToLogMetadata(error: unknown): LogMetadata {
   if (error instanceof Error) {
     return {
+      [ORIGINAL_ERROR]: error,
       errorName: error.name,
       errorMessage: redactString(error.message),
     };
   }
 
   return {
+    [ORIGINAL_ERROR]: error,
     errorType: typeof error,
     errorMessage: redactString(String(error)),
   };
 }
 
+function diagnosticError(value: unknown, depth = 0): unknown {
+  if (value instanceof Error) return value;
+  if (!value || typeof value !== "object" || depth >= 3) return undefined;
+
+  const original = (value as { [ORIGINAL_ERROR]?: unknown })[ORIGINAL_ERROR];
+  if (original !== undefined) return original;
+
+  if (!Array.isArray(value) && "error" in value) {
+    return (value as { error?: unknown }).error;
+  }
+
+  const values = Array.isArray(value)
+    ? value.slice(0, 10)
+    : Object.values(value).slice(0, 25);
+  for (const item of values) {
+    const found = diagnosticError(item, depth + 1);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
 function writeLog(level: LogLevel, message: string, metadata?: unknown): void {
+  if ((level === "warn" || level === "error") && opsLogReporter) {
+    try {
+      opsLogReporter({
+        level,
+        message: redactString(message),
+        metadata,
+        error:
+          diagnosticError(metadata) ??
+          (level === "error" &&
+          (metadata === null || typeof metadata !== "object")
+            ? metadata
+            : undefined),
+      });
+      return;
+    } catch {
+      // Fall back to the local sink when the configured sink fails synchronously
+    }
+  }
+
   const entry: LogMetadata = {};
 
   if (metadata !== undefined) {

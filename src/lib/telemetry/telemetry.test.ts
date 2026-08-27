@@ -1,71 +1,79 @@
-import { validateLogEventV1 } from "@coding-club-iitg/ops-contract";
-import { describe, expect, it } from "vitest";
+import { createNextOpsLogger } from "@coding-club-iitg/ops-logger/next";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { buildApplicationEvent, buildHttpEvent } from "@/lib/telemetry/event";
-import { logEventFromRequestSpan } from "@/lib/telemetry/request-span-processor";
+const TRACE_ID = "0123456789abcdef0123456789abcdef";
 
-describe("CCW event builders", () => {
-  it("builds a safe route-template HTTP event", () => {
-    const event = buildHttpEvent({
-      method: "get",
-      route: "/api/projects/[id]",
-      statusCode: 200,
-      durationMs: 12.5,
-    });
-
-    expect(event.http).toEqual({
-      method: "GET",
-      route: "/api/projects/[id]",
-      statusCode: 200,
-      durationMs: 12.5,
-    });
-    expect(validateLogEventV1(event).success).toBe(true);
-  });
-
-  it("builds a CCW worker event", () => {
-    const event = buildApplicationEvent({
-      service: "ccw-worker",
-      level: "info",
-      message: "Worker started",
-      attributes: { component: "worker", outcome: "success" },
-    });
-
-    expect(event).toMatchObject({
-      project: "ccw",
-      service: "ccw-worker",
-      kind: "application",
-    });
-    expect(validateLogEventV1(event).success).toBe(true);
-  });
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
-describe("central request telemetry", () => {
-  it("maps only approved fields from the completed Next.js request span", () => {
-    const event = logEventFromRequestSpan({
-      attributes: {
+function createTestLogger() {
+  return createNextOpsLogger({
+    project: "ccw",
+    service: "ccw-web",
+    ingestionUrl: "https://ops.example.test/api/ingest/logs",
+    secret: "test-ingestion-secret-at-least-32-chars",
+    enabled: true,
+    exportLevels: ["debug", "info", "warn", "error", "fatal"],
+    console: {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    },
+  });
+}
+
+function requestSpan(attributes: Record<string, unknown>) {
+  return {
+    attributes,
+    duration: [0, 18_400_000],
+    spanContext: () => ({ traceId: TRACE_ID }),
+  };
+}
+
+describe("shared Next.js request telemetry", () => {
+  it("exports one safe event for a completed API request span", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ status: 202 });
+    vi.stubGlobal("fetch", fetchMock);
+    const { logger, spanProcessor } = createTestLogger();
+
+    spanProcessor.onEnd(
+      requestSpan({
         "next.span_type": "BaseServer.handleRequest",
         "next.route": "/api/projects/[id]",
         "http.method": "GET",
         "http.status_code": 200,
         "http.target": "/api/projects/private-slug?token=secret",
         "http.user_agent": "sensitive-agent",
-      },
-      duration: [0, 18_400_000],
-    });
+      }) as never,
+    );
+    await logger.flush();
 
-    expect(event?.http).toEqual({
-      method: "GET",
-      route: "/api/projects/[id]",
-      statusCode: 200,
-      durationMs: 18.4,
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const event = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+    expect(event).toMatchObject({
+      project: "ccw",
+      service: "ccw-web",
+      kind: "http",
+      correlationId: TRACE_ID,
+      http: {
+        method: "GET",
+        route: "/api/projects/[id]",
+        statusCode: 200,
+        durationMs: 18.4,
+      },
     });
-    const serialized = JSON.stringify(event);
-    expect(serialized).not.toContain("private-slug");
-    expect(serialized).not.toContain("token=secret");
-    expect(serialized).not.toContain("sensitive-agent");
+    expect(JSON.stringify(event)).not.toMatch(
+      /private-slug|token=secret|sensitive-agent/,
+    );
   });
 
-  it("ignores page, child, incomplete, and unsafe request spans", () => {
+  it("ignores page, child, incomplete, and unsafe request spans", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ status: 202 });
+    vi.stubGlobal("fetch", fetchMock);
+    const { logger, spanProcessor } = createTestLogger();
     const base = {
       "next.span_type": "BaseServer.handleRequest",
       "next.route": "/api/projects/[id]",
@@ -73,29 +81,16 @@ describe("central request telemetry", () => {
       "http.status_code": 200,
     };
 
-    expect(
-      logEventFromRequestSpan({
-        attributes: { ...base, "next.route": "/projects/[id]" },
-        duration: [0, 1],
-      }),
-    ).toBeUndefined();
-    expect(
-      logEventFromRequestSpan({
-        attributes: { ...base, "next.span_type": "AppRouteRouteHandlers.run" },
-        duration: [0, 1],
-      }),
-    ).toBeUndefined();
-    expect(
-      logEventFromRequestSpan({
-        attributes: { ...base, "http.status_code": undefined },
-        duration: [0, 1],
-      }),
-    ).toBeUndefined();
-    expect(
-      logEventFromRequestSpan({
-        attributes: { ...base, "next.route": "/api/projects/secret%20slug" },
-        duration: [0, 1],
-      }),
-    ).toBeUndefined();
+    for (const attributes of [
+      { ...base, "next.route": "/projects/[id]" },
+      { ...base, "next.span_type": "AppRouteRouteHandlers.run" },
+      { ...base, "http.status_code": undefined },
+      { ...base, "next.route": "/api/projects/secret%20slug" },
+    ]) {
+      spanProcessor.onEnd(requestSpan(attributes) as never);
+    }
+    await logger.flush();
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

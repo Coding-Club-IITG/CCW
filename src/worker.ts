@@ -17,39 +17,31 @@ import {
   NIGHTLY_CF_PROBLEM_SCHEDULE,
 } from "@/lib/jobs/schedules";
 import dbConnect from "@/lib/mongodb";
-import {
-  buildApplicationEvent,
-  type ApplicationEventInput,
-} from "@/lib/telemetry/event";
-import { closeOpsTelemetry, publishLogEvent } from "@/lib/telemetry/publisher";
+import { workerOpsLogger } from "@/lib/telemetry/worker-logger";
 import { logger } from "@/lib/utils";
 import { cfSyncWorker } from "@/lib/workers/cfSyncWorker";
 import { reconciliationWorker } from "@/lib/workers/reconciliationWorker";
 import { pushNotificationWorker } from "@/lib/workers/pushNotificationWorker";
 import ContestQuestion from "@/models/ContestQuestion";
 
-function emitWorkerEvent(input: ApplicationEventInput, error?: unknown): void {
-  try {
-    void publishLogEvent(buildApplicationEvent(input), error);
-  } catch {
-    // Invalid telemetry must never affect worker execution
-  }
+function jobCorrelationId(job: {
+  attrs: { data?: unknown };
+}): string | undefined {
+  const data = job.attrs.data;
+  if (!data || typeof data !== "object") return undefined;
+  const value = (data as Record<string, unknown>).correlationId;
+  return typeof value === "string" ? value : undefined;
 }
 
 async function run() {
   void workerEnv;
-  await publishLogEvent(
-    buildApplicationEvent({
-      service: "ccw-worker",
-      level: "info",
-      message: "Background worker starting",
-      attributes: {
-        component: "worker",
-        operation: "startup",
-        outcome: "started",
-      },
-    }),
-  );
+  workerOpsLogger.info("Background worker starting", {
+    attributes: {
+      component: "worker",
+      operation: "startup",
+      outcome: "started",
+    },
+  });
   logger.info(
     "[Worker] Starting standalone background worker (Agenda + BullMQ)...",
   );
@@ -115,10 +107,8 @@ async function run() {
   await agenda.start();
 
   agenda.on("success", (job) => {
-    emitWorkerEvent({
-      service: "ccw-worker",
-      level: "info",
-      message: "Background job completed",
+    workerOpsLogger.info("Background job completed", {
+      correlationId: jobCorrelationId(job),
       attributes: {
         component: "agenda",
         jobName: job.attrs.name,
@@ -128,22 +118,17 @@ async function run() {
     });
   });
   agenda.on("fail", (error, job) => {
-    emitWorkerEvent(
-      {
-        service: "ccw-worker",
-        level: "error",
-        message: "Background job failed",
-        error: { name: "AgendaJobError", code: "JOB_FAILED" },
-        attributes: {
-          component: "agenda",
-          jobName: job.attrs.name,
-          operation: "execute",
-          outcome: "failure",
-          retryable: true,
-        },
-      },
+    workerOpsLogger.error("Background job failed", {
       error,
-    );
+      correlationId: jobCorrelationId(job),
+      attributes: {
+        component: "agenda",
+        jobName: job.attrs.name,
+        operation: "execute",
+        outcome: "failure",
+        retryable: true,
+      },
+    });
   });
 
   for (const schedule of AGENDA_JOB_SCHEDULES) {
@@ -156,34 +141,29 @@ async function run() {
   }
 
   logger.info("[Worker] Agenda started and jobs scheduled.");
-  await publishLogEvent(
-    buildApplicationEvent({
-      service: "ccw-worker",
-      level: "info",
-      message: "Background worker ready",
-      attributes: {
-        component: "worker",
-        operation: "startup",
-        outcome: "success",
-      },
-    }),
-  );
+  workerOpsLogger.info("Background worker ready", {
+    attributes: {
+      component: "worker",
+      operation: "startup",
+      outcome: "success",
+    },
+  });
 
   // Graceful shutdown
-  async function graceful() {
+  let shutdownStarted = false;
+  async function graceful(signal: NodeJS.Signals) {
+    if (shutdownStarted) return;
+    shutdownStarted = true;
     logger.info("[Worker] Stopping agenda and BullMQ workers...");
-    await publishLogEvent(
-      buildApplicationEvent({
-        service: "ccw-worker",
-        level: "info",
-        message: "Background worker stopping",
-        attributes: {
-          component: "worker",
-          operation: "shutdown",
-          outcome: "started",
-        },
-      }),
-    );
+    workerOpsLogger.info("Background worker stopping", {
+      attributes: {
+        component: "worker",
+        operation: "shutdown",
+        outcome: "started",
+        signal,
+      },
+    });
+    let exitCode = 0;
     try {
       await Promise.all([
         agenda.stop(),
@@ -192,57 +172,45 @@ async function run() {
         pushNotificationWorker.close(),
       ]);
       logger.info("[Worker] All services stopped successfully.");
-      await publishLogEvent(
-        buildApplicationEvent({
-          service: "ccw-worker",
-          level: "info",
-          message: "Background worker stopped",
-          attributes: {
-            component: "worker",
-            operation: "shutdown",
-            outcome: "success",
-          },
-        }),
-      );
+      workerOpsLogger.info("Background worker stopped", {
+        attributes: {
+          component: "worker",
+          operation: "shutdown",
+          outcome: "success",
+          signal,
+          exitCode,
+        },
+      });
     } catch (err) {
-      logger.error("[Worker] Error during graceful shutdown:", err);
-      await publishLogEvent(
-        buildApplicationEvent({
-          service: "ccw-worker",
-          level: "error",
-          message: "Background worker shutdown failed",
-          error: { name: "WorkerShutdownError", code: "SHUTDOWN_FAILED" },
-          attributes: {
-            component: "worker",
-            operation: "shutdown",
-            outcome: "failure",
-          },
-        }),
-        err,
-      );
+      exitCode = 1;
+      workerOpsLogger.error("Background worker shutdown failed", {
+        error: err,
+        attributes: {
+          component: "worker",
+          operation: "shutdown",
+          outcome: "failure",
+          signal,
+          exitCode,
+        },
+      });
     }
-    await closeOpsTelemetry();
-    process.exit(0);
+    await workerOpsLogger.flush();
+    process.exit(exitCode);
   }
 
-  process.on("SIGTERM", graceful);
-  process.on("SIGINT", graceful);
+  process.on("SIGTERM", () => void graceful("SIGTERM"));
+  process.on("SIGINT", () => void graceful("SIGINT"));
 }
 
 run().catch((err) => {
-  logger.error("[Worker] Fatal error during startup:", err);
-  void publishLogEvent(
-    buildApplicationEvent({
-      service: "ccw-worker",
-      level: "fatal",
-      message: "Background worker startup failed",
-      error: { name: "WorkerStartupError", code: "STARTUP_FAILED" },
-      attributes: {
-        component: "worker",
-        operation: "startup",
-        outcome: "failure",
-      },
-    }),
-    err,
-  ).finally(() => process.exit(1));
+  workerOpsLogger.fatal("Background worker startup failed", {
+    error: err,
+    attributes: {
+      component: "worker",
+      operation: "startup",
+      outcome: "failure",
+      exitCode: 1,
+    },
+  });
+  void workerOpsLogger.flush().finally(() => process.exit(1));
 });

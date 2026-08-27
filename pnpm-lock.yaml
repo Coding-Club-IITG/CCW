@@ -20,9 +20,9 @@ importers:
       '@bjorn3/browser_wasi_shim':
         specifier: ^0.4.2
         version: 0.4.2
-      '@coding-club-iitg/ops-contract':
+      '@coding-club-iitg/ops-logger':
         specifier: ^0.1.0
-        version: 0.1.0
+        version: 0.1.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -346,6 +346,18 @@ packages:
   '@coding-club-iitg/ops-contract@0.1.0':
     resolution: {integrity: sha512-ocIQczjX2JKa9ILwoC+lTar2QitrvIlMMtSWQOBq5QDOzhuNvJiXb1xTkMt2YuTlHAbFtobmmmjML/D9lMbIhA==}
     engines: {node: '>=18'}
+
+  '@coding-club-iitg/ops-logger@0.1.0':
+    resolution: {integrity: sha512-MurHBDY8dXMxV05ikCh0NIEBzA3F1mzSMqAAj6hIs+3Ab1FLz4Mn2qDm+9Kv6om1smnoHRWRqxHrv0lbavfRyA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@opentelemetry/api': ^1.9.0
+      '@opentelemetry/sdk-trace-base': ^2.0.0
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      '@opentelemetry/sdk-trace-base':
+        optional: true
 
   '@csstools/color-helpers@6.1.0':
     resolution: {integrity: sha512-064IFJdjTfUqnjpCVpMOdbr8FLQBhinbZj6yRv2An2E41O/pLEXqfFRWqGq/SxlE5PEUYTlvWsG2r8MswAVvkg==}
@@ -4311,6 +4323,13 @@ snapshots:
     optional: true
 
   '@coding-club-iitg/ops-contract@0.1.0': {}
+
+  '@coding-club-iitg/ops-logger@0.1.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
+    dependencies:
+      '@coding-club-iitg/ops-contract': 0.1.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
 
   '@csstools/color-helpers@6.1.0':
     optional: true

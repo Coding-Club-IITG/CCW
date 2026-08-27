@@ -47,12 +47,15 @@
   `{ success: true, data? } | { success: false, error }`.
 - Return safe, human-readable errors to clients. Log useful diagnostic context
   with the shared logger without exposing internal exception details.
-- Use the shared logger for production server code. Prefer a stable message plus
-  structured context such as `route` or `action`, `operation`, and safe resource
-  IDs. Normalize unknown exceptions with `errorToLogMetadata()`.
+- Use the `logger` for application warnings and errors; `@coding-club-iitg/ops-logger`
+  is the canonical server-side producer. Prefer a stable message plus
+  structured context such as `route` or `action`, `operation`, and safe resource IDs.
+  Normalize unknown exceptions with `errorToLogMetadata()`.
 - Log an exception only at the layer that handles or recovers from it. Never log
   secrets, authorization data, cookies, tokens, request bodies, code
   submissions, email addresses, platform handles, or sensitive profile fields.
+- Standalone workers must await the shared logger's `flush()` before explicit
+  process exits so bounded in-flight events can finish delivery.
 - Revalidate affected paths after mutations. Invalidate affected cache entries
   when cached data changes.
 - Serialize Mongoose documents before passing them to Client Components.
