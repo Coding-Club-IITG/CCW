@@ -21,8 +21,8 @@ importers:
         specifier: ^0.4.2
         version: 0.4.2
       '@coding-club-iitg/ops-logger':
-        specifier: ^0.1.0
-        version: 0.1.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
+        specifier: ^0.2.0
+        version: 0.2.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -343,12 +343,12 @@ packages:
     resolution: {integrity: sha512-ctxtJ/eA+t+6q2++vj5j7FYX3nRu311q1wfYH3xjlLOsczhlhxAg2FWNUXhpGvAw3BWo1xBcvOV6/YLc2r5FJw==}
     hasBin: true
 
-  '@coding-club-iitg/ops-contract@0.1.0':
-    resolution: {integrity: sha512-ocIQczjX2JKa9ILwoC+lTar2QitrvIlMMtSWQOBq5QDOzhuNvJiXb1xTkMt2YuTlHAbFtobmmmjML/D9lMbIhA==}
+  '@coding-club-iitg/ops-contract@0.2.0':
+    resolution: {integrity: sha512-w+P2M6QuL84gXRyAef/UpTbc4HlZsPUtZPaEh0G6U1sVM7MY+neIwUeiDmpcPiXpKR0rl46ta7jhhpUMzWjgSQ==}
     engines: {node: '>=18'}
 
-  '@coding-club-iitg/ops-logger@0.1.0':
-    resolution: {integrity: sha512-MurHBDY8dXMxV05ikCh0NIEBzA3F1mzSMqAAj6hIs+3Ab1FLz4Mn2qDm+9Kv6om1smnoHRWRqxHrv0lbavfRyA==}
+  '@coding-club-iitg/ops-logger@0.2.0':
+    resolution: {integrity: sha512-3xtA4sXItZ8ZeI0MNTdWbxmRrpMkdS4jcwaYMqO+RBx2vTFvDtbo5efOiNH5Znp6N/EpU6FM3jvMNlbH0/sVSA==}
     engines: {node: '>=18'}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
@@ -4322,11 +4322,11 @@ snapshots:
       css-tree: 3.2.1
     optional: true
 
-  '@coding-club-iitg/ops-contract@0.1.0': {}
+  '@coding-club-iitg/ops-contract@0.2.0': {}
 
-  '@coding-club-iitg/ops-logger@0.1.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
+  '@coding-club-iitg/ops-logger@0.2.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
     dependencies:
-      '@coding-club-iitg/ops-contract': 0.1.0
+      '@coding-club-iitg/ops-contract': 0.2.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
