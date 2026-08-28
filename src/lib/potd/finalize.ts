@@ -3,23 +3,25 @@
  */
 
 import mongoose from "mongoose";
-import CPUser from "@/models/CPUser";
-import DailyChallenge from "@/models/POTDDailyChallenge";
-import POTDSubmission from "@/models/POTDSubmission";
-import POTDOutage from "@/models/POTDOutage";
-import { windowStartToISTDateStr } from "@/lib/potd/utils";
-import { logger } from "@/lib/utils";
-import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
-import { fetchUserSubmissions } from "@/lib/potd/recompute";
+import type { ClientSession } from "mongoose";
+
+import type { Platform } from "@/lib/constants";
 import {
   buildDays,
   deriveUserState,
   type DeriveChallenge,
   type DeriveDay,
 } from "@/lib/potd/derive";
+import { fetchUserSubmissions } from "@/lib/potd/recompute";
+import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
+import { windowStartToISTDateStr } from "@/lib/potd/utils";
 import { isAtCoderAPIReachable } from "@/lib/platforms/atcoder";
 import { isCodeforcesAPIReachable } from "@/lib/platforms/codeforces";
-import type { Platform } from "@/lib/constants";
+import { logger } from "@/lib/utils";
+import CPUser from "@/models/CPUser";
+import DailyChallenge from "@/models/POTDDailyChallenge";
+import POTDOutage from "@/models/POTDOutage";
+import POTDSubmission from "@/models/POTDSubmission";
 
 const HEALTH_CHECK_RETRIES = 3;
 const HEALTH_CHECK_DELAY_MS = 10_000;
@@ -34,17 +36,23 @@ const platformOfChallenge = (challenge: any): Platform =>
  * Build the full chronological timeline of challenges that have STARTED
  * (windowStart <= now), including the currently-live day
  */
-export async function buildTimeline(now: Date = new Date()): Promise<{
+export async function buildTimeline(
+  now: Date = new Date(),
+  session?: ClientSession,
+): Promise<{
   days: DeriveDay[];
   challengeDocs: Map<string, any>;
 }> {
   const challenges = await DailyChallenge.find({
     windowStart: { $lte: now },
   })
+    .session(session ?? null)
     .sort({ windowStart: 1, difficulty: 1 })
     .populate("problem");
 
-  const outages = await POTDOutage.find({}).lean();
+  const outages = await POTDOutage.find({})
+    .session(session ?? null)
+    .lean();
   const outageDates = new Set(outages.map((o: any) => o.date));
 
   const deriveChallenges: DeriveChallenge[] = [];
@@ -78,8 +86,11 @@ export async function recomputeUser(
   userId: any,
   days: DeriveDay[],
   now: Date = new Date(),
+  session?: ClientSession,
 ): Promise<void> {
-  const existing = await POTDSubmission.find({ userId });
+  const existing = await POTDSubmission.find({ userId }).session(
+    session ?? null,
+  );
   const solvedAtByChallenge = new Map<string, number | null>();
   const existingIds = new Set<string>();
   for (const s of existing as any[]) {
@@ -118,7 +129,8 @@ export async function recomputeUser(
     });
   }
 
-  if (ops.length > 0) await POTDSubmission.bulkWrite(ops, { ordered: false });
+  if (ops.length > 0)
+    await POTDSubmission.bulkWrite(ops, { ordered: false, session });
 
   await CPUser.updateOne(
     { userId },
@@ -130,6 +142,7 @@ export async function recomputeUser(
         potdLongestStreak: state.longestStreak,
       },
     },
+    { session },
   );
 }
 
@@ -168,6 +181,7 @@ export async function syncUserChallenge(
   platformSubs: any[],
   platform: Platform,
   now: Date = new Date(),
+  session?: ClientSession,
 ): Promise<{ status: string; pointsAwarded: number }> {
   const problem = challenge.problem as any;
 
@@ -186,16 +200,16 @@ export async function syncUserChallenge(
       $set: { solvedAt, lastCheckedAt: now },
       $setOnInsert: { userId, challengeId: challenge._id, status: "Pending" },
     },
-    { upsert: true },
+    { upsert: true, session },
   );
 
-  const { days } = await buildTimeline(now);
-  await recomputeUser(userId, days, now);
+  const { days } = await buildTimeline(now, session);
+  await recomputeUser(userId, days, now, session);
 
   const updated = await POTDSubmission.findOne({
     userId,
     challengeId: challenge._id,
-  });
+  }).session(session ?? null);
   return {
     status: updated?.status ?? "Pending",
     pointsAwarded: updated?.pointsAwarded ?? 0,

@@ -1,9 +1,27 @@
 "use server";
 
-import { err as appError, ok } from "@/lib/api/result";
+import mongoose from "mongoose";
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
+import {
+  canManageCalendarEvent,
+  type CalendarScopeTarget,
+} from "@/lib/access/calendar";
 import { defineAction } from "@/lib/actions/defineAction";
-import { toBsonSafe } from "@/lib/api/result";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeCalendar } from "@/lib/audit/summary";
+import { err as appError, ok, toBsonSafe } from "@/lib/api/result";
+import { parseCalendarEventInput } from "@/lib/api/schemas/calendar";
+import { auth } from "@/lib/auth";
+import { invalidateCache } from "@/lib/cache";
+import { expandCalendarOccurrences } from "@/lib/calendar";
+import dbConnect from "@/lib/mongodb";
+import { parseManagedModules } from "@/lib/roles";
+import { errorToLogMetadata, logger } from "@/lib/utils";
+import CalendarEvent from "@/models/CalendarEvent";
+import CalendarReminderDelivery from "@/models/CalendarReminderDelivery";
+import Event from "@/models/Event";
 
 export const listCalendarEvents = defineAction(
   "listCalendarEvents",
@@ -26,26 +44,9 @@ export const deleteCalendarEvent = defineAction(
   deleteCalendarEventAction,
 );
 
-import mongoose from "mongoose";
-import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import {
-  canManageCalendarEvent,
-  type CalendarScopeTarget,
-} from "@/lib/access/calendar";
-import { expandCalendarOccurrences } from "@/lib/calendar";
-import { parseCalendarEventInput } from "@/lib/api/schemas/calendar";
-import { invalidateCache } from "@/lib/cache";
-import dbConnect from "@/lib/mongodb";
-import { parseManagedModules } from "@/lib/roles";
-import { errorToLogMetadata, logger } from "@/lib/utils";
-import CalendarEvent from "@/models/CalendarEvent";
-import CalendarReminderDelivery from "@/models/CalendarReminderDelivery";
-import Event from "@/models/Event";
-
 type SessionUser = {
   id: string;
+  name?: string;
   access?: string;
   managedModules?: unknown;
 };
@@ -168,10 +169,35 @@ async function createCalendarEventAction(raw: unknown) {
     }
 
     await dbConnect();
-    const event = await CalendarEvent.create({
-      ...parsed.data,
-      createdBy: user.id,
-    });
+    const dbSession = await mongoose.startSession();
+    let event;
+    try {
+      event = await auditedTransaction(dbSession, async (transaction) => {
+        const [created] = await CalendarEvent.create(
+          [{ ...parsed.data, createdBy: user.id }],
+          { session: transaction },
+        );
+        return {
+          result: created,
+          audit: {
+            actor: auditActor(user),
+            category: "calendar" as const,
+            action: "create" as const,
+            operation: "calendar.create",
+            target: {
+              type: "calendar-event",
+              id: String(created._id),
+              label: created.title,
+            },
+            after: summarizeCalendar(
+              created.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     await refreshCalendarPaths(String(event._id));
     return ok(serialize(event.toObject()));
   } catch (error) {
@@ -193,7 +219,7 @@ async function updateCalendarEventAction(id: string, raw: unknown) {
     const parsed = parseCalendarEventInput(raw);
     if (!parsed.success) return appError("VALIDATION_ERROR", parsed.error);
     await dbConnect();
-    const existing = await CalendarEvent.findById(id);
+    const existing = await CalendarEvent.findById(id).lean();
     if (!existing) return appError("NOT_FOUND", "Event not found.");
     if (
       !canManage(user, targetOf(existing)) ||
@@ -204,10 +230,44 @@ async function updateCalendarEventAction(id: string, raw: unknown) {
         "You cannot manage events in that scope.",
       );
     }
-    existing.set(parsed.data);
-    await existing.save();
+    const dbSession = await mongoose.startSession();
+    let updated;
+    try {
+      updated = await auditedTransaction(dbSession, async (transaction) => {
+        const current = await CalendarEvent.findById(id)
+          .session(transaction)
+          .lean();
+        if (!current)
+          throw new Error("Calendar event disappeared during update.");
+        const record = await CalendarEvent.findByIdAndUpdate(id, parsed.data, {
+          returnDocument: "after",
+          runValidators: true,
+          session: transaction,
+        });
+        if (!record)
+          throw new Error("Calendar event disappeared during update.");
+        return {
+          result: record,
+          audit: {
+            actor: auditActor(user),
+            category: "calendar" as const,
+            action: "update" as const,
+            operation: "calendar.update",
+            target: { type: "calendar-event", id, label: record.title },
+            before: summarizeCalendar(
+              current as unknown as Record<string, unknown>,
+            ),
+            after: summarizeCalendar(
+              record.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     await refreshCalendarPaths(id);
-    return ok(serialize(existing.toObject()));
+    return ok(serialize(updated.toObject()));
   } catch (error) {
     logger.error("Calendar event update failed", {
       operation: "update_calendar_event",
@@ -237,13 +297,35 @@ async function deleteCalendarEventAction(id: string) {
 
     const dbSession = await mongoose.startSession();
     try {
-      await dbSession.withTransaction(async () => {
-        await Event.deleteOne({ calendarEventId: id }, { session: dbSession });
-        await CalendarReminderDelivery.deleteMany(
+      await auditedTransaction(dbSession, async (transaction) => {
+        const current = await CalendarEvent.findById(id)
+          .session(transaction)
+          .lean();
+        if (!current)
+          throw new Error("Calendar event disappeared during deletion.");
+        const publication = await Event.deleteOne(
           { calendarEventId: id },
-          { session: dbSession },
+          { session: transaction },
         );
-        await CalendarEvent.deleteOne({ _id: id }, { session: dbSession });
+        const reminders = await CalendarReminderDelivery.deleteMany(
+          { calendarEventId: id },
+          { session: transaction },
+        );
+        await CalendarEvent.deleteOne({ _id: id }, { session: transaction });
+        return {
+          result: undefined,
+          audit: {
+            actor: auditActor(user),
+            category: "calendar" as const,
+            action: "delete" as const,
+            operation: "calendar.delete",
+            target: { type: "calendar-event", id, label: current.title },
+            before: summarizeCalendar({
+              ...current,
+              cascadeCount: publication.deletedCount + reminders.deletedCount,
+            } as unknown as Record<string, unknown>),
+          },
+        };
       });
     } finally {
       await dbSession.endSession();

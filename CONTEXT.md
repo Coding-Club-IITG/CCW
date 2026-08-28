@@ -122,6 +122,9 @@ Route protection belongs in `src/proxy.ts`; this project does not use
 The configured MongoDB deployment uses a replica set. Confirm replica-set
 availability before choosing a transaction-based implementation.
 
+Each completed privileged user intent is stored with a bounded, resource-specific
+before/after summary in Audit log, which operates in a fail-closed manner.
+
 ## Branches and Deployment
 
 Pull requests normally target `dev`. The live website is deployed from `prod`

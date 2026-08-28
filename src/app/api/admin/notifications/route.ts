@@ -8,16 +8,20 @@
  *   link?: string
  */
 
+import mongoose from "mongoose";
 import { NextRequest } from "next/server";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { parseJson } from "@/lib/api/result";
-import { jsonObjectSchema } from "@/lib/api/schemas/boundary";
+
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeNotification } from "@/lib/audit/summary";
 import { requireHead } from "@/lib/api/auth";
-import dbConnect from "@/lib/mongodb";
-import { notifyMany } from "@/lib/notify";
-import User from "@/models/User";
+import { parseJson } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { jsonObjectSchema } from "@/lib/api/schemas/boundary";
 import { MODULES } from "@/lib/constants";
+import dbConnect from "@/lib/mongodb";
+import { enqueuePushNotifications, notifyMany } from "@/lib/notify";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import User from "@/models/User";
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,12 +94,49 @@ export async function POST(request: NextRequest) {
 
     const userIds = (users as any[]).map((u) => u._id.toString());
 
-    await notifyMany(userIds, {
-      type: "announcement",
-      title: title.trim(),
-      message: message.trim(),
-      link: typeof link === "string" ? link : "",
-    });
+    const transaction = await mongoose.startSession();
+    let notificationIds: string[] = [];
+    try {
+      notificationIds = await auditedTransaction(
+        transaction,
+        async (dbSession) => {
+          const created = await notifyMany(
+            userIds,
+            {
+              type: "announcement",
+              title: title.trim(),
+              message: message.trim(),
+              link: typeof link === "string" ? link : "",
+            },
+            { session: dbSession, enqueue: false },
+          );
+          return {
+            result: created.map((notification) => String(notification._id)),
+            audit: {
+              actor: auditActor(authorization.data.user),
+              category: "notifications" as const,
+              action: "broadcast" as const,
+              operation: "notifications.broadcast",
+              target: {
+                type: "notification-broadcast",
+                id: crypto.randomUUID(),
+                label: title.trim(),
+              },
+              after: summarizeNotification({
+                target,
+                type: "announcement",
+                title: title.trim(),
+                recipientCount: userIds.length,
+                link,
+              }),
+            },
+          };
+        },
+      );
+    } finally {
+      await transaction.endSession();
+    }
+    await enqueuePushNotifications(notificationIds);
 
     return jsonOk({
       success: true,

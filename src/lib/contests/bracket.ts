@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 
+import { publishContest } from "@/lib/contests/events";
 import dbConnect from "@/lib/mongodb";
 import { getRedis } from "@/lib/redis";
-import { publishContest } from "@/lib/contests/events";
 import { logger } from "@/lib/utils";
 import ContestMatch, { type IProblemSlot } from "@/models/ContestMatch";
 import ContestProblemSet from "@/models/ContestProblemSet";
@@ -25,6 +25,20 @@ type BracketProblem = {
   name?: string;
   rating?: number;
 };
+
+export type DeferredBracketEffect = () => Promise<void>;
+
+async function runOrDeferEffect(
+  deferredEffects: DeferredBracketEffect[] | undefined,
+  effect: DeferredBracketEffect,
+) {
+  if (deferredEffects) {
+    deferredEffects.push(effect);
+    return;
+  }
+
+  await effect();
+}
 
 function toStr(id: mongoose.Types.ObjectId | string): string {
   return typeof id === "string" ? id : id.toString();
@@ -73,6 +87,7 @@ async function initBracketRoomRedis(
 export async function generateBracket(
   contestId: string,
   solvedProblemIds?: Set<string>,
+  deferredEffects?: DeferredBracketEffect[],
 ) {
   await dbConnect();
   const contest = await ContestMatch.findById(contestId);
@@ -145,7 +160,6 @@ export async function generateBracket(
     rounds.push(round);
   }
 
-  const redis = await getRedis();
   const allRoomIds: string[] = [];
   let roundIndex = 0;
 
@@ -299,22 +313,31 @@ export async function generateBracket(
             revealedAt: null,
           }),
         );
-        await redis.del(`room:${room._id}:problems`);
-        await redis.rPush(`room:${room._id}:problems`, redisProblems);
+        const roomId = toStr(room._id);
+        await runOrDeferEffect(deferredEffects, async () => {
+          const redis = await getRedis();
+          await redis.del(`room:${roomId}:problems`);
+          await redis.rPush(`room:${roomId}:problems`, redisProblems);
+        });
       }
 
       if (roundIndex === 0 && roomStatus === "waiting") {
         const round1TeamDocs = await ContestTeam.find({
           roomId: room._id,
         }).lean();
-        await initBracketRoomRedis(
-          redis,
-          toStr(room._id),
-          mode,
-          round1TeamDocs,
-          contest.durationSeconds || 3600,
-          toStr(contest._id),
-        );
+        const roomId = toStr(room._id);
+        const durationSeconds = contest.durationSeconds || 3600;
+        const bracketContestId = toStr(contest._id);
+        await runOrDeferEffect(deferredEffects, async () => {
+          await initBracketRoomRedis(
+            await getRedis(),
+            roomId,
+            mode,
+            round1TeamDocs,
+            durationSeconds,
+            bracketContestId,
+          );
+        });
       }
 
       roundRooms.push(room._id);
@@ -332,6 +355,7 @@ export async function generateBracket(
               winnerTeam,
               matchIdx,
               contest._id,
+              deferredEffects,
             );
           } else {
             contest.winner = winnerTeam;
@@ -347,19 +371,25 @@ export async function generateBracket(
     roundIndex++;
   }
 
-  await redis.hSet(`contest:${contestId}:meta`, {
-    format: "knockout",
-    currentRound: "1",
-    status: "provisioning",
+  await runOrDeferEffect(deferredEffects, async () => {
+    const redis = await getRedis();
+    await redis.hSet(`contest:${contestId}:meta`, {
+      format: "knockout",
+      currentRound: "1",
+      status: "provisioning",
+    });
+    if (allRoomIds.length > 0) {
+      await redis.sAdd(`contest:${contestId}:rooms`, allRoomIds);
+    }
   });
-  if (allRoomIds.length > 0) {
-    await redis.sAdd(`contest:${contestId}:rooms`, allRoomIds);
-  }
 
   const snapshot = await getBracketSnapshot(contestId);
-  await publishContest(contestId, {
-    type: "contest.bracket_update",
-    ...snapshot,
+  await runOrDeferEffect(deferredEffects, async () => {
+    const committedSnapshot = await getBracketSnapshot(contestId);
+    await publishContest(contestId, {
+      type: "contest.bracket_update",
+      ...committedSnapshot,
+    });
   });
 
   logger.info(
@@ -423,6 +453,7 @@ async function seedTeamToRound(
   teamId: mongoose.Types.ObjectId,
   matchIndex: number,
   contestId: mongoose.Types.ObjectId,
+  deferredEffects?: DeferredBracketEffect[],
 ) {
   const round = await ContestRound.findById(roundId);
   if (!round) return;
@@ -462,16 +493,21 @@ async function seedTeamToRound(
     await updatedRoom.save();
 
     // Initialise Redis state so the ready route can find the room
-    const redis = await getRedis();
     const contest = await ContestMatch.findById(contestId).lean();
-    await initBracketRoomRedis(
-      redis,
-      toStr(targetRoom._id),
-      contest?.mode || "blitz",
-      allTeamDocs,
-      contest?.durationSeconds || 3600,
-      toStr(contestId),
-    );
+    const targetRoomId = toStr(targetRoom._id);
+    const contestMode = contest?.mode || "blitz";
+    const durationSeconds = contest?.durationSeconds || 3600;
+    const bracketContestId = toStr(contestId);
+    await runOrDeferEffect(deferredEffects, async () => {
+      await initBracketRoomRedis(
+        await getRedis(),
+        targetRoomId,
+        contestMode,
+        allTeamDocs,
+        durationSeconds,
+        bracketContestId,
+      );
+    });
 
     logger.info(`[Bracket] Room ${targetRoom._id} is now ready with 2 teams`);
   }
@@ -481,6 +517,7 @@ export async function advanceWinner(
   roomId: string,
   contestId: string,
   winnerTeamId: string | null,
+  deferredEffects?: DeferredBracketEffect[],
 ) {
   if (!winnerTeamId) {
     logger.warn(
@@ -524,20 +561,27 @@ export async function advanceWinner(
       `[Bracket] Contest ${contestId} completed. Winner: ${winnerTeamId}`,
     );
 
-    const finalSnapshot = await getBracketSnapshot(contestId);
-    await publishContest(contestId, {
-      type: "contest.bracket_update",
-      ...finalSnapshot,
+    await runOrDeferEffect(deferredEffects, async () => {
+      const finalSnapshot = await getBracketSnapshot(contestId);
+      await publishContest(contestId, {
+        type: "contest.bracket_update",
+        ...finalSnapshot,
+      });
     });
-    await publishContest(contestId, {
-      type: "contest.round_complete",
-      roundNumber: currentRound.roundNumber,
-      advancingTeams: [winnerTeamId],
+    const completedRoundNumber = currentRound.roundNumber;
+    await runOrDeferEffect(deferredEffects, async () => {
+      await publishContest(contestId, {
+        type: "contest.round_complete",
+        roundNumber: completedRoundNumber,
+        advancingTeams: [winnerTeamId],
+      });
     });
 
-    const redis = await getRedis();
-    const keys = await redis.keys(`contest:${contestId}:*`);
-    if (keys.length > 0) await redis.del(keys);
+    await runOrDeferEffect(deferredEffects, async () => {
+      const redis = await getRedis();
+      const keys = await redis.keys(`contest:${contestId}:*`);
+      if (keys.length > 0) await redis.del(keys);
+    });
     return;
   }
 
@@ -585,31 +629,39 @@ export async function advanceWinner(
     await updatedRoom.save();
 
     // Initialise Redis state for the next round room
-    const redis = await getRedis();
-    await initBracketRoomRedis(
-      redis,
-      toStr(nextRoom._id),
-      contest.mode || "blitz",
-      allAdvancedTeamDocs,
-      contest.durationSeconds || 3600,
-      contestId,
-    );
+    const nextRoomId = toStr(nextRoom._id);
+    const contestMode = contest.mode || "blitz";
+    const durationSeconds = contest.durationSeconds || 3600;
+    await runOrDeferEffect(deferredEffects, async () => {
+      await initBracketRoomRedis(
+        await getRedis(),
+        nextRoomId,
+        contestMode,
+        allAdvancedTeamDocs,
+        durationSeconds,
+        contestId,
+      );
+    });
 
     logger.info(
       `[Bracket] Next room ${nextRoom._id} is now ready with 2 teams`,
     );
   }
 
-  await publishContest(contestId, {
-    type: "contest.standing_update",
-    teamId: winnerTeamId,
-    contestId,
+  await runOrDeferEffect(deferredEffects, async () => {
+    await publishContest(contestId, {
+      type: "contest.standing_update",
+      teamId: winnerTeamId,
+      contestId,
+    });
   });
 
-  const snapshot = await getBracketSnapshot(contestId);
-  await publishContest(contestId, {
-    type: "contest.bracket_update",
-    ...snapshot,
+  await runOrDeferEffect(deferredEffects, async () => {
+    const snapshot = await getBracketSnapshot(contestId);
+    await publishContest(contestId, {
+      type: "contest.bracket_update",
+      ...snapshot,
+    });
   });
 
   logger.info(
@@ -620,17 +672,22 @@ export async function advanceWinner(
 export async function checkRoundCompletion(
   contestId: string,
   roundNumber: number,
+  deferredEffects?: DeferredBracketEffect[],
 ) {
   await dbConnect();
-  const redis = await getRedis();
   const lockKey = `contest:${contestId}:round:${roundNumber}:check_lock`;
+  let redis: Awaited<ReturnType<typeof getRedis>> | undefined;
+  let lockAcquired = false;
 
-  const lockAcquired = await redis.set(lockKey, "1", { NX: true, EX: 5 });
-  if (!lockAcquired) {
-    logger.info(
-      `[Bracket] Round ${roundNumber} check already in progress for contest ${contestId}`,
-    );
-    return;
+  if (!deferredEffects) {
+    redis = await getRedis();
+    lockAcquired = Boolean(await redis.set(lockKey, "1", { NX: true, EX: 5 }));
+    if (!lockAcquired) {
+      logger.info(
+        `[Bracket] Round ${roundNumber} check already in progress for contest ${contestId}`,
+      );
+      return;
+    }
   }
 
   try {
@@ -647,9 +704,10 @@ export async function checkRoundCompletion(
     const advancingTeams: string[] = [];
     for (const room of rooms) {
       if (room.teams.length === 2) {
-        const teamScores = await Promise.all(
-          room.teams.map((teamId) => ContestTeam.findById(teamId)),
-        );
+        const teamScores = [];
+        for (const teamId of room.teams) {
+          teamScores.push(await ContestTeam.findById(teamId));
+        }
         const winner = teamScores.reduce(
           (best, t) => (t && (!best || t.score > best.score) ? t : best),
           null as (typeof teamScores)[0],
@@ -663,20 +721,28 @@ export async function checkRoundCompletion(
     round.status = "completed";
     await round.save();
 
-    await redis.hSet(`contest:${contestId}:meta`, {
-      currentRound: String(roundNumber + 1),
+    await runOrDeferEffect(deferredEffects, async () => {
+      await (
+        await getRedis()
+      ).hSet(`contest:${contestId}:meta`, {
+        currentRound: String(roundNumber + 1),
+      });
     });
 
-    await publishContest(contestId, {
-      type: "contest.round_complete",
-      roundNumber,
-      advancingTeams,
+    await runOrDeferEffect(deferredEffects, async () => {
+      await publishContest(contestId, {
+        type: "contest.round_complete",
+        roundNumber,
+        advancingTeams,
+      });
     });
 
-    const snapshot = await getBracketSnapshot(contestId);
-    await publishContest(contestId, {
-      type: "contest.bracket_update",
-      ...snapshot,
+    await runOrDeferEffect(deferredEffects, async () => {
+      const snapshot = await getBracketSnapshot(contestId);
+      await publishContest(contestId, {
+        type: "contest.bracket_update",
+        ...snapshot,
+      });
     });
 
     const nextRound = await ContestRound.findOne({
@@ -691,11 +757,14 @@ export async function checkRoundCompletion(
       );
     } else {
       logger.info(`[Bracket] Contest ${contestId} fully completed.`);
-      const keys = await redis.keys(`contest:${contestId}:*`);
-      if (keys.length > 0) await redis.del(keys);
+      await runOrDeferEffect(deferredEffects, async () => {
+        const redisClient = await getRedis();
+        const keys = await redisClient.keys(`contest:${contestId}:*`);
+        if (keys.length > 0) await redisClient.del(keys);
+      });
     }
   } finally {
-    await redis.del(lockKey);
+    if (redis && lockAcquired) await redis.del(lockKey);
   }
 }
 
@@ -724,15 +793,18 @@ export async function getBracketSnapshot(
       createdAt: 1,
     });
     for (const room of rooms) {
-      const teams = await Promise.all(
-        room.teams.map((teamId) =>
-          ContestTeam.findById(teamId).populate<{ members: UserRecord[] }>({
+      const teams = [];
+      for (const teamId of room.teams) {
+        teams.push(
+          await ContestTeam.findById(teamId).populate<{
+            members: UserRecord[];
+          }>({
             path: "members",
             model: User,
             select: "image",
           }),
-        ),
-      );
+        );
+      }
       const teamIds: [string | null, string | null] = [null, null];
       const teamNames: [string | null, string | null] = [null, null];
       const teamImages: [string | null, string | null] = [null, null];
@@ -796,6 +868,7 @@ export async function processWalkover(
   winnerTeamId: string,
   note: string,
   adminUserId: string,
+  deferredEffects?: DeferredBracketEffect[],
 ) {
   await dbConnect();
   const room = await ContestRoom.findById(roomId);
@@ -820,12 +893,21 @@ export async function processWalkover(
     winnerTeamId,
   });
 
-  await advanceWinner(roomId, toStr(contest._id), winnerTeamId);
+  await advanceWinner(
+    roomId,
+    toStr(contest._id),
+    winnerTeamId,
+    deferredEffects,
+  );
 
   if (room.currentRoundId) {
     const round = await ContestRound.findById(room.currentRoundId);
     if (round) {
-      await checkRoundCompletion(toStr(contest._id), round.roundNumber);
+      await checkRoundCompletion(
+        toStr(contest._id),
+        round.roundNumber,
+        deferredEffects,
+      );
     }
   }
 

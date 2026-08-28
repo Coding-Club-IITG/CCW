@@ -1,8 +1,44 @@
 "use server";
 
-import { err as appError, ok } from "@/lib/api/result";
+import { cp } from "@ronits2407/cp-api";
+import mongoose from "mongoose";
+import type { ClientSession } from "mongoose";
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
+import { canSetPOTD } from "@/lib/access/potd";
 import { defineAction } from "@/lib/actions/defineAction";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizePOTD } from "@/lib/audit/summary";
+import { err as appError, ok } from "@/lib/api/result";
+import { auth } from "@/lib/auth";
+import { IST_OFFSET_MS, type Platform } from "@/lib/constants";
+import dbConnect from "@/lib/mongodb";
+import { getProblemById } from "@/lib/platforms/atcoder";
+import {
+  fetchProblemContentForScheduling,
+  type ProblemContentSnapshot,
+} from "@/lib/platforms/problemContent";
+import { syncUserChallenge } from "@/lib/potd/finalize";
+import { fetchUserSubmissions } from "@/lib/potd/recompute";
+import {
+  computeWindowTimes,
+  getTodayISTDateStr,
+  windowStartToISTDateStr,
+} from "@/lib/potd/utils";
+import { getRedis } from "@/lib/redis";
+import { parseRoles } from "@/lib/roles";
+import { errorToLogMetadata, logger } from "@/lib/utils";
+import CPUser from "@/models/CPUser";
+import ContestQuestion from "@/models/ContestQuestion";
+import DailyChallenge from "@/models/POTDDailyChallenge";
+import Problem, { type POTDProblemRecord } from "@/models/POTDProblem";
+import POTDSubmission from "@/models/POTDSubmission";
+import User, { type UserRecord } from "@/models/User";
+
+[User, CPUser, Problem, DailyChallenge, POTDSubmission].forEach(
+  (m) => m && m.init && m.init(),
+);
 
 export const setDailyProblem = defineAction(
   "setDailyProblem",
@@ -30,42 +66,8 @@ export const bulkSetDailyProblems = defineAction(
   bulkSetDailyProblemsAction,
 );
 
-import { auth } from "@/lib/auth";
-import mongoose from "mongoose";
-import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
-import { cp } from "@ronits2407/cp-api";
-import dbConnect from "@/lib/mongodb";
-import { getRedis } from "@/lib/redis";
-import User, { type UserRecord } from "@/models/User";
-import CPUser from "@/models/CPUser";
-import Problem, { type POTDProblemRecord } from "@/models/POTDProblem";
-import DailyChallenge from "@/models/POTDDailyChallenge";
-import POTDSubmission from "@/models/POTDSubmission";
-
-[User, CPUser, Problem, DailyChallenge, POTDSubmission].forEach(
-  (m) => m && m.init && m.init(),
-);
-
-import { errorToLogMetadata, logger } from "@/lib/utils";
-import { canSetPOTD } from "@/lib/access/potd";
-import { parseRoles } from "@/lib/roles";
-import { IST_OFFSET_MS } from "@/lib/constants";
-import type { Platform } from "@/lib/constants";
-import {
-  computeWindowTimes,
-  getTodayISTDateStr,
-  windowStartToISTDateStr,
-} from "@/lib/potd/utils";
-import { syncUserChallenge } from "@/lib/potd/finalize";
-import { fetchUserSubmissions } from "@/lib/potd/recompute";
-import { getProblemById } from "@/lib/platforms/atcoder";
-import {
-  fetchProblemContentForScheduling,
-  type ProblemContentSnapshot,
-} from "@/lib/platforms/problemContent";
-
 type WithId<T> = T & { _id: mongoose.Types.ObjectId };
+class BulkScheduleError extends Error {}
 type CodeforcesProblem = {
   contestId: number;
   index: string;
@@ -113,6 +115,7 @@ async function setDailyProblemAction(
   difficulty: "Easy" | "Medium" | "Hard",
   platform: Platform = "codeforces",
   force: boolean = false,
+  parentTransaction?: ClientSession,
 ) {
   const session = await checkAdmin();
   if (!session) return appError("FORBIDDEN", "Forbidden");
@@ -316,29 +319,77 @@ async function setDailyProblemAction(
     problemUpdate.content = problemContent;
     problemUpdate.contentFetchedAt = new Date();
   }
-  const problemDoc = await Problem.findOneAndUpdate(
-    { platform, contestId, problemIndex },
-    { $set: problemUpdate },
-    { upsert: true, returnDocument: "after" },
-  );
+  const persist = async (transaction: ClientSession) => {
+    const occupied = await DailyChallenge.findOne({ windowStart, difficulty })
+      .session(transaction)
+      .lean();
+    if (occupied)
+      throw new Error("POTD slot became occupied during scheduling.");
+    const problemDoc = await Problem.findOneAndUpdate(
+      { platform, contestId, problemIndex },
+      { $set: problemUpdate },
+      { upsert: true, returnDocument: "after", session: transaction },
+    );
+    const [challenge] = await DailyChallenge.create(
+      [
+        {
+          windowStart,
+          windowEnd,
+          graceEnd,
+          problem: problemDoc._id,
+          difficulty,
+          setBy: session.user.id,
+        },
+      ],
+      { session: transaction },
+    );
+    const id = String(challenge._id);
+    return {
+      id,
+      audit: {
+        actor: auditActor(session.user),
+        category: "potd" as const,
+        action: "schedule" as const,
+        operation: "potd.schedule",
+        target: {
+          type: "potd-challenge",
+          id,
+          label: `${dateStr} ${difficulty}`,
+        },
+        after: summarizePOTD({
+          date: dateStr,
+          difficulty,
+          platform,
+          problemId: `${contestId}${problemIndex}`,
+          force,
+        }),
+      },
+    };
+  };
+  if (parentTransaction) {
+    await persist(parentTransaction);
+  } else {
+    const dbSession = await mongoose.startSession();
+    try {
+      await auditedTransaction(dbSession, async (transaction) => {
+        const persisted = await persist(transaction);
+        return { result: undefined, audit: persisted.audit };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
+  }
 
-  await DailyChallenge.create({
-    windowStart,
-    windowEnd,
-    graceEnd,
-    problem: problemDoc._id,
-    difficulty,
-    setBy: session.user.id,
-  });
-
-  logger.info("[setDailyProblem] Created", {
-    dateStr,
-    platform,
-    contestId,
-    problemIndex,
-    difficulty,
-  });
-  revalidatePath("/internal/potd");
+  if (!parentTransaction) {
+    logger.info("[setDailyProblem] Created", {
+      dateStr,
+      platform,
+      contestId,
+      problemIndex,
+      difficulty,
+    });
+    revalidatePath("/internal/potd");
+  }
 
   return ok({});
 }
@@ -420,7 +471,44 @@ async function deleteScheduledChallengeAction(challengeId: string) {
       "Cannot delete a challenge that has already ended",
     );
 
-  await DailyChallenge.deleteOne({ _id: challengeId });
+  const dbSession = await mongoose.startSession();
+  try {
+    await auditedTransaction(dbSession, async (transaction) => {
+      const current = await DailyChallenge.findById(challengeId)
+        .session(transaction)
+        .populate("problem");
+      if (!current)
+        throw new Error("POTD challenge disappeared during deletion.");
+      await DailyChallenge.deleteOne(
+        { _id: challengeId },
+        { session: transaction },
+      );
+      const problem = current.problem as unknown as POTDProblemRecord;
+      const date = windowStartToISTDateStr(current.windowStart);
+      return {
+        result: undefined,
+        audit: {
+          actor: auditActor(session.user),
+          category: "potd" as const,
+          action: "delete" as const,
+          operation: "potd.scheduled.delete",
+          target: {
+            type: "potd-challenge",
+            id: challengeId,
+            label: `${date} ${current.difficulty}`,
+          },
+          before: summarizePOTD({
+            date,
+            difficulty: current.difficulty,
+            platform: problem.platform,
+            problemId: `${problem.contestId}${problem.problemIndex}`,
+          }),
+        },
+      };
+    });
+  } finally {
+    await dbSession.endSession();
+  }
   revalidatePath("/internal/potd");
 
   return ok({});
@@ -526,12 +614,56 @@ async function forceSyncUserAction(targetUserId: string, challengeId: string) {
     );
   }
 
-  const { status: newStatus } = await syncUserChallenge(
-    targetUserId,
-    challenge,
-    subs,
-    platform,
-  );
+  const dbSession = await mongoose.startSession();
+  let newStatus = "Pending";
+  try {
+    newStatus = await auditedTransaction(dbSession, async (transaction) => {
+      const currentChallenge = await DailyChallenge.findById(challengeId)
+        .session(transaction)
+        .populate<{ problem: WithId<POTDProblemRecord> }>("problem");
+      if (!currentChallenge)
+        throw new Error("POTD challenge disappeared during force sync.");
+      const before = await POTDSubmission.findOne({
+        userId: targetUserId,
+        challengeId,
+      })
+        .session(transaction)
+        .lean();
+      const result = await syncUserChallenge(
+        targetUserId,
+        currentChallenge,
+        subs,
+        platform,
+        new Date(),
+        transaction,
+      );
+      return {
+        result: result.status,
+        audit: {
+          actor: auditActor(session.user),
+          category: "potd" as const,
+          action: "sync" as const,
+          operation: "potd.force_sync",
+          target: {
+            type: "user",
+            id: targetUserId,
+            label: targetUser.name || "Member",
+          },
+          before: summarizePOTD({
+            status: before?.status,
+            pointsAwarded: before?.pointsAwarded,
+          }),
+          after: summarizePOTD({
+            status: result.status,
+            pointsAwarded: result.pointsAwarded,
+            force: true,
+          }),
+        },
+      };
+    });
+  } finally {
+    await dbSession.endSession();
+  }
 
   logger.info("[forceSyncUser] Synced", {
     targetUserId,
@@ -683,25 +815,56 @@ async function bulkSetDailyProblemsAction(
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 
-  let count = 0;
-  const errors: string[] = [];
-
-  for (const item of items) {
-    const res = await setDailyProblemAction(
-      item.dateStr,
-      item.problemId,
-      item.difficulty,
-      item.platform || "codeforces",
-      true,
-    );
-    if (!res.ok) {
-      errors.push(
-        `Failed to set ${item.difficulty} for ${item.dateStr}: ${res.error.message}`,
-      );
-    } else {
-      count++;
-    }
+  await dbConnect();
+  const dbSession = await mongoose.startSession();
+  let outcome: { count: number; errors: string[] };
+  try {
+    outcome = await auditedTransaction(dbSession, async (transaction) => {
+      let count = 0;
+      const errors: string[] = [];
+      for (const item of items) {
+        const res = await setDailyProblemAction(
+          item.dateStr,
+          item.problemId,
+          item.difficulty,
+          item.platform || "codeforces",
+          true,
+          transaction,
+        );
+        if (!res.ok)
+          errors.push(
+            `Failed to set ${item.difficulty} for ${item.dateStr}: ${res.error.message}`,
+          );
+        else count++;
+      }
+      if (count === 0)
+        throw new BulkScheduleError(
+          errors.join("; ") || "No POTD problems were scheduled.",
+        );
+      return {
+        result: { count, errors },
+        audit: {
+          actor: auditActor(session.user),
+          category: "potd" as const,
+          action: "bulk_schedule" as const,
+          operation: "potd.bulk_schedule",
+          target: {
+            type: "potd-batch",
+            id: crypto.randomUUID(),
+            label: `${count} scheduled POTD problems`,
+          },
+          after: summarizePOTD({ scheduledCount: count }),
+        },
+      };
+    });
+  } catch (error) {
+    if (error instanceof BulkScheduleError)
+      return appError("VALIDATION_ERROR", error.message);
+    throw error;
+  } finally {
+    await dbSession.endSession();
   }
+  const { count, errors } = outcome;
 
   revalidatePath("/internal/potd");
 

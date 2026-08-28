@@ -9,6 +9,7 @@ import {
   vi,
 } from "vitest";
 import CalendarEvent from "@/models/CalendarEvent";
+import AuditLog from "@/models/AuditLog";
 import Event from "@/models/Event";
 import {
   clearTestMongo,
@@ -105,6 +106,21 @@ describe("calendar publication actions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith(
       "/events/public-design-sync",
     );
+    const audit = await AuditLog.findOne().lean();
+    expect(audit).toMatchObject({
+      category: "events",
+      action: "create",
+      operation: "events.publication.create",
+      after: {
+        title: "Public design sync",
+        status: "draft",
+        module: "Design",
+        shortDescriptionLength: 7,
+        descriptionLength: 14,
+      },
+    });
+    expect(JSON.stringify(audit)).not.toContain("Public details");
+    expect(JSON.stringify(audit)).not.toContain("poster.png");
   });
 
   it("prevents a head from publishing another module", async () => {
@@ -119,6 +135,7 @@ describe("calendar publication actions", () => {
       ok: false,
       error: { code: "FORBIDDEN", message: "Forbidden" },
     });
+    expect(await AuditLog.countDocuments()).toBe(0);
   });
 
   it("publishes and returns a linked event to draft", async () => {
@@ -143,5 +160,15 @@ describe("calendar publication actions", () => {
     expect(await Event.findById(created.data._id).lean()).toMatchObject({
       status: "draft",
     });
+    expect(
+      (await AuditLog.find().sort({ _id: 1 }).lean()).map((event) => [
+        event.action,
+        event.operation,
+      ]),
+    ).toEqual([
+      ["create", "events.publication.create"],
+      ["publish", "events.status.update"],
+      ["status_change", "events.status.update"],
+    ]);
   });
 });

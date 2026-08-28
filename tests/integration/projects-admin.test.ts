@@ -9,6 +9,7 @@ import {
   it,
   vi,
 } from "vitest";
+import AuditLog from "@/models/AuditLog";
 import Project from "@/models/Project";
 import {
   clearTestMongo,
@@ -67,7 +68,7 @@ describe("admin project workflows", () => {
   afterAll(stopTestMongo);
 
   it("creates, edits, loads, and clears an optional live URL", async () => {
-    const { createProject, updateProject } =
+    const { createProject, deleteProject, updateProject } =
       await import("@/lib/actions/admin/projects");
     const collectionRoute = await import("@/app/api/admin/projects/route");
     const itemRoute = await import("@/app/api/admin/projects/[id]/route");
@@ -120,6 +121,22 @@ describe("admin project workflows", () => {
     );
     expect(cleared.ok).toBe(true);
     expect((await Project.findById(projectId).lean())?.liveUrl).toBeUndefined();
+
+    await expect(deleteProject(projectId)).resolves.toMatchObject({ ok: true });
+    expect(await Project.findById(projectId)).toBeNull();
+    expect(
+      (await AuditLog.find().sort({ _id: 1 }).lean()).map(
+        (event) => event.operation,
+      ),
+    ).toEqual([
+      "projects.create",
+      "projects.update",
+      "projects.update",
+      "projects.delete",
+    ]);
+    expect(JSON.stringify(await AuditLog.find().lean())).not.toContain(
+      "github.com",
+    );
   });
 
   it.each([

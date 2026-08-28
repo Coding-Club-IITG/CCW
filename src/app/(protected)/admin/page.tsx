@@ -7,6 +7,7 @@ import {
   SlidersHorizontal,
   Trophy,
   UsersRound,
+  ScrollText,
 } from "lucide-react";
 
 import LinkCard from "@/components/shared/LinkCard";
@@ -21,6 +22,12 @@ export default async function AdminPage() {
       </header>
 
       <div className={styles.grid}>
+        <LinkCard
+          href="/admin/audit-log"
+          title="Audit Log"
+          description="Review privileged changes made."
+          icon={<ScrollText size={18} />}
+        />
         <LinkCard
           href="/admin/users"
           title="User Management"

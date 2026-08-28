@@ -1,11 +1,12 @@
 import path from "path";
 import { z } from "zod";
-import { webEnv } from "@/lib/env/web";
+
 import { canEditBlogDraft } from "@/lib/access/blog";
-import dbConnect from "@/lib/mongodb";
-import { createImageUploadHandler } from "@/lib/api/uploads/image";
-import BlogPost from "@/models/BlogPost";
 import { parseSearchParams } from "@/lib/api/result";
+import { createImageUploadHandler } from "@/lib/api/uploads/image";
+import { webEnv } from "@/lib/env/web";
+import dbConnect from "@/lib/mongodb";
+import BlogPost from "@/models/BlogPost";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,12 @@ export const POST = createImageUploadHandler({
   urlPrefix: "/api/blog/assets",
   logPrefix: "[Blog Author Upload]",
   requireAdmin: false,
+  audit: {
+    category: "blog",
+    operation: "blog.asset.upload",
+    targetType: "blog-asset",
+    label: "Blog image",
+  },
   authorize: async (user, request) => {
     const query = parseSearchParams(
       request.nextUrl.searchParams,

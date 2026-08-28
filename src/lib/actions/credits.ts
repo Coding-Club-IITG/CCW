@@ -1,16 +1,14 @@
 "use server";
 
-import { err as appError, ok } from "@/lib/api/result";
-
-import { defineAction } from "@/lib/actions/defineAction";
-
-export const getCredits = defineAction("getCredits", getCreditsAction);
-export const saveCredits = defineAction("saveCredits", saveCreditsAction);
-
 import mongoose from "mongoose";
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
+import { isHead } from "@/lib/access/roles";
+import { defineAction } from "@/lib/actions/defineAction";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeCredits } from "@/lib/audit/summary";
+import { err as appError, ok } from "@/lib/api/result";
 import { auth } from "@/lib/auth";
 import {
   CREDIT_LIMITS,
@@ -19,14 +17,18 @@ import {
   shuffleCreditEntries,
 } from "@/lib/credits";
 import dbConnect from "@/lib/mongodb";
-import { isHead } from "@/lib/access/roles";
 import { errorToLogMetadata, getDisplayName, logger } from "@/lib/utils";
 import Credits from "@/models/Credits";
 import User from "@/models/User";
 
+export const getCredits = defineAction("getCredits", getCreditsAction);
+export const saveCredits = defineAction("saveCredits", saveCreditsAction);
+
 async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() });
-  return session?.user as { id: string; access?: string } | undefined;
+  return session?.user as
+    | { id: string; name?: string; access?: string }
+    | undefined;
 }
 
 async function getCreditsAction() {
@@ -150,21 +152,43 @@ async function saveCreditsAction(input: unknown) {
     if (existingUsers !== userIds.length)
       return appError("INTERNAL_ERROR", "An unexpected error occurred.");
 
-    await Credits.findOneAndUpdate(
-      { key: "main" },
-      {
-        $set: {
-          sections: validated.sections.map((section) => ({
-            heading: section.heading,
-            entries: section.entries.map((entry) => ({
-              user: entry.userId,
-              period: entry.period,
-            })),
-          })),
-        },
-      },
-      { upsert: true, runValidators: true },
-    );
+    const session = await mongoose.startSession();
+    try {
+      await auditedTransaction(session, async (transaction) => {
+        const previous = await Credits.findOne({ key: "main" })
+          .session(transaction)
+          .lean();
+        await Credits.findOneAndUpdate(
+          { key: "main" },
+          {
+            $set: {
+              sections: validated.sections.map((section) => ({
+                heading: section.heading,
+                entries: section.entries.map((entry) => ({
+                  user: entry.userId,
+                  period: entry.period,
+                })),
+              })),
+            },
+          },
+          { upsert: true, runValidators: true, session: transaction },
+        );
+        return {
+          result: undefined,
+          audit: {
+            actor: auditActor(user),
+            category: "credits" as const,
+            action: "update" as const,
+            operation: "credits.update",
+            target: { type: "credits", id: "main", label: "Website credits" },
+            before: summarizeCredits(previous?.sections ?? []),
+            after: summarizeCredits(validated.sections),
+          },
+        };
+      });
+    } finally {
+      await session.endSession();
+    }
     revalidatePath("/", "layout");
     logger.info("Credits updated", { action: "saveCredits", actorId: user.id });
     return ok({});

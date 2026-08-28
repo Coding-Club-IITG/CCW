@@ -2,21 +2,27 @@
  * Shared admin image upload handler
  */
 
-import { NextRequest } from "next/server";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { auth } from "@/lib/auth";
-import { isHead } from "@/lib/access/roles";
-import { writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
 import crypto from "crypto";
-import {
-  ALLOWED_IMAGE_MIME_TYPES,
-  ALLOWED_IMAGE_EXTENSIONS,
-} from "@/lib/constants";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { existsSync } from "fs";
+import { mkdir, unlink, writeFile } from "fs/promises";
+import mongoose from "mongoose";
+import { NextRequest } from "next/server";
+import path from "path";
+
+import { isHead } from "@/lib/access/roles";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeFile } from "@/lib/audit/summary";
 import { parseFormData } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { formDataObjectSchema } from "@/lib/api/schemas/boundary";
+import { auth } from "@/lib/auth";
+import {
+  ALLOWED_IMAGE_EXTENSIONS,
+  ALLOWED_IMAGE_MIME_TYPES,
+  type AuditCategory,
+} from "@/lib/constants";
+import dbConnect from "@/lib/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 
 interface UploadOptions {
   /** Directory to store uploaded files */
@@ -31,13 +37,19 @@ interface UploadOptions {
   requireAdmin?: boolean;
   /** Optional resource-level authorization check */
   authorize?: (
-    user: Record<string, any>,
+    user: Record<string, unknown>,
     request: NextRequest,
   ) => boolean | Promise<boolean>;
   /** Override allowed MIME types (default: ALLOWED_IMAGE_MIME_TYPES) */
   allowedMimeTypes?: readonly string[];
   /** Override allowed extensions (default: ALLOWED_IMAGE_EXTENSIONS) */
   allowedExtensions?: readonly string[];
+  audit?: {
+    category: AuditCategory;
+    operation: string;
+    targetType: string;
+    label: string;
+  };
 }
 
 export function createImageUploadHandler(options: UploadOptions) {
@@ -50,6 +62,7 @@ export function createImageUploadHandler(options: UploadOptions) {
     authorize,
     allowedMimeTypes = ALLOWED_IMAGE_MIME_TYPES as readonly string[],
     allowedExtensions = ALLOWED_IMAGE_EXTENSIONS as readonly string[],
+    audit,
   } = options;
 
   return async function POST(request: NextRequest) {
@@ -110,6 +123,39 @@ export function createImageUploadHandler(options: UploadOptions) {
         path.join(/* turbopackIgnore: true */ uploadDir, filename),
         buffer,
       );
+
+      if (audit) {
+        await dbConnect();
+        const dbSession = await mongoose.startSession();
+        try {
+          await auditedTransaction(dbSession, async () => ({
+            result: undefined,
+            audit: {
+              actor: auditActor(user),
+              category: audit.category,
+              action: "upload" as const,
+              operation: audit.operation,
+              target: {
+                type: audit.targetType,
+                id: crypto.randomUUID(),
+                label: audit.label,
+              },
+              after: summarizeFile({
+                title: audit.label,
+                mimeType: file.type,
+                size: file.size,
+              }),
+            },
+          }));
+        } catch (error) {
+          await unlink(
+            path.join(/* turbopackIgnore: true */ uploadDir, filename),
+          ).catch(() => {});
+          throw error;
+        } finally {
+          await dbSession.endSession();
+        }
+      }
 
       const url = `${urlPrefix}/${filename}`;
       return jsonOk({ url, filename }, { status: 201 });

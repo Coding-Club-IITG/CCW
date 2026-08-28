@@ -17,4 +17,10 @@ export const POST = createImageUploadHandler({
   urlPrefix: "/api/blog/assets",
   maxSize: 5 * 1024 * 1024,
   logPrefix: "[Blog Upload]",
+  audit: {
+    category: "blog",
+    operation: "blog.asset.upload",
+    targetType: "blog-asset",
+    label: "Blog image",
+  },
 });

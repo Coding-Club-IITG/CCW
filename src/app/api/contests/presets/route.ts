@@ -1,5 +1,8 @@
+import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeContest } from "@/lib/audit/summary";
 import { requireHead } from "@/lib/api/auth";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
 import {
@@ -56,10 +59,35 @@ export async function POST(request: NextRequest) {
     if (existing) {
       return jsonError("CONFLICT", "Preset name already exists");
     }
-    const preset = await ContestPreset.create({
-      ...body.data,
-      archived: false,
-    });
+    const dbSession = await mongoose.startSession();
+    let preset;
+    try {
+      preset = await auditedTransaction(dbSession, async (transaction) => {
+        const [created] = await ContestPreset.create(
+          [{ ...body.data, archived: false }],
+          { session: transaction },
+        );
+        return {
+          result: created,
+          audit: {
+            actor: auditActor(authorization.data.user),
+            category: "contests" as const,
+            action: "create" as const,
+            operation: "contests.preset.create",
+            target: {
+              type: "contest-preset",
+              id: String(created._id),
+              label: created.name,
+            },
+            after: summarizeContest(
+              created.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     return jsonOk(toContestPresetDto(preset), { status: 201 });
   } catch (error) {
     return boundaryErrorResponse("create_contest_preset", error, request);

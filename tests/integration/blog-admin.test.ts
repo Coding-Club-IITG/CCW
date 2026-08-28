@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { responseData, responseError } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -9,12 +8,15 @@ import {
   it,
   vi,
 } from "vitest";
+
+import AuditLog from "@/models/AuditLog";
 import {
   clearTestMongo,
   startTestMongo,
   stopTestMongo,
 } from "../utils/mongodb";
 import { BLOG_ADMIN_ID, BLOG_AUTHOR_ID, blogPost } from "../fixtures/blogs";
+import { responseData, responseError } from "../utils/result";
 
 const getSession = vi.hoisted(() => vi.fn());
 const invalidateCache = vi.hoisted(() => vi.fn());
@@ -120,6 +122,17 @@ describe("admin blog routes", () => {
     expect(invalidateCache).toHaveBeenCalledWith("blog");
     expect(invalidateCache).toHaveBeenCalledWith("admin:blog");
     expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
+    const audit = await AuditLog.findOne().lean();
+    expect(audit).toMatchObject({
+      category: "blog",
+      action: "create",
+      operation: "blog.create",
+      before: {},
+      after: { title: "Hello, World!", bodyLength: 4, excerptLength: 7 },
+    });
+    const serialized = JSON.stringify(audit);
+    expect(serialized).not.toContain('"content":"Body"');
+    expect(serialized).not.toContain("member@example");
   });
 
   it("sets the first publication time, changes slug safely, and attributes the editor", async () => {
@@ -163,6 +176,13 @@ describe("admin blog routes", () => {
       ]),
     );
     expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
+    expect(await AuditLog.findOne()).toMatchObject({
+      category: "blog",
+      action: "publish",
+      operation: "blog.admin.update",
+      before: { title: "Draft title", status: "draft" },
+      after: { title: "Taken", status: "published" },
+    });
   });
 
   it("filters admin listing and deletes the selected post", async () => {
@@ -187,6 +207,12 @@ describe("admin blog routes", () => {
     expect(deleted.status).toBe(200);
     expect(await BlogPost.findOne({ slug: "draft" })).toBeNull();
     expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
+    expect(await AuditLog.findOne()).toMatchObject({
+      category: "blog",
+      action: "delete",
+      operation: "blog.delete",
+      after: {},
+    });
   });
 });
 

@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { responseData, responseError } from "../utils/result";
 import path from "path";
 import { readFile } from "fs/promises";
 import {
@@ -12,6 +11,14 @@ import {
   vi,
 } from "vitest";
 
+import AuditLog from "@/models/AuditLog";
+import {
+  FILE_MEMBER_ID,
+  FILE_OTHER_MEMBER_ID,
+  fileEntry,
+  fileSession,
+  restrictedAcl,
+} from "../fixtures/files";
 import {
   clearTestMongo,
   startTestMongo,
@@ -22,13 +29,7 @@ import {
   startTestUploadDirectory,
   stopTestUploadDirectory,
 } from "../utils/filesystem";
-import {
-  FILE_MEMBER_ID,
-  FILE_OTHER_MEMBER_ID,
-  fileEntry,
-  fileSession,
-  restrictedAcl,
-} from "../fixtures/files";
+import { responseData, responseError } from "../utils/result";
 
 const getSession = vi.hoisted(() => vi.fn());
 
@@ -184,6 +185,22 @@ describe("files collection route", () => {
     expect(
       await readFile(path.join(uploadDirectory, saved!.storedName), "utf8"),
     ).toBe("hello files!");
+    const audit = await AuditLog.findOne().lean();
+    expect(audit).toMatchObject({
+      category: "files",
+      action: "upload",
+      operation: "files.upload",
+      after: {
+        title: "Meeting notes",
+        category: "Minutes",
+        mimeType: "text/plain",
+        size: 12,
+        allowDownload: true,
+      },
+    });
+    const serialized = JSON.stringify(audit);
+    expect(serialized).not.toContain("notes.txt");
+    expect(serialized).not.toContain(uploadDirectory);
   });
 
   it("removes the disk file when metadata persistence fails", async () => {
@@ -198,6 +215,7 @@ describe("files collection route", () => {
 
     expect(response.status).toBe(500);
     expect(await listTestUploads(uploadDirectory)).toEqual([]);
+    expect(await AuditLog.countDocuments()).toBe(0);
     create.mockRestore();
   });
 });

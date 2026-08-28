@@ -1,19 +1,23 @@
+import mongoose from "mongoose";
 import { NextRequest } from "next/server";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+
+import { canEditBlogDraft } from "@/lib/access/blog";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizePublicContent } from "@/lib/audit/summary";
 import {
   err as appError,
   ok,
   parseJson,
   parseRouteParams,
 } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { jsonObjectSchema, slugParamsSchema } from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
-import { canEditBlogDraft } from "@/lib/access/blog";
 import { invalidateCache } from "@/lib/cache";
+import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
-import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -30,7 +34,7 @@ async function getAuthorizedDraft(request: NextRequest, slug: string) {
     return appError("FORBIDDEN", "Forbidden");
   }
 
-  return ok({ post });
+  return ok({ post, user });
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -114,11 +118,50 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         .map((tag) => tag.trim());
     }
 
-    await post.save();
+    const dbSession = await mongoose.startSession();
+    let saved;
+    try {
+      saved = await auditedTransaction(dbSession, async (transaction) => {
+        const current = await BlogPost.findOne({ slug }).session(transaction);
+        if (!current) throw new Error("Blog draft disappeared during update.");
+        const before = current.toObject();
+        current.set({
+          title: post.title,
+          content: post.content,
+          excerpt: post.excerpt,
+          coverImage: post.coverImage,
+          coverFocalPoint: post.coverFocalPoint,
+          tags: post.tags,
+        });
+        await current.save({ session: transaction });
+        return {
+          result: current,
+          audit: {
+            actor: auditActor(result.data.user),
+            category: "blog" as const,
+            action: "update" as const,
+            operation: "blog.draft.update",
+            target: {
+              type: "blog-post",
+              id: String(current._id),
+              label: current.title,
+            },
+            before: summarizePublicContent(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizePublicContent(
+              current.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     await invalidateCache("blog");
     await invalidateCache("admin:blog");
 
-    return jsonOk({ post: post.toObject() });
+    return jsonOk({ post: saved.toObject() });
   } catch (err) {
     logger.error("Internal blog update failed", {
       route: "PATCH /api/internal/blog/[slug]",

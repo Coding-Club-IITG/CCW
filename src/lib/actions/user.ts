@@ -1,9 +1,42 @@
 "use server";
 
-import { err as appError, ok } from "@/lib/api/result";
+import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
+import { isHead } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
-import { toBsonSafe } from "@/lib/api/result";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeUser } from "@/lib/audit/summary";
+import { err as appError, ok, toBsonSafe } from "@/lib/api/result";
+import { auth } from "@/lib/auth";
+import {
+  CACHE_TTLS,
+  buildCacheKey,
+  cachedFetch,
+  invalidateCache,
+} from "@/lib/cache";
+import {
+  ACCESS_LEVELS,
+  CURRENT_TENURE,
+  type AccessLevel,
+  type ModuleName,
+  type UserRole,
+} from "@/lib/constants";
+import { webEnv } from "@/lib/env/web";
+import dbConnect, { getClient } from "@/lib/mongodb";
+import {
+  normalizeTenure,
+  parseManagedModules,
+  parseRoles,
+  validateRoles,
+} from "@/lib/roles";
+import { prepareSearchQuery } from "@/lib/search";
+import { logger } from "@/lib/utils";
+import CPUser from "@/models/CPUser";
+import POTDSubmission from "@/models/POTDSubmission";
+import User from "@/models/User";
 
 export const getUsers = defineAction("getUsers", getUsersAction);
 export const addUser = defineAction("addUser", addUserAction);
@@ -25,39 +58,6 @@ export const updateUserPizzaCount = defineAction(
   updateUserPizzaCountAction,
 );
 export const updateProfile = defineAction("updateProfile", updateProfileAction);
-
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { webEnv } from "@/lib/env/web";
-import dbConnect from "@/lib/mongodb";
-import { getClient } from "@/lib/mongodb";
-import User from "@/models/User";
-import CPUser from "@/models/CPUser";
-import POTDSubmission from "@/models/POTDSubmission";
-import { revalidatePath } from "next/cache";
-import {
-  cachedFetch,
-  buildCacheKey,
-  CACHE_TTLS,
-  invalidateCache,
-} from "@/lib/cache";
-import { logger } from "@/lib/utils";
-import { isHead } from "@/lib/access/roles";
-import {
-  normalizeTenure,
-  parseManagedModules,
-  parseRoles,
-  validateRoles,
-} from "@/lib/roles";
-import {
-  ACCESS_LEVELS,
-  AccessLevel,
-  CURRENT_TENURE,
-  ModuleName,
-  UserRole,
-} from "@/lib/constants";
-import { prepareSearchQuery } from "@/lib/search";
-import { ObjectId } from "mongodb";
 
 export type AdminUserDto = {
   _id: string;
@@ -158,15 +158,45 @@ async function addUserAction(email: string, name?: string) {
       return appError("CONFLICT", "User already exists");
     }
 
-    const newUser = await User.create({
-      email,
-      name: name || email.split("@")[0],
-      access: "Member",
-      tenure: CURRENT_TENURE,
-      managedModules: [],
-      roles: [],
-      emailVerified: true,
-    });
+    const dbSession = await mongoose.startSession();
+    let newUser;
+    try {
+      newUser = await auditedTransaction(dbSession, async (transaction) => {
+        const [created] = await User.create(
+          [
+            {
+              email,
+              name: name || email.split("@")[0],
+              access: "Member",
+              tenure: CURRENT_TENURE,
+              managedModules: [],
+              roles: [],
+              emailVerified: true,
+            },
+          ],
+          { session: transaction },
+        );
+        return {
+          result: created,
+          audit: {
+            actor: auditActor(adminSession.user),
+            category: "users" as const,
+            action: "create" as const,
+            operation: "users.create",
+            target: {
+              type: "user",
+              id: String(created._id),
+              label: created.name || "Member",
+            },
+            after: summarizeUser(
+              created.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
 
     logger.info("Admin user created", {
       action: "addUser",
@@ -200,14 +230,46 @@ async function updateUserAccessAction(
         "VALIDATION_ERROR",
         "Head access requires at least one managed module.",
       );
+    if (!(await User.exists({ _id: userId })))
+      return appError("NOT_FOUND", "User not found");
 
     const update: Record<string, unknown> = { access, managedModules: modules };
     if (access === "Head") update.roles = [];
 
-    const updatedUser = await User.findByIdAndUpdate(userId, update, {
-      new: true,
-      runValidators: true,
-    });
+    const dbSession = await mongoose.startSession();
+    let updatedUser;
+    try {
+      updatedUser = await auditedTransaction(dbSession, async (transaction) => {
+        const before = await User.findById(userId).session(transaction).lean();
+        if (!before) throw new Error("User disappeared during access update.");
+        const updated = await User.findByIdAndUpdate(userId, update, {
+          returnDocument: "after",
+          runValidators: true,
+          session: transaction,
+        });
+        if (!updated) throw new Error("User disappeared during access update.");
+        return {
+          result: updated,
+          audit: {
+            actor: auditActor(adminSession.user),
+            category: "users" as const,
+            action: "update" as const,
+            operation: "users.access.update",
+            target: {
+              type: "user",
+              id: userId,
+              label: updated.name || "Member",
+            },
+            before: summarizeUser(before as unknown as Record<string, unknown>),
+            after: summarizeUser(
+              updated.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     if (!updatedUser) return appError("NOT_FOUND", "User not found");
 
     logger.info("User role updated", {
@@ -241,11 +303,44 @@ async function updateUserRolesAction(userId: string, roles: UserRole[]) {
     if (!validation.success)
       return appError("VALIDATION_ERROR", validation.error);
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { roles: validation.roles },
-      { new: true, runValidators: true },
-    );
+    const dbSession = await mongoose.startSession();
+    let updatedUser;
+    try {
+      updatedUser = await auditedTransaction(dbSession, async (transaction) => {
+        const before = await User.findById(userId).session(transaction).lean();
+        if (!before) throw new Error("User disappeared during roles update.");
+        const updated = await User.findByIdAndUpdate(
+          userId,
+          { roles: validation.roles },
+          {
+            returnDocument: "after",
+            runValidators: true,
+            session: transaction,
+          },
+        );
+        if (!updated) throw new Error("User disappeared during roles update.");
+        return {
+          result: updated,
+          audit: {
+            actor: auditActor(adminSession.user),
+            category: "users" as const,
+            action: "update" as const,
+            operation: "users.roles.update",
+            target: {
+              type: "user",
+              id: userId,
+              label: updated.name || "Member",
+            },
+            before: summarizeUser(before as unknown as Record<string, unknown>),
+            after: summarizeUser(
+              updated.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
 
     logger.info("User module positions updated", {
       action: "updateUserRoles",
@@ -273,11 +368,46 @@ async function updateUserTenureAction(userId: string, value: string) {
         "Tenure must be a consecutive academic year in YYYY-YY format.",
       );
     await dbConnect();
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { tenure },
-      { new: true, runValidators: true },
-    );
+    if (!(await User.exists({ _id: userId })))
+      return appError("NOT_FOUND", "User not found");
+    const dbSession = await mongoose.startSession();
+    let updatedUser;
+    try {
+      updatedUser = await auditedTransaction(dbSession, async (transaction) => {
+        const before = await User.findById(userId).session(transaction).lean();
+        if (!before) throw new Error("User disappeared during tenure update.");
+        const updated = await User.findByIdAndUpdate(
+          userId,
+          { tenure },
+          {
+            returnDocument: "after",
+            runValidators: true,
+            session: transaction,
+          },
+        );
+        if (!updated) throw new Error("User disappeared during tenure update.");
+        return {
+          result: updated,
+          audit: {
+            actor: auditActor(adminSession.user),
+            category: "users" as const,
+            action: "update" as const,
+            operation: "users.tenure.update",
+            target: {
+              type: "user",
+              id: userId,
+              label: updated.name || "Member",
+            },
+            before: summarizeUser(before as unknown as Record<string, unknown>),
+            after: summarizeUser(
+              updated.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     if (!updatedUser) return appError("NOT_FOUND", "User not found");
     logger.info("User tenure updated", {
       action: "updateUserTenure",
@@ -312,13 +442,70 @@ async function deleteUserAction(userId: string) {
       resourceId: userId,
     });
 
-    await User.findByIdAndDelete(userId);
-
-    // Cascade delete related documents
-    const [cpResult, potdResult] = await Promise.all([
-      CPUser.deleteMany({ userId }),
-      POTDSubmission.deleteMany({ userId }),
-    ]);
+    const dbSession = await mongoose.startSession();
+    let cascade = { cp: 0, potd: 0, sessions: 0, accounts: 0 };
+    try {
+      cascade = await auditedTransaction(dbSession, async (transaction) => {
+        const current = await User.findById(userId).session(transaction).lean();
+        if (!current) throw new Error("User disappeared during deletion.");
+        await User.deleteOne({ _id: userId }, { session: transaction });
+        const cpResult = await CPUser.deleteMany(
+          { userId },
+          { session: transaction },
+        );
+        const potdResult = await POTDSubmission.deleteMany(
+          { userId },
+          { session: transaction },
+        );
+        const mongoClient = await getClient();
+        const db = mongoClient.db();
+        let userIdQuery: ObjectId | string = userId;
+        try {
+          userIdQuery = new ObjectId(userId);
+        } catch {
+          userIdQuery = userId;
+        }
+        const driverSession =
+          transaction as unknown as import("mongodb").ClientSession;
+        const sessionsResult = await db
+          .collection("sessions")
+          .deleteMany({ userId: userIdQuery }, { session: driverSession });
+        const accountsResult = await db
+          .collection("accounts")
+          .deleteMany({ userId: userIdQuery }, { session: driverSession });
+        const result = {
+          cp: cpResult.deletedCount,
+          potd: potdResult.deletedCount,
+          sessions: sessionsResult.deletedCount,
+          accounts: accountsResult.deletedCount,
+        };
+        return {
+          result,
+          audit: {
+            actor: auditActor(adminSession.user),
+            category: "users" as const,
+            action: "delete" as const,
+            operation: "users.delete",
+            target: {
+              type: "user",
+              id: userId,
+              label: current.name || "Member",
+            },
+            before: summarizeUser({
+              ...current,
+              cascadeCount: Object.values(result).reduce(
+                (sum, value) => sum + value,
+                0,
+              ),
+            } as unknown as Record<string, unknown>),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
+    const cpResult = { deletedCount: cascade.cp };
+    const potdResult = { deletedCount: cascade.potd };
     logger.info("Related user records deleted", {
       action: "deleteUser",
       resourceId: userId,
@@ -326,36 +513,12 @@ async function deleteUserAction(userId: string) {
       potdSubmissionCount: potdResult.deletedCount,
     });
 
-    // Purge all sessions and linked accounts
-    try {
-      const mongoClient = await getClient();
-      const db = mongoClient.db();
-
-      let userIdQuery: ObjectId | string = userId;
-      try {
-        userIdQuery = new ObjectId(userId);
-      } catch {
-        userIdQuery = userId;
-      }
-
-      const [sessionsResult, accountsResult] = await Promise.all([
-        db.collection("sessions").deleteMany({ userId: userIdQuery }),
-        db.collection("accounts").deleteMany({ userId: userIdQuery }),
-      ]);
-
-      logger.info("Authentication records deleted", {
-        action: "deleteUser",
-        resourceId: userId,
-        sessionCount: sessionsResult.deletedCount,
-        accountCount: accountsResult.deletedCount,
-      });
-    } catch (err) {
-      logger.error("Authentication record cleanup failed", {
-        action: "deleteUser",
-        resourceId: userId,
-        err,
-      });
-    }
+    logger.info("Authentication records deleted", {
+      action: "deleteUser",
+      resourceId: userId,
+      sessionCount: cascade.sessions,
+      accountCount: cascade.accounts,
+    });
 
     await invalidateCache("users");
     await invalidateCache("team");
@@ -379,11 +542,40 @@ async function updateUserPizzaCountAction(userId: string, delta: 1 | -1) {
     if (!user) return appError("NOT_FOUND", "User not found");
 
     const newCount = Math.max(0, (user.pizza_count || 0) + delta);
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { pizza_count: newCount },
-      { new: true },
-    );
+    const dbSession = await mongoose.startSession();
+    let updatedUser;
+    try {
+      updatedUser = await auditedTransaction(dbSession, async (transaction) => {
+        const before = await User.findById(userId).session(transaction).lean();
+        if (!before) throw new Error("User disappeared during pizza update.");
+        const updated = await User.findByIdAndUpdate(
+          userId,
+          { pizza_count: newCount },
+          { returnDocument: "after", session: transaction },
+        );
+        if (!updated) throw new Error("User disappeared during pizza update.");
+        return {
+          result: updated,
+          audit: {
+            actor: auditActor(adminSession.user),
+            category: "users" as const,
+            action: "update" as const,
+            operation: "users.pizza_count.update",
+            target: {
+              type: "user",
+              id: userId,
+              label: updated.name || "Member",
+            },
+            before: summarizeUser(before as unknown as Record<string, unknown>),
+            after: summarizeUser(
+              updated.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
 
     logger.info("User pizza count updated", {
       action: "updateUserPizzaCount",

@@ -8,6 +8,8 @@ import {
   it,
   vi,
 } from "vitest";
+
+import AuditLog from "@/models/AuditLog";
 import {
   clearTestMongo,
   startTestMongo,
@@ -69,6 +71,7 @@ describe("contest preset routes", () => {
     const forbidden = await POST(createRequest({ name: "New preset" }));
     expect(forbidden.status).toBe(403);
     expect(await responseError(forbidden)).toMatchObject({ code: "FORBIDDEN" });
+    expect(await AuditLog.countDocuments()).toBe(0);
   });
 
   it("returns a JSON AppResult error before opening an unauthenticated SSE stream", async () => {
@@ -132,6 +135,18 @@ describe("contest preset routes", () => {
     const duplicate = await POST(createRequest(payload));
     expect(duplicate.status).toBe(409);
     expect(await responseError(duplicate)).toMatchObject({ code: "CONFLICT" });
+    expect(await AuditLog.findOne()).toMatchObject({
+      category: "contests",
+      action: "create",
+      operation: "contests.preset.create",
+      after: {
+        name: "Bracket standard",
+        format: "bracket",
+        mode: "blitz",
+        durationSeconds: 300,
+      },
+    });
+    expect(await AuditLog.countDocuments()).toBe(1);
   });
 
   it("validates path parameters and archives an existing preset", async () => {
@@ -159,6 +174,13 @@ describe("contest preset routes", () => {
 
     expect(response.status).toBe(200);
     expect(await responseData<any>(response)).toMatchObject({ archived: true });
+    expect(await AuditLog.findOne()).toMatchObject({
+      category: "contests",
+      action: "status_change",
+      operation: "contests.preset.archive",
+      before: { name: "Archive me", archived: false },
+      after: { name: "Archive me", archived: true },
+    });
   });
 });
 

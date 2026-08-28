@@ -4,26 +4,30 @@
  * DELETE /api/files/[id]  - delete a file (disk + metadata)
  */
 
-import { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import crypto from "crypto";
+import { createReadStream, existsSync } from "fs";
+import { rename, unlink } from "fs/promises";
+import mongoose from "mongoose";
+import { NextRequest, NextResponse } from "next/server";
+import path from "path";
+import { Readable } from "stream";
+
+import { canAccessFile, canManageFile } from "@/lib/access/files";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeFile } from "@/lib/audit/summary";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   jsonObjectSchema,
   objectIdParamsSchema,
 } from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
-import dbConnect from "@/lib/mongodb";
-import FileEntry from "@/models/FileEntry";
-import { canAccessFile, canManageFile } from "@/lib/access/files";
-import { parseManagedModules, parseRoles } from "@/lib/roles";
-import { createReadStream, existsSync } from "fs";
-import { unlink } from "fs/promises";
-import { Readable } from "stream";
-import path from "path";
-import { webEnv } from "@/lib/env/web";
 import { invalidateCache } from "@/lib/cache";
+import { webEnv } from "@/lib/env/web";
+import dbConnect from "@/lib/mongodb";
+import { parseManagedModules, parseRoles } from "@/lib/roles";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import FileEntry from "@/models/FileEntry";
 
 export const runtime = "nodejs";
 
@@ -242,11 +246,38 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const updated = await FileEntry.findByIdAndUpdate(id, update, {
-      returnDocument: "after",
-    })
-      .select("-storedName")
-      .lean();
+    const dbSession = await mongoose.startSession();
+    let updated;
+    try {
+      updated = await auditedTransaction(dbSession, async (transaction) => {
+        const before = await FileEntry.findById(id).session(transaction).lean();
+        if (!before)
+          throw new Error("File disappeared during metadata update.");
+        const result = await FileEntry.findByIdAndUpdate(id, update, {
+          returnDocument: "after",
+          runValidators: true,
+          session: transaction,
+        })
+          .select("-storedName")
+          .lean();
+        if (!result)
+          throw new Error("File disappeared during metadata update.");
+        return {
+          result,
+          audit: {
+            actor: auditActor(user),
+            category: "files" as const,
+            action: "update" as const,
+            operation: "files.metadata.update",
+            target: { type: "file", id, label: result.title },
+            before: summarizeFile(before as unknown as Record<string, unknown>),
+            after: summarizeFile(result as unknown as Record<string, unknown>),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
 
     logger.info("File metadata updated", {
       route: "PATCH /api/files/[id]",
@@ -286,21 +317,65 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return jsonError("FORBIDDEN", "Forbidden.");
     }
 
-    // Remove from disk first, if it fails we log but still remove the DB entry
-    // to avoid orphaned metadata pointing at ghost files
     const filePath = path.join(UPLOAD_DIR, file.storedName);
+    const stagedPath = `${filePath}.deleting-${crypto.randomUUID()}`;
+    let staged = false;
     try {
-      await unlink(filePath);
+      await rename(filePath, stagedPath);
+      staged = true;
     } catch (err) {
-      logger.warn("File cleanup from disk failed", {
+      if (existsSync(filePath)) {
+        logger.error("File staging for deletion failed", {
+          route: "DELETE /api/files/[id]",
+          operation: "stage_disk_file",
+          resourceId: id,
+          ...errorToLogMetadata(err),
+        });
+        return jsonError("INTERNAL_ERROR", "Unable to stage file deletion.");
+      }
+      logger.warn("File data was already missing during deletion", {
         route: "DELETE /api/files/[id]",
-        operation: "delete_disk_file",
+        operation: "stage_disk_file",
         resourceId: id,
-        ...errorToLogMetadata(err),
       });
     }
-
-    await FileEntry.findByIdAndDelete(id);
+    const dbSession = await mongoose.startSession();
+    try {
+      await auditedTransaction(dbSession, async (transaction) => {
+        const current = await FileEntry.findById(id)
+          .session(transaction)
+          .lean();
+        if (!current) throw new Error("File disappeared during deletion.");
+        await FileEntry.deleteOne({ _id: id }, { session: transaction });
+        return {
+          result: undefined,
+          audit: {
+            actor: auditActor(user),
+            category: "files" as const,
+            action: "delete" as const,
+            operation: "files.delete",
+            target: { type: "file", id, label: current.title },
+            before: summarizeFile(
+              current as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } catch (error) {
+      if (staged) await rename(stagedPath, filePath).catch(() => {});
+      throw error;
+    } finally {
+      await dbSession.endSession();
+    }
+    if (staged)
+      await unlink(stagedPath).catch((error) =>
+        logger.warn("Staged file cleanup failed", {
+          route: "DELETE /api/files/[id]",
+          operation: "delete_staged_file",
+          resourceId: id,
+          ...errorToLogMetadata(error),
+        }),
+      );
     await invalidateCache("files");
 
     logger.info("File deleted", {

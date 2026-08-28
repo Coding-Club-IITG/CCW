@@ -19,6 +19,37 @@ export const APP_TIME_ZONE = "Asia/Kolkata";
 export const ACCESS_LEVELS = ["Member", "Head", "Admin"] as const;
 export type AccessLevel = (typeof ACCESS_LEVELS)[number];
 
+export const AUDIT_CATEGORIES = [
+  "users",
+  "blog",
+  "projects",
+  "events",
+  "calendar",
+  "files",
+  "notifications",
+  "credits",
+  "hackathons",
+  "contests",
+  "potd",
+] as const;
+export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
+
+export const AUDIT_ACTIONS = [
+  "create",
+  "update",
+  "delete",
+  "publish",
+  "upload",
+  "broadcast",
+  "schedule",
+  "bulk_schedule",
+  "sync",
+  "status_change",
+  "generate_bracket",
+  "walkover",
+] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
 export const CLUB_POSITIONS = ["Secretary", "OC", "Projects Head"] as const;
 export type ClubPosition = (typeof CLUB_POSITIONS)[number];
 

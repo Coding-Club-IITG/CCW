@@ -1,5 +1,8 @@
+import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeContest } from "@/lib/audit/summary";
 import { requireHead } from "@/lib/api/auth";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import {
@@ -60,6 +63,8 @@ export async function PUT(request: NextRequest, context: Context) {
 
   try {
     await dbConnect();
+    if (!(await ContestPreset.exists({ _id: params.data.id })))
+      return jsonError("NOT_FOUND", "Preset not found");
     if (body.data.name) {
       const duplicate = await ContestPreset.exists({
         _id: { $ne: params.data.id },
@@ -67,11 +72,50 @@ export async function PUT(request: NextRequest, context: Context) {
       });
       if (duplicate) return jsonError("CONFLICT", "Preset name already exists");
     }
-    const preset = await ContestPreset.findByIdAndUpdate(
-      params.data.id,
-      body.data,
-      { returnDocument: "after", runValidators: true },
-    ).lean();
+    const dbSession = await mongoose.startSession();
+    let preset;
+    try {
+      preset = await auditedTransaction(dbSession, async (transaction) => {
+        const before = await ContestPreset.findById(params.data.id)
+          .session(transaction)
+          .lean();
+        if (!before)
+          throw new Error("Contest preset disappeared during update.");
+        const updated = await ContestPreset.findByIdAndUpdate(
+          params.data.id,
+          body.data,
+          {
+            returnDocument: "after",
+            runValidators: true,
+            session: transaction,
+          },
+        ).lean();
+        if (!updated)
+          throw new Error("Contest preset disappeared during update.");
+        return {
+          result: updated,
+          audit: {
+            actor: auditActor(authorization.data.user),
+            category: "contests" as const,
+            action: "update" as const,
+            operation: "contests.preset.update",
+            target: {
+              type: "contest-preset",
+              id: params.data.id,
+              label: updated.name,
+            },
+            before: summarizeContest(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizeContest(
+              updated as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     return preset
       ? jsonOk(toContestPresetDto(preset))
       : jsonError("NOT_FOUND", "Preset not found");
@@ -100,11 +144,52 @@ export async function PATCH(request: NextRequest, context: Context) {
 
   try {
     await dbConnect();
-    const preset = await ContestPreset.findByIdAndUpdate(
-      params.data.id,
-      body.data,
-      { returnDocument: "after", runValidators: true },
-    ).lean();
+    if (!(await ContestPreset.exists({ _id: params.data.id })))
+      return jsonError("NOT_FOUND", "Preset not found");
+    const dbSession = await mongoose.startSession();
+    let preset;
+    try {
+      preset = await auditedTransaction(dbSession, async (transaction) => {
+        const before = await ContestPreset.findById(params.data.id)
+          .session(transaction)
+          .lean();
+        if (!before)
+          throw new Error("Contest preset disappeared during archive update.");
+        const updated = await ContestPreset.findByIdAndUpdate(
+          params.data.id,
+          body.data,
+          {
+            returnDocument: "after",
+            runValidators: true,
+            session: transaction,
+          },
+        ).lean();
+        if (!updated)
+          throw new Error("Contest preset disappeared during archive update.");
+        return {
+          result: updated,
+          audit: {
+            actor: auditActor(authorization.data.user),
+            category: "contests" as const,
+            action: "status_change" as const,
+            operation: "contests.preset.archive",
+            target: {
+              type: "contest-preset",
+              id: params.data.id,
+              label: updated.name,
+            },
+            before: summarizeContest(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizeContest(
+              updated as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     return preset
       ? jsonOk(toContestPresetDto(preset))
       : jsonError("NOT_FOUND", "Preset not found");

@@ -3,26 +3,30 @@
  * POST /api/files  - upload a new file
  */
 
-import { NextRequest } from "next/server";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { auth } from "@/lib/auth";
-import dbConnect from "@/lib/mongodb";
-import FileEntry from "@/models/FileEntry";
-import { canUploadFiles, buildAccessFilter } from "@/lib/access/files";
-import { getHeadModules, isAdmin } from "@/lib/access/roles";
-import { parseManagedModules, parseRoles } from "@/lib/roles";
-import { writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
-import { webEnv } from "@/lib/env/web";
 import crypto from "crypto";
-import { parsePagination, paginatedResponse } from "@/lib/pagination";
-import { logger } from "@/lib/utils";
+import { existsSync } from "fs";
+import { mkdir, writeFile } from "fs/promises";
+import mongoose from "mongoose";
+import { NextRequest } from "next/server";
+import path from "path";
+
+import { buildAccessFilter, canUploadFiles } from "@/lib/access/files";
+import { getHeadModules, isAdmin } from "@/lib/access/roles";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeFile } from "@/lib/audit/summary";
 import { parseFormData, parseSearchParams } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   formDataObjectSchema,
   paginationQuerySchema,
 } from "@/lib/api/schemas/boundary";
+import { auth } from "@/lib/auth";
+import { webEnv } from "@/lib/env/web";
+import dbConnect from "@/lib/mongodb";
+import { parsePagination, paginatedResponse } from "@/lib/pagination";
+import { parseManagedModules, parseRoles } from "@/lib/roles";
+import { logger } from "@/lib/utils";
+import FileEntry from "@/models/FileEntry";
 
 export const runtime = "nodejs";
 
@@ -202,20 +206,50 @@ export async function POST(request: NextRequest) {
 
     try {
       await dbConnect();
-      const newFile = await FileEntry.create({
-        title,
-        description,
-        originalName: file.name,
-        storedName,
-        mimeType: file.type || "application/octet-stream",
-        size: file.size,
-        folder,
-        uploadedBy: user.id,
-        uploadedByName: user.name,
-        uploaderModule,
-        isDownloadable,
-        accessControl,
-      });
+      const dbSession = await mongoose.startSession();
+      let newFile;
+      try {
+        newFile = await auditedTransaction(dbSession, async (transaction) => {
+          const [created] = await FileEntry.create(
+            [
+              {
+                title,
+                description,
+                originalName: file.name,
+                storedName,
+                mimeType: file.type || "application/octet-stream",
+                size: file.size,
+                folder,
+                uploadedBy: user.id,
+                uploadedByName: user.name,
+                uploaderModule,
+                isDownloadable,
+                accessControl,
+              },
+            ],
+            { session: transaction },
+          );
+          return {
+            result: created,
+            audit: {
+              actor: auditActor(user),
+              category: "files" as const,
+              action: "upload" as const,
+              operation: "files.upload",
+              target: {
+                type: "file",
+                id: String(created._id),
+                label: created.title,
+              },
+              after: summarizeFile(
+                created.toObject() as unknown as Record<string, unknown>,
+              ),
+            },
+          };
+        });
+      } finally {
+        await dbSession.endSession();
+      }
 
       logger.info("File uploaded", {
         route: "POST /api/files",

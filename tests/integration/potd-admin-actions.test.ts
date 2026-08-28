@@ -10,6 +10,7 @@ import {
 } from "vitest";
 
 import { computeWindowTimes } from "@/lib/potd/utils";
+import AuditLog from "@/models/AuditLog";
 import CPUser from "@/models/CPUser";
 import ContestQuestion from "@/models/ContestQuestion";
 import DailyChallenge from "@/models/POTDDailyChallenge";
@@ -129,6 +130,7 @@ describe("POTD administration actions", () => {
       ok: false,
       error: { code: "FORBIDDEN", message: "Forbidden" },
     });
+    expect(await AuditLog.countDocuments()).toBe(0);
   });
 
   it("rejects invalid, past, and overly distant schedule dates", async () => {
@@ -205,6 +207,24 @@ describe("POTD administration actions", () => {
       },
     });
     expect(challenge).toMatchObject(computeWindowTimes("2026-07-31"));
+    const audit = await AuditLog.findOne().lean();
+    expect(audit).toMatchObject({
+      category: "potd",
+      action: "schedule",
+      operation: "potd.schedule",
+      actor: {
+        userId: adminId.toString(),
+        displayName: "POTD Admin",
+        access: "Member",
+      },
+      after: {
+        date: "2026-07-31",
+        difficulty: "Easy",
+        platform: "codeforces",
+        problemId: "158A",
+      },
+    });
+    expect(JSON.stringify(audit)).not.toContain("statementHtml");
   });
 
   it("prevents duplicate difficulty slots and flags problem reuse", async () => {
@@ -306,6 +326,14 @@ describe("POTD administration actions", () => {
     ).resolves.toEqual({ ok: true, data: {} });
     expect(await DailyChallenge.findById(ended._id)).not.toBeNull();
     expect(await DailyChallenge.findById(future._id)).toBeNull();
+    expect(await AuditLog.findOne()).toMatchObject({
+      category: "potd",
+      action: "delete",
+      operation: "potd.scheduled.delete",
+      before: { date: "2026-08-01", difficulty: "Hard" },
+      after: {},
+    });
+    expect(await AuditLog.countDocuments()).toBe(1);
   });
 
   it("lists scheduled challenges in chronological order", async () => {
@@ -375,6 +403,7 @@ describe("POTD administration actions", () => {
         message: "User's CF handle not verified",
       },
     });
+    expect(await AuditLog.countDocuments()).toBe(0);
 
     await CPUser.create({ userId: member._id, cfVerified: true });
     await expect(
@@ -383,6 +412,16 @@ describe("POTD administration actions", () => {
       ok: true,
       data: { status: "Accepted" },
     });
+    const audit = await AuditLog.findOne().lean();
+    expect(audit).toMatchObject({
+      category: "potd",
+      action: "sync",
+      operation: "potd.force_sync",
+      actor: { access: "Member" },
+      before: {},
+      after: { status: "Accepted", pointsAwarded: 100, force: true },
+    });
+    expect(JSON.stringify(audit)).not.toContain("verified_cf");
   });
 
   it("selects unused automatic candidates within each slot's constraints", async () => {
@@ -458,6 +497,14 @@ describe("POTD administration actions", () => {
     expect(result.ok && result.data.error).toContain(
       "Failed to set Hard for 2026-07-31",
     );
+    expect(await AuditLog.findOne()).toMatchObject({
+      category: "potd",
+      action: "bulk_schedule",
+      operation: "potd.bulk_schedule",
+      actor: { access: "Member" },
+      after: { scheduledCount: 1 },
+    });
+    expect(await AuditLog.countDocuments()).toBe(1);
   });
 });
 

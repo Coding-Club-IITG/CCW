@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { responseData, responseError } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -10,16 +9,19 @@ import {
   vi,
 } from "vitest";
 
+import AuditLog from "@/models/AuditLog";
+import { hackathon } from "../fixtures/hackathons";
 import {
   clearTestMongo,
   startTestMongo,
   stopTestMongo,
 } from "../utils/mongodb";
-import { hackathon } from "../fixtures/hackathons";
+import { responseData, responseError } from "../utils/result";
 
 const getSession = vi.hoisted(() => vi.fn());
 const invalidateCache = vi.hoisted(() => vi.fn());
 const notifyMany = vi.hoisted(() => vi.fn());
+const enqueuePushNotifications = vi.hoisted(() => vi.fn());
 const fetchOgImage = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
@@ -35,7 +37,7 @@ vi.mock("@/lib/cache", async () => {
     invalidateCache,
   };
 });
-vi.mock("@/lib/notify", () => ({ notifyMany }));
+vi.mock("@/lib/notify", () => ({ notifyMany, enqueuePushNotifications }));
 vi.mock("@/lib/ogImage", () => ({ fetchOgImage }));
 
 describe("admin hackathon routes", () => {
@@ -54,6 +56,7 @@ describe("admin hackathon routes", () => {
     });
     invalidateCache.mockReset();
     notifyMany.mockReset();
+    enqueuePushNotifications.mockReset();
   });
 
   afterAll(stopTestMongo);
@@ -129,8 +132,22 @@ describe("admin hackathon routes", () => {
         ),
       ),
       expect.objectContaining({ title: "New Hackathon Added" }),
+      expect.objectContaining({ enqueue: false }),
     );
     expect(notifyMany.mock.calls[0][0]).toHaveLength(2);
+    const audit = await AuditLog.findOne().lean();
+    expect(audit).toMatchObject({
+      category: "hackathons",
+      action: "create",
+      operation: "hackathons.create",
+      after: {
+        name: "Build Sprint",
+        organization: "Coding Club",
+        status: "active",
+        minMembers: 1,
+      },
+    });
+    expect(JSON.stringify(audit)).not.toContain("websiteUrl");
   });
 
   it("validates cross-field size updates", async () => {
@@ -172,6 +189,19 @@ describe("admin hackathon routes", () => {
     expect((await Hackathon.findById(saved._id).lean())?.status).toBe(
       "archived",
     );
+    const audits = await AuditLog.find().sort({ _id: 1 }).lean();
+    expect(audits.map((event) => event.operation)).toEqual([
+      "hackathons.update",
+      "hackathons.archive",
+    ]);
+    expect(audits[0]).toMatchObject({
+      before: { name: "Build Sprint" },
+      after: { name: "Updated Sprint" },
+    });
+    expect(audits[1]).toMatchObject({
+      before: { status: "active" },
+      after: { status: "archived" },
+    });
   });
 });
 

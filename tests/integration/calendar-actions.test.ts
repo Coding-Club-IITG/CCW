@@ -9,6 +9,7 @@ import {
   vi,
 } from "vitest";
 import CalendarEvent from "@/models/CalendarEvent";
+import AuditLog from "@/models/AuditLog";
 import Event from "@/models/Event";
 import {
   clearTestMongo,
@@ -88,6 +89,21 @@ describe("calendar actions", () => {
       module: "Design",
       remindOneDayBefore: true,
     });
+    const audit = await AuditLog.findOne().lean();
+    expect(audit).toMatchObject({
+      category: "calendar",
+      action: "create",
+      operation: "calendar.create",
+      after: {
+        title: "Design sync",
+        scope: "module",
+        module: "Design",
+        hasLocation: true,
+        agendaLength: 11,
+      },
+    });
+    expect(JSON.stringify(audit)).not.toContain("Conference room");
+    expect(JSON.stringify(audit)).not.toContain("Review work");
   });
 
   it("prevents a global administrator from creating a module event", async () => {
@@ -102,6 +118,7 @@ describe("calendar actions", () => {
       },
     });
     expect(await CalendarEvent.countDocuments()).toBe(0);
+    expect(await AuditLog.countDocuments()).toBe(0);
   });
 
   it("allows every signed-in member to list all scopes", async () => {
@@ -163,6 +180,13 @@ describe("calendar actions", () => {
     expect(await CalendarEvent.countDocuments()).toBe(0);
     expect(await Event.countDocuments()).toBe(0);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
+    expect(await AuditLog.findOne()).toMatchObject({
+      category: "calendar",
+      action: "delete",
+      operation: "calendar.delete",
+      before: { title: "General", cascadeCount: 1 },
+      after: {},
+    });
   });
 });
 

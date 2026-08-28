@@ -8,6 +8,8 @@ import {
   it,
   vi,
 } from "vitest";
+
+import AuditLog from "@/models/AuditLog";
 import {
   clearTestMongo,
   startTestMongo,
@@ -100,6 +102,14 @@ describe("member-owned blog drafts", () => {
       publishedAt: null,
     });
     expect(saved?.authors[0].userId.toString()).toBe(BLOG_AUTHOR_ID.toString());
+    expect(await AuditLog.findOne()).toMatchObject({
+      category: "blog",
+      action: "update",
+      operation: "blog.draft.update",
+      actor: { userId: BLOG_AUTHOR_ID.toString(), access: "Member" },
+      before: { title: "Testing Next.js", status: "draft" },
+      after: { title: "Updated draft", status: "draft" },
+    });
   });
 
   it("does not allow members to edit a published post even when credited", async () => {

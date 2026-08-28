@@ -3,23 +3,27 @@
  * POST /api/admin/hackathons - Create a new hackathon (admin only)
  */
 
+import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeHackathon } from "@/lib/audit/summary";
+import { requireHead } from "@/lib/api/auth";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   jsonObjectSchema,
   paginationQueryFields,
 } from "@/lib/api/schemas/boundary";
-import { requireHead } from "@/lib/api/auth";
-import dbConnect from "@/lib/mongodb";
 import {
-  cachedFetch,
-  buildCacheKey,
   CACHE_TTLS,
+  buildCacheKey,
+  cachedFetch,
   invalidateCache,
 } from "@/lib/cache";
-import { notifyMany } from "@/lib/notify";
+import dbConnect from "@/lib/mongodb";
+import { enqueuePushNotifications, notifyMany } from "@/lib/notify";
 import { fetchOgImage } from "@/lib/ogImage";
 import { parsePagination, paginatedResponse } from "@/lib/pagination";
 import { errorToLogMetadata, logger } from "@/lib/utils";
@@ -169,32 +173,77 @@ export async function POST(request: NextRequest) {
       ogImage = await fetchOgImage(websiteUrl);
     }
 
-    const hackathon = await Hackathon.create({
-      name: name.trim(),
-      organization: organization.trim(),
-      minMembers: resolvedMin,
-      maxMembers,
-      skills: validSkills,
-      websiteUrl: websiteUrl || "",
-      ogImage,
-      deadline: deadlineDate,
-      description: typeof description === "string" ? description.trim() : "",
-      status: "active",
-      createdBy: user.id,
-    });
-
-    // Broadcast notification to all members
-    await invalidateCache("hackathons");
-    await invalidateCache("admin:hackathons");
-
     const allUsers = await User.find({}).select("_id").lean();
     const userIds = (allUsers as any[]).map((u) => u._id.toString());
-    await notifyMany(userIds, {
-      type: "team_invite",
-      title: "New Hackathon Added",
-      message: `"${name.trim()}" by ${organization.trim()} is now open for team formation!`,
-      link: `/internal/hackathons/${hackathon._id}`,
-    });
+    const dbSession = await mongoose.startSession();
+    let notificationIds: string[] = [];
+    let hackathon;
+    try {
+      const result = await auditedTransaction(
+        dbSession,
+        async (transaction) => {
+          const [created] = await Hackathon.create(
+            [
+              {
+                name: name.trim(),
+                organization: organization.trim(),
+                minMembers: resolvedMin,
+                maxMembers,
+                skills: validSkills,
+                websiteUrl: websiteUrl || "",
+                ogImage,
+                deadline: deadlineDate,
+                description:
+                  typeof description === "string" ? description.trim() : "",
+                status: "active",
+                createdBy: user.id,
+              },
+            ],
+            { session: transaction },
+          );
+          const notifications = await notifyMany(
+            userIds,
+            {
+              type: "team_invite",
+              title: "New Hackathon Added",
+              message: `"${name.trim()}" by ${organization.trim()} is now open for team formation!`,
+              link: `/internal/hackathons/${created._id}`,
+            },
+            { session: transaction, enqueue: false },
+          );
+          return {
+            result: {
+              created,
+              notificationIds: (notifications ?? []).map((item) =>
+                String(item._id),
+              ),
+            },
+            audit: {
+              actor: auditActor(user),
+              category: "hackathons" as const,
+              action: "create" as const,
+              operation: "hackathons.create",
+              target: {
+                type: "hackathon",
+                id: String(created._id),
+                label: created.name,
+              },
+              after: summarizeHackathon(
+                created.toObject() as unknown as Record<string, unknown>,
+              ),
+            },
+          };
+        },
+      );
+      hackathon = result.created;
+      notificationIds = result.notificationIds;
+    } finally {
+      await dbSession.endSession();
+    }
+
+    await invalidateCache("hackathons");
+    await invalidateCache("admin:hackathons");
+    await enqueuePushNotifications(notificationIds);
 
     return jsonOk({ hackathon }, { status: 201 });
   } catch (err) {

@@ -15,4 +15,10 @@ export const POST = createImageUploadHandler({
   urlPrefix: "/api/projects/assets",
   maxSize: 5 * 1024 * 1024,
   logPrefix: "[Project Upload]",
+  audit: {
+    category: "projects",
+    operation: "projects.asset.upload",
+    targetType: "project-asset",
+    label: "Project image",
+  },
 });

@@ -1,31 +1,32 @@
 "use server";
 
-import { err as appError, ok } from "@/lib/api/result";
+import mongoose from "mongoose";
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
+import { isHead } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
-import { toBsonSafe } from "@/lib/api/result";
-
-export const getProjects = defineAction("getProjects", getProjectsAction);
-export const getProject = defineAction("getProject", getProjectAction);
-export const createProject = defineAction("createProject", createProjectAction);
-export const updateProject = defineAction("updateProject", updateProjectAction);
-export const deleteProject = defineAction("deleteProject", deleteProjectAction);
-
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizePublicContent } from "@/lib/audit/summary";
+import { err as appError, ok, toBsonSafe } from "@/lib/api/result";
 import { auth } from "@/lib/auth";
+import { invalidateCache } from "@/lib/cache";
 import {
   PROJECT_MODULES,
   PROJECT_STATUSES,
   type ProjectModuleName,
   type ProjectStatus,
 } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { isHead } from "@/lib/access/roles";
-import { logger } from "@/lib/utils";
-import { invalidateCache } from "@/lib/cache";
-import Project from "@/models/Project";
-import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
+import dbConnect from "@/lib/mongodb";
+import { logger } from "@/lib/utils";
+import Project from "@/models/Project";
+
+export const getProjects = defineAction("getProjects", getProjectsAction);
+export const getProject = defineAction("getProject", getProjectAction);
+export const createProject = defineAction("createProject", createProjectAction);
+export const updateProject = defineAction("updateProject", updateProjectAction);
+export const deleteProject = defineAction("deleteProject", deleteProjectAction);
 
 function parseTags(value: string): string[] {
   return value
@@ -205,18 +206,48 @@ async function createProjectAction(formData: FormData) {
     }
 
     await dbConnect();
-    const project = await Project.create({
-      title,
-      description,
-      repoLink,
-      liveUrl: liveUrl || undefined,
-      coverImage,
-      coverFocalPoint,
-      date,
-      module: projectModule,
-      status,
-      tags,
-    });
+    const dbSession = await mongoose.startSession();
+    let project;
+    try {
+      project = await auditedTransaction(dbSession, async (transaction) => {
+        const [created] = await Project.create(
+          [
+            {
+              title,
+              description,
+              repoLink,
+              liveUrl: liveUrl || undefined,
+              coverImage,
+              coverFocalPoint,
+              date,
+              module: projectModule,
+              status,
+              tags,
+            },
+          ],
+          { session: transaction },
+        );
+        return {
+          result: created,
+          audit: {
+            actor: auditActor(session.user),
+            category: "projects" as const,
+            action: "create" as const,
+            operation: "projects.create",
+            target: {
+              type: "project",
+              id: String(created._id),
+              label: created.title,
+            },
+            after: summarizePublicContent(
+              created.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     await invalidateProjectCaches();
 
     logger.info("[Admin Projects] Created project", {
@@ -304,25 +335,58 @@ async function updateProjectAction(id: string, formData: FormData) {
     }
 
     await dbConnect();
-    const project = await Project.findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          title,
-          description,
-          repoLink,
-          coverImage,
-          coverFocalPoint,
-          date,
-          module: projectModule,
-          status,
-          tags,
-          ...(liveUrl ? { liveUrl } : {}),
-        },
-        ...(liveUrl ? {} : { $unset: { liveUrl: 1 } }),
-      },
-      { new: true },
-    ).lean();
+    if (!(await Project.exists({ _id: id })))
+      return appError("NOT_FOUND", "Project not found.");
+    const dbSession = await mongoose.startSession();
+    let project;
+    try {
+      project = await auditedTransaction(dbSession, async (transaction) => {
+        const before = await Project.findById(id).session(transaction).lean();
+        if (!before) throw new Error("Project disappeared during update.");
+        const updated = await Project.findByIdAndUpdate(
+          id,
+          {
+            $set: {
+              title,
+              description,
+              repoLink,
+              coverImage,
+              coverFocalPoint,
+              date,
+              module: projectModule,
+              status,
+              tags,
+              ...(liveUrl ? { liveUrl } : {}),
+            },
+            ...(liveUrl ? {} : { $unset: { liveUrl: 1 } }),
+          },
+          {
+            returnDocument: "after",
+            runValidators: true,
+            session: transaction,
+          },
+        ).lean();
+        if (!updated) throw new Error("Project disappeared during update.");
+        return {
+          result: updated,
+          audit: {
+            actor: auditActor(session.user),
+            category: "projects" as const,
+            action: "update" as const,
+            operation: "projects.update",
+            target: { type: "project", id, label: updated.title },
+            before: summarizePublicContent(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizePublicContent(
+              updated as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
 
     if (!project) {
       return appError("NOT_FOUND", "Project not found.");
@@ -353,7 +417,33 @@ async function deleteProjectAction(id: string) {
     }
 
     await dbConnect();
-    const project = await Project.findByIdAndDelete(id).lean();
+    if (!(await Project.exists({ _id: id })))
+      return appError("NOT_FOUND", "Project not found.");
+    const dbSession = await mongoose.startSession();
+    let project;
+    try {
+      project = await auditedTransaction(dbSession, async (transaction) => {
+        const deleted = await Project.findByIdAndDelete(id, {
+          session: transaction,
+        }).lean();
+        if (!deleted) throw new Error("Project disappeared during deletion.");
+        return {
+          result: deleted,
+          audit: {
+            actor: auditActor(session.user),
+            category: "projects" as const,
+            action: "delete" as const,
+            operation: "projects.delete",
+            target: { type: "project", id, label: deleted.title },
+            before: summarizePublicContent(
+              deleted as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     if (!project) {
       return appError("NOT_FOUND", "Project not found.");
     }

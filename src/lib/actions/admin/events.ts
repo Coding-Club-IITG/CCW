@@ -1,9 +1,38 @@
 "use server";
 
-import { err as appError, ok, type JsonValue } from "@/lib/api/result";
+import mongoose from "mongoose";
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
+import { canPublishCalendarEvent } from "@/lib/access/calendar";
+import { isHead } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
-import { toBsonSafe } from "@/lib/api/result";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizePublicContent } from "@/lib/audit/summary";
+import {
+  err as appError,
+  ok,
+  toBsonSafe,
+  type JsonValue,
+} from "@/lib/api/result";
+import { auth } from "@/lib/auth";
+import { invalidateCache } from "@/lib/cache";
+import { buildScheduleFingerprint } from "@/lib/calendar";
+import {
+  EVENT_PUBLICATION_STATUSES,
+  type EventPublicationStatus,
+  type ModuleName,
+} from "@/lib/constants";
+import {
+  parseImageFocalPoint,
+  type ImageFocalPoint,
+} from "@/lib/imageFocalPoint";
+import dbConnect from "@/lib/mongodb";
+import { parseManagedModules } from "@/lib/roles";
+import { findUniqueSlug, titleToSlug } from "@/lib/slug";
+import { errorToLogMetadata, logger } from "@/lib/utils";
+import CalendarEvent from "@/models/CalendarEvent";
+import Event from "@/models/Event";
 
 export const getEvents = defineAction("getEvents", getEventsAction);
 export const getEvent = defineAction("getEvent", getEventAction);
@@ -23,31 +52,12 @@ export const syncPublicEventSchedule = defineAction(
 );
 export const deleteEvent = defineAction("deleteEvent", deleteEventAction);
 
-import mongoose from "mongoose";
-import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { buildScheduleFingerprint } from "@/lib/calendar";
-import { canPublishCalendarEvent } from "@/lib/access/calendar";
-import {
-  EVENT_PUBLICATION_STATUSES,
-  type EventPublicationStatus,
-  type ModuleName,
-} from "@/lib/constants";
-import { invalidateCache } from "@/lib/cache";
-import dbConnect from "@/lib/mongodb";
-import { isHead } from "@/lib/access/roles";
-import { parseManagedModules } from "@/lib/roles";
-import { errorToLogMetadata, logger } from "@/lib/utils";
-import { findUniqueSlug, titleToSlug } from "@/lib/slug";
-import {
-  parseImageFocalPoint,
-  type ImageFocalPoint,
-} from "@/lib/imageFocalPoint";
-import CalendarEvent from "@/models/CalendarEvent";
-import Event from "@/models/Event";
-
-type SessionUser = { id: string; access?: string; managedModules?: unknown };
+type SessionUser = {
+  id: string;
+  name?: string;
+  access?: string;
+  managedModules?: unknown;
+};
 type PublicEventInput = {
   title: string;
   shortDescription: string;
@@ -259,24 +269,44 @@ async function createPublicEventAction(
     );
     let createdId = "";
     try {
-      await dbSession.withTransaction(async () => {
+      await auditedTransaction(dbSession, async (transaction) => {
+        const currentCalendar =
+          await CalendarEvent.findById(calendarEventId).session(transaction);
+        if (!currentCalendar)
+          throw new Error("Calendar event disappeared during publication.");
         const [event] = await Event.create(
           [
             {
               _id: eventId,
               ...parsed.data,
               slug,
-              ...scheduleValues(calendar),
-              calendarEventId: calendar._id,
+              ...scheduleValues(currentCalendar),
+              calendarEventId: currentCalendar._id,
               status,
               publishedAt: status === "published" ? new Date() : null,
             },
           ],
-          { session: dbSession },
+          { session: transaction },
         );
         createdId = String(event._id);
-        calendar.publicEventId = event._id;
-        await calendar.save({ session: dbSession });
+        currentCalendar.publicEventId = event._id;
+        await currentCalendar.save({ session: transaction });
+        return {
+          result: undefined,
+          audit: {
+            actor: auditActor(user),
+            category: "events" as const,
+            action:
+              status === "published"
+                ? ("publish" as const)
+                : ("create" as const),
+            operation: "events.publication.create",
+            target: { type: "public-event", id: createdId, label: event.title },
+            after: summarizePublicContent(
+              event.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
       });
     } finally {
       await dbSession.endSession();
@@ -318,9 +348,38 @@ async function updateEventAction(
       );
     }
     event.set(parsed.data);
-    await event.save();
-    await refresh(event.slug, String(calendar._id));
-    return ok({ event: publicEventDto(event.toObject()) });
+    const dbSession = await mongoose.startSession();
+    let saved;
+    try {
+      saved = await auditedTransaction(dbSession, async (transaction) => {
+        const current = await Event.findById(id).session(transaction);
+        if (!current)
+          throw new Error("Public event disappeared during update.");
+        const before = current.toObject();
+        current.set({ ...parsed.data, slug: event.slug });
+        await current.save({ session: transaction });
+        return {
+          result: current,
+          audit: {
+            actor: auditActor(user),
+            category: "events" as const,
+            action: "update" as const,
+            operation: "events.update",
+            target: { type: "public-event", id, label: current.title },
+            before: summarizePublicContent(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizePublicContent(
+              current.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
+    await refresh(saved.slug, String(calendar._id));
+    return ok({ event: publicEventDto(saved.toObject()) });
   } catch (error) {
     logger.error("Public event update failed", {
       operation: "update_public_event",
@@ -348,12 +407,43 @@ async function setPublicEventStatusAction(
     const calendar = await CalendarEvent.findById(event.calendarEventId);
     if (!calendar || !mayPublish(user, calendar))
       return appError("FORBIDDEN", "Forbidden");
-    event.status = status;
-    if (status === "published" && !event.publishedAt)
-      event.publishedAt = new Date();
-    await event.save();
-    await refresh(event.slug, String(calendar._id));
-    return ok(publicEventDto(event.toObject()));
+    const dbSession = await mongoose.startSession();
+    let saved;
+    try {
+      saved = await auditedTransaction(dbSession, async (transaction) => {
+        const current = await Event.findById(id).session(transaction);
+        if (!current)
+          throw new Error("Public event disappeared during status update.");
+        const before = current.toObject();
+        current.status = status;
+        if (status === "published" && !current.publishedAt)
+          current.publishedAt = new Date();
+        await current.save({ session: transaction });
+        return {
+          result: current,
+          audit: {
+            actor: auditActor(user),
+            category: "events" as const,
+            action:
+              status === "published"
+                ? ("publish" as const)
+                : ("status_change" as const),
+            operation: "events.status.update",
+            target: { type: "public-event", id, label: current.title },
+            before: summarizePublicContent(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizePublicContent(
+              current.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
+    await refresh(saved.slug, String(calendar._id));
+    return ok(publicEventDto(saved.toObject()));
   } catch (error) {
     logger.error("Public event status update failed", {
       operation: "set_public_event_status",
@@ -376,10 +466,41 @@ async function syncPublicEventScheduleAction(id: string) {
     const calendar = await CalendarEvent.findById(event.calendarEventId);
     if (!calendar || !mayPublish(user, calendar))
       return appError("FORBIDDEN", "Forbidden");
-    event.set(scheduleValues(calendar));
-    await event.save();
-    await refresh(event.slug, String(calendar._id));
-    return ok(publicEventDto(event.toObject()));
+    const dbSession = await mongoose.startSession();
+    let saved;
+    try {
+      saved = await auditedTransaction(dbSession, async (transaction) => {
+        const currentEvent = await Event.findById(id).session(transaction);
+        const currentCalendar = await CalendarEvent.findById(
+          event.calendarEventId,
+        ).session(transaction);
+        if (!currentEvent || !currentCalendar)
+          throw new Error("Event linkage disappeared during schedule sync.");
+        const before = currentEvent.toObject();
+        currentEvent.set(scheduleValues(currentCalendar));
+        await currentEvent.save({ session: transaction });
+        return {
+          result: currentEvent,
+          audit: {
+            actor: auditActor(user),
+            category: "events" as const,
+            action: "sync" as const,
+            operation: "events.schedule.sync",
+            target: { type: "public-event", id, label: currentEvent.title },
+            before: summarizePublicContent(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizePublicContent(
+              currentEvent.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
+    await refresh(saved.slug, String(calendar._id));
+    return ok(publicEventDto(saved.toObject()));
   } catch (error) {
     logger.error("Public event schedule sync failed", {
       operation: "sync_public_event_schedule",

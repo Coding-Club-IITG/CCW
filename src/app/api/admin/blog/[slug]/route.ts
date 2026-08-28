@@ -4,19 +4,23 @@
  * DELETE /api/admin/blog/[slug] - Delete a blog post (admin only)
  */
 
-import { NextRequest } from "next/server";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { parseJson, parseRouteParams } from "@/lib/api/result";
-import { jsonObjectSchema, slugParamsSchema } from "@/lib/api/schemas/boundary";
+import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
+import { NextRequest } from "next/server";
+
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizePublicContent } from "@/lib/audit/summary";
 import { requireHead } from "@/lib/api/auth";
-import dbConnect from "@/lib/mongodb";
-import BlogPost from "@/models/BlogPost";
+import { parseJson, parseRouteParams } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { jsonObjectSchema, slugParamsSchema } from "@/lib/api/schemas/boundary";
+import { invalidateCache } from "@/lib/cache";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
-import { invalidateCache } from "@/lib/cache";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import dbConnect from "@/lib/mongodb";
 import { findUniqueSlug, titleToSlug } from "@/lib/slug";
+import { errorToLogMetadata, logger } from "@/lib/utils";
+import BlogPost from "@/models/BlogPost";
 
 async function uniqueSlug(base: string, currentSlug?: string): Promise<string> {
   return findUniqueSlug(base, async (slug) => {
@@ -155,12 +159,58 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    await post.save();
+    const dbSession = await mongoose.startSession();
+    let saved;
+    try {
+      saved = await auditedTransaction(dbSession, async (transaction) => {
+        const current = await BlogPost.findOne({ slug }).session(transaction);
+        if (!current) throw new Error("Blog post disappeared during update.");
+        const before = current.toObject();
+        current.set({
+          title: post.title,
+          slug: post.slug,
+          content: post.content,
+          excerpt: post.excerpt,
+          coverImage: post.coverImage,
+          coverFocalPoint: post.coverFocalPoint,
+          authors: post.authors,
+          tags: post.tags,
+          status: post.status,
+          publishedAt: post.publishedAt,
+        });
+        await current.save({ session: transaction });
+        return {
+          result: current,
+          audit: {
+            actor: auditActor(user),
+            category: "blog" as const,
+            action:
+              post.status === "published" && before.status !== "published"
+                ? ("publish" as const)
+                : ("update" as const),
+            operation: "blog.admin.update",
+            target: {
+              type: "blog-post",
+              id: String(current._id),
+              label: current.title,
+            },
+            before: summarizePublicContent(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizePublicContent(
+              current.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     await invalidateCache("blog");
     await invalidateCache("admin:blog");
     revalidatePath("/sitemap.xml");
 
-    return jsonOk({ post: post.toObject() });
+    return jsonOk({ post: saved.toObject() });
   } catch (err) {
     logger.error("Admin blog update failed", {
       route: "PATCH /api/admin/blog/[slug]",
@@ -184,8 +234,39 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
     await dbConnect();
+    if (!(await BlogPost.exists({ slug })))
+      return jsonError("NOT_FOUND", "Post not found.");
 
-    const result = await BlogPost.findOneAndDelete({ slug });
+    const dbSession = await mongoose.startSession();
+    let result;
+    try {
+      result = await auditedTransaction(dbSession, async (transaction) => {
+        const deleted = await BlogPost.findOneAndDelete(
+          { slug },
+          { session: transaction },
+        );
+        if (!deleted) throw new Error("Blog post disappeared during deletion.");
+        return {
+          result: deleted,
+          audit: {
+            actor: auditActor(authorization.data.user),
+            category: "blog" as const,
+            action: "delete" as const,
+            operation: "blog.delete",
+            target: {
+              type: "blog-post",
+              id: String(deleted._id),
+              label: deleted.title,
+            },
+            before: summarizePublicContent(
+              deleted.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     if (!result) {
       return jsonError("NOT_FOUND", "Post not found.");
     }

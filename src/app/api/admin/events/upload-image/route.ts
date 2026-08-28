@@ -15,4 +15,10 @@ export const POST = createImageUploadHandler({
   urlPrefix: "/api/events/assets",
   maxSize: 10 * 1024 * 1024,
   logPrefix: "[Event Upload]",
+  audit: {
+    category: "events",
+    operation: "events.asset.upload",
+    targetType: "event-asset",
+    label: "Event image",
+  },
 });

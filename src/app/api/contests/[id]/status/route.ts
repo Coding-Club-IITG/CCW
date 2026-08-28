@@ -1,15 +1,19 @@
+import mongoose from "mongoose";
 import { NextRequest } from "next/server";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeContest } from "@/lib/audit/summary";
 import { requireHead } from "@/lib/api/auth";
-import dbConnect from "@/lib/mongodb";
-import ContestMatch from "@/models/ContestMatch";
-import { publishContest } from "@/lib/contests/events";
-import { errorToLogMetadata, logger } from "@/lib/utils";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   contestIdParamsSchema,
   contestStatusSchema,
 } from "@/lib/api/schemas/contestRoute";
+import { publishContest } from "@/lib/contests/events";
+import dbConnect from "@/lib/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/utils";
+import ContestMatch from "@/models/ContestMatch";
 
 export async function PATCH(
   request: NextRequest,
@@ -56,12 +60,40 @@ export async function PATCH(
       return jsonError("VALIDATION_ERROR", "Invalid status transition");
     }
 
-    contest.status = newStatus;
-    await contest.save();
+    const dbSession = await mongoose.startSession();
+    let saved;
+    try {
+      saved = await auditedTransaction(dbSession, async (transaction) => {
+        const current = await ContestMatch.findById(id).session(transaction);
+        if (!current)
+          throw new Error("Contest disappeared during status update.");
+        const before = current.toObject();
+        current.status = newStatus;
+        await current.save({ session: transaction });
+        return {
+          result: current,
+          audit: {
+            actor: auditActor(authorization.data.user),
+            category: "contests" as const,
+            action: "status_change" as const,
+            operation: `contests.status.${action}`,
+            target: { type: "contest", id, label: current.name },
+            before: summarizeContest(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizeContest(
+              current.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
 
     // Publish SSE update
     try {
-      await publishContest(contest._id.toString(), {
+      await publishContest(saved._id.toString(), {
         type: "contest.status_change",
         status: newStatus,
       });
@@ -74,7 +106,7 @@ export async function PATCH(
       });
     }
 
-    return jsonOk(contest);
+    return jsonOk(saved);
   } catch (error) {
     logger.error("Contest status update failed", {
       route: "PATCH /api/contests/[id]/status",

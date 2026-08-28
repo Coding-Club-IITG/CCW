@@ -6,6 +6,6 @@ allowBuilds:
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - "@ronits2407/cp-api@1.2.0"
-  - "@coding-club-iitg/ops-contract@0.1.0"
+  - "@coding-club-iitg/ops-contract@0.2.0"
+  - "@coding-club-iitg/ops-logger@0.2.0"
   - dompurify@3.3.2 || 3.3.4 || 3.4.0 || 3.4.6 || 3.4.7 || 3.4.8 || 3.4.9 || 3.4.11 || 3.4.12 || 3.4.13
-  - "@coding-club-iitg/ops-logger@0.1.0"

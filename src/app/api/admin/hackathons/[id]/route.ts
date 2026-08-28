@@ -3,18 +3,22 @@
  * DELETE /api/admin/hackathons/[id] - Archive a hackathon (admin only)
  */
 
+import mongoose from "mongoose";
 import { NextRequest } from "next/server";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeHackathon } from "@/lib/audit/summary";
+import { requireHead } from "@/lib/api/auth";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   jsonObjectSchema,
   objectIdParamsSchema,
 } from "@/lib/api/schemas/boundary";
-import { HACKATHON_STATUSES, type HackathonStatus } from "@/lib/constants";
-import { logger } from "@/lib/utils";
-import { requireHead } from "@/lib/api/auth";
-import dbConnect from "@/lib/mongodb";
 import { invalidateCache } from "@/lib/cache";
+import { HACKATHON_STATUSES, type HackathonStatus } from "@/lib/constants";
+import dbConnect from "@/lib/mongodb";
+import { logger } from "@/lib/utils";
 import Hackathon from "@/models/Hackathon";
 
 type HackathonUpdate = {
@@ -140,10 +144,38 @@ export async function PATCH(
       );
     }
 
-    const hackathon = await Hackathon.findByIdAndUpdate(id, parsed.update, {
-      returnDocument: "after",
-      runValidators: true,
-    }).lean();
+    const dbSession = await mongoose.startSession();
+    let hackathon;
+    try {
+      hackathon = await auditedTransaction(dbSession, async (transaction) => {
+        const before = await Hackathon.findById(id).session(transaction).lean();
+        if (!before) throw new Error("Hackathon disappeared during update.");
+        const updated = await Hackathon.findByIdAndUpdate(id, parsed.update, {
+          returnDocument: "after",
+          runValidators: true,
+          session: transaction,
+        }).lean();
+        if (!updated) throw new Error("Hackathon disappeared during update.");
+        return {
+          result: updated,
+          audit: {
+            actor: auditActor(authorization.data.user),
+            category: "hackathons" as const,
+            action: "update" as const,
+            operation: "hackathons.update",
+            target: { type: "hackathon", id, label: updated.name },
+            before: summarizeHackathon(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizeHackathon(
+              updated as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
     if (!hackathon) {
       return jsonError("NOT_FOUND", "Not found.");
     }
@@ -173,13 +205,46 @@ export async function DELETE(
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id } = validatedParams.data;
     await dbConnect();
+    if (!(await Hackathon.exists({ _id: id })))
+      return jsonError("NOT_FOUND", "Not found.");
 
     // Soft archive instead of hard delete
-    const hackathon = await Hackathon.findByIdAndUpdate(
-      id,
-      { status: "archived" },
-      { returnDocument: "after", runValidators: true },
-    ).lean();
+    const dbSession = await mongoose.startSession();
+    let hackathon;
+    try {
+      hackathon = await auditedTransaction(dbSession, async (transaction) => {
+        const before = await Hackathon.findById(id).session(transaction).lean();
+        if (!before) throw new Error("Hackathon disappeared during archive.");
+        const updated = await Hackathon.findByIdAndUpdate(
+          id,
+          { status: "archived" },
+          {
+            returnDocument: "after",
+            runValidators: true,
+            session: transaction,
+          },
+        ).lean();
+        if (!updated) throw new Error("Hackathon disappeared during archive.");
+        return {
+          result: updated,
+          audit: {
+            actor: auditActor(authorization.data.user),
+            category: "hackathons" as const,
+            action: "status_change" as const,
+            operation: "hackathons.archive",
+            target: { type: "hackathon", id, label: updated.name },
+            before: summarizeHackathon(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizeHackathon(
+              updated as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
 
     if (!hackathon) {
       return jsonError("NOT_FOUND", "Not found.");

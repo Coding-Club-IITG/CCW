@@ -27,6 +27,7 @@ import {
   blogPost,
   blogSession,
 } from "../fixtures/blogs";
+import AuditLog from "@/models/AuditLog";
 
 const getSession = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
@@ -124,6 +125,15 @@ describe("blog image uploads and assets", () => {
     );
     expect(served.headers.get("x-content-type-options")).toBe("nosniff");
     expect(await served.text()).toBe("image-bytes");
+    const audit = await AuditLog.findOne().lean();
+    expect(audit).toMatchObject({
+      category: "blog",
+      action: "upload",
+      operation: "blog.asset.upload",
+      after: { title: "Blog image", mimeType: "image/png", size: 11 },
+    });
+    expect(JSON.stringify(audit)).not.toContain(body.filename);
+    expect(JSON.stringify(audit)).not.toContain("cover.png");
   });
 
   it("rejects traversal-shaped and missing asset IDs", async () => {
@@ -168,6 +178,13 @@ describe("blog image uploads and assets", () => {
     expect((await POST(uploadRequest({ slug: "published-post" }))).status).toBe(
       403,
     );
+    expect(await AuditLog.findOne()).toMatchObject({
+      category: "blog",
+      action: "upload",
+      operation: "blog.asset.upload",
+      actor: { userId: BLOG_AUTHOR_ID.toString(), access: "Member" },
+    });
+    expect(await AuditLog.countDocuments()).toBe(1);
   });
 });
 

@@ -1,7 +1,12 @@
 import mongoose from "mongoose";
+
 import { sharedServerEnv } from "@/lib/env/shared";
 
 const MONGODB_URI = sharedServerEnv.MONGODB_URI;
+
+// Automatically attach the active transaction session to nested Mongoose
+// operations, including complex bracket domain workflows.
+mongoose.set("transactionAsyncLocalStorage", true);
 
 /**
  * Global is used here to maintain a cached connection across hot reloads

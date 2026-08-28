@@ -3,29 +3,33 @@
  * POST /api/admin/blog - Create a new blog post (admin only)
  */
 
+import mongoose from "mongoose";
+import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizePublicContent } from "@/lib/audit/summary";
+import { requireHead } from "@/lib/api/auth";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   jsonObjectSchema,
   paginationQueryFields,
 } from "@/lib/api/schemas/boundary";
-import { revalidatePath } from "next/cache";
-import { requireHead } from "@/lib/api/auth";
-import dbConnect from "@/lib/mongodb";
-import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import {
-  cachedFetch,
-  buildCacheKey,
   CACHE_TTLS,
+  buildCacheKey,
+  cachedFetch,
   invalidateCache,
 } from "@/lib/cache";
+import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
+import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
+import dbConnect from "@/lib/mongodb";
 import { parsePagination, paginatedResponse } from "@/lib/pagination";
+import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
-import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
-import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 
 async function uniqueSlug(base: string): Promise<string> {
   return findUniqueSlug(base, async (slug) =>
@@ -155,18 +159,48 @@ export async function POST(request: NextRequest) {
 
     const slug = await uniqueSlug(titleToSlug(title.trim()));
 
-    const post = await BlogPost.create({
-      title: title.trim(),
-      slug,
-      content: typeof content === "string" ? content : "",
-      excerpt: typeof excerpt === "string" ? excerpt.trim() : "",
-      coverImage: typeof coverImage === "string" ? coverImage : "",
-      coverFocalPoint: parseImageFocalPoint(coverFocalPoint),
-      authors: [{ userId: user.id, name: user.name || "Unknown" }],
-      tags: validTags,
-      status: postStatus,
-      publishedAt: postStatus === "published" ? new Date() : null,
-    });
+    const dbSession = await mongoose.startSession();
+    let post;
+    try {
+      post = await auditedTransaction(dbSession, async (transaction) => {
+        const [created] = await BlogPost.create(
+          [
+            {
+              title: title.trim(),
+              slug,
+              content: typeof content === "string" ? content : "",
+              excerpt: typeof excerpt === "string" ? excerpt.trim() : "",
+              coverImage: typeof coverImage === "string" ? coverImage : "",
+              coverFocalPoint: parseImageFocalPoint(coverFocalPoint),
+              authors: [{ userId: user.id, name: user.name || "Unknown" }],
+              tags: validTags,
+              status: postStatus,
+              publishedAt: postStatus === "published" ? new Date() : null,
+            },
+          ],
+          { session: transaction },
+        );
+        return {
+          result: created,
+          audit: {
+            actor: auditActor(user),
+            category: "blog" as const,
+            action: "create" as const,
+            operation: "blog.create",
+            target: {
+              type: "blog-post",
+              id: String(created._id),
+              label: created.title,
+            },
+            after: summarizePublicContent(
+              created.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
 
     await invalidateCache("blog");
     await invalidateCache("admin:blog");

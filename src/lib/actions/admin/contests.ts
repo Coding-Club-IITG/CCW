@@ -1,31 +1,32 @@
 "use server";
 
-import { err as appError, ok, validationError } from "@/lib/api/result";
+import mongoose from "mongoose";
+import { headers } from "next/headers";
 
+import { isHead } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizeContest } from "@/lib/audit/summary";
+import { err as appError, ok, validationError } from "@/lib/api/result";
+import {
+  contestCreationDraftSchema,
+  contestCreationPayloadSchema,
+  type ContestProblemSlot,
+} from "@/lib/api/schemas/contestAction";
+import { auth } from "@/lib/auth";
+import { reconciliationQueue } from "@/lib/contests/queues";
+import { webEnv } from "@/lib/env/web";
+import dbConnect from "@/lib/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/utils";
+import ContestMatch from "@/models/ContestMatch";
+import ContestPreset from "@/models/ContestPreset";
+import CPUser from "@/models/CPUser";
 
 export const validateStep = defineAction("validateStep", validateStepAction);
 export const createBracketContest = defineAction(
   "createBracketContest",
   createBracketContestAction,
 );
-
-import { auth } from "@/lib/auth";
-import { isHead } from "@/lib/access/roles";
-import { headers } from "next/headers";
-import { webEnv } from "@/lib/env/web";
-import dbConnect from "@/lib/mongodb";
-import ContestMatch from "@/models/ContestMatch";
-import ContestPreset from "@/models/ContestPreset";
-import mongoose from "mongoose";
-import CPUser from "@/models/CPUser";
-import { reconciliationQueue } from "@/lib/contests/queues";
-import { errorToLogMetadata, logger } from "@/lib/utils";
-import {
-  contestCreationDraftSchema,
-  contestCreationPayloadSchema,
-  type ContestProblemSlot,
-} from "@/lib/api/schemas/contestAction";
 
 async function validateStepAction(step: number, input: unknown) {
   const parsed = contestCreationDraftSchema.safeParse(input);
@@ -188,59 +189,91 @@ async function createBracketContestAction(input: unknown) {
     if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
     const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
-    const contest = await ContestMatch.create({
-      name: data.name.trim(),
-      description: data.description?.trim(),
-      creatorId: cpUser._id,
-      format: "bracket",
-      mode: data.mode,
-      status: "draft",
-      teamSize: data.teamSize,
-      presetId: presetId,
-      problemSelectionMode: problemSelectionMode,
-      bulkPlatform: bulkPlatform,
-      bulkRatingMin: bulkRatingMin,
-      bulkRatingMax: bulkRatingMax,
-      bulkProblemCount: bulkProblemCount,
-      bulkMinContestId: bulkMinContestId,
-      problemSlots: problemSlots,
-      registrations: data.registeredUsers.map((registeredUser) => ({
-        userId: new mongoose.Types.ObjectId(registeredUser.id),
-        cfHandle: registeredUser.cfHandle,
-        teamName: registeredUser.teamName,
-        registeredAt: new Date(),
-      })),
-      startTime: new Date(data.startTime),
-      registrationSettings: {
-        type: data.registrationType,
-        startTime: data.registrationStartTime
-          ? new Date(data.registrationStartTime)
-          : undefined,
-        deadline: new Date(
-          new Date(data.startTime).getTime() - deadlineMinutes * 60000,
-        ), // strictly before based on ENV
-        maxParticipants: Number(data.maxParticipants),
-      },
-      bracketSettings: {
-        thirdPlacePlayoff: !!data.thirdPlacePlayoff,
-        seedingMethod: data.seedingMethod,
-      },
-    });
-
-    // Handle scheduling based on registrationStartTime and deadline
     const now = Date.now();
     const regStartTime = data.registrationStartTime
       ? new Date(data.registrationStartTime).getTime()
       : now;
-    const deadlineTime = contest.registrationSettings!.deadline!.getTime();
-
-    // Validate registration starts before it ends (only for open registration)
+    const deadlineTime =
+      new Date(data.startTime).getTime() - deadlineMinutes * 60000;
     if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
-      await ContestMatch.findByIdAndDelete(contest._id);
       return appError(
         "VALIDATION_ERROR",
         "Registration start time must be before the deadline.",
       );
+    }
+    const initialStatus =
+      data.registrationType === "closed"
+        ? "provisioning"
+        : regStartTime > now
+          ? "draft"
+          : "registration";
+    const dbSession = await mongoose.startSession();
+    let contest;
+    try {
+      contest = await auditedTransaction(dbSession, async (transaction) => {
+        const [created] = await ContestMatch.create(
+          [
+            {
+              name: data.name.trim(),
+              description: data.description?.trim(),
+              creatorId: cpUser._id,
+              format: "bracket",
+              mode: data.mode,
+              status: initialStatus,
+              teamSize: data.teamSize,
+              presetId: presetId,
+              problemSelectionMode: problemSelectionMode,
+              bulkPlatform: bulkPlatform,
+              bulkRatingMin: bulkRatingMin,
+              bulkRatingMax: bulkRatingMax,
+              bulkProblemCount: bulkProblemCount,
+              bulkMinContestId: bulkMinContestId,
+              problemSlots: problemSlots,
+              registrations: data.registeredUsers.map((registeredUser) => ({
+                userId: new mongoose.Types.ObjectId(registeredUser.id),
+                cfHandle: registeredUser.cfHandle,
+                teamName: registeredUser.teamName,
+                registeredAt: new Date(),
+              })),
+              startTime: new Date(data.startTime),
+              registrationSettings: {
+                type: data.registrationType,
+                startTime: data.registrationStartTime
+                  ? new Date(data.registrationStartTime)
+                  : undefined,
+                deadline: new Date(
+                  new Date(data.startTime).getTime() - deadlineMinutes * 60000,
+                ), // strictly before based on ENV
+                maxParticipants: Number(data.maxParticipants),
+              },
+              bracketSettings: {
+                thirdPlacePlayoff: !!data.thirdPlacePlayoff,
+                seedingMethod: data.seedingMethod,
+              },
+            },
+          ],
+          { session: transaction },
+        );
+        return {
+          result: created,
+          audit: {
+            actor: auditActor(user),
+            category: "contests" as const,
+            action: "create" as const,
+            operation: "contests.tournament.create",
+            target: {
+              type: "contest",
+              id: String(created._id),
+              label: created.name,
+            },
+            after: summarizeContest(
+              created.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
     }
 
     // Only handle start_registration scheduling for open contests
@@ -252,16 +285,9 @@ async function createBracketContestAction(input: unknown) {
           { contestId: contest._id.toString() },
           { delay: regStartTime - now },
         );
-      } else {
-        // If immediate, switch status to registration
-        contest.status = "registration";
-        await contest.save();
       }
     } else {
       // If closed, we skip the registration phase and go straight to provisioning.
-      contest.status = "provisioning";
-      await contest.save();
-
       // Invoke check_start immediately to generate the bracket
       await reconciliationQueue.add("check_start", {
         contestId: contest._id.toString(),

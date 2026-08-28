@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { responseData, responseError } from "../utils/result";
 import path from "path";
 import { writeFile } from "fs/promises";
 import {
@@ -12,6 +11,14 @@ import {
   vi,
 } from "vitest";
 
+import AuditLog from "@/models/AuditLog";
+import {
+  FILE_MEMBER_ID,
+  FILE_OWNER_ID,
+  fileEntry,
+  fileSession,
+  restrictedAcl,
+} from "../fixtures/files";
 import {
   clearTestMongo,
   startTestMongo,
@@ -22,13 +29,7 @@ import {
   startTestUploadDirectory,
   stopTestUploadDirectory,
 } from "../utils/filesystem";
-import {
-  FILE_MEMBER_ID,
-  FILE_OWNER_ID,
-  fileEntry,
-  fileSession,
-  restrictedAcl,
-} from "../fixtures/files";
+import { responseData, responseError } from "../utils/result";
 
 const getSession = vi.hoisted(() => vi.fn());
 const invalidateCache = vi.hoisted(() => vi.fn());
@@ -257,6 +258,13 @@ describe("individual file route", () => {
       storedName: saved.storedName,
     });
     expect(updated?.uploadedBy.toString()).toBe(FILE_OWNER_ID.toString());
+    expect(await AuditLog.findOne()).toMatchObject({
+      category: "files",
+      action: "update",
+      operation: "files.metadata.update",
+      before: { title: "Club handbook" },
+      after: { title: "Updated handbook", category: "Policies" },
+    });
   });
 
   it("deletes owned metadata and disk content and invalidates the file cache", async () => {
@@ -276,6 +284,15 @@ describe("individual file route", () => {
     expect(await FileEntry.findById(saved._id)).toBeNull();
     expect(await listTestUploads(uploadDirectory)).toEqual([]);
     expect(invalidateCache).toHaveBeenCalledWith("files");
+    const audit = await AuditLog.findOne().lean();
+    expect(audit).toMatchObject({
+      category: "files",
+      action: "delete",
+      operation: "files.delete",
+      before: { title: "Club handbook" },
+      after: {},
+    });
+    expect(JSON.stringify(audit)).not.toContain(saved.storedName);
   });
 });
 
