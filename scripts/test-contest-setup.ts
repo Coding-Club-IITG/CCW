@@ -732,6 +732,39 @@ async function buildBracket(
   );
   allRoomIds.push(finalRoom._id.toString());
 
+  // Future-round rooms need their problem list before teams advance into them.
+  // initBracketRoomRedis only prepares state and team keys when the second
+  // finalist arrives; it intentionally preserves this pre-seeded list.
+  const finalProblems = testPool.slice(0, 3);
+  await ContestProblemSet.findOneAndUpdate(
+    { contestId: contest._id, roomId: finalRoom._id },
+    {
+      contestId: contest._id,
+      roomId: finalRoom._id,
+      problems: finalProblems.map((p) => ({
+        platform: "codeforces",
+        problemId: p.problemId,
+        name: p.name,
+        rating: p.rating,
+        points: Math.floor((p.rating || 1000) / 10),
+      })),
+    },
+    { upsert: true },
+  );
+  await redis.del(`room:${finalRoom._id.toString()}:problems`);
+  await redis.rPush(
+    `room:${finalRoom._id.toString()}:problems`,
+    finalProblems.map((p) =>
+      JSON.stringify({
+        problemId: p.problemId,
+        name: p.name,
+        rating: p.rating,
+        points: Math.floor((p.rating || 1000) / 10),
+        revealedAt: null,
+      }),
+    ),
+  );
+
   round1.rooms = round1RoomIds;
   await round1.save();
   finalRound.rooms = [finalRoom._id];

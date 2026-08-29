@@ -473,7 +473,10 @@ export default function BlitzRoomClient({
     if (syncing || matchState !== "active" || syncCooldown > 0) return;
     setSyncing(true);
     const activeProblem = problems[currentProblemIndex];
-    if (!activeProblem) return;
+    if (!activeProblem) {
+      setSyncing(false);
+      return;
+    }
 
     const res = await fetch("/api/contests/sync", {
       method: "POST",
