@@ -12,7 +12,6 @@ import {
   getBracketSnapshot,
   type DeferredBracketEffect,
 } from "@/lib/contests/bracket";
-import { webEnv } from "@/lib/env/web";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import ContestMatch from "@/models/ContestMatch";
@@ -29,18 +28,9 @@ export async function POST(
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id } = validatedParams.data;
 
-    const isDev = webEnv.NODE_ENV === "development";
-    const testUserId = request.headers.get("x-test-user-id");
-    let actor = {
-      id: testUserId || "dev-bypass",
-      name: "Development user",
-      access: "Admin",
-    };
-    if (!isDev || !testUserId) {
-      const authorization = await requireHead(request);
-      if (!authorization.ok) return jsonResult(authorization);
-      actor = authorization.data.user;
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
+    const actor = authorization.data.user;
 
     await dbConnect();
     const { snapshot, deferredEffects } = await mongoose.connection.transaction(

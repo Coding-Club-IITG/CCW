@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import "@/styles/globals.scss";
 import Providers from "@/components/layout/Providers";
 import { ogImage, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { webEnv } from "@/lib/env/web";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -62,7 +63,14 @@ export default async function RootLayout({
       className={`${hankenGrotesk.variable} ${inter.variable} ${jetBrainsMono.variable}`}
     >
       <body>
-        <Providers>{children}</Providers>
+        <Providers
+          runtimeConfig={{
+            developmentAuthEnabled: webEnv.DEV_AUTH_ENABLED,
+            userRateLimitsEnabled: !webEnv.DEV_DISABLE_USER_RATE_LIMITS,
+          }}
+        >
+          {children}
+        </Providers>
       </body>
     </html>
   );

@@ -20,6 +20,7 @@ import {
   PLATFORM_DISPLAY_NAMES,
   PLATFORM_PROBLEM_URLS,
 } from "@/lib/constants";
+import { useRuntimeConfig } from "@/components/layout/Providers";
 
 type Props = {
   cfVerified: boolean;
@@ -32,6 +33,7 @@ export default function DailyChallengeClient({
   acVerified,
   initialData,
 }: Props) {
+  const { userRateLimitsEnabled } = useRuntimeConfig();
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [hoursLeft, setHoursLeft] = useState<number>(0);
   const [isClient, setIsClient] = useState(false);
@@ -126,7 +128,9 @@ export default function DailyChallengeClient({
 
     try {
       const result = await syncMySubmission(challengeId);
-      setCooldowns((p) => ({ ...p, [challengeId]: 60 }));
+      if (userRateLimitsEnabled) {
+        setCooldowns((p) => ({ ...p, [challengeId]: 60 }));
+      }
 
       if (result.ok) {
         const submission = result.data;

@@ -12,7 +12,6 @@ import {
   type CfSyncQueueData,
   type UserEvent,
 } from "@/lib/contests/runtime";
-import { workerEnv } from "@/lib/env/worker";
 import { syncCodeforcesProblems } from "@/lib/jobs/cfProblemSync";
 import dbConnect from "@/lib/mongodb";
 import { bullMqConnection } from "@/lib/bullmq";
@@ -137,37 +136,12 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
           lowerTimestamp + (contest.durationSeconds || 3600) * 1000 + 120000;
 
         // 2. Fetch CF Submissions (last 20)
-        let submissions: CFSubmission[] = [];
-        if (workerEnv.NODE_ENV === "development") {
-          const match = problemId.match(/^(\d+)([A-Za-z].*)$/);
-          const cId = match ? parseInt(match[1]) : 0;
-          const idx = match ? match[2] : problemId;
-
-          submissions = [
-            {
-              id: Math.floor(Math.random() * 1000000),
-              creationTimeSeconds: Math.floor(Date.now() / 1000),
-              problem: {
-                contestId: cId,
-                index: idx,
-                name: "Mock Problem",
-                type: "PROGRAMMING",
-                tags: [],
-              },
-              author: {
-                members: [{ handle: cfHandle }],
-              },
-              programmingLanguage: "C++",
-              verdict: "OK",
-              testset: "TESTS",
-              passedTestCount: 1,
-              timeConsumedMillis: 0,
-              memoryConsumedBytes: 0,
-            },
-          ];
-        } else {
-          submissions = await fetchCodeforcesUserStatus(cfHandle, 20);
-        }
+        const submissions: CFSubmission[] = await fetchCodeforcesUserStatus(
+          cfHandle,
+          20,
+          1,
+          problemId,
+        );
 
         // 3. Validation Matrix
         let isValid = false;

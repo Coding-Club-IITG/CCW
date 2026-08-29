@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { webEnv } from "@/lib/env/web";
 import { auth } from "@/lib/auth";
 import { getRedis } from "@/lib/redis";
 import { publishUser } from "@/lib/contests/events";
@@ -8,21 +7,20 @@ import { cfSyncQueue } from "@/lib/contests/queues";
 import { logger } from "@/lib/utils";
 import { parseJson } from "@/lib/api/result";
 import { contestSyncSchema } from "@/lib/api/schemas/contestRoute";
+import {
+  consumeUserRateLimit,
+  releaseUserRateLimit,
+} from "@/lib/userRateLimit";
+import { webEnv } from "@/lib/env/web";
 
 export async function POST(request: NextRequest) {
+  let consumedForUser: string | undefined;
   try {
-    let userId = "";
-
-    const testUserId = request.headers.get("x-test-user-id");
-    if (webEnv.NODE_ENV === "development" && testUserId) {
-      userId = testUserId;
-    } else {
-      const session = await auth.api.getSession({ headers: request.headers });
-      if (!session || !session.user) {
-        return jsonError("UNAUTHENTICATED", "Unauthorized");
-      }
-      userId = session.user.id;
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session?.user) {
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
+    const userId = session.user.id;
 
     const body = await parseJson(request, contestSyncSchema);
     if (!body.ok) return jsonResult(body);
@@ -30,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     const redis = await getRedis();
 
-    // Resolve teamId if not provided: check which team contains this userId
+    // 1. Resolve teamId if not provided
     let resolvedTeamId = teamId;
     if (!resolvedTeamId) {
       const teams = await redis.sMembers(`room:${roomId}:teams`);
@@ -49,22 +47,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const rateLimitKey = `ratelimit:sync:${userId}`;
-
-    // 1. Check ratelimit
-    if (webEnv.NODE_ENV !== "development") {
-      const cooldown = webEnv.SYNC_COOLDOWN;
-      const isRateLimited = await redis.exists(rateLimitKey);
-      if (isRateLimited) {
-        return jsonError(
-          "RATE_LIMITED",
-          `Rate limit exceeded. Please wait ${cooldown} seconds.`,
-        );
-      }
-
-      // 2. Set ratelimit (cooldown TTL)
-      await redis.set(rateLimitKey, "1", { EX: cooldown });
+    // 2. Check rate limit
+    const rateLimit = await consumeUserRateLimit(
+      "contest-sync",
+      userId,
+      webEnv.SYNC_COOLDOWN,
+    );
+    if (!rateLimit.allowed) {
+      return jsonError(
+        "RATE_LIMITED",
+        `Rate limit exceeded. Please wait ${rateLimit.retryAfter} seconds.`,
+      );
     }
+    consumedForUser = userId;
 
     // 3. Enqueue job
     const jobData = {
@@ -98,6 +93,9 @@ export async function POST(request: NextRequest) {
     // 6. Return 202
     return jsonOk({ queued: true }, { status: 202 });
   } catch (error: unknown) {
+    if (consumedForUser) {
+      await releaseUserRateLimit("contest-sync", consumedForUser);
+    }
     logger.error("[/api/contests/sync] Error enqueuing sync job:", error);
     return jsonError("INTERNAL_ERROR", "Internal Server Error");
   }

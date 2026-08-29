@@ -6,6 +6,7 @@
 import { cp, type CFSubmission } from "@ronits2407/cp-api";
 import { getRedis } from "@/lib/redis";
 import { errorToLogMetadata, logger } from "@/lib/utils";
+import { sharedServerEnv } from "@/lib/env/shared";
 
 const DISTRIBUTED_CODEFORCES_SLOT_KEY = "ccw:platform:codeforces:request-slot";
 const DISTRIBUTED_CODEFORCES_SLOT_SECONDS = 2;
@@ -26,19 +27,58 @@ export async function getUserInfo(handles: string | string[]) {
  * Fetch recent submissions for a user
  */
 export async function getUserSubmissions(handle: string, count: number = 100) {
-  return cp.codeforces.getSubmissions(handle, { count });
+  return fetchCodeforcesUserStatus(handle, count);
+}
+
+function mockSubmission(
+  handle: string,
+  targetProblemId: string,
+  timeMs: number,
+) {
+  const match = targetProblemId.match(/^(\d+)([A-Za-z].*)$/);
+  const contestId = match ? Number(match[1]) : 0;
+  const index = match?.[2] ?? targetProblemId;
+  let id = 17;
+  for (const char of `${handle}:${targetProblemId}`)
+    id = (id * 31 + char.charCodeAt(0)) % 1_000_000_000;
+  return {
+    id,
+    creationTimeSeconds: Math.floor(timeMs / 1000),
+    problem: {
+      contestId,
+      index,
+      name: "Development mock",
+      type: "PROGRAMMING",
+      tags: [],
+    },
+    author: { members: [{ handle }] },
+    programmingLanguage: "GNU C++17",
+    verdict: "OK",
+    testset: "TESTS",
+    passedTestCount: 1,
+    timeConsumedMillis: 0,
+    memoryConsumedBytes: 0,
+  } as CFSubmission;
 }
 
 export async function fetchCodeforcesUserStatus(
   handle: string,
   count?: number,
   from: number = 1,
+  targetProblemId?: string,
 ): Promise<CFSubmission[]> {
   logger.debug("Codeforces submissions fetch started", {
     operation: "fetch_submissions",
     count,
     from,
   });
+  if (sharedServerEnv.DEV_MOCK_CF_SUBMISSIONS) {
+    if (!targetProblemId || from > 1 || count === 0) return [];
+    return [mockSubmission(handle, targetProblemId, Date.now())].slice(
+      0,
+      count,
+    );
+  }
   return cp.codeforces.getSubmissions(handle, { count, from });
 }
 
@@ -67,7 +107,15 @@ export async function prefetchUserSolvedHistory(handle: string): Promise<void> {
 /**
  * Fetch ALL of a user's submissions newer than 'sinceMs'
  */
-export async function getUserSubmissionsSince(handle: string, sinceMs: number) {
+export async function getUserSubmissionsSince(
+  handle: string,
+  sinceMs: number,
+  targetProblemId?: string,
+) {
+  if (sharedServerEnv.DEV_MOCK_CF_SUBMISSIONS) {
+    if (!targetProblemId) return [];
+    return [mockSubmission(handle, targetProblemId, sinceMs + 1_000)];
+  }
   return cp.codeforces.getSubmissionsSince(handle, sinceMs);
 }
 

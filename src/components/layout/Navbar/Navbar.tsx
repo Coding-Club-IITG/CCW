@@ -26,6 +26,20 @@ import { useCommandConsole } from "@/components/atlas/CommandConsole";
 import CreditsModal from "./CreditsModal";
 import NotificationBell from "./NotificationBell";
 import styles from "./Navbar.module.scss";
+import Modal from "@/components/shared/Modal";
+import UserSearch, {
+  type UserSearchItem,
+} from "@/components/shared/UserSearch";
+import { expectAppData } from "@/lib/api/result";
+import { useRuntimeConfig } from "@/components/layout/Providers";
+
+async function searchDevelopmentUsers(query: string, signal: AbortSignal) {
+  const response = await fetch(
+    `/api/dev/users?query=${encodeURIComponent(query)}`,
+    { signal },
+  );
+  return expectAppData<UserSearchItem[]>(response);
+}
 
 const PUBLIC_LINKS = [
   { href: "/", label: "Home" },
@@ -52,8 +66,10 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
+  const [identityPickerOpen, setIdentityPickerOpen] = useState(false);
   const { theme, toggleTheme } = useThemeStore();
-  const { viewMode, toggleViewMode } = useViewModeStore();
+  const { viewMode, toggleViewMode, setViewMode } = useViewModeStore();
+  const { developmentAuthEnabled } = useRuntimeConfig();
   const commandConsole = useCommandConsole();
   const navbarRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -204,6 +220,18 @@ export default function Navbar() {
                       )}
                     </>
                   )}
+                  {developmentAuthEnabled && (
+                    <button
+                      className={styles.userMenuItem}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setIdentityPickerOpen(true);
+                      }}
+                    >
+                      <Users aria-hidden="true" size={14} />
+                      Switch user
+                    </button>
+                  )}
                   <button
                     className={styles.userMenuItem}
                     onClick={() => {
@@ -248,6 +276,10 @@ export default function Navbar() {
             <button
               disabled={isLoggingIn || isPending}
               onClick={async () => {
+                if (developmentAuthEnabled) {
+                  setIdentityPickerOpen(true);
+                  return;
+                }
                 setIsLoggingIn(true);
                 await signIn.social({
                   provider: "microsoft",
@@ -282,6 +314,38 @@ export default function Navbar() {
             );
           }}
         />
+      )}
+      {identityPickerOpen && (
+        <Modal
+          title="Login as…"
+          description="Choose an existing development user."
+          onClose={() => setIdentityPickerOpen(false)}
+          maxWidth={480}
+        >
+          <UserSearch
+            minLength={0}
+            search={searchDevelopmentUsers}
+            placeholder="Search users by name…"
+            onSelect={async (selected) => {
+              setIsLoggingIn(true);
+              if (session) {
+                await cleanupPushBeforeLogout();
+                await signOut();
+              }
+              const response = await fetch("/api/auth/dev/sign-in", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: selected.id }),
+              });
+              await expectAppData(response);
+              setViewMode("internal");
+              setIdentityPickerOpen(false);
+              setIsLoggingIn(false);
+              router.replace("/internal/dashboard");
+              router.refresh();
+            }}
+          />
+        </Modal>
       )}
     </nav>
   );

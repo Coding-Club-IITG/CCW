@@ -32,6 +32,36 @@ describe("runtime environment schemas", () => {
     });
   });
 
+  it("enables development features only in development", () => {
+    expect(
+      parseWebEnv({
+        ...required,
+        DEV_AUTH_ENABLED: "true",
+        DEV_MOCK_CF_SUBMISSIONS: "true",
+        DEV_DISABLE_USER_RATE_LIMITS: "true",
+      }),
+    ).toMatchObject({
+      DEV_AUTH_ENABLED: true,
+      DEV_MOCK_CF_SUBMISSIONS: true,
+      DEV_DISABLE_USER_RATE_LIMITS: true,
+    });
+    expect(() =>
+      parseTestEnv({
+        NODE_ENV: "test",
+        MONGODB_TEST_URI: required.MONGODB_URI,
+        DEV_AUTH_ENABLED: "true",
+      }),
+    ).toThrow(/DEV_AUTH_ENABLED/);
+    expect(() =>
+      parseWorkerEnv({
+        NODE_ENV: "production",
+        MONGODB_URI: required.MONGODB_URI,
+        REDIS_URL: required.REDIS_URL,
+        DEV_MOCK_CF_SUBMISSIONS: "true",
+      }),
+    ).toThrow(/DEV_MOCK_CF_SUBMISSIONS/);
+  });
+
   it("does not require web credentials for workers", () => {
     expect(
       parseWorkerEnv({
@@ -138,7 +168,8 @@ describe("runtime environment schemas", () => {
       parseTestEnv({ MONGODB_TEST_URI: required.MONGODB_URI }).REDIS_URL,
     ).toBe("redis://localhost:6379");
     expect(
-      parseTestEnv({ MONGODB_TEST_URI: required.MONGODB_URI }).MOCK_CF_API,
+      parseTestEnv({ MONGODB_TEST_URI: required.MONGODB_URI })
+        .DEV_MOCK_CF_SUBMISSIONS,
     ).toBe(false);
   });
 

@@ -5,6 +5,7 @@ type ViewMode = "internal" | "public";
 interface ViewModeState {
   viewMode: ViewMode;
   toggleViewMode: () => void;
+  setViewMode: (mode: ViewMode) => void;
 }
 
 function setViewModeCookie(mode: ViewMode) {
@@ -25,4 +26,8 @@ export const useViewModeStore = create<ViewModeState>((set) => ({
       setViewModeCookie(next);
       return { viewMode: next };
     }),
+  setViewMode: (viewMode) => {
+    setViewModeCookie(viewMode);
+    set({ viewMode });
+  },
 }));

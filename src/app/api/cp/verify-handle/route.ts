@@ -7,7 +7,7 @@ import { headers } from "next/headers";
 import User from "@/models/User";
 import CPUser from "@/models/CPUser";
 import { dbConnect } from "@/lib/mongodb";
-import { getRedis } from "@/lib/redis";
+import { consumeUserRateLimit } from "@/lib/userRateLimit";
 import { getUserAffiliation } from "@/lib/platforms/atcoder";
 import { acquireDistributedCodeforcesSlot } from "@/lib/platforms/codeforces";
 import { errorToLogMetadata, logger } from "@/lib/utils";
@@ -65,12 +65,16 @@ async function verifyCF(cpUserDoc: any, userId: string) {
     return jsonError("VALIDATION_ERROR", "No handle pending verification.");
   }
 
-  const redis = await getRedis();
-  const redisKey = `cf:verify:lock:${userId}`;
-  const isLocked = await redis.get(redisKey);
-  if (isLocked) {
-    const ttl = await redis.ttl(redisKey);
-    return jsonError("RATE_LIMITED", `Try again in ${ttl} seconds`);
+  const rateLimit = await consumeUserRateLimit(
+    "codeforces-verification",
+    userId,
+    60,
+  );
+  if (!rateLimit.allowed) {
+    return jsonError(
+      "RATE_LIMITED",
+      `Try again in ${rateLimit.retryAfter} seconds`,
+    );
   }
 
   const cfLocked = await acquireDistributedCodeforcesSlot();
@@ -80,8 +84,6 @@ async function verifyCF(cpUserDoc: any, userId: string) {
       "Codeforces is busy, please try again in a few seconds.",
     );
   }
-
-  await redis.set(redisKey, "1", { EX: 60 });
 
   let userInfo;
   try {
@@ -135,15 +137,17 @@ async function verifyAC(cpUserDoc: any, userId: string) {
     return jsonError("VALIDATION_ERROR", "No handle pending verification.");
   }
 
-  const redis = await getRedis();
-  const redisKey = `ac:verify:lock:${userId}`;
-  const isLocked = await redis.get(redisKey);
-  if (isLocked) {
-    const ttl = await redis.ttl(redisKey);
-    return jsonError("RATE_LIMITED", `Try again in ${ttl} seconds`);
+  const rateLimit = await consumeUserRateLimit(
+    "atcoder-verification",
+    userId,
+    60,
+  );
+  if (!rateLimit.allowed) {
+    return jsonError(
+      "RATE_LIMITED",
+      `Try again in ${rateLimit.retryAfter} seconds`,
+    );
   }
-
-  await redis.set(redisKey, "1", { EX: 60 });
 
   // AtCoder verification: check affiliation field
   const affiliation = await getUserAffiliation(handle);

@@ -14,7 +14,6 @@ import {
   processWalkover,
   type DeferredBracketEffect,
 } from "@/lib/contests/bracket";
-import { webEnv } from "@/lib/env/web";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 
@@ -30,20 +29,10 @@ export async function POST(
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id: roomId } = validatedParams.data;
 
-    const isDev = webEnv.NODE_ENV === "development";
-    const testUserId = request.headers.get("x-test-user-id");
-    let adminUserId = "dev-bypass";
-    let actor = {
-      id: testUserId || "dev-bypass",
-      name: "Development user",
-      access: "Admin",
-    };
-    if (!isDev || !testUserId) {
-      const authorization = await requireHead(request);
-      if (!authorization.ok) return jsonResult(authorization);
-      adminUserId = authorization.data.user.id;
-      actor = authorization.data.user;
-    }
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
+    const adminUserId = authorization.data.user.id;
+    const actor = authorization.data.user;
 
     const body = await parseJson(request, contestWalkoverSchema);
     if (!body.ok) return jsonResult(body);

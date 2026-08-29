@@ -6,7 +6,6 @@ import ContestMatch from "@/models/ContestMatch";
 import CPUser from "@/models/CPUser";
 import mongoose from "mongoose";
 import { errorToLogMetadata, logger } from "@/lib/utils";
-import { webEnv } from "@/lib/env/web";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import {
   contestIdParamsSchema,
@@ -25,19 +24,11 @@ export async function POST(
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id } = validatedParams.data;
 
-    // Support mock authentication for testing script
-    const testUserId = request.headers.get("x-test-user-id");
-    let userId: string;
-
-    if (webEnv.NODE_ENV === "development" && testUserId) {
-      userId = testUserId;
-    } else {
-      const session = await auth.api.getSession({ headers: request.headers });
-      if (!session) {
-        return jsonError("UNAUTHENTICATED", "Unauthorized");
-      }
-      userId = session.user.id;
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session?.user) {
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
+    const userId = session.user.id;
 
     await dbConnect();
     const contest = await ContestMatch.findById(id);

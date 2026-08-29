@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { jsonError, jsonResult } from "@/lib/api/result.server";
-import { webEnv } from "@/lib/env/web";
 import { auth } from "@/lib/auth";
+import { webEnv } from "@/lib/env/web";
 import { getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
 import dbConnect from "@/lib/mongodb";
@@ -18,20 +18,11 @@ import { contestStreamQuerySchema } from "@/lib/api/schemas/contestRoute";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  let userId = "";
-
-  if (
-    webEnv.NODE_ENV === "development" &&
-    request.headers.get("x-test-user-id")
-  ) {
-    userId = request.headers.get("x-test-user-id")!;
-  } else {
-    const session = await auth.api.getSession({ headers: request.headers });
-    if (!session || !session.user) {
-      return jsonError("UNAUTHENTICATED", "Unauthorized");
-    }
-    userId = session.user.id;
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) {
+    return jsonError("UNAUTHENTICATED", "Unauthorized");
   }
+  const userId = session.user.id;
 
   const query = parseSearchParams(
     request.nextUrl.searchParams,

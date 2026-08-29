@@ -44,6 +44,10 @@ import { revalidatePath } from "next/cache";
 import dbConnect from "@/lib/mongodb";
 import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache";
 import { getRedis } from "@/lib/redis";
+import {
+  consumeUserRateLimit,
+  releaseUserRateLimit,
+} from "@/lib/userRateLimit";
 import { prepareSearchQuery } from "@/lib/search";
 import { renderProblemMath } from "@/lib/platforms/problemContent";
 import User, { type UserRecord } from "@/models/User";
@@ -364,18 +368,19 @@ async function syncMySubmissionAction(challengeId: string) {
   const redis = await getRedis();
 
   // L1: Rate-limit - one manual sync per 60s per user
-  const rateLimitKey = `potd:sync:ratelimit:${userId}`;
-  const rateLimitSet = await redis.set(rateLimitKey, "1", { NX: true, EX: 60 });
-  if (!rateLimitSet) {
-    const ttl = await redis.ttl(rateLimitKey);
-    return appError("RATE_LIMITED", `Please wait ${ttl}s before syncing again`);
+  const rateLimit = await consumeUserRateLimit("potd-sync", userId, 60);
+  if (!rateLimit.allowed) {
+    return appError(
+      "RATE_LIMITED",
+      `Please wait ${rateLimit.retryAfter}s before syncing again`,
+    );
   }
 
   // L2: Advisory lock - prevents duplicate concurrent requests
   const advisoryKey = `potd:sync:lock:${userId}:${challengeId}`;
   const advisorySet = await redis.set(advisoryKey, "1", { NX: true, EX: 30 });
   if (!advisorySet) {
-    await redis.del(rateLimitKey);
+    await releaseUserRateLimit("potd-sync", userId);
     return appError("CONFLICT", "Sync already in progress");
   }
 
@@ -383,7 +388,7 @@ async function syncMySubmissionAction(challengeId: string) {
   const cronKey = `potd:cron:lock:${challengeId}`;
   const cronRunning = await redis.get(cronKey);
   if (cronRunning) {
-    await redis.del(rateLimitKey);
+    await releaseUserRateLimit("potd-sync", userId);
     await redis.del(advisoryKey);
     return appError(
       "SERVICE_UNAVAILABLE",
@@ -407,7 +412,7 @@ async function syncMySubmissionAction(challengeId: string) {
     if (platform === "codeforces") {
       const cfApiLocked = await acquireDistributedCodeforcesSlot();
       if (!cfApiLocked) {
-        await redis.del(rateLimitKey);
+        await releaseUserRateLimit("potd-sync", userId);
         await redis.del(advisoryKey);
         return appError("INTERNAL_ERROR", "An unexpected error occurred.");
       }
@@ -416,8 +421,10 @@ async function syncMySubmissionAction(challengeId: string) {
         platformSubs = await getUserSubmissionsSince(
           user.codeforcesId,
           challenge.windowStart.getTime(),
+          `${problem.contestId}${problem.problemIndex}`,
         );
       } catch (err) {
+        await releaseUserRateLimit("potd-sync", userId);
         logger.warn("[syncMySubmission] CF API error", { err });
         return appError(
           "EXTERNAL_DEPENDENCY_FAILURE",
@@ -435,6 +442,7 @@ async function syncMySubmissionAction(challengeId: string) {
           windowStartEpoch,
         );
       } catch (err) {
+        await releaseUserRateLimit("potd-sync", userId);
         logger.warn("[syncMySubmission] AtCoder API error", { err });
         return appError(
           "EXTERNAL_DEPENDENCY_FAILURE",
@@ -454,6 +462,7 @@ async function syncMySubmissionAction(challengeId: string) {
 
     return ok({ status: newStatus, pointsAwarded });
   } catch (err) {
+    await releaseUserRateLimit("potd-sync", userId);
     logger.error("[syncMySubmission] Error", { err });
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   } finally {

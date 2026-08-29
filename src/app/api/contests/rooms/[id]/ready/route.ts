@@ -14,7 +14,6 @@ import {
   parseContestRoomProblems,
 } from "@/lib/contests/runtime";
 import { errorToLogMetadata, logger } from "@/lib/utils";
-import { webEnv } from "@/lib/env/web";
 import { parseRouteParams } from "@/lib/api/result";
 import { contestIdParamsSchema } from "@/lib/api/schemas/contestRoute";
 
@@ -23,18 +22,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    let userId = "";
-
-    const testUserId = req.headers.get("x-test-user-id");
-    if (webEnv.NODE_ENV === "development" && testUserId) {
-      userId = testUserId;
-    } else {
-      const session = await auth.api.getSession({ headers: req.headers });
-      if (!session || !session.user) {
-        return jsonError("UNAUTHENTICATED", "Unauthorized");
-      }
-      userId = session.user.id;
+    const session = await auth.api.getSession({ headers: req.headers });
+    if (!session?.user) {
+      return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
+    const userId = session.user.id;
 
     const validatedParams = parseRouteParams(
       await params,

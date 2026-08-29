@@ -65,3 +65,6 @@ Before contributing, read:
 
 - [Contributing guidelines](./CONTRIBUTING.md)
 - [Project context](./CONTEXT.md)
+
+For development, run `pnpm seed` and use `DEV_AUTH_ENABLED=true`.
+Development identities use genuine sessions and preserve normal permissions.

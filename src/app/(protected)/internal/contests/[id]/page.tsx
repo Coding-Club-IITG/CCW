@@ -4,6 +4,7 @@ import ArenaRoomClient from "@/components/contests/ArenaRoomClient";
 import BracketRoomClient from "@/components/contests/BracketRoomClient";
 import { notFound } from "next/navigation";
 import { webEnv } from "@/lib/env/web";
+import { userRateLimitsEnabled } from "@/lib/userRateLimit";
 import {
   contestRoomStateSchema,
   parseContestRoomProblems,
@@ -256,7 +257,7 @@ export default async function ContestRoomPage({
     const userDoc = userMap.get(userId);
     const cfHandle = cpUser?.cfHandle || userDoc?.codeforcesId || "dummy0";
 
-    const syncCooldown = webEnv.SYNC_COOLDOWN;
+    const syncCooldown = userRateLimitsEnabled ? webEnv.SYNC_COOLDOWN : 0;
 
     if (contest.mode === "blitz") {
       return (

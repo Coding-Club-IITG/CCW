@@ -71,6 +71,30 @@ const boolean = (name: string, fallback: boolean) =>
     ),
   );
 
+const developmentFlags = {
+  DEV_AUTH_ENABLED: boolean("DEV_AUTH_ENABLED", false),
+  DEV_MOCK_CF_SUBMISSIONS: boolean("DEV_MOCK_CF_SUBMISSIONS", false),
+  DEV_DISABLE_USER_RATE_LIMITS: boolean("DEV_DISABLE_USER_RATE_LIMITS", false),
+};
+
+function validateDevelopmentFlags(
+  value: { NODE_ENV: string } & Record<keyof typeof developmentFlags, boolean>,
+  ctx: z.RefinementCtx,
+) {
+  if (value.NODE_ENV === "development") return;
+  for (const name of Object.keys(developmentFlags) as Array<
+    keyof typeof developmentFlags
+  >) {
+    if (value[name]) {
+      ctx.addIssue({
+        code: "custom",
+        path: [name],
+        message: `${name} may only be enabled in development`,
+      });
+    }
+  }
+}
+
 const origins = z
   .string({ error: "TRUSTED_ORIGINS is required" })
   .trim()
@@ -129,6 +153,7 @@ const baseSchema = z.object({
 });
 
 const sharedServerSchema = baseSchema.extend({
+  ...developmentFlags,
   MONGODB_URI: mongoUrl,
   REDIS_URL: redisUrl,
   OPS_LOGGING_ENABLED: boolean("OPS_LOGGING_ENABLED", false),
@@ -189,6 +214,7 @@ function validateSharedConfiguration(
   value: z.infer<typeof sharedServerSchema>,
   ctx: z.RefinementCtx,
 ) {
+  validateDevelopmentFlags(value, ctx);
   validateWebPushGroup(value, ctx);
   if (
     value.NODE_ENV === "production" &&
@@ -276,15 +302,17 @@ export const cliEnvSchema = sharedServerSchema
   .extend(uploadSchema.shape)
   .superRefine(validateSharedConfiguration);
 
-export const testEnvSchema = baseSchema.extend({
-  MONGODB_TEST_URI: urlWithProtocols("MONGODB_TEST_URI", [
-    "mongodb:",
-    "mongodb+srv:",
-  ]),
-  MONGODB_URI: mongoUrl.optional(),
-  REDIS_URL: redisUrl.default("redis://localhost:6379"),
-  MOCK_CF_API: boolean("MOCK_CF_API", false),
-});
+export const testEnvSchema = baseSchema
+  .extend({
+    ...developmentFlags,
+    MONGODB_TEST_URI: urlWithProtocols("MONGODB_TEST_URI", [
+      "mongodb:",
+      "mongodb+srv:",
+    ]),
+    MONGODB_URI: mongoUrl.optional(),
+    REDIS_URL: redisUrl.default("redis://localhost:6379"),
+  })
+  .superRefine(validateDevelopmentFlags);
 
 export const browserEnvSchema = z.object({
   DISABLE_NOTIFICATION_POLLING: boolean("DISABLE_NOTIFICATION_POLLING", false),
