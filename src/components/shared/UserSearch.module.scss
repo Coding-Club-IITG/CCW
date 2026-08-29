@@ -1,6 +1,17 @@
 .wrapper {
   position: relative;
 }
+.inlineResults {
+  display: flex;
+  min-height: 20rem;
+  flex-direction: column;
+
+  .results {
+    position: static;
+    max-height: 17rem;
+    overflow-y: auto;
+  }
+}
 .inputWrap {
   display: flex;
   align-items: center;

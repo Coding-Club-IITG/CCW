@@ -21,6 +21,7 @@ interface UserSearchProps {
   placeholder?: string;
   search?: (query: string, signal: AbortSignal) => Promise<UserSearchItem[]>;
   minLength?: number;
+  inlineResults?: boolean;
 }
 
 async function defaultSearch(query: string, signal: AbortSignal) {
@@ -50,6 +51,7 @@ export default function UserSearch({
   placeholder = "Search users by name or email…",
   search = defaultSearch,
   minLength = 2,
+  inlineResults = false,
 }: UserSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchItem[]>([]);
@@ -89,7 +91,9 @@ export default function UserSearch({
   }, [excluded, minLength, query, search]);
 
   return (
-    <div className={styles.wrapper}>
+    <div
+      className={`${styles.wrapper} ${inlineResults ? styles.inlineResults : ""}`}
+    >
       <div className={styles.inputWrap}>
         <Search aria-hidden="true" size={15} />
         <input

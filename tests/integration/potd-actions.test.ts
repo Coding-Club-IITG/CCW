@@ -258,7 +258,7 @@ describe("POTD member actions", () => {
   it("enforces the per-member sync rate limit", async () => {
     const { syncMySubmission } = await import("@/lib/actions/potd");
     const challenge = await verifiedChallenge(userId);
-    redisValues.set(`potd:sync:ratelimit:${userId}`, "1");
+    redisValues.set(`user-rate-limit:potd-sync:${userId}`, "1");
 
     await expect(syncMySubmission(challenge._id.toString())).resolves.toEqual({
       ok: false,
@@ -281,7 +281,7 @@ describe("POTD member actions", () => {
       ok: false,
       error: { code: "CONFLICT", message: "Sync already in progress" },
     });
-    expect(redisValues.has(`potd:sync:ratelimit:${userId}`)).toBe(false);
+    expect(redisValues.has(`user-rate-limit:potd-sync:${userId}`)).toBe(false);
   });
 
   it("backs off and releases both member locks while cron owns the challenge", async () => {
@@ -296,7 +296,7 @@ describe("POTD member actions", () => {
         message: "Auto-sync is running. Your result will be updated shortly.",
       },
     });
-    expect(redisValues.has(`potd:sync:ratelimit:${userId}`)).toBe(false);
+    expect(redisValues.has(`user-rate-limit:potd-sync:${userId}`)).toBe(false);
     expect(
       redisValues.has(`potd:sync:lock:${userId}:${challenge._id.toString()}`),
     ).toBe(false);
@@ -332,7 +332,7 @@ describe("POTD member actions", () => {
       ok: true,
       data: { status: "Accepted", pointsAwarded: 100 },
     });
-    expect(redisValues.has(`potd:sync:ratelimit:${userId}`)).toBe(true);
+    expect(redisValues.has(`user-rate-limit:potd-sync:${userId}`)).toBe(true);
     expect(
       redisValues.has(`potd:sync:lock:${userId}:${challenge._id.toString()}`),
     ).toBe(false);

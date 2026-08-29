@@ -61,7 +61,7 @@ const INTERNAL_LINKS = [
 
 export default function Navbar() {
   const router = useRouter();
-  const { data: session, isPending } = useSession();
+  const { data: session, isPending, refetch: refetchSession } = useSession();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -320,10 +320,12 @@ export default function Navbar() {
           title="Login as…"
           description="Choose an existing development user."
           onClose={() => setIdentityPickerOpen(false)}
-          maxWidth={480}
+          maxWidth={640}
+          contentClassName={styles.identityPickerContent}
         >
           <UserSearch
             minLength={0}
+            inlineResults
             search={searchDevelopmentUsers}
             placeholder="Search users by name…"
             onSelect={async (selected) => {
@@ -339,6 +341,7 @@ export default function Navbar() {
               });
               await expectAppData(response);
               setViewMode("internal");
+              await refetchSession();
               setIdentityPickerOpen(false);
               setIsLoggingIn(false);
               router.replace("/internal/dashboard");
