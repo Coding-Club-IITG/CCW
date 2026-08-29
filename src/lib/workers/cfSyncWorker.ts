@@ -493,6 +493,14 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             }
           }
 
+          await redis.hSet(`sync:${roomId}:${userId}`, {
+            status: "detected",
+            problemId,
+            verdict: "OK",
+            pointsAwarded: eventPayload.pointsAwarded?.toString() ?? "",
+            completedAt: Date.now().toString(),
+          });
+
           await publishUser(userId, eventPayload);
 
           logger.info("Accepted contest submission detected", {
@@ -510,11 +518,18 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             problemId,
             verdict: failVerdict,
           });
-          await publishUser(userId, {
+          const failureEvent: UserEvent = {
             type: "sync.failed",
             verdict: failVerdict,
             problemId,
+          };
+          await redis.hSet(`sync:${roomId}:${userId}`, {
+            status: "failed",
+            problemId,
+            verdict: failVerdict,
+            completedAt: Date.now().toString(),
           });
+          await publishUser(userId, failureEvent);
         }
       } catch (error) {
         throw error; // The worker failure listener owns diagnostic logging.

@@ -26,9 +26,9 @@ const CONTEST_TYPE: "1v1-blitz" | "bracket" = "bracket";
 // The dev admin user is always included. Test players are created on demand.
 const DEV_USER_EMAIL = "p.rudrajeet@iitg.ac.in";
 const TEST_USERS = [
-  { name: "Test Player 1", email: "test-player-1@test.com", handle: "tourist" },
-  { name: "Test Player 2", email: "test-player-2@test.com", handle: "jiangly" },
-  { name: "Test Player 3", email: "test-player-3@test.com", handle: "benq" },
+  { name: "Test Player 1", email: "test-player-1@test.com" },
+  { name: "Test Player 2", email: "test-player-2@test.com" },
+  { name: "Test Player 3", email: "test-player-3@test.com" },
 ];
 
 // ── Minimal schemas (avoids importing the full model tree) ──────────────
@@ -111,6 +111,7 @@ const ContestRoomSchema = new mongoose.Schema(
       ref: "ContestRound",
     },
     currentProblemIndex: { type: Number, default: 0 },
+    actualStartTime: Date,
     bracketPosition: String,
     firstSolvers: {
       type: [
@@ -206,8 +207,12 @@ type TestUser = {
   handle: string;
 };
 
+function mockHandle(user: { _id: mongoose.Types.ObjectId; name?: string }) {
+  return user.name?.trim() || user._id.toString();
+}
+
 async function ensureTestUsers(
-  records: { name: string; email: string; handle: string }[],
+  records: { name: string; email: string }[],
 ): Promise<TestUser[]> {
   const users: TestUser[] = [];
   for (const td of records) {
@@ -229,15 +234,16 @@ async function ensureTestUsers(
       { userId: user._id },
       {
         userId: user._id,
-        cfHandle: td.handle,
+        cfHandle: mockHandle(user),
         cfRating: 3000,
         solvedProblems: [],
       },
       { upsert: true, returnDocument: "after" },
     );
 
-    users.push({ user, handle: td.handle });
-    console.log(`✅ User: ${td.name} (${user._id}) handle=${td.handle}`);
+    const handle = mockHandle(user);
+    users.push({ user, handle });
+    console.log(`✅ User: ${td.name} (${user._id}) handle=${handle}`);
   }
   return users;
 }
@@ -332,7 +338,10 @@ async function buildBlitz1v1(
   redis: TestRedis,
 ) {
   const now = new Date();
-  const startTime = new Date(now.getTime() + 10 * 60 * 1000); // 10 min from now
+  // This room is provisioned as active, so its clock must already have begun.
+  // The mock CF submission is timestamped at sync time and would otherwise be
+  // rejected as preceding a future contest start.
+  const startTime = new Date(now.getTime() - 1000);
   const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
   const contest = await ContestMatch.findOneAndUpdate(
@@ -357,7 +366,7 @@ async function buildBlitz1v1(
         })),
         {
           userId: devUser._id,
-          cfHandle: "devuser",
+          cfHandle: mockHandle(devUser),
           registeredAt: now,
         },
       ],
@@ -377,6 +386,7 @@ async function buildBlitz1v1(
       contestId: contest._id,
       name: "Test Room",
       status: "active",
+      actualStartTime: startTime,
       participants: [...users.map((u) => u.user._id), devUser._id],
       currentProblemIndex: 0,
       firstSolvers: [],
@@ -384,7 +394,10 @@ async function buildBlitz1v1(
     { upsert: true, returnDocument: "after" },
   );
 
-  const teamPlayers = [{ user: devUser, handle: "devuser" }, users[0]];
+  const teamPlayers = [
+    { user: devUser, handle: mockHandle(devUser) },
+    users[0],
+  ];
   const teams = [];
   for (let i = 0; i < teamPlayers.length; i++) {
     const team = await ContestTeam.findOneAndUpdate(
@@ -510,7 +523,11 @@ async function buildBracket(
 
   // 4 participants: dev user + 3 test users (in registration order)
   const registrants = [
-    { user: devUser, handle: "devuser", teamName: devUser.name || "Dev" },
+    {
+      user: devUser,
+      handle: mockHandle(devUser),
+      teamName: devUser.name || "Dev",
+    },
     ...users.map((u) => ({
       user: u.user,
       handle: u.handle,

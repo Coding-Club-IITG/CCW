@@ -17,6 +17,8 @@ import { contestStreamQuerySchema } from "@/lib/api/schemas/contestRoute";
 
 export const dynamic = "force-dynamic";
 
+const SYNC_EVENT_RECOVERY_WINDOW_MS = 60_000;
+
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session?.user) {
@@ -285,6 +287,47 @@ export async function GET(request: NextRequest) {
           } catch (e) {}
           sendEvent("message", { channel, payload: parsed });
         });
+
+        // A mock verification can finish before this new SSE connection is
+        // subscribed. Replay a recent terminal sync result after subscribing
+        // so the client never remains stuck in its loading state.
+        for (const room of activeRooms) {
+          const roomId = room._id.toString();
+          const syncState = await redis.hGetAll(`sync:${roomId}:${userId}`);
+          const completedAt = Number(syncState.completedAt);
+          if (
+            !completedAt ||
+            Date.now() - completedAt > SYNC_EVENT_RECOVERY_WINDOW_MS ||
+            !syncState.problemId ||
+            !syncState.verdict
+          ) {
+            continue;
+          }
+
+          const payload =
+            syncState.status === "detected"
+              ? {
+                  type: "sync.detected" as const,
+                  problemId: syncState.problemId,
+                  verdict: syncState.verdict,
+                  pointsAwarded: syncState.pointsAwarded
+                    ? Number(syncState.pointsAwarded)
+                    : null,
+                }
+              : syncState.status === "failed"
+                ? {
+                    type: "sync.failed" as const,
+                    problemId: syncState.problemId,
+                    verdict: syncState.verdict,
+                  }
+                : null;
+          if (payload) {
+            sendEvent("message", {
+              channel: `events:user:${userId}`,
+              payload,
+            });
+          }
+        }
       } catch (err) {
         logger.error("[SSE] Failed to subscribe to Redis channels:", err);
         controller.error(err);
