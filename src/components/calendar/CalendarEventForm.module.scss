@@ -12,6 +12,10 @@
   font-size: 0.8125rem;
   font-weight: 600;
 }
+.markdownField {
+  display: grid;
+  gap: 0.375rem;
+}
 .form input,
 .form select {
   width: 100%;

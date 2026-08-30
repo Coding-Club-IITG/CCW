@@ -194,8 +194,11 @@ export default function PublicEventForm({
         />
       </div>
       <div className={styles.field}>
-        <label className={styles.label}>Public description</label>
+        <label className={styles.label} htmlFor="public-event-description">
+          Public description
+        </label>
         <MarkdownEditor
+          id="public-event-description"
           value={description}
           onChange={setDescription}
           uploadEndpoint="/api/admin/events/upload-image"

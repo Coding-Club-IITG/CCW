@@ -270,8 +270,11 @@ export default function BlogEditor({
 
       {/* Content */}
       <div className={styles.field}>
-        <label className={styles.label}>Content (Markdown)</label>
+        <label className={styles.label} htmlFor="blog-content">
+          Content (Markdown)
+        </label>
         <MarkdownEditor
+          id="blog-content"
           value={content}
           onChange={setContent}
           uploadEndpoint={uploadEndpoint}

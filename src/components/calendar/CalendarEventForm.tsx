@@ -247,33 +247,36 @@ export default function CalendarEventForm({
           maxLength={2000}
         />
       </label>
-      <label>
-        Description (Markdown)
+      <div className={styles.markdownField}>
+        <label htmlFor="calendar-description">Description (Markdown)</label>
         <MarkdownEditor
+          id="calendar-description"
           value={form.description}
           onChange={(value) => set("description", value)}
           placeholder="Internal event details..."
           rows={8}
         />
-      </label>
-      <label>
-        Agenda (Markdown)
+      </div>
+      <div className={styles.markdownField}>
+        <label htmlFor="calendar-agenda">Agenda (Markdown)</label>
         <MarkdownEditor
+          id="calendar-agenda"
           value={form.agenda}
           onChange={(value) => set("agenda", value)}
           placeholder="Topics and preparation notes..."
           rows={7}
         />
-      </label>
-      <label>
-        Minutes (Markdown)
+      </div>
+      <div className={styles.markdownField}>
+        <label htmlFor="calendar-minutes">Minutes (Markdown)</label>
         <MarkdownEditor
+          id="calendar-minutes"
           value={form.minutes}
           onChange={(value) => set("minutes", value)}
           placeholder="Decisions and follow-ups..."
           rows={7}
         />
-      </label>
+      </div>
       <label className={styles.checkbox}>
         <input
           type="checkbox"

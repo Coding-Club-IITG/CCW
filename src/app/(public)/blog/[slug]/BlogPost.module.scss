@@ -1,9 +1,14 @@
 @use "../../../../styles/mixins" as *;
 
 .article {
-  max-width: 820px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+.articleLead {
+  max-width: 820px;
+  margin: 0 auto;
 }
 
 .coverWrapper {
@@ -73,8 +78,22 @@
   margin-top: 0.75rem;
 }
 
-.content {
-  padding-bottom: 3rem;
+.related {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+
+  h2 {
+    margin: 0 0 1.25rem;
+    color: var(--foreground-strong);
+    font-size: 1.5rem;
+  }
+}
+
+.relatedGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
 }
 
 @media (max-width: 600px) {
@@ -93,5 +112,11 @@
 
   .meta {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 900px) {
+  .relatedGrid {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,13 +1,22 @@
-import { readdir, unlink } from "fs/promises";
+import { readdir, stat, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
+
+import { ALLOWED_IMAGE_EXTENSIONS } from "@/lib/constants";
+import { workerEnv } from "@/lib/env/worker";
 import dbConnect from "@/lib/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 import Event from "@/models/Event";
 import Project from "@/models/Project";
-import { logger } from "@/lib/utils";
-import { ALLOWED_IMAGE_EXTENSIONS } from "@/lib/constants";
-import { workerEnv } from "@/lib/env/worker";
+
+export const ORPHAN_IMAGE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface ImageCleanupReport {
+  deleted: number;
+  recentlySkipped: number;
+  failed: number;
+}
 
 const BLOG_UPLOAD_DIR = path.resolve(workerEnv.BLOG_UPLOAD_DIR);
 
@@ -21,7 +30,10 @@ const PROJECT_ASSET_PATTERN = /\/api\/projects\/assets\/([0-9a-f]+\.\w+)/g;
 
 const ALLOWED_EXTENSIONS_SET = new Set<string>(ALLOWED_IMAGE_EXTENSIONS);
 
-function extractFilenames(sources: string[], pattern: RegExp): Set<string> {
+export function extractFilenames(
+  sources: string[],
+  pattern: RegExp,
+): Set<string> {
   const files = new Set<string>();
   for (const source of sources) {
     const regex = new RegExp(pattern.source, "g");
@@ -36,14 +48,21 @@ function extractFilenames(sources: string[], pattern: RegExp): Set<string> {
 /**
  * Removes orphaned images from a given upload directory
  */
-async function cleanupDirectory(
+export async function cleanupDirectory(
   uploadDir: string,
   referencedFiles: Set<string>,
   label: string,
-): Promise<number> {
+  now = new Date(),
+): Promise<ImageCleanupReport> {
+  const report: ImageCleanupReport = {
+    deleted: 0,
+    recentlySkipped: 0,
+    failed: 0,
+  };
+
   if (!existsSync(uploadDir)) {
     logger.info(`[ImageCleanup] ${label}: directory does not exist, skipping.`);
-    return 0;
+    return report;
   }
 
   const entries = await readdir(uploadDir, { withFileTypes: true });
@@ -55,7 +74,7 @@ async function cleanupDirectory(
 
   if (imageFiles.length === 0) {
     logger.info(`[ImageCleanup] ${label}: no image files on disk.`);
-    return 0;
+    return report;
   }
 
   const orphans = imageFiles.filter(
@@ -64,53 +83,85 @@ async function cleanupDirectory(
 
   if (orphans.length === 0) {
     logger.info(`[ImageCleanup] ${label}: no orphaned images found.`);
-    return 0;
+    return report;
   }
 
   logger.info(
-    `[ImageCleanup] ${label}: found ${orphans.length} orphaned image(s). Deleting...`,
+    `[ImageCleanup] ${label}: evaluating ${orphans.length} orphaned image(s).`,
   );
 
-  let deleted = 0;
   for (const entry of orphans) {
+    const filePath = path.join(uploadDir, entry.name);
+    let modifiedAt: number;
+
     try {
-      await unlink(path.join(uploadDir, entry.name));
-      deleted++;
-    } catch (err) {
-      logger.error(
-        `[ImageCleanup] ${label}: failed to delete ${entry.name}:`,
-        err,
-      );
+      modifiedAt = (await stat(filePath)).mtimeMs;
+    } catch (error) {
+      report.failed++;
+      logger.error("Image cleanup could not read file metadata", {
+        operation: "read_orphan_image_metadata",
+        uploadType: label,
+        filename: entry.name,
+        ...errorToLogMetadata(error),
+      });
+      continue;
+    }
+
+    if (now.getTime() - modifiedAt < ORPHAN_IMAGE_RETENTION_MS) {
+      report.recentlySkipped++;
+      continue;
+    }
+
+    try {
+      await unlink(filePath);
+      report.deleted++;
+    } catch (error) {
+      report.failed++;
+      logger.error("Image cleanup could not delete orphaned file", {
+        operation: "delete_orphan_image",
+        uploadType: label,
+        filename: entry.name,
+        ...errorToLogMetadata(error),
+      });
     }
   }
 
-  logger.info(
-    `[ImageCleanup] ${label}: deleted ${deleted}/${orphans.length} orphaned image(s).`,
-  );
+  logger.info("Image cleanup directory complete", {
+    operation: "cleanup_orphan_images",
+    uploadType: label,
+    deleted: report.deleted,
+    recentlySkipped: report.recentlySkipped,
+    failed: report.failed,
+  });
 
-  return deleted;
+  return report;
 }
 
 /**
  * Removes orphaned images from blog, event, and project upload directories
  */
-export async function cleanupOrphanedImages() {
+export async function cleanupOrphanedImages(now = new Date()) {
   logger.info("[ImageCleanup] Starting orphaned image cleanup...");
 
   await dbConnect();
 
   // Blog images
   const posts = await BlogPost.find({}).select("content coverImage").lean();
-  const blogSources = (posts as any[]).flatMap((p) => [
+  const blogSources = posts.flatMap((p) => [
     p.content || "",
     p.coverImage || "",
   ]);
   const referencedBlogFiles = extractFilenames(blogSources, BLOG_ASSET_PATTERN);
-  await cleanupDirectory(BLOG_UPLOAD_DIR, referencedBlogFiles, "Blog");
+  const blogReport = await cleanupDirectory(
+    BLOG_UPLOAD_DIR,
+    referencedBlogFiles,
+    "Blog",
+    now,
+  );
 
   // Event images
   const events = await Event.find({}).select("poster description").lean();
-  const eventSources = (events as any[]).flatMap((e) => [
+  const eventSources = events.flatMap((e) => [
     e.poster || "",
     e.description || "",
   ]);
@@ -118,13 +169,18 @@ export async function cleanupOrphanedImages() {
     eventSources,
     EVENT_ASSET_PATTERN,
   );
-  await cleanupDirectory(EVENT_UPLOAD_DIR, referencedEventFiles, "Events");
+  const eventReport = await cleanupDirectory(
+    EVENT_UPLOAD_DIR,
+    referencedEventFiles,
+    "Events",
+    now,
+  );
 
   // Project images
   const projects = await Project.find({})
     .select("coverImage description")
     .lean();
-  const projectSources = (projects as any[]).flatMap((p) => [
+  const projectSources = projects.flatMap((p) => [
     p.coverImage || "",
     p.description || "",
   ]);
@@ -132,11 +188,24 @@ export async function cleanupOrphanedImages() {
     projectSources,
     PROJECT_ASSET_PATTERN,
   );
-  await cleanupDirectory(
+  const projectReport = await cleanupDirectory(
     PROJECT_UPLOAD_DIR,
     referencedProjectFiles,
     "Projects",
+    now,
   );
 
-  logger.info("[ImageCleanup] All cleanup tasks complete.");
+  const total = [blogReport, eventReport, projectReport].reduce(
+    (summary, report) => ({
+      deleted: summary.deleted + report.deleted,
+      recentlySkipped: summary.recentlySkipped + report.recentlySkipped,
+      failed: summary.failed + report.failed,
+    }),
+    { deleted: 0, recentlySkipped: 0, failed: 0 },
+  );
+  logger.info("Image cleanup complete", {
+    operation: "cleanup_orphan_images",
+    ...total,
+  });
+  return total;
 }

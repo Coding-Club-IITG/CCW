@@ -1,13 +1,9 @@
 import { notFound } from "next/navigation";
-import dbConnect from "@/lib/mongodb";
-import BlogPost from "@/models/BlogPost";
-import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
-import TagBadge from "@/components/shared/TagBadge";
-import BackLink from "@/components/shared/BackLink";
-import CompatibleImage from "@/components/shared/CompatibleImage";
-import styles from "./BlogPost.module.scss";
 import type { Metadata } from "next";
-import JsonLd from "@/components/shared/JsonLd";
+
+import { rankRelatedPosts } from "@/lib/blog/relatedPosts";
+import { extractMarkdownHeadings } from "@/lib/blog/markdownHeadings";
+import dbConnect from "@/lib/mongodb";
 import {
   ogImage,
   pageMetadata,
@@ -15,6 +11,14 @@ import {
   SITE_NAME,
   SITE_URL,
 } from "@/lib/seo";
+import BlogPost from "@/models/BlogPost";
+import ArticleReader from "@/components/blog/ArticleReader";
+import BlogCard from "@/components/blog/BlogCard";
+import BackLink from "@/components/shared/BackLink";
+import CompatibleImage from "@/components/shared/CompatibleImage";
+import JsonLd from "@/components/shared/JsonLd";
+import TagBadge from "@/components/shared/TagBadge";
+import styles from "./BlogPost.module.scss";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -48,6 +52,49 @@ export default async function BlogPostPage({ params }: Props) {
   if (!post) {
     notFound();
   }
+
+  const relatedDocuments =
+    post.tags.length > 0
+      ? await BlogPost.find({
+          _id: { $ne: post._id },
+          status: "published",
+          publishedAt: { $ne: null },
+          tags: { $in: post.tags },
+        })
+          .select(
+            "title slug excerpt coverImage coverFocalPoint authors tags status publishedAt updatedAt",
+          )
+          .lean()
+      : [];
+  const relatedCandidates = relatedDocuments.map((related) => ({
+    _id: String(related._id),
+    status: related.status,
+    slug: related.slug,
+    title: related.title,
+    excerpt: related.excerpt,
+    coverImage: related.coverImage || undefined,
+    coverFocalPoint: related.coverFocalPoint
+      ? {
+          x: related.coverFocalPoint.x,
+          y: related.coverFocalPoint.y,
+        }
+      : undefined,
+    authors: related.authors.map(
+      (author: { userId: unknown; name: string }) => ({
+        userId: String(author.userId),
+        name: author.name,
+      }),
+    ),
+    tags: related.tags,
+    publishedAt: related.publishedAt!.toISOString(),
+    updatedAt: related.updatedAt.toISOString(),
+  }));
+  const relatedPosts = rankRelatedPosts(
+    relatedCandidates,
+    String(post._id),
+    post.tags,
+  );
+  const headings = extractMarkdownHeadings(post.content);
 
   const publishedDate = new Date(post.publishedAt!).toLocaleDateString(
     "en-IN",
@@ -100,46 +147,60 @@ export default async function BlogPostPage({ params }: Props) {
           keywords: post.tags,
         }}
       />
-      <BackLink href="/blog" label="Back to Blog" />
+      <div className={styles.articleLead}>
+        <BackLink href="/blog" label="Back to Blog" />
 
-      {post.coverImage && (
-        <div className={styles.coverWrapper}>
-          <CompatibleImage
-            src={post.coverImage}
-            alt=""
-            className={styles.cover}
-            width={1260}
-            height={540}
-          />
-        </div>
-      )}
-
-      <header className={styles.header}>
-        <h1 className={styles.title}>{post.title}</h1>
-        {post.excerpt && <p className={styles.excerpt}>{post.excerpt}</p>}
-        <div className={styles.meta}>
-          <span className={styles.author}>{authorNames}</span>
-          <span className={styles.dot}>·</span>
-          <time className={styles.date}>{publishedDate}</time>
-          {wasEdited && (
-            <>
-              <span className={styles.dot}>·</span>
-              <span className={styles.edited}>Updated {updatedDate}</span>
-            </>
-          )}
-        </div>
-        {post.tags.length > 0 && (
-          <div className={styles.tags}>
-            {post.tags.map((tag: string) => (
-              <TagBadge key={tag} tag={tag} />
-            ))}
+        {post.coverImage && (
+          <div className={styles.coverWrapper}>
+            <CompatibleImage
+              src={post.coverImage}
+              alt=""
+              className={styles.cover}
+              width={1260}
+              height={540}
+            />
           </div>
         )}
-      </header>
 
-      <div className={styles.content}>
-        <MarkdownRenderer content={post.content} />
+        <header className={styles.header}>
+          <h1 className={styles.title}>{post.title}</h1>
+          {post.excerpt && <p className={styles.excerpt}>{post.excerpt}</p>}
+          <div className={styles.meta}>
+            <span className={styles.author}>{authorNames}</span>
+            <span className={styles.dot}>·</span>
+            <time className={styles.date}>{publishedDate}</time>
+            {wasEdited && (
+              <>
+                <span className={styles.dot}>·</span>
+                <span className={styles.edited}>Updated {updatedDate}</span>
+              </>
+            )}
+          </div>
+          {post.tags.length > 0 && (
+            <div className={styles.tags}>
+              {post.tags.map((tag: string) => (
+                <TagBadge key={tag} tag={tag} />
+              ))}
+            </div>
+          )}
+        </header>
       </div>
+
+      <ArticleReader content={post.content} headings={headings} />
+
+      {relatedPosts.length > 0 && (
+        <section
+          className={styles.related}
+          aria-labelledby="related-posts-title"
+        >
+          <h2 id="related-posts-title">Related posts</h2>
+          <div className={styles.relatedGrid}>
+            {relatedPosts.map(({ _id, status: _status, ...related }) => (
+              <BlogCard key={_id} {...related} />
+            ))}
+          </div>
+        </section>
+      )}
     </article>
   );
 }
