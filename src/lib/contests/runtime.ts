@@ -160,6 +160,21 @@ export const roomEventSchema = z.discriminatedUnion("type", [
     .passthrough(),
   z
     .object({
+      type: z.literal("room.ready_deadline"),
+      deadline: z.number(),
+    })
+    .passthrough(),
+  z
+    .object({
+      type: z.literal("room.submission_attempt"),
+      teamId: z.string().min(1),
+      problemId: z.string().min(1),
+      verdict: z.string().min(1),
+      accepted: z.boolean(),
+    })
+    .passthrough(),
+  z
+    .object({
       type: z.literal("team.withdrawn"),
       teamId: z.string().min(1),
     })
@@ -239,8 +254,7 @@ export type RoomEvent = z.infer<typeof roomEventSchema>;
 export type ContestEvent = z.infer<typeof contestEventSchema>;
 export type UserEvent = z.infer<typeof userEventSchema>;
 export type RoomStreamEvent =
-  | z.infer<typeof roomEventSchema>
-  | z.infer<typeof typedUserEventSchema>;
+  z.infer<typeof roomEventSchema> | z.infer<typeof typedUserEventSchema>;
 
 export const roomStreamEventSchema = z.union([
   roomEventSchema,

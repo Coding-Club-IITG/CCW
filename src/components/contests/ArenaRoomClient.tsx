@@ -124,13 +124,15 @@ export default function ArenaRoomClient({
   initialLocks = {},
   initialStartTime,
   initialTimeLimit,
+  initialActivityFeed = [],
+  isSpectator = false,
   from,
   syncCooldownSeconds = 60,
 }: {
   contest: ContestListingItem;
   roomId: string;
   roomName: string;
-  teamId: string;
+  teamId: string | null;
   userId: string;
   cfHandle?: string;
   teams?: ContestRoomTeamDto[];
@@ -142,6 +144,8 @@ export default function ArenaRoomClient({
   initialOnlineUserIds?: string[];
   initialStartTime?: number;
   initialTimeLimit?: number;
+  initialActivityFeed?: RoomActivityDto[];
+  isSpectator?: boolean;
   from?: string;
   syncCooldownSeconds?: number;
 }) {
@@ -168,7 +172,8 @@ export default function ArenaRoomClient({
 
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
   const [syncCooldown, setSyncCooldown] = useState(0);
-  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
+  const [activityFeed, setActivityFeed] =
+    useState<RoomActivityDto[]>(initialActivityFeed);
   const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1000);
@@ -334,6 +339,15 @@ export default function ArenaRoomClient({
         setMatchState("completed");
         if (payload.finalScores) setScores(payload.finalScores);
         break;
+      case "room.submission_attempt": {
+        const team = teams?.find((item) => item._id === payload.teamId);
+        addActivity(
+          "error",
+          `${getDisplayTeamName(team)} submitted to ${payload.problemId} — ${payload.verdict}`,
+          "text-error",
+        );
+        break;
+      }
       case "sync.queued":
         if (payload.problemId) {
           const problemId = payload.problemId;
@@ -428,7 +442,7 @@ export default function ArenaRoomClient({
     }
   };
 
-  useRoomEventSource(roomId, handleEvent);
+  const connectionStatus = useRoomEventSource(roomId, handleEvent);
 
   const getMemberName = (uid: string) => {
     if (!teams) return "Unknown";
@@ -462,6 +476,7 @@ export default function ArenaRoomClient({
   };
 
   const handleReady = async () => {
+    if (isSpectator) return;
     setIsReady(true);
     const response = await fetch(`/api/contests/rooms/${roomId}/ready`, {
       method: "POST",
@@ -470,7 +485,12 @@ export default function ArenaRoomClient({
   };
 
   const handleSync = async (problemId: string) => {
-    if (syncingMap[problemId] || matchState !== "active" || syncCooldown > 0)
+    if (
+      isSpectator ||
+      syncingMap[problemId] ||
+      matchState !== "active" ||
+      syncCooldown > 0
+    )
       return;
 
     setSyncCooldown(syncCooldownSeconds);
@@ -496,6 +516,10 @@ export default function ArenaRoomClient({
 
   return (
     <div className={styles.page}>
+      {connectionStatus === "reconnecting" && (
+        <div role="status">Reconnecting…</div>
+      )}
+      {isSpectator && <div role="status">👁 Spectating</div>}
       <div className={styles.bgPattern} aria-hidden="true"></div>
 
       {/* Main Content Canvas */}

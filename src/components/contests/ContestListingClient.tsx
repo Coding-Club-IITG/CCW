@@ -275,13 +275,13 @@ export default function ContestListingClient({
                   Knockout
                 </button>
               </div>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className={styles.createBtn}
-              >
-                <Plus className={styles.icon16} size={16} />
-                Create a room
-              </button>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className={styles.createBtn}
+                >
+                  <Plus className={styles.icon16} size={16} />
+                  Create a room
+                </button>
             </div>
           </div>
 

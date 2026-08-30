@@ -9,6 +9,7 @@ export interface IContestSubmission extends Document {
   platform: string;
   submissionId: string;
   verdict: string;
+  accepted: boolean;
   points?: number; // Points awarded
   solveMs?: number; // Time to solve (in milliseconds)
   submittedAt: Date;
@@ -36,6 +37,7 @@ const ContestSubmissionSchema = new Schema<IContestSubmission>(
     platform: { type: String, required: true },
     submissionId: { type: String, required: true },
     verdict: { type: String, required: true },
+    accepted: { type: Boolean, required: true, default: false },
     points: { type: Number },
     solveMs: { type: Number },
     submittedAt: { type: Date, required: true },
@@ -45,6 +47,10 @@ const ContestSubmissionSchema = new Schema<IContestSubmission>(
 
 ContestSubmissionSchema.index({ roomId: 1, userId: 1 });
 ContestSubmissionSchema.index({ contestId: 1, problemId: 1 });
+ContestSubmissionSchema.index(
+  { roomId: 1, platform: 1, submissionId: 1 },
+  { unique: true },
+);
 
 const ContestSubmission =
   mongoose.models.ContestSubmission ||

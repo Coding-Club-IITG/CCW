@@ -9,7 +9,7 @@ export interface IFirstSolver {
 export interface IContestRoom extends Document {
   contestId: mongoose.Types.ObjectId;
   name: string;
-  status: "waiting" | "active" | "ended" | "pending" | "completed";
+  status: "waiting" | "active" | "ended" | "pending";
   participants: mongoose.Types.ObjectId[];
   teams: mongoose.Types.ObjectId[];
   currentRoundId?: mongoose.Types.ObjectId;

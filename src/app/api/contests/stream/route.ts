@@ -151,9 +151,21 @@ export async function GET(request: NextRequest) {
 
   const roomIdFromQuery = query.data.roomId ?? query.data.rooms;
   if (roomIdFromQuery) {
-    const roomChannel = `events:room:${roomIdFromQuery}`;
-    if (!channels.includes(roomChannel)) {
-      channels.push(roomChannel);
+    const isParticipant = activeRooms.some(
+      (room) => room._id.toString() === roomIdFromQuery,
+    );
+    const spectatedRoom = isParticipant
+      ? null
+      : await ContestRoom.findById(roomIdFromQuery).lean();
+    const canSpectate = Boolean(
+      spectatedRoom &&
+      ["waiting", "active", "ended"].includes(spectatedRoom.status),
+    );
+    if (isParticipant || canSpectate) {
+      const roomChannel = `events:room:${roomIdFromQuery}`;
+      if (!channels.includes(roomChannel)) {
+        channels.push(roomChannel);
+      }
     }
   }
 

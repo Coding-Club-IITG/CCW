@@ -10,7 +10,11 @@ export const contestFormatSchema = z.enum([
   "bracket",
 ]);
 export const contestRegistrationTypeSchema = z.enum(["open", "closed"]);
-export const contestProblemSelectionModeSchema = z.enum(["bulk", "fine-tuned", "test"]);
+export const contestProblemSelectionModeSchema = z.enum([
+  "bulk",
+  "fine-tuned",
+  "test",
+]);
 export const contestSeedingMethodSchema = z.enum(["cf_rating", "manual"]);
 
 const dateStringSchema = z
@@ -30,6 +34,8 @@ export const contestProblemSlotSchema = z.object({
   platform: z.string().trim().min(1).max(50),
   problemId: z.string().trim().min(1).max(100),
   roundNumber: z.number().int().min(1).optional(),
+  points: z.number().positive().optional(),
+  timeLimitSeconds: z.number().positive().optional(),
 });
 
 const contestCreationFields = {
@@ -84,8 +90,7 @@ export type BracketContestInput = Pick<
 >;
 
 export type BracketInputValidationResult =
-  | { success: true }
-  | { success: false; error: string };
+  { success: true } | { success: false; error: string };
 
 export function validateBracketContestInput(
   data: BracketContestInput,

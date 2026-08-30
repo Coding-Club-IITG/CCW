@@ -1,7 +1,11 @@
 import { type Job, Worker } from "bullmq";
 import mongoose from "mongoose";
 
-import { publishRoom, publishUser } from "@/lib/contests/events";
+import {
+  publishRoom,
+  publishRoomActivity,
+  publishUser,
+} from "@/lib/contests/events";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   cfSyncJobDataSchema,
@@ -23,6 +27,7 @@ import { claimProblem, getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
+import ContestSubmission from "@/models/ContestSubmission";
 
 // Circuit breaker removed, relying on BullMQ job-level retries
 
@@ -287,6 +292,30 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                     solveMs,
                     cfTimestamp,
                   };
+                  await ContestSubmission.updateOne(
+                    {
+                      roomId,
+                      platform: "codeforces",
+                      submissionId: String(matchedSubmission.id),
+                    },
+                    {
+                      $setOnInsert: {
+                        contestId: room.contestId,
+                        roomId,
+                        userId,
+                        teamId,
+                        problemId,
+                        platform: "codeforces",
+                        submissionId: String(matchedSubmission.id),
+                        verdict: "OK",
+                        accepted: true,
+                        points,
+                        solveMs,
+                        submittedAt: new Date(cfTimestamp),
+                      },
+                    },
+                    { upsert: true },
+                  );
                   await redis.xAdd(`room:${roomId}:submissions`, "*", {
                     data: JSON.stringify(submissionObj),
                   });
@@ -407,6 +436,30 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                     solveMs,
                     cfTimestamp,
                   };
+                  await ContestSubmission.updateOne(
+                    {
+                      roomId,
+                      platform: "codeforces",
+                      submissionId: String(matchedSubmission.id),
+                    },
+                    {
+                      $setOnInsert: {
+                        contestId: room.contestId,
+                        roomId,
+                        userId,
+                        teamId,
+                        problemId,
+                        platform: "codeforces",
+                        submissionId: String(matchedSubmission.id),
+                        verdict: "OK",
+                        accepted: true,
+                        points,
+                        solveMs,
+                        submittedAt: new Date(cfTimestamp),
+                      },
+                    },
+                    { upsert: true },
+                  );
                   await redis.xAdd(`room:${roomId}:submissions`, "*", {
                     data: JSON.stringify(submissionObj),
                   });
@@ -518,6 +571,46 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             problemId,
             verdict: failVerdict,
           });
+          if (hasSubmissionForProblem && wrongSubIds.length > 0) {
+            const cfSubmissionId = wrongSubIds[wrongSubIds.length - 1];
+            const attempt = {
+              userId,
+              teamId,
+              problemId,
+              cfSubmissionId,
+              verdict: failVerdict,
+              points: 0,
+              solveMs: 0,
+              cfTimestamp: Date.now(),
+            };
+            await ContestSubmission.updateOne(
+              {
+                roomId,
+                platform: "codeforces",
+                submissionId: String(cfSubmissionId),
+              },
+              {
+                $setOnInsert: {
+                  contestId: room.contestId,
+                  roomId,
+                  userId,
+                  teamId,
+                  problemId,
+                  platform: "codeforces",
+                  submissionId: String(cfSubmissionId),
+                  verdict: failVerdict,
+                  accepted: false,
+                  points: 0,
+                  solveMs: 0,
+                  submittedAt: new Date(attempt.cfTimestamp),
+                },
+              },
+              { upsert: true },
+            );
+            await redis.xAdd(`room:${roomId}:submissions`, "*", {
+              data: JSON.stringify(attempt),
+            });
+          }
           const failureEvent: UserEvent = {
             type: "sync.failed",
             verdict: failVerdict,
@@ -530,6 +623,22 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             completedAt: Date.now().toString(),
           });
           await publishUser(userId, failureEvent);
+          await publishRoom(roomId, {
+            type: "room.submission_attempt",
+            teamId,
+            problemId,
+            verdict: failVerdict,
+            accepted: false,
+          });
+          await publishRoomActivity({
+            roomId,
+            contestId: room.contestId.toString(),
+            icon: "error",
+            text: `A submission to ${problemId} failed: ${failVerdict}`,
+            color: "text-error",
+            actorUserId: userId,
+            actorTeamId: teamId,
+          });
         }
       } catch (error) {
         throw error; // The worker failure listener owns diagnostic logging.

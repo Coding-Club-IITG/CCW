@@ -9,7 +9,10 @@ import {
   contestRoomStateSchema,
   parseContestRoomProblems,
 } from "@/lib/contests/runtime";
-import type { ContestRoomProblemDto } from "@/lib/contests/dtos";
+import type {
+  ContestRoomProblemDto,
+  RoomActivityDto,
+} from "@/lib/contests/dtos";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import dbConnect from "@/lib/mongodb";
@@ -84,14 +87,27 @@ export default async function ContestRoomPage({
     );
   }
 
-  const room = await ContestRoom.findOne(roomQuery).lean();
+  let room = await ContestRoom.findOne(roomQuery).lean();
+  let isSpectator = false;
+
+  if (
+    !room &&
+    (contest.mode === "blitz" || contest.mode === "arena") &&
+    contest.status === "active"
+  ) {
+    room = await ContestRoom.findOne({
+      contestId: contest._id,
+      status: { $in: ["waiting", "active"] },
+    }).lean();
+    isSpectator = Boolean(room);
+  }
 
   let teamId = null;
   let roomId = null;
   let roomName = null;
 
   if (room) {
-    if (room.status === "ended" || room.status === "completed") {
+    if (room.status === "ended") {
       // For bracket, ended rooms go back to bracket viewer
       if (
         matchRoomId &&
@@ -117,7 +133,7 @@ export default async function ContestRoomPage({
   }
 
   if (contest.mode === "blitz" || contest.mode === "arena") {
-    if (!room || !teamId) {
+    if (!room || (!teamId && !isSpectator)) {
       if (contest.status === "completed") {
         // Non-participant or unassigned user: try to redirect to any room
         const anyRoom = await ContestRoom.findOne({
@@ -201,6 +217,23 @@ export default async function ContestRoomPage({
     }));
 
     const redis = await getRedis();
+    const ContestRoomActivity = (await import("@/models/ContestRoomActivity"))
+      .default;
+    const initialActivityRecords = await ContestRoomActivity.find({
+      roomId: room._id,
+    })
+      .sort({ createdAt: 1 })
+      .limit(500)
+      .lean();
+    const initialActivityFeed: RoomActivityDto[] = initialActivityRecords.map(
+      (activity, index) => ({
+        id: activity.createdAt.getTime() + index,
+        icon: activity.icon,
+        text: activity.text,
+        color: activity.color,
+        timestamp: activity.createdAt.getTime(),
+      }),
+    );
     const readyUserIds = await redis.sMembers(`room:${roomId}:ready_users`);
 
     // Check online presence for all members
@@ -233,7 +266,7 @@ export default async function ContestRoomPage({
     const status =
       rawStatus === "active"
         ? "active"
-        : rawStatus === "completed" || rawStatus === "ended"
+        : rawStatus === "ended"
           ? "completed"
           : "waiting";
 
@@ -289,6 +322,8 @@ export default async function ContestRoomPage({
           }
           from={from}
           syncCooldownSeconds={syncCooldown}
+          initialActivityFeed={initialActivityFeed}
+          isSpectator={isSpectator}
         />
       );
     } else if (contest.mode === "arena") {
@@ -315,6 +350,8 @@ export default async function ContestRoomPage({
           }
           from={from}
           syncCooldownSeconds={syncCooldown}
+          initialActivityFeed={initialActivityFeed}
+          isSpectator={isSpectator}
         />
       );
     }

@@ -398,12 +398,13 @@ async function createRoomContestAction(input: unknown) {
     const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
     const deadline = new Date(start.getTime() - deadlineMinutes * 60000);
 
-    // Validate start time is at least 2 minutes from now (1 min registration + 1 min buffer)
-    if (start.getTime() < Date.now() + 2 * 60000 - 5000) {
+    // Allow the complete registration window plus a small provisioning buffer.
+    const requiredBufferMs = (deadlineMinutes + 1) * 60000;
+    if (start.getTime() < Date.now() + requiredBufferMs - 5000) {
       // 5s grace period
       return appError(
         "VALIDATION_ERROR",
-        "Start time must be strictly at least 2 minutes ahead of current time",
+        `Start time must be at least ${deadlineMinutes + 1} minutes ahead of the current time.`,
       );
     }
 
@@ -427,7 +428,13 @@ async function createRoomContestAction(input: unknown) {
           "VALIDATION_ERROR",
           "Team battles require at least 6 participants.",
         );
-      maxParticipants = maxParticipants - (maxParticipants % 3);
+      if (maxParticipants % 3 !== 0) {
+        const lower = maxParticipants - (maxParticipants % 3);
+        return appError(
+          "VALIDATION_ERROR",
+          `Max participants must be a multiple of 3 for team-tournament (nearest valid values: ${lower} or ${lower + 3}).`,
+        );
+      }
     }
 
     let problemSlots: ContestProblemSlot[] = [];
@@ -520,7 +527,9 @@ async function createRoomContestAction(input: unknown) {
     }
 
     revalidatePath("/internal/contests");
-    return ok({});
+    return ok({
+      maxParticipants: contest.registrationSettings?.maxParticipants,
+    });
   } catch (err: unknown) {
     logger.error("Contest room creation failed", {
       action: "createRoomContest",
@@ -783,6 +792,8 @@ async function createBracketContestAction(input: unknown) {
               platform: slot.platform,
               problemId: slot.problemId,
               roundNumber: slot.roundNumber,
+              points: slot.points,
+              timeLimitSeconds: slot.timeLimitSeconds,
             }));
   } else {
     // custom - validate bulk / fine-tuned fields

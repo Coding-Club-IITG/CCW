@@ -21,7 +21,7 @@ type TestRedis = RedisClientType<{}, {}, {}, 3, {}>;
 // Select which type of contest to create.
 //   "1v1-blitz" : classic 2-participant blitz room (dev user + test player)
 //   "bracket"   : 4-player knockout bracket (dev user + 3 test players)
-const CONTEST_TYPE: "1v1-blitz" | "bracket" = "bracket";
+const CONTEST_TYPE: "1v1-blitz" | "bracket" = "1v1-blitz";
 
 // The dev admin user is always included. Test players are created on demand.
 const DEV_USER_EMAIL = "p.rudrajeet@iitg.ac.in";

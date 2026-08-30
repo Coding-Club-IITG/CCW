@@ -126,13 +126,15 @@ export default function BlitzRoomClient({
   initialProblemIndex = 0,
   initialStartTime,
   initialTimeLimit,
+  initialActivityFeed = [],
+  isSpectator = false,
   from,
   syncCooldownSeconds = 60,
 }: {
   contest: ContestListingItem;
   roomId: string;
   roomName: string;
-  teamId: string;
+  teamId: string | null;
   userId: string;
   cfHandle?: string;
   teams?: ContestRoomTeamDto[];
@@ -144,6 +146,8 @@ export default function BlitzRoomClient({
   initialProblemIndex?: number;
   initialStartTime?: number;
   initialTimeLimit?: number;
+  initialActivityFeed?: RoomActivityDto[];
+  isSpectator?: boolean;
   from?: string;
   syncCooldownSeconds?: number;
 }) {
@@ -216,7 +220,8 @@ export default function BlitzRoomClient({
   }, [roomId, userId, syncCooldownSeconds]);
 
   // Each entry stores { icon, text, timestamp (epoch ms), color, id }
-  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
+  const [activityFeed, setActivityFeed] =
+    useState<RoomActivityDto[]>(initialActivityFeed);
   const [, setTick] = useState(0); // forces re-render every second to update relative times
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1000);
@@ -335,6 +340,15 @@ export default function BlitzRoomClient({
           );
         }
         break;
+      case "room.submission_attempt": {
+        const team = teams?.find((item) => item._id === payload.teamId);
+        addActivity(
+          "error",
+          `${getDisplayTeamName(team)} submitted to ${payload.problemId} — ${payload.verdict}`,
+          "text-error",
+        );
+        break;
+      }
       case "sync.queued":
         setSyncing(true);
         addActivity(
@@ -428,7 +442,7 @@ export default function BlitzRoomClient({
     }
   };
 
-  useRoomEventSource(roomId, handleEvent);
+  const connectionStatus = useRoomEventSource(roomId, handleEvent);
 
   const getMemberName = (uid: string) => {
     if (!teams) return "Unknown";
@@ -462,6 +476,7 @@ export default function BlitzRoomClient({
   };
 
   const handleReady = async () => {
+    if (isSpectator) return;
     setIsReady(true);
     const response = await fetch(`/api/contests/rooms/${roomId}/ready`, {
       method: "POST",
@@ -470,7 +485,8 @@ export default function BlitzRoomClient({
   };
 
   const handleSync = async () => {
-    if (syncing || matchState !== "active" || syncCooldown > 0) return;
+    if (isSpectator || syncing || matchState !== "active" || syncCooldown > 0)
+      return;
     setSyncing(true);
     const activeProblem = problems[currentProblemIndex];
     if (!activeProblem) {
@@ -506,6 +522,10 @@ export default function BlitzRoomClient({
 
   return (
     <div className={styles.page}>
+      {connectionStatus === "reconnecting" && (
+        <div role="status">Reconnecting…</div>
+      )}
+      {isSpectator && <div role="status">👁 Spectating</div>}
       <div className={styles.bgPattern} aria-hidden="true"></div>
 
       <main className={styles.main}>
