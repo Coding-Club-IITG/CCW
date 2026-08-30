@@ -525,7 +525,11 @@ export default function BlitzRoomClient({
       {connectionStatus === "reconnecting" && (
         <div role="status">Reconnecting…</div>
       )}
-      {isSpectator && <div role="status">👁 Spectating</div>}
+      {isSpectator && (
+        <div className={styles.spectateBanner} role="status">
+          👁 Spectating — view-only
+        </div>
+      )}
       <div className={styles.bgPattern} aria-hidden="true"></div>
 
       <main className={styles.main}>
@@ -701,10 +705,12 @@ export default function BlitzRoomClient({
                   </p>
                   <button
                     onClick={handleReady}
-                    disabled={isReady}
+                    disabled={isReady || isSpectator}
                     className={styles.readyBtn}
                   >
-                    {isReady ? (
+                    {isSpectator ? (
+                      "Spectating"
+                    ) : isReady ? (
                       <span className={styles.animatedDots}>
                         Ready! Waiting on others
                       </span>
@@ -774,27 +780,31 @@ export default function BlitzRoomClient({
                         <ExternalLink size={16} />
                         Open in Codeforces
                       </a>
-                      <button
-                        onClick={handleSync}
-                        disabled={
-                          syncing || matchState !== "active" || syncCooldown > 0
-                        }
-                        className={styles.syncBtn}
-                      >
-                        {syncCooldown > 0 && !syncing ? (
-                          <Hourglass size={16} />
-                        ) : (
-                          <RefreshCw
-                            className={syncing ? styles.spin : ""}
-                            size={16}
-                          />
-                        )}
-                        {syncing
-                          ? "Syncing..."
-                          : syncCooldown > 0
-                            ? `Wait ${syncCooldown}s`
-                            : "Sync Submission"}
-                      </button>
+                      {!isSpectator && (
+                        <button
+                          onClick={handleSync}
+                          disabled={
+                            syncing ||
+                            matchState !== "active" ||
+                            syncCooldown > 0
+                          }
+                          className={styles.syncBtn}
+                        >
+                          {syncCooldown > 0 && !syncing ? (
+                            <Hourglass size={16} />
+                          ) : (
+                            <RefreshCw
+                              className={syncing ? styles.spin : ""}
+                              size={16}
+                            />
+                          )}
+                          {syncing
+                            ? "Syncing..."
+                            : syncCooldown > 0
+                              ? `Wait ${syncCooldown}s`
+                              : "Sync Submission"}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </>

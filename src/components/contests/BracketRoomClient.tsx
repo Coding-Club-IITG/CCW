@@ -276,8 +276,12 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
   const isWaiting = node.status === "waiting";
   const isPending = !isCompleted && !isActive && !isWaiting && !isBye;
 
-  const roundName = getRoundName(node.roundNumber, totalRounds);
-  const matchLabel = `${roundName === "Final" || roundName.startsWith("Semi") ? roundName.replace("s", "") : roundName} ${node.matchIndex + 1}`;
+  const roundName = node.isThirdPlacePlayoff
+    ? "Third-Place Playoff"
+    : getRoundName(node.roundNumber, totalRounds);
+  const matchLabel = node.isThirdPlacePlayoff
+    ? roundName
+    : `${roundName === "Final" || roundName.startsWith("Semi") ? roundName.replace("s", "") : roundName} ${node.matchIndex + 1}`;
 
   const winnerId = node.winner;
   const t1Win = Boolean(isCompleted && t1 && t1 === winnerId);
@@ -752,6 +756,15 @@ export default function BracketRoomClient({
             });
           }
         }
+      });
+    }
+    if (snapshot.thirdPlacePlayoff) {
+      const nd = snapshot.thirdPlacePlayoff;
+      flowNodes.push({
+        id: nd.roomId,
+        type: "matchNode",
+        position: { x: snapshot.totalRounds * X_GAP, y: Y_GAP * 1.5 },
+        data: { node: nd, totalRounds: snapshot.totalRounds, openMatchDetails },
       });
     }
     return { nodes: flowNodes, edges: flowEdges };

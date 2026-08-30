@@ -519,7 +519,11 @@ export default function ArenaRoomClient({
       {connectionStatus === "reconnecting" && (
         <div role="status">Reconnecting…</div>
       )}
-      {isSpectator && <div role="status">👁 Spectating</div>}
+      {isSpectator && (
+        <div className={styles.spectateBanner} role="status">
+          👁 Spectating — view-only
+        </div>
+      )}
       <div className={styles.bgPattern} aria-hidden="true"></div>
 
       {/* Main Content Canvas */}
@@ -662,10 +666,12 @@ export default function ArenaRoomClient({
                   </p>
                   <button
                     onClick={handleReady}
-                    disabled={isReady}
+                    disabled={isReady || isSpectator}
                     className={styles.readyBtn}
                   >
-                    {isReady ? (
+                    {isSpectator ? (
+                      "Spectating"
+                    ) : isReady ? (
                       <span className={styles.animatedDots}>
                         Ready! Waiting on others
                       </span>
@@ -796,42 +802,44 @@ export default function ArenaRoomClient({
                                   size={16}
                                 />
                               </a>
-                              <button
-                                onClick={() => handleSync(prob.problemId)}
-                                disabled={
-                                  isClaimed ||
-                                  isSyncing ||
-                                  matchState !== "active" ||
-                                  syncCooldown > 0
-                                }
-                                className={styles.syncMini}
-                              >
-                                {isClaimed ? (
-                                  <Lock className={styles.icon14} size={14} />
-                                ) : isSyncing ? (
-                                  <RefreshCw
-                                    className={`${styles.icon14} ${styles.spin}`}
-                                    size={14}
-                                  />
-                                ) : syncCooldown > 0 ? (
-                                  <Hourglass
-                                    className={styles.icon14}
-                                    size={14}
-                                  />
-                                ) : (
-                                  <RefreshCw
-                                    className={styles.icon14}
-                                    size={14}
-                                  />
-                                )}
-                                {isClaimed
-                                  ? "Locked"
-                                  : isSyncing
-                                    ? "Syncing"
-                                    : syncCooldown > 0
-                                      ? `${syncCooldown}s`
-                                      : "Sync"}
-                              </button>
+                              {!isSpectator && (
+                                <button
+                                  onClick={() => handleSync(prob.problemId)}
+                                  disabled={
+                                    isClaimed ||
+                                    isSyncing ||
+                                    matchState !== "active" ||
+                                    syncCooldown > 0
+                                  }
+                                  className={styles.syncMini}
+                                >
+                                  {isClaimed ? (
+                                    <Lock className={styles.icon14} size={14} />
+                                  ) : isSyncing ? (
+                                    <RefreshCw
+                                      className={`${styles.icon14} ${styles.spin}`}
+                                      size={14}
+                                    />
+                                  ) : syncCooldown > 0 ? (
+                                    <Hourglass
+                                      className={styles.icon14}
+                                      size={14}
+                                    />
+                                  ) : (
+                                    <RefreshCw
+                                      className={styles.icon14}
+                                      size={14}
+                                    />
+                                  )}
+                                  {isClaimed
+                                    ? "Locked"
+                                    : isSyncing
+                                      ? "Syncing"
+                                      : syncCooldown > 0
+                                        ? `${syncCooldown}s`
+                                        : "Sync"}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>

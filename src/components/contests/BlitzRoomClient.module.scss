@@ -157,6 +157,23 @@
   font-weight: 700;
 }
 
+.spectateBanner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  border-bottom: 1px solid var(--warning-border);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 /* Apply Fonts */
 .problemTitle {
   font-family: var(--font-inter), sans-serif;
