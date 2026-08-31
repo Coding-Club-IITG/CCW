@@ -349,6 +349,10 @@
     gap: 14px;
   }
 
+  .navbar {
+    gap: 12px;
+  }
+
   .hamburgerButton {
     display: flex;
   }
@@ -425,5 +429,42 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+// Theme-conditional rendering
+.whenLight {
+  display: none;
+}
+
+.whenDark {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+:global([data-theme="light"]) {
+  .whenDark {
+    display: none;
+  }
+
+  .whenLight {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+}
+
+@media (max-width: 560px) {
+  .lockup span {
+    display: none;
+  }
+
+  .searchButton kbd {
+    display: none;
+  }
+
+  .actionsSection {
+    gap: 8px;
   }
 }

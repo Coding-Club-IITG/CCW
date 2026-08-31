@@ -85,9 +85,13 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
   drafts and publications are linked one-to-one to calendar records.
   The linked calendar location is displayed publicly, while its external
   URL, agenda, minutes, and reminders remain internal.
-- Public discovery is server rendered. The blog listing renders its current
-  archive page and article links on the server, while focused search, tag, and
-  pagination interactions hydrate on the client.
+- Public discovery is server rendered and URL-driven. Blog and event filters,
+  sorting, pagination and the archive window all live in the query string, so
+  every state is server rendered, shareable and crawlable; only the controls
+  themselves hydrate.
+- Theme-dependent rendering must be done in CSS keyed off `[data-theme]`, not by
+  branching on the theme store. The store reads a cookie that is unavailable
+  during server rendering, so a JavaScript branch desynchronises hydration.
 - Atlas is the global command-and-search surface, opened from the navbar
   or with Ctrl/Cmd+K outside editable controls. Anonymous searches include
   public content, while signed-in searches can include every internal

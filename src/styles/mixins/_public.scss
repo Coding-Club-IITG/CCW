@@ -168,3 +168,177 @@ $nav-height: 59px;
     outline-offset: 2px;
   }
 }
+
+/** Full-bleed page header band */
+@mixin page-header {
+  position: relative;
+  overflow: hidden;
+  padding-block: 72px 34px;
+  border-bottom: 1px solid var(--border);
+  @include page-gutter;
+}
+
+/** Decorative wash behind a page title */
+@mixin page-header-glow($inner, $outer) {
+  position: absolute;
+  right: -150px;
+  top: -230px;
+  width: 620px;
+  height: 620px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    #{$inner} 0%,
+    #{$outer} 45%,
+    rgba(0, 0, 0, 0) 72%
+  );
+  filter: blur(32px);
+  pointer-events: none;
+
+  [data-theme="light"] & {
+    opacity: 0.35;
+  }
+
+  @media (max-width: 720px) {
+    width: 340px;
+    height: 340px;
+    right: -120px;
+    top: -160px;
+    opacity: 0.55;
+  }
+}
+
+@mixin page-header-inner {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+@mixin page-header-kicker {
+  margin: 0 0 18px;
+  @include micro-label(11px, 0.18em);
+}
+
+@mixin page-header-lead {
+  margin: 0;
+  max-width: 440px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--foreground-secondary);
+}
+
+/** Sticky filter bar docked under the navbar */
+@mixin filter-bar {
+  @include sticky-under-nav;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-block: 16px;
+  @include page-gutter;
+  background: var(--nav-surface);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+
+  @media (max-width: 720px) {
+    position: static;
+  }
+}
+
+/** Outlined filter chip */
+@mixin filter-chip {
+  @include chip;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease;
+  @include touch-target(38px);
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--foreground-strong);
+  }
+
+  @include focus-ring;
+}
+
+@mixin filter-chip-active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--btn-primary-text);
+
+  &:hover {
+    color: var(--btn-primary-text);
+  }
+}
+
+/** Joined two-or-more option control */
+@mixin segmented-control {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-input);
+}
+
+@mixin segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  @include micro-label(11px, 0.05em);
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+  @include touch-target(38px);
+
+  &:hover {
+    color: var(--foreground-strong);
+  }
+
+  @include focus-ring;
+}
+
+@mixin segment-active {
+  background: var(--primary);
+  color: var(--btn-primary-text);
+
+  &:hover {
+    color: var(--btn-primary-text);
+  }
+}
+
+/** "Nothing here" placeholder */
+@mixin empty-state {
+  padding-block: 72px;
+  text-align: center;
+}
+
+@mixin empty-state-title {
+  margin: 0;
+  @include display-type(40px, 0.05em);
+  color: var(--muted);
+}
+
+@mixin empty-state-hint {
+  margin: 10px 0 0;
+  @include metadata(11.5px);
+}
+
+/** Visually hidden, still announced */
+@mixin sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

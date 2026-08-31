@@ -1,88 +1,706 @@
 @use "../../../styles/mixins" as *;
 
-.container {
-  @include public-page;
+.page {
+  display: flex;
+  flex-direction: column;
+}
 
-  h1 {
-    @include public-page-title;
+// Filter bar
+.filterBar {
+  @include filter-bar;
+}
+
+.error {
+  @include page-gutter;
+  padding-block: 24px;
+  color: var(--danger);
+}
+
+// Next up
+.nextUp {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground-strong);
+
+  &:hover .nextUpPoster {
+    transform: scale(1.04);
+  }
+
+  @include focus-ring;
+}
+
+.nextUpMedia {
+  @include media-frame(4 / 5);
+  border-right: 1px solid var(--border);
+}
+
+.nextUpPoster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 
-.subtitle {
-  @include public-page-subtitle;
+.nextUpBody {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  padding: clamp(28px, 3.2vw, 52px);
 }
 
-.errorText {
-  @include error-banner;
+.nextUpKicker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  flex-wrap: wrap;
+  @include micro-label(10.5px);
 }
 
-.emptyState {
-  @include public-empty-state;
+.nextUpBadge {
+  padding: 4px 10px;
+  background: var(--primary);
+  color: var(--btn-primary-text);
 }
 
+.nextUpTitle {
+  margin: 0;
+  font-size: clamp(30px, 3.3vw, 46px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.06;
+  text-wrap: pretty;
+}
+
+.nextUpDescription {
+  margin: 0;
+  max-width: 600px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--foreground-secondary);
+}
+
+.nextUpFacts {
+  display: flex;
+  gap: 44px;
+  flex-wrap: wrap;
+  margin: 6px 0 0;
+
+  dt {
+    @include micro-label(11px, 0.09em);
+    margin-bottom: 7px;
+  }
+
+  dd {
+    margin: 0;
+    @include metadata(13px);
+    color: var(--foreground-strong);
+  }
+}
+
+.nextUpAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 8px;
+  @include micro-label(11px, 0.08em);
+  color: var(--danger);
+}
+
+// Sections
+.section {
+  @include page-gutter;
+  padding-block: 48px;
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+}
+
+.sectionHeading {
+  margin: 0 0 28px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+  @include section-heading;
+}
+
+// Poster grid
 .grid {
-  @include public-card-grid;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
 }
 
 .card {
-  @include public-list-card;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  @include square-card;
+  transition:
+    border-color 0.25s ease,
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  &:hover {
+    border-color: var(--accent, var(--primary));
+    transform: translateY(-6px);
+  }
+
+  &:hover .cardPoster {
+    transform: scale(1.06) translateY(-6px);
+    filter: brightness(1.14);
+  }
+
+  &:hover .cardCta {
+    opacity: 1;
+    transform: none;
+  }
+
+  @include focus-ring;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: border-color 0.25s ease;
+
+    &:hover {
+      transform: none;
+    }
+
+    &:hover .cardPoster {
+      transform: none;
+      filter: none;
+    }
+  }
 }
 
-.posterWrapper {
-  @include public-card-media;
+.cardMedia {
+  position: relative;
+  display: block;
+  @include media-frame(4 / 5);
 }
 
-.poster {
+.cardPoster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition:
+    transform 0.5s cubic-bezier(0.16, 0.85, 0.2, 1.03),
+    filter 0.5s ease;
+}
+
+.cardStatus {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 4px 9px;
+  background: var(--background);
+  color: var(--foreground-strong);
+  @include micro-label(11px, 0.09em);
+  color: var(--foreground-strong);
+}
+
+.cardCta {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--nav-surface);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border-input);
+  @include micro-label(11px, 0.08em);
+  color: var(--foreground-strong);
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+  padding: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.cardModule {
+  @include micro-label(11px, 0.08em);
+  color: var(--accent, var(--muted));
+}
+
+.cardTitle {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  line-height: 1.22;
+  color: var(--foreground-strong);
+  text-wrap: pretty;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  @include metadata(11px);
+}
+
+.cardWhere {
+  color: var(--muted-lighter);
+  text-align: right;
+}
+
+// Timeline
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.month {
+  position: relative;
+  padding-left: 132px;
+}
+
+.monthHeader {
+  position: relative;
+  padding: 6px 0 22px;
+}
+
+.monthLabel {
+  position: absolute;
+  left: -132px;
+  top: 0;
+  width: 112px;
+  text-align: right;
+  @include display-type(30px);
+  color: var(--muted);
+}
+
+.monthCount {
+  @include micro-label(10.5px, 0.11em);
+}
+
+.timelineRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1.15fr) minmax(0, 1.5fr) auto;
+  gap: 26px;
+  align-items: center;
+  padding: 20px 18px 20px 30px;
+  color: var(--foreground-strong);
+
+  &:hover .wash {
+    opacity: 1;
+  }
+
+  &:hover .node {
+    transform: scale(1.55);
+  }
+
+  &:hover .timelineTitle {
+    transform: translateX(7px);
+  }
+
+  &:hover .timelineArrow {
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateX(3px);
+  }
+
+  @include focus-ring;
+
+  @media (prefers-reduced-motion: reduce) {
+    &:hover .node,
+    &:hover .timelineTitle,
+    &:hover .timelineArrow {
+      transform: none;
+    }
+  }
+}
+
+// Continuous vertical spine with a node per event
+.spine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.node {
+  position: absolute;
+  left: -5px;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  margin-top: -5.5px;
+  border-radius: 50%;
+  background: var(--background);
+  border: 2px solid var(--accent, var(--primary));
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.wash {
+  position: absolute;
+  left: 1px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent, transparent) 14%, transparent) 0%,
+    transparent 62%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.timelineWhen {
+  position: relative;
+  display: block;
+}
+
+.timelineDay {
+  display: block;
+  @include display-type(34px, 0.02em, 0.9);
+}
+
+.timelineTime {
+  display: block;
+  margin-top: 6px;
+  @include micro-label(11px, 0.09em);
+  color: var(--muted-light);
+}
+
+.timelineHeading {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.timelineTitle {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  line-height: 1.22;
+  text-wrap: pretty;
+  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.timelineMeta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 10px;
+  @include micro-label(11px, 0.08em);
+}
+
+.timelineDescription {
+  position: relative;
+  display: block;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--foreground-secondary);
+}
+
+.timelineEnd {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-self: end;
+}
+
+.timelineStatus {
+  padding: 5px 11px;
+  border: 1px solid var(--border-input);
+  white-space: nowrap;
+  @include micro-label(11px, 0.08em);
+}
+
+.timelineArrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 1px solid var(--border-input);
+  color: var(--muted);
+  transition:
+    border-color 0.25s ease,
+    color 0.25s ease,
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+// Archive load-more
+.archiveControls {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 520px;
+  margin-top: 48px;
+}
+
+.archiveCount {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  @include micro-label(11px, 0.06em);
+}
+
+.archiveDone {
+  color: var(--primary);
+}
+
+.archiveTrack {
+  height: 3px;
+  background: var(--border-light);
+}
+
+.archiveFill {
+  height: 3px;
+  background: var(--spectrum-gradient);
+  transition: width 0.45s cubic-bezier(0.22, 0.8, 0.28, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.archiveButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 52px;
+  border: 1px solid var(--primary);
+  background: var(--primary-alpha);
+  color: var(--primary);
+  @include micro-label(12px, 0.12em);
+  color: var(--primary);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+
+  &:hover {
+    background: var(--primary);
+    color: var(--btn-primary-text);
+  }
+
+  @include focus-ring;
+}
+
+.archiveComplete {
+  margin: 0;
+  @include metadata(11px);
+}
+
+// Expand sheet
+.sheetGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+}
+
+.sheetMedia {
+  @include media-frame(4 / 5);
+  min-height: 440px;
+  border-right: 1px solid var(--border);
+}
+
+.sheetPoster {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.cardContent {
-  padding: 1.25rem;
+.sheetBody {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  padding: clamp(28px, 3.4vw, 52px);
 }
 
-.badges {
+.sheetKicker {
   display: flex;
-  gap: 0.375rem;
   align-items: center;
+  gap: 12px;
+  margin: 0;
   flex-wrap: wrap;
+  @include micro-label(10.5px, 0.09em);
 }
 
-.moduleBadge {
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  background: var(--badge-primary-bg);
-  color: var(--badge-primary-text);
-  padding: 0.125rem 0.5rem;
-  border-radius: 2rem;
-  font-weight: 600;
-  border: 1px solid var(--badge-border);
+.sheetStatus {
+  padding: 4px 10px;
+  border: 1px solid var(--border-input);
+  color: var(--foreground-strong);
 }
 
-.eventTitle {
-  @include public-card-title;
-  margin: 0.25rem 0 0;
+.sheetTitle {
+  margin: 18px 0 0;
+  font-size: clamp(30px, 3.5vw, 48px);
+  font-weight: 700;
+  letter-spacing: -0.028em;
+  line-height: 1.05;
+  color: var(--foreground-strong);
+  text-wrap: pretty;
 }
 
-.shortDesc {
-  @include public-card-description;
-  line-height: 1.4;
+.sheetDescription {
+  margin: 20px 0 0;
+  max-width: 560px;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--foreground-secondary);
 }
 
-.date {
-  font-size: 0.75rem;
-  color: var(--muted-light);
-  margin-top: 0.25rem;
+.sheetFacts {
+  @include hairline-grid(2);
+  margin: 30px 0 0;
 }
 
-.recurrence {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--accent);
-  margin-top: 0.15rem;
-  font-style: italic;
+.sheetFact {
+  @include hairline-cell;
+  padding: 16px 18px;
+
+  dt {
+    margin-bottom: 7px;
+    @include micro-label(11px, 0.09em);
+  }
+
+  dd {
+    margin: 0;
+    @include metadata(13px);
+    color: var(--foreground-strong);
+  }
+}
+
+.sheetTags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 26px;
+}
+
+.sheetTagsLabel {
+  margin-right: 4px;
+  @include micro-label(11px, 0.09em);
+}
+
+.sheetTag {
+  padding: 4px 11px;
+  border: 1px solid var(--border-input);
+  @include metadata(11px);
+  color: var(--foreground-secondary);
+}
+
+.sheetAction {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 9px;
+  margin-top: auto;
+  padding: 14px 22px;
+  background: var(--primary);
+  color: var(--btn-primary-text);
+  font-weight: 700;
+  font-size: 14px;
+
+  &:hover {
+    background: var(--primary-hover);
+  }
+
+  @include focus-ring;
+}
+
+.sheetNext {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 22px;
+  border: 1px solid var(--border-input);
+  background: none;
+  color: var(--foreground-strong);
+  cursor: pointer;
+  @include micro-label(11px, 0.07em);
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  @include focus-ring;
+}
+
+@media (max-width: 1100px) {
+  .timelineRow {
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: 18px;
+  }
+
+  .timelineDescription {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .nextUp {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .nextUpMedia {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sheetGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sheetMedia {
+    min-height: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .month {
+    padding-left: 0;
+  }
+
+  .monthLabel {
+    position: static;
+    display: block;
+    width: auto;
+    text-align: left;
+    margin-bottom: 8px;
+  }
+
+  .timelineRow {
+    padding-left: 22px;
+  }
 }

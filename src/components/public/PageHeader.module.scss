@@ -1,0 +1,51 @@
+@use "../../styles/mixins" as *;
+
+.header {
+  @include page-header;
+}
+
+.sky {
+  --section-accent: var(--brand-sky);
+  --glow-inner: rgba(110, 159, 252, 0.5);
+  --glow-outer: rgba(29, 35, 167, 0.35);
+}
+
+.red {
+  --section-accent: var(--danger);
+  --glow-inner: rgba(255, 78, 65, 0.42);
+  --glow-outer: rgba(253, 111, 67, 0.28);
+}
+
+.violet {
+  --section-accent: var(--brand-violet);
+  --glow-inner: rgba(168, 73, 236, 0.42);
+  --glow-outer: rgba(110, 159, 252, 0.26);
+}
+
+.ember {
+  --section-accent: var(--brand-ember);
+  --glow-inner: rgba(253, 111, 67, 0.42);
+  --glow-outer: rgba(255, 78, 65, 0.26);
+}
+
+.glow {
+  @include page-header-glow(var(--glow-inner), var(--glow-outer));
+}
+
+.inner {
+  @include page-header-inner;
+}
+
+.kicker {
+  @include page-header-kicker;
+  color: var(--section-accent);
+}
+
+.title {
+  margin: 0;
+  @include page-title;
+}
+
+.lead {
+  @include page-header-lead;
+}

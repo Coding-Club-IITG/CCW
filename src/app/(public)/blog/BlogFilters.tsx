@@ -1,107 +1,63 @@
-"use client";
-
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
-
+import FilterChips from "@/components/public/FilterChips";
+import SegmentedControl from "@/components/public/SegmentedControl";
+import { blogHref, type BlogQuery, type BlogSort } from "@/lib/blog/listing";
+import BlogSearch from "./BlogSearch";
 import styles from "./Blog.module.scss";
 
 type Props = {
   availableTags: string[];
   activeTag: string;
   search: string;
-  sort: "published" | "updated";
+  sort: BlogSort;
+  query: BlogQuery;
 };
 
-const SORT_OPTIONS = [
-  { value: "published", label: "Newest" },
-  { value: "updated", label: "Recently updated" },
-] as const;
-
 /**
- * Filter bar for the blog archive
+ * Tag chips, sort order and search. Chips and sort are links so each state is
+ * server rendered; only the search field needs to hydrate.
  */
 export default function BlogFilters({
   availableTags,
   activeTag,
   search,
   sort,
+  query,
 }: Props) {
-  const router = useRouter();
-  const [draft, setDraft] = useState(search);
+  const chips = [
+    {
+      label: "All",
+      href: blogHref(query, { tag: "", page: "" }),
+      active: !activeTag,
+    },
+    ...availableTags.map((tag) => ({
+      label: tag,
+      href: blogHref(query, {
+        tag: activeTag === tag ? "" : tag,
+        page: "",
+      }),
+      active: activeTag === tag,
+    })),
+  ];
 
-  // Keep the field in step when visitor navigates back or clears a filter
-  useEffect(() => setDraft(search), [search]);
-
-  function navigate(overrides: Record<string, string>) {
-    const params = new URLSearchParams();
-    const next = { tag: activeTag, search, sort, ...overrides };
-    if (next.tag) params.set("tag", next.tag);
-    if (next.search) params.set("search", next.search);
-    if (next.sort && next.sort !== "published") params.set("sort", next.sort);
-    const query = params.toString();
-    router.push(query ? `/blog?${query}` : "/blog");
-  }
+  const segments = [
+    {
+      label: "Newest",
+      href: blogHref(query, { sort: "published", page: "" }),
+      active: sort === "published",
+    },
+    {
+      label: "Recently updated",
+      href: blogHref(query, { sort: "updated", page: "" }),
+      active: sort === "updated",
+    },
+  ];
 
   return (
     <div className={styles.filterBar}>
-      <div className={styles.tagRow}>
-        <button
-          type="button"
-          className={`${styles.chip} ${!activeTag ? styles.chipActive : ""}`}
-          aria-pressed={!activeTag}
-          onClick={() => navigate({ tag: "" })}
-        >
-          All
-        </button>
-        {availableTags.map((tag) => (
-          <button
-            key={tag}
-            type="button"
-            className={`${styles.chip} ${activeTag === tag ? styles.chipActive : ""}`}
-            aria-pressed={activeTag === tag}
-            onClick={() => navigate({ tag: activeTag === tag ? "" : tag })}
-          >
-            {tag}
-          </button>
-        ))}
-      </div>
-
+      <FilterChips options={chips} label="Filter posts by tag" />
       <div className={styles.controls}>
-        <div className={styles.sortToggle} role="group" aria-label="Sort posts">
-          {SORT_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`${styles.sortOption} ${sort === option.value ? styles.sortActive : ""}`}
-              aria-pressed={sort === option.value}
-              onClick={() => navigate({ sort: option.value })}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
-        <form
-          className={styles.searchField}
-          onSubmit={(event) => {
-            event.preventDefault();
-            navigate({ search: draft.trim() });
-          }}
-        >
-          <Search size={14} aria-hidden="true" />
-          <input
-            type="search"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Search posts"
-            aria-label="Search posts"
-            maxLength={100}
-          />
-          <button type="submit" className={styles.srOnly}>
-            Search
-          </button>
-        </form>
+        <SegmentedControl segments={segments} label="Sort posts" />
+        <BlogSearch search={search} query={query} />
       </div>
     </div>
   );

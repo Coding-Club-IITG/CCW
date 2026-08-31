@@ -21,6 +21,8 @@ import {
   POSTS_PER_PAGE,
   type BlogQuery,
 } from "@/lib/blog/listing";
+import EmptyState from "@/components/public/EmptyState";
+import PageHeader from "@/components/public/PageHeader";
 import BlogFilters from "./BlogFilters";
 import styles from "./Blog.module.scss";
 
@@ -193,26 +195,19 @@ export default async function BlogPage({ searchParams }: Props) {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.headerGlow} aria-hidden="true" />
-        <div className={styles.headerInner}>
-          <div>
-            <p className={styles.kicker}>{countLabel}</p>
-            <h1 className={styles.title}>Writing</h1>
-          </div>
-          <p className={styles.lead}>
-            Tutorials, project write-ups and notes from the five modules.
-            Whatever we work out, we try to leave behind in a form the next
-            batch can read.
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        kicker={countLabel}
+        title="Writing"
+        glow="sky"
+        lead="Tutorials, project write-ups and notes from the five modules. Whatever we work out, we try to leave behind in a form the next batch can read."
+      />
 
       <BlogFilters
         availableTags={listing.availableTags}
         activeTag={query.tag?.trim() ?? ""}
         search={query.search?.trim() ?? ""}
         sort={sortValue(query.sort)}
+        query={query}
       />
 
       {featured && (
@@ -301,12 +296,10 @@ export default async function BlogPage({ searchParams }: Props) {
         ))}
 
         {listing.items.length === 0 && (
-          <div className={styles.empty}>
-            <p className={styles.emptyTitle}>Nothing matches</p>
-            <p className={styles.emptyHint}>
-              Try another tag, or clear the search.
-            </p>
-          </div>
+          <EmptyState
+            title="Nothing matches"
+            hint="Try another tag, or clear the search."
+          />
         )}
       </div>
 

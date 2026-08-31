@@ -1,0 +1,28 @@
+@use "../../styles/mixins" as *;
+
+.chipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  @include filter-chip;
+}
+
+.chipActive {
+  @include filter-chip-active;
+}
+
+.segmented {
+  @include segmented-control;
+}
+
+.segment {
+  @include segment;
+}
+
+.segmentActive {
+  @include segment-active;
+}

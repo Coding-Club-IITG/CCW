@@ -73,7 +73,7 @@ export default function Navbar() {
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [identityPickerOpen, setIdentityPickerOpen] = useState(false);
-  const { theme, toggleTheme } = useThemeStore();
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const { viewMode, toggleViewMode, setViewMode } = useViewModeStore();
   const { developmentAuthEnabled } = useRuntimeConfig();
   const commandConsole = useCommandConsole();
@@ -152,8 +152,14 @@ export default function Navbar() {
           >
             <span>Appearance</span>
             <span className={styles.drawerThemeValue}>
-              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-              {theme === "dark" ? "Dark" : "Light"}
+              <span className={styles.whenDark}>
+                <Sun size={14} aria-hidden="true" />
+                Dark
+              </span>
+              <span className={styles.whenLight}>
+                <Moon size={14} aria-hidden="true" />
+                Light
+              </span>
             </span>
           </button>
         </div>
@@ -172,14 +178,11 @@ export default function Navbar() {
           <button
             onClick={toggleTheme}
             className={styles.themeToggle}
-            aria-label={
-              theme === "dark"
-                ? "Switch to light theme"
-                : "Switch to dark theme"
-            }
+            aria-label="Toggle colour theme"
             type="button"
           >
-            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+            <Sun size={15} className={styles.whenDark} aria-hidden="true" />
+            <Moon size={15} className={styles.whenLight} aria-hidden="true" />
           </button>
 
           {showInternal && <NotificationBell />}
