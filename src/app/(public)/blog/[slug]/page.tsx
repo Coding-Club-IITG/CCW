@@ -13,11 +13,12 @@ import {
 } from "@/lib/seo";
 import BlogPost from "@/models/BlogPost";
 import ArticleReader from "@/components/blog/ArticleReader";
-import BlogCard from "@/components/blog/BlogCard";
 import BackLink from "@/components/shared/BackLink";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+import FocalImage from "@/components/shared/FocalImage";
 import JsonLd from "@/components/shared/JsonLd";
-import TagBadge from "@/components/shared/TagBadge";
+import { readingTimeLabel } from "@/lib/blog/readingTime";
+import { tagAccent } from "@/lib/constants";
+import Link from "next/link";
 import styles from "./BlogPost.module.scss";
 
 interface Props {
@@ -95,6 +96,28 @@ export default async function BlogPostPage({ params }: Props) {
     post.tags,
   );
   const headings = extractMarkdownHeadings(post.content);
+  const readingTime = readingTimeLabel(post.content);
+
+  // Chronological neighbours
+  const neighbourFields = "title slug tags publishedAt";
+  const [previousPost, nextPost] = await Promise.all([
+    BlogPost.findOne({
+      _id: { $ne: post._id },
+      status: "published",
+      publishedAt: { $lt: post.publishedAt, $ne: null },
+    })
+      .select(neighbourFields)
+      .sort({ publishedAt: -1 })
+      .lean(),
+    BlogPost.findOne({
+      _id: { $ne: post._id },
+      status: "published",
+      publishedAt: { $gt: post.publishedAt, $ne: null },
+    })
+      .select(neighbourFields)
+      .sort({ publishedAt: 1 })
+      .lean(),
+  ]);
 
   const publishedDate = new Date(post.publishedAt!).toLocaleDateString(
     "en-IN",
@@ -147,56 +170,128 @@ export default async function BlogPostPage({ params }: Props) {
           keywords: post.tags,
         }}
       />
-      <div className={styles.articleLead}>
-        <BackLink href="/blog" label="Back to Blog" />
-
-        {post.coverImage && (
-          <div className={styles.coverWrapper}>
-            <CompatibleImage
-              src={post.coverImage}
-              alt=""
-              className={styles.cover}
-              width={1260}
-              height={540}
-            />
-          </div>
-        )}
+      <div className={styles.lead}>
+        <BackLink href="/blog" label="All writing" />
 
         <header className={styles.header}>
+          {post.tags.length > 0 && (
+            <p className={styles.tagLine}>
+              {post.tags.map((tag: string) => (
+                <span key={tag} style={{ color: tagAccent(tag) }}>
+                  {tag}
+                </span>
+              ))}
+            </p>
+          )}
           <h1 className={styles.title}>{post.title}</h1>
           {post.excerpt && <p className={styles.excerpt}>{post.excerpt}</p>}
           <div className={styles.meta}>
             <span className={styles.author}>{authorNames}</span>
-            <span className={styles.dot}>·</span>
-            <time className={styles.date}>{publishedDate}</time>
+            <time dateTime={post.publishedAt!.toISOString()}>
+              {publishedDate}
+            </time>
+            {readingTime && <span>{readingTime}</span>}
             {wasEdited && (
-              <>
-                <span className={styles.dot}>·</span>
-                <span className={styles.edited}>Updated {updatedDate}</span>
-              </>
+              <span className={styles.edited}>Updated {updatedDate}</span>
             )}
           </div>
-          {post.tags.length > 0 && (
-            <div className={styles.tags}>
-              {post.tags.map((tag: string) => (
-                <TagBadge key={tag} tag={tag} />
-              ))}
-            </div>
-          )}
         </header>
+
+        {post.coverImage && (
+          <div className={styles.coverWrapper}>
+            <FocalImage
+              src={post.coverImage}
+              focalPoint={post.coverFocalPoint}
+              alt=""
+              className={styles.cover}
+              width={1260}
+              height={460}
+              sizes="(max-width: 1360px) 100vw, 1260px"
+              priority
+            />
+          </div>
+        )}
       </div>
 
       <ArticleReader content={post.content} headings={headings} />
+
+      <nav className={styles.neighbours} aria-label="More articles">
+        {previousPost ? (
+          <Link
+            href={`/blog/${previousPost.slug}`}
+            className={styles.neighbour}
+          >
+            <span className={styles.neighbourPrevLabel}>← Previous</span>
+            <span className={styles.neighbourTitle}>{previousPost.title}</span>
+            <span className={styles.neighbourMeta}>
+              {previousPost.tags?.[0] ?? "Writing"}
+            </span>
+          </Link>
+        ) : (
+          <div className={`${styles.neighbour} ${styles.neighbourStub}`}>
+            <span className={styles.neighbourStubLabel}>Start of the run</span>
+            <span className={styles.neighbourTitle}>
+              Nothing before this one
+            </span>
+          </div>
+        )}
+
+        {nextPost ? (
+          <Link
+            href={`/blog/${nextPost.slug}`}
+            className={`${styles.neighbour} ${styles.neighbourNext}`}
+          >
+            <span className={styles.neighbourNextLabel}>Next →</span>
+            <span className={styles.neighbourTitle}>{nextPost.title}</span>
+            <span className={styles.neighbourMeta}>
+              {nextPost.tags?.[0] ?? "Writing"}
+            </span>
+          </Link>
+        ) : (
+          <div
+            className={`${styles.neighbour} ${styles.neighbourNext} ${styles.neighbourStub}`}
+          >
+            <span className={styles.neighbourStubLabel}>End of the run</span>
+            <span className={styles.neighbourTitle}>
+              Nothing after this one
+            </span>
+          </div>
+        )}
+      </nav>
 
       {relatedPosts.length > 0 && (
         <section
           className={styles.related}
           aria-labelledby="related-posts-title"
         >
-          <h2 id="related-posts-title">Related posts</h2>
+          <h2 id="related-posts-title" className={styles.relatedHeading}>
+            Keep reading
+          </h2>
           <div className={styles.relatedGrid}>
-            {relatedPosts.map(({ _id, status: _status, ...related }) => (
-              <BlogCard key={_id} {...related} />
+            {relatedPosts.map((related) => (
+              <Link
+                key={related._id}
+                href={`/blog/${related.slug}`}
+                className={styles.relatedCard}
+              >
+                {related.tags[0] && (
+                  <span
+                    className={styles.relatedTag}
+                    style={{ color: tagAccent(related.tags[0]) }}
+                  >
+                    {related.tags[0]}
+                  </span>
+                )}
+                <span className={styles.relatedTitle}>{related.title}</span>
+                <span className={styles.relatedMeta}>
+                  {new Date(related.publishedAt).toLocaleDateString("en-IN", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    timeZone: "Asia/Kolkata",
+                  })}
+                </span>
+              </Link>
             ))}
           </div>
         </section>

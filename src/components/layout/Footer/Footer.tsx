@@ -35,7 +35,7 @@ export default function Footer() {
             <span>Coding Club</span>
           </div>
           <address className={styles.address}>
-            {IITG_ADDRESS.streetAddress}, {IITG_ADDRESS.addressRegion} —{" "}
+            {IITG_ADDRESS.streetAddress}, {IITG_ADDRESS.addressRegion} -{" "}
             {IITG_ADDRESS.postalCode}, India
           </address>
         </div>

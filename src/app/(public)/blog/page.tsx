@@ -1,20 +1,72 @@
 import type { Metadata } from "next";
+import type { SortOrder } from "mongoose";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+
+import FocalImage from "@/components/shared/FocalImage";
+import Pagination from "@/components/shared/Pagination";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
+import { readingTimeLabel } from "@/lib/blog/readingTime";
+import { tagAccent } from "@/lib/constants";
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import dbConnect from "@/lib/mongodb";
-import { parsePagination, paginatedResponse } from "@/lib/pagination";
+import { paginatedResponse } from "@/lib/pagination";
 import { prepareSearchQuery } from "@/lib/search";
 import { pageMetadata } from "@/lib/seo";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
-import BlogExplorer, { type BlogListingData } from "./BlogExplorer";
+import {
+  blogPageNumber as pageNumber,
+  blogSort as sortValue,
+  POSTS_PER_PAGE,
+  type BlogQuery,
+} from "@/lib/blog/listing";
+import BlogFilters from "./BlogFilters";
+import styles from "./Blog.module.scss";
 
-type SearchParams = { page?: string; tag?: string; search?: string };
+type SearchParams = BlogQuery;
 type Props = { searchParams: Promise<SearchParams> };
 
-function pageNumber(value?: string) {
-  const parsed = Number.parseInt(value ?? "1", 10);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
+type ListedPost = {
+  _id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  coverImage?: string;
+  coverFocalPoint?: ImageFocalPoint;
+  authors: { userId: string; name: string }[];
+  tags: string[];
+  publishedAt: string;
+  updatedAt?: string;
+  readingTime: string;
+};
+
+type Listing = {
+  items: ListedPost[];
+  availableTags: string[];
+  pagination: { page: number; total: number; totalPages: number };
+};
+
+const dateOptions: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  timeZone: "Asia/Kolkata",
+};
+
+function formatDate(value?: string) {
+  return value ? new Date(value).toLocaleDateString("en-IN", dateOptions) : "";
+}
+
+function updatedLabel(post: ListedPost) {
+  if (!post.updatedAt || !post.publishedAt) return null;
+  const delta =
+    new Date(post.updatedAt).getTime() - new Date(post.publishedAt).getTime();
+  return delta > 60_000 ? `Updated ${formatDate(post.updatedAt)}` : null;
+}
+
+function authorNames(post: ListedPost) {
+  return post.authors.map((author) => author.name).join(", ") || "Coding Club";
 }
 
 export async function generateMetadata({
@@ -33,18 +85,19 @@ export async function generateMetadata({
   });
 }
 
-async function getListing(query: SearchParams): Promise<BlogListingData> {
+async function getListing(query: SearchParams): Promise<Listing> {
   const page = pageNumber(query.page);
-  const limit = 12;
-  const skip = (page - 1) * limit;
+  const sort = sortValue(query.sort);
   const tag = query.tag?.trim() || null;
   const searchQuery = prepareSearchQuery(query.search ?? null);
+  const skip = (page - 1) * POSTS_PER_PAGE;
   await dbConnect();
 
   return cachedFetch(
-    buildCacheKey("blog:list:v2", {
+    buildCacheKey("blog:list:v3", {
       page,
-      limit,
+      limit: POSTS_PER_PAGE,
+      sort,
       tag: tag ?? undefined,
       search: searchQuery?.query,
     }),
@@ -52,48 +105,65 @@ async function getListing(query: SearchParams): Promise<BlogListingData> {
     async () => {
       const filter: Record<string, unknown> = { status: "published" };
       if (tag) filter.tags = tag;
-      if (searchQuery)
-        filter.title = { $regex: searchQuery.pattern, $options: "i" };
+      if (searchQuery) {
+        const pattern = { $regex: searchQuery.pattern, $options: "i" };
+        filter.$or = [
+          { title: pattern },
+          { excerpt: pattern },
+          { tags: pattern },
+          { "authors.name": pattern },
+        ];
+      }
+
+      const order: Record<string, SortOrder> =
+        sort === "updated" ? { updatedAt: -1 } : { publishedAt: -1 };
       const [posts, total, availableTags] = await Promise.all([
         BlogPost.find(filter)
           .select(
-            "title slug excerpt coverImage coverFocalPoint authors tags publishedAt updatedAt",
+            "title slug excerpt coverImage coverFocalPoint authors tags publishedAt updatedAt content",
           )
-          .sort({ publishedAt: -1 })
+          .sort(order)
           .skip(skip)
-          .limit(limit)
+          .limit(POSTS_PER_PAGE)
           .lean(),
         BlogPost.countDocuments(filter),
         BlogPost.distinct("tags", { status: "published" }),
       ]);
+
+      const items = posts.map((post) => {
+        const { content, ...rest } = post as typeof post & { content?: string };
+        return { ...rest, readingTime: readingTimeLabel(content ?? "") };
+      });
+
+      const paginated = paginatedResponse(items, total, page, POSTS_PER_PAGE);
       return JSON.parse(
         JSON.stringify({
-          ...paginatedResponse(posts, total, page, limit),
-          availableTags,
+          items: paginated.items,
+          availableTags: [...availableTags].sort(),
+          pagination: {
+            page,
+            total,
+            totalPages: paginated.pagination.totalPages,
+          },
         }),
-      ) as BlogListingData;
+      ) as Listing;
     },
   );
 }
 
 export default async function BlogPage({ searchParams }: Props) {
   const query = await searchParams;
-  let initialData: BlogListingData = {
+  const page = pageNumber(query.page);
+
+  let listing: Listing = {
     items: [],
     availableTags: [],
-    pagination: {
-      page: pageNumber(query.page),
-      limit: 12,
-      total: 0,
-      totalPages: 1,
-      hasNext: false,
-      hasPrev: false,
-    },
+    pagination: { page, total: 0, totalPages: 1 },
   };
-  let listingLoaded = false;
+  let loaded = false;
   try {
-    initialData = await getListing(query);
-    listingLoaded = true;
+    listing = await getListing(query);
+    loaded = true;
   } catch (error) {
     logger.error("Server-rendered blog listing failed", {
       route: "/blog",
@@ -101,11 +171,158 @@ export default async function BlogPage({ searchParams }: Props) {
       ...errorToLogMetadata(error),
     });
   }
-  if (
-    listingLoaded &&
-    initialData.pagination.page > Math.max(1, initialData.pagination.totalPages)
-  ) {
-    notFound();
-  }
-  return <BlogExplorer initialData={initialData} initialQuery={query} />;
+
+  if (loaded && page > Math.max(1, listing.pagination.totalPages)) notFound();
+
+  const showFeature = page === 1 && listing.items.length > 0;
+  const featured = showFeature ? listing.items[0] : null;
+  const rows = showFeature ? listing.items.slice(1) : listing.items;
+
+  const first =
+    listing.pagination.total === 0 ? 0 : (page - 1) * POSTS_PER_PAGE + 1;
+  const last = Math.min(listing.pagination.total, page * POSTS_PER_PAGE);
+
+  const paginationParams: Record<string, string> = {};
+  if (query.tag?.trim()) paginationParams.tag = query.tag.trim();
+  if (query.search?.trim()) paginationParams.search = query.search.trim();
+  if (sortValue(query.sort) !== "published") paginationParams.sort = "updated";
+
+  const countLabel = `${listing.pagination.total} ${
+    listing.pagination.total === 1 ? "post" : "posts"
+  } published`;
+
+  return (
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.headerGlow} aria-hidden="true" />
+        <div className={styles.headerInner}>
+          <div>
+            <p className={styles.kicker}>{countLabel}</p>
+            <h1 className={styles.title}>Writing</h1>
+          </div>
+          <p className={styles.lead}>
+            Tutorials, project write-ups and notes from the five modules.
+            Whatever we work out, we try to leave behind in a form the next
+            batch can read.
+          </p>
+        </div>
+      </header>
+
+      <BlogFilters
+        availableTags={listing.availableTags}
+        activeTag={query.tag?.trim() ?? ""}
+        search={query.search?.trim() ?? ""}
+        sort={sortValue(query.sort)}
+      />
+
+      {featured && (
+        <Link href={`/blog/${featured.slug}`} className={styles.featured}>
+          <div className={styles.featuredMedia}>
+            {featured.coverImage && (
+              <FocalImage
+                src={featured.coverImage}
+                focalPoint={featured.coverFocalPoint}
+                alt=""
+                width={760}
+                height={475}
+                sizes="(max-width: 900px) 100vw, 50vw"
+                priority
+                className={styles.featuredImage}
+              />
+            )}
+          </div>
+          <div className={styles.featuredBody}>
+            <p className={styles.featuredKicker}>
+              <span className={styles.latest}>Latest</span>
+              {featured.tags[0] && (
+                <span style={{ color: tagAccent(featured.tags[0]) }}>
+                  {featured.tags.join(" / ")}
+                </span>
+              )}
+            </p>
+            <h2 className={styles.featuredTitle}>{featured.title}</h2>
+            <p className={styles.featuredExcerpt}>{featured.excerpt}</p>
+            <p className={styles.featuredMeta}>
+              <span className={styles.authors}>{authorNames(featured)}</span>
+              <span>{formatDate(featured.publishedAt)}</span>
+              {featured.readingTime && <span>{featured.readingTime}</span>}
+              {updatedLabel(featured) && (
+                <span className={styles.updatedChip}>
+                  {updatedLabel(featured)}
+                </span>
+              )}
+            </p>
+          </div>
+        </Link>
+      )}
+
+      <div className={styles.list}>
+        {rows.map((post) => (
+          <Link
+            key={post._id}
+            href={`/blog/${post.slug}`}
+            className={styles.row}
+          >
+            <div className={styles.rowMedia}>
+              {post.coverImage && (
+                <FocalImage
+                  src={post.coverImage}
+                  focalPoint={post.coverFocalPoint}
+                  alt=""
+                  width={220}
+                  height={165}
+                  sizes="110px"
+                  loading="lazy"
+                  className={styles.rowImage}
+                />
+              )}
+            </div>
+            <div className={styles.rowHeading}>
+              <h3 className={styles.rowTitle}>{post.title}</h3>
+              {post.tags[0] && (
+                <p
+                  className={styles.rowTag}
+                  style={{ color: tagAccent(post.tags[0]) }}
+                >
+                  {post.tags.join(" / ")}
+                </p>
+              )}
+            </div>
+            <p className={styles.rowExcerpt}>{post.excerpt}</p>
+            <div className={styles.rowMeta}>
+              <span className={styles.authors}>{authorNames(post)}</span>
+              <span>{formatDate(post.publishedAt)}</span>
+              {updatedLabel(post) && (
+                <span className={styles.updatedLine}>{updatedLabel(post)}</span>
+              )}
+              {post.readingTime && <span>{post.readingTime}</span>}
+            </div>
+          </Link>
+        ))}
+
+        {listing.items.length === 0 && (
+          <div className={styles.empty}>
+            <p className={styles.emptyTitle}>Nothing matches</p>
+            <p className={styles.emptyHint}>
+              Try another tag, or clear the search.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {listing.pagination.totalPages > 1 && (
+        <div className={styles.paginationWrap}>
+          <Pagination
+            page={page}
+            totalPages={listing.pagination.totalPages}
+            hrefBase="/blog"
+            hrefParams={paginationParams}
+            keyboard
+            ariaLabel="Blog pagination"
+            rangeLabel={`showing ${first}–${last} of ${listing.pagination.total} · page ${page} / ${listing.pagination.totalPages}`}
+          />
+        </div>
+      )}
+    </div>
+  );
 }

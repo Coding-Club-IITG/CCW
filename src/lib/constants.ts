@@ -69,6 +69,38 @@ export type UserRole =
 export const PROJECT_MODULES = [...MODULES, "General"] as const;
 export type ProjectModuleName = (typeof PROJECT_MODULES)[number];
 
+export const MODULE_ACCENTS: Record<ProjectModuleName, string> = {
+  "Software Development": "var(--module-software-accent)",
+  "Competitive Programming": "var(--module-cp-accent)",
+  "Machine Learning": "var(--module-ml-accent)",
+  Cybersecurity: "var(--module-security-accent)",
+  Design: "var(--module-design-accent)",
+  General: "var(--muted)",
+};
+
+export const MODULE_BARS: Record<ProjectModuleName, string> = {
+  "Software Development": "var(--module-software-bar)",
+  "Competitive Programming": "var(--module-cp-bar)",
+  "Machine Learning": "var(--module-ml-bar)",
+  Cybersecurity: "var(--module-security-bar)",
+  Design: "var(--module-design-bar)",
+  General: "var(--muted)",
+};
+
+const EXTRA_TAG_ACCENTS: Record<string, string> = {
+  Tutorial: "var(--primary)",
+  Announcement: "var(--brand-red)",
+  "Event Recap": "var(--brand-ember)",
+};
+
+export function tagAccent(tag: string): string {
+  return (
+    MODULE_ACCENTS[tag as ProjectModuleName] ??
+    EXTRA_TAG_ACCENTS[tag] ??
+    "var(--muted)"
+  );
+}
+
 export const LEADERSHIP_ROLES = CLUB_POSITIONS;
 export type LeadershipRole = (typeof LEADERSHIP_ROLES)[number];
 
