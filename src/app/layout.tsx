@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { Hanken_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
+import {
+  Handjet,
+  Hanken_Grotesk,
+  Inter,
+  JetBrains_Mono,
+} from "next/font/google";
 import { cookies } from "next/headers";
 import "@/styles/globals.scss";
 import Providers from "@/components/layout/Providers";
@@ -12,8 +17,13 @@ export const metadata: Metadata = {
   description: SITE_DESCRIPTION,
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "CC IITG" },
-  // TODO: Apple touch icon
-  icons: { apple: "/icons/cc-apple-touch.png" },
+  icons: {
+    icon: [
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-96.png", sizes: "96x96", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/cc-apple-touch.png", sizes: "180x180" }],
+  },
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
@@ -32,8 +42,14 @@ export const metadata: Metadata = {
 
 const hankenGrotesk = Hanken_Grotesk({
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-hanken-grotesk",
+});
+
+const handjet = Handjet({
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  variable: "--font-handjet",
 });
 
 const inter = Inter({
@@ -44,7 +60,7 @@ const inter = Inter({
 
 const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: "500",
+  weight: ["400", "500"],
   variable: "--font-jetbrains-mono",
 });
 
@@ -60,7 +76,7 @@ export default async function RootLayout({
     <html
       lang="en"
       data-theme={theme}
-      className={`${hankenGrotesk.variable} ${inter.variable} ${jetBrainsMono.variable}`}
+      className={`${hankenGrotesk.variable} ${handjet.variable} ${inter.variable} ${jetBrainsMono.variable}`}
     >
       <body>
         <Providers

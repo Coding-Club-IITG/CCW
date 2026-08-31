@@ -11,8 +11,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "Coding Club IITG", {
       body: data.message || "You have a new notification.",
-      // TODO: Notification icon
       icon: data.icon || "/icons/cc-192.png",
+      badge: data.badge || "/icons/cc-badge-96.png",
       tag: data.tag,
       data: { link: data.link || "/internal/notifications" },
     }),

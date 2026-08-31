@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: post.title,
     description,
     path: `/blog/${post.slug}`,
-    image: ogImage(post.title, post.coverImage),
+    image: ogImage(post.title, { media: post.coverImage }),
   });
 }
 
@@ -121,7 +121,7 @@ export default async function BlogPostPage({ params }: Props) {
     post.excerpt || post.content,
     `Read ${post.title} from Coding Club IITG.`,
   );
-  const image = ogImage(post.title, post.coverImage);
+  const image = ogImage(post.title, { media: post.coverImage });
 
   return (
     <article className={styles.article}>

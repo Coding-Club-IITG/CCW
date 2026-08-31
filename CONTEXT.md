@@ -27,6 +27,8 @@ programming systems, content, administration, and background integrations.
 
 - Next.js 16 App Router, React 19, and strict TypeScript
 - SCSS Modules and shared CSS variables
+- Hanken Grotesk for text, JetBrains Mono for labels and metadata,
+  and Handjet for display type
 - MongoDB with Mongoose and the better-auth MongoDB adapter
 - Redis for shared runtime state, caching, and queue support
 - Agenda and BullMQ background processing
@@ -93,6 +95,8 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
 - Public blog, event, and project images store normalized focal points for
   consistent responsive card crops. Detail-page images retain their natural
   aspect ratio.
+- Open Graph covers are generated per request by `src/app/api/og/route.tsx` from
+  `?kicker=`, `?title=` and `?meta=`.
 - Platform integrations currently include Codeforces and AtCoder, with contest
   aggregation also covering other competitive-programming platforms.
 - `@ronits2407/cp-api` owns CP Platform HTTP requests, retries,

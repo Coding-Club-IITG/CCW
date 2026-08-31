@@ -16,7 +16,7 @@ type Response = {
 };
 
 function display(value: AuditSummaryValue | undefined) {
-  if (value === undefined) return "—";
+  if (value === undefined) return "-";
   if (Array.isArray(value)) return value.length ? value.join(", ") : "None";
   if (value === null) return "None";
   if (typeof value === "boolean") return value ? "Yes" : "No";

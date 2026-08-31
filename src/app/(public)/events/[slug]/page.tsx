@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       `Details for ${event.title}.`,
     ),
     path: `/events/${event.slug}`,
-    image: ogImage(event.title, event.poster),
+    image: ogImage(event.title, { media: event.poster }),
   });
 }
 
@@ -123,7 +123,7 @@ export default async function EventDetailPage({ params }: Props) {
           `Details for ${event.title}.`,
         ),
         url: eventUrl,
-        image: [ogImage(event.title, event.poster)],
+        image: [ogImage(event.title, { media: event.poster })],
         startDate: event.startDate.toISOString(),
         ...(event.endDate ? { endDate: event.endDate.toISOString() } : {}),
         eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
