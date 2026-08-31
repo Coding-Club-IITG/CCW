@@ -87,6 +87,16 @@ export const MODULE_BARS: Record<ProjectModuleName, string> = {
   General: "var(--muted)",
 };
 
+export const MODULE_DESCRIPTIONS: Record<ModuleName, string> = {
+  "Software Development":
+    "Building scalable solutions and modern applications.",
+  "Competitive Programming":
+    "Sharpening problem-solving skills through algorithmic contests and challenges.",
+  "Machine Learning": "Harnessing data and artificial intelligence.",
+  Cybersecurity: "Securing the digital frontier and exploring vulnerabilities.",
+  Design: "Crafting intuitive interfaces and compelling visual experiences.",
+};
+
 const EXTRA_TAG_ACCENTS: Record<string, string> = {
   Tutorial: "var(--primary)",
   Announcement: "var(--brand-red)",

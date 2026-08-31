@@ -1,25 +1,444 @@
 @use "../../../styles/mixins" as *;
 
-.container {
-  @include public-page;
+.page {
+  display: flex;
+  flex-direction: column;
+}
 
-  h1 {
-    @include public-page-title;
+.filterBar {
+  @include filter-bar;
+}
+
+.error {
+  @include page-gutter;
+  padding-block: 24px;
+  color: var(--danger);
+}
+
+// Project rows
+.rows {
+  @include page-gutter;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-items: stretch;
+  border-bottom: 1px solid var(--border-light);
+  transition: background 0.25s ease;
+
+  &:hover {
+    background: var(--surface-hover);
+  }
+
+  &:hover .coverImage {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+  }
+
+  &:hover .coverCta {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:hover .coverImage {
+      transform: none;
+      filter: none;
+    }
   }
 }
 
-.subtitle {
-  @include public-page-subtitle;
+.rowBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 44px 44px 44px 0;
 }
 
-.errorText {
-  @include error-banner;
+.rowKicker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0;
+  @include micro-label(10.5px, 0.08em);
 }
 
-.emptyState {
-  @include public-empty-state;
+.rowIndex {
+  color: var(--muted-lighter);
 }
 
-.grid {
-  @include public-card-grid;
+.rowStatus {
+  padding: 3px 9px;
+  border: 1px solid var(--border-input);
+  color: var(--foreground-secondary);
+}
+
+.rowTitle {
+  margin: 0;
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  color: var(--foreground-strong);
+  text-wrap: pretty;
+}
+
+.rowDescription {
+  margin: 0;
+  max-width: 560px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--foreground-secondary);
+}
+
+.stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stackItem {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  @include metadata(10.5px);
+  color: var(--foreground-secondary);
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 22px;
+  @include micro-label(11px, 0.06em);
+}
+
+.liveLink,
+.sourceLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  @include focus-ring;
+}
+
+.liveLink {
+  color: var(--primary);
+  text-transform: none;
+  letter-spacing: 0.04em;
+
+  &:hover {
+    color: var(--primary-hover);
+  }
+}
+
+.sourceLink {
+  color: var(--muted);
+
+  &:hover {
+    color: var(--foreground-strong);
+  }
+}
+
+.rowMeta {
+  color: var(--muted);
+}
+
+.rowMetaDim {
+  color: var(--muted-light);
+}
+
+// Cover: the one element that opens the sheet.
+.cover {
+  position: relative;
+  display: block;
+  min-height: 280px;
+  padding: 0;
+  border: none;
+  border-left: 1px solid var(--border-light);
+  background: var(--surface-secondary);
+  overflow: hidden;
+  cursor: pointer;
+  @include focus-ring;
+}
+
+.coverMedia {
+  position: absolute;
+  inset: 0;
+  background: var(--drop-zone);
+}
+
+.coverImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition:
+    transform 0.5s cubic-bezier(0.16, 0.85, 0.2, 1.03),
+    filter 0.5s ease;
+}
+
+.coverScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 40%,
+    rgba(0, 0, 0, 0.82) 100%
+  );
+
+  [data-theme="light"] & {
+    background: linear-gradient(
+      180deg,
+      rgba(18, 16, 12, 0) 40%,
+      rgba(18, 16, 12, 0.32) 100%
+    );
+  }
+}
+
+.coverCta {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  background: var(--nav-surface);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--accent, var(--primary));
+  color: var(--accent, var(--primary));
+  @include micro-label(11px, 0.08em);
+  color: var(--accent, var(--primary));
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// Expand sheet
+.sheet {
+  padding: clamp(30px, 3.6vw, 56px);
+}
+
+.sheetKicker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0;
+  @include micro-label(10.5px, 0.09em);
+}
+
+.sheetStatus {
+  padding: 4px 10px;
+  border: 1px solid var(--border-input);
+  color: var(--foreground-strong);
+}
+
+.sheetSince {
+  color: var(--muted-light);
+}
+
+.sheetTitle {
+  margin: 18px 0 0;
+  font-size: clamp(34px, 4vw, 58px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  color: var(--foreground-strong);
+  text-wrap: pretty;
+}
+
+.sheetDescription {
+  margin: 20px 0 0;
+  max-width: 720px;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--foreground-secondary);
+}
+
+.sheetGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+  margin-top: 38px;
+}
+
+.sheetLabel {
+  margin: 0 0 14px;
+  @include micro-label(11px, 0.1em);
+
+  & + * {
+    margin-bottom: 30px;
+  }
+}
+
+.takeaways {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    gap: 12px;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--foreground);
+
+    span {
+      flex: none;
+      color: var(--accent, var(--primary));
+    }
+  }
+}
+
+.stats {
+  @include hairline-grid(2);
+  margin: 0;
+}
+
+.stat {
+  @include hairline-cell;
+  padding: 18px;
+
+  dt {
+    margin-bottom: 8px;
+    @include micro-label(11px, 0.09em);
+  }
+
+  dd {
+    margin: 0;
+    @include display-type(38px, 0.02em);
+    white-space: nowrap;
+  }
+}
+
+.sheetActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.sheetPrimary,
+.sheetSecondary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px;
+  @include focus-ring;
+}
+
+.sheetPrimary {
+  background: var(--primary);
+  color: var(--btn-primary-text);
+  font-weight: 700;
+  font-size: 14px;
+
+  &:hover {
+    background: var(--primary-hover);
+  }
+}
+
+.sheetSecondary {
+  border: 1px solid var(--border-input);
+  color: var(--foreground-strong);
+  @include micro-label(11.5px, 0.06em);
+  color: var(--foreground-strong);
+
+  &:hover {
+    border-color: var(--foreground-strong);
+  }
+}
+
+// Join block
+.join {
+  @include page-gutter;
+  padding-block: 80px 96px;
+}
+
+.joinInner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) auto;
+  gap: 40px;
+  align-items: center;
+  padding: clamp(32px, 4vw, 56px);
+  border: 1px solid var(--border-input);
+  background: var(--surface-secondary);
+}
+
+.joinKicker {
+  margin: 0 0 16px;
+  @include micro-label(11px, 0.18em);
+  color: var(--primary);
+}
+
+.joinTitle {
+  margin: 0;
+  @include display-type(clamp(38px, 4.4vw, 60px), 0.03em, 0.92);
+}
+
+.joinLead {
+  margin: 20px 0 0;
+  max-width: 640px;
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--foreground-secondary);
+}
+
+.joinAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 26px;
+  background: var(--primary);
+  color: var(--btn-primary-text);
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--primary-hover);
+  }
+
+  @include focus-ring;
+}
+
+@media (max-width: 900px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rowBody {
+    padding: 32px 0;
+  }
+
+  .cover {
+    min-height: 200px;
+    border-left: none;
+    border-top: 1px solid var(--border-light);
+  }
+
+  .sheetGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+  }
+
+  .joinInner {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

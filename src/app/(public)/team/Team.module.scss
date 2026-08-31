@@ -1,141 +1,392 @@
 @use "../../../styles/mixins" as *;
 
-.container {
-  @include public-page;
-
-  h1 {
-    @include public-page-title;
-  }
+.page {
+  display: flex;
+  flex-direction: column;
 }
 
-.subtitle {
-  @include public-page-subtitle;
+.error {
+  @include page-gutter;
+  padding-block: 24px;
+  color: var(--danger);
 }
 
-.errorText {
-  @include error-banner;
+.rosters {
+  @include page-gutter;
+  padding-bottom: 40px;
 }
 
-.section {
-  margin-bottom: 2rem;
+// Groups
+.group {
+  padding-top: 64px;
 }
 
-.sectionTitle {
-  @include section-title($margin: 0 0 0.75rem);
-  padding-bottom: 0.5rem;
+.groupHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
 }
 
-.grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+.groupHeading {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.card {
-  border: 1px solid var(--border);
-  padding: 1.5rem;
-  border-radius: 6px;
-  text-align: center;
-  background: var(--card-bg);
-  transition: border-color 0.15s ease;
+.groupTitle {
+  margin: 0;
+  @include display-type(clamp(32px, 3.6vw, 50px));
+}
+
+.groupCount {
+  @include micro-label(11px, 0.07em);
+  color: var(--accent, var(--muted));
+}
+
+.groupBlurb {
+  margin: 0;
+  max-width: 420px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--foreground-secondary);
+}
+
+// Roster grid
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  border-left: 1px solid var(--border-light);
+}
+
+.person {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 20px 24px;
+  background: var(--background);
+  border: none;
+  border-right: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+  text-align: left;
+  cursor: pointer;
+  overflow: visible;
+  transition: background 0.25s ease;
 
   &:hover {
+    background: var(--surface);
+  }
+
+  &:hover .photo {
+    transform: translateY(-14px) scale(1.07);
+    box-shadow: 0 18px 40px var(--shadow-lg);
+  }
+
+  &:hover .personHint {
+    color: var(--foreground-secondary);
+  }
+
+  &:hover .personExpand {
     border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  @include focus-ring;
+
+  @media (prefers-reduced-motion: reduce) {
+    &:hover .photo {
+      transform: none;
+      box-shadow: none;
+    }
   }
 }
 
-.avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: var(--surface-hover);
-  border: 2px solid var(--border);
-  margin: 0 auto 0.75rem;
+.photoFrame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-light);
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  color: var(--muted);
-  font-weight: 600;
+  overflow: hidden;
+  background: var(--drop-zone);
+  transition:
+    transform 0.42s cubic-bezier(0.16, 0.85, 0.2, 1.06),
+    box-shadow 0.42s ease;
 }
 
-.avatarImg {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--border);
-  margin: 0 auto 0.75rem;
-  display: block;
-}
-
-.name {
-  margin: 0.375rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--foreground-strong);
-}
-
-.role {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-bottom: 0.125rem;
-}
-
-.bio {
-  margin-top: 0.5rem;
-  font-size: 0.8125rem;
-  color: var(--muted-light);
-  line-height: 1.5;
-  font-style: italic;
-  border-top: 1px solid var(--border);
-  padding-top: 0.5rem;
-}
-
-.rosterTitle {
-  margin: 2rem 0 1rem;
-  font-size: 1.25rem;
-  color: var(--foreground-strong);
-}
-.archives {
-  margin-top: 2.5rem;
-}
-.archive {
-  border-top: 1px solid var(--border);
-}
-.archiveButton {
+.photoImage {
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoInitial {
+  @include display-type(40px, 0.02em);
+  color: var(--accent, var(--muted));
+}
+
+.personName {
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--foreground-strong);
+}
+
+.personRole {
+  margin-top: 7px;
+  @include micro-label(11px, 0.07em);
+  color: var(--accent, var(--muted));
+}
+
+.personFoot {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1rem 0.25rem;
-  border: 0;
-  background: transparent;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.personHint {
+  @include micro-label(11px, 0.08em);
+  color: var(--muted-light);
+  transition: color 0.25s ease;
+}
+
+.personExpand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: 1px solid var(--border-input);
+  color: var(--muted);
+  transition:
+    border-color 0.25s ease,
+    color 0.25s ease;
+  @include touch-target;
+}
+
+// Member sheet
+.sheet {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+}
+
+.sheetPortrait {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+  background: var(--drop-zone);
+  border-right: 1px solid var(--border);
+}
+
+.sheetPhoto {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sheetInitial {
+  @include display-type(140px, 0.02em);
+  color: var(--accent, var(--muted));
+}
+
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(28px, 3.4vw, 52px);
+}
+
+.sheetName {
+  margin: 0;
+  font-size: clamp(30px, 3.4vw, 46px);
+  font-weight: 700;
+  letter-spacing: -0.028em;
+  line-height: 1.05;
   color: var(--foreground-strong);
-  font: inherit;
-  font-weight: 600;
+  text-wrap: pretty;
+}
+
+.sheetBio {
+  margin: 24px 0 0;
+  padding-left: 20px;
+  border-left: 3px solid var(--accent, var(--primary));
+  font-size: 19px;
+  line-height: 1.55;
+  color: var(--foreground);
+  text-wrap: pretty;
+}
+
+.sheetNoBio {
+  margin: 24px 0 0;
+  @include metadata(12px);
+}
+
+.sheetFacts {
+  @include hairline-grid(3);
+  margin: 32px 0 0;
+}
+
+.sheetFact {
+  @include hairline-cell;
+  padding: 16px 18px;
+
+  dt {
+    margin-bottom: 7px;
+    @include micro-label(11px, 0.09em);
+  }
+
+  dd {
+    margin: 0;
+    @include metadata(12.5px);
+    color: var(--foreground-strong);
+  }
+}
+
+.sheetSocials {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 32px;
+}
+
+.sheetSocial {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 18px;
+  border: 1px solid var(--border-input);
+  color: var(--foreground-strong);
+  @include micro-label(11px, 0.06em);
+  color: var(--foreground-strong);
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  @include focus-ring;
+}
+
+.sheetNext {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 22px;
+  border: 1px solid var(--border-input);
+  background: none;
+  color: var(--foreground-strong);
   cursor: pointer;
-  text-align: left;
+  @include micro-label(11px, 0.07em);
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  @include focus-ring;
 }
-.archiveButton:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+
+// Previous tenures
+.archives {
+  @include page-gutter;
+  padding-block: 64px 96px;
+  border-top: 1px solid var(--border);
 }
+
+.archivesTitle {
+  margin: 0 0 24px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+  @include section-heading;
+}
+
+.archive {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.archiveButton {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 20px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--foreground-strong);
+  @include micro-label(11px, 0.07em);
+  color: var(--foreground-strong);
+
+  &:hover {
+    color: var(--primary);
+  }
+
+  @include focus-ring;
+}
+
+.archiveTenure {
+  font-size: 15px;
+}
+
+.archiveCount {
+  margin-left: auto;
+  color: var(--muted-light);
+}
+
 .arrow,
 .arrowOpen {
-  width: 1rem;
-  transition: transform 0.15s ease;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  transition: transform 0.25s ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
+
 .arrowOpen {
   transform: rotate(90deg);
 }
-.empty {
-  color: var(--muted);
-  font-size: 0.875rem;
-  padding: 0.75rem 0;
+
+@media (max-width: 760px) {
+  .sheet {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sheetPortrait {
+    min-height: 240px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sheetFacts {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
