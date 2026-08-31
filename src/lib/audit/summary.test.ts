@@ -71,6 +71,7 @@ describe("audit summaries", () => {
   it("never includes file names, descriptions, or storage paths", () => {
     const summary = summarizeFile({
       title: "Guide",
+      tags: ["Policies", "Internal"],
       mimeType: "application/pdf",
       size: 50,
       originalName: "secret.pdf",
@@ -80,6 +81,7 @@ describe("audit summaries", () => {
     });
     expect(summary).toEqual({
       title: "Guide",
+      tags: ["Policies", "Internal"],
       mimeType: "application/pdf",
       size: 50,
       accessCount: 0,

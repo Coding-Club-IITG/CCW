@@ -9,6 +9,7 @@ import { mkdir, writeFile } from "fs/promises";
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import path from "path";
+import { z } from "zod";
 
 import { buildAccessFilter, canUploadFiles } from "@/lib/access/files";
 import { getHeadModules, isAdmin } from "@/lib/access/roles";
@@ -18,13 +19,16 @@ import { parseFormData, parseSearchParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   formDataObjectSchema,
-  paginationQuerySchema,
+  optionalSearchQuerySchema,
+  paginationQueryFields,
 } from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth";
 import { webEnv } from "@/lib/env/web";
 import dbConnect from "@/lib/mongodb";
 import { parsePagination, paginatedResponse } from "@/lib/pagination";
 import { parseManagedModules, parseRoles } from "@/lib/roles";
+import { prepareSearchQuery } from "@/lib/search";
+import { validateTags } from "@/lib/tagUtils";
 import { logger } from "@/lib/utils";
 import FileEntry from "@/models/FileEntry";
 
@@ -33,6 +37,14 @@ export const runtime = "nodejs";
 // Configuration
 
 const UPLOAD_DIR = path.resolve(webEnv.FILE_UPLOAD_DIR);
+
+const fileListQuerySchema = z.object({
+  ...paginationQueryFields,
+  search: optionalSearchQuerySchema,
+  tag: z
+    .union([z.string().max(1000), z.array(z.string().max(1000)).max(10)])
+    .optional(),
+});
 
 async function ensureUploadDir(): Promise<void> {
   if (!existsSync(UPLOAD_DIR)) {
@@ -57,7 +69,7 @@ export async function GET(request: NextRequest) {
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
-    const query = parseSearchParams(searchParams, paginationQuerySchema);
+    const query = parseSearchParams(searchParams, fileListQuerySchema);
     if (!query.ok) return jsonResult(query);
     const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
 
@@ -68,17 +80,77 @@ export async function GET(request: NextRequest) {
       roles,
     );
 
-    const [files, total] = await Promise.all([
-      FileEntry.find(accessFilter)
-        .select("-storedName")
+    const aggregateAccessFilter = buildAccessFilter(
+      (mongoose.isValidObjectId(user.id)
+        ? new mongoose.Types.ObjectId(user.id)
+        : user.id) as unknown as string,
+      user.access,
+      managedModules,
+      roles,
+    );
+
+    const rawTags = Array.isArray(query.data.tag)
+      ? query.data.tag
+      : query.data.tag === undefined
+        ? []
+        : [query.data.tag];
+    const parsedTags = validateTags(rawTags, { maxTags: 10 });
+    if (!parsedTags.ok) {
+      return jsonError("VALIDATION_ERROR", parsedTags.error);
+    }
+    const search = prepareSearchQuery(query.data.search);
+    const filters: Record<string, unknown>[] = [accessFilter];
+    if (search) {
+      const regex = { $regex: search.pattern, $options: "i" };
+      filters.push({
+        $or: [
+          { title: regex },
+          { description: regex },
+          { originalName: regex },
+          { uploadedByName: regex },
+          { uploaderModule: regex },
+          { tags: regex },
+        ],
+      });
+    }
+    if (parsedTags.tags.length) {
+      const exactTags = parsedTags.tags.map((tag) => {
+        const prepared = prepareSearchQuery(tag, { maxLength: 50 });
+        return new RegExp(`^${prepared?.pattern ?? ""}$`, "i");
+      });
+      filters.push({ tags: { $all: exactTags } });
+    }
+    const filter = { $and: filters };
+
+    const [files, total, availableTags] = await Promise.all([
+      FileEntry.find(filter)
+        .select(
+          "title description originalName mimeType size tags uploadedBy uploadedByName uploaderModule isDownloadable accessControl createdAt updatedAt",
+        )
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      FileEntry.countDocuments(accessFilter),
+      FileEntry.countDocuments(filter),
+      FileEntry.aggregate<{ tag: string; count: number }>([
+        { $match: aggregateAccessFilter },
+        { $unwind: "$tags" },
+        {
+          $group: {
+            _id: { $toLower: "$tags" },
+            tag: { $min: "$tags" },
+            count: { $sum: 1 },
+          },
+        },
+        { $project: { _id: 0, tag: 1, count: 1 } },
+        { $sort: { tag: 1 } },
+      ]),
     ]);
 
-    return jsonOk(paginatedResponse(files, total, page, limit));
+    return jsonOk({
+      ...paginatedResponse(files, total, page, limit),
+      availableTags,
+    });
   } catch (err) {
     logger.error("[Files] GET /api/files error:", err);
     return jsonError("INTERNAL_ERROR", "Internal server error.");
@@ -143,13 +215,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const folder =
-      (formData.get("folder") as string | null)?.trim() || "General";
-    if (folder.length > 100) {
-      return jsonError(
-        "VALIDATION_ERROR",
-        "Folder name must be 100 characters or fewer.",
-      );
+    const parsedTags = validateTags(formData.getAll("tags"), {
+      minTags: 1,
+      maxTags: 10,
+    });
+    if (!parsedTags.ok) {
+      return jsonError("VALIDATION_ERROR", parsedTags.error);
     }
 
     const isDownloadable = formData.get("isDownloadable") === "true";
@@ -219,7 +290,7 @@ export async function POST(request: NextRequest) {
                 storedName,
                 mimeType: file.type || "application/octet-stream",
                 size: file.size,
-                folder,
+                tags: parsedTags.tags,
                 uploadedBy: user.id,
                 uploadedByName: user.name,
                 uploaderModule,
@@ -257,7 +328,9 @@ export async function POST(request: NextRequest) {
         resourceId: newFile._id.toString(),
         fileSize: file.size,
       });
-      return jsonOk({ file: newFile }, { status: 201 });
+      const responseFile = newFile.toObject() as Record<string, unknown>;
+      Reflect.deleteProperty(responseFile, "storedName");
+      return jsonOk({ file: responseFile }, { status: 201 });
     } catch (err) {
       // Best-effort cleanup of the disk file if DB write fails
       try {

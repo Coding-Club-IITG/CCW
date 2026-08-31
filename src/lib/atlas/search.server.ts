@@ -376,16 +376,25 @@ async function files(
       regexFilter(query, [
         "title",
         "description",
-        "folder",
+        "tags",
         "originalName",
         "uploadedByName",
         "uploaderModule",
       ]),
     ],
   };
+  if (query.filters.tag) {
+    const tag = prepareSearchQuery(query.filters.tag);
+    (filter.$and as Record<string, unknown>[]).push({
+      tags: {
+        $regex: `^${tag?.pattern ?? ""}$`,
+        $options: "i",
+      },
+    });
+  }
   const records = (await FileEntry.find(filter)
     .select(
-      "title description originalName folder uploadedByName uploaderModule isDownloadable createdAt",
+      "title description originalName tags uploadedByName uploaderModule isDownloadable createdAt",
     )
     .sort({ createdAt: -1 })
     .limit(PER_KIND_LIMIT)
@@ -397,17 +406,18 @@ async function files(
       title: text(record.title),
       description:
         text(record.description) ||
-        `${text(record.folder)} · ${text(record.originalName)}`,
+        `${strings(record.tags).join(", ")} · ${text(record.originalName)}`,
       href: `/api/files/${String(record._id)}`,
       internal: true,
       searchable: [
-        text(record.folder),
+        ...strings(record.tags),
         text(record.originalName),
         text(record.uploadedByName),
         text(record.uploaderModule),
       ],
       recordDate: date(record.createdAt),
       module: text(record.uploaderModule),
+      tags: strings(record.tags),
       actions: [
         {
           label: record.isDownloadable === false ? "View" : "Open file",

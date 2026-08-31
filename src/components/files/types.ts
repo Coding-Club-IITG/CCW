@@ -33,13 +33,18 @@ export interface FileEntry {
   originalName: string;
   mimeType: string;
   size: number;
-  folder: string;
+  tags: string[];
   uploadedBy: string;
   uploadedByName: string;
   uploaderModule: ModuleName | null;
   isDownloadable: boolean;
   accessControl: AccessControl;
   createdAt: string;
+}
+
+export interface AvailableTag {
+  tag: string;
+  count: number;
 }
 
 export interface UserBasic {

@@ -2,7 +2,7 @@
 
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Upload,
   Trash2,
@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
-import type { CurrentUser, FileEntry } from "./types";
+import TagBadge from "@/components/shared/TagBadge";
+import type { AvailableTag, CurrentUser, FileEntry } from "./types";
 import { formatBytes, formatDate, aclSummary } from "./utils";
 import { canManageFile } from "@/lib/access/files";
 import FileViewer from "./FileViewer";
@@ -33,10 +34,12 @@ export default function FilesClient({ currentUser }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [availableTags, setAvailableTags] = useState<AvailableTag[]>([]);
+  const latestRequest = useRef(0);
 
   // Toolbar
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFolder, setSelectedFolder] = useState("__all__");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   // Active modal / viewer
   const [viewFile, setViewFile] = useState<FileEntry | null>(null);
@@ -46,19 +49,26 @@ export default function FilesClient({ currentUser }: Props) {
   // Data fetching
 
   const fetchFiles = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/files?page=${page}&limit=30`);
+      const params = new URLSearchParams({ page: String(page), limit: "30" });
+      if (searchQuery.trim()) params.set("search", searchQuery);
+      selectedTags.forEach((tag) => params.append("tag", tag));
+      const res = await fetch(`/api/files?${params}`);
       const data = await expectAppData(res);
+      if (requestId !== latestRequest.current) return;
       setFiles(data.items || []);
       setTotalPages(data.pagination?.totalPages || 1);
+      setAvailableTags(data.availableTags || []);
     } catch (error) {
+      if (requestId !== latestRequest.current) return;
       setError(appErrorMessage(error, "Network error. Please try again."));
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) setLoading(false);
     }
-  }, [page]);
+  }, [page, searchQuery, selectedTags]);
 
   useEffect(() => {
     fetchFiles();
@@ -83,25 +93,23 @@ export default function FilesClient({ currentUser }: Props) {
     }
   }
 
-  // Derived
+  const existingTags = availableTags.map(({ tag }) => tag);
+  const hasFilters = Boolean(searchQuery.trim() || selectedTags.length);
 
-  const folders = [
-    "__all__",
-    ...Array.from(new Set(files.map((f) => f.folder))).sort(),
-  ];
+  function toggleTag(tag: string) {
+    setPage(1);
+    setSelectedTags((current) =>
+      current.includes(tag)
+        ? current.filter((selected) => selected !== tag)
+        : [...current, tag],
+    );
+  }
 
-  const existingFolders = folders.filter((f) => f !== "__all__");
-
-  const filteredFiles = files.filter((f) => {
-    const matchesFolder =
-      selectedFolder === "__all__" || f.folder === selectedFolder;
-    const matchesSearch =
-      !searchQuery ||
-      f.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      f.uploadedByName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      f.folder.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFolder && matchesSearch;
-  });
+  function clearFilters() {
+    setPage(1);
+    setSearchQuery("");
+    setSelectedTags([]);
+  }
 
   // Render
 
@@ -128,26 +136,40 @@ export default function FilesClient({ currentUser }: Props) {
         <SearchInput
           placeholder="Search files…"
           value={searchQuery}
-          onChange={setSearchQuery}
+          onChange={(value) => {
+            setPage(1);
+            setSearchQuery(value);
+          }}
           className={styles.searchBox}
         />
 
-        <div className={styles.folderTabs}>
-          {folders.map((folder) => (
-            <button
-              key={folder}
-              className={`${styles.folderTab} ${selectedFolder === folder ? styles.active : ""}`}
-              onClick={() => setSelectedFolder(folder)}
-            >
-              {folder === "__all__" ? "All Files" : folder}
-              <span className={styles.folderCount}>
-                {folder === "__all__"
-                  ? files.length
-                  : files.filter((f) => f.folder === folder).length}
-              </span>
+        {availableTags.length > 0 && (
+          <div className={styles.tagFilters} aria-label="Filter files by tag">
+            {availableTags.map(({ tag, count }) => (
+              <TagBadge
+                key={tag.toLowerCase()}
+                tag={tag}
+                count={count}
+                active={selectedTags.includes(tag)}
+                ariaLabel={`${selectedTags.includes(tag) ? "Remove" : "Add"} ${tag} filter, ${count} files`}
+                onClick={() => toggleTag(tag)}
+              />
+            ))}
+          </div>
+        )}
+
+        {hasFilters && (
+          <div className={styles.selectedFilters} aria-live="polite">
+            <span>
+              {selectedTags.length
+                ? `Selected tags: ${selectedTags.join(", ")}`
+                : "Search filter active"}
+            </span>
+            <button type="button" onClick={clearFilters}>
+              Clear filters
             </button>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* File Table */}
@@ -157,10 +179,10 @@ export default function FilesClient({ currentUser }: Props) {
         <div className={styles.errorState}>
           <AlertCircle size={18} /> {error}
         </div>
-      ) : filteredFiles.length === 0 ? (
+      ) : files.length === 0 ? (
         <div className={styles.emptyState}>
-          {searchQuery
-            ? `No files matching "${searchQuery}".`
+          {hasFilters
+            ? "No files match the selected filters."
             : "No files here yet."}
         </div>
       ) : (
@@ -170,7 +192,7 @@ export default function FilesClient({ currentUser }: Props) {
               <thead>
                 <tr>
                   <th>Title</th>
-                  <th>Folder</th>
+                  <th>Tags</th>
                   <th>Uploaded By</th>
                   <th>Date</th>
                   <th>Size</th>
@@ -179,7 +201,7 @@ export default function FilesClient({ currentUser }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {filteredFiles.map((file) => {
+                {files.map((file) => {
                   const canManage = canManageFile(
                     currentUser.id,
                     currentUser.access,
@@ -204,9 +226,11 @@ export default function FilesClient({ currentUser }: Props) {
                         </div>
                       </td>
                       <td>
-                        <span className={styles.folderBadge}>
-                          {file.folder}
-                        </span>
+                        <div className={styles.fileTags}>
+                          {file.tags.map((tag) => (
+                            <TagBadge key={tag.toLowerCase()} tag={tag} />
+                          ))}
+                        </div>
                       </td>
                       <td className={styles.subtle}>{file.uploadedByName}</td>
                       <td className={styles.subtle}>
@@ -301,7 +325,7 @@ export default function FilesClient({ currentUser }: Props) {
       {showUpload && (
         <UploadModal
           currentUser={currentUser}
-          existingFolders={existingFolders}
+          existingTags={existingTags}
           onSuccess={() => {
             setShowUpload(false);
             fetchFiles();
@@ -313,7 +337,7 @@ export default function FilesClient({ currentUser }: Props) {
       {editFile && (
         <EditModal
           file={editFile}
-          existingFolders={existingFolders}
+          existingTags={existingTags}
           onSuccess={() => {
             setEditFile(null);
             fetchFiles();

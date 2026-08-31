@@ -7,6 +7,7 @@ import {
   type ModuleName,
   type ModulePosition,
 } from "@/lib/constants";
+import { normalizeTags } from "@/lib/tagUtils";
 
 // Sub-document interfaces
 
@@ -39,11 +40,8 @@ export interface IFileEntry extends Document {
   // File size in bytes
   size: number;
 
-  /**
-   * Logical folder / Category label
-   * Purely organisational - ACL is always per-file.
-   */
-  folder: string;
+  // Organisational metadata
+  tags: string[];
 
   // Denormalised for display
   uploadedBy: Types.ObjectId;
@@ -84,7 +82,22 @@ const FileEntrySchema = new Schema<IFileEntry>(
     mimeType: { type: String, required: true },
     size: { type: Number, required: true, min: 0 },
 
-    folder: { type: String, default: "General", trim: true, maxlength: 100 },
+    tags: {
+      type: [{ type: String, trim: true, maxlength: 50 }],
+      required: true,
+      validate: {
+        validator: (tags: string[]) => {
+          const normalized = normalizeTags(tags);
+          return (
+            tags.length >= 1 &&
+            tags.length <= 10 &&
+            normalized.length === tags.length &&
+            normalized.every((tag, index) => tag === tags[index])
+          );
+        },
+        message: "Files must have between 1 and 10 unique tags.",
+      },
+    },
 
     uploadedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     uploadedByName: { type: String, required: true },
@@ -109,6 +122,7 @@ const FileEntrySchema = new Schema<IFileEntry>(
 // Compound index for efficient per-module queries
 FileEntrySchema.index({ uploaderModule: 1, createdAt: -1 });
 FileEntrySchema.index({ uploadedBy: 1, createdAt: -1 });
+FileEntrySchema.index({ tags: 1, createdAt: -1 });
 
 export default mongoose.models.FileEntry ||
   mongoose.model<IFileEntry>("FileEntry", FileEntrySchema);

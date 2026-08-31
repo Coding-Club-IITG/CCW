@@ -19,6 +19,7 @@ import {
 } from "@/lib/constants";
 import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 import dbConnect from "@/lib/mongodb";
+import { parseTagList } from "@/lib/tagUtils";
 import { logger } from "@/lib/utils";
 import Project from "@/models/Project";
 
@@ -27,13 +28,6 @@ export const getProject = defineAction("getProject", getProjectAction);
 export const createProject = defineAction("createProject", createProjectAction);
 export const updateProject = defineAction("updateProject", updateProjectAction);
 export const deleteProject = defineAction("deleteProject", deleteProjectAction);
-
-function parseTags(value: string): string[] {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
 
 function getString(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -155,7 +149,7 @@ async function createProjectAction(formData: FormData) {
     const dateInput = getString(formData, "date");
     const projectModule = getString(formData, "module");
     const status = getString(formData, "status");
-    const tags = parseTags(getString(formData, "tags"));
+    const tags = parseTagList(getString(formData, "tags"));
 
     if (
       !title ||
@@ -284,7 +278,7 @@ async function updateProjectAction(id: string, formData: FormData) {
     const dateInput = getString(formData, "date");
     const projectModule = getString(formData, "module");
     const status = getString(formData, "status");
-    const tags = parseTags(getString(formData, "tags"));
+    const tags = parseTagList(getString(formData, "tags"));
 
     if (
       !title ||

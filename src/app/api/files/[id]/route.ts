@@ -26,6 +26,7 @@ import { invalidateCache } from "@/lib/cache";
 import { webEnv } from "@/lib/env/web";
 import dbConnect from "@/lib/mongodb";
 import { parseManagedModules, parseRoles } from "@/lib/roles";
+import { validateTags } from "@/lib/tagUtils";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import FileEntry from "@/models/FileEntry";
 
@@ -178,7 +179,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const EDITABLE = [
       "title",
       "description",
-      "folder",
+      "tags",
       "isDownloadable",
       "accessControl",
     ] as const;
@@ -213,18 +214,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Validate folder
-    if (update.folder !== undefined) {
-      update.folder = String(update.folder).trim();
-      if (!update.folder) {
-        return jsonError("VALIDATION_ERROR", "Folder cannot be empty.");
+    if (update.tags !== undefined) {
+      const parsedTags = validateTags(update.tags, {
+        minTags: 1,
+        maxTags: 10,
+      });
+      if (!parsedTags.ok) {
+        return jsonError("VALIDATION_ERROR", parsedTags.error);
       }
-      if (update.folder.length > 100) {
-        return jsonError(
-          "VALIDATION_ERROR",
-          "Folder name must be 100 characters or fewer.",
-        );
-      }
+      update.tags = parsedTags.tags;
     }
 
     // Validate isDownloadable
@@ -258,7 +256,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           runValidators: true,
           session: transaction,
         })
-          .select("-storedName")
+          .select(
+            "title description originalName mimeType size tags uploadedBy uploadedByName uploaderModule isDownloadable accessControl createdAt updatedAt",
+          )
           .lean();
         if (!result)
           throw new Error("File disappeared during metadata update.");

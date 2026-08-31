@@ -2,6 +2,9 @@
 
 .tag {
   @include blog-tag;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   cursor: default;
   background: var(--badge-bg);
   color: var(--badge-text);
@@ -18,10 +21,31 @@ button.tag {
     background: var(--primary-alpha);
     border-color: var(--primary);
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
 }
 
 .active {
   background: var(--primary-alpha);
   color: var(--primary);
   border-color: var(--primary);
+}
+
+.count {
+  min-width: 1rem;
+  padding-inline: 0.25rem;
+  border-radius: 999px;
+  background: var(--surface-secondary);
+  color: var(--muted);
+  font-size: 0.65rem;
+  line-height: 1.5;
+  text-align: center;
 }

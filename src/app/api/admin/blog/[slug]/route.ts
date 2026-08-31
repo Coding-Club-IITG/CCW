@@ -18,6 +18,7 @@ import { invalidateCache } from "@/lib/cache";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 import dbConnect from "@/lib/mongodb";
+import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/tagUtils";
 import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
@@ -122,14 +123,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (body.tags !== undefined) {
       if (Array.isArray(body.tags)) {
-        post.tags = body.tags
-          .filter(
-            (t: any) =>
-              typeof t === "string" &&
-              t.trim().length > 0 &&
-              t.trim().length <= 50,
-          )
-          .map((t: string) => t.trim());
+        post.tags = normalizeTags(body.tags).filter(
+          (tag) => tag.length <= DEFAULT_TAG_MAX_LENGTH,
+        );
       }
     }
 

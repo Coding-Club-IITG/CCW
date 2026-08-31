@@ -5,14 +5,16 @@ import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { useRef, useState } from "react";
 import { Upload, X, FileIcon, Shield, AlertCircle } from "lucide-react";
 import { MODULES, type ModuleName } from "@/lib/constants";
+import { validateTags } from "@/lib/tagUtils";
+import TagEditor from "@/components/shared/TagEditor";
 import type { AccessControl, CurrentUser } from "./types";
-import { EMPTY_ACL, DEFAULT_FOLDER, formatBytes } from "./utils";
+import { EMPTY_ACL, formatBytes } from "./utils";
 import AccessControlForm from "./AccessControlForm";
 import styles from "./FilesClient.module.scss";
 
 interface Props {
   currentUser: CurrentUser;
-  existingFolders: string[];
+  existingTags: string[];
   onSuccess: () => void;
   onClose: () => void;
 }
@@ -21,7 +23,7 @@ interface UploadFormState {
   file: File | null;
   title: string;
   description: string;
-  folder: string;
+  tags: string[];
   uploaderModule: ModuleName | "";
   isDownloadable: boolean;
   accessControl: AccessControl;
@@ -29,7 +31,7 @@ interface UploadFormState {
 
 export default function UploadModal({
   currentUser,
-  existingFolders,
+  existingTags,
   onSuccess,
   onClose,
 }: Props) {
@@ -40,7 +42,7 @@ export default function UploadModal({
     file: null,
     title: "",
     description: "",
-    folder: DEFAULT_FOLDER,
+    tags: [],
     uploaderModule: currentUser.headModules[0] ?? "",
     isDownloadable: true,
     accessControl: { ...EMPTY_ACL },
@@ -65,6 +67,11 @@ export default function UploadModal({
       setError("Title is required.");
       return;
     }
+    const parsedTags = validateTags(form.tags, { minTags: 1, maxTags: 10 });
+    if (!parsedTags.ok) {
+      setError(parsedTags.error);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -73,7 +80,7 @@ export default function UploadModal({
     fd.append("file", form.file);
     fd.append("title", form.title.trim());
     fd.append("description", form.description.trim());
-    fd.append("folder", form.folder.trim() || DEFAULT_FOLDER);
+    parsedTags.tags.forEach((tag) => fd.append("tags", tag));
     fd.append("isDownloadable", String(form.isDownloadable));
     fd.append("uploaderModule", form.uploaderModule || "null");
     fd.append("accessControl", JSON.stringify(form.accessControl));
@@ -166,29 +173,22 @@ export default function UploadModal({
               />
             </div>
 
-            {/* Folder + Module */}
-            <div className={styles.fieldRow}>
-              <div className={styles.field}>
-                <label>Folder</label>
-                <input
-                  type="text"
-                  list="upload-folders"
-                  value={form.folder}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, folder: e.target.value }))
-                  }
-                  placeholder="General"
-                />
-                <datalist id="upload-folders">
-                  {existingFolders.map((f) => (
-                    <option key={f} value={f} />
-                  ))}
-                </datalist>
-                <span className={styles.hint}>
-                  Type or pick an existing folder
-                </span>
-              </div>
+            <div className={styles.field}>
+              <label htmlFor="upload-file-tags">Tags *</label>
+              <TagEditor
+                id="upload-file-tags"
+                value={form.tags}
+                onChange={(tags) =>
+                  setForm((previous) => ({ ...previous, tags }))
+                }
+                suggestions={existingTags}
+                maxTags={10}
+                required
+                placeholder="Add a tag…"
+              />
+            </div>
 
+            <div className={styles.fieldRow}>
               {(currentUser.isAdmin || currentUser.headModules.length > 1) && (
                 <div className={styles.field}>
                   <label>Module context</label>

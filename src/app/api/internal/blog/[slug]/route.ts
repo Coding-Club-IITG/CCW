@@ -16,6 +16,7 @@ import { auth } from "@/lib/auth";
 import { invalidateCache } from "@/lib/cache";
 import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 import dbConnect from "@/lib/mongodb";
+import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/tagUtils";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 
@@ -108,14 +109,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (body.tags !== undefined && Array.isArray(body.tags)) {
-      post.tags = body.tags
-        .filter(
-          (tag): tag is string =>
-            typeof tag === "string" &&
-            tag.trim().length > 0 &&
-            tag.trim().length <= 50,
-        )
-        .map((tag) => tag.trim());
+      post.tags = normalizeTags(body.tags).filter(
+        (tag) => tag.length <= DEFAULT_TAG_MAX_LENGTH,
+      );
     }
 
     const dbSession = await mongoose.startSession();

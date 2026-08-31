@@ -4,7 +4,7 @@ import { useState } from "react";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import ImageUpload from "@/components/shared/ImageUpload";
 import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
-import TagBadge from "@/components/shared/TagBadge";
+import TagEditor from "@/components/shared/TagEditor";
 import { X as IconX } from "lucide-react";
 import { BLOG_TAGS, BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import {
@@ -64,33 +64,11 @@ export default function BlogEditor({
   const [status, setStatus] = useState<BlogStatus>(
     initialData?.status || "draft",
   );
-  const [customTagInput, setCustomTagInput] = useState("");
   const [authors, setAuthors] = useState<BlogAuthor[]>(
     initialData?.authors || [],
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  const toggleTag = (tag: string) => {
-    setTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
-  };
-
-  const addCustomTag = () => {
-    const trimmed = customTagInput.trim();
-    if (trimmed && !tags.includes(trimmed)) {
-      setTags((prev) => [...prev, trimmed]);
-    }
-    setCustomTagInput("");
-  };
-
-  const handleCustomTagKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addCustomTag();
-    }
-  };
 
   const addAuthor = (user: UserSearchItem) => {
     if (authors.some((author) => author.userId === user.id)) return;
@@ -208,46 +186,16 @@ export default function BlogEditor({
 
       {/* Tags */}
       <div className={styles.field}>
-        <label className={styles.label}>Tags</label>
-        <div className={styles.tagsGrid}>
-          {BLOG_TAGS.map((tag) => (
-            <TagBadge
-              key={tag}
-              tag={tag}
-              active={tags.includes(tag)}
-              onClick={() => toggleTag(tag)}
-            />
-          ))}
-          {tags
-            .filter((t) => !(BLOG_TAGS as readonly string[]).includes(t))
-            .map((tag) => (
-              <TagBadge
-                key={tag}
-                tag={tag}
-                active={true}
-                onClick={() => toggleTag(tag)}
-              />
-            ))}
-        </div>
-        <div className={styles.customTagRow}>
-          <input
-            type="text"
-            value={customTagInput}
-            onChange={(e) => setCustomTagInput(e.target.value)}
-            onKeyDown={handleCustomTagKeyDown}
-            className={styles.input}
-            placeholder="Add custom tag..."
-            maxLength={50}
-          />
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={addCustomTag}
-            disabled={!customTagInput.trim()}
-          >
-            Add
-          </button>
-        </div>
+        <label className={styles.label} htmlFor="blog-tags">
+          Tags
+        </label>
+        <TagEditor
+          id="blog-tags"
+          value={tags}
+          onChange={setTags}
+          suggestions={BLOG_TAGS}
+          placeholder="Add custom tag…"
+        />
       </div>
 
       {/* Status */}

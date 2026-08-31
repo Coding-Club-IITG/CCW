@@ -26,6 +26,7 @@ import {
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 import dbConnect from "@/lib/mongodb";
+import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/tagUtils";
 import { parsePagination, paginatedResponse } from "@/lib/pagination";
 import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 import { errorToLogMetadata, logger } from "@/lib/utils";
@@ -136,18 +137,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate tags
-    const validTags: string[] = [];
-    if (Array.isArray(tags)) {
-      for (const t of tags) {
-        if (
-          typeof t === "string" &&
-          t.trim().length > 0 &&
-          t.trim().length <= 50
-        ) {
-          validTags.push(t.trim());
-        }
-      }
-    }
+    const validTags = Array.isArray(tags)
+      ? normalizeTags(tags).filter(
+          (tag) => tag.length <= DEFAULT_TAG_MAX_LENGTH,
+        )
+      : [];
 
     // Validate status
     const postStatus: BlogStatus =

@@ -15,6 +15,7 @@ import {
 } from "@/lib/imageFocalPoint";
 import ImageUpload from "@/components/shared/ImageUpload";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
+import TagEditor from "@/components/shared/TagEditor";
 import styles from "@/app/(protected)/admin/events/new/EventForm.module.scss";
 
 interface ExistingPublicEvent {
@@ -53,7 +54,7 @@ export default function PublicEventForm({
   const [posterFocalPoint, setPosterFocalPoint] = useState<ImageFocalPoint>(
     event?.posterFocalPoint ?? DEFAULT_IMAGE_FOCAL_POINT,
   );
-  const [tags, setTags] = useState(event?.tags.join(", ") ?? "");
+  const [tags, setTags] = useState<string[]>(event?.tags ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -64,10 +65,7 @@ export default function PublicEventForm({
       description,
       poster,
       posterFocalPoint,
-      tags: tags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
+      tags,
     };
   }
 
@@ -185,12 +183,11 @@ export default function PublicEventForm({
         <label className={styles.label} htmlFor="public-tags">
           Tags
         </label>
-        <input
+        <TagEditor
           id="public-tags"
-          className={styles.input}
           value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          placeholder="Comma-separated tags"
+          onChange={setTags}
+          placeholder="Add event tag…"
         />
       </div>
       <div className={styles.field}>

@@ -29,6 +29,7 @@ import {
 } from "@/lib/imageFocalPoint";
 import dbConnect from "@/lib/mongodb";
 import { parseManagedModules } from "@/lib/roles";
+import { normalizeTags, parseTagList } from "@/lib/tagUtils";
 import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import CalendarEvent from "@/models/CalendarEvent";
@@ -112,7 +113,9 @@ function value(source: FormData | Record<string, unknown>, key: string) {
 
 function parsePublicInput(source: FormData | Record<string, unknown>) {
   const rawTags =
-    source instanceof FormData ? value(source, "tags").split(",") : source.tags;
+    source instanceof FormData
+      ? parseTagList(value(source, "tags"))
+      : source.tags;
   const data: PublicEventInput = {
     title: value(source, "title"),
     shortDescription: value(source, "shortDescription"),
@@ -126,12 +129,7 @@ function parsePublicInput(source: FormData | Record<string, unknown>) {
           }
         : source.posterFocalPoint,
     ),
-    tags: Array.isArray(rawTags)
-      ? rawTags
-          .filter((tag): tag is string => typeof tag === "string")
-          .map((tag) => tag.trim())
-          .filter(Boolean)
-      : [],
+    tags: Array.isArray(rawTags) ? normalizeTags(rawTags) : [],
   };
   if (!data.title || !data.description || !data.poster) {
     return appError(

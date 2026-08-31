@@ -132,7 +132,7 @@ export function summarizeFile(input: Record<string, unknown>): AuditSummary {
   return boundedSummary(
     {
       title: input.title,
-      category: input.category ?? input.folder,
+      tags: input.tags,
       mimeType: input.mimeType,
       size: input.size,
       allowDownload: input.allowDownload ?? input.isDownloadable,
@@ -145,7 +145,7 @@ export function summarizeFile(input: Record<string, unknown>): AuditSummary {
     },
     [
       "title",
-      "category",
+      "tags",
       "mimeType",
       "size",
       "allowDownload",

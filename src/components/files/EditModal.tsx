@@ -4,6 +4,8 @@ import { appErrorMessage, expectAppData } from "@/lib/api/result";
 
 import { useState } from "react";
 import { X, Shield, AlertCircle } from "lucide-react";
+import TagEditor from "@/components/shared/TagEditor";
+import { validateTags } from "@/lib/tagUtils";
 import type { FileEntry } from "./types";
 import { EMPTY_ACL } from "./utils";
 import AccessControlForm from "./AccessControlForm";
@@ -11,14 +13,14 @@ import styles from "./FilesClient.module.scss";
 
 interface Props {
   file: FileEntry;
-  existingFolders: string[];
+  existingTags: string[];
   onSuccess: () => void;
   onClose: () => void;
 }
 
 export default function EditModal({
   file,
-  existingFolders,
+  existingTags,
   onSuccess,
   onClose,
 }: Props) {
@@ -27,7 +29,7 @@ export default function EditModal({
   const [form, setForm] = useState({
     title: file.title,
     description: file.description,
-    folder: file.folder,
+    tags: file.tags,
     isDownloadable: file.isDownloadable,
     accessControl: { ...EMPTY_ACL, ...file.accessControl },
   });
@@ -36,6 +38,11 @@ export default function EditModal({
     e.preventDefault();
     if (!form.title.trim()) {
       setError("Title is required.");
+      return;
+    }
+    const parsedTags = validateTags(form.tags, { minTags: 1, maxTags: 10 });
+    if (!parsedTags.ok) {
+      setError(parsedTags.error);
       return;
     }
 
@@ -101,20 +108,18 @@ export default function EditModal({
             </div>
 
             <div className={styles.field}>
-              <label>Folder</label>
-              <input
-                type="text"
-                list="edit-folders"
-                value={form.folder}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, folder: e.target.value }))
+              <label htmlFor="edit-file-tags">Tags *</label>
+              <TagEditor
+                id="edit-file-tags"
+                value={form.tags}
+                onChange={(tags) =>
+                  setForm((previous) => ({ ...previous, tags }))
                 }
+                suggestions={existingTags}
+                maxTags={10}
+                required
+                placeholder="Add a tag…"
               />
-              <datalist id="edit-folders">
-                {existingFolders.map((f) => (
-                  <option key={f} value={f} />
-                ))}
-              </datalist>
             </div>
 
             <div className={styles.field}>

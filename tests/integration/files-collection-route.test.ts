@@ -37,6 +37,8 @@ vi.mock("@/lib/auth", () => ({
   auth: { api: { getSession } },
 }));
 
+vi.mock("server-only", () => ({}));
+
 describe("files collection route", () => {
   let uploadDirectory: string;
 
@@ -103,11 +105,114 @@ describe("files collection route", () => {
     expect(response.status).toBe(200);
     expect(body.items).toHaveLength(1);
     expect(body.items[0].storedName).toBeUndefined();
+    expect(body.items[0].folder).toBeUndefined();
     expect(body.pagination).toMatchObject({
       page: 1,
       limit: 1,
       total: 2,
       totalPages: 2,
+    });
+    expect(body.availableTags).toEqual([{ tag: "General", count: 2 }]);
+  });
+
+  it("searches literally and applies AND tag filters before pagination", async () => {
+    const FileEntry = (await import("@/models/FileEntry")).default;
+    const { GET } = await import("@/app/api/files/route");
+    const visible = { ...restrictedAcl, allMembers: true };
+    await FileEntry.create([
+      fileEntry({
+        title: "Literal [guide] alpha",
+        tags: ["Design", "Minutes"],
+        accessControl: visible,
+      }),
+      fileEntry({
+        title: "Literal [guide] beta",
+        tags: ["design", "minutes"],
+        accessControl: visible,
+      }),
+      fileEntry({
+        title: "Literal g decoy",
+        tags: ["Design"],
+        accessControl: visible,
+      }),
+      fileEntry({
+        title: "Private literal [guide]",
+        tags: ["Secret"],
+        uploadedBy: FILE_OTHER_MEMBER_ID,
+      }),
+    ]);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/files?search=%5Bguide%5D&tag=Design&tag=Minutes&page=2&limit=1",
+      ),
+    );
+    const body = await responseData(response);
+
+    expect(body.items).toHaveLength(1);
+    expect(body.pagination).toMatchObject({ total: 2, totalPages: 2, page: 2 });
+    expect(body.availableTags).toEqual([
+      { tag: "Design", count: 3 },
+      { tag: "Minutes", count: 2 },
+    ]);
+  });
+
+  it("derives tag discovery only from ACL-accessible files", async () => {
+    const FileEntry = (await import("@/models/FileEntry")).default;
+    const { GET } = await import("@/app/api/files/route");
+    await FileEntry.create([
+      fileEntry({
+        tags: ["Shared"],
+        accessControl: { ...restrictedAcl, allMembers: true },
+      }),
+      fileEntry({
+        tags: ["Direct"],
+        accessControl: { ...restrictedAcl, allowedUsers: [FILE_MEMBER_ID] },
+      }),
+      fileEntry({
+        tags: ["Secret"],
+        uploadedBy: FILE_OTHER_MEMBER_ID,
+      }),
+    ]);
+
+    const body = await responseData(
+      await GET(new NextRequest("http://localhost/api/files?tag=Shared")),
+    );
+
+    expect(body.availableTags).toEqual([
+      { tag: "Direct", count: 1 },
+      { tag: "Shared", count: 1 },
+    ]);
+  });
+
+  it("searches and filters file tags in Atlas without bypassing ACLs", async () => {
+    const FileEntry = (await import("@/models/FileEntry")).default;
+    const { parseAtlasQuery } = await import("@/lib/atlas/query");
+    const { searchAtlas } = await import("@/lib/atlas/search.server");
+    await FileEntry.create([
+      fileEntry({
+        title: "Design handbook",
+        tags: ["Design", "Minutes"],
+        accessControl: { ...restrictedAcl, allMembers: true },
+      }),
+      fileEntry({
+        title: "Private handbook",
+        tags: ["Minutes"],
+        uploadedBy: FILE_OTHER_MEMBER_ID,
+      }),
+    ]);
+
+    const result = await searchAtlas(
+      parseAtlasQuery("type:file tag:Minutes handbook"),
+      fileSession().user,
+    );
+
+    expect(result.partialFailures).toEqual([]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      kind: "file",
+      title: "Design handbook",
+      tags: ["Design", "Minutes"],
     });
   });
 
@@ -130,6 +235,24 @@ describe("files collection route", () => {
     expect(await responseError(response)).toMatchObject({
       message: "Title is required.",
     });
+    expect(await listTestUploads(uploadDirectory)).toEqual([]);
+  });
+
+  it("requires 1-10 valid tags on upload", async () => {
+    const { POST } = await import("@/app/api/files/route");
+    getSession.mockResolvedValue(fileSession({ access: "Admin" }));
+
+    const missing = await POST(uploadRequest({ tags: [] }));
+    const tooMany = await POST(
+      uploadRequest({
+        tags: Array.from({ length: 11 }, (_, index) => `Tag ${index}`),
+      }),
+    );
+    const tooLong = await POST(uploadRequest({ tags: ["x".repeat(51)] }));
+
+    expect(missing.status).toBe(400);
+    expect(tooMany.status).toBe(400);
+    expect(tooLong.status).toBe(400);
     expect(await listTestUploads(uploadDirectory)).toEqual([]);
   });
 
@@ -163,6 +286,7 @@ describe("files collection route", () => {
     const response = await POST(
       uploadRequest({
         uploaderModule: "Design",
+        tags: [" Minutes  ", "minutes", "Meeting   Notes"],
         accessControl: JSON.stringify({
           ...restrictedAcl,
           allowedModules: ["Design"],
@@ -173,11 +297,14 @@ describe("files collection route", () => {
     const saved = await FileEntry.findById(body.file._id).lean();
 
     expect(response.status).toBe(201);
+    expect(body.file.storedName).toBeUndefined();
+    expect(body.file.folder).toBeUndefined();
     expect(saved).toMatchObject({
       title: "Meeting notes",
       originalName: "notes.txt",
       mimeType: "text/plain",
       size: 12,
+      tags: ["Minutes", "Meeting Notes"],
       uploaderModule: "Design",
       isDownloadable: true,
     });
@@ -192,7 +319,7 @@ describe("files collection route", () => {
       operation: "files.upload",
       after: {
         title: "Meeting notes",
-        category: "Minutes",
+        tags: ["Minutes", "Meeting Notes"],
         mimeType: "text/plain",
         size: 12,
         allowDownload: true,
@@ -225,6 +352,7 @@ function uploadRequest(
     title: string;
     uploaderModule: string;
     accessControl: string;
+    tags: string[];
   }> = {},
 ) {
   const form = new FormData();
@@ -234,7 +362,7 @@ function uploadRequest(
   );
   form.set("title", overrides.title ?? "Meeting notes");
   form.set("description", "Weekly notes");
-  form.set("folder", "Minutes");
+  for (const tag of overrides.tags ?? ["Minutes"]) form.append("tags", tag);
   form.set("isDownloadable", "true");
   form.set("uploaderModule", overrides.uploaderModule ?? "null");
   form.set(

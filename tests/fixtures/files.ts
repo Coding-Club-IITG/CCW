@@ -20,7 +20,7 @@ export function fileEntry(overrides: Record<string, unknown> = {}) {
     storedName: `${new Types.ObjectId().toString()}.txt`,
     mimeType: "text/plain",
     size: 13,
-    folder: "General",
+    tags: ["General"],
     uploadedBy: FILE_OWNER_ID,
     uploadedByName: "File Owner",
     uploaderModule: null,

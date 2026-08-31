@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
 import ImageUpload from "@/components/shared/ImageUpload";
+import TagEditor from "@/components/shared/TagEditor";
 import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
 import { createProject } from "@/lib/actions/admin/projects";
 import styles from "../../events/new/EventForm.module.scss";
@@ -29,7 +30,7 @@ export default function NewProjectPage() {
   const [status, setStatus] = useState<(typeof PROJECT_STATUSES)[number]>(
     PROJECT_STATUSES[0],
   );
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -62,7 +63,7 @@ export default function NewProjectPage() {
     formData.set("date", date);
     formData.set("module", module);
     formData.set("status", status);
-    if (tags) formData.set("tags", tags);
+    if (tags.length) formData.set("tags", tags.join(","));
 
     const result = await createProject(formData);
     if (result.ok) {
@@ -194,16 +195,18 @@ export default function NewProjectPage() {
               ))}
             </select>
           </div>
-          <div className={styles.field}>
-            <label className={styles.label}>Tags</label>
-            <input
-              type="text"
-              value={tags}
-              onChange={(event) => setTags(event.target.value)}
-              className={styles.input}
-              placeholder="Comma-separated tags"
-            />
-          </div>
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="project-tags">
+            Tags
+          </label>
+          <TagEditor
+            id="project-tags"
+            value={tags}
+            onChange={setTags}
+            placeholder="Add project tag…"
+          />
         </div>
 
         <div className={styles.actions}>

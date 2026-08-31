@@ -238,10 +238,16 @@ describe("individual file route", () => {
     );
     expect(invalid.status).toBe(400);
 
+    const invalidTags = await PATCH(
+      jsonRequest(saved._id.toString(), "PATCH", { tags: [] }),
+      context(saved._id.toString()),
+    );
+    expect(invalidTags.status).toBe(400);
+
     const response = await PATCH(
       jsonRequest(saved._id.toString(), "PATCH", {
         title: " Updated handbook ",
-        folder: " Policies ",
+        tags: [" Policies ", "policies", "Club   Docs"],
         storedName: "attacker-controlled.txt",
         uploadedBy: FILE_MEMBER_ID.toString(),
       }),
@@ -252,9 +258,10 @@ describe("individual file route", () => {
 
     expect(response.status).toBe(200);
     expect(body.file.storedName).toBeUndefined();
+    expect(body.file.folder).toBeUndefined();
     expect(updated).toMatchObject({
       title: "Updated handbook",
-      folder: "Policies",
+      tags: ["Policies", "Club Docs"],
       storedName: saved.storedName,
     });
     expect(updated?.uploadedBy.toString()).toBe(FILE_OWNER_ID.toString());
@@ -263,7 +270,7 @@ describe("individual file route", () => {
       action: "update",
       operation: "files.metadata.update",
       before: { title: "Club handbook" },
-      after: { title: "Updated handbook", category: "Policies" },
+      after: { title: "Updated handbook", tags: ["Policies", "Club Docs"] },
     });
   });
 
