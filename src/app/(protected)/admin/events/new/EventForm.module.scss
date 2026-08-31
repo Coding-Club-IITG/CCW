@@ -134,3 +134,10 @@
     cursor: not-allowed;
   }
 }
+
+.hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted);
+}

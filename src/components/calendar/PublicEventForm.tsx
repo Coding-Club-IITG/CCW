@@ -22,6 +22,7 @@ interface ExistingPublicEvent {
   _id: string;
   title: string;
   shortDescription: string;
+  publicAudience?: string;
   description: string;
   poster: string;
   posterFocalPoint?: ImageFocalPoint;
@@ -47,6 +48,9 @@ export default function PublicEventForm({
   const [shortDescription, setShortDescription] = useState(
     event?.shortDescription ?? "",
   );
+  const [publicAudience, setPublicAudience] = useState(
+    event?.publicAudience ?? "",
+  );
   const [description, setDescription] = useState(
     event?.description ?? calendarDescription,
   );
@@ -62,6 +66,7 @@ export default function PublicEventForm({
     return {
       title,
       shortDescription,
+      publicAudience,
       description,
       poster,
       posterFocalPoint,
@@ -163,6 +168,22 @@ export default function PublicEventForm({
           onChange={(e) => setShortDescription(e.target.value)}
           maxLength={200}
         />
+      </div>
+      <div className={styles.field}>
+        <label className={styles.label} htmlFor="public-audience">
+          Open to
+        </label>
+        <input
+          id="public-audience"
+          className={styles.input}
+          value={publicAudience}
+          onChange={(e) => setPublicAudience(e.target.value)}
+          maxLength={80}
+          placeholder="Everyone"
+        />
+        <p className={styles.hint}>
+          Shown on the event page. Leave blank to omit it.
+        </p>
       </div>
       <div className={styles.field}>
         <ImageUpload

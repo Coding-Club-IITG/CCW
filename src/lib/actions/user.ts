@@ -32,6 +32,7 @@ import {
   parseRoles,
   validateRoles,
 } from "@/lib/roles";
+import { normalizeLinkedInUrl } from "@/lib/socialLinks";
 import { prepareSearchQuery } from "@/lib/search";
 import { logger } from "@/lib/utils";
 import CPUser from "@/models/CPUser";
@@ -600,6 +601,7 @@ async function updateProfileAction(data: {
   codeforcesId?: string;
   atcoderId?: string;
   githubId?: string;
+  linkedinUrl?: string;
   bio?: string;
   phoneNumber?: string;
 }) {
@@ -650,6 +652,15 @@ async function updateProfileAction(data: {
       );
     }
 
+    const rawLinkedIn = data.linkedinUrl?.trim() || "";
+    const linkedinUrl = rawLinkedIn ? normalizeLinkedInUrl(rawLinkedIn) : "";
+    if (linkedinUrl === null) {
+      return appError(
+        "VALIDATION_ERROR",
+        "LinkedIn URL must be a full https://linkedin.com profile link.",
+      );
+    }
+
     const bio = data.bio?.trim() || "";
     if (bio.length > 500) {
       return appError(
@@ -686,6 +697,7 @@ async function updateProfileAction(data: {
         codeforcesId,
         atcoderId,
         githubId,
+        linkedinUrl,
         bio,
         phoneNumber,
       },

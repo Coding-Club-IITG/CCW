@@ -22,6 +22,7 @@ import dbConnect from "@/lib/mongodb";
 import { parseTagList } from "@/lib/tagUtils";
 import { logger } from "@/lib/utils";
 import Project from "@/models/Project";
+import User from "@/models/User";
 
 export const getProjects = defineAction("getProjects", getProjectsAction);
 export const getProject = defineAction("getProject", getProjectAction);
@@ -69,6 +70,25 @@ function parseMonthInput(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+const MAX_TAKEAWAYS = 6;
+const MAX_TAKEAWAY_LENGTH = 200;
+
+function parseTakeaways(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, MAX_TAKEAWAYS);
+}
+
+function parseContributors(value: string): string[] {
+  const ids = value
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  return Array.from(new Set(ids));
+}
+
 async function checkAdmin() {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
@@ -91,6 +111,25 @@ async function invalidateProjectCaches() {
     invalidateCache("projects"),
     invalidateCache("admin:projects"),
   ]);
+}
+
+function validateProjectExtras(
+  takeaways: string[],
+  contributors: string[],
+): string | null {
+  if (takeaways.some((item) => item.length > MAX_TAKEAWAY_LENGTH)) {
+    return `Each takeaway must be ${MAX_TAKEAWAY_LENGTH} characters or fewer.`;
+  }
+  if (contributors.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+    return "Invalid contributor selected.";
+  }
+  return null;
+}
+
+async function contributorsExist(contributors: string[]): Promise<boolean> {
+  if (contributors.length === 0) return true;
+  const found = await User.countDocuments({ _id: { $in: contributors } });
+  return found === contributors.length;
 }
 
 async function getProjectsAction() {
@@ -150,6 +189,8 @@ async function createProjectAction(formData: FormData) {
     const projectModule = getString(formData, "module");
     const status = getString(formData, "status");
     const tags = parseTagList(getString(formData, "tags"));
+    const takeaways = parseTakeaways(getString(formData, "takeaways"));
+    const contributors = parseContributors(getString(formData, "contributors"));
 
     if (
       !title ||
@@ -199,7 +240,15 @@ async function createProjectAction(formData: FormData) {
       return appError("VALIDATION_ERROR", "Invalid project date.");
     }
 
+    const extrasError = validateProjectExtras(takeaways, contributors);
+    if (extrasError) {
+      return appError("VALIDATION_ERROR", extrasError);
+    }
+
     await dbConnect();
+    if (!(await contributorsExist(contributors))) {
+      return appError("VALIDATION_ERROR", "Invalid contributor selected.");
+    }
     const dbSession = await mongoose.startSession();
     let project;
     try {
@@ -217,6 +266,8 @@ async function createProjectAction(formData: FormData) {
               module: projectModule,
               status,
               tags,
+              takeaways,
+              contributors,
             },
           ],
           { session: transaction },
@@ -279,6 +330,8 @@ async function updateProjectAction(id: string, formData: FormData) {
     const projectModule = getString(formData, "module");
     const status = getString(formData, "status");
     const tags = parseTagList(getString(formData, "tags"));
+    const takeaways = parseTakeaways(getString(formData, "takeaways"));
+    const contributors = parseContributors(getString(formData, "contributors"));
 
     if (
       !title ||
@@ -328,9 +381,17 @@ async function updateProjectAction(id: string, formData: FormData) {
       return appError("VALIDATION_ERROR", "Invalid project date.");
     }
 
+    const extrasError = validateProjectExtras(takeaways, contributors);
+    if (extrasError) {
+      return appError("VALIDATION_ERROR", extrasError);
+    }
+
     await dbConnect();
     if (!(await Project.exists({ _id: id })))
       return appError("NOT_FOUND", "Project not found.");
+    if (!(await contributorsExist(contributors))) {
+      return appError("VALIDATION_ERROR", "Invalid contributor selected.");
+    }
     const dbSession = await mongoose.startSession();
     let project;
     try {
@@ -350,6 +411,8 @@ async function updateProjectAction(id: string, formData: FormData) {
               module: projectModule,
               status,
               tags,
+              takeaways,
+              contributors,
               ...(liveUrl ? { liveUrl } : {}),
             },
             ...(liveUrl ? {} : { $unset: { liveUrl: 1 } }),

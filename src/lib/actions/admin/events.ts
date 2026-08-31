@@ -66,6 +66,7 @@ type PublicEventInput = {
   poster: string;
   posterFocalPoint: ImageFocalPoint;
   tags: string[];
+  publicAudience: string;
 };
 
 type PublicEventDto = { _id: string; [key: string]: JsonValue };
@@ -130,6 +131,7 @@ function parsePublicInput(source: FormData | Record<string, unknown>) {
         : source.posterFocalPoint,
     ),
     tags: Array.isArray(rawTags) ? normalizeTags(rawTags) : [],
+    publicAudience: value(source, "publicAudience"),
   };
   if (!data.title || !data.description || !data.poster) {
     return appError(
@@ -145,6 +147,12 @@ function parsePublicInput(source: FormData | Record<string, unknown>) {
   }
   if (data.description.length > 50_000) {
     return appError("VALIDATION_ERROR", "Description is too long.");
+  }
+  if (data.publicAudience.length > 80) {
+    return appError(
+      "VALIDATION_ERROR",
+      "Open to must be 80 characters or fewer.",
+    );
   }
   return ok(data);
 }

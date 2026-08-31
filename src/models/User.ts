@@ -34,6 +34,7 @@ const UserSchema = new mongoose.Schema(
     codeforcesId: { type: String, default: "" },
     atcoderId: { type: String, default: "" },
     githubId: { type: String, default: "" },
+    linkedinUrl: { type: String, default: "" },
     bio: { type: String, default: "" },
     phoneNumber: { type: String, default: "" },
     pizza_count: { type: Number, default: 0 },

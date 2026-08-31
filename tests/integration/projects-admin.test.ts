@@ -11,6 +11,7 @@ import {
 } from "vitest";
 import AuditLog from "@/models/AuditLog";
 import Project from "@/models/Project";
+import User from "@/models/User";
 import {
   clearTestMongo,
   startTestMongo,
@@ -164,5 +165,113 @@ describe("admin project workflows", () => {
       error: { code: "VALIDATION_ERROR", message },
     });
     expect(await Project.countDocuments()).toBe(0);
+  });
+
+  it("stores takeaways and contributors, and audits only their counts", async () => {
+    const { createProject, updateProject } =
+      await import("@/lib/actions/admin/projects");
+
+    const member = await User.create({
+      name: "Contributor One",
+      email: "one@iitg.ac.in",
+      tenure: "2026-27",
+    });
+
+    const created = await createProject(
+      projectForm({
+        takeaways: "Auth at campus scale\nShipping to real users\n  \n",
+        contributors: String(member._id),
+      }),
+    );
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const stored = await Project.findOne().lean();
+    expect(stored?.takeaways).toEqual([
+      "Auth at campus scale",
+      "Shipping to real users",
+    ]);
+    expect(stored?.contributors?.map(String)).toEqual([String(member._id)]);
+
+    const auditEntry = await AuditLog.findOne({
+      operation: "projects.create",
+    }).lean();
+    expect(auditEntry?.after).toMatchObject({
+      takeawayCount: 2,
+      contributorCount: 1,
+    });
+    const auditJson = JSON.stringify(auditEntry);
+    expect(auditJson).not.toContain(String(member._id));
+    expect(auditJson).not.toContain("Auth at campus scale");
+
+    const cleared = await updateProject(String(stored?._id), projectForm());
+    expect(cleared.ok).toBe(true);
+    const after = await Project.findById(stored?._id).lean();
+    expect(after?.takeaways).toEqual([]);
+    expect(after?.contributors).toEqual([]);
+  });
+
+  it("caps takeaways at six entries", async () => {
+    const { createProject } = await import("@/lib/actions/admin/projects");
+
+    const created = await createProject(
+      projectForm({
+        takeaways: Array.from({ length: 9 }, (_, i) => `Lesson ${i}`).join(
+          "\n",
+        ),
+      }),
+    );
+    expect(created.ok).toBe(true);
+    expect((await Project.findOne().lean())?.takeaways).toHaveLength(6);
+  });
+
+  it("rejects an over-long takeaway", async () => {
+    const { createProject } = await import("@/lib/actions/admin/projects");
+
+    await expect(
+      createProject(projectForm({ takeaways: "x".repeat(201) })),
+    ).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Each takeaway must be 200 characters or fewer.",
+      },
+    });
+    expect(await Project.countDocuments()).toBe(0);
+  });
+
+  it.each([
+    ["a malformed id", "not-an-object-id"],
+    ["an id that matches no user", "60f7c2b5e1d2c8a4b8f0e1a2"],
+  ])("rejects contributors referencing %s", async (_label, id) => {
+    const { createProject } = await import("@/lib/actions/admin/projects");
+
+    await expect(
+      createProject(projectForm({ contributors: id })),
+    ).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Invalid contributor selected.",
+      },
+    });
+    expect(await Project.countDocuments()).toBe(0);
+  });
+
+  it("keeps projects stored before the new fields valid", async () => {
+    await Project.collection.insertOne({
+      title: "Legacy project",
+      description: "Created before the redesign",
+      repoLink: "https://github.com/Coding-Club-IITG/legacy",
+      date: new Date("2024-08-01T00:00:00.000Z"),
+      module: "Software Development",
+      status: "Ongoing",
+      tags: [],
+    });
+
+    const legacy = await Project.findOne({ title: "Legacy project" }).lean();
+    expect(legacy).not.toBeNull();
+    expect(legacy?.takeaways ?? []).toEqual([]);
+    expect(legacy?.contributors ?? []).toEqual([]);
   });
 });

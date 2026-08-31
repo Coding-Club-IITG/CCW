@@ -88,6 +88,9 @@ export const auth = betterAuth({
       githubId: {
         type: "string",
       },
+      linkedinUrl: {
+        type: "string",
+      },
       bio: {
         type: "string",
       },
