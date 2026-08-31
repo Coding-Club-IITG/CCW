@@ -1,5 +1,26 @@
 import React from "react";
 
+export const IconCCLogo = ({
+  fill = "currentColor",
+  ...props
+}: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 48.096 64.521" fill={fill} {...props}>
+    <path
+      transform="translate(1.074 0.004)"
+      fillRule="evenodd"
+      d="M 17.657 52.456 L 0 64.517 L 0 51.356 L 8.118 45.905 L 17.657 52.456 Z M 17.52 39.591 L 17.853 39.591 L 27.187 45.947 L 47.022 32.4 L 37.732 25.989 L 17.863 39.589 L 17.523 39.589 L 17.52 39.591 Z M 18.695 26.019 L 0.052 13.15 L 0.069 0 L 28.261 19.454 L 18.695 26.019 Z"
+    />
+    <path
+      transform="translate(0 32.225)"
+      d="M 47.022 32.291 L 0 0 L 18.929 0 L 47.022 19.13 L 47.022 32.291 Z"
+    />
+    <path
+      transform="translate(0 0.001)"
+      d="M 46.97 13.039 L 18.94 32.226 L 0 32.226 L 46.952 0 L 46.97 13.039 Z"
+    />
+  </svg>
+);
+
 export const IconGithub = ({
   fill = "currentColor",
   ...props

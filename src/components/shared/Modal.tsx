@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import Button from "@/components/shared/Button";
+import { useFocusTrap } from "./useFocusTrap";
 import styles from "./Modal.module.scss";
 
 interface ModalProps {
@@ -32,8 +33,11 @@ export default function Modal({
 }: ModalProps) {
   const titleId = useId();
   const descriptionId = useId();
+  const dialogRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const disabledRef = useRef(closeDisabled);
+
+  useFocusTrap(dialogRef);
 
   useEffect(() => {
     disabledRef.current = closeDisabled;
@@ -59,6 +63,7 @@ export default function Modal({
       onMouseDown={() => !closeDisabled && onClose()}
     >
       <section
+        ref={dialogRef}
         className={`${styles.modal} ${className}`}
         style={{ maxWidth }}
         role="dialog"
