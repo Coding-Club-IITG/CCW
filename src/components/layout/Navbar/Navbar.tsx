@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Menu,
   Moon,
@@ -22,6 +22,7 @@ import { useViewModeStore } from "@/lib/store/view-mode";
 import { getDisplayName } from "@/lib/utils";
 import { cleanupPushBeforeLogout } from "@/lib/push/client";
 import UserAvatar from "@/components/shared/UserAvatar";
+import { IconCCLogo } from "@/components/shared/Icons";
 import { useCommandConsole } from "@/components/atlas/CommandConsole";
 import CreditsModal from "./CreditsModal";
 import NotificationBell from "./NotificationBell";
@@ -59,15 +60,20 @@ const INTERNAL_LINKS = [
   { href: "/internal/hackathons", label: "Hackathons" },
 ];
 
+function isActiveLink(pathname: string, href: string) {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session, isPending, refetch: refetchSession } = useSession();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [identityPickerOpen, setIdentityPickerOpen] = useState(false);
-  const { theme, toggleTheme } = useThemeStore();
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const { viewMode, toggleViewMode, setViewMode } = useViewModeStore();
   const { developmentAuthEnabled } = useRuntimeConfig();
   const commandConsole = useCommandConsole();
@@ -104,39 +110,58 @@ export default function Navbar() {
     user?.managedModules,
     user?.roles,
   );
+  const closeAll = () => {
+    setMenuOpen(false);
+    setHamburgerOpen(false);
+  };
 
   return (
     <nav className={styles.navbar} ref={navbarRef}>
-      <div className={styles.leftSection}>
-        <Link
-          href={showInternal ? "/internal/dashboard" : "/"}
-          className={styles.logo}
-          onClick={() => setHamburgerOpen(false)}
-        >
-          CC IITG
-        </Link>
-        <button
-          onClick={toggleTheme}
-          className={styles.themeToggle}
-          aria-label="Toggle dark mode"
-        >
-          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
-      </div>
+      <Link
+        href={showInternal ? "/internal/dashboard" : "/"}
+        className={styles.lockup}
+        onClick={closeAll}
+      >
+        <IconCCLogo width={19} height={25} aria-hidden="true" />
+        <span>Coding Club</span>
+      </Link>
 
       <div className={styles.rightSection}>
         <div
           className={`${styles.navLinks} ${hamburgerOpen ? styles.open : ""}`}
         >
-          {navLinks.map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setHamburgerOpen(false)}
-            >
-              {label}
-            </Link>
-          ))}
+          {navLinks.map(({ href, label }) => {
+            const active = isActiveLink(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={closeAll}
+                className={active ? styles.activeLink : undefined}
+                aria-current={active ? "page" : undefined}
+              >
+                {label}
+              </Link>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={styles.drawerTheme}
+          >
+            <span>Appearance</span>
+            <span className={styles.drawerThemeValue}>
+              <span className={styles.whenDark}>
+                <Sun size={14} aria-hidden="true" />
+                Dark
+              </span>
+              <span className={styles.whenLight}>
+                <Moon size={14} aria-hidden="true" />
+                Light
+              </span>
+            </span>
+          </button>
         </div>
 
         <div className={styles.actionsSection}>
@@ -146,11 +171,22 @@ export default function Navbar() {
             aria-label="Open Atlas search"
             type="button"
           >
-            <Search aria-hidden="true" size={16} />
-            <span>Search</span>
+            <Search aria-hidden="true" size={13} />
             <kbd>⌘K</kbd>
           </button>
+
+          <button
+            onClick={toggleTheme}
+            className={styles.themeToggle}
+            aria-label="Toggle colour theme"
+            type="button"
+          >
+            <Sun size={15} className={styles.whenDark} aria-hidden="true" />
+            <Moon size={15} className={styles.whenLight} aria-hidden="true" />
+          </button>
+
           {showInternal && <NotificationBell />}
+
           {session ? (
             <div className={styles.avatarWrapper} ref={menuRef}>
               <button
@@ -164,7 +200,7 @@ export default function Navbar() {
                 <UserAvatar
                   name={user?.name}
                   image={user?.image}
-                  size={32}
+                  size={30}
                   imageClassName={styles.avatarImg}
                   fallbackClassName={styles.avatarInitials}
                 />
@@ -197,10 +233,7 @@ export default function Navbar() {
                       <Link
                         href="/internal/profile"
                         className={styles.userMenuItem}
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setHamburgerOpen(false);
-                        }}
+                        onClick={closeAll}
                       >
                         <UserRound aria-hidden="true" size={14} />
                         Profile
@@ -209,10 +242,7 @@ export default function Navbar() {
                         <Link
                           href="/admin"
                           className={styles.userMenuItem}
-                          onClick={() => {
-                            setMenuOpen(false);
-                            setHamburgerOpen(false);
-                          }}
+                          onClick={closeAll}
                         >
                           <ShieldCheck aria-hidden="true" size={14} />
                           Administration
@@ -235,8 +265,7 @@ export default function Navbar() {
                   <button
                     className={styles.userMenuItem}
                     onClick={() => {
-                      setMenuOpen(false);
-                      setHamburgerOpen(false);
+                      closeAll();
                       toggleViewMode();
                     }}
                   >
@@ -247,8 +276,7 @@ export default function Navbar() {
                     <button
                       className={styles.userMenuItem}
                       onClick={() => {
-                        setMenuOpen(false);
-                        setHamburgerOpen(false);
+                        closeAll();
                         setCreditsOpen(true);
                       }}
                     >
@@ -259,8 +287,7 @@ export default function Navbar() {
                   <button
                     className={styles.userMenuLogout}
                     onClick={async () => {
-                      setMenuOpen(false);
-                      setHamburgerOpen(false);
+                      closeAll();
                       await cleanupPushBeforeLogout();
                       await signOut();
                       router.replace("/");
@@ -289,7 +316,7 @@ export default function Navbar() {
               }}
               className={styles.authButton}
             >
-              {isLoggingIn ? "Redirecting..." : "Login"}
+              {isLoggingIn ? "Redirecting…" : "Login"}
             </button>
           )}
 
@@ -300,10 +327,11 @@ export default function Navbar() {
             aria-expanded={hamburgerOpen}
             type="button"
           >
-            {hamburgerOpen ? <X size={20} /> : <Menu size={20} />}
+            {hamburgerOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
       </div>
+
       {creditsOpen && (
         <CreditsModal
           canEdit={isHead(user?.access)}

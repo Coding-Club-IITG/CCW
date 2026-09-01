@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
 import ImageUpload from "@/components/shared/ImageUpload";
 import TagEditor from "@/components/shared/TagEditor";
+import MemberPicker from "@/components/shared/MemberPicker";
 import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
 import { createProject } from "@/lib/actions/admin/projects";
 import styles from "../../events/new/EventForm.module.scss";
@@ -31,6 +32,8 @@ export default function NewProjectPage() {
     PROJECT_STATUSES[0],
   );
   const [tags, setTags] = useState<string[]>([]);
+  const [takeaways, setTakeaways] = useState("");
+  const [contributors, setContributors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -64,6 +67,8 @@ export default function NewProjectPage() {
     formData.set("module", module);
     formData.set("status", status);
     if (tags.length) formData.set("tags", tags.join(","));
+    formData.set("takeaways", takeaways);
+    formData.set("contributors", contributors.join(","));
 
     const result = await createProject(formData);
     if (result.ok) {
@@ -207,6 +212,29 @@ export default function NewProjectPage() {
             onChange={setTags}
             placeholder="Add project tag…"
           />
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="project-takeaways">
+            What it teaches
+          </label>
+          <textarea
+            id="project-takeaways"
+            className={styles.textarea}
+            rows={4}
+            value={takeaways}
+            onChange={(e) => setTakeaways(e.target.value)}
+            placeholder="One takeaway per line (upto 6)."
+          />
+          <p className={styles.hint}>
+            Shown in the project sheet on the public page.
+          </p>
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>On it now</label>
+          <MemberPicker value={contributors} onChange={setContributors} />
+          <p className={styles.hint}>Only the headcount is shown publicly.</p>
         </div>
 
         <div className={styles.actions}>

@@ -26,8 +26,8 @@ export function buildPushPayload(notification: {
   return JSON.stringify({
     title: notification.title,
     message: notification.message,
-    // TODO: Notification icon
     icon: "/icons/cc-192.png",
+    badge: "/icons/cc-badge-96.png",
     tag: String(notification._id),
     link: safeNotificationLink(notification.link),
   });

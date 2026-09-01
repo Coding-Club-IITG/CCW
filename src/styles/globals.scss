@@ -36,11 +36,22 @@ button {
   font-family: inherit;
 }
 
-/* Fix for webkit autofill changing background to white and text to black in dark mode */
+/* Fix for webkit autofill */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
   transition: background-color 5000s ease-in-out 0s;
   -webkit-text-fill-color: #e5e2e1 !important;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-padding-top: 75px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }

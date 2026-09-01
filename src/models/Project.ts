@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Types } from "mongoose";
 import {
   ProjectModuleName,
   PROJECT_MODULES,
@@ -18,6 +18,8 @@ export interface IProject extends Document {
   coverImage?: string;
   coverFocalPoint: ImageFocalPoint;
   tags: string[];
+  takeaways: string[];
+  contributors: Types.ObjectId[];
 }
 
 const ProjectSchema: Schema = new Schema(
@@ -44,6 +46,10 @@ const ProjectSchema: Schema = new Schema(
       _id: false,
     },
     tags: { type: [String], default: [] },
+    // What working on this project teaches
+    takeaways: { type: [String], default: [] },
+    // Members currently on the project
+    contributors: [{ type: Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true },
 );

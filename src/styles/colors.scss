@@ -1,70 +1,138 @@
 // Centralized color definitions
-// Follows GitHub's official color palette
+
+:root {
+  // Brand spectrum
+  --brand-red: #ff4e41;
+  --brand-indigo: #1d23a7;
+  --brand-sky: #6e9ffc;
+  --brand-lime: #c0e04a;
+  --brand-violet: #a849ec;
+  --brand-ember: #fd6f43;
+  --brand-magenta: #f120e7;
+  --brand-red-deep: #ff2a1b;
+
+  // Supporting tints
+  --brand-red-tint: #ff8983;
+  --brand-violet-tint: #d69ffd;
+  --brand-lime-tint: #dfff6b;
+  --brand-ember-tint: #ff774e;
+
+  // Module accent and bar
+  --module-software-accent: #6e9ffc;
+  --module-software-bar: #1d23a7;
+  --module-cp-accent: #ff8983;
+  --module-cp-bar: #ff4e41;
+  --module-ml-accent: #d69ffd;
+  --module-ml-bar: #a849ec;
+  --module-security-accent: #dfff6b;
+  --module-security-bar: #c0e04a;
+  --module-design-accent: #ff774e;
+  --module-design-bar: #fd6f43;
+
+  // Photo veils
+  --ink-on-dark: #faf8f4;
+
+  // Spectrum wheel
+  --disc-ground: #0b0f4a;
+  --disc-shade-deep: #0b1b6b;
+  --disc-shade-mid: #223f8a;
+
+  --spectrum-gradient: linear-gradient(
+    90deg,
+    #1d23a7,
+    #6e9ffc,
+    #c0e04a,
+    #fd6f43,
+    #ff4e41,
+    #a849ec
+  );
+}
 
 // Dark theme (default)
 :root,
 [data-theme="dark"] {
   // Core
-  --primary: #58a6ff;
-  --primary-hover: #79c0ff;
-  --primary-alpha: rgba(88, 166, 255, 0.1);
-  --secondary: #c9d1d9;
-  --secondary-hover: #e6edf3;
+  --primary: #c0e04a;
+  --primary-hover: #dfff6b;
+  --primary-alpha: rgba(192, 224, 74, 0.1);
+  --secondary: rgba(255, 255, 255, 0.78);
+  --secondary-hover: #ffffff;
 
-  // Button: primary CTA (green)
-  --btn-primary-bg: #238636;
-  --btn-primary-bg-hover: #2ea043;
-  --btn-primary-text: #ffffff;
+  // Button: primary CTA
+  --btn-primary-bg: #ff4e41;
+  --btn-primary-bg-hover: #ff2a1b;
+  --btn-primary-text: #000000;
 
   // Button: secondary/default
-  --btn-secondary-bg: #21262d;
-  --btn-secondary-bg-hover: #30363d;
-  --btn-secondary-border: #363b42;
-  --btn-secondary-text: #c9d1d9;
+  --btn-secondary-bg: rgba(255, 255, 255, 0.04);
+  --btn-secondary-bg-hover: rgba(255, 255, 255, 0.08);
+  --btn-secondary-border: rgba(255, 255, 255, 0.16);
+  --btn-secondary-text: rgba(255, 255, 255, 0.86);
 
   // Focus
-  --focus-ring: rgba(88, 166, 255, 0.4);
+  --focus-ring: rgba(192, 224, 74, 0.5);
 
-  // On emphasis (text on colored backgrounds)
+  // On emphasis
   --fg-on-emphasis: #ffffff;
 
   // Surfaces
-  --background: #0d1117;
-  --background-secondary: #161b22;
-  --surface: #161b22;
-  --surface-secondary: #1c2128;
-  --surface-hover: #21262d;
+  --background: #000000;
+  --background-secondary: #0e0e0e;
+  --surface: #0b0b0b;
+  --surface-secondary: #050505;
+  --surface-hover: rgba(255, 255, 255, 0.03);
 
   // Text
-  --foreground: #c9d1d9;
-  --foreground-secondary: #8b949e;
-  --foreground-strong: #e6edf3;
-  --muted: #8b949e;
-  --muted-light: #6e7681;
-  --muted-lighter: #484f58;
+  --foreground: rgba(255, 255, 255, 0.78);
+  --foreground-secondary: rgba(255, 255, 255, 0.6);
+  --foreground-strong: #ffffff;
+  --muted: rgba(255, 255, 255, 0.55);
+  --muted-light: rgba(255, 255, 255, 0.4);
+  --muted-lighter: rgba(255, 255, 255, 0.28);
 
   // Borders
-  --border: #30363d;
-  --border-light: #21262d;
-  --border-lighter: #1c2128;
-  --border-input: #30363d;
+  --border: rgba(255, 255, 255, 0.13);
+  --border-light: rgba(255, 255, 255, 0.1);
+  --border-lighter: rgba(255, 255, 255, 0.07);
+  --border-input: rgba(255, 255, 255, 0.16);
 
-  // Grays (structural)
-  --gray-100: #161b22;
-  --gray-200: #21262d;
-  --gray-300: #30363d;
-  --gray-400: #484f58;
-  --gray-500: #6e7681;
-  --gray-600: #8b949e;
-  --gray-700: #c9d1d9;
+  // Grays
+  --gray-100: #0e0e0e;
+  --gray-200: #151515;
+  --gray-300: #1f1f1f;
+  --gray-400: #3a3a3a;
+  --gray-500: #6a6a6a;
+  --gray-600: #9a9a9a;
+  --gray-700: #c9c9c9;
 
   // Shadows
-  --shadow-sm: rgba(0, 0, 0, 0.2);
-  --shadow-md: rgba(0, 0, 0, 0.3);
-  --shadow-lg: rgba(0, 0, 0, 0.4);
-  --modal-shadow:
-    0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
-  --overlay: rgba(1, 4, 9, 0.8);
+  --shadow-sm: rgba(0, 0, 0, 0.5);
+  --shadow-md: rgba(0, 0, 0, 0.65);
+  --shadow-lg: rgba(0, 0, 0, 0.8);
+  --scrim-base: #000000;
+
+  // Hero prism
+  --prism-ground: #000000;
+  --prism-surface: #0b0b0b;
+  --prism-ink: #ffffff;
+  --prism-ink-soft: rgba(255, 255, 255, 0.62);
+  --prism-ink-faint: rgba(255, 255, 255, 0.24);
+  --prism-line: rgba(255, 255, 255, 0.13);
+  --prism-line-strong: rgba(255, 255, 255, 0.22);
+  --prism-blend: screen;
+  --prism-canvas-blend: lighter;
+
+  --modal-shadow: 0 50px 140px rgba(0, 0, 0, 0.85);
+  --nav-surface: rgba(0, 0, 0, 0.82);
+  --overlay: rgba(0, 0, 0, 0.82);
+  --card-lift: none;
+
+  // Image drop zone
+  --drop-zone: repeating-linear-gradient(
+    135deg,
+    #141414 0 7px,
+    #0b0b0b 7px 14px
+  );
 
   // Semantic: Error/Danger
   --error: #f85149;
@@ -73,9 +141,9 @@
   --error-bg-hover: rgba(248, 81, 73, 0.15);
   --error-border: rgba(248, 81, 73, 0.4);
   --error-border-light: rgba(248, 81, 73, 0.2);
-  --danger: #f85149;
-  --danger-hover: #da3633;
-  --danger-text: #f85149;
+  --danger: #ff4e41;
+  --danger-hover: #ff2a1b;
+  --danger-text: #ff4e41;
 
   // Semantic: Success
   --success: #3fb950;
@@ -92,29 +160,29 @@
   --warning-border: rgba(187, 128, 9, 0.4);
 
   // Semantic: Info/Accent
-  --accent: #79c0ff;
-  --accent-light: #a5d6ff;
-  --accent-bg: rgba(56, 139, 253, 0.1);
-  --accent-surface: rgba(56, 139, 253, 0.06);
+  --accent: #6e9ffc;
+  --accent-light: #9dbdfd;
+  --accent-bg: rgba(110, 159, 252, 0.1);
+  --accent-surface: rgba(110, 159, 252, 0.06);
 
-  // Component: Tabs (underline style)
-  --tab-text: #8b949e;
-  --tab-hover-bg: rgba(48, 54, 61, 0.5);
-  --tab-active-border: #f78166;
-  --tab-active-text: #e6edf3;
+  // Component: Tabs
+  --tab-text: rgba(255, 255, 255, 0.55);
+  --tab-hover-bg: rgba(255, 255, 255, 0.04);
+  --tab-active-border: #c0e04a;
+  --tab-active-text: #ffffff;
   --tab-active-bg: transparent;
 
   // Component: Cards
-  --card-bg: #161b22;
-  --card-shadow: rgba(0, 0, 0, 0.3);
-  --card-border: #30363d;
+  --card-bg: #0b0b0b;
+  --card-shadow: rgba(0, 0, 0, 0.65);
+  --card-border: rgba(255, 255, 255, 0.13);
 
   // Component: Badges
-  --badge-bg: rgba(56, 139, 253, 0.1);
-  --badge-text: #79c0ff;
-  --badge-border: rgba(56, 139, 253, 0.2);
-  --badge-primary-bg: rgba(88, 166, 255, 0.1);
-  --badge-primary-text: #58a6ff;
+  --badge-bg: transparent;
+  --badge-text: #6e9ffc;
+  --badge-border: rgba(255, 255, 255, 0.15);
+  --badge-primary-bg: transparent;
+  --badge-primary-text: #c0e04a;
 
   // Component: Access badges
   --access-download-bg: rgba(63, 185, 80, 0.1);
@@ -123,14 +191,14 @@
   --access-view-text: #e3b341;
 
   // Component: User tag
-  --user-tag-bg: rgba(56, 139, 253, 0.1);
-  --user-tag-text: #79c0ff;
+  --user-tag-bg: rgba(110, 159, 252, 0.12);
+  --user-tag-text: #6e9ffc;
 
   // Component: Leaderboard ranks
   --rank-gold-bg: rgba(187, 128, 9, 0.15);
   --rank-gold-text: #e3b341;
-  --rank-silver-bg: #21262d;
-  --rank-silver-text: #8b949e;
+  --rank-silver-bg: #151515;
+  --rank-silver-text: rgba(255, 255, 255, 0.55);
   --rank-bronze-bg: rgba(219, 109, 40, 0.15);
   --rank-bronze-text: #db6d28;
 
@@ -139,26 +207,26 @@
   --streak-bg: rgba(219, 109, 40, 0.1);
 
   // Component: Table
-  --table-header-bg: #161b22;
-  --table-header-text: #8b949e;
+  --table-header-bg: #0b0b0b;
+  --table-header-text: rgba(255, 255, 255, 0.55);
 
   // Component: Module roles
-  --module-role-bg: rgba(56, 139, 253, 0.1);
+  --module-role-bg: rgba(255, 255, 255, 0.06);
 
   // Component: PDF viewer
-  --pdf-bg: #161b22;
-  --image-viewer-bg: #010409;
+  --pdf-bg: #0b0b0b;
+  --image-viewer-bg: #000000;
 
   // Component: Verification
-  --verify-token-bg: #0d1117;
-  --verify-token-border: #30363d;
+  --verify-token-bg: #000000;
+  --verify-token-border: rgba(255, 255, 255, 0.16);
   --verify-token-text: #e3b341;
 
   // Component: Link
-  --link: #58a6ff;
+  --link: #6e9ffc;
 
   // Component: Contest platforms
-  --contest-cf: #58a6ff;
+  --contest-cf: #6e9ffc;
   --contest-ac: #3fb950;
   --contest-cc: #bc8cff;
   --contest-lc: #d29922;
@@ -175,85 +243,105 @@
   --cf-rating-red: #ff0000;
 
   // Component: Blog
-  --blog-prose-text: #c9d1d9;
-  --blog-prose-heading: #e6edf3;
-  --blog-prose-link: #58a6ff;
-  --blog-prose-code-bg: #161b22;
-  --blog-prose-code-border: #30363d;
-  --blog-prose-blockquote-border: #3b82f6;
-  --blog-prose-blockquote-text: #8b949e;
-  --blog-prose-hr: #21262d;
-  --blog-prose-table-border: #30363d;
-  --blog-prose-table-header-bg: #161b22;
-  --blog-card-hover: rgba(88, 166, 255, 0.04);
-  --blog-editor-bg: #0d1117;
-  --blog-editor-border: #30363d;
+  --blog-prose-text: rgba(255, 255, 255, 0.78);
+  --blog-prose-heading: #ffffff;
+  --blog-prose-link: #6e9ffc;
+  --blog-prose-code-bg: #0b0b0b;
+  --blog-prose-code-border: rgba(255, 255, 255, 0.13);
+  --blog-prose-blockquote-border: #c0e04a;
+  --blog-prose-blockquote-text: rgba(255, 255, 255, 0.6);
+  --blog-prose-hr: rgba(255, 255, 255, 0.1);
+  --blog-prose-table-border: rgba(255, 255, 255, 0.13);
+  --blog-prose-table-header-bg: #0b0b0b;
+  --blog-card-hover: rgba(255, 255, 255, 0.03);
+  --blog-editor-bg: #000000;
+  --blog-editor-border: rgba(255, 255, 255, 0.16);
 }
 
 // Light theme
 [data-theme="light"] {
   // Core
-  --primary: #0969da;
-  --primary-hover: #0550ae;
-  --primary-alpha: rgba(9, 105, 218, 0.08);
-  --secondary: #24292f;
-  --secondary-hover: #32383f;
+  --primary: #5c7a00;
+  --primary-hover: #4a6200;
+  --primary-alpha: rgba(92, 122, 0, 0.08);
+  --secondary: #2a2721;
+  --secondary-hover: #12100c;
 
-  // Button: primary CTA (green)
-  --btn-primary-bg: #2da44e;
-  --btn-primary-bg-hover: #2c974b;
-  --btn-primary-text: #ffffff;
+  // Button: primary CTA
+  --btn-primary-bg: #c4291b;
+  --btn-primary-bg-hover: #a8210f;
+  --btn-primary-text: #faf8f4;
 
   // Button: secondary/default
-  --btn-secondary-bg: #f6f8fa;
-  --btn-secondary-bg-hover: #f3f4f6;
-  --btn-secondary-border: #d0d7de;
-  --btn-secondary-text: #24292f;
+  --btn-secondary-bg: #f2efe8;
+  --btn-secondary-bg-hover: #ede9e1;
+  --btn-secondary-border: #c4bfb3;
+  --btn-secondary-text: #2a2721;
 
   // Focus
-  --focus-ring: rgba(9, 105, 218, 0.4);
+  --focus-ring: rgba(92, 122, 0, 0.45);
 
-  // On emphasis (text on colored backgrounds)
+  // On emphasis
   --fg-on-emphasis: #ffffff;
 
   // Surfaces
-  --background: #ffffff;
-  --background-secondary: #f6f8fa;
+  --background: #faf8f4;
+  --background-secondary: #f2efe8;
   --surface: #ffffff;
-  --surface-secondary: #f6f8fa;
-  --surface-hover: #f3f4f6;
+  --surface-secondary: #f2efe8;
+  --surface-hover: #ede9e1;
 
   // Text
-  --foreground: #24292f;
-  --foreground-secondary: #57606a;
-  --foreground-strong: #1f2328;
-  --muted: #57606a;
-  --muted-light: #6e7781;
-  --muted-lighter: #8c959f;
+  --foreground: #2a2721;
+  --foreground-secondary: #57534b;
+  --foreground-strong: #12100c;
+  --muted: #6b6559;
+  --muted-light: #8a857a;
+  --muted-lighter: #a8a29a;
 
   // Borders
-  --border: #d0d7de;
-  --border-light: #d8dee4;
-  --border-lighter: #e1e4e8;
-  --border-input: #d0d7de;
+  --border: #dcd8cf;
+  --border-light: #e6e2da;
+  --border-lighter: #efece5;
+  --border-input: #c4bfb3;
 
-  // Grays (structural)
-  --gray-100: #f6f8fa;
-  --gray-200: #e1e4e8;
-  --gray-300: #d0d7de;
-  --gray-400: #8c959f;
-  --gray-500: #6e7781;
-  --gray-600: #57606a;
-  --gray-700: #424a53;
+  // Grays
+  --gray-100: #f2efe8;
+  --gray-200: #e6e2da;
+  --gray-300: #dcd8cf;
+  --gray-400: #a8a29a;
+  --gray-500: #8a857a;
+  --gray-600: #6b6559;
+  --gray-700: #4a463e;
 
   // Shadows
-  --shadow-sm: rgba(31, 35, 40, 0.04);
-  --shadow-md: rgba(31, 35, 40, 0.1);
-  --shadow-lg: rgba(31, 35, 40, 0.15);
-  --modal-shadow:
-    0 20px 25px -5px rgba(31, 35, 40, 0.15),
-    0 10px 10px -5px rgba(31, 35, 40, 0.1);
-  --overlay: rgba(27, 31, 36, 0.5);
+  --shadow-sm: rgba(18, 16, 12, 0.06);
+  --shadow-md: rgba(18, 16, 12, 0.1);
+  --shadow-lg: rgba(18, 16, 12, 0.16);
+  --scrim-base: #12100c;
+
+  // Hero prism
+  --prism-ground: #faf8f4;
+  --prism-surface: #ffffff;
+  --prism-ink: #12100c;
+  --prism-ink-soft: #57534b;
+  --prism-ink-faint: rgba(18, 16, 12, 0.34);
+  --prism-line: rgba(18, 16, 12, 0.14);
+  --prism-line-strong: rgba(18, 16, 12, 0.24);
+  --prism-blend: multiply;
+  --prism-canvas-blend: multiply;
+
+  --modal-shadow: 0 30px 80px rgba(18, 16, 12, 0.18);
+  --nav-surface: rgba(250, 248, 244, 0.85);
+  --overlay: rgba(18, 16, 12, 0.55);
+  --card-lift: 0 1px 2px rgba(18, 16, 12, 0.06);
+
+  // Image drop zone
+  --drop-zone: repeating-linear-gradient(
+    135deg,
+    #ede9e1 0 7px,
+    #f7f4ee 7px 14px
+  );
 
   // Semantic: Error/Danger
   --error: #cf222e;
@@ -262,9 +350,9 @@
   --error-bg-hover: #ffd7d5;
   --error-border: #ff8182;
   --error-border-light: #ffcecb;
-  --danger: #cf222e;
-  --danger-hover: #a40e26;
-  --danger-text: #cf222e;
+  --danger: #c4291b;
+  --danger-hover: #a8210f;
+  --danger-text: #c4291b;
 
   // Semantic: Success
   --success: #1a7f37;
@@ -281,29 +369,29 @@
   --warning-border: #d4a72c;
 
   // Semantic: Info/Accent
-  --accent: #0550ae;
-  --accent-light: #0969da;
-  --accent-bg: #ddf4ff;
-  --accent-surface: #f1f8ff;
+  --accent: #1d23a7;
+  --accent-light: #4c51c8;
+  --accent-bg: #e8eaf7;
+  --accent-surface: #f3f5fc;
 
-  // Component: Tabs (underline style)
-  --tab-text: #57606a;
-  --tab-hover-bg: rgba(208, 215, 222, 0.32);
-  --tab-active-border: #fd8c73;
-  --tab-active-text: #24292f;
+  // Component: Tabs
+  --tab-text: #6b6559;
+  --tab-hover-bg: #ede9e1;
+  --tab-active-border: #5c7a00;
+  --tab-active-text: #12100c;
   --tab-active-bg: transparent;
 
   // Component: Cards
   --card-bg: #ffffff;
-  --card-shadow: rgba(31, 35, 40, 0.04);
-  --card-border: #d0d7de;
+  --card-shadow: rgba(18, 16, 12, 0.06);
+  --card-border: #dcd8cf;
 
   // Component: Badges
-  --badge-bg: #ddf4ff;
-  --badge-text: #0550ae;
-  --badge-border: #b6e3ff;
-  --badge-primary-bg: rgba(9, 105, 218, 0.08);
-  --badge-primary-text: #0969da;
+  --badge-bg: transparent;
+  --badge-text: #1d23a7;
+  --badge-border: #dcd8cf;
+  --badge-primary-bg: transparent;
+  --badge-primary-text: #5c7a00;
 
   // Component: Access badges
   --access-download-bg: #dafbe1;
@@ -312,14 +400,14 @@
   --access-view-text: #7d4e00;
 
   // Component: User tag
-  --user-tag-bg: #ddf4ff;
-  --user-tag-text: #0550ae;
+  --user-tag-bg: #e8eaf7;
+  --user-tag-text: #1d23a7;
 
   // Component: Leaderboard ranks
   --rank-gold-bg: #fff8c5;
   --rank-gold-text: #7d4e00;
-  --rank-silver-bg: #f6f8fa;
-  --rank-silver-text: #57606a;
+  --rank-silver-bg: #f2efe8;
+  --rank-silver-text: #6b6559;
   --rank-bronze-bg: #fff1e5;
   --rank-bronze-text: #953800;
 
@@ -328,31 +416,31 @@
   --streak-bg: #fff1e5;
 
   // Component: Table
-  --table-header-bg: #f6f8fa;
-  --table-header-text: #424a53;
+  --table-header-bg: #f2efe8;
+  --table-header-text: #6b6559;
 
   // Component: Module roles
-  --module-role-bg: #ddf4ff;
+  --module-role-bg: #ede9e1;
 
   // Component: PDF viewer
-  --pdf-bg: #424a53;
-  --image-viewer-bg: #1f2328;
+  --pdf-bg: #4a463e;
+  --image-viewer-bg: #12100c;
 
   // Component: Verification
   --verify-token-bg: #ffffff;
-  --verify-token-border: #d0d7de;
+  --verify-token-border: #c4bfb3;
   --verify-token-text: #9a6700;
 
   // Component: Link
-  --link: #0969da;
+  --link: #1d23a7;
 
   // Component: Contest platforms
-  --contest-cf: #0969da;
+  --contest-cf: #1d23a7;
   --contest-ac: #0a7d6c;
   --contest-cc: #6e5494;
   --contest-lc: #bf8700;
   // Contest arena: decorative dot-grid overlay
-  --contest-pattern-dot: rgba(27, 31, 36, 0.04);
+  --contest-pattern-dot: rgba(18, 16, 12, 0.04);
 
   // Codeforces rating tiers (canonical CF colors)
   --cf-rating-gray: #808080;
@@ -363,18 +451,25 @@
   --cf-rating-orange: #ff8c00;
   --cf-rating-red: #ff0000;
 
+  // Module accents
+  --module-software-accent: #1d23a7;
+  --module-cp-accent: #c4291b;
+  --module-ml-accent: #7a2fb8;
+  --module-security-accent: #5c7a00;
+  --module-design-accent: #a83a12;
+
   // Component: Blog
-  --blog-prose-text: #24292f;
-  --blog-prose-heading: #1f2328;
-  --blog-prose-link: #0969da;
-  --blog-prose-code-bg: #f6f8fa;
-  --blog-prose-code-border: #d0d7de;
-  --blog-prose-blockquote-border: #0969da;
-  --blog-prose-blockquote-text: #57606a;
-  --blog-prose-hr: #d8dee4;
-  --blog-prose-table-border: #d0d7de;
-  --blog-prose-table-header-bg: #f6f8fa;
-  --blog-card-hover: rgba(9, 105, 218, 0.04);
+  --blog-prose-text: #2a2721;
+  --blog-prose-heading: #12100c;
+  --blog-prose-link: #1d23a7;
+  --blog-prose-code-bg: #f2efe8;
+  --blog-prose-code-border: #dcd8cf;
+  --blog-prose-blockquote-border: #5c7a00;
+  --blog-prose-blockquote-text: #57534b;
+  --blog-prose-hr: #e6e2da;
+  --blog-prose-table-border: #dcd8cf;
+  --blog-prose-table-header-bg: #f2efe8;
+  --blog-card-hover: #ede9e1;
   --blog-editor-bg: #ffffff;
-  --blog-editor-border: #d0d7de;
+  --blog-editor-border: #c4bfb3;
 }

@@ -21,6 +21,7 @@ export interface IEvent extends Document {
   allDay: boolean;
   module?: ProjectModuleName;
   tags: string[];
+  publicAudience: string;
   recurrenceType: EventRecurrenceType;
   recurrenceCount: number;
   status: EventPublicationStatus;
@@ -51,6 +52,7 @@ const EventSchema: Schema = new Schema(
       enum: [...PROJECT_MODULES],
     },
     tags: { type: [String], default: [] },
+    publicAudience: { type: String, default: "", maxlength: 80, trim: true },
     recurrenceType: {
       type: String,
       enum: [...EVENT_RECURRENCE_TYPES],

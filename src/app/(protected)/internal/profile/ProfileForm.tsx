@@ -26,6 +26,7 @@ export default function ProfileForm() {
     codeforcesId: "",
     atcoderId: "",
     githubId: "",
+    linkedinUrl: "",
     bio: "",
     phoneNumber: "",
   });
@@ -51,6 +52,7 @@ export default function ProfileForm() {
       codeforcesId: cfHandle,
       atcoderId: acHandle,
       githubId: session.user.githubId || "",
+      linkedinUrl: session.user.linkedinUrl || "",
       bio: session.user.bio || "",
       phoneNumber: session.user.phoneNumber || "",
     });
@@ -368,6 +370,19 @@ export default function ProfileForm() {
               setFormData({ ...formData, githubId: e.target.value })
             }
             placeholder="Eg. octocat"
+          />
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor="linkedin">LinkedIn URL</label>
+          <input
+            type="url"
+            id="linkedin"
+            value={formData.linkedinUrl}
+            onChange={(e) =>
+              setFormData({ ...formData, linkedinUrl: e.target.value })
+            }
+            placeholder="Eg. https://linkedin.com/in/your-profile"
           />
         </div>
 

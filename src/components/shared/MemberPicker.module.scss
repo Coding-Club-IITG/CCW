@@ -1,0 +1,60 @@
+@use "../../styles/mixins" as *;
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.35rem 0.25rem 0.25rem;
+  border: 1px solid var(--border);
+  background: var(--surface-secondary);
+  font-size: 0.8125rem;
+  color: var(--foreground);
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15rem;
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--danger);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.chipAvatar {
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+}
+
+.chipInitials {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--foreground-strong);
+  line-height: 1;
+}

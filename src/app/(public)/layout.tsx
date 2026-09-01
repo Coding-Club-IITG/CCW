@@ -1,5 +1,6 @@
 import Navbar from "@/components/layout/Navbar/Navbar";
 import Footer from "@/components/layout/Footer/Footer";
+import styles from "./layout.module.scss";
 
 export default function PublicLayout({
   children,
@@ -7,11 +8,9 @@ export default function PublicLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div
-      style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
-    >
+    <div className={styles.shell}>
       <Navbar />
-      <main style={{ flex: 1 }}>{children}</main>
+      <main className={styles.main}>{children}</main>
       <Footer />
     </div>
   );

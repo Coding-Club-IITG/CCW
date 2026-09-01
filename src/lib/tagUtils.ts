@@ -1,8 +1,7 @@
 export const DEFAULT_TAG_MAX_LENGTH = 50;
 
 export type TagValidationResult =
-  | { ok: true; tags: string[] }
-  | { ok: false; error: string };
+  { ok: true; tags: string[] } | { ok: false; error: string };
 
 export function normalizeTag(value: string): string {
   return value.trim().replace(/\s+/g, " ");

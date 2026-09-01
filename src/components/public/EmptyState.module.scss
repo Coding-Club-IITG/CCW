@@ -1,0 +1,13 @@
+@use "../../styles/mixins" as *;
+
+.empty {
+  @include empty-state;
+}
+
+.title {
+  @include empty-state-title;
+}
+
+.hint {
+  @include empty-state-hint;
+}

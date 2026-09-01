@@ -46,11 +46,20 @@ export function plainText(
     : `${resolved.slice(0, limit - 1).trimEnd()}…`;
 }
 
-export function ogImage(title: string, media?: string | null): string {
-  return (
-    absoluteUrl(media) ??
-    `${SITE_URL}/api/og?title=${encodeURIComponent(title)}`
-  );
+export type OgImageOptions = {
+  media?: string | null;
+  kicker?: string | null;
+  meta?: string | null;
+};
+
+export function ogImage(title: string, options?: OgImageOptions): string {
+  const stored = absoluteUrl(options?.media);
+  if (stored) return stored;
+
+  const params = new URLSearchParams({ title });
+  if (options?.kicker) params.set("kicker", options.kicker);
+  if (options?.meta) params.set("meta", options.meta);
+  return `${SITE_URL}/api/og?${params.toString()}`;
 }
 
 export function pageMetadata({

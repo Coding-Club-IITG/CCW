@@ -2,8 +2,7 @@ import type { ModuleName } from "@/lib/constants";
 import { getHeadModules, isAdmin } from "@/lib/access/roles";
 
 export type CalendarScopeTarget =
-  | { scope: "general"; module?: never }
-  | { scope: "module"; module: string };
+  { scope: "general"; module?: never } | { scope: "module"; module: string };
 
 export function canManageCalendarEvent(
   access: string | undefined,

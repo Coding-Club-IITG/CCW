@@ -1,24 +1,53 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { CLUB_EMAIL } from "@/lib/seo";
+import Navbar from "@/components/layout/Navbar/Navbar";
+import Footer from "@/components/layout/Footer/Footer";
+import PrismHero from "@/app/(public)/PrismHero";
 import styles from "./not-found.module.scss";
+
+const QUICK_LINKS = [
+  { href: "/events", label: "Events" },
+  { href: "/projects", label: "Projects" },
+  { href: "/team", label: "Team" },
+];
 
 export default function NotFound() {
   return (
-    <div className={styles.container}>
-      <div className={styles.glitch}>404</div>
-      <h1 className={styles.title}>Page not found</h1>
-      <p className={styles.description}>
-        The page you&apos;re looking for doesn&apos;t exist or has been moved.
-        Let&apos;s get you back on track.
-      </p>
-      <div className={styles.actions}>
-        <Link href="/" className={styles.homeButton}>
-          <ArrowLeft size={16} />
-          Go Home
-        </Link>
-      </div>
-      <div className={styles.divider} />
-      <p className={styles.hint}>Coding Club IIT Guwahati</p>
+    <div className={styles.shell}>
+      <Navbar />
+      <main className={styles.stage}>
+        <div className={styles.copy}>
+          <p className={styles.kicker}>Error 404 · nothing here</p>
+          <p className={styles.code}>404</p>
+          <h1 className={styles.title}>This page refracted somewhere else.</h1>
+          <p className={styles.description}>
+            The link is broken or the page has moved.
+          </p>
+
+          <div className={styles.actions}>
+            <Link href="/" className={styles.primaryAction}>
+              <ArrowLeft size={15} aria-hidden="true" />
+              Back home
+            </Link>
+            <Link href="/blog" className={styles.secondaryAction}>
+              Read the blog
+            </Link>
+          </div>
+
+          <nav className={styles.quickLinks} aria-label="Elsewhere on the site">
+            {QUICK_LINKS.map(({ href, label }) => (
+              <Link key={href} href={href}>
+                {label}
+              </Link>
+            ))}
+            <a href={`mailto:${CLUB_EMAIL}`}>Report a broken link</a>
+          </nav>
+        </div>
+
+        <PrismHero />
+      </main>
+      <Footer />
     </div>
   );
 }

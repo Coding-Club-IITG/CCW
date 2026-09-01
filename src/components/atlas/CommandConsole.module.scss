@@ -1,23 +1,34 @@
+@use "../../styles/mixins" as *;
+
 .backdrop {
   position: fixed;
   inset: 0;
   z-index: 2000;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 9vh 1rem 1rem;
   background: var(--overlay);
+  backdrop-filter: blur(9px);
 }
 
 .console {
-  width: min(960px, 100%);
-  max-height: min(680px, calc(100vh - 2rem));
+  display: flex;
+  flex-direction: column;
+  width: min(1020px, 100%);
+  max-height: min(78vh, calc(100vh - 2rem));
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
+  border: 1px solid var(--border-input);
+  background: var(--surface-secondary);
   box-shadow: var(--modal-shadow);
   color: var(--foreground);
   font-size: 0.875rem;
+}
+
+.spectrumRail {
+  height: 2px;
+  flex: none;
+  background: var(--spectrum-gradient);
 }
 
 .singlePaneConsole {
@@ -51,7 +62,7 @@
     height: 30px;
     padding: 0;
     border: 0;
-    border-radius: 6px;
+    border-radius: 0;
     background: transparent;
     color: var(--muted);
     cursor: pointer;
@@ -96,7 +107,7 @@
 
   span {
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: 0;
     padding: 0.2rem 0.55rem;
     background: var(--background-secondary);
     font-size: 0.72rem;
@@ -143,22 +154,22 @@
 }
 
 .results {
-  padding: 0.55rem;
+  padding: 0 0.55rem 0.55rem;
   border-right: 1px solid var(--border);
 }
 
 .groupLabel {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  margin: 0.75rem 0.65rem 0.35rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  margin: 0;
+  padding: 12px 0.65rem 8px;
+  background: var(--surface-secondary);
+  @include micro-label(11px, 0.12em);
   line-height: 1.25;
-
-  &:first-child {
-    margin-top: 0.35rem;
-  }
 }
 
 .recentsHeader {
@@ -173,7 +184,7 @@
   button {
     padding: 0.15rem 0.35rem;
     border: 0;
-    border-radius: 4px;
+    border-radius: 0;
     background: transparent;
     color: var(--muted);
     cursor: pointer;
@@ -204,8 +215,8 @@
   gap: 0.65rem;
   min-height: 54px;
   padding: 0.55rem 0.65rem;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  border: 0;
+  border-left: 2px solid transparent;
   background: transparent;
   color: var(--foreground);
   text-align: left;
@@ -213,7 +224,7 @@
 
   > svg:first-child {
     justify-self: center;
-    color: var(--muted);
+    color: var(--kind, var(--muted));
   }
 
   span {
@@ -241,8 +252,8 @@
 }
 
 .activeResult {
-  border-color: var(--border);
-  background: var(--background-secondary);
+  border-left-color: var(--kind, var(--primary));
+  background: var(--surface-hover);
 }
 
 .preview {
@@ -276,6 +287,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  padding: 2px 7px;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  @include micro-label(11px, 0.07em);
+  color: var(--danger);
 }
 
 .meta,
@@ -285,7 +301,7 @@
   span {
     padding: 0.22rem 0.55rem;
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: 0;
     font-size: 0.75rem;
     line-height: 1.35;
   }
@@ -309,7 +325,7 @@
   margin: 0;
   padding: 0.55rem 0.8rem;
   border: 0;
-  border-radius: 7px;
+  border-radius: 0;
   background: var(--primary);
   color: var(--fg-on-emphasis);
   text-decoration: none;
@@ -395,7 +411,7 @@
   button {
     padding: 0.3rem 0.6rem;
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: 0;
     background: var(--background-secondary);
     color: var(--foreground);
     cursor: pointer;
@@ -450,7 +466,7 @@
   margin: 0.65rem 0.65rem 0.25rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 0;
   background: var(--background-secondary);
   font-size: 0.8rem;
   line-height: 1.45;
@@ -462,8 +478,11 @@
   align-items: center;
   gap: 1.15rem;
   min-height: 36px;
-  padding: 0.45rem 1rem;
+  flex: none;
+  padding: 12px 1rem;
   border-top: 1px solid var(--border);
+  background: var(--background);
+  @include micro-label(11px, 0.07em);
   line-height: 1.35;
 }
 
@@ -479,7 +498,7 @@
     max-height: none;
     display: flex;
     flex-direction: column;
-    border-radius: 14px 14px 0 0;
+    border-radius: 0;
   }
 
   .body {

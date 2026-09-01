@@ -47,8 +47,7 @@ const ContestProblemSetSchema = new Schema<IContestProblemSet>(
 
 const ContestProblemSet =
   (mongoose.models.ContestProblemSet as
-    | mongoose.Model<IContestProblemSet>
-    | undefined) ||
+    mongoose.Model<IContestProblemSet> | undefined) ||
   mongoose.model<IContestProblemSet>(
     "ContestProblemSet",
     ContestProblemSetSchema,

@@ -6,12 +6,3 @@
   color: var(--error-text);
   font-size: 0.875rem;
 }
-
-@mixin public-empty-state {
-  padding: 3rem;
-  border: 1px dashed var(--border);
-  border-radius: 6px;
-  color: var(--muted);
-  font-size: 0.875rem;
-  text-align: center;
-}

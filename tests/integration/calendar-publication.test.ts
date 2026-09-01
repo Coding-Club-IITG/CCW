@@ -103,6 +103,8 @@ describe("calendar publication actions", () => {
       (await CalendarEvent.findById(calendar._id).lean())?.publicEventId,
     ).toEqual(event?._id);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.invalidateCache).toHaveBeenCalledWith("home");
     expect(mocks.revalidatePath).toHaveBeenCalledWith(
       "/events/public-design-sync",
     );
@@ -170,5 +172,51 @@ describe("calendar publication actions", () => {
       ["publish", "events.status.update"],
       ["status_change", "events.status.update"],
     ]);
+  });
+
+  it("stores an optional public audience and audits it", async () => {
+    const calendar = await seedCalendar();
+    mocks.getSession.mockResolvedValue(session("Head", [{ module: "Design" }]));
+    const { createPublicEvent } = await import("@/lib/actions/admin/events");
+
+    const result = await createPublicEvent(
+      String(calendar._id),
+      { ...publicInput, publicAudience: "First years" },
+      "published",
+    );
+    expect(result.ok).toBe(true);
+    expect((await Event.findOne().lean())?.publicAudience).toBe("First years");
+
+    const audit = await AuditLog.findOne().lean();
+    expect(audit?.after).toMatchObject({ publicAudience: "First years" });
+  });
+
+  it("defaults the public audience to empty when omitted", async () => {
+    const calendar = await seedCalendar();
+    mocks.getSession.mockResolvedValue(session("Head", [{ module: "Design" }]));
+    const { createPublicEvent } = await import("@/lib/actions/admin/events");
+
+    await createPublicEvent(String(calendar._id), publicInput, "draft");
+    expect((await Event.findOne().lean())?.publicAudience).toBe("");
+  });
+
+  it("rejects an over-long public audience", async () => {
+    const calendar = await seedCalendar();
+    mocks.getSession.mockResolvedValue(session("Head", [{ module: "Design" }]));
+    const { createPublicEvent } = await import("@/lib/actions/admin/events");
+
+    const result = await createPublicEvent(
+      String(calendar._id),
+      { ...publicInput, publicAudience: "x".repeat(81) },
+      "draft",
+    );
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Open to must be 80 characters or fewer.",
+      },
+    });
+    expect(await Event.countDocuments()).toBe(0);
   });
 });

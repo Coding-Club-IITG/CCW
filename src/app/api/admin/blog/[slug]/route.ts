@@ -204,6 +204,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
     await invalidateCache("blog");
     await invalidateCache("admin:blog");
+    await invalidateCache("home");
+    revalidatePath("/");
     revalidatePath("/sitemap.xml");
 
     return jsonOk({ post: saved.toObject() });
@@ -269,6 +271,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     await invalidateCache("blog");
     await invalidateCache("admin:blog");
+    await invalidateCache("home");
+    revalidatePath("/");
     revalidatePath("/sitemap.xml");
 
     return jsonOk({ success: true });

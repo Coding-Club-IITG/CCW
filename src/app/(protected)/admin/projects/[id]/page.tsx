@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
 import ImageUpload from "@/components/shared/ImageUpload";
 import TagEditor from "@/components/shared/TagEditor";
+import MemberPicker from "@/components/shared/MemberPicker";
 import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
 import { updateProject } from "@/lib/actions/admin/projects";
 import styles from "../../events/new/EventForm.module.scss";
@@ -27,6 +28,8 @@ interface ProjectData {
   module: (typeof PROJECT_MODULES)[number];
   status: (typeof PROJECT_STATUSES)[number];
   tags: string[];
+  takeaways?: string[];
+  contributors?: string[];
 }
 
 function toMonthInput(date: string) {
@@ -57,6 +60,8 @@ export default function EditProjectPage({
     PROJECT_STATUSES[0],
   );
   const [tags, setTags] = useState<string[]>([]);
+  const [takeaways, setTakeaways] = useState("");
+  const [contributors, setContributors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -84,6 +89,8 @@ export default function EditProjectPage({
         setModule(project.module || PROJECT_MODULES[0]);
         setStatus(project.status || PROJECT_STATUSES[0]);
         setTags(project.tags ?? []);
+        setTakeaways((project.takeaways ?? []).join("\n"));
+        setContributors(project.contributors ?? []);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load project.",
@@ -126,6 +133,8 @@ export default function EditProjectPage({
     formData.set("module", module);
     formData.set("status", status);
     if (tags.length) formData.set("tags", tags.join(","));
+    formData.set("takeaways", takeaways);
+    formData.set("contributors", contributors.join(","));
 
     const result = await updateProject(id, formData);
     if (result.ok) {
@@ -278,6 +287,29 @@ export default function EditProjectPage({
             onChange={setTags}
             placeholder="Add project tag…"
           />
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="project-takeaways">
+            What it teaches
+          </label>
+          <textarea
+            id="project-takeaways"
+            className={styles.textarea}
+            rows={4}
+            value={takeaways}
+            onChange={(e) => setTakeaways(e.target.value)}
+            placeholder="One takeaway per line (upto 6)."
+          />
+          <p className={styles.hint}>
+            Shown in the project sheet on the public page.
+          </p>
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>On it now</label>
+          <MemberPicker value={contributors} onChange={setContributors} />
+          <p className={styles.hint}>Only the headcount is shown publicly.</p>
         </div>
 
         <div className={styles.actions}>

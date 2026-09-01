@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
@@ -70,6 +71,22 @@ const KIND_ICONS: Partial<Record<AtlasResultKind, typeof Search>> = {
   event: CalendarDays,
   calendar: CalendarDays,
   file: FileText,
+};
+
+const KIND_ACCENTS: Record<AtlasResultKind, string> = {
+  route: "var(--brand-sky)",
+  command: "var(--primary)",
+  module: "var(--brand-violet)",
+  post: "var(--brand-sky)",
+  event: "var(--brand-red)",
+  project: "var(--brand-violet-tint)",
+  team: "var(--brand-ember)",
+  calendar: "var(--brand-ember-tint)",
+  file: "var(--accent)",
+  notification: "var(--brand-red-tint)",
+  hackathon: "var(--brand-lime-tint)",
+  potd: "var(--brand-red)",
+  contest: "var(--accent-light)",
 };
 
 const FILTER_EXAMPLES = [
@@ -136,11 +153,11 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
   const [recents, setRecents] = useState<AtlasResult[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const consoleRef = useRef<HTMLElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
   const user = session?.user as
-    | { access?: string; roles?: unknown }
-    | undefined;
+    { access?: string; roles?: unknown } | undefined;
   const catalog = useMemo(
     () =>
       atlasCatalog({
@@ -327,6 +344,24 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
   }, [catalogResults, query, recents, remote]);
 
   const selected = results[Math.min(active, Math.max(0, results.length - 1))];
+
+  // Keep the active row visible with manual scrollTop maths
+  useEffect(() => {
+    const list = resultsRef.current;
+    if (!list) return;
+    const row = list.querySelectorAll<HTMLElement>("[data-atlas-row]")[active];
+    if (!row) return;
+
+    const rowBox = row.getBoundingClientRect();
+    const listBox = list.getBoundingClientRect();
+    // Leave room for the sticky group header above the first row of a group
+    const headroom = 34;
+    if (rowBox.top < listBox.top + headroom) {
+      list.scrollTop -= listBox.top + headroom - rowBox.top;
+    } else if (rowBox.bottom > listBox.bottom) {
+      list.scrollTop += rowBox.bottom - listBox.bottom;
+    }
+  }, [active, results.length]);
   const singlePane =
     !query.trim() ||
     query.startsWith("?") ||
@@ -473,6 +508,7 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
                 aria-label="Club Atlas"
                 onMouseDown={(event) => event.stopPropagation()}
               >
+                <div className={styles.spectrumRail} aria-hidden="true" />
                 <div className={styles.searchBar}>
                   <Search aria-hidden="true" size={19} />
                   <input
@@ -552,6 +588,7 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
                   className={`${styles.body} ${singlePane ? styles.singlePane : ""}`}
                 >
                   <div
+                    ref={resultsRef}
                     className={styles.results}
                     id="atlas-results"
                     role="listbox"
@@ -596,9 +633,15 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
                             )}
                             <button
                               id={`atlas-${item.kind}-${item.id}`}
+                              data-atlas-row=""
                               type="button"
                               role="option"
                               aria-selected={index === active}
+                              style={
+                                {
+                                  "--kind": KIND_ACCENTS[item.kind],
+                                } as CSSProperties
+                              }
                               className={
                                 index === active
                                   ? styles.activeResult

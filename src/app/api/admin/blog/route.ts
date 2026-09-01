@@ -198,6 +198,8 @@ export async function POST(request: NextRequest) {
 
     await invalidateCache("blog");
     await invalidateCache("admin:blog");
+    await invalidateCache("home");
+    revalidatePath("/");
     revalidatePath("/sitemap.xml");
 
     return jsonOk({ post }, { status: 201 });

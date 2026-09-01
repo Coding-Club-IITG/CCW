@@ -27,6 +27,8 @@ programming systems, content, administration, and background integrations.
 
 - Next.js 16 App Router, React 19, and strict TypeScript
 - SCSS Modules and shared CSS variables
+- Hanken Grotesk for text, JetBrains Mono for labels and metadata,
+  and Handjet for display type
 - MongoDB with Mongoose and the better-auth MongoDB adapter
 - Redis for shared runtime state, caching, and queue support
 - Agenda and BullMQ background processing
@@ -83,9 +85,13 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
   drafts and publications are linked one-to-one to calendar records.
   The linked calendar location is displayed publicly, while its external
   URL, agenda, minutes, and reminders remain internal.
-- Public discovery is server rendered. The blog listing renders its current
-  archive page and article links on the server, while focused search, tag, and
-  pagination interactions hydrate on the client.
+- Public discovery is server rendered and URL-driven. Blog and event filters,
+  sorting, pagination and the archive window all live in the query string, so
+  every state is server rendered, shareable and crawlable; only the controls
+  themselves hydrate.
+- Theme-dependent rendering must be done in CSS keyed off `[data-theme]`, not by
+  branching on the theme store. The store reads a cookie that is unavailable
+  during server rendering, so a JavaScript branch desynchronises hydration.
 - Atlas is the global command-and-search surface, opened from the navbar
   or with Ctrl/Cmd+K outside editable controls. Anonymous searches include
   public content, while signed-in searches can include every internal
@@ -93,6 +99,8 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
 - Public blog, event, and project images store normalized focal points for
   consistent responsive card crops. Detail-page images retain their natural
   aspect ratio.
+- Open Graph covers are generated per request by `src/app/api/og/route.tsx` from
+  `?kicker=`, `?title=` and `?meta=`.
 - Platform integrations currently include Codeforces and AtCoder, with contest
   aggregation also covering other competitive-programming platforms.
 - `@ronits2407/cp-api` owns CP Platform HTTP requests, retries,

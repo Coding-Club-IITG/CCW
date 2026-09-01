@@ -1,127 +1,137 @@
 @use "../styles/mixins" as *;
 
-.container {
+.shell {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   min-height: 100vh;
-  text-align: center;
-  padding: 2rem;
-  background: var(--background);
 }
 
-.glitch {
-  font-size: 8rem;
-  font-weight: 900;
-  color: var(--primary);
-  letter-spacing: -0.04em;
-  line-height: 1;
-  margin-bottom: 1rem;
+.stage {
+  --background: var(--prism-ground);
+  --surface: var(--prism-surface);
+  --border: var(--prism-line);
+  --border-input: var(--prism-line-strong);
+  --foreground-strong: var(--prism-ink);
+  --foreground-secondary: var(--prism-ink-soft);
+  --muted-lighter: var(--prism-ink-faint);
+
   position: relative;
-  user-select: none;
-
-  &::after {
-    content: "404";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    color: var(--primary);
-    opacity: 0.15;
-    animation: flicker 3s infinite;
-  }
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  align-items: center;
+  gap: 40px;
+  min-height: 740px;
+  padding-block: 80px;
+  overflow: hidden;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+  @include page-gutter;
 }
 
-@keyframes flicker {
-  0%,
-  95%,
-  100% {
-    opacity: 0.15;
-    transform: translate(0);
-  }
-  96% {
-    opacity: 0.4;
-    transform: translate(-2px, 1px);
-  }
-  97% {
-    opacity: 0.1;
-    transform: translate(2px, -1px);
-  }
+.copy {
+  position: relative;
+  z-index: 4;
+  grid-column: 1;
+  grid-row: 1;
+  max-width: 620px;
+}
+
+.kicker {
+  margin: 0 0 24px;
+  @include micro-label(11px, 0.2em);
+  color: var(--danger);
+}
+
+.code {
+  margin: 0;
+  @include display-type(clamp(110px, 15vw, 220px), 0.02em, 0.78);
 }
 
 .title {
-  font-size: 1.75rem;
+  margin: 28px 0 0;
+  font-size: clamp(28px, 3.2vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
   font-weight: 700;
   color: var(--foreground-strong);
-  margin-bottom: 0.75rem;
-  letter-spacing: -0.02em;
+  text-wrap: pretty;
 }
 
 .description {
-  font-size: 1.05rem;
-  color: var(--muted);
-  max-width: 420px;
+  margin: 18px 0 0;
+  max-width: 480px;
+  font-size: 17px;
   line-height: 1.6;
-  margin-bottom: 2.5rem;
+  color: var(--foreground-secondary);
 }
 
 .actions {
   display: flex;
-  gap: 1rem;
+  gap: 12px;
+  margin-top: 36px;
   flex-wrap: wrap;
-  justify-content: center;
 }
 
-.homeButton {
+.primaryAction,
+.secondaryAction {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
+  gap: 10px;
+  padding: 15px 24px;
+  font-size: 14.5px;
+  white-space: nowrap;
+  @include focus-ring;
+}
+
+.primaryAction {
   background: var(--btn-primary-bg);
   color: var(--btn-primary-text);
-  border: none;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background 0.15s ease;
+  font-weight: 700;
+  transition: background 0.2s ease;
 
   &:hover {
     background: var(--btn-primary-bg-hover);
   }
 }
 
-.backButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: var(--btn-secondary-bg);
-  color: var(--btn-secondary-text);
-  border: 1px solid var(--btn-secondary-border);
-  border-radius: 6px;
-  font-size: 0.95rem;
+.secondaryAction {
+  border: 1px solid var(--border-input);
+  color: var(--foreground-strong);
   font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background 0.15s ease;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
 
   &:hover {
-    background: var(--btn-secondary-bg-hover);
+    border-color: var(--primary);
+    color: var(--primary);
   }
 }
 
-.divider {
-  width: 48px;
-  height: 3px;
-  background: var(--border);
-  border-radius: 2px;
-  margin: 2.5rem 0 1.5rem;
+.quickLinks {
+  display: flex;
+  gap: 26px;
+  margin-top: 44px;
+  flex-wrap: wrap;
+
+  a {
+    @include micro-label(11px, 0.07em);
+    color: var(--muted-light);
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--primary);
+    }
+
+    @include focus-ring;
+  }
 }
 
-.hint {
-  font-size: 0.85rem;
-  color: var(--muted-light);
+@media (max-width: 900px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    padding-block: 56px 72px;
+  }
 }

@@ -16,18 +16,8 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
-import { MODULES, type ModuleName } from "@/lib/constants";
+import { MODULE_DESCRIPTIONS, MODULES } from "@/lib/constants";
 import type { AtlasResult } from "@/lib/atlas/types";
-
-export const MODULE_DESCRIPTIONS: Record<ModuleName, string> = {
-  "Software Development":
-    "Building scalable solutions and modern applications.",
-  "Competitive Programming":
-    "Sharpening problem-solving skills through algorithmic contests and challenges.",
-  "Machine Learning": "Harnessing data and artificial intelligence.",
-  Cybersecurity: "Securing the digital frontier and exploring vulnerabilities.",
-  Design: "Crafting intuitive interfaces and compelling visual experiences.",
-};
 
 export type AtlasCatalogItem = AtlasResult & { icon: LucideIcon };
 

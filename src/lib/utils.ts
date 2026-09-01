@@ -1,3 +1,5 @@
+import { APP_TIME_ZONE } from "@/lib/constants";
+
 /**
  * Returns the display name with pizza emojis appended based on pizza_count
  */
@@ -13,6 +15,27 @@ export function formatDate(date: Date | string) {
     month: "long",
     year: "numeric",
   });
+}
+
+/** Day, short month and year in IST, Eg. "17 Aug 2026" */
+export function formatShortDate(date?: Date | string | null) {
+  if (!date) return "";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: APP_TIME_ZONE,
+  }).format(new Date(date));
+}
+
+/** Short month and year, Eg. "Aug 2024" */
+export function formatMonthYear(date?: Date | string | null) {
+  if (!date) return "";
+  return new Intl.DateTimeFormat("en-IN", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(date));
 }
 
 export { errorToLogMetadata, logger } from "@/lib/logger";

@@ -239,8 +239,7 @@ export type RoomEvent = z.infer<typeof roomEventSchema>;
 export type ContestEvent = z.infer<typeof contestEventSchema>;
 export type UserEvent = z.infer<typeof userEventSchema>;
 export type RoomStreamEvent =
-  | z.infer<typeof roomEventSchema>
-  | z.infer<typeof typedUserEventSchema>;
+  z.infer<typeof roomEventSchema> | z.infer<typeof typedUserEventSchema>;
 
 export const roomStreamEventSchema = z.union([
   roomEventSchema,
