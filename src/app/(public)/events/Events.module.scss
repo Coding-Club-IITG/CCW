@@ -512,12 +512,14 @@
 .sheetGrid {
   display: grid;
   grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  align-items: start;
 }
 
 .sheetMedia {
   position: relative;
   overflow: hidden;
-  min-height: 440px;
+  width: 100%;
+  aspect-ratio: 4 / 5;
   background: var(--drop-zone);
   border-right: 1px solid var(--border);
 }
@@ -655,8 +657,6 @@
   }
 
   .sheetMedia {
-    min-height: 0;
-    aspect-ratio: 4 / 5;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }

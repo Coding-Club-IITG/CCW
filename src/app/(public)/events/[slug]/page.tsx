@@ -21,9 +21,9 @@ import {
 } from "@/lib/seo";
 import Event, { type IEvent } from "@/models/Event";
 import CalendarEvent from "@/models/CalendarEvent";
-import FocalImage from "@/components/shared/FocalImage";
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
 import BackLink from "@/components/shared/BackLink";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import JsonLd from "@/components/shared/JsonLd";
 import EventActions from "./EventActions";
 import styles from "./EventDetail.module.scss";
@@ -263,9 +263,8 @@ export default async function EventDetailPage({ params }: Props) {
               <div className={styles.railInner}>
                 <div className={styles.posterWrapper}>
                   {event.poster && (
-                    <FocalImage
+                    <CompatibleImage
                       src={event.poster}
-                      focalPoint={event.posterFocalPoint}
                       alt=""
                       width={0}
                       height={0}

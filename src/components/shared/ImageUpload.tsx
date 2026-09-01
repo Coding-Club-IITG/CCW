@@ -16,6 +16,8 @@ interface ImageUploadProps {
   previewClassName?: string;
   focalPoint?: ImageFocalPoint;
   onFocalPointChange?: (value: ImageFocalPoint) => void;
+  focalPointAspectRatio?: string;
+  focalPointHelpText?: string;
 }
 
 export default function ImageUpload({
@@ -26,6 +28,8 @@ export default function ImageUpload({
   previewClassName,
   focalPoint,
   onFocalPointChange,
+  focalPointAspectRatio,
+  focalPointHelpText,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -100,6 +104,8 @@ export default function ImageUpload({
           src={value}
           value={focalPoint}
           onChange={onFocalPointChange}
+          aspectRatio={focalPointAspectRatio}
+          helpText={focalPointHelpText}
         />
       )}
     </div>

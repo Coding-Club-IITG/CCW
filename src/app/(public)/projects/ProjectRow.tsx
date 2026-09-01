@@ -100,8 +100,8 @@ export default function ProjectRow({ project }: { project: ProjectRowData }) {
                 src={project.coverImage}
                 focalPoint={project.coverFocalPoint}
                 alt=""
-                width={900}
-                height={560}
+                width={800}
+                height={500}
                 sizes="(max-width: 900px) 100vw, 50vw"
                 loading="lazy"
                 className={styles.coverImage}
@@ -132,9 +132,9 @@ export default function ProjectRow({ project }: { project: ProjectRowData }) {
             <p className={styles.sheetDescription}>{project.description}</p>
 
             <div className={styles.sheetGrid}>
-              <div>
+              <div className={styles.sheetSections}>
                 {project.takeaways.length > 0 && (
-                  <>
+                  <section>
                     <p className={styles.sheetLabel}>What it teaches</p>
                     <ul className={styles.takeaways}>
                       {project.takeaways.map((takeaway) => (
@@ -144,11 +144,11 @@ export default function ProjectRow({ project }: { project: ProjectRowData }) {
                         </li>
                       ))}
                     </ul>
-                  </>
+                  </section>
                 )}
 
                 {project.stack.length > 0 && (
-                  <>
+                  <section>
                     <p className={styles.sheetLabel}>Stack</p>
                     <div className={styles.stack}>
                       {project.stack.map((item) => (
@@ -157,7 +157,7 @@ export default function ProjectRow({ project }: { project: ProjectRowData }) {
                         </span>
                       ))}
                     </div>
-                  </>
+                  </section>
                 )}
               </div>
 

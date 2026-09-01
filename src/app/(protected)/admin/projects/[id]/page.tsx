@@ -223,6 +223,7 @@ export default function EditProjectPage({
             previewClassName={styles.posterPreview}
             focalPoint={coverFocalPoint}
             onFocalPointChange={setCoverFocalPoint}
+            focalPointAspectRatio="16 / 10"
           />
         </div>
 

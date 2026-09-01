@@ -263,8 +263,8 @@ export default async function BlogPage({ searchParams }: Props) {
                   src={post.coverImage}
                   focalPoint={post.coverFocalPoint}
                   alt=""
-                  width={220}
-                  height={165}
+                  width={320}
+                  height={200}
                   sizes="110px"
                   loading="lazy"
                   className={styles.rowImage}

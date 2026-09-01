@@ -155,7 +155,9 @@
 .cover {
   position: relative;
   display: block;
-  min-height: 280px;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  align-self: center;
   padding: 0;
   border: none;
   border-left: 1px solid var(--border-light);
@@ -257,10 +259,12 @@
 .sheetLabel {
   margin: 0 0 14px;
   @include micro-label(11px, 0.1em);
+}
 
-  & + * {
-    margin-bottom: 30px;
-  }
+.sheetSections {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
 }
 
 .takeaways {
@@ -412,7 +416,7 @@
   }
 
   .cover {
-    min-height: 200px;
+    align-self: stretch;
     border-left: none;
     border-top: 1px solid var(--border-light);
   }

@@ -181,6 +181,7 @@ export default function BlogEditor({
           label="Image"
           focalPoint={coverFocalPoint}
           onFocalPointChange={setCoverFocalPoint}
+          focalPointAspectRatio="16 / 10"
         />
       </div>
 

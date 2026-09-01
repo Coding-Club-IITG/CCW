@@ -16,7 +16,7 @@ import { tagAccent } from "@/lib/constants";
 import BlogPost from "@/models/BlogPost";
 import ArticleReader from "@/components/blog/ArticleReader";
 import BackLink from "@/components/shared/BackLink";
-import FocalImage from "@/components/shared/FocalImage";
+import CompatibleImage from "@/components/shared/CompatibleImage";
 import JsonLd from "@/components/shared/JsonLd";
 import styles from "./BlogPost.module.scss";
 
@@ -201,9 +201,8 @@ export default async function BlogPostPage({ params }: Props) {
 
         {post.coverImage && (
           <div className={styles.coverWrapper}>
-            <FocalImage
+            <CompatibleImage
               src={post.coverImage}
-              focalPoint={post.coverFocalPoint}
               alt=""
               className={styles.cover}
               width={0}

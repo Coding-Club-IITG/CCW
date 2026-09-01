@@ -97,8 +97,9 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
   public content, while signed-in searches can include every internal
   record already permitted by the existing resource policies.
 - Public blog, event, and project images store normalized focal points for
-  consistent responsive card crops. Detail-page images retain their natural
-  aspect ratio.
+  consistent responsive crops. Event cards and quick views use 4:5, while blog
+  listings and project covers use 16:10. Detail-page images retain their
+  natural aspect ratio.
 - Open Graph covers are generated per request by `src/app/api/og/route.tsx` from
   `?kicker=`, `?title=` and `?meta=`.
 - Platform integrations currently include Codeforces and AtCoder, with contest

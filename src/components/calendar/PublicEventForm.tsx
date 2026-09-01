@@ -198,6 +198,7 @@ export default function PublicEventForm({
           previewClassName={styles.posterPreview}
           focalPoint={posterFocalPoint}
           onFocalPointChange={setPosterFocalPoint}
+          focalPointAspectRatio="4 / 5"
         />
       </div>
       <div className={styles.field}>
