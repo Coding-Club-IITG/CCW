@@ -206,8 +206,9 @@ export default async function BlogPostPage({ params }: Props) {
               focalPoint={post.coverFocalPoint}
               alt=""
               className={styles.cover}
-              width={1260}
-              height={460}
+              width={0}
+              height={0}
+              style={{ width: "100%", height: "auto" }}
               sizes="(max-width: 1360px) 100vw, 1260px"
               priority
             />

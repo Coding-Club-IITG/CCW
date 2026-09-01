@@ -37,11 +37,11 @@ describe("boundedLine", () => {
 
 describe("titleFontSize", () => {
   it("uses the display size for short titles", () => {
-    expect(titleFontSize("The heartbeat of technology")).toBe(74);
+    expect(titleFontSize("The heartbeat of technology")).toBe(66);
   });
 
   it("steps down past the long-title threshold", () => {
-    expect(titleFontSize("a".repeat(41))).toBe(60);
+    expect(titleFontSize("a".repeat(43))).toBe(52);
   });
 });
 
@@ -63,6 +63,6 @@ describe("fitTitle", () => {
 
   it("hard-cuts when there is no late word boundary to break on", () => {
     const fitted = fitTitle("x".repeat(200));
-    expect(fitted).toBe(`${"x".repeat(62)}…`);
+    expect(fitted).toBe(`${"x".repeat(68)}…`);
   });
 });

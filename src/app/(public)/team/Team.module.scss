@@ -262,6 +262,7 @@
   line-height: 1.05;
   color: var(--foreground-strong);
   text-wrap: pretty;
+  overflow-wrap: break-word;
 }
 
 .sheetBio {
@@ -272,6 +273,7 @@
   line-height: 1.55;
   color: var(--foreground);
   text-wrap: pretty;
+  overflow-wrap: break-word;
 }
 
 .sheetNoBio {

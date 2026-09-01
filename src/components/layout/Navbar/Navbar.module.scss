@@ -90,6 +90,7 @@
 .searchButton {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   padding: 6px 9px;
   border: 1px solid var(--border-input);
@@ -385,11 +386,17 @@
       padding: 14px clamp(1.25rem, 4vw, 40px);
       font-size: 13px;
       border-bottom: 1px solid var(--border-light);
+    }
+
+    .activeLink {
+      background: var(--primary-alpha);
 
       &::after {
-        inset-inline: clamp(1.25rem, 4vw, 40px) auto;
-        width: 18px;
-        bottom: 10px;
+        inset-inline: 0 auto;
+        inset-block: 0;
+        width: 3px;
+        height: auto;
+        bottom: auto;
       }
     }
   }

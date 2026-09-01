@@ -421,61 +421,44 @@ export default async function Home({ searchParams }: Props) {
         </div>
       </section>
 
-      {data.projects.length > 0 && (
-        <section id="projects" className={styles.section}>
+      {data.posts.length > 0 && (
+        <section id="writing" className={styles.section}>
           <Reveal className={styles.sectionHead}>
             <div>
-              <p className={styles.sectionKickerViolet}>
-                What we&rsquo;re working on
-              </p>
-              <h2 className={styles.sectionTitle}>Projects</h2>
+              <p className={styles.sectionKickerSky}>Latest from the blog</p>
+              <h2 className={styles.sectionTitle}>Writing</h2>
             </div>
-            <Link href="/projects" className={styles.sectionLink}>
-              All projects →
+            <Link href="/blog" className={styles.sectionLink}>
+              All posts →
             </Link>
           </Reveal>
-          <div className={styles.projectList}>
-            {data.projects.map((project, index) => (
-              <Reveal
-                key={project.id}
-                delay={index}
-                style={
-                  {
-                    "--accent": tagAccent(project.module),
-                  } as React.CSSProperties
-                }
-              >
-                <div className={styles.projectRow}>
-                  <span className={styles.projectIndex}>
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className={styles.projectMain}>
-                    <span className={styles.projectName}>{project.title}</span>
-                    <span className={styles.projectMeta}>
-                      <span className={styles.projectModule}>
-                        {project.module}
-                      </span>
-                      <span aria-hidden="true">·</span>
-                      <span>since {project.since}</span>
-                    </span>
-                  </span>
-                  <span className={styles.projectText}>
-                    {project.description}
-                  </span>
-                  {project.takeaways.length > 0 && (
-                    <span className={styles.projectLearned}>
-                      <span className={styles.projectLearnedLabel}>
-                        Picked up along the way
-                      </span>
-                      <span className={styles.projectLearnedList}>
-                        {project.takeaways.join(", ")}
-                      </span>
+          {data.posts.map((post, index) => (
+            <Reveal
+              key={post.id}
+              delay={index}
+              style={
+                {
+                  "--accent": tagAccent(post.tags[0] ?? ""),
+                } as React.CSSProperties
+              }
+            >
+              <Link href={`/blog/${post.slug}`} className={styles.postRow}>
+                <span className={styles.postMain}>
+                  <span className={styles.postTitle}>{post.title}</span>
+                  {post.tags[0] && (
+                    <span className={styles.postTag}>
+                      {post.tags.join(" / ")}
                     </span>
                   )}
-                </div>
-              </Reveal>
-            ))}
-          </div>
+                </span>
+                <span className={styles.postExcerpt}>{post.excerpt}</span>
+                <span className={styles.postMeta}>
+                  <span>{post.authors}</span>
+                  <span>{post.date}</span>
+                </span>
+              </Link>
+            </Reveal>
+          ))}
         </section>
       )}
 
@@ -537,44 +520,61 @@ export default async function Home({ searchParams }: Props) {
         </section>
       )}
 
-      {data.posts.length > 0 && (
-        <section id="writing" className={styles.section}>
+      {data.projects.length > 0 && (
+        <section id="projects" className={styles.section}>
           <Reveal className={styles.sectionHead}>
             <div>
-              <p className={styles.sectionKickerSky}>Latest from the blog</p>
-              <h2 className={styles.sectionTitle}>Writing</h2>
+              <p className={styles.sectionKickerViolet}>
+                What we&rsquo;re working on
+              </p>
+              <h2 className={styles.sectionTitle}>Projects</h2>
             </div>
-            <Link href="/blog" className={styles.sectionLink}>
-              All posts →
+            <Link href="/projects" className={styles.sectionLink}>
+              All projects →
             </Link>
           </Reveal>
-          {data.posts.map((post, index) => (
-            <Reveal
-              key={post.id}
-              delay={index}
-              style={
-                {
-                  "--accent": tagAccent(post.tags[0] ?? ""),
-                } as React.CSSProperties
-              }
-            >
-              <Link href={`/blog/${post.slug}`} className={styles.postRow}>
-                <span className={styles.postMain}>
-                  <span className={styles.postTitle}>{post.title}</span>
-                  {post.tags[0] && (
-                    <span className={styles.postTag}>
-                      {post.tags.join(" / ")}
+          <div className={styles.projectList}>
+            {data.projects.map((project, index) => (
+              <Reveal
+                key={project.id}
+                delay={index}
+                style={
+                  {
+                    "--accent": tagAccent(project.module),
+                  } as React.CSSProperties
+                }
+              >
+                <div className={styles.projectRow}>
+                  <span className={styles.projectIndex}>
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className={styles.projectMain}>
+                    <span className={styles.projectName}>{project.title}</span>
+                    <span className={styles.projectMeta}>
+                      <span className={styles.projectModule}>
+                        {project.module}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span>since {project.since}</span>
+                    </span>
+                  </span>
+                  <span className={styles.projectText}>
+                    {project.description}
+                  </span>
+                  {project.takeaways.length > 0 && (
+                    <span className={styles.projectLearned}>
+                      <span className={styles.projectLearnedLabel}>
+                        Picked up along the way
+                      </span>
+                      <span className={styles.projectLearnedList}>
+                        {project.takeaways.join(", ")}
+                      </span>
                     </span>
                   )}
-                </span>
-                <span className={styles.postExcerpt}>{post.excerpt}</span>
-                <span className={styles.postMeta}>
-                  <span>{post.authors}</span>
-                  <span>{post.date}</span>
-                </span>
-              </Link>
-            </Reveal>
-          ))}
+                </div>
+              </Reveal>
+            ))}
+          </div>
         </section>
       )}
 

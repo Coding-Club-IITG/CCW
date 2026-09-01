@@ -143,14 +143,14 @@
 }
 
 .posterWrapper {
-  @include media-frame(4, 5);
+  background: var(--drop-zone);
   border: 1px solid var(--border);
 }
 
 .poster {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
 }
 
 .actions {

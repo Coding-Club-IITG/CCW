@@ -93,6 +93,13 @@
   max-width: 820px;
 }
 
+.textsmall,
+.textdefault,
+.textlarge {
+  width: 100%;
+  min-width: 0;
+}
+
 .textsmall {
   --article-text-size: 0.9375rem;
 }

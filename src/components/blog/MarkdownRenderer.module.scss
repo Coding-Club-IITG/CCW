@@ -69,20 +69,43 @@
 
   pre {
     margin-bottom: 0;
-    padding-top: 3rem;
+  }
+
+  &:hover .codeCopy,
+  &:focus-within .codeCopy {
+    opacity: 1;
   }
 }
 
 .codeCopy {
   position: absolute;
-  top: 0.625rem;
-  right: 0.625rem;
+  top: 0.5rem;
+  right: 0.5rem;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   padding: 0.3rem 0.5rem;
   font: inherit;
   font-size: 0.75rem;
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+@media (hover: none) {
+  .codeBlock pre {
+    padding-top: 2.5rem;
+  }
+
+  .codeCopy {
+    opacity: 1;
+
+    span {
+      display: none;
+    }
+  }
 }
 
 .srOnly {
@@ -98,7 +121,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .headingCopy {
+  .headingCopy,
+  .codeCopy {
     transition: none;
   }
 }

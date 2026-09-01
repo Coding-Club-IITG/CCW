@@ -62,16 +62,14 @@
 .coverWrapper {
   max-width: 1360px;
   margin: 40px auto 0;
-  aspect-ratio: 1260 / 460;
-  overflow: hidden;
   background: var(--drop-zone);
   border: 1px solid var(--border);
 }
 
 .cover {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
 }
 
 // Previous / next article

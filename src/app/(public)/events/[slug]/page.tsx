@@ -267,8 +267,9 @@ export default async function EventDetailPage({ params }: Props) {
                       src={event.poster}
                       focalPoint={event.posterFocalPoint}
                       alt=""
-                      width={720}
-                      height={900}
+                      width={0}
+                      height={0}
+                      style={{ width: "100%", height: "auto" }}
                       sizes="(max-width: 1000px) 100vw, 360px"
                       priority
                       className={styles.poster}
