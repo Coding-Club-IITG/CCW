@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { CLUB_EMAIL } from "@/lib/seo";
 import Navbar from "@/components/layout/Navbar/Navbar";
 import Footer from "@/components/layout/Footer/Footer";
-import PrismMark from "@/components/shared/PrismMark";
+import PrismHero from "@/app/(public)/PrismHero";
 import styles from "./not-found.module.scss";
 
 const QUICK_LINKS = [
@@ -45,7 +45,7 @@ export default function NotFound() {
           </nav>
         </div>
 
-        <PrismMark />
+        <PrismHero />
       </main>
       <Footer />
     </div>

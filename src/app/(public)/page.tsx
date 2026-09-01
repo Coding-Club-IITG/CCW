@@ -438,7 +438,6 @@ export default async function Home({ searchParams }: Props) {
             {data.projects.map((project, index) => (
               <Reveal
                 key={project.id}
-                className={styles.projectRow}
                 delay={index}
                 style={
                   {
@@ -446,32 +445,34 @@ export default async function Home({ searchParams }: Props) {
                   } as React.CSSProperties
                 }
               >
-                <span className={styles.projectIndex}>
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className={styles.projectMain}>
-                  <span className={styles.projectName}>{project.title}</span>
-                  <span className={styles.projectMeta}>
-                    <span className={styles.projectModule}>
-                      {project.module}
-                    </span>
-                    <span aria-hidden="true">·</span>
-                    <span>since {project.since}</span>
+                <div className={styles.projectRow}>
+                  <span className={styles.projectIndex}>
+                    {String(index + 1).padStart(2, "0")}
                   </span>
-                </span>
-                <span className={styles.projectText}>
-                  {project.description}
-                </span>
-                {project.takeaways.length > 0 && (
-                  <span className={styles.projectLearned}>
-                    <span className={styles.projectLearnedLabel}>
-                      Picked up along the way
-                    </span>
-                    <span className={styles.projectLearnedList}>
-                      {project.takeaways.join(", ")}
+                  <span className={styles.projectMain}>
+                    <span className={styles.projectName}>{project.title}</span>
+                    <span className={styles.projectMeta}>
+                      <span className={styles.projectModule}>
+                        {project.module}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span>since {project.since}</span>
                     </span>
                   </span>
-                )}
+                  <span className={styles.projectText}>
+                    {project.description}
+                  </span>
+                  {project.takeaways.length > 0 && (
+                    <span className={styles.projectLearned}>
+                      <span className={styles.projectLearnedLabel}>
+                        Picked up along the way
+                      </span>
+                      <span className={styles.projectLearnedList}>
+                        {project.takeaways.join(", ")}
+                      </span>
+                    </span>
+                  )}
+                </div>
               </Reveal>
             ))}
           </div>

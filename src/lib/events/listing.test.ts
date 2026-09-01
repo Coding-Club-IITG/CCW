@@ -7,6 +7,8 @@ import {
   eventsHref,
   groupByMonth,
   istDay,
+  istEventWhen,
+  istLongDate,
   istMonthKey,
   istMonthLabel,
   istTime,
@@ -85,6 +87,13 @@ describe("IST formatting", () => {
 
   it("labels all-day events instead of showing a time", () => {
     expect(istTime("2026-09-12T13:30:00.000Z", true)).toBe("All day");
+  });
+
+  it("keeps date facts and all-day summaries free of duplicate times", () => {
+    const value = "2026-09-12T13:30:00.000Z";
+    expect(istLongDate(value)).toBe("12 September 2026");
+    expect(istEventWhen(value, true)).toBe("12 September 2026");
+    expect(istEventWhen(value, false)).toBe("12 September 2026 at 7:00 pm");
   });
 
   it("derives the month bucket in IST", () => {

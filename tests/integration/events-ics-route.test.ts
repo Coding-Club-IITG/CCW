@@ -20,13 +20,18 @@ type EventOverrides = Partial<{
 }>;
 
 async function seedEvent(overrides: EventOverrides = {}) {
+  const allDay = overrides.allDay ?? false;
+  const startAt = allDay
+    ? new Date("2026-09-11T18:30:00.000Z")
+    : new Date("2026-09-12T13:30:00.000Z");
+  const endAt = allDay ? undefined : new Date("2026-09-12T16:00:00.000Z");
   const calendar = await CalendarEvent.create({
     title: "Winter of Code Kickoff",
     description: "Internal notes",
     scope: "general",
-    allDay: false,
-    startAt: new Date("2026-09-12T13:30:00.000Z"),
-    endAt: new Date("2026-09-12T16:00:00.000Z"),
+    allDay,
+    startAt,
+    endAt,
     recurrenceType: "none",
     recurrenceCount: 1,
     location: "Conference Hall, Core 4",
@@ -45,7 +50,7 @@ async function seedEvent(overrides: EventOverrides = {}) {
     poster: "/api/events/assets/poster.png",
     startDate: calendar.startAt,
     endDate: calendar.endAt,
-    allDay: overrides.allDay ?? false,
+    allDay,
     tags: [],
     publicAudience: overrides.publicAudience ?? "Everyone",
     recurrenceType: overrides.recurrenceType ?? "none",

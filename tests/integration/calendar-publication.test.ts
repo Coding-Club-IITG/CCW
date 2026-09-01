@@ -103,6 +103,8 @@ describe("calendar publication actions", () => {
       (await CalendarEvent.findById(calendar._id).lean())?.publicEventId,
     ).toEqual(event?._id);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.invalidateCache).toHaveBeenCalledWith("home");
     expect(mocks.revalidatePath).toHaveBeenCalledWith(
       "/events/public-design-sync",
     );

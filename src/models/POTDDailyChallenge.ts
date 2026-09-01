@@ -45,8 +45,7 @@ export type POTDDailyChallengeRecord = mongoose.InferSchemaType<
 
 const DailyChallenge =
   (mongoose.models.DailyChallenge as
-    | mongoose.Model<POTDDailyChallengeRecord>
-    | undefined) ||
+    mongoose.Model<POTDDailyChallengeRecord> | undefined) ||
   mongoose.model<POTDDailyChallengeRecord>(
     "DailyChallenge",
     DailyChallengeSchema,

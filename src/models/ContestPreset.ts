@@ -58,8 +58,7 @@ const ContestPresetSchema = new Schema<IContestPreset>(
 
 const ContestPreset =
   (mongoose.models.ContestPreset as
-    | mongoose.Model<IContestPreset>
-    | undefined) ||
+    mongoose.Model<IContestPreset> | undefined) ||
   mongoose.model<IContestPreset>(
     "ContestPreset",
     ContestPresetSchema,

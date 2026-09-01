@@ -449,7 +449,7 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  max-width: 520px;
+  width: 100%;
   margin-top: 48px;
 }
 
@@ -491,7 +491,6 @@
   background: var(--primary-alpha);
   color: var(--primary);
   @include micro-label(12px, 0.12em);
-  color: var(--primary);
   transition:
     background 0.2s ease,
     border-color 0.2s ease;

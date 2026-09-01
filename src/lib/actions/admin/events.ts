@@ -183,7 +183,9 @@ async function refresh(eventSlug?: string, calendarId?: string) {
     invalidateCache("events"),
     invalidateCache("admin:events"),
     invalidateCache("calendar"),
+    invalidateCache("home"),
   ]);
+  revalidatePath("/");
   revalidatePath("/events");
   revalidatePath("/sitemap.xml");
   revalidatePath("/admin/events");

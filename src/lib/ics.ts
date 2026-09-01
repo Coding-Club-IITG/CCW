@@ -2,7 +2,7 @@
  * Minimal iCalendar serializer for published events
  */
 
-import type { EventRecurrenceType } from "@/lib/constants";
+import { APP_TIME_ZONE, type EventRecurrenceType } from "@/lib/constants";
 
 export interface IcsEventInput {
   uid: string;
@@ -55,7 +55,15 @@ export function toIcsUtc(date: Date): string {
 }
 
 export function toIcsDate(date: Date): string {
-  return date.toISOString().slice(0, 10).replace(/-/g, "");
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}${value("month")}${value("day")}`;
 }
 
 const FREQUENCIES: Record<

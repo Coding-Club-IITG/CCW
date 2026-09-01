@@ -77,8 +77,7 @@ function parseTakeaways(value: string): string[] {
   return value
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, MAX_TAKEAWAYS);
+    .filter(Boolean);
 }
 
 function parseContributors(value: string): string[] {
@@ -110,6 +109,7 @@ async function invalidateProjectCaches() {
   await Promise.all([
     invalidateCache("projects"),
     invalidateCache("admin:projects"),
+    invalidateCache("home"),
   ]);
 }
 
@@ -117,6 +117,9 @@ function validateProjectExtras(
   takeaways: string[],
   contributors: string[],
 ): string | null {
+  if (takeaways.length > MAX_TAKEAWAYS) {
+    return `Projects can have at most ${MAX_TAKEAWAYS} takeaways.`;
+  }
   if (takeaways.some((item) => item.length > MAX_TAKEAWAY_LENGTH)) {
     return `Each takeaway must be ${MAX_TAKEAWAY_LENGTH} characters or fewer.`;
   }
@@ -301,6 +304,7 @@ async function createProjectAction(formData: FormData) {
     });
 
     revalidatePath("/admin/projects");
+    revalidatePath("/");
     revalidatePath("/projects");
 
     return ok({ project: toBsonSafe(project) });
@@ -457,6 +461,7 @@ async function updateProjectAction(id: string, formData: FormData) {
 
     revalidatePath("/admin/projects");
     revalidatePath(`/admin/projects/${id}`);
+    revalidatePath("/");
     revalidatePath("/projects");
 
     return ok({ project: toBsonSafe(project) });
@@ -511,6 +516,7 @@ async function deleteProjectAction(id: string) {
     });
 
     revalidatePath("/admin/projects");
+    revalidatePath("/");
     revalidatePath("/projects");
 
     return ok({});

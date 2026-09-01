@@ -59,6 +59,10 @@ describe("timestamp helpers", () => {
   it("formats date-only values", () => {
     expect(toIcsDate(new Date("2026-09-12T13:30:00.000Z"))).toBe("20260912");
   });
+
+  it("formats date-only values in the application timezone", () => {
+    expect(toIcsDate(new Date("2026-09-11T18:30:00.000Z"))).toBe("20260912");
+  });
 });
 
 describe("buildRecurrenceRule", () => {
@@ -103,7 +107,12 @@ describe("buildEventIcs", () => {
   });
 
   it("uses exclusive date values for an all-day event", () => {
-    const ics = buildEventIcs({ ...base, allDay: true, endAt: undefined });
+    const ics = buildEventIcs({
+      ...base,
+      startAt: new Date("2026-09-11T18:30:00.000Z"),
+      allDay: true,
+      endAt: undefined,
+    });
     expect(ics).toContain("DTSTART;VALUE=DATE:20260912");
     // DTEND is exclusive, so a one-day event ends on the 13th.
     expect(ics).toContain("DTEND;VALUE=DATE:20260913");

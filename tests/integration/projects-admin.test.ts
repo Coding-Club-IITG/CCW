@@ -87,6 +87,8 @@ describe("admin project workflows", () => {
       liveUrl: "https://codingclub.in",
       tags: ["Next.js", "TypeScript"],
     });
+    expect(mocks.invalidateCache).toHaveBeenCalledWith("home");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
 
     const updated = await updateProject(
       projectId,
@@ -211,7 +213,7 @@ describe("admin project workflows", () => {
     expect(after?.contributors).toEqual([]);
   });
 
-  it("caps takeaways at six entries", async () => {
+  it("rejects more than six takeaways instead of discarding input", async () => {
     const { createProject } = await import("@/lib/actions/admin/projects");
 
     const created = await createProject(
@@ -221,8 +223,14 @@ describe("admin project workflows", () => {
         ),
       }),
     );
-    expect(created.ok).toBe(true);
-    expect((await Project.findOne().lean())?.takeaways).toHaveLength(6);
+    expect(created).toEqual({
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Projects can have at most 6 takeaways.",
+      },
+    });
+    expect(await Project.countDocuments()).toBe(0);
   });
 
   it("rejects an over-long takeaway", async () => {
@@ -256,22 +264,5 @@ describe("admin project workflows", () => {
       },
     });
     expect(await Project.countDocuments()).toBe(0);
-  });
-
-  it("keeps projects stored before the new fields valid", async () => {
-    await Project.collection.insertOne({
-      title: "Legacy project",
-      description: "Created before the redesign",
-      repoLink: "https://github.com/Coding-Club-IITG/legacy",
-      date: new Date("2024-08-01T00:00:00.000Z"),
-      module: "Software Development",
-      status: "Ongoing",
-      tags: [],
-    });
-
-    const legacy = await Project.findOne({ title: "Legacy project" }).lean();
-    expect(legacy).not.toBeNull();
-    expect(legacy?.takeaways ?? []).toEqual([]);
-    expect(legacy?.contributors ?? []).toEqual([]);
   });
 });

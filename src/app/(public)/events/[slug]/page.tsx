@@ -4,10 +4,14 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { MODULE_ACCENTS, type EventRecurrenceType } from "@/lib/constants";
 import type { ProjectModuleName } from "@/lib/constants";
-import { recurrenceLabel } from "@/lib/events/listing";
+import {
+  istEventWhen,
+  istLongDate,
+  recurrenceLabel,
+} from "@/lib/events/listing";
 import { getEventStatus } from "@/lib/eventStatus";
 import dbConnect from "@/lib/mongodb";
-import { formatDate, logger } from "@/lib/utils";
+import { logger } from "@/lib/utils";
 import {
   CLUB_EMAIL,
   ogImage,
@@ -80,15 +84,6 @@ export default async function EventDetailPage({ params }: Props) {
     recurrenceType,
     recurrenceCount,
   );
-  const eventDateFormatter = event.allDay
-    ? (value: Date) => formatDate(value)
-    : (value: Date) =>
-        new Intl.DateTimeFormat("en-IN", {
-          timeZone: "Asia/Kolkata",
-          dateStyle: "long",
-          timeStyle: "short",
-        }).format(value);
-
   function getOccurrenceDates(): Date[] {
     if (!recurrenceType || recurrenceType === "none") return [];
     const count = recurrenceCount || 1;
@@ -185,7 +180,7 @@ export default async function EventDetailPage({ params }: Props) {
     slug: item.slug,
     title: item.title,
     module: item.module as ProjectModuleName | undefined,
-    when: eventDateFormatter(new Date(item.startDate)),
+    when: istEventWhen(item.startDate, Boolean(item.allDay)),
   }));
 
   const accent = event.module
@@ -195,7 +190,7 @@ export default async function EventDetailPage({ params }: Props) {
   const recurrence = recurrenceLabel(recurrenceType, recurrenceCount);
 
   const facts = [
-    { label: "date", value: eventDateFormatter(new Date(event.startDate)) },
+    { label: "date", value: istLongDate(event.startDate) },
     {
       label: "time",
       value: event.allDay
@@ -253,7 +248,7 @@ export default async function EventDetailPage({ params }: Props) {
                   <ul className={styles.occurrenceList}>
                     {occurrences.map((date) => (
                       <li key={date.toISOString()}>
-                        {eventDateFormatter(date)}
+                        {istEventWhen(date, event.allDay)}
                       </li>
                     ))}
                   </ul>

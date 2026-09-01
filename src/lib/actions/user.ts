@@ -280,7 +280,9 @@ async function updateUserAccessAction(
     });
     await invalidateCache("users");
     await invalidateCache("team");
+    await invalidateCache("home");
     revalidatePath("/admin/users");
+    revalidatePath("/");
     revalidatePath("/team");
     return ok({ user: toBsonSafe(updatedUser) });
   } catch (err) {
@@ -349,7 +351,9 @@ async function updateUserRolesAction(userId: string, roles: UserRole[]) {
     });
     await invalidateCache("users");
     await invalidateCache("team");
+    await invalidateCache("home");
     revalidatePath("/admin/users");
+    revalidatePath("/");
     revalidatePath("/team");
     return ok({ user: toBsonSafe(updatedUser) });
   } catch (err) {
@@ -417,7 +421,9 @@ async function updateUserTenureAction(userId: string, value: string) {
     });
     await invalidateCache("users");
     await invalidateCache("team");
+    await invalidateCache("home");
     revalidatePath("/admin/users");
+    revalidatePath("/");
     revalidatePath("/team");
     return ok({ user: toBsonSafe(updatedUser) });
   } catch (err) {
@@ -523,9 +529,11 @@ async function deleteUserAction(userId: string) {
 
     await invalidateCache("users");
     await invalidateCache("team");
+    await invalidateCache("home");
     await invalidateCache("cp");
     await invalidateCache("potd");
     revalidatePath("/admin");
+    revalidatePath("/");
     return ok({});
   } catch (err) {
     logger.error("deleteUser error:", err);
@@ -585,9 +593,11 @@ async function updateUserPizzaCountAction(userId: string, delta: 1 | -1) {
     });
     await invalidateCache("users");
     await invalidateCache("team");
+    await invalidateCache("home");
     await invalidateCache("cp");
     await invalidateCache("potd");
     revalidatePath("/admin");
+    revalidatePath("/");
     return ok({ pizza_count: newCount });
   } catch (err) {
     logger.error("updateUserPizzaCount error:", err);
@@ -765,9 +775,11 @@ async function updateProfileAction(data: {
       resourceId: session.user.id,
     });
     await invalidateCache("team");
+    await invalidateCache("home");
     await invalidateCache("cp");
     await invalidateCache("potd");
     revalidatePath("/internal/dashboard");
+    revalidatePath("/");
     revalidatePath("/team");
     return ok({ user: toBsonSafe(updatedUser), handleChanged });
   } catch (err) {

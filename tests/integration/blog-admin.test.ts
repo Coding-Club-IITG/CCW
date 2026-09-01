@@ -121,6 +121,8 @@ describe("admin blog routes", () => {
     });
     expect(invalidateCache).toHaveBeenCalledWith("blog");
     expect(invalidateCache).toHaveBeenCalledWith("admin:blog");
+    expect(invalidateCache).toHaveBeenCalledWith("home");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
     expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
     const audit = await AuditLog.findOne().lean();
     expect(audit).toMatchObject({

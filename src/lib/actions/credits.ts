@@ -27,8 +27,7 @@ export const saveCredits = defineAction("saveCredits", saveCreditsAction);
 async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() });
   return session?.user as
-    | { id: string; name?: string; access?: string }
-    | undefined;
+    { id: string; name?: string; access?: string } | undefined;
 }
 
 async function getCreditsAction() {

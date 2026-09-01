@@ -49,8 +49,7 @@ export type POTDSubmissionRecord = mongoose.InferSchemaType<
 
 const POTDSubmission =
   (mongoose.models.POTDSubmission as
-    | mongoose.Model<POTDSubmissionRecord>
-    | undefined) ||
+    mongoose.Model<POTDSubmissionRecord> | undefined) ||
   mongoose.model<POTDSubmissionRecord>("POTDSubmission", POTDSubmissionSchema);
 
 export default POTDSubmission;

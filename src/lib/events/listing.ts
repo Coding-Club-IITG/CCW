@@ -75,7 +75,24 @@ export function istTime(value: Date | string, allDay: boolean): string {
     .toLowerCase();
 }
 
-/** Month grouping key and label, Eg. "2026-09" / "Sep 2026". */
+/** Long-form calendar date in IST, without time */
+export function istLongDate(value: Date | string): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    ...IST,
+    dateStyle: "long",
+  }).format(new Date(value));
+}
+
+/** Long-form event date in IST, with time */
+export function istEventWhen(value: Date | string, allDay: boolean): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    ...IST,
+    dateStyle: "long",
+    ...(allDay ? {} : { timeStyle: "short" as const }),
+  }).format(new Date(value));
+}
+
+/** Month grouping key and label, Eg. "2026-09" / "Sep 2026" */
 export function istMonthKey(value: Date | string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     ...IST,

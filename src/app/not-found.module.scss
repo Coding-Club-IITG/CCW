@@ -7,21 +7,33 @@
 }
 
 .stage {
+  --background: var(--prism-ground);
+  --surface: var(--prism-surface);
+  --border: var(--prism-line);
+  --border-input: var(--prism-line-strong);
+  --foreground-strong: var(--prism-ink);
+  --foreground-secondary: var(--prism-ink-soft);
+  --muted-lighter: var(--prism-ink-faint);
+
   position: relative;
   flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   align-items: center;
   gap: 40px;
-  min-height: 660px;
+  min-height: 740px;
   padding-block: 80px;
   overflow: hidden;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
   @include page-gutter;
 }
 
 .copy {
   position: relative;
-  z-index: 2;
+  z-index: 4;
+  grid-column: 1;
+  grid-row: 1;
   max-width: 620px;
 }
 

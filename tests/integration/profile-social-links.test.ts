@@ -66,6 +66,8 @@ describe("member profile social links", () => {
     expect((await User.findById(user._id).lean())?.linkedinUrl).toBe(
       "https://www.linkedin.com/in/member-one",
     );
+    expect(mocks.invalidateCache).toHaveBeenCalledWith("home");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
   });
 
   it("clears the link when the field is emptied", async () => {

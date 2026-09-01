@@ -26,10 +26,10 @@ export default function MemberPicker({
   onChange,
   placeholder = "Add member…",
 }: MemberPickerProps) {
-  const [cache, setCache] = useState<Record<string, MemberSummary>>({});
+  const [cache, setCache] = useState<Record<string, MemberSummary | null>>({});
 
   useEffect(() => {
-    const missing = value.filter((id) => !cache[id]);
+    const missing = value.filter((id) => !(id in cache));
     if (missing.length === 0) return;
 
     const controller = new AbortController();
@@ -42,7 +42,8 @@ export default function MemberPicker({
         const data = await expectAppData<{
           items?: Array<{ _id: string; name: string; image?: string | null }>;
         }>(response);
-        const resolved: Record<string, MemberSummary> = {};
+        const resolved: Record<string, MemberSummary | null> =
+          Object.fromEntries(missing.map((id) => [id, null]));
         for (const user of data.items ?? []) {
           resolved[user._id] = {
             id: user._id,
@@ -65,6 +66,8 @@ export default function MemberPicker({
         <ul className={styles.selected}>
           {value.map((id) => {
             const member = cache[id];
+            const memberName =
+              member?.name ?? (id in cache ? "Unavailable member" : "Loading…");
             return (
               <li key={id} className={styles.chip}>
                 <UserAvatar
@@ -74,10 +77,10 @@ export default function MemberPicker({
                   imageClassName={styles.chipAvatar}
                   fallbackClassName={styles.chipInitials}
                 />
-                <span>{member?.name ?? "Loading…"}</span>
+                <span>{memberName}</span>
                 <button
                   type="button"
-                  aria-label={`Remove ${member?.name ?? "member"}`}
+                  aria-label={`Remove ${memberName}`}
                   onClick={() => onChange(value.filter((slot) => slot !== id))}
                 >
                   <X size={13} />
