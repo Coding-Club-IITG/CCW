@@ -67,7 +67,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 22px 20px 24px;
+  padding: 20px 18px 46px;
   background: var(--background);
   border: none;
   border-right: 1px solid var(--border-light);
@@ -75,22 +75,33 @@
   text-align: left;
   cursor: pointer;
   overflow: visible;
-  transition: background 0.25s ease;
+  transition:
+    background 0.25s ease,
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.3s ease;
 
-  &:hover {
+  &:hover,
+  &:focus-visible {
+    z-index: 2;
     background: var(--surface);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 20px 44px var(--shadow-lg);
   }
 
-  &:hover .photo {
-    transform: translateY(-14px) scale(1.07);
-    box-shadow: 0 18px 40px var(--shadow-lg);
+  &:hover .photo,
+  &:focus-visible .photo {
+    transform: translateY(-9px) scale(1.05);
+    box-shadow: 0 16px 34px var(--shadow-lg);
   }
 
-  &:hover .personHint {
-    color: var(--foreground-secondary);
+  &:hover .personFoot,
+  &:focus-visible .personFoot {
+    opacity: 1;
+    transform: none;
   }
 
-  &:hover .personExpand {
+  &:hover .personExpand,
+  &:focus-visible .personExpand {
     border-color: var(--primary);
     color: var(--primary);
   }
@@ -98,7 +109,17 @@
   @include focus-ring;
 
   @media (prefers-reduced-motion: reduce) {
-    &:hover .photo {
+    transform: none;
+    transition: background 0.25s ease;
+
+    &:hover,
+    &:focus-visible {
+      transform: none;
+      box-shadow: none;
+    }
+
+    &:hover .photo,
+    &:focus-visible .photo {
       transform: none;
       box-shadow: none;
     }
@@ -154,19 +175,36 @@
 }
 
 .personFoot {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 14px;
   padding-top: 12px;
   border-top: 1px solid var(--border-light);
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 0.24s ease,
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @media (hover: none) {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transform: none;
+    transition: opacity 0.24s ease;
+  }
 }
 
 .personHint {
   @include micro-label(11px, 0.08em);
-  color: var(--muted-light);
-  transition: color 0.25s ease;
+  color: var(--foreground-secondary);
 }
 
 .personExpand {
@@ -375,6 +413,26 @@
   transform: rotate(90deg);
 }
 
+@media (max-width: 560px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .person {
+    padding: 14px 12px 42px;
+  }
+
+  .personFoot {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .personName {
+    font-size: 14px;
+  }
+}
+
 @media (max-width: 760px) {
   .sheet {
     grid-template-columns: minmax(0, 1fr);
@@ -388,5 +446,11 @@
 
   .sheetFacts {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (pointer: coarse) {
+  .person {
+    padding-bottom: 82px;
   }
 }

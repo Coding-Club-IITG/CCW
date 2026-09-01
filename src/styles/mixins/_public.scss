@@ -39,7 +39,7 @@ $nav-height: 59px;
   @if $min == 0 {
     grid-template-columns: repeat($columns, minmax(0, 1fr));
   } @else {
-    grid-template-columns: repeat(auto-fill, minmax($min, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax($min, 1fr));
   }
 }
 

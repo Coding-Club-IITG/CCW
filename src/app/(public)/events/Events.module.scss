@@ -619,12 +619,15 @@
   color: var(--foreground-secondary);
 }
 
+.sheetFoot {
+  margin-top: auto;
+  padding-top: 30px;
+}
+
 .sheetAction {
   display: inline-flex;
   align-items: center;
-  align-self: flex-start;
   gap: 9px;
-  margin-top: auto;
   padding: 14px 22px;
   background: var(--primary);
   color: var(--btn-primary-text);

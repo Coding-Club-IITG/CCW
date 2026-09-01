@@ -87,7 +87,7 @@
 
 // Fact strip
 .facts {
-  @include hairline-grid(4);
+  @include hairline-grid(4, 150px);
   margin: 40px 0 0;
 }
 

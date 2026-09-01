@@ -1,26 +1,6 @@
 @use "layout" as *;
 
-// Shared shell and typography for public collection pages.
-@mixin public-page {
-  @include page-container;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
-}
-
-@mixin public-page-title {
-  margin: 0 0 0.25rem;
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
-}
-
-@mixin public-page-subtitle($margin-bottom: 1.5rem) {
-  margin: 0 0 $margin-bottom;
-  color: var(--muted);
-  font-size: 1rem;
-}
-
-// Shared compact heading used by administration and internal workspace pages.
+// Shared compact heading used by admin and internal
 @mixin standard-page-title($margin: 0 0 0.25rem) {
   margin: $margin;
   font-size: 1.5rem;
@@ -65,7 +45,7 @@
   }
 }
 
-// Shared shell and heading variants for administration pages.
+// Shared shell and heading variants for admin
 @mixin admin-page {
   padding: 1rem 0;
 }

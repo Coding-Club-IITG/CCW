@@ -157,7 +157,8 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
   const triggerRef = useRef<HTMLElement | null>(null);
 
   const user = session?.user as
-    { access?: string; roles?: unknown } | undefined;
+    | { access?: string; roles?: unknown }
+    | undefined;
   const catalog = useMemo(
     () =>
       atlasCatalog({

@@ -149,13 +149,15 @@ export default function EventPreview({
                 </div>
               )}
 
-              <Link
-                href={`/events/${event.slug}`}
-                className={styles.sheetAction}
-              >
-                Full event page
-                <ArrowRight size={14} aria-hidden="true" />
-              </Link>
+              <div className={styles.sheetFoot}>
+                <Link
+                  href={`/events/${event.slug}`}
+                  className={styles.sheetAction}
+                >
+                  Full event page
+                  <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              </div>
             </div>
           </div>
         </Sheet>
