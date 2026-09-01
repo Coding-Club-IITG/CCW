@@ -21,26 +21,25 @@
   flex-wrap: wrap;
   margin: 0 0 20px;
   @include micro-label(11px, 0.08em);
+
+  span {
+    color: var(--accent, var(--muted));
+  }
 }
 
 .title {
   margin: 0;
-  max-width: 20ch;
+  max-width: 1000px;
   font-size: clamp(38px, 5vw, 68px);
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.02;
   letter-spacing: -0.03em;
   color: var(--foreground-strong);
   text-wrap: pretty;
 }
 
 .excerpt {
-  margin: 24px 0 0;
-  max-width: 660px;
-  font-size: 19px;
-  line-height: 1.55;
-  color: var(--foreground-secondary);
-  text-wrap: pretty;
+  @include standfirst;
 }
 
 .meta {
@@ -57,12 +56,7 @@
 }
 
 .edited {
-  padding: 3px 9px;
-  border: 1px solid var(--primary);
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 10px;
+  @include outline-chip;
 }
 
 .coverWrapper {
@@ -183,15 +177,12 @@
 }
 
 .relatedTag {
-  @include micro-label(10px);
+  @include micro-label(11px);
+  color: var(--accent, var(--muted));
 }
 
 .relatedTitle {
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.25;
-  text-wrap: pretty;
+  @include card-title;
 }
 
 .relatedMeta {

@@ -1,6 +1,6 @@
+import { blogHref, type BlogQuery, type BlogSort } from "@/lib/blog/listing";
 import FilterChips from "@/components/public/FilterChips";
 import SegmentedControl from "@/components/public/SegmentedControl";
-import { blogHref, type BlogQuery, type BlogSort } from "@/lib/blog/listing";
 import BlogSearch from "./BlogSearch";
 import styles from "./Blog.module.scss";
 
@@ -12,10 +12,7 @@ type Props = {
   query: BlogQuery;
 };
 
-/**
- * Tag chips, sort order and search. Chips and sort are links so each state is
- * server rendered; only the search field needs to hydrate.
- */
+/** Tag chips, sort order and search */
 export default function BlogFilters({
   availableTags,
   activeTag,

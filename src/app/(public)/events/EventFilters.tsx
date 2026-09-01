@@ -1,12 +1,11 @@
 import { LayoutGrid, ListTree } from "lucide-react";
-
-import FilterChips from "@/components/public/FilterChips";
-import SegmentedControl from "@/components/public/SegmentedControl";
 import {
   eventsHref,
   type EventQuery,
   type EventView,
 } from "@/lib/events/listing";
+import FilterChips from "@/components/public/FilterChips";
+import SegmentedControl from "@/components/public/SegmentedControl";
 import styles from "./Events.module.scss";
 
 type Props = {

@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { ArrowUpRight, Maximize2 } from "lucide-react";
-
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import FocalImage from "@/components/shared/FocalImage";
 import Sheet from "@/components/shared/Sheet";
 import { IconGithub } from "@/components/shared/Icons";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import styles from "./Projects.module.scss";
 
 export type ProjectRowData = {
@@ -41,7 +40,7 @@ export default function ProjectRow({ project }: { project: ProjectRowData }) {
         <div className={styles.rowBody}>
           <p className={styles.rowKicker}>
             <span className={styles.rowIndex}>{project.index}</span>
-            <span style={{ color: project.accent }}>{project.moduleLabel}</span>
+            <span className={styles.module}>{project.moduleLabel}</span>
             <span className={styles.rowStatus}>{project.status}</span>
           </p>
 
@@ -125,9 +124,7 @@ export default function ProjectRow({ project }: { project: ProjectRowData }) {
         >
           <div className={styles.sheet} style={accentStyle}>
             <p className={styles.sheetKicker}>
-              <span style={{ color: project.accent }}>
-                {project.moduleLabel}
-              </span>
+              <span className={styles.module}>{project.moduleLabel}</span>
               <span className={styles.sheetStatus}>{project.status}</span>
               <span className={styles.sheetSince}>since {project.since}</span>
             </p>
@@ -142,7 +139,7 @@ export default function ProjectRow({ project }: { project: ProjectRowData }) {
                     <ul className={styles.takeaways}>
                       {project.takeaways.map((takeaway) => (
                         <li key={takeaway}>
-                          <span aria-hidden="true">—</span>
+                          <span aria-hidden="true">-</span>
                           {takeaway}
                         </li>
                       ))}
@@ -168,11 +165,11 @@ export default function ProjectRow({ project }: { project: ProjectRowData }) {
                 <dl className={styles.stats}>
                   <div className={styles.stat}>
                     <dt>on it now</dt>
-                    <dd>{project.contributorCount || "—"}</dd>
+                    <dd>{project.contributorCount || "-"}</dd>
                   </div>
                   <div className={styles.stat}>
                     <dt>running since</dt>
-                    <dd style={{ color: project.accent }}>{project.since}</dd>
+                    <dd className={styles.statAccent}>{project.since}</dd>
                   </div>
                 </dl>
 

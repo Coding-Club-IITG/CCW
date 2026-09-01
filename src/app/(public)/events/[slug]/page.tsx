@@ -5,17 +5,9 @@ import { ArrowRight } from "lucide-react";
 import { MODULE_ACCENTS, type EventRecurrenceType } from "@/lib/constants";
 import type { ProjectModuleName } from "@/lib/constants";
 import { recurrenceLabel } from "@/lib/events/listing";
-import FocalImage from "@/components/shared/FocalImage";
-import EventActions from "./EventActions";
 import { getEventStatus } from "@/lib/eventStatus";
 import dbConnect from "@/lib/mongodb";
 import { formatDate, logger } from "@/lib/utils";
-import Event, { type IEvent } from "@/models/Event";
-import CalendarEvent from "@/models/CalendarEvent";
-import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
-import BackLink from "@/components/shared/BackLink";
-import styles from "./EventDetail.module.scss";
-import JsonLd from "@/components/shared/JsonLd";
 import {
   CLUB_EMAIL,
   ogImage,
@@ -23,6 +15,14 @@ import {
   plainText,
   SITE_URL,
 } from "@/lib/seo";
+import Event, { type IEvent } from "@/models/Event";
+import CalendarEvent from "@/models/CalendarEvent";
+import FocalImage from "@/components/shared/FocalImage";
+import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
+import BackLink from "@/components/shared/BackLink";
+import JsonLd from "@/components/shared/JsonLd";
+import EventActions from "./EventActions";
+import styles from "./EventDetail.module.scss";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -71,8 +71,7 @@ export default async function EventDetailPage({ params }: Props) {
   }
 
   const recurrenceType = event.recurrenceType as
-    | EventRecurrenceType
-    | undefined;
+    EventRecurrenceType | undefined;
   const recurrenceCount = event.recurrenceCount;
 
   const status = getEventStatus(
@@ -215,7 +214,10 @@ export default async function EventDetailPage({ params }: Props) {
   ];
 
   return (
-    <div className={styles.page}>
+    <div
+      className={styles.page}
+      style={{ "--accent": accent } as React.CSSProperties}
+    >
       {eventJsonLd && <JsonLd data={eventJsonLd} />}
 
       <div className={styles.hero}>
@@ -227,7 +229,7 @@ export default async function EventDetailPage({ params }: Props) {
             <div className={styles.main}>
               <p className={styles.kicker}>
                 <span className={styles.status}>{status}</span>
-                <span style={{ color: accent }}>{moduleLabel}</span>
+                <span className={styles.module}>{moduleLabel}</span>
               </p>
               <h1 className={styles.title}>{event.title}</h1>
               {event.shortDescription && (
@@ -322,15 +324,15 @@ export default async function EventDetailPage({ params }: Props) {
                 key={item.id}
                 href={`/events/${item.slug}`}
                 className={styles.relatedCard}
-              >
-                <span
-                  className={styles.relatedModule}
-                  style={{
-                    color: item.module
+                style={
+                  {
+                    "--accent": item.module
                       ? (MODULE_ACCENTS[item.module] ?? "var(--muted)")
                       : "var(--muted)",
-                  }}
-                >
+                  } as React.CSSProperties
+                }
+              >
+                <span className={styles.relatedModule}>
                   {item.module ?? "Coding Club"}
                 </span>
                 <span className={styles.relatedTitle}>{item.title}</span>

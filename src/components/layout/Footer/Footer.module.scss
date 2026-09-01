@@ -38,10 +38,12 @@
 }
 
 .address {
-  @include metadata(11.5px);
+  display: flex;
+  flex-direction: column;
+  @include metadata(13px);
   font-style: normal;
-  line-height: 1.7;
-  max-width: 22rem;
+  line-height: 1.55;
+  max-width: 24rem;
 }
 
 .columns {
@@ -56,17 +58,17 @@
 }
 
 .columnLabel {
-  @include micro-label(11.5px);
+  @include micro-label(12px);
   margin-bottom: 6px;
 }
 
 .columnLink {
   display: flex;
   align-items: center;
-  gap: 9px;
-  @include metadata(11.5px);
+  gap: 10px;
+  @include metadata(13.5px);
   color: var(--foreground-secondary);
-  line-height: 1.85;
+  line-height: 1.6;
   transition: color 0.2s ease;
 
   &:hover {
@@ -88,7 +90,7 @@
   margin-top: 26px;
   padding-top: 16px;
   border-top: 1px solid var(--border-light);
-  @include metadata(11px);
+  @include metadata(12px);
   color: var(--muted-lighter);
 }
 

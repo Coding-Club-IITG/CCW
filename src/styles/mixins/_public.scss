@@ -7,16 +7,6 @@ $nav-height: 59px;
   padding-inline: clamp(1.25rem, 4vw, 40px);
 }
 
-// Edge-to-edge band separated from neighbours by a hairline
-@mixin full-bleed-section($border: true) {
-  @include page-gutter;
-  width: 100%;
-
-  @if $border {
-    border-bottom: 1px solid var(--border);
-  }
-}
-
 // Vertical rhythm between major sections
 @mixin section-rhythm($top: 96px, $bottom: 0) {
   padding-top: $top;
@@ -41,6 +31,137 @@ $nav-height: 59px;
   } @else {
     grid-template-columns: repeat(auto-fit, minmax($min, 1fr));
   }
+}
+
+// Image that fills frame
+@mixin media-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+// Filling image with frame hover effect
+@mixin media-fill(
+  $ease: cubic-bezier(0.2, 0.8, 0.2, 1),
+  $duration: 0.5s,
+  $extra: null
+) {
+  @include media-cover;
+
+  @if $extra {
+    transition:
+      transform $duration $ease,
+      #{$extra};
+  } @else {
+    transition: transform $duration $ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Hover effect card
+@mixin card-cover {
+  @include media-fill(
+    cubic-bezier(0.16, 0.85, 0.2, 1.03),
+    0.5s,
+    "filter 0.5s ease"
+  );
+}
+
+// Mono micro-labels row
+@mixin meta-row($gap: 12px) {
+  display: flex;
+  align-items: center;
+  gap: $gap;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+// Photo veil
+@mixin media-scrim($from, $to, $start: 0%, $light-from: null, $light-to: null) {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--scrim-base) $from, transparent) $start,
+    color-mix(in srgb, var(--scrim-base) $to, transparent) 100%
+  );
+
+  @if $light-from and $light-to {
+    [data-theme="light"] & {
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--scrim-base) $light-from, transparent) $start,
+        color-mix(in srgb, var(--scrim-base) $light-to, transparent) 100%
+      );
+    }
+  }
+}
+
+// Sheet fact cell
+@mixin sheet-fact($value-size: 12.5px) {
+  @include hairline-cell;
+  padding: 16px 18px;
+
+  dt {
+    margin-bottom: 7px;
+    @include micro-label(11px, 0.09em);
+  }
+
+  dd {
+    margin: 0;
+    @include metadata($value-size);
+    color: var(--foreground-strong);
+  }
+}
+
+// Outlined action
+@mixin ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 22px;
+  border: 1px solid var(--border-input);
+  background: none;
+  color: var(--foreground-strong);
+  cursor: pointer;
+  @include micro-label(11px, 0.07em);
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  @include focus-ring;
+}
+
+// Under page title
+@mixin standfirst {
+  margin: 24px 0 0;
+  max-width: 660px;
+  font-size: 19px;
+  line-height: 1.55;
+  color: var(--foreground-secondary);
+  text-wrap: pretty;
+}
+
+// Card and list-row headline
+@mixin card-title($size: 19px) {
+  font-size: $size;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  text-wrap: pretty;
+}
+
+// Small outlined tag
+@mixin outline-chip($color: var(--primary)) {
+  padding: 3px 9px;
+  border: 1px solid $color;
+  color: $color;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10px;
 }
 
 @mixin hairline-cell {
@@ -112,10 +233,10 @@ $nav-height: 59px;
   }
 }
 
-// Image drop area / media frame while an asset is loading or absent
-@mixin media-frame($ratio: 16 / 9) {
+// Image drop area / media frame while asset is loading/absent
+@mixin media-frame($width: 16, $height: 9) {
   position: relative;
-  aspect-ratio: $ratio;
+  aspect-ratio: #{$width} / #{$height};
   overflow: hidden;
   background: var(--drop-zone);
   border-radius: 0;
@@ -169,7 +290,7 @@ $nav-height: 59px;
   }
 }
 
-/** Full-bleed page header band */
+// Full-bleed page header band
 @mixin page-header {
   position: relative;
   overflow: hidden;
@@ -178,7 +299,7 @@ $nav-height: 59px;
   @include page-gutter;
 }
 
-/** Decorative wash behind a page title */
+// Decorative wash behind a page title
 @mixin page-header-glow($inner, $outer) {
   position: absolute;
   right: -150px;
@@ -230,7 +351,7 @@ $nav-height: 59px;
   color: var(--foreground-secondary);
 }
 
-/** Sticky filter bar docked under the navbar */
+// Sticky filter bar docked under the navbar
 @mixin filter-bar {
   @include sticky-under-nav;
   display: flex;
@@ -249,7 +370,7 @@ $nav-height: 59px;
   }
 }
 
-/** Outlined filter chip */
+// Outlined filter chip
 @mixin filter-chip {
   @include chip;
   cursor: pointer;
@@ -276,7 +397,7 @@ $nav-height: 59px;
   }
 }
 
-/** Joined two-or-more option control */
+// Joined two-or-more option control
 @mixin segmented-control {
   display: flex;
   align-items: center;
@@ -313,7 +434,7 @@ $nav-height: 59px;
   }
 }
 
-/** "Nothing here" placeholder */
+// "Nothing here" placeholder
 @mixin empty-state {
   padding-block: 72px;
   text-align: center;
@@ -330,7 +451,7 @@ $nav-height: 59px;
   @include metadata(11.5px);
 }
 
-/** Visually hidden, still announced */
+// Visually hidden, still announced
 @mixin sr-only {
   position: absolute;
   width: 1px;

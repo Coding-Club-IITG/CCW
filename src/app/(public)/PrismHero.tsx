@@ -1,18 +1,35 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
 import { IconCCLogo } from "@/components/shared/Icons";
 import styles from "./Home.module.scss";
 
-/** Refracted rays */
-const RAYS = [
-  { color: "#FF4E41", angle: -26 },
-  { color: "#FD6F43", angle: -13 },
-  { color: "#C0E04A", angle: 0 },
-  { color: "#6E9FFC", angle: 13 },
-  { color: "#A849EC", angle: 26 },
+const RAY_ANGLES = [
+  { token: "--brand-red", angle: -26 },
+  { token: "--brand-ember", angle: -13 },
+  { token: "--brand-lime", angle: 0 },
+  { token: "--brand-sky", angle: 13 },
+  { token: "--brand-violet", angle: 26 },
 ];
+
+function readRays() {
+  const root = getComputedStyle(document.documentElement);
+  return RAY_ANGLES.map(({ token, angle }) => ({
+    angle,
+    color: root.getPropertyValue(token).trim() || "#ffffff",
+  }));
+}
+
+function readInk() {
+  const root = getComputedStyle(document.documentElement);
+  const ink = root.getPropertyValue("--prism-ink").trim() || "#ffffff";
+  const blend = root.getPropertyValue("--prism-canvas-blend").trim();
+  return {
+    blend: (blend || "lighter") as GlobalCompositeOperation,
+    beam: (alpha: number) =>
+      `color-mix(in srgb, ${ink} ${Math.round(alpha * 100)}%, transparent)`,
+  };
+}
 
 const MARK_LAYERS = 26;
 const LAYER_SPACING = 1.15;
@@ -26,7 +43,7 @@ const EXTRUSION = Array.from({ length: MARK_LAYERS }, (_, index) => {
   const edge = Math.abs(index - half) / half;
   const fill =
     edge > 0.86
-      ? "#ffffff"
+      ? "currentColor"
       : `rgba(${Math.round(29 + edge * 226)},${Math.round(35 + edge * 43)},${Math.round(
           167 - edge * 102,
         )},${(0.34 + edge * 0.56).toFixed(2)})`;
@@ -97,6 +114,9 @@ export default function PrismHero() {
     let width = 0;
     let height = 0;
     let disc = { x: 0, y: 0, radius: 165 };
+    const discLean = { x: 0, y: 0 };
+    const rays = readRays();
+    const ink = readInk();
 
     const resize = () => {
       const rect = stage.getBoundingClientRect();
@@ -138,20 +158,18 @@ export default function PrismHero() {
       const nx = pointer.x / Math.max(width, 1) - 0.5;
       const ny = pointer.y / Math.max(height, 1) - 0.5;
       if (blobRef.current) {
-        blobRef.current.style.transform = `translateY(-50%) translate3d(${nx * -46}px, ${ny * -34}px, 0)`;
+        blobRef.current.style.transform = `translate3d(${nx * -46}px, ${ny * -34}px, 0)`;
       }
       if (markTiltRef.current) {
         markTiltRef.current.style.transform = `rotateY(${nx * 26}deg) rotateX(${-ny * 18}deg)`;
       }
-      if (discRef.current) {
-        discRef.current.style.marginLeft = `${nx * 22}px`;
-        discRef.current.style.marginTop = `${ny * 16}px`;
-      }
+      discLean.x = nx * 22;
+      discLean.y = ny * 16;
     };
 
     function spawnRing() {
       if (rings.length > 5) return;
-      const ray = RAYS[Math.floor(Math.random() * RAYS.length)];
+      const ray = rays[Math.floor(Math.random() * rays.length)];
       rings.push({
         x: width + 40,
         y: height * (0.18 + Math.random() * 0.64),
@@ -166,7 +184,7 @@ export default function PrismHero() {
       if (flares.length > 2) return;
       const angle = ((turnDegrees * 2 + Math.random() * 90) * Math.PI) / 180;
       const tangent = angle + Math.PI / 2;
-      const ray = RAYS[Math.floor(Math.random() * RAYS.length)];
+      const ray = rays[Math.floor(Math.random() * rays.length)];
       flares.push({
         x: disc.x + Math.cos(angle) * disc.radius,
         y: disc.y + Math.sin(angle) * disc.radius,
@@ -204,7 +222,9 @@ export default function PrismHero() {
 
       const facing = Math.abs(Math.cos((turn * Math.PI) / 180));
       if (discRef.current) {
-        discRef.current.style.transform = `scale(${1 + (1 - facing) * 0.12})`;
+        discRef.current.style.transform =
+          `translate3d(${discLean.x.toFixed(1)}px, ${discLean.y.toFixed(1)}px, 0)` +
+          ` scale(${(1 + (1 - facing) * 0.12).toFixed(3)})`;
         discRef.current.style.opacity = String(0.42 + (1 - facing) * 0.58);
       }
       if (discSpinRef.current) {
@@ -223,12 +243,10 @@ export default function PrismHero() {
       if (Math.random() < 0.02) spawnRing();
       if (Math.random() < 0.004) spawnFlare(turn); // Rare
 
-      context.globalCompositeOperation = "lighter";
+      context.globalCompositeOperation = ink.blend;
 
       // White beam in from the left at pointer height
-      context.strokeStyle = ambient
-        ? "rgba(255,255,255,.18)"
-        : "rgba(255,255,255,.5)";
+      context.strokeStyle = ambient ? ink.beam(0.18) : ink.beam(0.5);
       context.lineWidth = 1.4;
       context.beginPath();
       context.moveTo(0, pointer.y);
@@ -250,17 +268,15 @@ export default function PrismHero() {
         else context.lineTo(px, py);
       }
       context.closePath();
-      context.strokeStyle = ambient
-        ? "rgba(255,255,255,.28)"
-        : "rgba(255,255,255,.75)";
+      context.strokeStyle = ambient ? ink.beam(0.28) : ink.beam(0.75);
       context.lineWidth = 1.5;
       context.stroke();
-      context.fillStyle = "rgba(255,255,255,.05)";
+      context.fillStyle = ink.beam(0.05);
       context.fill();
       context.restore();
 
       const jitter = shivering ? (Math.random() - 0.5) * 8 : 0;
-      const geometry = RAYS.map((ray) => {
+      const geometry = rays.map((ray) => {
         const radians = ((ray.angle + jitter) * Math.PI) / 180;
         return { ...ray, dx: Math.cos(radians), dy: Math.sin(radians) };
       });
@@ -465,7 +481,7 @@ export default function PrismHero() {
               <IconCCLogo
                 width={150}
                 height={201}
-                fill="#ffffff"
+                fill="currentColor"
                 className={styles.markLayer}
               />
             )}

@@ -3,10 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Maximize2 } from "lucide-react";
-
+import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import FocalImage from "@/components/shared/FocalImage";
 import Sheet from "@/components/shared/Sheet";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import styles from "./Events.module.scss";
 
 export type PreviewEvent = {
@@ -102,7 +101,10 @@ export default function EventPreview({
             ) : undefined
           }
         >
-          <div className={styles.sheetGrid}>
+          <div
+            className={styles.sheetGrid}
+            style={{ "--accent": event.accent } as React.CSSProperties}
+          >
             <div className={styles.sheetMedia}>
               {event.poster && (
                 <FocalImage
@@ -120,7 +122,7 @@ export default function EventPreview({
             <div className={styles.sheetBody}>
               <p className={styles.sheetKicker}>
                 <span className={styles.sheetStatus}>{event.status}</span>
-                <span style={{ color: event.accent }}>{event.moduleLabel}</span>
+                <span className={styles.module}>{event.moduleLabel}</span>
               </p>
               <h2 className={styles.sheetTitle}>{event.title}</h2>
               {event.shortDescription && (

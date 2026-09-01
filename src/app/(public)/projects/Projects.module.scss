@@ -57,12 +57,12 @@
   padding: 44px 44px 44px 0;
 }
 
+.module {
+  color: var(--accent, var(--muted));
+}
+
 .rowKicker {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 0;
+  @include meta-row;
   @include micro-label(10.5px, 0.08em);
 }
 
@@ -172,30 +172,13 @@
 }
 
 .coverImage {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition:
-    transform 0.5s cubic-bezier(0.16, 0.85, 0.2, 1.03),
-    filter 0.5s ease;
+  @include card-cover;
 }
 
 .coverScrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0) 40%,
-    rgba(0, 0, 0, 0.82) 100%
-  );
-
-  [data-theme="light"] & {
-    background: linear-gradient(
-      180deg,
-      rgba(18, 16, 12, 0) 40%,
-      rgba(18, 16, 12, 0.32) 100%
-    );
-  }
+  @include media-scrim(0%, 82%, 40%, 0%, 32%);
 }
 
 .coverCta {
@@ -230,11 +213,7 @@
 }
 
 .sheetKicker {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 0;
+  @include meta-row;
   @include micro-label(10.5px, 0.09em);
 }
 
@@ -324,6 +303,10 @@
     @include display-type(38px, 0.02em);
     white-space: nowrap;
   }
+}
+
+.stat dd.statAccent {
+  color: var(--accent, var(--foreground-strong));
 }
 
 .sheetActions {

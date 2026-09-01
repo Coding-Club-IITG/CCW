@@ -1,26 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-
-import EmptyState from "@/components/public/EmptyState";
-import FilterChips from "@/components/public/FilterChips";
-import PageHeader from "@/components/public/PageHeader";
-import JsonLd from "@/components/shared/JsonLd";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import { MODULE_ACCENTS, PROJECT_MODULES } from "@/lib/constants";
 import type { ProjectModuleName, ProjectStatus } from "@/lib/constants";
 import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import dbConnect from "@/lib/mongodb";
 import { pageMetadata, SITE_URL } from "@/lib/seo";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { errorToLogMetadata, formatMonthYear, logger } from "@/lib/utils";
 import Project from "@/models/Project";
+import EmptyState from "@/components/public/EmptyState";
+import FilterChips from "@/components/public/FilterChips";
+import PageHeader from "@/components/public/PageHeader";
+import JsonLd from "@/components/shared/JsonLd";
 import ProjectRow, { type ProjectRowData } from "./ProjectRow";
 import styles from "./Projects.module.scss";
 
 export const metadata: Metadata = pageMetadata({
   title: "Projects",
   description:
-    "Explore open-source software, machine learning, design, and security projects built by Coding Club IITG members.",
+    "Explore open-source projects built by Coding Club IITG members.",
   path: "/projects",
 });
 
@@ -47,15 +46,6 @@ function projectsHref(moduleName: string) {
   return moduleName
     ? `/projects?module=${encodeURIComponent(moduleName)}`
     : "/projects";
-}
-
-/** Month and year the project started, Eg. "Aug 2024" */
-function sinceLabel(value: string) {
-  return new Intl.DateTimeFormat("en-IN", {
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(value));
 }
 
 /** Strip the scheme so a live URL reads as a domain in the action row */
@@ -135,7 +125,7 @@ export default async function ProjectsPage({ searchParams }: Props) {
     moduleLabel: project.module,
     accent: MODULE_ACCENTS[project.module] ?? "var(--muted)",
     status: project.status,
-    since: sinceLabel(project.date),
+    since: formatMonthYear(project.date),
     repoLink: project.repoLink,
     liveUrl: project.liveUrl,
     liveLabel: liveLabel(project.liveUrl),
@@ -174,7 +164,7 @@ export default async function ProjectsPage({ searchParams }: Props) {
         kicker={countLabel}
         title="Projects"
         glow="violet"
-        lead="We pick projects for what they teach, not to keep a portfolio tidy. A build runs as long as people are still learning from it."
+        lead="Stuff we've worked on over the years, including projects we currently maintain."
       />
 
       <div className={styles.filterBar}>

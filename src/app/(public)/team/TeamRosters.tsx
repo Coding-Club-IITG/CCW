@@ -2,11 +2,6 @@
 
 import { useState } from "react";
 import { ChevronRight, Maximize2 } from "lucide-react";
-
-import CompatibleImage from "@/components/shared/CompatibleImage";
-import Sheet from "@/components/shared/Sheet";
-import { IconGithub, IconLinkedIn } from "@/components/shared/Icons";
-import EmptyState from "@/components/public/EmptyState";
 import {
   CLUB_POSITIONS,
   MODULE_ACCENTS,
@@ -18,6 +13,10 @@ import {
 } from "@/lib/constants";
 import { githubProfileUrl, normalizeLinkedInUrl } from "@/lib/socialLinks";
 import { getDisplayName } from "@/lib/utils";
+import CompatibleImage from "@/components/shared/CompatibleImage";
+import Sheet from "@/components/shared/Sheet";
+import { IconGithub, IconLinkedIn } from "@/components/shared/Icons";
+import EmptyState from "@/components/public/EmptyState";
 import styles from "./Team.module.scss";
 
 export interface PublicTeamMember {
@@ -175,6 +174,7 @@ function Roster({ members }: { members: PublicTeamMember[] }) {
                           alt=""
                           width={420}
                           height={420}
+                          sizes="(max-width: 560px) 50vw, 210px"
                           className={styles.photoImage}
                         />
                       )}
@@ -234,6 +234,7 @@ function Roster({ members }: { members: PublicTeamMember[] }) {
                   alt=""
                   width={720}
                   height={720}
+                  sizes="(max-width: 760px) 100vw, 320px"
                   className={styles.sheetPhoto}
                 />
               )}

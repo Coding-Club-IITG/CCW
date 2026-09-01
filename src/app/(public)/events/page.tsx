@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-
-import FocalImage from "@/components/shared/FocalImage";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import { MODULE_ACCENTS, PROJECT_MODULES } from "@/lib/constants";
 import type { ProjectModuleName } from "@/lib/constants";
@@ -25,6 +23,7 @@ import { pageMetadata } from "@/lib/seo";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
+import FocalImage from "@/components/shared/FocalImage";
 import EmptyState from "@/components/public/EmptyState";
 import PageHeader from "@/components/public/PageHeader";
 import EventFilters from "./EventFilters";
@@ -98,7 +97,7 @@ function toPreview(event: ListedEvent): PreviewEvent {
     starts: formatEventDate(event.startDate, undefined, event.allDay),
     ends: event.endDate
       ? formatEventDate(event.endDate, undefined, event.allDay)
-      : "—",
+      : "-",
     recurrence:
       recurrenceLabel(event.recurrenceType, event.recurrenceCount) ??
       "One-off event",
@@ -224,7 +223,7 @@ export default async function EventsPage({ searchParams }: Props) {
                         {event.title}
                       </span>
                       <span className={styles.timelineMeta}>
-                        <span style={{ color: accent }}>{label}</span>
+                        <span className={styles.module}>{label}</span>
                         <span aria-hidden="true">·</span>
                         <span>{event.location || "To be announced"}</span>
                       </span>
@@ -266,7 +265,7 @@ export default async function EventsPage({ searchParams }: Props) {
         kicker={countLabel}
         title="Events"
         glow="red"
-        lead="Workshops, mock rounds, talks and contests. Most are open to anyone on campus, whatever year you are in and whatever you already know."
+        lead="Workshops, seminars, exhibitions, talks and contests conducted by us."
       />
 
       <EventFilters
@@ -283,7 +282,11 @@ export default async function EventsPage({ searchParams }: Props) {
       )}
 
       {nextUp && (
-        <Link href={`/events/${nextUp.slug}`} className={styles.nextUp}>
+        <Link
+          href={`/events/${nextUp.slug}`}
+          className={styles.nextUp}
+          style={{ "--accent": classify(nextUp).accent } as React.CSSProperties}
+        >
           <div className={styles.nextUpMedia}>
             {nextUp.poster && (
               <FocalImage
@@ -301,9 +304,7 @@ export default async function EventsPage({ searchParams }: Props) {
           <div className={styles.nextUpBody}>
             <p className={styles.nextUpKicker}>
               <span className={styles.nextUpBadge}>Next up</span>
-              <span style={{ color: classify(nextUp).accent }}>
-                {classify(nextUp).label}
-              </span>
+              <span className={styles.module}>{classify(nextUp).label}</span>
             </p>
             <h2 className={styles.nextUpTitle}>{nextUp.title}</h2>
             {nextUp.shortDescription && (

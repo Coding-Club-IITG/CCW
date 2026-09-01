@@ -1,19 +1,18 @@
+import type { Metadata } from "next";
 import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import { toBsonSafe } from "@/lib/api/result";
 import { CURRENT_TENURE } from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
 import { logger } from "@/lib/utils";
+import { pageMetadata } from "@/lib/seo";
 import User from "@/models/User";
 import PageHeader from "@/components/public/PageHeader";
 import TeamRosters, { type PublicTeamMember } from "./TeamRosters";
 import styles from "./Team.module.scss";
-import type { Metadata } from "next";
-import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
   title: "Team",
-  description:
-    "Meet the students leading Coding Club IITG and its technical communities.",
+  description: "Meet the students leading Coding Club IITG and its modules.",
   path: "/team",
 });
 
@@ -63,7 +62,7 @@ export default async function TeamPage() {
         kicker={`${current} ${current === 1 ? "head" : "heads"} · ${CURRENT_TENURE}`}
         title="Team"
         glow="ember"
-        lead="The students running the club this year. Each module is led by its heads, who set the sessions, review the projects and answer the questions."
+        lead="Meet the students running this club."
       />
 
       {fetchError && (

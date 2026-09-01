@@ -8,6 +8,8 @@
   --brand-lime: #c0e04a;
   --brand-violet: #a849ec;
   --brand-ember: #fd6f43;
+  --brand-magenta: #f120e7;
+  --brand-red-deep: #ff2a1b;
 
   // Supporting tints
   --brand-red-tint: #ff8983;
@@ -26,6 +28,14 @@
   --module-security-bar: #c0e04a;
   --module-design-accent: #ff774e;
   --module-design-bar: #fd6f43;
+
+  // Photo veils
+  --ink-on-dark: #faf8f4;
+
+  // Spectrum wheel
+  --disc-ground: #0b0f4a;
+  --disc-shade-deep: #0b1b6b;
+  --disc-shade-mid: #223f8a;
 
   --spectrum-gradient: linear-gradient(
     90deg,
@@ -99,6 +109,19 @@
   --shadow-sm: rgba(0, 0, 0, 0.5);
   --shadow-md: rgba(0, 0, 0, 0.65);
   --shadow-lg: rgba(0, 0, 0, 0.8);
+  --scrim-base: #000000;
+
+  // Hero prism
+  --prism-ground: #000000;
+  --prism-surface: #0b0b0b;
+  --prism-ink: #ffffff;
+  --prism-ink-soft: rgba(255, 255, 255, 0.62);
+  --prism-ink-faint: rgba(255, 255, 255, 0.24);
+  --prism-line: rgba(255, 255, 255, 0.13);
+  --prism-line-strong: rgba(255, 255, 255, 0.22);
+  --prism-blend: screen;
+  --prism-canvas-blend: lighter;
+
   --modal-shadow: 0 50px 140px rgba(0, 0, 0, 0.85);
   --nav-surface: rgba(0, 0, 0, 0.82);
   --overlay: rgba(0, 0, 0, 0.82);
@@ -295,6 +318,19 @@
   --shadow-sm: rgba(18, 16, 12, 0.06);
   --shadow-md: rgba(18, 16, 12, 0.1);
   --shadow-lg: rgba(18, 16, 12, 0.16);
+  --scrim-base: #12100c;
+
+  // Hero prism
+  --prism-ground: #faf8f4;
+  --prism-surface: #ffffff;
+  --prism-ink: #12100c;
+  --prism-ink-soft: #57534b;
+  --prism-ink-faint: rgba(18, 16, 12, 0.34);
+  --prism-line: rgba(18, 16, 12, 0.14);
+  --prism-line-strong: rgba(18, 16, 12, 0.24);
+  --prism-blend: multiply;
+  --prism-canvas-blend: multiply;
+
   --modal-shadow: 0 30px 80px rgba(18, 16, 12, 0.18);
   --nav-surface: rgba(250, 248, 244, 0.85);
   --overlay: rgba(18, 16, 12, 0.55);

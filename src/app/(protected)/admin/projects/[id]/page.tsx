@@ -309,9 +309,7 @@ export default function EditProjectPage({
         <div className={styles.field}>
           <label className={styles.label}>On it now</label>
           <MemberPicker value={contributors} onChange={setContributors} />
-          <p className={styles.hint}>
-            Only the headcount is shown publicly, never member names.
-          </p>
+          <p className={styles.hint}>Only the headcount is shown publicly.</p>
         </div>
 
         <div className={styles.actions}>

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-
+import Link from "next/link";
 import { rankRelatedPosts } from "@/lib/blog/relatedPosts";
 import { extractMarkdownHeadings } from "@/lib/blog/markdownHeadings";
 import dbConnect from "@/lib/mongodb";
@@ -11,14 +11,13 @@ import {
   SITE_NAME,
   SITE_URL,
 } from "@/lib/seo";
+import { readingTimeLabel } from "@/lib/blog/readingTime";
+import { tagAccent } from "@/lib/constants";
 import BlogPost from "@/models/BlogPost";
 import ArticleReader from "@/components/blog/ArticleReader";
 import BackLink from "@/components/shared/BackLink";
 import FocalImage from "@/components/shared/FocalImage";
 import JsonLd from "@/components/shared/JsonLd";
-import { readingTimeLabel } from "@/lib/blog/readingTime";
-import { tagAccent } from "@/lib/constants";
-import Link from "next/link";
 import styles from "./BlogPost.module.scss";
 
 interface Props {
@@ -171,13 +170,16 @@ export default async function BlogPostPage({ params }: Props) {
         }}
       />
       <div className={styles.lead}>
-        <BackLink href="/blog" label="All writing" />
+        <BackLink href="/blog" label="All posts" />
 
         <header className={styles.header}>
           {post.tags.length > 0 && (
             <p className={styles.tagLine}>
               {post.tags.map((tag: string) => (
-                <span key={tag} style={{ color: tagAccent(tag) }}>
+                <span
+                  key={tag}
+                  style={{ "--accent": tagAccent(tag) } as React.CSSProperties}
+                >
                   {tag}
                 </span>
               ))}
@@ -273,14 +275,14 @@ export default async function BlogPostPage({ params }: Props) {
                 key={related._id}
                 href={`/blog/${related.slug}`}
                 className={styles.relatedCard}
+                style={
+                  {
+                    "--accent": tagAccent(related.tags[0] ?? ""),
+                  } as React.CSSProperties
+                }
               >
                 {related.tags[0] && (
-                  <span
-                    className={styles.relatedTag}
-                    style={{ color: tagAccent(related.tags[0]) }}
-                  >
-                    {related.tags[0]}
-                  </span>
+                  <span className={styles.relatedTag}>{related.tags[0]}</span>
                 )}
                 <span className={styles.relatedTitle}>{related.title}</span>
                 <span className={styles.relatedMeta}>

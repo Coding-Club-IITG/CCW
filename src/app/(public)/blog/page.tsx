@@ -2,9 +2,6 @@ import type { Metadata } from "next";
 import type { SortOrder } from "mongoose";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-
-import FocalImage from "@/components/shared/FocalImage";
-import Pagination from "@/components/shared/Pagination";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import { readingTimeLabel } from "@/lib/blog/readingTime";
 import { tagAccent } from "@/lib/constants";
@@ -13,14 +10,16 @@ import dbConnect from "@/lib/mongodb";
 import { paginatedResponse } from "@/lib/pagination";
 import { prepareSearchQuery } from "@/lib/search";
 import { pageMetadata } from "@/lib/seo";
-import { errorToLogMetadata, logger } from "@/lib/utils";
-import BlogPost from "@/models/BlogPost";
+import { errorToLogMetadata, formatShortDate, logger } from "@/lib/utils";
 import {
   blogPageNumber as pageNumber,
   blogSort as sortValue,
   POSTS_PER_PAGE,
   type BlogQuery,
 } from "@/lib/blog/listing";
+import BlogPost from "@/models/BlogPost";
+import FocalImage from "@/components/shared/FocalImage";
+import Pagination from "@/components/shared/Pagination";
 import EmptyState from "@/components/public/EmptyState";
 import PageHeader from "@/components/public/PageHeader";
 import BlogFilters from "./BlogFilters";
@@ -49,22 +48,11 @@ type Listing = {
   pagination: { page: number; total: number; totalPages: number };
 };
 
-const dateOptions: Intl.DateTimeFormatOptions = {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  timeZone: "Asia/Kolkata",
-};
-
-function formatDate(value?: string) {
-  return value ? new Date(value).toLocaleDateString("en-IN", dateOptions) : "";
-}
-
 function updatedLabel(post: ListedPost) {
   if (!post.updatedAt || !post.publishedAt) return null;
   const delta =
     new Date(post.updatedAt).getTime() - new Date(post.publishedAt).getTime();
-  return delta > 60_000 ? `Updated ${formatDate(post.updatedAt)}` : null;
+  return delta > 60_000 ? `Updated ${formatShortDate(post.updatedAt)}` : null;
 }
 
 function authorNames(post: ListedPost) {
@@ -199,7 +187,7 @@ export default async function BlogPage({ searchParams }: Props) {
         kicker={countLabel}
         title="Writing"
         glow="sky"
-        lead="Tutorials, project write-ups and notes from the five modules. Whatever we work out, we try to leave behind in a form the next batch can read."
+        lead="Articles, tutorials, project write-ups and notes from all the modules."
       />
 
       <BlogFilters
@@ -211,7 +199,15 @@ export default async function BlogPage({ searchParams }: Props) {
       />
 
       {featured && (
-        <Link href={`/blog/${featured.slug}`} className={styles.featured}>
+        <Link
+          href={`/blog/${featured.slug}`}
+          className={styles.featured}
+          style={
+            {
+              "--accent": tagAccent(featured.tags[0] ?? ""),
+            } as React.CSSProperties
+          }
+        >
           <div className={styles.featuredMedia}>
             {featured.coverImage && (
               <FocalImage
@@ -230,16 +226,14 @@ export default async function BlogPage({ searchParams }: Props) {
             <p className={styles.featuredKicker}>
               <span className={styles.latest}>Latest</span>
               {featured.tags[0] && (
-                <span style={{ color: tagAccent(featured.tags[0]) }}>
-                  {featured.tags.join(" / ")}
-                </span>
+                <span className={styles.tag}>{featured.tags.join(" / ")}</span>
               )}
             </p>
             <h2 className={styles.featuredTitle}>{featured.title}</h2>
             <p className={styles.featuredExcerpt}>{featured.excerpt}</p>
             <p className={styles.featuredMeta}>
               <span className={styles.authors}>{authorNames(featured)}</span>
-              <span>{formatDate(featured.publishedAt)}</span>
+              <span>{formatShortDate(featured.publishedAt)}</span>
               {featured.readingTime && <span>{featured.readingTime}</span>}
               {updatedLabel(featured) && (
                 <span className={styles.updatedChip}>
@@ -257,6 +251,11 @@ export default async function BlogPage({ searchParams }: Props) {
             key={post._id}
             href={`/blog/${post.slug}`}
             className={styles.row}
+            style={
+              {
+                "--accent": tagAccent(post.tags[0] ?? ""),
+              } as React.CSSProperties
+            }
           >
             <div className={styles.rowMedia}>
               {post.coverImage && (
@@ -275,18 +274,13 @@ export default async function BlogPage({ searchParams }: Props) {
             <div className={styles.rowHeading}>
               <h3 className={styles.rowTitle}>{post.title}</h3>
               {post.tags[0] && (
-                <p
-                  className={styles.rowTag}
-                  style={{ color: tagAccent(post.tags[0]) }}
-                >
-                  {post.tags.join(" / ")}
-                </p>
+                <p className={styles.rowTag}>{post.tags.join(" / ")}</p>
               )}
             </div>
             <p className={styles.rowExcerpt}>{post.excerpt}</p>
             <div className={styles.rowMeta}>
               <span className={styles.authors}>{authorNames(post)}</span>
-              <span>{formatDate(post.publishedAt)}</span>
+              <span>{formatShortDate(post.publishedAt)}</span>
               {updatedLabel(post) && (
                 <span className={styles.updatedLine}>{updatedLabel(post)}</span>
               )}

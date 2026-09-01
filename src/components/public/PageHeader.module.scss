@@ -6,26 +6,26 @@
 
 .sky {
   --section-accent: var(--brand-sky);
-  --glow-inner: rgba(110, 159, 252, 0.5);
-  --glow-outer: rgba(29, 35, 167, 0.35);
+  --glow-inner: color-mix(in srgb, var(--brand-sky) 50%, transparent);
+  --glow-outer: color-mix(in srgb, var(--brand-indigo) 35%, transparent);
 }
 
 .red {
   --section-accent: var(--danger);
-  --glow-inner: rgba(255, 78, 65, 0.42);
-  --glow-outer: rgba(253, 111, 67, 0.28);
+  --glow-inner: color-mix(in srgb, var(--brand-red) 42%, transparent);
+  --glow-outer: color-mix(in srgb, var(--brand-ember) 28%, transparent);
 }
 
 .violet {
   --section-accent: var(--brand-violet);
-  --glow-inner: rgba(168, 73, 236, 0.42);
-  --glow-outer: rgba(110, 159, 252, 0.26);
+  --glow-inner: color-mix(in srgb, var(--brand-violet) 42%, transparent);
+  --glow-outer: color-mix(in srgb, var(--brand-sky) 26%, transparent);
 }
 
 .ember {
   --section-accent: var(--brand-ember);
-  --glow-inner: rgba(253, 111, 67, 0.42);
-  --glow-outer: rgba(255, 78, 65, 0.26);
+  --glow-inner: color-mix(in srgb, var(--brand-ember) 42%, transparent);
+  --glow-outer: color-mix(in srgb, var(--brand-red) 26%, transparent);
 }
 
 .glow {

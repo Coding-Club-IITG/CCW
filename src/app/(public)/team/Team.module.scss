@@ -151,9 +151,7 @@
 .photoImage {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  @include media-cover;
 }
 
 .photoInitial {
@@ -242,9 +240,7 @@
 .sheetPhoto {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  @include media-cover;
 }
 
 .sheetInitial {
@@ -289,19 +285,7 @@
 }
 
 .sheetFact {
-  @include hairline-cell;
-  padding: 16px 18px;
-
-  dt {
-    margin-bottom: 7px;
-    @include micro-label(11px, 0.09em);
-  }
-
-  dd {
-    margin: 0;
-    @include metadata(12.5px);
-    color: var(--foreground-strong);
-  }
+  @include sheet-fact;
 }
 
 .sheetSocials {
@@ -332,22 +316,7 @@
 }
 
 .sheetNext {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 14px 22px;
-  border: 1px solid var(--border-input);
-  background: none;
-  color: var(--foreground-strong);
-  cursor: pointer;
-  @include micro-label(11px, 0.07em);
-
-  &:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-
-  @include focus-ring;
+  @include ghost-button;
 }
 
 // Previous tenures

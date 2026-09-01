@@ -1,12 +1,12 @@
 import Link from "next/link";
+import { Mail as IconMail } from "lucide-react";
+import { CLUB_EMAIL, IITG_ADDRESS, SOCIAL_PROFILES } from "@/lib/seo";
 import {
   IconCCLogo,
   IconGithub,
   IconInstagram,
   IconLinkedIn,
 } from "@/components/shared/Icons";
-import { Mail as IconMail } from "lucide-react";
-import { CLUB_EMAIL, IITG_ADDRESS, SOCIAL_PROFILES } from "@/lib/seo";
 import styles from "./Footer.module.scss";
 
 const EXPLORE = [
@@ -35,8 +35,10 @@ export default function Footer() {
             <span>Coding Club</span>
           </div>
           <address className={styles.address}>
-            {IITG_ADDRESS.streetAddress}, {IITG_ADDRESS.addressRegion} -{" "}
-            {IITG_ADDRESS.postalCode}, India
+            <span>{IITG_ADDRESS.streetAddress}</span>
+            <span>
+              {IITG_ADDRESS.addressRegion} - {IITG_ADDRESS.postalCode}, India
+            </span>
           </address>
         </div>
 
@@ -63,7 +65,7 @@ export default function Footer() {
                     ? { target: "_blank", rel: "noopener noreferrer" }
                     : {})}
                 >
-                  <Icon width={15} height={15} aria-hidden="true" />
+                  <Icon width={16} height={16} aria-hidden="true" />
                   {label}
                 </Link>
               );

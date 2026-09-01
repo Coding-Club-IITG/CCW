@@ -1,14 +1,6 @@
-import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-
-import JsonLd from "@/components/shared/JsonLd";
-import CompatibleImage from "@/components/shared/CompatibleImage";
-import FocalImage from "@/components/shared/FocalImage";
-import CountUp from "@/components/public/CountUp";
-import Reveal from "@/components/public/Reveal";
-import ScrollProgress from "@/components/public/ScrollProgress";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import {
   CLUB_POSITIONS,
@@ -35,11 +27,23 @@ import {
   SITE_URL,
   SOCIAL_PROFILES,
 } from "@/lib/seo";
-import { errorToLogMetadata, getDisplayName, logger } from "@/lib/utils";
+import {
+  errorToLogMetadata,
+  formatMonthYear,
+  formatShortDate,
+  getDisplayName,
+  logger,
+} from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 import Event from "@/models/Event";
 import Project from "@/models/Project";
 import User from "@/models/User";
+import JsonLd from "@/components/shared/JsonLd";
+import CompatibleImage from "@/components/shared/CompatibleImage";
+import FocalImage from "@/components/shared/FocalImage";
+import CountUp from "@/components/public/CountUp";
+import Reveal from "@/components/public/Reveal";
+import ScrollProgress from "@/components/public/ScrollProgress";
 import PrismHero from "./PrismHero";
 import styles from "./Home.module.scss";
 
@@ -177,13 +181,6 @@ async function getHomeData(): Promise<HomeData> {
         .lean(),
     ]);
 
-    const monthYear = (value: Date | string) =>
-      new Intl.DateTimeFormat("en-IN", {
-        month: "short",
-        year: "numeric",
-        timeZone: "UTC",
-      }).format(new Date(value));
-
     return JSON.parse(
       JSON.stringify({
         heads,
@@ -194,7 +191,7 @@ async function getHomeData(): Promise<HomeData> {
           title: project.title,
           module: project.module,
           description: project.description,
-          since: monthYear(project.date),
+          since: formatMonthYear(project.date),
           takeaways: (project.takeaways ?? []).slice(0, 3),
         })),
         events: events.map((event) => ({
@@ -223,14 +220,7 @@ async function getHomeData(): Promise<HomeData> {
             post.authors
               .map((author: { name: string }) => author.name)
               .join(", ") || "Coding Club",
-          date: post.publishedAt
-            ? new Intl.DateTimeFormat("en-IN", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-                timeZone: "Asia/Kolkata",
-              }).format(new Date(post.publishedAt))
-            : "",
+          date: formatShortDate(post.publishedAt),
         })),
         faces: [...team]
           .map((member) => {
@@ -287,11 +277,6 @@ export default async function Home({ searchParams }: Props) {
   const stats = [
     { value: MODULES.length, label: "technical modules", tone: "" },
     {
-      value: data.heads,
-      label: `module heads, ${CURRENT_TENURE}`,
-      tone: styles.statRed,
-    },
-    {
       value: data.ongoingProjects,
       label: "projects in progress",
       tone: styles.statViolet,
@@ -300,6 +285,11 @@ export default async function Home({ searchParams }: Props) {
       value: data.publishedPosts,
       label: "blog posts published",
       tone: styles.statLime,
+    },
+    {
+      value: data.heads,
+      label: `module heads, ${CURRENT_TENURE}`,
+      tone: styles.statRed,
     },
   ];
 
@@ -339,9 +329,7 @@ export default async function Home({ searchParams }: Props) {
         <PrismHero />
 
         <div className={styles.heroCopy}>
-          <p className={styles.heroKicker}>
-            Five modules · one club · learn by building
-          </p>
+          <p className={styles.heroKicker}>Five modules · learn by building</p>
           <p className={styles.heroWordmark}>
             Coding
             <br />
@@ -351,10 +339,7 @@ export default async function Home({ searchParams }: Props) {
             The heartbeat of technology and innovation at IIT Guwahati.
           </h1>
           <p className={styles.heroLead}>
-            Software, competitive programming, machine learning, security,
-            design. We pick projects for what they teach, run contests and
-            workshops through the semester, and write down what we work out.
-            Everything open source, everything student-built.
+            We build, we learn, and we excel together.
           </p>
           <div className={styles.heroActions}>
             <Link href="#modules" className={styles.heroPrimary}>
@@ -394,6 +379,7 @@ export default async function Home({ searchParams }: Props) {
           </Reveal>
         ))}
         <Reveal className={`${styles.stat} ${styles.statBanded}`}>
+          <span className={styles.statKicker}>Open to</span>
           <span className={styles.statWord}>All years</span>
           <span className={styles.statLabel}>
             creativity and drive are what matter
@@ -403,10 +389,10 @@ export default async function Home({ searchParams }: Props) {
 
       <section id="modules" className={styles.section}>
         <Reveal className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>Where you&rsquo;d start</h2>
+          <h2 className={styles.sectionTitle}>Modules</h2>
           <p className={styles.sectionLead}>
-            Pick a module, come to its sessions, build with the people in it.
-            Most members end up in two.
+            Pick a module, attend its sessions, learn and build with the people
+            in it.
           </p>
         </Reveal>
         <div className={styles.modules}>
@@ -419,7 +405,7 @@ export default async function Home({ searchParams }: Props) {
                 {
                   "--module-bar": MODULE_BARS[moduleName],
                   "--module-accent": MODULE_ACCENTS[moduleName],
-                } as CSSProperties
+                } as React.CSSProperties
               }
             >
               <span className={styles.moduleBar} aria-hidden="true" />
@@ -440,21 +426,13 @@ export default async function Home({ searchParams }: Props) {
           <Reveal className={styles.sectionHead}>
             <div>
               <p className={styles.sectionKickerViolet}>
-                What the modules are working on
+                What we&rsquo;re working on
               </p>
-              <h2 className={styles.sectionTitle}>What we&rsquo;re building</h2>
+              <h2 className={styles.sectionTitle}>Projects</h2>
             </div>
             <Link href="/projects" className={styles.sectionLink}>
               All projects →
             </Link>
-          </Reveal>
-          <Reveal>
-            <p className={styles.sectionIntro}>
-              We choose projects for what they teach, not for a roadmap. A build
-              runs as long as people are still learning from it — some grow into
-              things campus uses daily, others stay experiments, and both are
-              the point.
-            </p>
           </Reveal>
           <div className={styles.projectList}>
             {data.projects.map((project, index) => (
@@ -462,6 +440,11 @@ export default async function Home({ searchParams }: Props) {
                 key={project.id}
                 className={styles.projectRow}
                 delay={index}
+                style={
+                  {
+                    "--accent": tagAccent(project.module),
+                  } as React.CSSProperties
+                }
               >
                 <span className={styles.projectIndex}>
                   {String(index + 1).padStart(2, "0")}
@@ -469,7 +452,7 @@ export default async function Home({ searchParams }: Props) {
                 <span className={styles.projectMain}>
                   <span className={styles.projectName}>{project.title}</span>
                   <span className={styles.projectMeta}>
-                    <span style={{ color: tagAccent(project.module) }}>
+                    <span className={styles.projectModule}>
                       {project.module}
                     </span>
                     <span aria-hidden="true">·</span>
@@ -499,7 +482,7 @@ export default async function Home({ searchParams }: Props) {
         <section id="events" className={styles.section}>
           <Reveal className={styles.sectionHead}>
             <div>
-              <p className={styles.sectionKickerRed}>Most recent three</p>
+              <p className={styles.sectionKickerRed}>Join us at our</p>
               <h2 className={styles.sectionTitle}>Events</h2>
             </div>
             <Link href="/events" className={styles.sectionLink}>
@@ -508,7 +491,13 @@ export default async function Home({ searchParams }: Props) {
           </Reveal>
           <div className={styles.eventGrid}>
             {data.events.map((event, index) => (
-              <Reveal key={event.id} delay={index}>
+              <Reveal
+                key={event.id}
+                delay={index}
+                style={
+                  { "--accent": tagAccent(event.module) } as React.CSSProperties
+                }
+              >
                 <Link
                   href={`/events/${event.slug}`}
                   className={styles.eventCard}
@@ -528,9 +517,7 @@ export default async function Home({ searchParams }: Props) {
                   </span>
                   <span className={styles.eventBody}>
                     <span className={styles.eventKicker}>
-                      <span style={{ color: tagAccent(event.module) }}>
-                        {event.module}
-                      </span>
+                      <span className={styles.eventModule}>{event.module}</span>
                       <span aria-hidden="true" className={styles.eventDot}>
                         ·
                       </span>
@@ -561,15 +548,20 @@ export default async function Home({ searchParams }: Props) {
             </Link>
           </Reveal>
           {data.posts.map((post, index) => (
-            <Reveal key={post.id} delay={index}>
+            <Reveal
+              key={post.id}
+              delay={index}
+              style={
+                {
+                  "--accent": tagAccent(post.tags[0] ?? ""),
+                } as React.CSSProperties
+              }
+            >
               <Link href={`/blog/${post.slug}`} className={styles.postRow}>
                 <span className={styles.postMain}>
                   <span className={styles.postTitle}>{post.title}</span>
                   {post.tags[0] && (
-                    <span
-                      className={styles.postTag}
-                      style={{ color: tagAccent(post.tags[0]) }}
-                    >
+                    <span className={styles.postTag}>
                       {post.tags.join(" / ")}
                     </span>
                   )}
@@ -589,10 +581,8 @@ export default async function Home({ searchParams }: Props) {
         <section id="team" className={styles.section}>
           <Reveal className={styles.sectionHead}>
             <div>
-              <p className={styles.sectionKickerEmber}>
-                Leadership first, then the module heads
-              </p>
-              <h2 className={styles.sectionTitle}>Who runs it</h2>
+              <p className={styles.sectionKickerEmber}>Who runs it</p>
+              <h2 className={styles.sectionTitle}>Team</h2>
             </div>
             <Link href="/team" className={styles.sectionLink}>
               Full team →
@@ -600,7 +590,11 @@ export default async function Home({ searchParams }: Props) {
           </Reveal>
           <div className={styles.faces}>
             {data.faces.map((face, index) => (
-              <Reveal key={face.id} delay={index}>
+              <Reveal
+                key={face.id}
+                delay={index}
+                style={{ "--accent": face.accent } as React.CSSProperties}
+              >
                 <Link href="/team" className={styles.face}>
                   {face.image && (
                     <CompatibleImage
@@ -608,24 +602,16 @@ export default async function Home({ searchParams }: Props) {
                       alt=""
                       width={320}
                       height={320}
+                      sizes="(max-width: 640px) 33vw, 150px"
                       className={styles.faceImage}
                     />
                   )}
-                  <span
-                    className={styles.faceInitial}
-                    style={{ color: face.accent }}
-                    aria-hidden="true"
-                  >
+                  <span className={styles.faceInitial} aria-hidden="true">
                     {face.initial}
                   </span>
                   <span className={styles.faceVeil}>
                     <span className={styles.faceName}>{face.name}</span>
-                    <span
-                      className={styles.faceRole}
-                      style={{ color: face.accent }}
-                    >
-                      {face.role}
-                    </span>
+                    <span className={styles.faceRole}>{face.role}</span>
                   </span>
                 </Link>
               </Reveal>

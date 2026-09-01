@@ -66,19 +66,12 @@
 }
 
 .featuredMedia {
-  @include media-frame(16 / 10);
+  @include media-frame(16, 10);
   border-right: 1px solid var(--border);
 }
 
 .featuredImage {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
+  @include media-fill;
 }
 
 .featuredBody {
@@ -89,12 +82,12 @@
   padding: clamp(28px, 3.4vw, 56px);
 }
 
+.tag {
+  color: var(--accent, var(--muted));
+}
+
 .featuredKicker {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0;
-  flex-wrap: wrap;
+  @include meta-row;
   @include micro-label(10.5px);
 }
 
@@ -133,12 +126,7 @@
 }
 
 .updatedChip {
-  padding: 3px 9px;
-  border: 1px solid var(--primary);
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 10px;
+  @include outline-chip;
 }
 
 // Dense list rows
@@ -165,7 +153,7 @@
 }
 
 .rowMedia {
-  @include media-frame(4 / 3);
+  @include media-frame(4, 3);
 }
 
 .rowImage {
@@ -190,6 +178,7 @@
 .rowTag {
   margin: 10px 0 0;
   @include micro-label(10.5px, 0.05em);
+  color: var(--accent, var(--muted));
 }
 
 .rowExcerpt {
