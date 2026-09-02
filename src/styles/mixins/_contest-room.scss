@@ -683,12 +683,16 @@
 
   .teamName,
   .teamNameActive,
+  .toastTitle {
+    font-family: var(--font-hanken-grotesk), sans-serif;
+    font-weight: 700;
+  }
+
   .scoreRow,
   .scoreVal,
   .toastScoreOwn,
-  .toastScoreOther,
-  .toastTitle {
-    font-family: var(--font-inter), sans-serif;
+  .toastScoreOther {
+    font-family: var(--font-handjet), var(--font-jetbrains-mono), monospace;
     font-weight: 700;
   }
 

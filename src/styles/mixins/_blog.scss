@@ -63,8 +63,7 @@
     border-radius: 6px;
     padding: 0.2em 0.4em;
     font-size: 0.85em;
-    font-family:
-      ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   }
 
   pre {

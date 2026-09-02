@@ -1,10 +1,5 @@
 import type { Metadata } from "next";
-import {
-  Handjet,
-  Hanken_Grotesk,
-  Inter,
-  JetBrains_Mono,
-} from "next/font/google";
+import { Handjet, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import "@/styles/globals.scss";
 import Providers from "@/components/layout/Providers";
@@ -52,12 +47,6 @@ const handjet = Handjet({
   variable: "--font-handjet",
 });
 
-const inter = Inter({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-inter",
-});
-
 const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
@@ -76,7 +65,7 @@ export default async function RootLayout({
     <html
       lang="en"
       data-theme={theme}
-      className={`${hankenGrotesk.variable} ${handjet.variable} ${inter.variable} ${jetBrainsMono.variable}`}
+      className={`${hankenGrotesk.variable} ${handjet.variable} ${jetBrainsMono.variable}`}
     >
       <body>
         <Providers

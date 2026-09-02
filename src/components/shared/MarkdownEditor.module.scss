@@ -28,8 +28,7 @@
   padding: 1rem;
   font-size: 0.875rem;
   color: var(--foreground);
-  font-family:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   line-height: 1.6;
   resize: vertical;
   min-height: 300px;

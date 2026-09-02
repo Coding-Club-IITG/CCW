@@ -153,7 +153,7 @@
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--foreground-strong);
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-hanken-grotesk), sans-serif;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -359,7 +359,7 @@
 }
 
 .scoreValue {
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
 .select,

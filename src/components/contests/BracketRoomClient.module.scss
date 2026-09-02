@@ -800,14 +800,17 @@
   font-family: var(--font-hanken-grotesk), sans-serif;
 }
 
-.scoreValue,
+.scoreValue {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
 .scoreName,
 .slotName,
 .rowName,
 .infoValue,
 .infoValueActive,
 .infoValueWinner {
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-hanken-grotesk), sans-serif;
 }
 
 .backLink,

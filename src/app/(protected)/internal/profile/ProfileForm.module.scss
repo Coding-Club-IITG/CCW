@@ -149,7 +149,7 @@
   padding: 0.125rem 0.5rem;
   border-radius: 6px;
   margin-left: 0.5rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--verify-token-text);
