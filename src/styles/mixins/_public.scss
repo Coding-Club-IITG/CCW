@@ -398,8 +398,9 @@ $nav-height: 59px;
 
 // Joined two-or-more option control
 @mixin segmented-control {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  width: fit-content;
   border: 1px solid var(--border-input);
 }
 

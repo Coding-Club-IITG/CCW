@@ -4,8 +4,10 @@ import styles from "./FilterControls.module.scss";
 
 export type FilterOption = {
   label: string;
-  href: string;
   active: boolean;
+  href?: string;
+  onClick?: () => void;
+  ariaLabel?: string;
 };
 
 /** Row of outlined filter chips */
@@ -18,16 +20,32 @@ export default function FilterChips({
 }) {
   return (
     <div className={styles.chipRow} role="group" aria-label={label}>
-      {options.map((option) => (
-        <Link
-          key={option.href + option.label}
-          href={option.href}
-          className={`${styles.chip} ${option.active ? styles.chipActive : ""}`}
-          aria-current={option.active ? "true" : undefined}
-        >
-          {option.label}
-        </Link>
-      ))}
+      {options.map((option) => {
+        const className = `${styles.chip} ${option.active ? styles.chipActive : ""}`;
+
+        return option.href ? (
+          <Link
+            key={option.href + option.label}
+            href={option.href}
+            className={className}
+            aria-current={option.active ? "true" : undefined}
+            aria-label={option.ariaLabel}
+          >
+            {option.label}
+          </Link>
+        ) : (
+          <button
+            key={option.label}
+            type="button"
+            className={className}
+            onClick={option.onClick}
+            aria-pressed={option.active}
+            aria-label={option.ariaLabel}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -6,12 +6,12 @@ export default function EmptyState({
   hint,
 }: {
   title: string;
-  hint: string;
+  hint?: string;
 }) {
   return (
     <div className={styles.empty}>
       <p className={styles.title}>{title}</p>
-      <p className={styles.hint}>{hint}</p>
+      {hint && <p className={styles.hint}>{hint}</p>}
     </div>
   );
 }

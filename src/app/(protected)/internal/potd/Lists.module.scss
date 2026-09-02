@@ -232,13 +232,6 @@
   padding-left: 1.25rem !important;
 }
 
-.emptyState {
-  padding: 2rem;
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
 .subText {
   @include table-meta;
 }

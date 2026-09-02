@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import SearchInput from "@/components/shared/SearchInput";
 import Pagination from "@/components/shared/Pagination";
+import EmptyState from "@/components/public/EmptyState";
 import { getPastProblems, type PastProblemEntry } from "@/lib/actions/potd";
 import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROBLEM_URLS } from "@/lib/constants";
 import { windowStartToISTDateStr } from "@/lib/potd/utils";
@@ -80,11 +81,13 @@ export default function PastProblemsClient({
       </div>
 
       {pastProblems.length === 0 ? (
-        <p className={styles.emptyState}>
-          {search
-            ? "No past problems match your search."
-            : "No past problems yet."}
-        </p>
+        <EmptyState
+          title={
+            search
+              ? "No past problems match your search."
+              : "No past problems yet."
+          }
+        />
       ) : (
         <div className={styles.tableContainer}>
           <table className={styles.table} aria-busy={isLoading}>

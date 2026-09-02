@@ -12,6 +12,7 @@ import {
   FileIcon,
   AlertCircle,
 } from "lucide-react";
+import EmptyState from "@/components/public/EmptyState";
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
 import TagBadge from "@/components/shared/TagBadge";
@@ -174,17 +175,19 @@ export default function FilesClient({ currentUser }: Props) {
 
       {/* File Table */}
       {loading ? (
-        <div className={styles.emptyState}>Loading files…</div>
+        <div className={styles.loadingState}>Loading files…</div>
       ) : error ? (
         <div className={styles.errorState}>
           <AlertCircle size={18} /> {error}
         </div>
       ) : files.length === 0 ? (
-        <div className={styles.emptyState}>
-          {hasFilters
-            ? "No files match the selected filters."
-            : "No files here yet."}
-        </div>
+        <EmptyState
+          title={
+            hasFilters
+              ? "No files match the selected filters."
+              : "No files here yet."
+          }
+        />
       ) : (
         <>
           <div className={styles.tableContainer}>

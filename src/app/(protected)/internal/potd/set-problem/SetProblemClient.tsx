@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import EmptyState from "@/components/public/EmptyState";
 import styles from "./SetProblem.module.scss";
 import {
   setDailyProblem,
@@ -378,10 +379,10 @@ export default function SetProblemClient() {
 
         {/* Empty state */}
         {!loadingInitial && totalScheduled === 0 && !isAdding && (
-          <div className={styles.emptyState}>
-            No upcoming problems scheduled. Click &quot;Add Problem&quot; to get
-            started.
-          </div>
+          <EmptyState
+            title="No upcoming problems scheduled."
+            hint='Click "Add Problem" to get started.'
+          />
         )}
 
         {/* Problems grouped by date */}

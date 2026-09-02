@@ -63,7 +63,7 @@ export default function RatingLeaderboardClient({
           <span
             className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
           >
-            {rank}
+            {String(rank).padStart(2, "0")}
           </span>
         );
       },

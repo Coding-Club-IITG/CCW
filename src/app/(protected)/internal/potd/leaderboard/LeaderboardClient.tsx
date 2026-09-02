@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import SearchInput from "@/components/shared/SearchInput";
 import PlatformTabs from "@/components/shared/PlatformTabs";
+import EmptyState from "@/components/public/EmptyState";
 import { type LeaderboardEntry } from "@/lib/actions/potd";
 import styles from "../Lists.module.scss";
 
@@ -62,11 +63,13 @@ export default function LeaderboardClient({
 
       <div className={styles.tableContainer}>
         {filteredData.length === 0 ? (
-          <p className={styles.emptyState}>
-            {data.length === 0
-              ? "No data yet - start solving!"
-              : "No matching members found."}
-          </p>
+          <EmptyState
+            title={
+              data.length === 0
+                ? "No data yet - start solving!"
+                : "No matching members found."
+            }
+          />
         ) : (
           <table className={styles.table}>
             <thead>

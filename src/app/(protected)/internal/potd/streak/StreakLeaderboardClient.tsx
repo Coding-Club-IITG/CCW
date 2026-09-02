@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import SearchInput from "@/components/shared/SearchInput";
+import EmptyState from "@/components/public/EmptyState";
 import styles from "../Lists.module.scss";
 import { type StreakEntry } from "@/lib/actions/potd";
 
@@ -65,11 +66,13 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
       />
 
       {sortedData.length === 0 ? (
-        <p className={styles.emptyState}>
-          {search
-            ? "No matching members found."
-            : "No streak data yet - start solving!"}
-        </p>
+        <EmptyState
+          title={
+            search
+              ? "No matching members found."
+              : "No streak data yet - start solving!"
+          }
+        />
       ) : (
         <div className={styles.tableContainer}>
           <table className={styles.table}>

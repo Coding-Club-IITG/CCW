@@ -175,9 +175,8 @@
 
 // Empty / Error states
 
-.emptyState {
+.loadingState {
   padding: 3rem 2rem;
-  border: 1px solid var(--border);
   text-align: center;
   @include metadata(11.5px);
   text-transform: uppercase;

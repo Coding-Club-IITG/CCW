@@ -8,20 +8,7 @@
 }
 
 .header {
-  margin-bottom: 0.25rem;
-
-  h1 {
-    margin: 0 0 0.25rem 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--foreground-strong);
-  }
-
-  p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.875rem;
-  }
+  @include standard-page-header($bottom-margin: 0.25rem);
 }
 
 .toolbar {
@@ -41,7 +28,6 @@
   td {
     padding: 0.625rem 1rem;
     white-space: nowrap;
-    font-size: 0.875rem;
   }
 
   tbody tr {
@@ -53,20 +39,18 @@
 }
 
 .rank {
-  font-weight: 700;
-  color: var(--foreground-strong);
-  font-size: 0.875rem;
+  @include metadata(11.5px, var(--muted-lighter));
 }
 
 .rankBadge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  font-size: 0.8125rem;
-  font-weight: 700;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 0;
+  @include metadata(11.5px, inherit);
 }
 
 .top1 {
@@ -92,20 +76,16 @@
 .userName {
   font-weight: 600;
   color: var(--foreground-strong);
-  font-size: 0.875rem;
+  font-size: 13.5px;
 }
 
 .userHandle {
-  font-size: 0.75rem;
-  color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  @include metadata(11px);
 }
 
 .handleLink {
-  color: var(--link);
   text-decoration: none;
-  font-size: 0.75rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  @include metadata(11px, var(--link));
 
   &:hover {
     text-decoration: underline;
@@ -113,18 +93,9 @@
 }
 
 .ratingBadge {
-  font-weight: 700;
-  color: var(--foreground-strong);
-  font-size: 0.875rem;
+  @include display-type(22px, 0.04em);
 }
 
 .cpRank {
   @include badge-pill;
-}
-
-.emptyState {
-  padding: 2rem;
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.875rem;
 }
