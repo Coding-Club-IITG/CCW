@@ -1,8 +1,10 @@
+@use "public" as *;
+
 // Table styles
 @mixin table-base {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8125rem;
+  font-size: 13.5px;
 
   th,
   td {
@@ -12,19 +14,28 @@
   }
 
   th {
-    font-weight: 600;
-    color: var(--table-header-text);
     background: var(--table-header-bg);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    @include micro-label(10.5px, 0.09em, var(--table-header-text));
   }
 
   td {
-    color: var(--foreground);
+    color: var(--foreground-strong);
   }
 
   tr:last-child td {
     border-bottom: none;
   }
+}
+
+// Wrapper around table
+@mixin table-frame {
+  border: 1px solid var(--border);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+// Values inside cell
+@mixin table-meta {
+  @include metadata(11.5px);
+  text-transform: uppercase;
 }

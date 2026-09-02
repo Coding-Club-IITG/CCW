@@ -228,11 +228,12 @@ export default function ProfileForm() {
             (!cfVerified || formData.codeforcesId !== savedCodeforcesId) && (
               <div className={styles.verificationBox}>
                 <div
-                  className={
-                    cfVerificationToken
-                      ? styles.verificationHeaderWithMargin
-                      : styles.verificationHeader
-                  }
+                  className={[
+                    styles.verificationHeader,
+                    cfVerificationToken && styles.verificationHeaderWithMargin,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   <span className={styles.verificationText}>
                     <strong>Unverified Handle.</strong>
@@ -306,11 +307,12 @@ export default function ProfileForm() {
             (!acVerified || formData.atcoderId !== savedAtcoderId) && (
               <div className={styles.verificationBox}>
                 <div
-                  className={
-                    acVerificationToken
-                      ? styles.verificationHeaderWithMargin
-                      : styles.verificationHeader
-                  }
+                  className={[
+                    styles.verificationHeader,
+                    acVerificationToken && styles.verificationHeaderWithMargin,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   <span className={styles.verificationText}>
                     <strong>Unverified Handle.</strong>

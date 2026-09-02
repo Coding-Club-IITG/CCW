@@ -115,17 +115,16 @@ $nav-height: 59px;
   }
 }
 
-// Outlined action
-@mixin ghost-button {
+// Outlined action.
+@mixin ghost-button($padding: 14px 22px, $color: var(--muted)) {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  padding: 14px 22px;
+  padding: $padding;
   border: 1px solid var(--border-input);
   background: none;
-  color: var(--foreground-strong);
   cursor: pointer;
-  @include micro-label(11px, 0.07em);
+  @include micro-label(11px, 0.07em, $color);
 
   &:hover {
     border-color: var(--primary);
@@ -169,21 +168,21 @@ $nav-height: 59px;
 }
 
 // Mono micro-label
-@mixin micro-label($size: 11px, $tracking: 0.08em) {
+@mixin micro-label($size: 11px, $tracking: 0.08em, $color: var(--muted)) {
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   font-size: $size;
   font-weight: 400;
   letter-spacing: $tracking;
   text-transform: uppercase;
-  color: var(--muted);
+  color: $color;
 }
 
 // Mono metadata
-@mixin metadata($size: 11px) {
+@mixin metadata($size: 11px, $color: var(--muted-light)) {
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   font-size: $size;
   letter-spacing: 0.04em;
-  color: var(--muted-light);
+  color: $color;
 }
 
 // Handjet display type

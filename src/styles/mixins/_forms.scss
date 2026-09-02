@@ -1,7 +1,9 @@
-@mixin form-panel {
-  padding: 1.5rem;
+@use "public" as *;
+
+@mixin form-panel($padding: 1.5rem) {
+  padding: $padding;
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: 0;
   background: var(--card-bg);
 }
 
@@ -12,24 +14,27 @@
   margin-bottom: $margin-bottom;
 
   label {
-    color: var(--foreground-secondary);
-    font-size: 0.8125rem;
-    font-weight: 500;
+    @include micro-label(10.5px, 0.09em);
   }
 }
 
 @mixin form-control {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-input);
-  border-radius: 6px;
-  background: var(--surface-secondary);
-  color: var(--foreground);
-  font-size: 0.875rem;
+  border-radius: 0;
+  background: none;
+  color: var(--foreground-strong);
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   transition: border-color 0.15s ease;
+
+  &::placeholder {
+    color: var(--muted-lighter);
+  }
 
   &:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--focus-ring);
   }
 }

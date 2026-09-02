@@ -1,16 +1,26 @@
-// Badge pill
+@use "public" as *;
+
+// Square chip with 3 states: outline (default), active fill, semantic fill
 @mixin badge-pill(
-  $bg: var(--badge-bg),
-  $color: var(--badge-text),
-  $border: var(--badge-border)
+  $bg: transparent,
+  $color: var(--muted),
+  $border: var(--border-input)
 ) {
   display: inline-flex;
   align-items: center;
   background: $bg;
-  color: $color;
-  padding: 0.125rem 0.5rem;
-  border-radius: 2rem;
-  font-size: 0.75rem;
-  font-weight: 500;
+  padding: 4px 10px;
   border: 1px solid $border;
+  border-radius: 0;
+  @include micro-label(10.5px, 0.05em, $color);
+}
+
+// Selected state
+@mixin badge-active {
+  @include badge-pill(var(--primary), var(--btn-primary-text), var(--primary));
+}
+
+// Semantic state
+@mixin badge-semantic($bg, $color) {
+  @include badge-pill($bg, $color, transparent);
 }

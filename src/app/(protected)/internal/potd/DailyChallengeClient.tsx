@@ -373,7 +373,7 @@ function ProblemCard({
         <div className={styles.rating}>{problem.rating || "Unrated"}</div>
       </div>
 
-      <div className={styles.statsWithBorder}>
+      <div className={`${styles.stats} ${styles.statsWithBorder}`}>
         <div className={styles.stat}>
           <span className={styles.label}>Your Status</span>
           <span className={styles.value}>

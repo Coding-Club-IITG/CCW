@@ -232,7 +232,7 @@ export default function FilesClient({ currentUser }: Props) {
                           ))}
                         </div>
                       </td>
-                      <td className={styles.subtle}>{file.uploadedByName}</td>
+                      <td className={styles.person}>{file.uploadedByName}</td>
                       <td className={styles.subtle}>
                         {formatDate(file.createdAt)}
                       </td>

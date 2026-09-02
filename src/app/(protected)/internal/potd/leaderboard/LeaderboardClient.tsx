@@ -109,7 +109,7 @@ export default function LeaderboardClient({
                         <span
                           className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
                         >
-                          {rank}
+                          {String(rank).padStart(2, "0")}
                         </span>
                       </td>
                       <td>

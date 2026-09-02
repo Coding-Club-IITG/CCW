@@ -1,7 +1,39 @@
+@use "public" as *;
+
 // Card container
-@mixin card {
-  background: var(--surface);
+@mixin card($padding: 1.5rem) {
+  @include square-card;
+  padding: $padding;
+}
+
+// Gapped card grids become a hairline grid
+@mixin card-grid($min: 280px) {
+  @include hairline-grid($min: $min);
+}
+
+@mixin card-grid-cell($padding: 20px) {
+  @include hairline-cell;
+  padding: $padding;
+}
+
+// Stacked rows read as one list
+@mixin list-frame {
+  display: grid;
+  gap: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 1.5rem;
+  border-radius: 0;
+}
+
+@mixin list-row($padding: 1rem 1.25rem) {
+  padding: $padding;
+  border-bottom: 1px solid var(--border-lighter);
+  transition: background 0.15s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--surface-hover);
+  }
 }

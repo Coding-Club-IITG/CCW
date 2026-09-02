@@ -1,24 +1,28 @@
 @use "layout" as *;
+@use "public" as *;
 
-// Shared compact heading used by admin and internal
+// Mono kicker sitting above a page title
+@mixin standard-page-kicker($margin: 0 0 6px) {
+  margin: $margin;
+  line-height: 1.2;
+  @include micro-label(10.5px, 0.18em);
+}
+
+// Compact heading
 @mixin standard-page-title($margin: 0 0 0.25rem) {
   margin: $margin;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
+  @include display-type(28px, 0.06em);
 }
 
 @mixin standard-page-subtitle($margin: 0) {
   margin: $margin;
-  font-size: 0.875rem;
+  font-size: 13px;
   color: var(--muted);
 }
 
 @mixin section-title($margin: 0 0 1rem) {
   margin: $margin;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--foreground-strong);
+  @include display-type(20px, 0.05em);
 }
 
 @mixin standard-page-header(
@@ -42,6 +46,10 @@
 
   p {
     @include standard-page-subtitle;
+  }
+
+  .kicker {
+    @include standard-page-kicker;
   }
 }
 
