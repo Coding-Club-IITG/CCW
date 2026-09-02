@@ -520,6 +520,7 @@
   overflow: hidden;
   width: 100%;
   aspect-ratio: 4 / 5;
+  align-self: center;
   background: var(--drop-zone);
   border-right: 1px solid var(--border);
 }
@@ -657,6 +658,7 @@
   }
 
   .sheetMedia {
+    align-self: stretch;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }

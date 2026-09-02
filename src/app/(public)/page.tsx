@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Maximize2 } from "lucide-react";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import {
   CLUB_POSITIONS,
@@ -45,6 +45,7 @@ import CountUp from "@/components/public/CountUp";
 import Reveal from "@/components/public/Reveal";
 import ScrollProgress from "@/components/public/ScrollProgress";
 import PrismHero from "./PrismHero";
+import ProjectSheet from "./projects/ProjectSheet";
 import styles from "./Home.module.scss";
 
 export const metadata: Metadata = {
@@ -80,7 +81,13 @@ type HomeData = {
     module: string;
     description: string;
     since: string;
+    status: string;
+    repoLink: string;
+    liveUrl?: string;
+    liveLabel?: string;
+    stack: string[];
     takeaways: string[];
+    contributorCount: number;
   }>;
   events: Array<{
     id: string;
@@ -125,7 +132,7 @@ const EMPTY: HomeData = {
 async function getHomeData(): Promise<HomeData> {
   await dbConnect();
 
-  return cachedFetch(buildCacheKey("home:v2"), CACHE_TTLS.EVENTS, async () => {
+  return cachedFetch(buildCacheKey("home:v3"), CACHE_TTLS.EVENTS, async () => {
     const [
       heads,
       ongoingProjects,
@@ -146,7 +153,9 @@ async function getHomeData(): Promise<HomeData> {
       Project.countDocuments({ status: "Ongoing" }),
       BlogPost.countDocuments({ status: "published" }),
       Project.find({})
-        .select("title module description date takeaways")
+        .select(
+          "title module description date status repoLink liveUrl tags takeaways contributors",
+        )
         .sort({ date: -1 })
         .limit(4)
         .lean(),
@@ -186,14 +195,31 @@ async function getHomeData(): Promise<HomeData> {
         heads,
         ongoingProjects,
         publishedPosts,
-        projects: projects.map((project) => ({
-          id: String(project._id),
-          title: project.title,
-          module: project.module,
-          description: project.description,
-          since: formatMonthYear(project.date),
-          takeaways: (project.takeaways ?? []).slice(0, 3),
-        })),
+        projects: projects.map((project) => {
+          let liveLabel: string | undefined;
+          if (project.liveUrl) {
+            try {
+              liveLabel = new URL(project.liveUrl).host.replace(/^www\./, "");
+            } catch {
+              liveLabel = project.liveUrl;
+            }
+          }
+
+          return {
+            id: String(project._id),
+            title: project.title,
+            module: project.module,
+            description: project.description,
+            since: formatMonthYear(project.date),
+            status: project.status,
+            repoLink: project.repoLink,
+            liveUrl: project.liveUrl,
+            liveLabel,
+            stack: project.tags ?? [],
+            takeaways: project.takeaways ?? [],
+            contributorCount: project.contributors?.length ?? 0,
+          };
+        }),
         events: events.map((event) => ({
           id: String(event._id),
           slug: event.slug,
@@ -561,16 +587,26 @@ export default async function Home({ searchParams }: Props) {
                   <span className={styles.projectText}>
                     {project.description}
                   </span>
-                  {project.takeaways.length > 0 && (
-                    <span className={styles.projectLearned}>
-                      <span className={styles.projectLearnedLabel}>
-                        Picked up along the way
-                      </span>
-                      <span className={styles.projectLearnedList}>
-                        {project.takeaways.join(", ")}
-                      </span>
-                    </span>
-                  )}
+                  <ProjectSheet
+                    project={{
+                      title: project.title,
+                      description: project.description,
+                      moduleLabel: project.module,
+                      accent: tagAccent(project.module),
+                      status: project.status,
+                      since: project.since,
+                      repoLink: project.repoLink,
+                      liveUrl: project.liveUrl,
+                      liveLabel: project.liveLabel,
+                      stack: project.stack,
+                      takeaways: project.takeaways,
+                      contributorCount: project.contributorCount,
+                    }}
+                    triggerClassName={styles.projectLearnMore}
+                  >
+                    Learn more
+                    <Maximize2 size={12} aria-hidden="true" />
+                  </ProjectSheet>
                 </div>
               </Reveal>
             ))}

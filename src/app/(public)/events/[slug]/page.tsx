@@ -280,6 +280,7 @@ export default async function EventDetailPage({ params }: Props) {
                   slug={event.slug}
                   title={event.title}
                   shareText={event.shortDescription || event.title}
+                  completed={status === "Completed"}
                 />
 
                 <div className={styles.organiser}>

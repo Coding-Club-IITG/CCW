@@ -9,9 +9,15 @@ type Props = {
   slug: string;
   title: string;
   shareText: string;
+  completed: boolean;
 };
 
-export default function EventActions({ slug, title, shareText }: Props) {
+export default function EventActions({
+  slug,
+  title,
+  shareText,
+  completed,
+}: Props) {
   const [copied, setCopied] = useState(false);
 
   async function share() {
@@ -35,10 +41,17 @@ export default function EventActions({ slug, title, shareText }: Props) {
 
   return (
     <div className={styles.actions}>
-      <a className={styles.primaryAction} href={`/api/events/${slug}/ics`}>
-        Add to calendar
-        <CalendarPlus size={15} aria-hidden="true" />
-      </a>
+      {completed ? (
+        <button type="button" className={styles.primaryAction} disabled>
+          Add to calendar
+          <CalendarPlus size={15} aria-hidden="true" />
+        </button>
+      ) : (
+        <a className={styles.primaryAction} href={`/api/events/${slug}/ics`}>
+          Add to calendar
+          <CalendarPlus size={15} aria-hidden="true" />
+        </a>
+      )}
       <button type="button" className={styles.secondaryAction} onClick={share}>
         {copied ? "Link copied" : "Share event"}
         {copied ? (

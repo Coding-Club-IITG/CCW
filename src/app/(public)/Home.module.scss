@@ -449,6 +449,14 @@
   padding: 34px clamp(16px, 1.9vw, 28px);
   border-right: 1px solid var(--border);
 
+  &:not(.statBanded)::before {
+    content: "Open to";
+    display: block;
+    margin-bottom: 8px;
+    visibility: hidden;
+    @include micro-label(11px, 0.14em);
+  }
+
   &:last-child {
     border-right: none;
   }
@@ -683,23 +691,27 @@
   color: var(--foreground-secondary);
 }
 
-.projectLearned {
+.projectLearnMore {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   justify-self: end;
-  text-align: right;
-}
-
-.projectLearnedLabel {
-  display: block;
-  margin-bottom: 8px;
+  padding: 9px 13px;
+  border: 1px solid var(--accent, var(--primary));
+  background: var(--nav-surface);
+  color: var(--accent, var(--primary));
+  cursor: pointer;
   @include micro-label(11px, 0.08em);
-  color: var(--foreground-secondary);
-}
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 
-.projectLearnedList {
-  display: block;
-  @include metadata(11.5px);
-  line-height: 1.6;
-  color: var(--primary);
+  &:hover {
+    background: var(--accent, var(--primary));
+    color: var(--background);
+  }
+
+  @include focus-ring;
 }
 
 // Events
@@ -1033,7 +1045,7 @@
     gap: 12px;
   }
 
-  .projectLearned,
+  .projectLearnMore,
   .postMeta {
     justify-self: start;
     text-align: left;

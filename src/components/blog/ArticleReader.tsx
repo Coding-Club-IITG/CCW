@@ -28,6 +28,7 @@ const TEXT_SIZES: Array<{ value: ArticleTextSize; label: string }> = [
 interface OutlineProps {
   headings: MarkdownHeading[];
   activeId: string | null;
+  onSelect: (id: string) => void;
 }
 
 interface TextSizeControlsProps {
@@ -65,7 +66,7 @@ function TextSizeControls({
   );
 }
 
-function Outline({ headings, activeId }: OutlineProps) {
+function Outline({ headings, activeId, onSelect }: OutlineProps) {
   return (
     <ol className={styles.outlineList}>
       {headings.map((heading) => (
@@ -74,6 +75,7 @@ function Outline({ headings, activeId }: OutlineProps) {
             href={`#${heading.id}`}
             className={heading.id === activeId ? styles.activeLink : undefined}
             aria-current={heading.id === activeId ? "location" : undefined}
+            onClick={() => onSelect(heading.id)}
           >
             {heading.text}
           </a>
@@ -93,6 +95,7 @@ export default function ArticleReader({
     headings[0]?.id ?? null,
   );
   const contentRef = useRef<HTMLDivElement>(null);
+  const selectedHeadingRef = useRef<string | null>(null);
 
   useEffect(() => {
     try {
@@ -127,21 +130,62 @@ export default function ArticleReader({
           ? [{ id, top: element.getBoundingClientRect().top }]
           : [];
       });
-      setActiveId(findActiveHeading(positions, 140));
+      const selectedHeading = selectedHeadingRef.current;
+      const selectedHeadingExists = positions.some(
+        ({ id }) => id === selectedHeading,
+      );
+      setActiveId(
+        selectedHeading && selectedHeadingExists
+          ? selectedHeading
+          : findActiveHeading(positions, 140),
+      );
     };
     const scheduleUpdate = () => {
       if (!frame) frame = window.requestAnimationFrame(updateReaderState);
+    };
+    const resumeAutomaticTracking = () => {
+      selectedHeadingRef.current = null;
+      scheduleUpdate();
+    };
+    const resumeAutomaticTrackingFromKey = (event: KeyboardEvent) => {
+      if (
+        [
+          "ArrowUp",
+          "ArrowDown",
+          "PageUp",
+          "PageDown",
+          "Home",
+          "End",
+          " ",
+        ].includes(event.key)
+      ) {
+        resumeAutomaticTracking();
+      }
     };
 
     updateReaderState();
     window.addEventListener("scroll", scheduleUpdate, { passive: true });
     window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("wheel", resumeAutomaticTracking, {
+      passive: true,
+    });
+    window.addEventListener("touchstart", resumeAutomaticTracking, {
+      passive: true,
+    });
+    window.addEventListener("pointerdown", resumeAutomaticTracking, {
+      passive: true,
+    });
+    window.addEventListener("keydown", resumeAutomaticTrackingFromKey);
     const resizeObserver = new ResizeObserver(scheduleUpdate);
     if (contentRef.current) resizeObserver.observe(contentRef.current);
 
     return () => {
       window.removeEventListener("scroll", scheduleUpdate);
       window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("wheel", resumeAutomaticTracking);
+      window.removeEventListener("touchstart", resumeAutomaticTracking);
+      window.removeEventListener("pointerdown", resumeAutomaticTracking);
+      window.removeEventListener("keydown", resumeAutomaticTrackingFromKey);
       resizeObserver.disconnect();
       if (frame) window.cancelAnimationFrame(frame);
     };
@@ -154,6 +198,11 @@ export default function ArticleReader({
     } catch {
       // The selected size still applies for the current page view.
     }
+  };
+
+  const selectHeading = (id: string) => {
+    selectedHeadingRef.current = id;
+    setActiveId(id);
   };
 
   return (
@@ -198,12 +247,20 @@ export default function ArticleReader({
                 aria-label="Table of contents"
               >
                 <p className={styles.outlineTitle}>On this page</p>
-                <Outline headings={headings} activeId={activeId} />
+                <Outline
+                  headings={headings}
+                  activeId={activeId}
+                  onSelect={selectHeading}
+                />
               </nav>
               <details className={styles.mobileOutline}>
                 <summary>On this page</summary>
                 <nav aria-label="Table of contents">
-                  <Outline headings={headings} activeId={activeId} />
+                  <Outline
+                    headings={headings}
+                    activeId={activeId}
+                    onSelect={selectHeading}
+                  />
                 </nav>
               </details>
             </div>

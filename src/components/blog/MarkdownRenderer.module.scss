@@ -7,8 +7,6 @@
   h1[id],
   h2[id],
   h3[id] {
-    scroll-margin-top: 5.5rem;
-
     &:hover .headingCopy,
     &:focus-within .headingCopy {
       opacity: 1;

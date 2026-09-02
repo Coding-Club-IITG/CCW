@@ -167,6 +167,8 @@
   justify-content: center;
   gap: 9px;
   padding: 15px;
+  border: 0;
+  font-family: inherit;
   font-size: 14.5px;
   cursor: pointer;
   @include focus-ring;
@@ -180,13 +182,18 @@
   &:hover {
     background: var(--primary-hover);
   }
+
+  &:disabled {
+    background: var(--primary);
+    opacity: 0.48;
+    cursor: not-allowed;
+  }
 }
 
 .secondaryAction {
   border: 1px solid var(--border-input);
   background: none;
   color: var(--foreground-strong);
-  font-family: inherit;
   font-weight: 600;
 
   &:hover {
