@@ -626,6 +626,9 @@ export const reconciliationWorker = new Worker<
         currentProblemIndex: 0,
         firstSolvers: [],
       });
+      const pointsFor = (problemId: string, rating?: number) =>
+        contest.problemSlots?.find((slot) => slot.problemId === problemId)
+          ?.points ?? Math.floor((rating || 1000) / 10);
 
       const problemSet = new ContestProblemSet({
         contestId: contest._id,
@@ -635,7 +638,7 @@ export const reconciliationWorker = new Worker<
           problemId: problem.problemId,
           name: problem.name,
           rating: problem.rating,
-          points: Math.floor((problem.rating || 1000) / 10),
+          points: pointsFor(problem.problemId, problem.rating),
         })),
       });
 
@@ -664,7 +667,7 @@ export const reconciliationWorker = new Worker<
           problemId: problem.problemId,
           name: problem.name,
           rating: problem.rating,
-          points: Math.floor((problem.rating || 1000) / 10),
+          points: pointsFor(problem.problemId, problem.rating),
           revealedAt: null,
         }),
       );
@@ -776,6 +779,11 @@ export const reconciliationWorker = new Worker<
 
       // Schedule a ready_timeout to cancel if players don't ready up in time
       const timeoutMins = workerEnv.ROOM_READY_TIMEOUT_MINUTES;
+      const readyDeadline = Date.now() + timeoutMins * 60_000;
+      await publishRoom(roomId, {
+        type: "room.ready_deadline",
+        deadline: readyDeadline,
+      });
       const { reconciliationQueue } = await import("@/lib/contests/queues");
       await reconciliationQueue.add(
         "ready_timeout",
@@ -929,9 +937,18 @@ export const reconciliationWorker = new Worker<
       // Fetch teams from Redis before cleanup
       const completedTeams = await redis.sMembers(`room:${roomId}:teams`);
       if (completedTeams.length === 0) {
-        logger.info(
-          `[reconciliationWorker] room_completed: no teams found in Redis for room ${roomId}. Already processed?`,
-        );
+        const existingSubmissionCount = await ContestSubmission.countDocuments({
+          roomId,
+        });
+        if (existingSubmissionCount > 0) {
+          logger.info(
+            `[reconciliationWorker] room_completed: room ${roomId} already processed (${existingSubmissionCount} durable submissions found).`,
+          );
+        } else {
+          logger.error(
+            `[reconciliationWorker] room_completed: room ${roomId} has no Redis data and no durable submissions; manual investigation required.`,
+          );
+        }
         return;
       }
 
@@ -950,22 +967,49 @@ export const reconciliationWorker = new Worker<
         "-",
         "+",
       );
+      const failedSubmissionIds: string[] = [];
       for (const sub of completedSubs) {
-        const data = JSON.parse(sub.message.data);
-        const submission = new ContestSubmission({
-          roomId,
-          contestId,
-          userId: data.userId,
-          teamId: data.teamId,
-          problemId: data.problemId,
-          platform: "codeforces",
-          submissionId: data.cfSubmissionId,
-          verdict: data.verdict,
-          points: data.points,
-          solveMs: data.solveMs,
-          submittedAt: new Date(data.cfTimestamp || Date.now()),
-        });
-        await submission.save();
+        try {
+          const data = contestSubmissionEventSchema.parse(
+            JSON.parse(sub.message.data),
+          );
+          await ContestSubmission.updateOne(
+            {
+              roomId,
+              platform: "codeforces",
+              submissionId: String(data.cfSubmissionId),
+            },
+            {
+              $setOnInsert: {
+                contestId,
+                roomId,
+                userId: data.userId,
+                teamId: data.teamId,
+                problemId: data.problemId,
+                platform: "codeforces",
+                submissionId: String(data.cfSubmissionId),
+                verdict: data.verdict,
+                accepted: data.verdict === "OK",
+                points: data.points,
+                solveMs: data.solveMs,
+                submittedAt: new Date(data.cfTimestamp),
+              },
+            },
+            { upsert: true },
+          );
+        } catch (error) {
+          failedSubmissionIds.push(sub.id);
+          logger.error(
+            `[reconciliationWorker] Failed to persist submission ${sub.id} for room ${roomId}`,
+            { roomId, streamEntryId: sub.id, error },
+          );
+        }
+      }
+      if (failedSubmissionIds.length > 0) {
+        logger.error(
+          `[reconciliationWorker] room_completed: ${failedSubmissionIds.length}/${completedSubs.length} submissions failed to persist.`,
+          { roomId, failedSubmissionIds },
+        );
       }
 
       // Finally, update the room status to "ended"
@@ -1008,7 +1052,10 @@ export const reconciliationWorker = new Worker<
             // Contest-level keys (contest:${contestId}:meta, contest:${contestId}:rooms) must persist
             // until the entire tournament is finished (handled by advanceWinner / checkRoundCompletion).
             const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
-            if (completedRoomKeys.length > 0)
+            if (
+              completedRoomKeys.length > 0 &&
+              failedSubmissionIds.length === 0
+            )
               await redis.del(completedRoomKeys);
             for (const tId of completedTeams) {
               await redis.del(`team:${tId}:meta`);
@@ -1026,7 +1073,7 @@ export const reconciliationWorker = new Worker<
           const totalRooms = await ContestRoom.countDocuments({ contestId });
           const endedRooms = await ContestRoom.countDocuments({
             contestId,
-            status: { $in: ["ended", "completed"] },
+            status: "ended",
           });
           if (totalRooms > 0 && totalRooms === endedRooms) {
             await ContestMatch.findByIdAndUpdate(contestId, {
@@ -1042,7 +1089,7 @@ export const reconciliationWorker = new Worker<
 
       // Non-bracket: clean up room-scoped, team-scoped, and contest-scoped keys
       const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
-      if (completedRoomKeys.length > 0) {
+      if (completedRoomKeys.length > 0 && failedSubmissionIds.length === 0) {
         await redis.del(completedRoomKeys);
       }
       for (const tId of completedTeams) {
@@ -1183,25 +1230,43 @@ export const reconciliationWorker = new Worker<
       "-",
       "+",
     );
+    const failedSubmissionIds: string[] = [];
     for (const sub of submissions) {
-      const data = contestSubmissionEventSchema.parse(
-        JSON.parse(sub.message.data),
-      );
-      // Construct and save ContestSubmission
-      const submission = new ContestSubmission({
-        roomId,
-        contestId,
-        userId: data.userId,
-        teamId: data.teamId,
-        problemId: data.problemId,
-        platform: "codeforces",
-        submissionId: data.cfSubmissionId,
-        verdict: data.verdict,
-        points: data.points,
-        solveMs: data.solveMs,
-        submittedAt: new Date(data.cfTimestamp || Date.now()),
-      });
-      await submission.save();
+      try {
+        const data = contestSubmissionEventSchema.parse(
+          JSON.parse(sub.message.data),
+        );
+        await ContestSubmission.updateOne(
+          {
+            roomId,
+            platform: "codeforces",
+            submissionId: String(data.cfSubmissionId),
+          },
+          {
+            $setOnInsert: {
+              contestId,
+              roomId,
+              userId: data.userId,
+              teamId: data.teamId,
+              problemId: data.problemId,
+              platform: "codeforces",
+              submissionId: String(data.cfSubmissionId),
+              verdict: data.verdict,
+              accepted: data.verdict === "OK",
+              points: data.points,
+              solveMs: data.solveMs,
+              submittedAt: new Date(data.cfTimestamp),
+            },
+          },
+          { upsert: true },
+        );
+      } catch (error) {
+        failedSubmissionIds.push(sub.id);
+        logger.error(
+          `[reconciliationWorker] Failed to persist submission ${sub.id} for room ${roomId}`,
+          { roomId, streamEntryId: sub.id, error },
+        );
+      }
     }
 
     // 4. Finalise ContestProblemSet
@@ -1233,7 +1298,7 @@ export const reconciliationWorker = new Worker<
         const totalRooms = await ContestRoom.countDocuments({ contestId });
         const endedRooms = await ContestRoom.countDocuments({
           contestId,
-          status: { $in: ["ended", "completed"] },
+          status: "ended",
         });
 
         if (totalRooms > 0 && totalRooms === endedRooms) {
@@ -1262,7 +1327,7 @@ export const reconciliationWorker = new Worker<
 
     // 5. Clean up Redis
     const keys = await redis.keys(`room:${roomId}:*`);
-    if (keys.length > 0) {
+    if (keys.length > 0 && failedSubmissionIds.length === 0) {
       await redis.del(keys);
     }
 

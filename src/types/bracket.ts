@@ -11,6 +11,7 @@ export type BracketNode = {
   status: "pending" | "waiting" | "active" | "completed" | "bye";
   winner: string | null;
   bracketPosition: BracketPosition;
+  isThirdPlacePlayoff?: boolean;
 };
 
 export type BracketSnapshot = {
@@ -18,6 +19,7 @@ export type BracketSnapshot = {
   currentRound: number;
   totalRounds: number;
   nodes: BracketNode[];
+  thirdPlacePlayoff?: BracketNode;
 };
 
 export const ROUND_NAMES: Record<number, string> = {

@@ -276,8 +276,12 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
   const isWaiting = node.status === "waiting";
   const isPending = !isCompleted && !isActive && !isWaiting && !isBye;
 
-  const roundName = getRoundName(node.roundNumber, totalRounds);
-  const matchLabel = `${roundName === "Final" || roundName.startsWith("Semi") ? roundName.replace("s", "") : roundName} ${node.matchIndex + 1}`;
+  const roundName = node.isThirdPlacePlayoff
+    ? "Third-Place Playoff"
+    : getRoundName(node.roundNumber, totalRounds);
+  const matchLabel = node.isThirdPlacePlayoff
+    ? roundName
+    : `${roundName === "Final" || roundName.startsWith("Semi") ? roundName.replace("s", "") : roundName} ${node.matchIndex + 1}`;
 
   const winnerId = node.winner;
   const t1Win = Boolean(isCompleted && t1 && t1 === winnerId);
@@ -368,16 +372,18 @@ function MatchSidePanel({
   totalRounds: number;
   onClose: () => void;
   contestId: string;
-  data?: { currentUserTeamId?: string | null };
+  data?: { currentUserTeamIds?: string[] };
 }) {
   const router = useRouter();
   const [prevNode, setPrevNode] = useState<BracketNode | null>(node);
   const [displayNode, setDisplayNode] = useState<BracketNode | null>(node);
 
-  // Accept currentUserTeamId to determine if the user is a participant
-  const { currentUserTeamId } = data || {};
-  const isParticipant =
-    currentUserTeamId && displayNode?.teams.includes(currentUserTeamId);
+  // A team is copied into a new record when it advances to the next round.
+  // Check every team record belonging to this user, not only their first-round one.
+  const currentUserTeamIds = data?.currentUserTeamIds ?? [];
+  const isParticipant = currentUserTeamIds.some((teamId) =>
+    displayNode?.teams.includes(teamId),
+  );
 
   if (node !== prevNode) {
     setPrevNode(node);
@@ -621,12 +627,12 @@ export default function BracketRoomClient({
   contest,
   initialSnapshot,
   userId,
-  currentUserTeamId,
+  currentUserTeamIds = [],
 }: {
   contest: ContestListingItem;
   initialSnapshot: BracketSnapshot;
   userId?: string;
-  currentUserTeamId?: string | null;
+  currentUserTeamIds?: string[];
 }) {
   const [selectedNode, setSelectedNode] = useState<BracketNode | null>(null);
   const [snapshot, setSnapshot] = useState<BracketSnapshot>(initialSnapshot);
@@ -752,6 +758,15 @@ export default function BracketRoomClient({
         }
       });
     }
+    if (snapshot.thirdPlacePlayoff) {
+      const nd = snapshot.thirdPlacePlayoff;
+      flowNodes.push({
+        id: nd.roomId,
+        type: "matchNode",
+        position: { x: snapshot.totalRounds * X_GAP, y: Y_GAP * 1.5 },
+        data: { node: nd, totalRounds: snapshot.totalRounds, openMatchDetails },
+      });
+    }
     return { nodes: flowNodes, edges: flowEdges };
   }, [snapshot, openMatchDetails]);
 
@@ -819,7 +834,7 @@ export default function BracketRoomClient({
         totalRounds={snapshot.totalRounds}
         onClose={closeSidebar}
         contestId={contest._id.toString()}
-        data={{ currentUserTeamId }}
+        data={{ currentUserTeamIds }}
       />
     </div>
   );

@@ -24,6 +24,10 @@ export interface IContestPreset extends Document {
 const ProblemSlotSchema = new Schema<IProblemSlot>({
   platform: { type: String, required: true },
   rating: { type: Number, required: true },
+  problemId: { type: String },
+  roundNumber: { type: Number },
+  points: { type: Number, min: 0 },
+  timeLimitSeconds: { type: Number, min: 1 },
 });
 
 const ContestPresetSchema = new Schema<IContestPreset>(

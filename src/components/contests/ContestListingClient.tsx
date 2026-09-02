@@ -10,6 +10,7 @@ import {
   CalendarX,
   CircleCheck,
   Clock,
+  Eye,
   History,
   ListFilter,
   Medal,
@@ -361,11 +362,19 @@ export default function ContestListingClient({
                       ) : (
                         <>
                           <div className={styles.notRegistered}>
-                            Not registered
+                            <Link
+                              href={`/internal/contests/${contest._id}`}
+                              className={styles.spectateBtn}
+                            >
+                              <Eye className={styles.icon16} size={16} />
+                              Spectate
+                            </Link>
                           </div>
                           <div className={styles.inProgressBadge}>
                             <Clock className={styles.icon16} size={16} />
-                            In Progress
+                            {contest.format === "bracket"
+                              ? "Bracket Live"
+                              : "In Progress"}
                           </div>
                         </>
                       )}

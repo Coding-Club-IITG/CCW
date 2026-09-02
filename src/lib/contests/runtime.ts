@@ -160,6 +160,21 @@ export const roomEventSchema = z.discriminatedUnion("type", [
     .passthrough(),
   z
     .object({
+      type: z.literal("room.ready_deadline"),
+      deadline: z.number(),
+    })
+    .passthrough(),
+  z
+    .object({
+      type: z.literal("room.submission_attempt"),
+      teamId: z.string().min(1),
+      problemId: z.string().min(1),
+      verdict: z.string().min(1),
+      accepted: z.boolean(),
+    })
+    .passthrough(),
+  z
+    .object({
       type: z.literal("team.withdrawn"),
       teamId: z.string().min(1),
     })

@@ -19,6 +19,31 @@ export async function publishRoom(
   );
 }
 
+export async function publishRoomActivity(params: {
+  roomId: string;
+  contestId: string;
+  icon: string;
+  text: string;
+  color: string;
+  actorUserId?: string;
+  actorTeamId?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const dbConnect = (await import("@/lib/mongodb")).default;
+    const ContestRoomActivity = (await import("@/models/ContestRoomActivity"))
+      .default;
+    await dbConnect();
+    await ContestRoomActivity.create(params);
+  } catch (error) {
+    const { logger } = await import("@/lib/utils");
+    logger.error("[publishRoomActivity] Failed to persist activity", {
+      roomId: params.roomId,
+      error,
+    });
+  }
+}
+
 export async function publishContest(
   contestId: string,
   event: ContestEvent,

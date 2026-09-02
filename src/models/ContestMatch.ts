@@ -5,6 +5,8 @@ export interface IProblemSlot {
   rating?: number;
   problemId?: string;
   roundNumber?: number;
+  points?: number;
+  timeLimitSeconds?: number;
 }
 
 export interface IRegistration {
@@ -62,6 +64,8 @@ const ProblemSlotSchema = new Schema<IProblemSlot>({
   rating: { type: Number },
   problemId: { type: String },
   roundNumber: { type: Number },
+  points: { type: Number, min: 0 },
+  timeLimitSeconds: { type: Number, min: 1 },
 });
 
 const RegistrationSchema = new Schema<IRegistration>({

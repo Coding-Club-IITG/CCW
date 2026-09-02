@@ -132,6 +132,15 @@ async function createBracketContestAction(input: unknown) {
 
   await dbConnect();
 
+  const deadlineMinutesCheck = webEnv.REGISTRATION_DEADLINE_MINUTES;
+  const minStartMs = Date.now() + (deadlineMinutesCheck + 1) * 60_000;
+  if (new Date(data.startTime).getTime() < minStartMs) {
+    return appError(
+      "VALIDATION_ERROR",
+      `Start time must be at least ${deadlineMinutesCheck + 1} minutes in the future.`,
+    );
+  }
+
   let presetId = undefined;
   let problemSelectionMode = data.problemSelectionMode;
   let bulkPlatform = data.bulkPlatform || "codeforces";
@@ -181,6 +190,8 @@ async function createBracketContestAction(input: unknown) {
               platform: slot.platform,
               problemId: slot.problemId,
               roundNumber: slot.roundNumber,
+              points: slot.points,
+              timeLimitSeconds: slot.timeLimitSeconds,
             }));
   }
 

@@ -4,12 +4,15 @@ import { publishContest } from "@/lib/contests/events";
 import dbConnect from "@/lib/mongodb";
 import { getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
-import ContestMatch, { type IProblemSlot } from "@/models/ContestMatch";
+import ContestMatch, {
+  type IContestMatch,
+  type IProblemSlot,
+} from "@/models/ContestMatch";
 import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestQuestion from "@/models/ContestQuestion";
 import ContestRound, { type IContestRound } from "@/models/ContestRound";
-import ContestRoom from "@/models/ContestRoom";
-import ContestTeam from "@/models/ContestTeam";
+import ContestRoom, { type IContestRoom } from "@/models/ContestRoom";
+import ContestTeam, { type IContestTeam } from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
 import User, { type UserRecord } from "@/models/User";
 import {
@@ -42,6 +45,85 @@ async function runOrDeferEffect(
 
 function toStr(id: mongoose.Types.ObjectId | string): string {
   return typeof id === "string" ? id : id.toString();
+}
+
+async function addTeamToRoom(
+  room: IContestRoom,
+  sourceTeam: IContestTeam,
+  contest: IContestMatch,
+  round: IContestRound,
+  deferredEffects?: DeferredBracketEffect[],
+) {
+  const newTeam = await ContestTeam.create({
+    roomId: room._id,
+    name: sourceTeam.name,
+    members: sourceTeam.members,
+    teamSize: sourceTeam.teamSize,
+    score: 0,
+    contestId: contest._id,
+    roundId: round._id,
+  });
+  await ContestRoom.findByIdAndUpdate(room._id, {
+    $addToSet: { teams: newTeam._id },
+  });
+  const updatedRoom = await ContestRoom.findById(room._id);
+  if (updatedRoom && updatedRoom.teams.length === 2) {
+    const teams = await ContestTeam.find({ roomId: room._id }).lean();
+    updatedRoom.participants = teams.flatMap((team) => team.members);
+    updatedRoom.status = "waiting";
+    await updatedRoom.save();
+    await runOrDeferEffect(deferredEffects, async () => {
+      await initBracketRoomRedis(
+        await getRedis(),
+        toStr(room._id),
+        contest.mode || "blitz",
+        teams,
+        contest.durationSeconds || 3600,
+        toStr(contest._id),
+      );
+    });
+  }
+  return newTeam;
+}
+
+async function completeContestIfReady(
+  contest: IContestMatch,
+  deferredEffects?: DeferredBracketEffect[],
+) {
+  const rounds = await ContestRound.find({ contestId: contest._id });
+  const finalRound = rounds.find(
+    (round) => !round.isThirdPlacePlayoff && round.name === "Final",
+  );
+  const finalRoom =
+    finalRound &&
+    (await ContestRoom.findOne({ _id: { $in: finalRound.rooms } }));
+  const playoffRound = rounds.find((round) => round.isThirdPlacePlayoff);
+  const playoffRoom =
+    playoffRound &&
+    (await ContestRoom.findOne({ _id: { $in: playoffRound.rooms } }));
+  if (
+    !finalRoom ||
+    finalRoom.status !== "ended" ||
+    (playoffRoom && playoffRoom.status !== "ended")
+  )
+    return false;
+
+  const finalTeams = await ContestTeam.find({ roomId: finalRoom._id });
+  const winner = finalTeams.reduce(
+    (best, team) => (!best || team.score > best.score ? team : best),
+    null as (typeof finalTeams)[number] | null,
+  );
+  if (!winner) return false;
+  contest.winner = winner._id;
+  contest.winnerName = winner.name || "";
+  contest.status = "completed";
+  await contest.save();
+  await runOrDeferEffect(deferredEffects, async () => {
+    const redis = await getRedis();
+    const keys = await redis.keys(`contest:${toStr(contest._id)}:*`);
+    if (keys.length > 0) await redis.del(keys);
+  });
+  return true;
 }
 
 /**
@@ -129,6 +211,10 @@ export async function generateBracket(
 
   const bracketSize = nextPowerOf2(seededTeams.length);
   const totalRounds = Math.log2(bracketSize);
+  const shouldHaveThirdPlacePlayoff =
+    Boolean(contest.bracketSettings?.thirdPlacePlayoff) &&
+    totalRounds >= 2 &&
+    seededTeams.length >= 4;
 
   const seededOrder = snakeSeed(
     seededTeams.map((t, i) => ({ teamId: t.teamName, seed: i + 1 })),
@@ -170,7 +256,7 @@ export async function generateBracket(
 
   let bulkProblemPool: BracketProblem[] = [];
   if (contest.problemSelectionMode === "bulk") {
-    const totalRooms = bracketSize - 1;
+    const totalRooms = bracketSize - 1 + (shouldHaveThirdPlacePlayoff ? 1 : 0);
     const totalProblemsNeeded = totalRooms * problemCount;
     const excludeIds = solvedProblemIds ? Array.from(solvedProblemIds) : [];
     bulkProblemPool = await ContestQuestion.aggregate<BracketProblem>([
@@ -371,6 +457,77 @@ export async function generateBracket(
     roundIndex++;
   }
 
+  // The bronze match is deliberately kept out of the elimination round chain.
+  // It is populated by the losers of the two semi-finals once those matches end.
+  if (shouldHaveThirdPlacePlayoff) {
+    const playoffRound = await ContestRound.create({
+      contestId: contest._id,
+      roundNumber: totalRounds + 1,
+      name: "Third Place Playoff",
+      status: "pending",
+      rooms: [],
+      bracketLevel: "third_place",
+      isThirdPlacePlayoff: true,
+    });
+    const playoffRoom = await ContestRoom.create({
+      contestId: contest._id,
+      name: "Third Place Playoff",
+      status: "pending",
+      participants: [],
+      teams: [],
+      currentRoundId: playoffRound._id,
+      currentProblemIndex: 0,
+      firstSolvers: [],
+      bracketPosition: "third-place",
+    });
+    playoffRound.rooms = [playoffRoom._id];
+    await playoffRound.save();
+    allRoomIds.push(toStr(playoffRoom._id));
+
+    let assignedProblems: BracketProblem[] = [];
+    if (contest.problemSelectionMode === "fine-tuned") {
+      assignedProblems = fineTunedPool
+        .filter((problem) => problem.roundNumber === totalRounds + 1)
+        .slice(0, problemCount);
+    } else if (contest.problemSelectionMode === "bulk") {
+      assignedProblems = bulkProblemPool.splice(0, problemCount);
+    } else if (contest.problemSelectionMode === "test") {
+      assignedProblems = [
+        { problemId: "4A", name: "Watermelon", rating: 800 },
+        { problemId: "1A", name: "Theatre Square", rating: 1000 },
+        { problemId: "158A", name: "Next Round", rating: 800 },
+      ].slice(0, problemCount);
+    }
+    if (assignedProblems.length > 0) {
+      await ContestProblemSet.create({
+        contestId: contest._id,
+        roomId: playoffRoom._id,
+        problems: assignedProblems.map((problem) => ({
+          platform: "codeforces",
+          problemId: problem.problemId,
+          name: problem.name || problem.problemId,
+          rating: problem.rating || 0,
+          points: Math.floor((problem.rating || 1000) / 10),
+        })),
+      });
+      const redisProblems = assignedProblems.map((problem) =>
+        JSON.stringify({
+          problemId: problem.problemId,
+          name: problem.name || problem.problemId,
+          rating: problem.rating || 0,
+          points: Math.floor((problem.rating || 1000) / 10),
+          revealedAt: null,
+        }),
+      );
+      const playoffRoomId = toStr(playoffRoom._id);
+      await runOrDeferEffect(deferredEffects, async () => {
+        const redis = await getRedis();
+        await redis.del(`room:${playoffRoomId}:problems`);
+        await redis.rPush(`room:${playoffRoomId}:problems`, redisProblems);
+      });
+    }
+  }
+
   await runOrDeferEffect(deferredEffects, async () => {
     const redis = await getRedis();
     await redis.hSet(`contest:${contestId}:meta`, {
@@ -547,19 +704,62 @@ export async function advanceWinner(
 
   const matchIndex = parseInt(bracketPos.split("-")[1], 10);
 
+  if (currentRound.isThirdPlacePlayoff) {
+    await completeContestIfReady(contest, deferredEffects);
+    await runOrDeferEffect(deferredEffects, async () => {
+      const snapshot = await getBracketSnapshot(contestId);
+      await publishContest(contestId, {
+        type: "contest.bracket_update",
+        ...snapshot,
+      });
+    });
+    return;
+  }
+
+  // Semi-final losers feed the bronze match; winners continue through the main bracket.
+  const mainRounds = await ContestRound.countDocuments({
+    contestId,
+    isThirdPlacePlayoff: { $ne: true },
+  });
+  if (
+    contest.bracketSettings?.thirdPlacePlayoff &&
+    mainRounds >= 2 &&
+    currentRound.roundNumber === mainRounds - 1
+  ) {
+    const losingTeamId = room.teams
+      .map(toStr)
+      .find((teamId) => teamId !== winnerTeamId);
+    const playoffRound = await ContestRound.findOne({
+      contestId,
+      isThirdPlacePlayoff: true,
+    });
+    const playoffRoom =
+      playoffRound &&
+      (await ContestRoom.findOne({ _id: { $in: playoffRound.rooms } }));
+    if (losingTeamId && playoffRound && playoffRoom) {
+      const losingTeam = await ContestTeam.findById(losingTeamId);
+      if (losingTeam)
+        await addTeamToRoom(
+          playoffRoom,
+          losingTeam,
+          contest,
+          playoffRound,
+          deferredEffects,
+        );
+    }
+  }
+
   const nextRound = await ContestRound.findOne({
     contestId,
     roundNumber: currentRound.roundNumber + 1,
+    isThirdPlacePlayoff: { $ne: true },
   });
   if (!nextRound) {
-    contest.winner = new mongoose.Types.ObjectId(winnerTeamId);
-    contest.status = "completed";
-    const winnerTeamDoc = await ContestTeam.findById(winnerTeamId);
-    contest.winnerName = winnerTeamDoc?.name || "";
-    await contest.save();
-    logger.info(
-      `[Bracket] Contest ${contestId} completed. Winner: ${winnerTeamId}`,
-    );
+    const completed = await completeContestIfReady(contest, deferredEffects);
+    if (completed)
+      logger.info(
+        `[Bracket] Contest ${contestId} completed. Winner: ${winnerTeamId}`,
+      );
 
     await runOrDeferEffect(deferredEffects, async () => {
       const finalSnapshot = await getBracketSnapshot(contestId);
@@ -577,11 +777,6 @@ export async function advanceWinner(
       });
     });
 
-    await runOrDeferEffect(deferredEffects, async () => {
-      const redis = await getRedis();
-      const keys = await redis.keys(`contest:${contestId}:*`);
-      if (keys.length > 0) await redis.del(keys);
-    });
     return;
   }
 
@@ -603,50 +798,13 @@ export async function advanceWinner(
     return;
   }
 
-  const newTeam = await ContestTeam.create({
-    roomId: nextRoom._id,
-    name: winnerTeamDoc.name,
-    members: winnerTeamDoc.members,
-    teamSize: winnerTeamDoc.teamSize,
-    score: 0,
-    contestId: contest._id,
-    roundId: nextRound._id,
-  });
-
-  await ContestRoom.findByIdAndUpdate(nextRoom._id, {
-    $addToSet: { teams: newTeam._id },
-  });
-
-  const updatedRoom = await ContestRoom.findById(nextRoom._id);
-  if (updatedRoom && updatedRoom.teams.length === 2) {
-    // Populate participants so SSE presence system can track the room
-    const allAdvancedTeamDocs = await ContestTeam.find({
-      roomId: nextRoom._id,
-    }).lean();
-    const allAdvancedMemberIds = allAdvancedTeamDocs.flatMap((t) => t.members);
-    updatedRoom.participants = allAdvancedMemberIds;
-    updatedRoom.status = "waiting";
-    await updatedRoom.save();
-
-    // Initialise Redis state for the next round room
-    const nextRoomId = toStr(nextRoom._id);
-    const contestMode = contest.mode || "blitz";
-    const durationSeconds = contest.durationSeconds || 3600;
-    await runOrDeferEffect(deferredEffects, async () => {
-      await initBracketRoomRedis(
-        await getRedis(),
-        nextRoomId,
-        contestMode,
-        allAdvancedTeamDocs,
-        durationSeconds,
-        contestId,
-      );
-    });
-
-    logger.info(
-      `[Bracket] Next room ${nextRoom._id} is now ready with 2 teams`,
-    );
-  }
+  await addTeamToRoom(
+    nextRoom,
+    winnerTeamDoc,
+    contest,
+    nextRound,
+    deferredEffects,
+  );
 
   await runOrDeferEffect(deferredEffects, async () => {
     await publishContest(contestId, {
@@ -748,6 +906,7 @@ export async function checkRoundCompletion(
     const nextRound = await ContestRound.findOne({
       contestId,
       roundNumber: roundNumber + 1,
+      isThirdPlacePlayoff: { $ne: true },
     });
     if (nextRound) {
       nextRound.status = "active";
@@ -755,7 +914,7 @@ export async function checkRoundCompletion(
       logger.info(
         `[Bracket] Round ${roundNumber} complete. Advancing to round ${roundNumber + 1}`,
       );
-    } else {
+    } else if (contest.status === "completed") {
       logger.info(`[Bracket] Contest ${contestId} fully completed.`);
       await runOrDeferEffect(deferredEffects, async () => {
         const redisClient = await getRedis();
@@ -775,9 +934,10 @@ export async function getBracketSnapshot(
   const contest = await ContestMatch.findById(contestId);
   if (!contest) throw new Error("Contest not found");
 
-  const rounds = await ContestRound.find({ contestId }).sort({
+  const allRounds = await ContestRound.find({ contestId }).sort({
     roundNumber: 1,
   });
+  const rounds = allRounds.filter((round) => !round.isThirdPlacePlayoff);
   const totalRounds = rounds.length;
   const currentRound = parseInt(
     (await (
@@ -787,8 +947,9 @@ export async function getBracketSnapshot(
   );
 
   const nodes: BracketNode[] = [];
+  let thirdPlacePlayoff: BracketNode | undefined;
 
-  for (const round of rounds) {
+  for (const round of allRounds) {
     const rooms = await ContestRoom.find({ _id: { $in: round.rooms } }).sort({
       createdAt: 1,
     });
@@ -845,7 +1006,7 @@ export async function getBracketSnapshot(
         status = "waiting";
       }
 
-      nodes.push({
+      const node: BracketNode = {
         roomId: toStr(room._id),
         roundNumber: round.roundNumber,
         matchIndex: rooms.indexOf(room),
@@ -856,11 +1017,14 @@ export async function getBracketSnapshot(
         status,
         winner,
         bracketPosition: room.bracketPosition || "",
-      });
+        isThirdPlacePlayoff: Boolean(round.isThirdPlacePlayoff),
+      };
+      if (round.isThirdPlacePlayoff) thirdPlacePlayoff = node;
+      else nodes.push(node);
     }
   }
 
-  return { contestId, currentRound, totalRounds, nodes };
+  return { contestId, currentRound, totalRounds, nodes, thirdPlacePlayoff };
 }
 
 export async function processWalkover(

@@ -53,6 +53,16 @@ export default function ContestProblemConfiguration({
       while (problemIds.length > requiredProblemCount) problemIds.pop();
       syncedBracketRounds.push({ roundNumber, problemIds });
     }
+    if (form.thirdPlacePlayoff && bracketRoundCount >= 2) {
+      const roundNumber = bracketRoundCount + 1;
+      const existing = bracketRoundProblems.find(
+        (round) => round.roundNumber === roundNumber,
+      );
+      const problemIds = existing ? [...existing.problemIds] : [];
+      while (problemIds.length < problemsPerMatch) problemIds.push("");
+      while (problemIds.length > problemsPerMatch) problemIds.pop();
+      syncedBracketRounds.push({ roundNumber, problemIds });
+    }
 
     if (
       JSON.stringify(syncedBracketRounds) !==
@@ -63,6 +73,7 @@ export default function ContestProblemConfiguration({
   }
 
   const getRoundLabel = (roundNumber: number) => {
+    if (roundNumber === bracketRoundCount + 1) return "Third-Place Playoff";
     if (roundNumber === bracketRoundCount) return "Final";
     if (roundNumber === bracketRoundCount - 1) return "Semi-Finals";
     if (roundNumber === bracketRoundCount - 2) return "Quarter-Finals";

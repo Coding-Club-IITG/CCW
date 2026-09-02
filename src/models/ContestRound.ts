@@ -7,6 +7,7 @@ export interface IContestRound extends Document {
   status: "pending" | "active" | "completed";
   rooms: mongoose.Types.ObjectId[];
   bracketLevel?: string;
+  isThirdPlacePlayoff?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +30,7 @@ const ContestRoundSchema = new Schema<IContestRound>(
     },
     rooms: [{ type: Schema.Types.ObjectId, ref: "ContestRoom" }],
     bracketLevel: { type: String },
+    isThirdPlacePlayoff: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

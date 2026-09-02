@@ -137,6 +137,9 @@ export function getMaxParticipantsError(
   if (form.format === "team-tournament" && form.maxParticipants < 6) {
     return "At least 6 participants required (2 teams).";
   }
+  if (form.format === "team-tournament" && form.maxParticipants % 3 !== 0) {
+    return "Team battles require a participant limit that is a multiple of 3.";
+  }
   if (form.format === "bracket" && form.maxParticipants < 2) {
     return "At least 2 participants required.";
   }

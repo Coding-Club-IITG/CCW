@@ -19,6 +19,8 @@ export type ContestPresetDto = {
     rating?: number;
     problemId?: string;
     roundNumber?: number;
+    points?: number;
+    timeLimitSeconds?: number;
   }>;
   fineTunedProblemCount?: number;
   archived?: boolean;
@@ -93,6 +95,8 @@ export function toContestPresetDto(
       rating: slot.rating,
       problemId: slot.problemId,
       roundNumber: slot.roundNumber,
+      points: slot.points,
+      timeLimitSeconds: slot.timeLimitSeconds,
     })),
     fineTunedProblemCount: preset.problemSlots?.length,
     archived: preset.archived ?? false,

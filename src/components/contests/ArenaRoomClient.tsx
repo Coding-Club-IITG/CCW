@@ -28,6 +28,7 @@ import type {
   RoomActivityDto,
   RoomEventPayloadDto,
 } from "@/lib/contests/dtos";
+import { getCFProblemUrl } from "@/lib/constants";
 
 import React, { createElement, useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -123,13 +124,15 @@ export default function ArenaRoomClient({
   initialLocks = {},
   initialStartTime,
   initialTimeLimit,
+  initialActivityFeed = [],
+  isSpectator = false,
   from,
   syncCooldownSeconds = 60,
 }: {
   contest: ContestListingItem;
   roomId: string;
   roomName: string;
-  teamId: string;
+  teamId: string | null;
   userId: string;
   cfHandle?: string;
   teams?: ContestRoomTeamDto[];
@@ -141,6 +144,8 @@ export default function ArenaRoomClient({
   initialOnlineUserIds?: string[];
   initialStartTime?: number;
   initialTimeLimit?: number;
+  initialActivityFeed?: RoomActivityDto[];
+  isSpectator?: boolean;
   from?: string;
   syncCooldownSeconds?: number;
 }) {
@@ -167,7 +172,8 @@ export default function ArenaRoomClient({
 
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
   const [syncCooldown, setSyncCooldown] = useState(0);
-  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
+  const [activityFeed, setActivityFeed] =
+    useState<RoomActivityDto[]>(initialActivityFeed);
   const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1000);
@@ -333,6 +339,15 @@ export default function ArenaRoomClient({
         setMatchState("completed");
         if (payload.finalScores) setScores(payload.finalScores);
         break;
+      case "room.submission_attempt": {
+        const team = teams?.find((item) => item._id === payload.teamId);
+        addActivity(
+          "error",
+          `${getDisplayTeamName(team)} submitted to ${payload.problemId} — ${payload.verdict}`,
+          "text-error",
+        );
+        break;
+      }
       case "sync.queued":
         if (payload.problemId) {
           const problemId = payload.problemId;
@@ -427,7 +442,7 @@ export default function ArenaRoomClient({
     }
   };
 
-  useRoomEventSource(roomId, handleEvent);
+  const connectionStatus = useRoomEventSource(roomId, handleEvent);
 
   const getMemberName = (uid: string) => {
     if (!teams) return "Unknown";
@@ -461,6 +476,7 @@ export default function ArenaRoomClient({
   };
 
   const handleReady = async () => {
+    if (isSpectator) return;
     setIsReady(true);
     const response = await fetch(`/api/contests/rooms/${roomId}/ready`, {
       method: "POST",
@@ -469,7 +485,12 @@ export default function ArenaRoomClient({
   };
 
   const handleSync = async (problemId: string) => {
-    if (syncingMap[problemId] || matchState !== "active" || syncCooldown > 0)
+    if (
+      isSpectator ||
+      syncingMap[problemId] ||
+      matchState !== "active" ||
+      syncCooldown > 0
+    )
       return;
 
     setSyncCooldown(syncCooldownSeconds);
@@ -495,6 +516,14 @@ export default function ArenaRoomClient({
 
   return (
     <div className={styles.page}>
+      {connectionStatus === "reconnecting" && (
+        <div role="status">Reconnecting…</div>
+      )}
+      {isSpectator && (
+        <div className={styles.spectateBanner} role="status">
+          👁 Spectating — view-only
+        </div>
+      )}
       <div className={styles.bgPattern} aria-hidden="true"></div>
 
       {/* Main Content Canvas */}
@@ -637,10 +666,12 @@ export default function ArenaRoomClient({
                   </p>
                   <button
                     onClick={handleReady}
-                    disabled={isReady}
+                    disabled={isReady || isSpectator}
                     className={styles.readyBtn}
                   >
-                    {isReady ? (
+                    {isSpectator ? (
+                      "Spectating"
+                    ) : isReady ? (
                       <span className={styles.animatedDots}>
                         Ready! Waiting on others
                       </span>
@@ -760,7 +791,7 @@ export default function ArenaRoomClient({
 
                             <div className={styles.gridCardActions}>
                               <a
-                                href={`https://codeforces.com/contest/${prob.problemId.replace(/[^0-9]/g, "")}/problem/${prob.problemId.replace(/[0-9]/g, "")}`}
+                                href={getCFProblemUrl(prob.problemId)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className={styles.cfIconBtn}
@@ -771,42 +802,44 @@ export default function ArenaRoomClient({
                                   size={16}
                                 />
                               </a>
-                              <button
-                                onClick={() => handleSync(prob.problemId)}
-                                disabled={
-                                  isClaimed ||
-                                  isSyncing ||
-                                  matchState !== "active" ||
-                                  syncCooldown > 0
-                                }
-                                className={styles.syncMini}
-                              >
-                                {isClaimed ? (
-                                  <Lock className={styles.icon14} size={14} />
-                                ) : isSyncing ? (
-                                  <RefreshCw
-                                    className={`${styles.icon14} ${styles.spin}`}
-                                    size={14}
-                                  />
-                                ) : syncCooldown > 0 ? (
-                                  <Hourglass
-                                    className={styles.icon14}
-                                    size={14}
-                                  />
-                                ) : (
-                                  <RefreshCw
-                                    className={styles.icon14}
-                                    size={14}
-                                  />
-                                )}
-                                {isClaimed
-                                  ? "Locked"
-                                  : isSyncing
-                                    ? "Syncing"
-                                    : syncCooldown > 0
-                                      ? `${syncCooldown}s`
-                                      : "Sync"}
-                              </button>
+                              {!isSpectator && (
+                                <button
+                                  onClick={() => handleSync(prob.problemId)}
+                                  disabled={
+                                    isClaimed ||
+                                    isSyncing ||
+                                    matchState !== "active" ||
+                                    syncCooldown > 0
+                                  }
+                                  className={styles.syncMini}
+                                >
+                                  {isClaimed ? (
+                                    <Lock className={styles.icon14} size={14} />
+                                  ) : isSyncing ? (
+                                    <RefreshCw
+                                      className={`${styles.icon14} ${styles.spin}`}
+                                      size={14}
+                                    />
+                                  ) : syncCooldown > 0 ? (
+                                    <Hourglass
+                                      className={styles.icon14}
+                                      size={14}
+                                    />
+                                  ) : (
+                                    <RefreshCw
+                                      className={styles.icon14}
+                                      size={14}
+                                    />
+                                  )}
+                                  {isClaimed
+                                    ? "Locked"
+                                    : isSyncing
+                                      ? "Syncing"
+                                      : syncCooldown > 0
+                                        ? `${syncCooldown}s`
+                                        : "Sync"}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>

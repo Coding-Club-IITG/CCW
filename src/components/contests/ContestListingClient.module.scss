@@ -454,8 +454,38 @@
 }
 
 .notRegistered {
+  display: flex;
+  align-items: center;
   font-size: 0.875rem;
   color: var(--muted);
+}
+
+.spectateBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 32px;
+  padding: 0 0.9rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+  color: var(--foreground-strong);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+
+  &:hover {
+    border-color: var(--warning-border);
+    background: var(--warning-bg);
+    color: var(--warning-text);
+    transform: translateY(-2px);
+  }
 }
 
 .startsBadge {
