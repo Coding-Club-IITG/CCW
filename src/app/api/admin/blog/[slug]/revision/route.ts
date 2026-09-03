@@ -1,0 +1,148 @@
+/**
+ * POST /api/admin/blog/[slug]/revision - Approve or reject a staged blog revision (admin only)
+ */
+
+import mongoose from "mongoose";
+import { revalidatePath } from "next/cache";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+
+import { requireHead } from "@/lib/api/auth";
+import { parseJson, parseRouteParams } from "@/lib/api/result";
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { slugParamsSchema } from "@/lib/api/schemas/boundary";
+import { auditActor, auditedTransaction } from "@/lib/audit";
+import { summarizePublicContent } from "@/lib/audit/summary";
+import { invalidateCache } from "@/lib/cache";
+import dbConnect from "@/lib/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/utils";
+import BlogPost from "@/models/BlogPost";
+
+const revisionActionSchema = z.object({
+  action: z.enum(["approve", "reject"]),
+});
+
+type RouteContext = { params: Promise<{ slug: string }> };
+
+export async function POST(request: NextRequest, context: RouteContext) {
+  try {
+    const authorization = await requireHead(request);
+    if (!authorization.ok) return jsonResult(authorization);
+    const user = authorization.data.user;
+
+    const validatedParams = parseRouteParams(
+      await context.params,
+      slugParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { slug } = validatedParams.data;
+
+    const parsedBody = await parseJson(request, revisionActionSchema);
+    if (!parsedBody.ok) return jsonResult(parsedBody);
+    const { action } = parsedBody.data;
+
+    await dbConnect();
+    const post = await BlogPost.findOne({ slug });
+    if (!post) {
+      return jsonError("NOT_FOUND", "Blog post not found.");
+    }
+
+    if (!post.pendingRevision) {
+      return jsonError("BAD_REQUEST", "No pending revision found for this post.");
+    }
+
+    const dbSession = await mongoose.startSession();
+    let saved;
+    try {
+      saved = await auditedTransaction(dbSession, async (transaction) => {
+        const current = await BlogPost.findOne({ slug }).session(transaction);
+        if (!current) throw new Error("Blog post disappeared during revision processing.");
+        if (!current.pendingRevision) {
+          throw new Error("Pending revision was already processed.");
+        }
+        const before = current.toObject();
+        const revision = current.pendingRevision;
+
+        if (action === "approve") {
+          current.set({
+            title: revision.title,
+            content: revision.content,
+            excerpt: revision.excerpt,
+            coverImage: revision.coverImage,
+            coverFocalPoint: revision.coverFocalPoint,
+            tags: revision.tags,
+            pendingRevision: null,
+          });
+          await current.save({ session: transaction });
+
+          return {
+            result: current,
+            audit: {
+              actor: auditActor(user),
+              category: "blog" as const,
+              action: "update" as const,
+              operation: "blog.revision.approve",
+              target: {
+                type: "blog-post",
+                id: String(current._id),
+                label: current.title,
+              },
+              before: summarizePublicContent(
+                before as unknown as Record<string, unknown>,
+              ),
+              after: summarizePublicContent(
+                current.toObject() as unknown as Record<string, unknown>,
+              ),
+            },
+          };
+        } else {
+          current.set({ pendingRevision: null });
+          await current.save({ session: transaction });
+
+          return {
+            result: current,
+            audit: {
+              actor: auditActor(user),
+              category: "blog" as const,
+              action: "delete" as const,
+              operation: "blog.revision.reject",
+              target: {
+                type: "blog-post",
+                id: String(current._id),
+                label: current.title,
+              },
+              before: summarizePublicContent(
+                before as unknown as Record<string, unknown>,
+              ),
+              after: summarizePublicContent(
+                current.toObject() as unknown as Record<string, unknown>,
+              ),
+            },
+          };
+        }
+      });
+    } finally {
+      await dbSession.endSession();
+    }
+
+    if (action === "approve") {
+      await invalidateCache("blog");
+      await invalidateCache("admin:blog");
+      await invalidateCache("home");
+      revalidatePath("/");
+      revalidatePath(`/blog/${slug}`);
+      revalidatePath("/sitemap.xml");
+    } else {
+      await invalidateCache("admin:blog");
+    }
+
+    return jsonOk({ post: saved.toObject() });
+  } catch (err) {
+    logger.error("Admin blog revision action failed", {
+      route: "POST /api/admin/blog/[slug]/revision",
+      operation: "process_revision",
+      ...errorToLogMetadata(err),
+    });
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
+  }
+}

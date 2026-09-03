@@ -76,19 +76,25 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const body = parsedBody.data;
 
     const post = result.data.post;
+    const isPublished = post.status === "published";
+    const user = result.data.user;
 
+    // Validate incoming fields
+    let newTitle: string | undefined = undefined;
     if (body.title !== undefined) {
       const title = String(body.title).trim();
       if (!title || title.length > 200) {
         return jsonError("VALIDATION_ERROR", "Title must be 1-200 characters.");
       }
-      post.title = title;
+      newTitle = title;
     }
 
+    let newContent: string | undefined = undefined;
     if (body.content !== undefined) {
-      post.content = String(body.content);
+      newContent = String(body.content);
     }
 
+    let newExcerpt: string | undefined = undefined;
     if (body.excerpt !== undefined) {
       const excerpt = String(body.excerpt).trim();
       if (excerpt.length > 500) {
@@ -97,64 +103,116 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           "Excerpt must be 500 characters or fewer.",
         );
       }
-      post.excerpt = excerpt;
+      newExcerpt = excerpt;
     }
 
+    let newCoverImage: string | undefined = undefined;
     if (body.coverImage !== undefined) {
-      post.coverImage = String(body.coverImage);
+      newCoverImage = String(body.coverImage);
     }
 
+    let newCoverFocalPoint = undefined;
     if (body.coverFocalPoint !== undefined) {
-      post.coverFocalPoint = parseImageFocalPoint(body.coverFocalPoint);
+      newCoverFocalPoint = parseImageFocalPoint(body.coverFocalPoint);
     }
 
+    let newTags: string[] | undefined = undefined;
     if (body.tags !== undefined && Array.isArray(body.tags)) {
-      post.tags = normalizeTags(body.tags).filter(
+      newTags = normalizeTags(body.tags).filter(
         (tag) => tag.length <= DEFAULT_TAG_MAX_LENGTH,
       );
     }
+
+    const requestApproval = Boolean(body.requestApproval);
 
     const dbSession = await mongoose.startSession();
     let saved;
     try {
       saved = await auditedTransaction(dbSession, async (transaction) => {
         const current = await BlogPost.findOne({ slug }).session(transaction);
-        if (!current) throw new Error("Blog draft disappeared during update.");
+        if (!current) throw new Error("Blog post disappeared during update.");
         const before = current.toObject();
-        current.set({
-          title: post.title,
-          content: post.content,
-          excerpt: post.excerpt,
-          coverImage: post.coverImage,
-          coverFocalPoint: post.coverFocalPoint,
-          tags: post.tags,
-        });
-        await current.save({ session: transaction });
-        return {
-          result: current,
-          audit: {
-            actor: auditActor(result.data.user),
-            category: "blog" as const,
-            action: "update" as const,
-            operation: "blog.draft.update",
-            target: {
-              type: "blog-post",
-              id: String(current._id),
-              label: current.title,
+
+        if (isPublished) {
+          // Staged revision workflow for published posts
+          const existingRev = current.pendingRevision?.toObject?.() || current.pendingRevision;
+          const currentBase = existingRev || current;
+
+          const updatedRevision = {
+            title: newTitle !== undefined ? newTitle : currentBase.title,
+            content: newContent !== undefined ? newContent : currentBase.content,
+            excerpt: newExcerpt !== undefined ? newExcerpt : currentBase.excerpt,
+            coverImage: newCoverImage !== undefined ? newCoverImage : currentBase.coverImage,
+            coverFocalPoint: newCoverFocalPoint !== undefined ? newCoverFocalPoint : currentBase.coverFocalPoint,
+            tags: newTags !== undefined ? newTags : currentBase.tags,
+            updatedAt: new Date(),
+            submittedAt: requestApproval
+              ? new Date()
+              : (existingRev?.submittedAt || null),
+            submittedBy: new mongoose.Types.ObjectId(String(user.id)),
+          };
+
+          current.set({ pendingRevision: updatedRevision });
+          await current.save({ session: transaction });
+
+          return {
+            result: current,
+            audit: {
+              actor: auditActor(user),
+              category: "blog" as const,
+              action: "update" as const,
+              operation: requestApproval
+                ? "blog.revision.submit"
+                : "blog.revision.update",
+              target: {
+                type: "blog-post",
+                id: String(current._id),
+                label: current.title,
+              },
+              before: summarizePublicContent(before as unknown as Record<string, unknown>),
+              after: summarizePublicContent({
+                ...before,
+                ...updatedRevision,
+              } as unknown as Record<string, unknown>),
             },
-            before: summarizePublicContent(
-              before as unknown as Record<string, unknown>,
-            ),
-            after: summarizePublicContent(
-              current.toObject() as unknown as Record<string, unknown>,
-            ),
-          },
-        };
+          };
+        } else {
+          // Standard draft workflow
+          current.set({
+            title: newTitle !== undefined ? newTitle : current.title,
+            content: newContent !== undefined ? newContent : current.content,
+            excerpt: newExcerpt !== undefined ? newExcerpt : current.excerpt,
+            coverImage: newCoverImage !== undefined ? newCoverImage : current.coverImage,
+            coverFocalPoint: newCoverFocalPoint !== undefined ? newCoverFocalPoint : current.coverFocalPoint,
+            tags: newTags !== undefined ? newTags : current.tags,
+          });
+          await current.save({ session: transaction });
+
+          return {
+            result: current,
+            audit: {
+              actor: auditActor(user),
+              category: "blog" as const,
+              action: "update" as const,
+              operation: "blog.draft.update",
+              target: {
+                type: "blog-post",
+                id: String(current._id),
+                label: current.title,
+              },
+              before: summarizePublicContent(before as unknown as Record<string, unknown>),
+              after: summarizePublicContent(current.toObject() as unknown as Record<string, unknown>),
+            },
+          };
+        }
       });
     } finally {
       await dbSession.endSession();
     }
-    await invalidateCache("blog");
+
+    if (!isPublished) {
+      await invalidateCache("blog");
+    }
     await invalidateCache("admin:blog");
 
     return jsonOk({ post: saved.toObject() });
@@ -167,3 +225,63 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
+
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  try {
+    const validatedParams = parseRouteParams(
+      await context.params,
+      slugParamsSchema,
+    );
+    if (!validatedParams.ok) return jsonResult(validatedParams);
+    const { slug } = validatedParams.data;
+    const result = await getAuthorizedDraft(request, slug);
+    if (!result.ok) return jsonResult(result);
+
+    const post = result.data.post;
+    if (post.status !== "published" || !post.pendingRevision) {
+      return jsonError("BAD_REQUEST", "No pending revision to discard.");
+    }
+
+    const dbSession = await mongoose.startSession();
+    let saved;
+    try {
+      saved = await auditedTransaction(dbSession, async (transaction) => {
+        const current = await BlogPost.findOne({ slug }).session(transaction);
+        if (!current) throw new Error("Blog post disappeared during revision discard.");
+        const before = current.toObject();
+        current.set({ pendingRevision: null });
+        await current.save({ session: transaction });
+
+        return {
+          result: current,
+          audit: {
+            actor: auditActor(result.data.user),
+            category: "blog" as const,
+            action: "delete" as const,
+            operation: "blog.revision.discard",
+            target: {
+              type: "blog-post",
+              id: String(current._id),
+              label: current.title,
+            },
+            before: summarizePublicContent(before as unknown as Record<string, unknown>),
+            after: summarizePublicContent(current.toObject() as unknown as Record<string, unknown>),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
+
+    await invalidateCache("admin:blog");
+    return jsonOk({ post: saved.toObject() });
+  } catch (err) {
+    logger.error("Internal blog revision discard failed", {
+      route: "DELETE /api/internal/blog/[slug]",
+      operation: "discard_revision",
+      ...errorToLogMetadata(err),
+    });
+    return jsonError("INTERNAL_ERROR", "Internal server error.");
+  }
+}
+
