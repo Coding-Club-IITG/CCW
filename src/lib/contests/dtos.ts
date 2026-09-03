@@ -1,4 +1,5 @@
-import type { RoomStreamEvent } from "@/lib/contests/runtime";
+import type { RoomStreamEvent, StoredActivityEntry } from "@/lib/contests/runtime";
+export type { StoredActivityEntry };
 import type { IContestPreset } from "@/models/ContestPreset";
 
 export type ContestPresetDto = {

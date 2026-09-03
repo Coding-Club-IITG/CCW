@@ -23,6 +23,10 @@ import { claimProblem, getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
+import {
+  appendRoomActivityLog,
+  appendUserActivityLog,
+} from "@/lib/contests/activityLog";
 
 // Circuit breaker removed, relying on BullMQ job-level retries
 
@@ -300,6 +304,23 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                     timestamp: cfTimestamp,
                   });
 
+                  // Log to shared room activity feed
+                  {
+                    const teamMeta = await redis.hGet(`team:${teamId}:meta`, "name");
+                    const teamName = teamMeta ?? "Unknown Team";
+                    const probName = targetProblem.name ?? problemId;
+                    const isReclaim = claimResult.startsWith("reclaimed|");
+                    await appendRoomActivityLog(redis, roomId, {
+                      icon: isReclaim ? "gavel" : "lock",
+                      text: isReclaim
+                        ? `CRITICAL: ${teamName} RECLAIMED ${problemId} - ${probName}!`
+                        : `${teamName} solved ${problemId} - ${probName}`,
+                      color: isReclaim ? "text-error" : "text-primary",
+                      timestamp: cfTimestamp,
+                      eventType: "room.locked",
+                    });
+                  }
+
                   const scores: Record<string, number> = {};
                   const teams = await redis.sMembers(`room:${roomId}:teams`);
                   for (const tId of teams) {
@@ -495,6 +516,15 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
 
           await publishUser(userId, eventPayload);
 
+          // Persist AC result to per-user activity log
+          await appendUserActivityLog(redis, roomId, userId, {
+            icon: "check_circle",
+            text: `Valid AC detected! +${eventPayload.pointsAwarded || 100} pts`,
+            color: "text-primary",
+            timestamp: Date.now(),
+            eventType: "sync.detected",
+          });
+
           logger.info("Accepted contest submission detected", {
             worker: "cfSyncWorker",
             operation: "detect_accepted_submission",
@@ -514,6 +544,15 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             type: "sync.failed",
             verdict: failVerdict,
             problemId,
+          });
+
+          // Persist failure to per-user activity log
+          await appendUserActivityLog(redis, roomId, userId, {
+            icon: "error",
+            text: `Submission failed: ${failVerdict}`,
+            color: "text-error",
+            timestamp: Date.now(),
+            eventType: "sync.failed",
           });
         }
       } catch (error) {

@@ -284,7 +284,19 @@ export default function ArenaRoomClient({
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
         if (payload.locks) setLocks(payload.locks);
-        if (nextStatus === "active") {
+        // Hydrate from historical activity log on reconnect (server is source of truth)
+        if (payload.activityLog && payload.activityLog.length > 0) {
+          setActivityFeed(
+            payload.activityLog.map((entry, i) => ({
+              icon: entry.icon,
+              text: entry.text,
+              timestamp: entry.timestamp,
+              color: entry.color,
+              id: entry.timestamp + i,
+            })),
+          );
+        } else if (nextStatus === "active") {
+          // Fresh connect with no history — show the standard welcome entry
           addActivity("info", "Arena match started! Good luck.");
         }
         break;

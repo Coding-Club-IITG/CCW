@@ -12,6 +12,7 @@ import {
   releaseUserRateLimit,
 } from "@/lib/userRateLimit";
 import { webEnv } from "@/lib/env/web";
+import { appendUserActivityLog } from "@/lib/contests/activityLog";
 
 export async function POST(request: NextRequest) {
   let consumedForUser: string | undefined;
@@ -90,7 +91,16 @@ export async function POST(request: NextRequest) {
     // 5. Publish event to user
     await publishUser(userId, { type: "sync.queued", position, problemId });
 
-    // 6. Return 202
+    // 6. Persist to user activity log so it survives page refresh
+    await appendUserActivityLog(redis, roomId, userId, {
+      icon: "sync",
+      text: "Submission queued for verification...",
+      color: "text-secondary",
+      timestamp: createdAt,
+      eventType: "sync.queued",
+    });
+
+    // 7. Return 202
     return jsonOk({ queued: true }, { status: 202 });
   } catch (error: unknown) {
     if (consumedForUser) {

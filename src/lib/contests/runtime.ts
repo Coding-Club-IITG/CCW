@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+export const storedActivityEntrySchema = z.object({
+  icon: z.string(),
+  text: z.string(),
+  color: z.string(),
+  timestamp: z.number(),
+  eventType: z.string(),
+});
+export type StoredActivityEntry = z.infer<typeof storedActivityEntrySchema>;
+
 import { objectIdStringSchema } from "@/lib/api/schemas/contestRoute";
 
 const optionalObjectId = objectIdStringSchema.optional().default("");
@@ -111,6 +120,7 @@ const roomStateSyncEventSchema = z
     problems: z.array(contestRoomProblemSchema).optional(),
     scores: scoreMapSchema.optional(),
     locks: z.record(z.string(), z.string()).optional(),
+    activityLog: z.array(storedActivityEntrySchema).optional(),
   })
   .passthrough();
 

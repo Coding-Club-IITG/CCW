@@ -25,6 +25,7 @@ import ContestRoom from "@/models/ContestRoom";
 import ContestRound from "@/models/ContestRound";
 import ContestSubmission from "@/models/ContestSubmission";
 import ContestTeam from "@/models/ContestTeam";
+import { appendRoomActivityLog } from "@/lib/contests/activityLog";
 
 async function determineWinner(
   redis: Awaited<ReturnType<typeof getRedis>>,
@@ -177,6 +178,18 @@ export const reconciliationWorker = new Worker<
             teamId,
             reason: "ready_timeout",
           });
+
+          // Log team withdrawal to shared activity feed
+          {
+            const withdrawnName = (await redis.hGet(`team:${teamId}:meta`, "name")) ?? "A team";
+            await appendRoomActivityLog(redis, roomId, {
+              icon: "person_off",
+              text: `${withdrawnName} was withdrawn (did not ready in time).`,
+              color: "text-error",
+              timestamp: Date.now(),
+              eventType: "team.withdrawn",
+            });
+          }
 
           // If no teams are left or only one team, end the room
           const remainingTeams = await redis.sMembers(`room:${roomId}:teams`);

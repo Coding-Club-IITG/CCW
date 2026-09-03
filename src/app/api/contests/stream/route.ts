@@ -11,9 +11,14 @@ import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   contestRoomStateSchema,
   parseContestRoomProblems,
+  storedActivityEntrySchema,
 } from "@/lib/contests/runtime";
 import { parseSearchParams } from "@/lib/api/result";
 import { contestStreamQuerySchema } from "@/lib/api/schemas/contestRoute";
+import {
+  appendRoomActivityLog,
+  appendUserActivityLog,
+} from "@/lib/contests/activityLog";
 
 export const dynamic = "force-dynamic";
 
@@ -94,8 +99,32 @@ export async function GET(request: NextRequest) {
       cancelledForfeit: cancelled,
     });
 
+    // Resolve display name for activity log from team metadata
+    {
+      const allTeamsForLog = await redis.sMembers(`room:${roomId}:teams`);
+      let displayName = "A player";
+      for (const tId of allTeamsForLog) {
+        const isMember = await redis.sIsMember(`team:${tId}:users`, userId);
+        if (isMember) {
+          displayName = (await redis.hGet(`team:${tId}:meta`, "name")) ?? displayName;
+          break;
+        }
+      }
+      const actText = cancelled
+        ? `${displayName} reconnected. Forfeiture cancelled.`
+        : `${displayName} connected${currentStatus === "waiting" ? " (Not Ready)" : ""}.`;
+      await appendRoomActivityLog(redis, roomId, {
+        icon: "person",
+        text: actText,
+        color: "text-secondary",
+        timestamp: Date.now(),
+        eventType: "presence.online",
+      });
+    }
+
     // Send a full state resync directly to the reconnecting user so they catch up on any
     // changes that happened while they were disconnected (missed SSE events).
+
     if (currentStatus === "active" || currentStatus === "waiting") {
       try {
         const problemsRaw = await redis.lRange(
@@ -117,6 +146,28 @@ export async function GET(request: NextRequest) {
             ? await redis.hGetAll(`room:${roomId}:locks`)
             : {};
 
+        // Fetch and merge room-level and per-user activity logs for this reconnect
+        const parseLogEntries = (raw: string[]) =>
+          raw
+            .map((s) => storedActivityEntrySchema.safeParse(JSON.parse(s)))
+            .filter((r) => r.success)
+            .map((r) => r.data);
+
+        const roomLogRaw = await redis.lRange(
+          `room:${roomId}:activity_log`,
+          0,
+          49,
+        );
+        const userLogRaw = await redis.lRange(
+          `room:${roomId}:activity_log:${userId}`,
+          0,
+          49,
+        );
+        const activityLog = [
+          ...parseLogEntries(roomLogRaw),
+          ...parseLogEntries(userLogRaw),
+        ].sort((a, b) => b.timestamp - a.timestamp);
+
         await publishUser(userId, {
           type: "room.state_sync",
           roomId,
@@ -124,6 +175,7 @@ export async function GET(request: NextRequest) {
           problems,
           scores,
           locks,
+          activityLog,
         });
       } catch (syncErr) {
         logger.error("[SSE] Failed to send reconnect state_sync:", syncErr);
@@ -216,6 +268,24 @@ export async function GET(request: NextRequest) {
               forfeitTimeout: timeoutSeconds,
             });
 
+            // Resolve display name for activity log
+            const allTeamsForOffline = await redis.sMembers(`room:${roomId}:teams`);
+            let offlineName = "A player";
+            for (const tId of allTeamsForOffline) {
+              const isMem = await redis.sIsMember(`team:${tId}:users`, userId);
+              if (isMem) {
+                offlineName = (await redis.hGet(`team:${tId}:meta`, "name")) ?? offlineName;
+                break;
+              }
+            }
+            await appendRoomActivityLog(redis, roomId, {
+              icon: "person_off",
+              text: `${offlineName} disconnected. Match will be forfeited in ${timeoutSeconds}s.`,
+              color: "text-error",
+              timestamp: Date.now(),
+              eventType: "presence.offline",
+            });
+
             await reconciliationQueue.add(
               "mid_match_disconnect_timeout",
               {
@@ -232,10 +302,46 @@ export async function GET(request: NextRequest) {
           } else {
             // Publish offline status without scheduling forfeit
             await publishRoom(roomId, { type: "presence.offline", userId });
+
+            // Resolve display name for activity log
+            const allTeamsForOffline2 = await redis.sMembers(`room:${roomId}:teams`);
+            let offlineName2 = "A player";
+            for (const tId of allTeamsForOffline2) {
+              const isMem = await redis.sIsMember(`team:${tId}:users`, userId);
+              if (isMem) {
+                offlineName2 = (await redis.hGet(`team:${tId}:meta`, "name")) ?? offlineName2;
+                break;
+              }
+            }
+            await appendRoomActivityLog(redis, roomId, {
+              icon: "person_off",
+              text: `${offlineName2} disconnected.`,
+              color: "text-error",
+              timestamp: Date.now(),
+              eventType: "presence.offline",
+            });
           }
         } else {
           // If room is not active (Eg. waiting), just publish offline status normally
           await publishRoom(roomId, { type: "presence.offline", userId });
+
+          // Resolve display name for activity log
+          const allTeamsForOffline3 = await redis.sMembers(`room:${roomId}:teams`);
+          let offlineName3 = "A player";
+          for (const tId of allTeamsForOffline3) {
+            const isMem = await redis.sIsMember(`team:${tId}:users`, userId);
+            if (isMem) {
+              offlineName3 = (await redis.hGet(`team:${tId}:meta`, "name")) ?? offlineName3;
+              break;
+            }
+          }
+          await appendRoomActivityLog(redis, roomId, {
+            icon: "person_off",
+            text: `${offlineName3} disconnected.`,
+            color: "text-error",
+            timestamp: Date.now(),
+            eventType: "presence.offline",
+          });
         }
       }
     } catch (err) {

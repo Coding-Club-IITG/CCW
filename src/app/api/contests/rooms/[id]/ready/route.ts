@@ -16,6 +16,9 @@ import {
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import { parseRouteParams } from "@/lib/api/result";
 import { contestIdParamsSchema } from "@/lib/api/schemas/contestRoute";
+import {
+  appendRoomActivityLog,
+} from "@/lib/contests/activityLog";
 
 export async function POST(
   req: NextRequest,
@@ -81,6 +84,16 @@ export async function POST(
         type: "room.user_ready",
         roomId,
         userId,
+      });
+
+      // Log to activity feed — resolve team display name from metadata
+      const readyTeamName = (await redis.hGet(`team:${userTeamId}:meta`, "name")) ?? "A player";
+      await appendRoomActivityLog(redis, roomId, {
+        icon: "person",
+        text: `${readyTeamName} is ready.`,
+        color: "text-secondary",
+        timestamp: Date.now(),
+        eventType: "room.user_ready",
       });
 
       // Check if this user's entire team is ready
@@ -177,6 +190,15 @@ export async function POST(
           state: updatedState,
           problems: parseContestRoomProblems(updatedProblems),
           scores,
+        });
+
+        // Log match start to activity feed
+        await appendRoomActivityLog(redis, roomId, {
+          icon: "info",
+          text: "Arena match started! Good luck.",
+          color: "text-on-surface",
+          timestamp: Date.now(),
+          eventType: "room.state_sync",
         });
 
         // Enqueue time limit job
