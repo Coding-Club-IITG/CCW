@@ -1,27 +1,36 @@
 "use client";
 
-import BackLink from "@/components/shared/BackLink";
-import Link from "next/link";
 import {
-  ArrowLeft,
   CircleAlert,
   CircleCheck,
+  CircleCheck as IconCheckCircle,
   Code,
   ExternalLink,
   Gavel,
+  Gavel as IconGavel,
   Hourglass,
   Info,
+  Info as IconInfoCircle,
   Lock,
+  Lock as IconLock,
   type LucideIcon,
   RefreshCw,
+  RefreshCw as IconSwitchView,
   Rss,
   Timer,
+  TriangleAlert as IconWarning,
   Trophy,
   User,
+  UserRoundX as IconPersonOff,
   UserX,
   Users,
+  Users as IconUsers,
 } from "lucide-react";
-import { ContestListingItem } from "@/lib/actions/contests";
+import { useRouter } from "next/navigation";
+import React, { createElement, useEffect, useRef, useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
 import type {
   ContestRoomProblemDto,
@@ -29,29 +38,17 @@ import type {
   RoomActivityDto,
   RoomEventPayloadDto,
 } from "@/lib/contests/dtos";
-
-import React, { createElement, useEffect, useRef, useState } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import {
-  Info as IconInfoCircle,
-  Gavel as IconGavel,
-  Lock as IconLock,
-  RefreshCw as IconSwitchView,
-  CircleCheck as IconCheckCircle,
-  TriangleAlert as IconWarning,
-  Users as IconUsers,
-  UserRoundX as IconPersonOff,
-  Bell as IconBell,
-} from "lucide-react";
-import CompatibleImage from "@/components/shared/CompatibleImage";
-import { useRouter } from "next/navigation";
 import { getDisplayName } from "@/lib/utils";
-import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
+
 import {
   formatRoomActivityTime,
   getContestRoomResultsPath,
 } from "@/components/contests/roomPresentation";
 import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
+import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
+import CompatibleImage from "@/components/shared/CompatibleImage";
+import BackLink from "@/components/shared/BackLink";
+
 import styles from "./ArenaRoomClient.module.scss";
 
 const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {

@@ -1,10 +1,10 @@
 import FormSkeleton from "@/components/shared/skeletons/FormSkeleton";
 
-export default function ProfileLoading() {
+export default function EditBlogLoading() {
   return (
     <FormSkeleton
-      title="Your Profile"
-      lead="Edit your display name, bio, and linked platform handles."
+      title="Edit Blog Post"
+      lead="Loading the editor and post details."
       kicker="Internal"
       fields={5}
     />

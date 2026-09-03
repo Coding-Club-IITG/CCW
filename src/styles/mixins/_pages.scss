@@ -1,5 +1,5 @@
 @use "layout" as *;
-@use "public" as *;
+@use "shared" as *;
 
 // Mono kicker sitting above a page title
 @mixin standard-page-kicker($margin: 0 0 6px) {

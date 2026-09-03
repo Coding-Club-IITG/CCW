@@ -531,7 +531,7 @@
 }
 
 .tableBadge {
-  @include badge-pill;
+  @include badge-chip;
 }
 
 /* Empty state */

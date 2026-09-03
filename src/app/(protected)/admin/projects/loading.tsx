@@ -1,6 +1,6 @@
 import TableSkeleton from "@/components/shared/skeletons/TableSkeleton";
 
-export default function Loading() {
+export default function AdminProjectsLoading() {
   return (
     <TableSkeleton
       title="Project Management"

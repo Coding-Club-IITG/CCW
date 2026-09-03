@@ -43,7 +43,7 @@
   border-top: 1px solid var(--border);
   border-left: 1px solid var(--border);
   transform: rotate(45deg);
-  z-index: calc(var(--z-overlay) + 1);
+  z-index: calc(var(--z-menu) + 1);
 }
 
 .dropdown {
@@ -55,7 +55,7 @@
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);
-  z-index: var(--z-overlay);
+  z-index: var(--z-menu);
 }
 
 .dropdownHeader {

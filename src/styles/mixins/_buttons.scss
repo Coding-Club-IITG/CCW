@@ -1,4 +1,4 @@
-@use "public" as *;
+@use "shared" as *;
 
 // Shared button chrome
 @mixin btn-base($padding: 9px 18px) {

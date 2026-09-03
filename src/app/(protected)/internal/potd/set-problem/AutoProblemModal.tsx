@@ -1,23 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import styles from "./AutoProblemModal.module.scss";
-import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
-import { CandidateProblemCard } from "./CandidateProblemCard";
-import Modal from "@/components/shared/Modal";
 import { Sparkles, Play, Save, ArrowLeft } from "lucide-react";
-import {
-  type Difficulty,
-  DIFFICULTIES,
-  CF_CONTEST_YEAR_OPTIONS,
-} from "@/lib/constants";
-import { formatDate, getTodayISTDateStr } from "@/lib/potd/utils";
+
 import {
   autoFetchPOTDCandidates,
   bulkSetDailyProblems,
   type POTDCandidateResult,
   type POTDAutoSlotConfig,
 } from "@/lib/actions/admin/potd";
+import {
+  type Difficulty,
+  DIFFICULTIES,
+  CF_CONTEST_YEAR_OPTIONS,
+} from "@/lib/constants";
+import { formatDate, getTodayISTDateStr } from "@/lib/potd/utils";
+
+import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
+import Modal from "@/components/shared/Modal";
+
+import styles from "./AutoProblemModal.module.scss";
+import { CandidateProblemCard } from "./CandidateProblemCard";
 
 interface AutoProblemModalProps {
   onClose: () => void;
@@ -212,7 +215,12 @@ export default function AutoProblemModal({
   const footer =
     step === "config" ? (
       <>
-        <button className={styles.cancelBtn} onClick={onClose}>
+        <button
+          type="button"
+          className={styles.cancelBtn}
+          onClick={onClose}
+          disabled={loading}
+        >
           Cancel
         </button>
         <button

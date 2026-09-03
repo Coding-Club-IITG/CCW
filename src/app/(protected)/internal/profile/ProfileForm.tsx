@@ -1,15 +1,18 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
+import { Check as IconCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 
-import { useState, useEffect } from "react";
-import { useSession } from "@/lib/auth-client";
-import { updateProfile } from "@/lib/actions/user";
 import { requestHandleVerification } from "@/lib/actions/cp-verification";
 import { getCPStatus } from "@/lib/actions/cp-status";
+import { updateProfile } from "@/lib/actions/user";
+import { expectAppData } from "@/lib/api/result";
+import { useSession } from "@/lib/auth-client";
+
 import ImageUpload from "@/components/shared/ImageUpload";
-import { Check as IconCheck } from "lucide-react";
+
 import styles from "./ProfileForm.module.scss";
+import ProfileLoading from "./loading";
 
 export default function ProfileForm() {
   const { data: session, isPending } = useSession();
@@ -159,7 +162,7 @@ export default function ProfileForm() {
     }
   }
 
-  if (isPending) return <div>Loading...</div>;
+  if (isPending) return <ProfileLoading />;
 
   return (
     <div className={styles.container}>

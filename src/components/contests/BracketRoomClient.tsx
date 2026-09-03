@@ -1,16 +1,9 @@
 "use client";
 
-import BackLink from "@/components/shared/BackLink";
-import { expectAppData } from "@/lib/api/result";
-
-import Link from "next/link";
-import { ArrowLeft, BarChart3, LogIn, Trophy, X } from "lucide-react";
-import { ContestListingItem } from "@/lib/actions/contests";
-
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { BracketSnapshot, BracketNode, getRoundName } from "@/types/bracket";
-import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import { BarChart3, LogIn, Trophy, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Handle,
   Position,
@@ -18,8 +11,19 @@ import {
   type Edge,
   type NodeProps,
 } from "@xyflow/react";
-import CompatibleImage from "@/components/shared/CompatibleImage";
 import "@xyflow/react/dist/style.css";
+
+import type { ContestListingItem } from "@/lib/actions/contests";
+import { expectAppData } from "@/lib/api/result";
+import {
+  getRoundName,
+  type BracketNode,
+  type BracketSnapshot,
+} from "@/types/bracket";
+
+import BackLink from "@/components/shared/BackLink";
+import CompatibleImage from "@/components/shared/CompatibleImage";
+
 import styles from "./BracketRoomClient.module.scss";
 
 const ReactFlow = dynamic(
@@ -217,7 +221,6 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
       }}
     >
       <Handle type="target" position={Position.Left} />
-      <div className={styles.nodeGradient} />
       <div className={styles.nodeHeader}>
         <span className={styles.nodeHeaderTitle}>
           <Trophy className={styles.trophyIcon} size={16} />

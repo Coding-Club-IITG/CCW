@@ -1,17 +1,21 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import BackLink from "@/components/shared/BackLink";
-import Pagination from "@/components/shared/Pagination";
+import { useEffect, useState } from "react";
+
+import { expectAppData } from "@/lib/api/result";
 import { getEventStatus } from "@/lib/eventStatus";
 import type {
   EventPublicationStatus,
   EventRecurrenceType,
 } from "@/lib/constants";
+
+import BackLink from "@/components/shared/BackLink";
+import Pagination from "@/components/shared/Pagination";
+import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
+
 import styles from "./AdminEvents.module.scss";
+import AdminEventsLoading from "./loading";
 
 interface EventItem {
   _id: string;
@@ -93,6 +97,8 @@ export default function AdminEventsPage() {
     void fetchEvents();
   }, [page, publicationFilter]);
 
+  if (loading && events.length === 0) return <AdminEventsLoading />;
+
   return (
     <div className={styles.container}>
       <BackLink href="/admin" label="Back to Administration" />
@@ -129,7 +135,7 @@ export default function AdminEventsPage() {
       {error && <div className={styles.error}>{error}</div>}
 
       {loading ? (
-        <p className={styles.loading}>Loading events...</p>
+        <TableSkeletonContent label="events" columns={4} />
       ) : events.length === 0 ? (
         <p className={styles.empty}>No events yet.</p>
       ) : (

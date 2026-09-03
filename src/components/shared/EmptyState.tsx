@@ -1,6 +1,6 @@
 import styles from "./EmptyState.module.scss";
 
-/** Shared "nothing matches" placeholder for filtered collections */
+/** "Nothing matches" placeholder shared by public and authenticated collections */
 export default function EmptyState({
   title,
   hint,

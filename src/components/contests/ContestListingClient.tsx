@@ -1,10 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { type ContestListingItem } from "@/lib/actions/contests";
-import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   CalendarX,
@@ -18,10 +15,15 @@ import {
   TimerOff,
   Users,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { type ContestListingItem } from "@/lib/actions/contests";
+
+import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
+import SegmentedControl from "@/components/shared/SegmentedControl";
 
 import CreateRoomModal from "./CreateRoomModal";
 import RegisterContestModal from "./RegisterContestModal";
-import SegmentedControl from "@/components/public/SegmentedControl";
 import styles from "./ContestListingClient.module.scss";
 
 function RegisterButton({

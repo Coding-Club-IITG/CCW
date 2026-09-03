@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
+
+import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROFILE_URLS } from "@/lib/constants";
+import type { Platform } from "@/lib/constants";
+
 import LeaderboardTable, {
   type Column,
   leaderboardStyles as styles,
 } from "@/components/leaderboard/LeaderboardTable";
-import PlatformTabs from "@/components/shared/PlatformTabs";
 import SearchInput from "@/components/shared/SearchInput";
-import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROFILE_URLS } from "@/lib/constants";
-import type { Platform } from "@/lib/constants";
+import SegmentedControl from "@/components/shared/SegmentedControl";
 
 type RatingLeaderboardEntry = {
   id: string;
@@ -116,10 +118,13 @@ export default function RatingLeaderboardClient({
         emptyMessage="No data available yet. Ratings sync every 6 hours."
         toolbar={
           <>
-            <PlatformTabs
-              tabs={TABS}
-              activeTab={platform}
-              onTabChange={(key) => setPlatform(key as Platform)}
+            <SegmentedControl
+              label="Rating platform"
+              segments={TABS.map((tab) => ({
+                label: tab.label,
+                active: platform === tab.key,
+                onClick: () => setPlatform(tab.key as Platform),
+              }))}
             />
             <SearchInput
               placeholder="Search by name or handle"

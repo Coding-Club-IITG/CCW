@@ -1,4 +1,4 @@
-@use "public" as *;
+@use "shared" as *;
 
 @mixin form-panel($padding: 1.5rem) {
   padding: $padding;

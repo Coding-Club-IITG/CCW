@@ -7,8 +7,10 @@ import { expectAppData } from "@/lib/api/result";
 import { AUDIT_ACTIONS, AUDIT_CATEGORIES } from "@/lib/constants";
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
+import { ListSkeletonContent } from "@/components/shared/skeletons/ListSkeleton";
 
 import styles from "./AuditLog.module.scss";
+import AuditLogLoading from "./loading";
 
 type Response = {
   items: AuditLogDto[];
@@ -132,6 +134,8 @@ export default function AuditLogPage() {
     setApplied(filters);
   }
 
+  if (loading && events.length === 0) return <AuditLogLoading />;
+
   return (
     <main className={styles.container}>
       <BackLink href="/admin" label="Back to Administration" />
@@ -209,9 +213,7 @@ export default function AuditLogPage() {
           {error}
         </div>
       ) : loading ? (
-        <p className={styles.state} aria-live="polite">
-          Loading audit history…
-        </p>
+        <ListSkeletonContent label="audit history" />
       ) : events.length === 0 ? (
         <p className={styles.state} aria-live="polite">
           No audit events match these filters.

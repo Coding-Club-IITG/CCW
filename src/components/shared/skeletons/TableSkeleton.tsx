@@ -4,6 +4,54 @@ import styles from "./Skeleton.module.scss";
 
 const WIDTHS = ["58%", "72%", "46%", "64%", "80%", "52%"];
 
+export function TableSkeletonContent({
+  columns = 4,
+  rows = 6,
+  label = "table",
+  announce = true,
+}: {
+  columns?: number;
+  rows?: number;
+  label?: string;
+  announce?: boolean;
+}) {
+  const template = `2.2fr ${Array.from({ length: columns - 1 }, () => "1fr").join(" ")}`;
+  return (
+    <div className={styles.frame} aria-busy="true">
+      {announce && (
+        <span className={styles.status} role="status" aria-live="polite">
+          Loading {label}…
+        </span>
+      )}
+      <div
+        className={styles.tableHead}
+        style={{ gridTemplateColumns: template }}
+      >
+        {Array.from({ length: columns }, (_, index) => (
+          <span key={index}>
+            <Skeleton width="62%" height={10} />
+          </span>
+        ))}
+      </div>
+      {Array.from({ length: rows }, (_, row) => (
+        <div
+          key={row}
+          className={styles.row}
+          style={{ gridTemplateColumns: template }}
+        >
+          {Array.from({ length: columns }, (_, column) => (
+            <span key={column}>
+              <Skeleton
+                width={column === 0 ? WIDTHS[row % WIDTHS.length] : "48%"}
+              />
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function TableSkeleton({
   title,
   lead,
@@ -17,34 +65,14 @@ export default function TableSkeleton({
   columns?: number;
   rows?: number;
 }) {
-  const template = `2.2fr ${Array.from({ length: columns - 1 }, () => "1fr").join(" ")}`;
   return (
     <SkeletonPage title={title} lead={lead} kicker={kicker}>
-      <div className={styles.frame}>
-        <div
-          className={styles.tableHead}
-          style={{ gridTemplateColumns: template }}
-        >
-          {Array.from({ length: columns }, (_, i) => (
-            <span key={i}>
-              <Skeleton width="62%" height={10} />
-            </span>
-          ))}
-        </div>
-        {Array.from({ length: rows }, (_, r) => (
-          <div
-            key={r}
-            className={styles.row}
-            style={{ gridTemplateColumns: template }}
-          >
-            {Array.from({ length: columns }, (_, c) => (
-              <span key={c}>
-                <Skeleton width={c === 0 ? WIDTHS[r % WIDTHS.length] : "48%"} />
-              </span>
-            ))}
-          </div>
-        ))}
-      </div>
+      <TableSkeletonContent
+        columns={columns}
+        rows={rows}
+        label={title}
+        announce={false}
+      />
     </SkeletonPage>
   );
 }

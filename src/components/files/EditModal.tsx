@@ -1,16 +1,18 @@
 "use client";
 
-import { appErrorMessage, expectAppData } from "@/lib/api/result";
-
-import { useState } from "react";
 import { Shield, AlertCircle } from "lucide-react";
-import TagEditor from "@/components/shared/TagEditor";
+import { useState } from "react";
+
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { validateTags } from "@/lib/tagUtils";
+
+import Modal from "@/components/shared/Modal";
+import TagEditor from "@/components/shared/TagEditor";
+
+import AccessControlForm from "./AccessControlForm";
+import styles from "./FilesClient.module.scss";
 import type { FileEntry } from "./types";
 import { EMPTY_ACL } from "./utils";
-import AccessControlForm from "./AccessControlForm";
-import Modal from "@/components/shared/Modal";
-import styles from "./FilesClient.module.scss";
 
 interface Props {
   file: FileEntry;

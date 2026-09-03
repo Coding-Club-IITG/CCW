@@ -1,7 +1,7 @@
-@use "public" as *;
+@use "shared" as *;
 
-// Square chip with 3 states: outline (default), active fill, semantic fill
-@mixin badge-pill(
+// Square badge chip with outline and semantic-fill variants
+@mixin badge-chip(
   $bg: transparent,
   $color: var(--muted),
   $border: var(--border-input)
@@ -15,8 +15,6 @@
   @include micro-label(10.5px, 0.05em, $color);
 }
 
-// Selected state
-// Semantic state
 @mixin badge-semantic($bg, $color, $border: transparent) {
-  @include badge-pill($bg, $color, $border);
+  @include badge-chip($bg, $color, $border);
 }

@@ -1,17 +1,19 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { use } from "react";
 import Link from "next/link";
-import BackLink from "@/components/shared/BackLink";
+import { useRouter } from "next/navigation";
+import { use, useEffect, useState } from "react";
 import { ExternalLink as IconExternalLink } from "lucide-react";
-import BlogEditor from "@/components/blog/BlogEditor";
+
+import { expectAppData } from "@/lib/api/result";
 import type { BlogStatus } from "@/lib/constants";
 import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+
+import BlogEditor from "@/components/blog/BlogEditor";
+import BackLink from "@/components/shared/BackLink";
+
 import styles from "./EditPost.module.scss";
+import EditBlogPostLoading from "./loading";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -64,11 +66,7 @@ export default function EditBlogPostPage({ params }: Props) {
   };
 
   if (loading) {
-    return (
-      <div className={styles.container}>
-        <p className={styles.loading}>Loading...</p>
-      </div>
-    );
+    return <EditBlogPostLoading />;
   }
 
   if (error || !post) {

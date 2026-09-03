@@ -1,19 +1,22 @@
 "use client";
 
-import { appErrorMessage, expectAppData } from "@/lib/api/result";
-
-import { useState, useEffect, useCallback } from "react";
-import { useSession } from "@/lib/auth-client";
-import BackLink from "@/components/shared/BackLink";
-import CompatibleImage from "@/components/shared/CompatibleImage";
-import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
-import { getDisplayName, formatDate } from "@/lib/utils";
 import {
   Users as IconUsers,
   CalendarDays as IconCalendar,
   ExternalLink as IconExternalLink,
 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
+import { useSession } from "@/lib/auth-client";
+import { formatDate, getDisplayName } from "@/lib/utils";
+
+import BackLink from "@/components/shared/BackLink";
+import CompatibleImage from "@/components/shared/CompatibleImage";
+import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
+
 import styles from "../Hackathons.module.scss";
+import HackathonDetailLoading from "./loading";
 
 interface MemberDetail {
   id: string;
@@ -341,7 +344,7 @@ export default function HackathonDetailPage({
     }
   }
 
-  if (loading) return <p className={styles.muted}>Loading...</p>;
+  if (loading) return <HackathonDetailLoading />;
   if (!hackathon) return <p className={styles.error}>Hackathon not found.</p>;
 
   const deadlinePassed = new Date(hackathon.deadline) < new Date();

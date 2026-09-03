@@ -1,4 +1,4 @@
-import EmptyState from "@/components/public/EmptyState";
+import EmptyState from "@/components/shared/EmptyState";
 import styles from "./LeaderboardTable.module.scss";
 
 export type Column<T> = {

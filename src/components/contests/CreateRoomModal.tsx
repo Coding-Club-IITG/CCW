@@ -1,7 +1,5 @@
 "use client";
 
-import Modal from "@/components/shared/Modal";
-import { useState, useEffect } from "react";
 import {
   GripVertical,
   Lock,
@@ -11,16 +9,16 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
 import {
   createRoomContest,
   searchVerifiedUsers,
   createBracketContest,
 } from "@/lib/actions/contests";
-import { useRouter } from "next/navigation";
-import { useSession } from "@/lib/auth-client";
 import { getDisplayName } from "@/lib/utils";
-import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+
 import ContestProblemConfiguration from "@/components/contests/ContestProblemConfiguration";
 import {
   applyContestFormatDefaults,
@@ -31,6 +29,9 @@ import {
   type ContestCreationPreset,
   type ContestParticipant,
 } from "@/components/contests/contestCreationForm";
+import CompatibleImage from "@/components/shared/CompatibleImage";
+import Modal from "@/components/shared/Modal";
+
 import styles from "./CreateRoomModal.module.scss";
 
 export default function CreateRoomModal({
@@ -47,7 +48,6 @@ export default function CreateRoomModal({
   deadlineMinutes?: number;
 }) {
   const router = useRouter();
-  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [topPresetId, setTopPresetId] = useState("");
 
@@ -373,30 +373,6 @@ export default function CreateRoomModal({
     setRegisteredUsers((prev) => prev.filter((u) => u.id !== id));
   };
 
-  const moveUserUp = (index: number) => {
-    if (index === 0) return;
-    setRegisteredUsers((prev) => {
-      const newUsers = [...prev];
-      [newUsers[index - 1], newUsers[index]] = [
-        newUsers[index],
-        newUsers[index - 1],
-      ];
-      return newUsers;
-    });
-  };
-
-  const moveUserDown = (index: number) => {
-    if (index === registeredUsers.length - 1) return;
-    setRegisteredUsers((prev) => {
-      const newUsers = [...prev];
-      [newUsers[index + 1], newUsers[index]] = [
-        newUsers[index],
-        newUsers[index + 1],
-      ];
-      return newUsers;
-    });
-  };
-
   const handleTeamDragStart = (e: React.DragEvent, index: number) => {
     setDraggedTeamIndex(index);
     e.dataTransfer.effectAllowed = "move";
@@ -463,7 +439,12 @@ export default function CreateRoomModal({
       contentClassName={styles.body}
       footer={
         <>
-          <button type="button" onClick={onClose} className={styles.cancelBtn}>
+          <button
+            type="button"
+            onClick={onClose}
+            className={styles.cancelBtn}
+            disabled={loading}
+          >
             Cancel
           </button>
           <button

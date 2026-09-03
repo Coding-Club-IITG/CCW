@@ -165,7 +165,7 @@
 }
 
 .streak {
-  @include badge-pill(var(--streak-bg), var(--streak-text), transparent);
+  @include badge-chip(var(--streak-bg), var(--streak-text), transparent);
   font-weight: 600;
   font-size: 0.8125rem;
   gap: 0.25rem;
@@ -176,7 +176,7 @@
 }
 
 .difficultyBadge {
-  @include badge-pill($color: inherit, $border: transparent);
+  @include badge-chip($color: inherit, $border: transparent);
   white-space: nowrap;
 }
 

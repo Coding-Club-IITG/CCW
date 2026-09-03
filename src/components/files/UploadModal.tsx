@@ -1,17 +1,19 @@
 "use client";
 
-import { appErrorMessage, expectAppData } from "@/lib/api/result";
-
-import { useRef, useState } from "react";
 import { Upload, FileIcon, Shield, AlertCircle } from "lucide-react";
+import { useRef, useState } from "react";
+
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { MODULES, type ModuleName } from "@/lib/constants";
 import { validateTags } from "@/lib/tagUtils";
+
+import Modal from "@/components/shared/Modal";
 import TagEditor from "@/components/shared/TagEditor";
+
+import AccessControlForm from "./AccessControlForm";
+import styles from "./FilesClient.module.scss";
 import type { AccessControl, CurrentUser } from "./types";
 import { EMPTY_ACL, formatBytes } from "./utils";
-import AccessControlForm from "./AccessControlForm";
-import Modal from "@/components/shared/Modal";
-import styles from "./FilesClient.module.scss";
 
 interface Props {
   currentUser: CurrentUser;

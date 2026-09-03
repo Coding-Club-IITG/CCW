@@ -1,14 +1,15 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-import { clientEnv } from "@/lib/env/client";
-
-import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   Bell as IconBell,
   ExternalLink as IconExternalLink,
 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { expectAppData } from "@/lib/api/result";
+import { clientEnv } from "@/lib/env/client";
+
 import styles from "./NotificationBell.module.scss";
 
 const NOTIFICATION_POLL_INTERVAL_MS = 30_000;

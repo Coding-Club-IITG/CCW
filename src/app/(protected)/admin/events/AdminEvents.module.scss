@@ -84,7 +84,7 @@
 }
 
 .statusBadge {
-  @include badge-pill;
+  @include badge-chip;
   font-size: 0.6875rem;
   font-weight: 600;
   padding: 0.125rem 0.5rem;

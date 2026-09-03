@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import SearchInput from "@/components/shared/SearchInput";
-import PlatformTabs from "@/components/shared/PlatformTabs";
-import EmptyState from "@/components/public/EmptyState";
 import { type LeaderboardEntry } from "@/lib/actions/potd";
+
+import EmptyState from "@/components/shared/EmptyState";
+import SearchInput from "@/components/shared/SearchInput";
+import SegmentedControl from "@/components/shared/SegmentedControl";
+
 import styles from "../Lists.module.scss";
 
 type Tab = "weekly" | "monthly";
@@ -49,10 +51,13 @@ export default function LeaderboardClient({
         <p>Rankings based on Problem of the Day performance.</p>
       </div>
 
-      <PlatformTabs
-        tabs={TABS}
-        activeTab={activeTab}
-        onTabChange={(key) => setActiveTab(key as Tab)}
+      <SegmentedControl
+        label="Leaderboard period"
+        segments={TABS.map((tab) => ({
+          label: tab.label,
+          active: activeTab === tab.key,
+          onClick: () => setActiveTab(tab.key as Tab),
+        }))}
       />
 
       <SearchInput

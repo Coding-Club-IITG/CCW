@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Award,
@@ -12,9 +11,13 @@ import {
   Trophy,
   UserX,
 } from "lucide-react";
+import { useEffect } from "react";
+
+import { getDisplayName } from "@/lib/utils";
+
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
-import { getDisplayName } from "@/lib/utils";
+
 import styles from "./PostMatchResultClient.module.scss";
 
 export type MatchData = {

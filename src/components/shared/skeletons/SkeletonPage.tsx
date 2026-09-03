@@ -22,7 +22,10 @@ export default function SkeletonPage({
           {lead && <p>{lead}</p>}
         </div>
       </header>
-      <div aria-busy="true" aria-live="polite">
+      <div aria-busy="true">
+        <span className={styles.status} role="status" aria-live="polite">
+          Loading {title}…
+        </span>
         {children}
       </div>
     </div>

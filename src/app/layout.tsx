@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { Handjet, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
-import "@/styles/globals.scss";
-import Providers from "@/components/layout/Providers";
-import { ogImage, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
+
 import { webEnv } from "@/lib/env/web";
+import { ogImage, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
+
+import Providers from "@/components/layout/Providers";
+
+import "@/styles/globals.scss";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

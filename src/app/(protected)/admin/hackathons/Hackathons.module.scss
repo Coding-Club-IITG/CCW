@@ -116,11 +116,11 @@
 }
 
 .skill {
-  @include badge-pill;
+  @include badge-chip;
 }
 
 .badge {
-  @include badge-pill;
+  @include badge-chip;
 }
 
 .badgeActive {
@@ -186,7 +186,7 @@
 }
 
 .ownerBadge {
-  @include badge-pill(
+  @include badge-chip(
     $color: var(--badge-primary-text),
     $border: var(--primary)
   );

@@ -1,8 +1,5 @@
 "use client";
 
-import { appErrorMessage, expectAppData } from "@/lib/api/result";
-
-import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Upload,
   Trash2,
@@ -12,17 +9,25 @@ import {
   FileIcon,
   AlertCircle,
 } from "lucide-react";
-import EmptyState from "@/components/public/EmptyState";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { canManageFile } from "@/lib/access/files";
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
+
+import EmptyState from "@/components/shared/EmptyState";
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
 import TagBadge from "@/components/shared/TagBadge";
+import TableSkeleton, {
+  TableSkeletonContent,
+} from "@/components/shared/skeletons/TableSkeleton";
+
+import EditModal from "./EditModal";
+import FileViewer from "./FileViewer";
+import styles from "./FilesClient.module.scss";
+import UploadModal from "./UploadModal";
 import type { AvailableTag, CurrentUser, FileEntry } from "./types";
 import { formatBytes, formatDate, aclSummary } from "./utils";
-import { canManageFile } from "@/lib/access/files";
-import FileViewer from "./FileViewer";
-import UploadModal from "./UploadModal";
-import EditModal from "./EditModal";
-import styles from "./FilesClient.module.scss";
 
 interface Props {
   currentUser: CurrentUser;
@@ -114,6 +119,17 @@ export default function FilesClient({ currentUser }: Props) {
 
   // Render
 
+  if (loading && files.length === 0) {
+    return (
+      <TableSkeleton
+        title="Internal Files"
+        lead="Shared resources, documentation, and module-specific files."
+        kicker="Internal"
+        columns={7}
+      />
+    );
+  }
+
   return (
     <div className={styles.container}>
       {/* Header */}
@@ -175,7 +191,7 @@ export default function FilesClient({ currentUser }: Props) {
 
       {/* File Table */}
       {loading ? (
-        <div className={styles.loadingState}>Loading files…</div>
+        <TableSkeletonContent label="files" columns={7} />
       ) : error ? (
         <div className={styles.errorState}>
           <AlertCircle size={18} /> {error}

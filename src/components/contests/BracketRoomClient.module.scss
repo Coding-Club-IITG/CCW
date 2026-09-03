@@ -77,7 +77,7 @@
 
 .knockoutBadge {
   margin-left: 0.5rem;
-  @include badge-pill(transparent, var(--primary), var(--primary));
+  @include badge-chip(transparent, var(--primary), var(--primary));
 }
 
 .subtitle {

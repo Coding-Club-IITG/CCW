@@ -1,17 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import EmptyState from "@/components/public/EmptyState";
-import styles from "./SetProblem.module.scss";
+import { Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+
 import {
   setDailyProblem,
   getScheduledChallenges,
   deleteScheduledChallenge,
   type ScheduledChallenge,
 } from "@/lib/actions/admin/potd";
-import { Sparkles } from "lucide-react";
-import { ScheduledProblemCard } from "./ScheduledProblemCard";
-import AutoProblemModal from "./AutoProblemModal";
 import {
   DIFFICULTIES,
   PLATFORMS,
@@ -23,6 +20,13 @@ import {
   getAvailableDates,
   getTodayISTDateStr,
 } from "@/lib/potd/utils";
+
+import EmptyState from "@/components/shared/EmptyState";
+import CardGridSkeleton from "@/components/shared/skeletons/CardGridSkeleton";
+
+import AutoProblemModal from "./AutoProblemModal";
+import { ScheduledProblemCard } from "./ScheduledProblemCard";
+import styles from "./SetProblem.module.scss";
 
 type FormData = {
   date: string;
@@ -187,6 +191,17 @@ export default function SetProblemClient() {
     problems.length < maxSlots &&
     availableDates.some((d) => takenDifficulties(d).size < 3);
 
+  if (loadingInitial) {
+    return (
+      <CardGridSkeleton
+        title="Manage Upcoming Problems"
+        lead="Schedule up to 10 days in advance."
+        kicker="Internal"
+        cards={6}
+      />
+    );
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -220,10 +235,6 @@ export default function SetProblemClient() {
       </div>
 
       <div className={styles.grid}>
-        {loadingInitial && (
-          <p style={{ color: "var(--muted)" }}>Loading scheduled problems...</p>
-        )}
-
         {/* Add form */}
         {isAdding && (
           <div className={styles.editCard}>

@@ -63,6 +63,24 @@
   padding: 14px;
 }
 
+.listRow {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border-lighter);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.listCopy {
+  display: grid;
+  gap: 7px;
+}
+
 .cardGrid {
   @include hairline-grid($min: 280px);
 }
@@ -106,4 +124,8 @@
 
 .kicker {
   @include standard-page-kicker($margin: 0 0 11px);
+}
+
+.status {
+  @include sr-only;
 }

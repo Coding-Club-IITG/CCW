@@ -102,7 +102,7 @@
 }
 
 .skill {
-  @include badge-pill;
+  @include badge-chip;
 }
 
 .linkHint {
@@ -264,7 +264,7 @@
 }
 
 .ownerBadge {
-  @include badge-pill(
+  @include badge-chip(
     $color: var(--badge-primary-text),
     $border: var(--primary)
   );
@@ -404,7 +404,7 @@
 
 // Badge reuse
 .badge {
-  @include badge-pill;
+  @include badge-chip;
 }
 
 .badgeOpen {

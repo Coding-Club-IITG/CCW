@@ -1,10 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import SearchInput from "@/components/shared/SearchInput";
-import EmptyState from "@/components/public/EmptyState";
-import styles from "../Lists.module.scss";
+
 import { type StreakEntry } from "@/lib/actions/potd";
+
+import EmptyState from "@/components/shared/EmptyState";
+import SearchInput from "@/components/shared/SearchInput";
+
+import styles from "../Lists.module.scss";
 
 type StreakTab = "current" | "max";
 

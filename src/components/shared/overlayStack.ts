@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 
 type Layer = {
-  id: symbol;
   onEscape: () => void;
   canClose: () => boolean;
 };
@@ -13,14 +12,11 @@ let bound = false;
 
 function handleKeyDown(event: KeyboardEvent) {
   if (event.key !== "Escape") return;
-  for (let index = layers.length - 1; index >= 0; index -= 1) {
-    const layer = layers[index];
-    if (!layer.canClose()) continue;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    layer.onEscape();
-    return;
-  }
+  const layer = layers.at(-1);
+  if (!layer || !layer.canClose()) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  layer.onEscape();
 }
 
 function bind() {
@@ -37,7 +33,7 @@ function unbind() {
 
 /**
  * Registers an overlay as a dismissable layer while 'active'
- * Only the top-most layer that reports 'canClose()' receives Escape.
+ * Only the top-most layer can receive Escape.
  */
 export function useEscapeLayer(
   active: boolean,
@@ -55,7 +51,6 @@ export function useEscapeLayer(
   useEffect(() => {
     if (!active) return;
     const layer: Layer = {
-      id: Symbol("overlay"),
       onEscape: () => onEscapeRef.current(),
       canClose: () => canCloseRef.current(),
     };

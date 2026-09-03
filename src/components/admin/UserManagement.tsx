@@ -1,7 +1,5 @@
 "use client";
 
-import Modal from "@/components/shared/Modal";
-import { useCallback, useEffect, useState } from "react";
 import {
   CalendarDays,
   Pencil,
@@ -11,18 +9,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import SearchInput from "@/components/shared/SearchInput";
-import Pagination from "@/components/shared/Pagination";
-import {
-  ACCESS_LEVELS,
-  CLUB_POSITIONS,
-  CURRENT_TENURE,
-  MODULE_POSITIONS,
-  MODULES,
-  type AccessLevel,
-  type ModuleName,
-  type UserRole,
-} from "@/lib/constants";
+import { useCallback, useEffect, useState } from "react";
+
 import {
   addUser,
   deleteUser,
@@ -33,6 +21,22 @@ import {
   updateUserTenure,
 } from "@/lib/actions/user";
 import type { AppResult } from "@/lib/api/result";
+import {
+  ACCESS_LEVELS,
+  CLUB_POSITIONS,
+  CURRENT_TENURE,
+  MODULE_POSITIONS,
+  MODULES,
+  type AccessLevel,
+  type ModuleName,
+  type UserRole,
+} from "@/lib/constants";
+
+import Modal from "@/components/shared/Modal";
+import Pagination from "@/components/shared/Pagination";
+import SearchInput from "@/components/shared/SearchInput";
+import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
+
 import styles from "./UserManagement.module.scss";
 
 interface AdminUser {
@@ -164,6 +168,10 @@ export default function UserManagement() {
     setTenureUser(null);
   };
 
+  if (loading && users.length === 0) {
+    return <TableSkeletonContent label="users" columns={6} />;
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.addUserSection}>
@@ -221,9 +229,7 @@ export default function UserManagement() {
       </div>
 
       {loading ? (
-        <div className={styles.tableContainer}>
-          <p className={styles.loadingState}>Loading users…</p>
-        </div>
+        <TableSkeletonContent label="users" columns={6} />
       ) : (
         <>
           <div className={styles.tableContainer}>

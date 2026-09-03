@@ -1,13 +1,16 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
 import { use, useEffect, useState } from "react";
-import BackLink from "@/components/shared/BackLink";
-import BlogEditor from "@/components/blog/BlogEditor";
+
+import { expectAppData } from "@/lib/api/result";
 import type { BlogStatus } from "@/lib/constants";
 import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+
+import BlogEditor from "@/components/blog/BlogEditor";
+import BackLink from "@/components/shared/BackLink";
+
 import styles from "./EditBlog.module.scss";
+import EditBlogLoading from "./loading";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -80,11 +83,7 @@ export default function EditMyBlogPage({ params }: Props) {
   };
 
   if (loading) {
-    return (
-      <div className={styles.container}>
-        <p className={styles.loading}>Loading...</p>
-      </div>
-    );
+    return <EditBlogLoading />;
   }
 
   if (error || !post) {

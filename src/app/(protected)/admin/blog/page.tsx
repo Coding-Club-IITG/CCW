@@ -1,15 +1,19 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import BackLink from "@/components/shared/BackLink";
 import { ExternalLink as IconExternalLink } from "lucide-react";
-import Pagination from "@/components/shared/Pagination";
+import { useEffect, useState } from "react";
+
+import { expectAppData } from "@/lib/api/result";
 import type { BlogStatus } from "@/lib/constants";
+
+import BackLink from "@/components/shared/BackLink";
+import Pagination from "@/components/shared/Pagination";
+import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
+
 import styles from "./AdminBlog.module.scss";
+import AdminBlogLoading from "./loading";
 
 interface Post {
   _id: string;
@@ -85,6 +89,8 @@ export default function AdminBlogPage() {
     }
   };
 
+  if (loading && posts.length === 0) return <AdminBlogLoading />;
+
   return (
     <div className={styles.container}>
       <BackLink href="/admin" label="Back to Administration" />
@@ -100,7 +106,7 @@ export default function AdminBlogPage() {
       </header>
 
       {loading ? (
-        <p className={styles.loading}>Loading...</p>
+        <TableSkeletonContent label="blog posts" columns={4} />
       ) : posts.length === 0 ? (
         <div className={styles.empty}>
           <p>No blog posts yet. Create your first post to get started.</p>

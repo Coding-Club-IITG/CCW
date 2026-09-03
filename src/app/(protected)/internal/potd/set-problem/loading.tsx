@@ -1,12 +1,12 @@
-import FormSkeleton from "@/components/shared/skeletons/FormSkeleton";
+import CardGridSkeleton from "@/components/shared/skeletons/CardGridSkeleton";
 
-export default function Loading() {
+export default function SetProblemLoading() {
   return (
-    <FormSkeleton
+    <CardGridSkeleton
       title="Manage Upcoming Problems"
       lead="Schedule up to 10 days in advance."
       kicker="Internal"
-      fields={4}
+      cards={6}
     />
   );
 }

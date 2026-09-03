@@ -46,8 +46,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  font-size: 0.8rem;
-  color: var(--muted);
+  @include metadata(11.5px, var(--muted));
 
   button {
     color: var(--primary);
@@ -153,8 +152,7 @@
 }
 
 .aclHint {
-  font-size: 0.75rem;
-  color: var(--gray-400);
+  @include metadata(11.5px, var(--gray-400));
   margin-top: 0.2rem;
 }
 
@@ -173,14 +171,7 @@
   }
 }
 
-// Empty / Error states
-
-.loadingState {
-  padding: 3rem 2rem;
-  text-align: center;
-  @include metadata(11.5px);
-  text-transform: uppercase;
-}
+// Error state
 
 .errorState {
   @include error-banner;
@@ -238,7 +229,7 @@
   height: 100%;
   gap: 0.6rem;
   color: var(--muted-light);
-  font-size: 0.95rem;
+  font-size: 15px;
   text-align: center;
   padding: 2rem;
 
@@ -253,8 +244,7 @@
 }
 
 .viewerNoPreviewHint {
-  font-size: 0.82rem;
-  color: var(--muted-lighter);
+  @include metadata(11.5px, var(--muted-lighter));
   margin-top: 0.25rem !important;
 }
 
@@ -264,8 +254,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--muted-light);
-  font-size: 0.9rem;
+  @include metadata(11.5px, var(--muted-light));
 }
 
 // Image rendered directly (no iframe needed)
@@ -345,16 +334,15 @@
 }
 
 .hint {
-  font-size: 0.78rem;
-  color: var(--gray-400);
+  @include metadata(11.5px, var(--gray-400));
 }
 
 .toggleLabel {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-size: 13.5px;
   font-weight: 600;
-  font-size: 0.85rem;
   color: var(--foreground-secondary);
   cursor: pointer;
 
@@ -367,8 +355,7 @@
 }
 
 .toggleHint {
-  font-size: 0.78rem;
-  color: var(--gray-400);
+  @include metadata(11.5px, var(--gray-400));
   font-weight: 400;
 }
 
@@ -402,7 +389,7 @@
   align-items: center;
   gap: 0.5rem;
   color: var(--foreground-secondary);
-  font-size: 0.9rem;
+  font-size: 13.5px;
   flex-wrap: wrap;
   justify-content: center;
   text-align: center;
@@ -436,7 +423,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.88rem;
+  font-size: 13.5px;
   color: var(--foreground-secondary);
   cursor: pointer;
 
@@ -471,7 +458,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.85rem;
+  font-size: 13.5px;
   color: var(--foreground-secondary);
   cursor: pointer;
 
@@ -493,7 +480,7 @@
 }
 
 .userTag {
-  @include badge-pill($color: var(--user-tag-text));
+  @include badge-chip($color: var(--user-tag-text));
   gap: 0.3rem;
 
   button {

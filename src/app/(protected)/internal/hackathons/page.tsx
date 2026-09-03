@@ -1,18 +1,22 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
-import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import SearchInput from "@/components/shared/SearchInput";
-import CompatibleImage from "@/components/shared/CompatibleImage";
-import { formatDate } from "@/lib/utils";
 import {
   Users as IconUsers,
   CalendarDays as IconCalendar,
   ExternalLink as IconExternalLink,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
+import { expectAppData } from "@/lib/api/result";
+import { formatDate } from "@/lib/utils";
+
+import CompatibleImage from "@/components/shared/CompatibleImage";
+import SearchInput from "@/components/shared/SearchInput";
+import { CardGridSkeletonContent } from "@/components/shared/skeletons/CardGridSkeleton";
+
 import styles from "./Hackathons.module.scss";
+import HackathonsLoading from "./loading";
 
 interface Hackathon {
   _id: string;
@@ -57,6 +61,8 @@ export default function HackathonsPage() {
     });
   }, [hackathons, search]);
 
+  if (loading && hackathons.length === 0) return <HackathonsLoading />;
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -73,7 +79,7 @@ export default function HackathonsPage() {
       </div>
 
       {loading ? (
-        <p className={styles.muted}>Loading hackathons...</p>
+        <CardGridSkeletonContent label="hackathons" />
       ) : hackathons.length === 0 ? (
         <p className={styles.muted}>No active hackathons right now.</p>
       ) : filteredHackathons.length === 0 ? (

@@ -1,4 +1,4 @@
-@use "public" as *;
+@use "shared" as *;
 
 // Card container
 @mixin card($padding: 1.5rem) {

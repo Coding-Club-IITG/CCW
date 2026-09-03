@@ -50,7 +50,7 @@
 }
 
 .checkboxLabel {
-  @include badge-pill;
+  @include badge-chip;
   cursor: pointer;
   transition:
     border-color 0.15s ease,

@@ -152,7 +152,7 @@
 }
 
 .difficultyBadge {
-  @include badge-pill($color: inherit, $border: currentColor);
+  @include badge-chip($color: inherit, $border: currentColor);
   margin-top: -0.5rem;
 }
 

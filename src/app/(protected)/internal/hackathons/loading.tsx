@@ -1,6 +1,6 @@
 import CardGridSkeleton from "@/components/shared/skeletons/CardGridSkeleton";
 
-export default function Loading() {
+export default function HackathonsLoading() {
   return (
     <CardGridSkeleton
       title="Hackathon Finder"

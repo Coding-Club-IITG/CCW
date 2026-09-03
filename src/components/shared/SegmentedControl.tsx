@@ -3,13 +3,14 @@ import type { ComponentType } from "react";
 
 import styles from "./FilterControls.module.scss";
 
-export type Segment = {
+type SegmentBase = {
   label: string;
   active: boolean;
-  href?: string;
-  onClick?: () => void;
   Icon?: ComponentType<{ size?: number; "aria-hidden"?: boolean | "true" }>;
 };
+
+export type Segment = SegmentBase &
+  ({ href: string; onClick?: never } | { href?: never; onClick: () => void });
 
 /** Joined two-or-more option control used for sort order and layout choice */
 export default function SegmentedControl({
@@ -30,7 +31,7 @@ export default function SegmentedControl({
           </>
         );
 
-        return href ? (
+        return href !== undefined ? (
           <Link
             key={href + text}
             href={href}

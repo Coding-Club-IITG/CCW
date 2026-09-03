@@ -145,7 +145,7 @@
 
 .scopeBadge {
   justify-self: start;
-  @include badge-pill;
+  @include badge-chip;
 }
 
 @media (max-width: 800px) {

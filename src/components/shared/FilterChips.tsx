@@ -2,13 +2,14 @@ import Link from "next/link";
 
 import styles from "./FilterControls.module.scss";
 
-export type FilterOption = {
+type FilterOptionBase = {
   label: string;
   active: boolean;
-  href?: string;
-  onClick?: () => void;
   ariaLabel?: string;
 };
+
+export type FilterOption = FilterOptionBase &
+  ({ href: string; onClick?: never } | { href?: never; onClick: () => void });
 
 /** Row of outlined filter chips */
 export default function FilterChips({
@@ -23,7 +24,7 @@ export default function FilterChips({
       {options.map((option) => {
         const className = `${styles.chip} ${option.active ? styles.chipActive : ""}`;
 
-        return option.href ? (
+        return option.href !== undefined ? (
           <Link
             key={option.href + option.label}
             href={option.href}

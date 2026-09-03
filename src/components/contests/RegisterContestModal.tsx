@@ -1,15 +1,5 @@
 "use client";
 
-import Modal from "@/components/shared/Modal";
-import { useState, useEffect } from "react";
-import {
-  registerForContest,
-  getAvailableTeamsForContest,
-  getContestRegistrations,
-  unregisterFromContest,
-} from "@/lib/actions/contests";
-import type { ContestRegistrationDto } from "@/lib/contests/dtos";
-import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   CircleUserRound,
@@ -17,9 +7,21 @@ import {
   Terminal,
   User,
   Users,
-  X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import {
+  registerForContest,
+  getAvailableTeamsForContest,
+  getContestRegistrations,
+  unregisterFromContest,
+} from "@/lib/actions/contests";
+import type { ContestRegistrationDto } from "@/lib/contests/dtos";
+
 import CompatibleImage from "@/components/shared/CompatibleImage";
+import Modal from "@/components/shared/Modal";
+
 import styles from "./RegisterContestModal.module.scss";
 
 export default function RegisterContestModal({
@@ -244,13 +246,23 @@ export default function RegisterContestModal({
           {loading ? "Leaving..." : "Leave Contest"}
         </button>
       )}
-      <button className={styles.btnPrimary} type="button" onClick={onClose}>
+      <button
+        className={styles.btnPrimary}
+        type="button"
+        onClick={onClose}
+        disabled={loading}
+      >
         Close
       </button>
     </>
   ) : (
     <>
-      <button className={styles.btnGhost} type="button" onClick={onClose}>
+      <button
+        className={styles.btnGhost}
+        type="button"
+        onClick={onClose}
+        disabled={loading}
+      >
         Cancel
       </button>
       <button

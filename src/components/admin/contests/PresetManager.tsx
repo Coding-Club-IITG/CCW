@@ -1,12 +1,14 @@
 "use client";
 
-import Modal from "@/components/shared/Modal";
+import { Plus, Edit2, Archive, Loader2 } from "lucide-react";
+import { useState } from "react";
+
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
+import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
 import type { ContestPresetDto } from "@/lib/contests/dtos";
 
-import { useState } from "react";
-import { Plus, Edit2, Archive, Loader2 } from "lucide-react";
-import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
+import Modal from "@/components/shared/Modal";
+
 import styles from "./PresetManager.module.scss";
 
 interface PresetManagerProps {

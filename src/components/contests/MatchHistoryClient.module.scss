@@ -167,7 +167,7 @@
 }
 
 .badgeVictory {
-  @include badge-pill(
+  @include badge-chip(
     var(--success-bg),
     var(--success-text),
     var(--success-border)
@@ -175,7 +175,7 @@
 }
 
 .badgeTie {
-  @include badge-pill(
+  @include badge-chip(
     var(--warning-bg),
     var(--warning-text),
     var(--warning-border)
@@ -183,16 +183,16 @@
 }
 
 .badgeDefeat {
-  @include badge-pill(var(--surface-hover), var(--muted), var(--border));
+  @include badge-chip(var(--surface-hover), var(--muted), var(--border));
 }
 
 .badgeNeutral {
-  @include badge-pill(var(--surface-hover), var(--muted), var(--border));
+  @include badge-chip(var(--surface-hover), var(--muted), var(--border));
   text-transform: capitalize;
 }
 
 .tournamentTag {
-  @include badge-pill(var(--accent-bg), var(--accent-light), var(--accent));
+  @include badge-chip(var(--accent-bg), var(--accent-light), var(--accent));
   @include contest-glow($blur: 10px);
   gap: 0.25rem;
 }

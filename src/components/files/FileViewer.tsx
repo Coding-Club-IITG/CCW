@@ -1,14 +1,16 @@
 "use client";
 
+import { FileIcon, AlertCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
 import { expectAppData } from "@/lib/api/result";
 
-import { useEffect, useRef, useState } from "react";
-import { FileIcon, AlertCircle } from "lucide-react";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import Modal from "@/components/shared/Modal";
+
+import styles from "./FilesClient.module.scss";
 import type { FileEntry } from "./types";
 import { formatBytes } from "./utils";
-import styles from "./FilesClient.module.scss";
 
 // PDF.js loader
 // Loaded once on demand from cdnjs, promise is cached so re-opens are instant

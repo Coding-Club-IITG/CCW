@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import styles from "./Potd.module.scss";
+import {
+  CircleCheck as IconCheckCircle,
+  Info as IconInfoCircle,
+  Star as IconStar,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
 import {
   syncMySubmission,
   markChallengeOpened,
@@ -10,17 +15,15 @@ import {
   type ChallengeEntry,
 } from "@/lib/actions/potd";
 import {
-  CircleCheck as IconCheckCircle,
-  Info as IconInfoCircle,
-  Star as IconStar,
-} from "lucide-react";
-import {
   DIFFICULTY_COLORS,
   IST_OFFSET_MS,
   PLATFORM_DISPLAY_NAMES,
   PLATFORM_PROBLEM_URLS,
 } from "@/lib/constants";
+
 import { useRuntimeConfig } from "@/components/layout/Providers";
+
+import styles from "./Potd.module.scss";
 
 type Props = {
   cfVerified: boolean;

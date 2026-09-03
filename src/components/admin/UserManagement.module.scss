@@ -35,7 +35,7 @@
   p {
     margin: 0.25rem 0 0;
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 13px;
   }
 }
 
@@ -44,9 +44,7 @@
   flex-direction: column;
   gap: 0.35rem;
   label {
-    color: var(--foreground);
-    font-size: 0.78rem;
-    font-weight: 600;
+    @include micro-label(10.5px, 0.09em, var(--foreground));
   }
   input {
     min-height: 38px;
@@ -55,7 +53,7 @@
     border-radius: 0;
     background: var(--surface);
     color: var(--foreground);
-    font-size: 0.85rem;
+    font-size: 13.5px;
   }
   input:focus {
     outline: 2px solid var(--focus-ring);
@@ -74,16 +72,8 @@
   max-width: 25rem;
 }
 .resultCount {
-  color: var(--muted);
-  font-size: 0.78rem;
+  @include metadata(11.5px, var(--muted));
 }
-.loadingState {
-  margin: 0;
-  padding: 3rem;
-  color: var(--muted);
-  text-align: center;
-}
-
 .tableContainer {
   overflow-x: auto;
   border: 1px solid var(--border);
@@ -91,25 +81,14 @@
   background: var(--surface);
 }
 .table {
-  width: 100%;
-  border-collapse: collapse;
+  @include table-base;
+
   th {
     padding: 0.7rem 0.8rem;
-    background: var(--surface-secondary);
-    border-bottom: 1px solid var(--border);
-    color: var(--muted);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.035em;
-    text-align: left;
-    text-transform: uppercase;
     white-space: nowrap;
   }
   td {
     padding: 0.8rem;
-    border-bottom: 1px solid var(--border);
-    color: var(--foreground);
-    font-size: 0.82rem;
     vertical-align: middle;
   }
   tbody tr:last-child td {
@@ -130,12 +109,10 @@
   gap: 0.2rem;
 }
 .memberCell strong {
-  color: var(--foreground-strong);
-  font-size: 0.86rem;
+  @include entity-name;
 }
 .memberCell span {
-  color: var(--muted);
-  font-size: 0.74rem;
+  @include metadata(11.5px, var(--muted));
   overflow-wrap: anywhere;
 }
 
@@ -163,9 +140,8 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--link);
+  @include metadata(11px, var(--link));
   cursor: pointer;
-  font-size: 0.7rem;
 }
 .inlineAction:hover {
   text-decoration: underline;
@@ -186,8 +162,7 @@
   border: 1px solid var(--border);
   border-radius: 0;
   background: var(--surface-secondary);
-  color: var(--muted);
-  font-size: 0.7rem;
+  @include metadata(11px, var(--muted));
   line-height: 1.2;
 }
 .roleBadge strong {
@@ -195,15 +170,13 @@
   font-weight: 650;
 }
 .emptyValue {
-  color: var(--muted);
-  font-size: 0.74rem;
+  @include metadata(11.5px, var(--muted));
   font-style: italic;
 }
 .tenureValue {
   display: inline-block;
   min-width: 62px;
-  color: var(--foreground-strong);
-  font-size: 0.78rem;
+  @include metadata(12px, var(--foreground-strong));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -224,7 +197,7 @@
   background: var(--surface-secondary);
   color: var(--foreground);
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 13.5px;
   font-weight: 700;
 }
 .pizzaButton:hover:not(:disabled) {
@@ -238,7 +211,7 @@
 .pizzaCount {
   min-width: 24px;
   text-align: center;
-  font-size: 0.78rem;
+  @include metadata(12px, var(--foreground-strong));
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -279,17 +252,14 @@
 .modalLabel {
   display: block;
   margin-bottom: 0.35rem;
-  color: var(--foreground);
-  font-size: 0.78rem;
-  font-weight: 650;
+  @include micro-label(10.5px, 0.09em, var(--foreground));
 }
 .modalEmpty {
   margin: 0 0 0.75rem;
   padding: 0.8rem;
   border: 1px dashed var(--border);
   border-radius: 0;
-  color: var(--muted);
-  font-size: 0.78rem;
+  @include metadata(11.5px, var(--muted));
   text-align: center;
 }
 
@@ -301,14 +271,11 @@
 }
 .modulePicker legend {
   padding: 0 0.25rem;
-  color: var(--foreground-strong);
-  font-size: 0.8rem;
-  font-weight: 700;
+  @include micro-label(11px, 0.08em, var(--foreground-strong));
 }
 .modulePicker > p {
   margin: 0 0 0.75rem;
-  color: var(--muted);
-  font-size: 0.73rem;
+  @include metadata(11.5px, var(--muted));
   line-height: 1.45;
 }
 .modulePicker label {
@@ -319,7 +286,7 @@
   border-radius: 0;
   color: var(--foreground);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 13px;
 }
 .modulePicker label:hover {
   background: var(--surface-hover);
@@ -359,9 +326,8 @@
   padding: 0.35rem 0;
   border: 0;
   background: none;
-  color: var(--link);
+  @include metadata(11.5px, var(--link));
   cursor: pointer;
-  font-size: 0.76rem;
   font-weight: 600;
 }
 .addModuleRole:hover {
@@ -389,12 +355,11 @@
   background: transparent;
   color: var(--foreground);
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 13.5px;
 }
 .fieldHint {
   margin: 0.4rem 0 0;
-  color: var(--muted);
-  font-size: 0.7rem;
+  @include metadata(11px, var(--muted));
 }
 .cancel {
   @include btn-secondary;

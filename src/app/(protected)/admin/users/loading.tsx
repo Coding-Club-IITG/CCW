@@ -6,7 +6,7 @@ export default function Loading() {
       title="User Management"
       lead="Access levels, roles and tenure."
       kicker="Administration"
-      columns={5}
+      columns={6}
     />
   );
 }

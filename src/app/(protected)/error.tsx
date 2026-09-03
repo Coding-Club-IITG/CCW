@@ -32,8 +32,7 @@ export default function Error({
       <p className={styles.code}>500</p>
       <h1 className={styles.title}>Something broke while loading this.</h1>
       <p className={styles.lead}>
-        Your work is safe. Reloading usually fixes it - if it doesn&apos;t, send
-        us the code below.
+        Reloading usually fixes it - if it doesn&apos;t, send us the code below.
       </p>
       <p className={styles.ref}>
         {slug}_RENDER{error.digest ? ` · ${error.digest.slice(0, 6)}` : ""}

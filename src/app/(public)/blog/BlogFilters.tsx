@@ -1,6 +1,6 @@
 import { blogHref, type BlogQuery, type BlogSort } from "@/lib/blog/listing";
-import FilterChips from "@/components/public/FilterChips";
-import SegmentedControl from "@/components/public/SegmentedControl";
+import FilterChips from "@/components/shared/FilterChips";
+import SegmentedControl from "@/components/shared/SegmentedControl";
 import BlogSearch from "./BlogSearch";
 import styles from "./Blog.module.scss";
 
