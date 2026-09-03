@@ -124,6 +124,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const requestApproval = Boolean(body.requestApproval);
+    const cancelApproval = Boolean(body.cancelApproval);
 
     const dbSession = await mongoose.startSession();
     let saved;
@@ -138,6 +139,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           const existingRev = current.pendingRevision?.toObject?.() || current.pendingRevision;
           const currentBase = existingRev || current;
 
+          let submittedAt = existingRev?.submittedAt || null;
+          if (requestApproval) {
+            submittedAt = new Date();
+          } else if (cancelApproval) {
+            submittedAt = null;
+          }
+
           const updatedRevision = {
             title: newTitle !== undefined ? newTitle : currentBase.title,
             content: newContent !== undefined ? newContent : currentBase.content,
@@ -146,9 +154,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             coverFocalPoint: newCoverFocalPoint !== undefined ? newCoverFocalPoint : currentBase.coverFocalPoint,
             tags: newTags !== undefined ? newTags : currentBase.tags,
             updatedAt: new Date(),
-            submittedAt: requestApproval
-              ? new Date()
-              : (existingRev?.submittedAt || null),
+            submittedAt,
             submittedBy: new mongoose.Types.ObjectId(String(user.id)),
           };
 
@@ -163,7 +169,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               action: "update" as const,
               operation: requestApproval
                 ? "blog.revision.submit"
-                : "blog.revision.update",
+                : cancelApproval
+                  ? "blog.revision.withdraw"
+                  : "blog.revision.update",
               target: {
                 type: "blog-post",
                 id: String(current._id),

@@ -99,12 +99,29 @@ export default function EditMyBlogPage({ params }: Props) {
     );
   };
 
+  const handleWithdrawReview = async () => {
+    try {
+      const response = await fetch(`/api/internal/blog/${slug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cancelApproval: true }),
+      });
+      const result = await expectAppData(response);
+      setPost(result.post);
+      showToast(
+        "Review request withdrawn. You can continue editing your draft changes.",
+      );
+    } catch {
+      alert("Failed to withdraw review request.");
+    }
+  };
+
   const handleDiscardRevision = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to discard your unapproved draft changes? This will revert your working editor to the live published post.",
-      )
-    ) {
+    const confirmText = isSubmitted
+      ? "Are you sure you want to cancel your review request and discard all unapproved changes? This will revert your editor to the live published post."
+      : "Are you sure you want to discard your unapproved draft changes? This will revert your editor to the live published post.";
+
+    if (!confirm(confirmText)) {
       return;
     }
     try {
@@ -113,7 +130,7 @@ export default function EditMyBlogPage({ params }: Props) {
       });
       const result = await expectAppData(response);
       setPost(result.post);
-      showToast("Draft revision discarded. Reverted to live published content.");
+      showToast("Staged changes discarded. Reverted to live published content.");
     } catch {
       alert("Failed to discard revision.");
     }
@@ -218,13 +235,32 @@ export default function EditMyBlogPage({ params }: Props) {
           </p>
           {hasRevision && (
             <div className={styles.bannerActions}>
-              <button
-                type="button"
-                className={styles.btnDangerSmall}
-                onClick={handleDiscardRevision}
-              >
-                Discard Staged Changes
-              </button>
+              {isSubmitted ? (
+                <>
+                  <button
+                    type="button"
+                    className={styles.btnSecondarySmall}
+                    onClick={handleWithdrawReview}
+                  >
+                    Withdraw Review Request
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnDangerSmall}
+                    onClick={handleDiscardRevision}
+                  >
+                    Discard All Changes
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.btnDangerSmall}
+                  onClick={handleDiscardRevision}
+                >
+                  Discard Draft Changes
+                </button>
+              )}
             </div>
           )}
         </div>

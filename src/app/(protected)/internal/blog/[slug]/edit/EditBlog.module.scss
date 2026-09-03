@@ -59,6 +59,12 @@
   align-items: center;
 }
 
+.btnSecondarySmall {
+  @include btn-secondary;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
 .btnDangerSmall {
   @include btn-danger;
   font-size: 0.75rem;
