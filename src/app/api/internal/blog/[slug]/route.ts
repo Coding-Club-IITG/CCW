@@ -234,9 +234,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           .select("_id")
           .lean();
 
-        const adminIds = adminUsers
-          .map((u: any) => String(u._id))
-          .filter((id: string) => id !== String(user.id));
+        const adminIds = adminUsers.map((u: any) => String(u._id));
 
         if (adminIds.length > 0) {
           await notifyMany(adminIds, {
