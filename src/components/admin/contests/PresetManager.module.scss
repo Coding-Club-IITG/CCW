@@ -22,7 +22,6 @@
 .tableContainer {
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: 6px;
   background: var(--surface-secondary);
 }
 
@@ -55,10 +54,8 @@
 }
 
 .badge {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  padding: 4px 9px;
+  @include micro-label(10.5px, 0.05em, currentcolor);
 }
 
 .badgeActive {
@@ -77,20 +74,9 @@
 }
 
 .actionButton {
-  background: var(--surface);
-  border: 1px solid var(--border-input);
+  @include icon-button(28px);
+  border-color: var(--border-input);
   color: var(--foreground);
-  padding: 0.375rem;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-
-  &:hover {
-    background: var(--surface-hover);
-  }
 }
 
 .archiveBtn:hover {
@@ -110,26 +96,13 @@
   margin-bottom: 1.25rem;
 
   label {
-    font-weight: 600;
-    font-size: 0.8125rem;
-    color: var(--foreground);
+    @include micro-label(10.5px, 0.09em);
   }
 
   input,
   textarea,
   select {
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--border-input);
-    border-radius: 6px;
-    font-size: 0.875rem;
-    background: var(--surface);
-    color: var(--foreground);
-
-    &:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--focus-ring);
-    }
+    @include form-control;
   }
 
   textarea {
@@ -151,7 +124,6 @@
   background: var(--surface);
   border: 1px solid var(--border);
   padding: 1rem;
-  border-radius: 6px;
   margin-bottom: 1.25rem;
 }
 
@@ -159,14 +131,12 @@
   background: var(--surface);
   border: 1px solid var(--border);
   padding: 1rem;
-  border-radius: 6px;
   margin-bottom: 1.25rem;
 
   label {
-    font-weight: 600;
-    font-size: 0.8125rem;
-    margin-bottom: 0.5rem;
     display: block;
+    margin-bottom: 0.5rem;
+    @include micro-label(10.5px, 0.09em);
   }
 }
 
@@ -178,12 +148,8 @@
 
   select,
   input {
+    @include form-control;
     padding: 0.375rem 0.5rem;
-    border: 1px solid var(--border-input);
-    border-radius: 6px;
-    font-size: 0.8125rem;
-    background: var(--surface);
-    color: var(--foreground);
   }
 
   select {
@@ -196,34 +162,14 @@
 }
 
 .removeSlotBtn {
-  background: none;
-  border: 1px solid var(--border-input);
-  color: var(--danger);
-  padding: 0.375rem 0.625rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: 600;
-
-  &:hover:not(:disabled) {
-    background: var(--error-bg);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+  @include btn-danger(0.375rem 0.625rem);
 }
 
 .addSlotBtn {
+  @include btn-base(0.375rem 0.75rem);
   background: none;
   border: 1px dashed var(--border-input);
-  color: var(--primary);
-  padding: 0.375rem 0.75rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: 600;
+  @include micro-label(11px, 0.06em, var(--primary));
   width: 100%;
   margin-top: 0.5rem;
 

@@ -64,6 +64,11 @@
   @include micro-label(9.5px, 0.06em, var(--muted-light));
 }
 
+.verb {
+  margin-inline: 0.35rem;
+  @include micro-label(10px, 0.08em, var(--primary));
+}
+
 .changes summary {
   cursor: pointer;
   @include micro-label(10.5px, 0.07em, var(--primary));

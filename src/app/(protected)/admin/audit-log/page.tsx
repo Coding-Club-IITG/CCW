@@ -242,7 +242,7 @@ export default function AuditLogPage() {
                 </div>
                 <p>
                   <b>{event.actor.displayName}</b> ({event.actor.access})
-                  {` ${eventVerb(event)} `}
+                  <span className={styles.verb}>{eventVerb(event)}</span>
                   <b>{event.target.label}</b>{" "}
                   <span className={styles.type}>{event.target.type}</span>
                 </p>
