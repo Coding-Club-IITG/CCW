@@ -64,7 +64,6 @@
   gap: 0.375rem;
 }
 
-.iconBtn,
 .iconBtnDestructive {
   background: none;
   border: none;
@@ -81,11 +80,6 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
-}
-
-.iconBtn:hover:not(:disabled) {
-  background-color: var(--surface-hover);
-  color: var(--foreground-strong);
 }
 
 .iconBtnDestructive:hover:not(:disabled) {

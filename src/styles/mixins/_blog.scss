@@ -140,24 +140,6 @@
   }
 }
 
-// Blog card
-@mixin blog-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 6px;
-  padding: 1.25rem;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
-  text-decoration: none;
-  display: block;
-
-  &:hover {
-    border-color: var(--primary);
-    background: var(--blog-card-hover);
-  }
-}
-
 // Blog tag badge
 @mixin blog-tag {
   @include badge-pill;

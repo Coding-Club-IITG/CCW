@@ -74,31 +74,21 @@
 }
 
 .rank {
-  @include metadata(11.5px, var(--muted-lighter));
+  @include rank-cell;
 }
 
 .rankBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 26px;
-  height: 24px;
-  padding: 0 7px;
-  border-radius: 0;
-  @include metadata(11.5px, inherit);
+  @include rank-medal;
 }
 
 .top1 {
-  background: var(--rank-gold-bg);
-  color: var(--rank-gold-text);
+  @include rank-medal-gold;
 }
 .top2 {
-  background: var(--rank-silver-bg);
-  color: var(--rank-silver-text);
+  @include rank-medal-silver;
 }
 .top3 {
-  background: var(--rank-bronze-bg);
-  color: var(--rank-bronze-text);
+  @include rank-medal-bronze;
 }
 
 .userInfo {
@@ -107,9 +97,7 @@
 }
 
 .userName {
-  font-weight: 600;
-  color: var(--foreground-strong);
-  font-size: 13.5px;
+  @include entity-name;
 }
 
 .userHandle {

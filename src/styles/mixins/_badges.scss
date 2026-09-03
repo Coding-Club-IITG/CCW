@@ -16,11 +16,7 @@
 }
 
 // Selected state
-@mixin badge-active {
-  @include badge-pill(var(--primary), var(--btn-primary-text), var(--primary));
-}
-
 // Semantic state
-@mixin badge-semantic($bg, $color) {
-  @include badge-pill($bg, $color, transparent);
+@mixin badge-semantic($bg, $color, $border: transparent) {
+  @include badge-pill($bg, $color, $border);
 }

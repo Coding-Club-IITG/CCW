@@ -428,7 +428,7 @@
   flex-shrink: 0;
   padding: 0.5rem 1rem;
   border: 1px solid var(--border-input);
-  color: var(--muted);
+  @include micro-label(11px, 0.06em, var(--muted));
   white-space: nowrap;
 }
 
@@ -596,20 +596,6 @@
   color: var(--foreground-strong);
 }
 
-.cardBadge,
-.cardBadgeNeutral,
-.cardDateBadge,
-.createBtn,
-.timer,
-.timerWaiting,
-.joinBtn,
-.miniBtn,
-.pillBtn,
-.tableBadge,
-.inProgressBadge {
-  font-family: var(--font-jetbrains-mono), monospace;
-}
-
 .timer,
 .timerWaiting {
   @include display-type(30px);
@@ -619,8 +605,4 @@
 .cardBadgeNeutral,
 .cardDateBadge {
   @include micro-label(10.5px, 0.05em, currentcolor);
-}
-
-.joinBtn {
-  font-size: 0.875rem;
 }

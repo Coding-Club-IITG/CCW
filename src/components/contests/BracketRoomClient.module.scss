@@ -366,9 +366,7 @@
 }
 
 .slotName {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--foreground-strong);
+  @include entity-name;
 }
 
 .slotNameWinner {
@@ -428,9 +426,7 @@
 }
 
 .rowName {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--foreground-strong);
+  @include entity-name;
 }
 
 .rowNameMuted {
@@ -630,9 +626,7 @@
 }
 
 .scoreName {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--foreground-strong);
+  @include entity-name;
 }
 
 .scoreValue {
@@ -751,11 +745,6 @@
 }
 
 /* Apply Fonts */
-.scoreName,
-.slotName,
-.rowName {
-  font-family: var(--font-hanken-grotesk), sans-serif;
-}
 
 .liveIndicator,
 .vsLabel {

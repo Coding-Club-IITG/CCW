@@ -89,6 +89,9 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
   sorting, pagination and the archive window all live in the query string, so
   every state is server rendered, shareable and crawlable; only the controls
   themselves hydrate.
+- Internal pending and failure states are file-based. Each route archetype has
+  its own `loading.tsx` skeleton whose header renders for real,
+  and `(protected)` owns one `error.tsx` and one `not-found.tsx`.
 - Theme-dependent rendering must be done in CSS keyed off `[data-theme]`, not by
   branching on the theme store. The store reads a cookie that is unavailable
   during server rendering, so a JavaScript branch desynchronises hydration.

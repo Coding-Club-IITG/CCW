@@ -39,3 +39,42 @@
   @include metadata(11.5px);
   text-transform: uppercase;
 }
+
+// Ranked-list cells
+@mixin rank-cell {
+  @include metadata(11.5px, var(--muted-lighter));
+}
+
+@mixin rank-medal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 0;
+  @include metadata(11.5px, inherit);
+}
+
+@mixin rank-medal-gold {
+  background: var(--rank-gold-bg);
+  color: var(--rank-gold-text);
+}
+
+@mixin rank-medal-silver {
+  background: var(--rank-silver-bg);
+  color: var(--rank-silver-text);
+}
+
+@mixin rank-medal-bronze {
+  background: var(--rank-bronze-bg);
+  color: var(--rank-bronze-text);
+}
+
+// The "primary entity in row"
+@mixin entity-name($size: 13.5px) {
+  font-family: var(--font-hanken-grotesk), sans-serif;
+  font-size: $size;
+  font-weight: 600;
+  color: var(--foreground-strong);
+}

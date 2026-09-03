@@ -34,9 +34,7 @@ button.tag {
 }
 
 .active {
-  background: var(--primary-alpha);
-  color: var(--primary);
-  border-color: var(--primary);
+  @include badge-semantic(var(--primary-alpha), var(--primary), var(--primary));
 }
 
 .count {

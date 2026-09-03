@@ -233,7 +233,7 @@
   border: 1px solid var(--border);
   box-shadow: var(--modal-shadow);
   padding-block: 6px;
-  z-index: 200;
+  z-index: var(--z-menu);
   animation: menuFadeIn 0.14s ease;
 
   @media (prefers-reduced-motion: reduce) {

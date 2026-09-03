@@ -204,46 +204,6 @@
   overflow: hidden;
 }
 
-.viewerHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  gap: 1rem;
-}
-
-.viewerTitle {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-width: 0; // allow text truncation
-
-  .fileIcon {
-    flex-shrink: 0;
-  }
-}
-
-.viewerFileName {
-  display: block;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.viewerOriginalName {
-  display: block;
-  font-size: 0.78rem;
-  color: var(--muted-light);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .viewerBody {
   flex: 1;
   overflow: hidden;
@@ -552,75 +512,6 @@
     &:hover {
       opacity: 1;
     }
-  }
-}
-
-.userPickerWrapper {
-  position: relative;
-}
-
-.userSearchInput {
-  @include form-control;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-
-  input {
-    flex: 1;
-    border: none;
-    outline: none;
-    font: inherit;
-    letter-spacing: inherit;
-    color: var(--foreground-strong);
-    background: transparent;
-
-    &::placeholder {
-      color: var(--muted-lighter);
-    }
-  }
-
-  &:focus-within {
-    border-color: var(--primary);
-  }
-}
-
-.userDropdown {
-  margin-top: 4px;
-  background: var(--surface);
-  border: 1px solid var(--border-input);
-  border-radius: 0;
-  box-shadow: 0 4px 16px var(--shadow-md);
-  overflow: hidden;
-}
-
-.userDropdownItem {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.6rem 0.75rem;
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  transition: background 0.1s;
-
-  strong {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--foreground-strong);
-  }
-
-  span {
-    @include metadata(11px);
-  }
-
-  &:hover {
-    background: var(--surface-hover);
-  }
-
-  & + & {
-    border-top: 1px solid var(--border-lighter);
   }
 }
 

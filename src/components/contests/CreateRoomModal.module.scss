@@ -57,12 +57,6 @@
   @include micro-label(10.5px, 0.09em);
 }
 
-.labelStrong {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--foreground-strong);
-}
-
 .hint {
   margin-top: 0.25rem;
   font-size: 0.75rem;
@@ -121,19 +115,6 @@
     border-color: var(--error);
     box-shadow: 0 0 0 1px var(--error);
   }
-}
-
-.disabledField {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cursorPointer {
-  cursor: pointer;
-}
-
-.cursorNotAllowed {
-  cursor: not-allowed;
 }
 
 .grid2 {
@@ -851,19 +832,4 @@
 .memberName,
 .searchUserName {
   font-family: var(--font-hanken-grotesk), sans-serif;
-}
-.label,
-.labelStrong,
-.hint,
-.hintMuted,
-.errorText,
-.formInput,
-.presetInfoName,
-.presetInfoMeta,
-.checkboxLabel,
-.timeChip,
-.seedNum,
-.regTitle,
-.roundLabel {
-  font-family: var(--font-jetbrains-mono), monospace;
 }

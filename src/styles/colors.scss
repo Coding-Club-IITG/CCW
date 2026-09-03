@@ -50,6 +50,8 @@
   // Stacking order
   --z-sticky: 40; // filter bars and rails docked under navbar
   --z-nav: 100; // the navbar
+  --z-popover: 100; // popovers anchored in page content
+  --z-menu: 200; // dropdowns owned by navbar
   --z-sheet: 120; // slide-in sheets and side panels
   --z-overlay: 1000; // modal backdrops
   --z-console: 2000; // Atlas
@@ -267,7 +269,6 @@
   --blog-prose-hr: rgba(255, 255, 255, 0.1);
   --blog-prose-table-border: rgba(255, 255, 255, 0.13);
   --blog-prose-table-header-bg: #0b0b0b;
-  --blog-card-hover: rgba(255, 255, 255, 0.03);
   --blog-editor-bg: #000000;
   --blog-editor-border: rgba(255, 255, 255, 0.16);
 }
@@ -490,7 +491,6 @@
   --blog-prose-hr: #e6e2da;
   --blog-prose-table-border: #dcd8cf;
   --blog-prose-table-header-bg: #f2efe8;
-  --blog-card-hover: #ede9e1;
   --blog-editor-bg: #ffffff;
   --blog-editor-border: #c4bfb3;
 }

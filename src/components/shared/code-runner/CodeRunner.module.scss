@@ -188,22 +188,6 @@
 }
 
 // WASM loader
-.wasmLoader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding: 2rem;
-  text-align: center;
-}
-
-.wasmLoaderIcon {
-  width: 32px;
-  height: 32px;
-  color: var(--primary);
-  animation: spin 1.5s linear infinite;
-}
 
 @keyframes spin {
   from {
@@ -212,41 +196,6 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-.wasmLoaderReady .wasmLoaderIcon {
-  animation: none;
-  color: var(--success);
-}
-
-.wasmMessage {
-  font-size: 0.875rem;
-  color: var(--foreground);
-  font-weight: 500;
-}
-
-.wasmNote {
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.wasmProgressBar {
-  width: 100%;
-  max-width: 280px;
-  height: 4px;
-  background: var(--surface-secondary);
-  overflow: hidden;
-}
-
-.wasmProgressFill {
-  height: 100%;
-  background: var(--primary);
-  transition: width 0.3s ease;
-}
-
-.wasmError {
-  color: var(--error-text);
-  font-size: 0.8125rem;
 }
 
 // Editor wrapper

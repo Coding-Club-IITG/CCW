@@ -191,14 +191,6 @@
   text-transform: capitalize;
 }
 
-.badgeVictory,
-.badgeTie,
-.badgeDefeat {
-  text-transform: uppercase;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
 .tournamentTag {
   @include badge-pill(var(--accent-bg), var(--accent-light), var(--accent));
   @include contest-glow($blur: 10px);
@@ -287,11 +279,3 @@
 }
 
 /* Apply Fonts */
-.badgeVictory,
-.badgeTie,
-.badgeDefeat,
-.badgeNeutral,
-.tournamentTag,
-.metaText {
-  font-family: var(--font-jetbrains-mono), monospace;
-}
