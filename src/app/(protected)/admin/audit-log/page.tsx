@@ -10,7 +10,6 @@ import Pagination from "@/components/shared/Pagination";
 import { ListSkeletonContent } from "@/components/shared/skeletons/ListSkeleton";
 
 import styles from "./AuditLog.module.scss";
-import AuditLogLoading from "./loading";
 
 type Response = {
   items: AuditLogDto[];
@@ -134,10 +133,8 @@ export default function AuditLogPage() {
     setApplied(filters);
   }
 
-  if (loading && events.length === 0) return <AuditLogLoading />;
-
   return (
-    <main className={styles.container}>
+    <main>
       <BackLink href="/admin" label="Back to Administration" />
       <header>
         <h1>Audit Log</h1>

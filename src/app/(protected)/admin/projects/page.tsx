@@ -11,7 +11,6 @@ import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 
 import styles from "../events/AdminEvents.module.scss";
-import AdminProjectsLoading from "./loading";
 
 interface ProjectItem {
   _id: string;
@@ -77,10 +76,8 @@ export default function AdminProjectsPage() {
     setDeleting(null);
   }
 
-  if (loading && projects.length === 0) return <AdminProjectsLoading />;
-
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/admin" label="Back to Administration" />
 
       <div className={styles.header}>

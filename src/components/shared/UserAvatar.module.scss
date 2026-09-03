@@ -15,6 +15,6 @@
   display: grid;
   place-items: center;
   background: var(--surface-secondary);
-  @include metadata(10px, var(--foreground-strong));
+  @include metadata($text-2xs, var(--foreground-strong));
   text-transform: uppercase;
 }

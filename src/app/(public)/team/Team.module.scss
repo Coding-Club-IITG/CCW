@@ -44,7 +44,7 @@
 }
 
 .groupCount {
-  @include micro-label(11px, 0.07em);
+  @include micro-label($text-xs, 0.07em);
   color: var(--accent, var(--muted));
 }
 
@@ -155,7 +155,7 @@
 }
 
 .photoInitial {
-  @include display-type(40px, 0.02em);
+  @include display-type($display-xl, 0.02em);
   color: var(--accent, var(--muted));
 }
 
@@ -168,7 +168,7 @@
 
 .personRole {
   margin-top: 7px;
-  @include micro-label(11px, 0.07em);
+  @include micro-label($text-xs, 0.07em);
   color: var(--accent, var(--muted));
 }
 
@@ -201,7 +201,7 @@
 }
 
 .personHint {
-  @include micro-label(11px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
   color: var(--foreground-secondary);
 }
 
@@ -244,7 +244,7 @@
 }
 
 .sheetInitial {
-  @include display-type(140px, 0.02em);
+  @include display-type($display-numeral, 0.02em);
   color: var(--accent, var(--muted));
 }
 
@@ -278,7 +278,7 @@
 
 .sheetNoBio {
   margin: 24px 0 0;
-  @include metadata(12px);
+  @include metadata($text-sm);
 }
 
 .sheetFacts {
@@ -306,7 +306,7 @@
   padding: 12px 18px;
   border: 1px solid var(--border-input);
   color: var(--foreground-strong);
-  @include micro-label(11px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
   color: var(--foreground-strong);
 
   &:hover {
@@ -349,7 +349,7 @@
   border: none;
   cursor: pointer;
   color: var(--foreground-strong);
-  @include micro-label(11px, 0.07em);
+  @include micro-label($text-xs, 0.07em);
   color: var(--foreground-strong);
 
   &:hover {

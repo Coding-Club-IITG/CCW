@@ -1,11 +1,7 @@
 @use "../../../../styles/mixins" as *;
 
-.container {
-  @include admin-page;
-}
-
 .header {
-  @include admin-page-header($top-margin: 1rem);
+  @include standard-page-header;
 }
 
 .section {

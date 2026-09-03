@@ -34,7 +34,7 @@ button.tag {
 }
 
 .active {
-  @include badge-semantic(var(--primary-alpha), var(--primary), var(--primary));
+  @include badge-chip(var(--primary-alpha), var(--primary), var(--primary));
 }
 
 .count {
@@ -44,5 +44,5 @@ button.tag {
   border-radius: 0;
   text-align: center;
   line-height: 1.5;
-  @include metadata(10.5px);
+  @include metadata($text-xs);
 }

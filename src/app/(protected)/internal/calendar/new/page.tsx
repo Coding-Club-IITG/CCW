@@ -16,7 +16,7 @@ export default async function NewCalendarEventPage() {
   );
   if (scopes.length === 0) redirect("/internal/calendar");
   return (
-    <div className={`${styles.container} ${styles.formPage}`}>
+    <div className={styles.formPage}>
       <BackLink href="/internal/calendar" label="Back to Calendar" />
       <h1 className={styles.pageTitle}>Create calendar event</h1>
       <CalendarEventForm scopes={scopes} />

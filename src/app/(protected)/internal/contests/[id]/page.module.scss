@@ -1,6 +1,6 @@
 @use "../../../../../styles/mixins" as *;
 
-@include contest-kf-spin;
+@include kf-spin;
 
 .stateWrap {
   display: flex;
@@ -27,7 +27,7 @@
 }
 
 .spin {
-  animation: contestSpin 1s linear infinite;
+  @include spinner;
 }
 
 .stateTitle {

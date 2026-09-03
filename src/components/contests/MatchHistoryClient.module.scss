@@ -18,13 +18,8 @@
   position: relative;
   z-index: 1;
   flex: 1;
-  padding-top: 2rem;
+  padding-top: 3rem;
   padding-bottom: 2rem;
-
-  @media (min-width: 768px) {
-    padding-top: 3rem;
-    padding-bottom: 3rem;
-  }
 }
 
 .header {
@@ -39,10 +34,6 @@
     font-size: 0.875rem;
     color: var(--muted);
   }
-}
-
-.kicker {
-  @include standard-page-kicker($margin: 0 0 11px);
 }
 
 /* Control bar */
@@ -215,7 +206,7 @@
 .metaDot {
   width: 4px;
   height: 4px;
-  border-radius: 999px;
+  border-radius: 50%;
   background: var(--border);
 }
 
@@ -235,7 +226,7 @@
 }
 
 .scoreValue {
-  @include display-type(28px);
+  @include display-type($display-md);
   color: var(--muted);
 }
 
@@ -252,7 +243,7 @@
 }
 
 .scoreDash {
-  @include metadata(11px, var(--muted-lighter));
+  @include metadata($text-xs, var(--muted-lighter));
 }
 
 /* CTA */

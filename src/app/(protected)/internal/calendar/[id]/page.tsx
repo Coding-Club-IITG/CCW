@@ -57,7 +57,7 @@ export default async function CalendarEventPage({
       : null;
   const format = event.allDay ? DATE : DATE_TIME;
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/internal/calendar" label="Back to Calendar" />
       <article className={styles.detail}>
         <header>

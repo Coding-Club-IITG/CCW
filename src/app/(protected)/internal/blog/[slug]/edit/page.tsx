@@ -10,7 +10,7 @@ import BlogEditor from "@/components/blog/BlogEditor";
 import BackLink from "@/components/shared/BackLink";
 
 import styles from "./EditBlog.module.scss";
-import EditBlogLoading from "./loading";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -83,12 +83,19 @@ export default function EditMyBlogPage({ params }: Props) {
   };
 
   if (loading) {
-    return <EditBlogLoading />;
+    return (
+      <div>
+        <div className={styles.topBar}>
+          <BackLink href="/internal/dashboard" label="Back to My Blogs" />
+        </div>
+        <FormSkeletonContent label="the editor" fields={5} />
+      </div>
+    );
   }
 
   if (error || !post) {
     return (
-      <div className={styles.container}>
+      <div>
         <p className={styles.error}>{error || "Blog not found."}</p>
         <BackLink href="/internal/dashboard" label="Back to Dashboard" />
       </div>
@@ -96,7 +103,7 @@ export default function EditMyBlogPage({ params }: Props) {
   }
 
   return (
-    <div className={styles.container}>
+    <div>
       <div className={styles.topBar}>
         <BackLink href="/internal/dashboard" label="Back to My Blogs" />
       </div>

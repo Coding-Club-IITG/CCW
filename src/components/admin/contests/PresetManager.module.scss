@@ -1,5 +1,7 @@
 @use "../../../styles/mixins" as *;
 
+@include kf-spin;
+
 .container {
   padding: 0.5rem 0;
 }
@@ -12,7 +14,6 @@
 
 .addButton {
   @include btn-primary;
-  padding: 0.5rem 1rem;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -54,18 +55,15 @@
 }
 
 .badge {
-  padding: 4px 9px;
-  @include micro-label(10.5px, 0.05em, currentcolor);
+  @include badge-chip;
 }
 
 .badgeActive {
-  background: var(--success-bg);
-  color: var(--success-text);
+  @include badge-success;
 }
 
 .badgeArchived {
-  background: var(--surface-hover);
-  color: var(--muted);
+  @include badge-neutral;
 }
 
 .actions {
@@ -96,7 +94,7 @@
   margin-bottom: 1.25rem;
 
   label {
-    @include micro-label(10.5px, 0.09em);
+    @include micro-label($text-xs, 0.09em);
   }
 
   input,
@@ -136,7 +134,7 @@
   label {
     display: block;
     margin-bottom: 0.5rem;
-    @include micro-label(10.5px, 0.09em);
+    @include micro-label($text-xs, 0.09em);
   }
 }
 
@@ -169,7 +167,7 @@
   @include btn-base(0.375rem 0.75rem);
   background: none;
   border: 1px dashed var(--border-input);
-  @include micro-label(11px, 0.06em, var(--primary));
+  @include micro-label($text-xs, 0.06em, var(--primary));
   width: 100%;
   margin-top: 0.5rem;
 
@@ -178,31 +176,14 @@
   }
 }
 
-.cancelButton {
-  @include btn-secondary;
-  padding: 0.5rem 1rem;
-  font-weight: 600;
+.cancelBtn {
+  @include modal-action;
 }
 
-.saveButton {
-  @include btn-primary;
-  padding: 0.5rem 1rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
+.primaryBtn {
+  @include modal-action-primary;
 }
 
 .spinner {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  @include spinner(1s);
 }

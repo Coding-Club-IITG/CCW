@@ -1,7 +1,8 @@
 @use "@/styles/mixins" as *;
 
 .card {
-  @include card-grid-cell;
+  @include hairline-cell;
+  padding: 20px;
   display: block;
   text-decoration: none;
   transition:

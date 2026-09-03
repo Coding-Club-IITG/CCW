@@ -49,11 +49,12 @@
 
   // Stacking order
   --z-sticky: 40; // filter bars and rails docked under navbar
+  --z-popover: 60; // popovers anchored in page content
   --z-nav: 100; // the navbar
-  --z-popover: 100; // popovers anchored in page content
-  --z-menu: 200; // dropdowns owned by navbar
-  --z-sheet: 120; // slide-in sheets and side panels
-  --z-overlay: 1000; // modal backdrops
+  --z-menu: 120; // dropdowns owned by navbar
+  --z-progress: 140; // fixed reading-progress rails
+  --z-toast: 300; // transient page-level notices
+  --z-overlay: 1000; // modal, sheet and drawer backdrops
   --z-console: 2000; // Atlas
 }
 
@@ -71,12 +72,6 @@
   --btn-primary-bg: #ff4e41;
   --btn-primary-bg-hover: #ff2a1b;
   --btn-primary-text: #000000;
-
-  // Button: secondary/default
-  --btn-secondary-bg: rgba(255, 255, 255, 0.04);
-  --btn-secondary-bg-hover: rgba(255, 255, 255, 0.08);
-  --btn-secondary-border: rgba(255, 255, 255, 0.16);
-  --btn-secondary-text: rgba(255, 255, 255, 0.86);
 
   // Focus
   --focus-ring: rgba(192, 224, 74, 0.5);
@@ -114,7 +109,6 @@
 
   // Grays
   --gray-100: #0e0e0e;
-  --gray-200: #151515;
   --gray-300: #1f1f1f;
   --gray-400: #3a3a3a;
   --gray-500: #6a6a6a;
@@ -159,7 +153,6 @@
   --error-border-light: rgba(248, 81, 73, 0.2);
   --danger: #ff4e41;
   --danger-hover: #ff2a1b;
-  --danger-text: #ff4e41;
 
   // Semantic: Success
   --success: #3fb950;
@@ -179,7 +172,6 @@
   --accent: #6e9ffc;
   --accent-light: #9dbdfd;
   --accent-bg: rgba(110, 159, 252, 0.1);
-  --accent-surface: rgba(110, 159, 252, 0.06);
 
   // Component: Tabs
   --tab-text: rgba(255, 255, 255, 0.55);
@@ -197,7 +189,6 @@
   --badge-bg: transparent;
   --badge-text: #6e9ffc;
   --badge-border: rgba(255, 255, 255, 0.15);
-  --badge-primary-bg: transparent;
   --badge-primary-text: #c0e04a;
 
   // Component: Access badges
@@ -207,7 +198,6 @@
   --access-view-text: #e3b341;
 
   // Component: User tag
-  --user-tag-bg: rgba(110, 159, 252, 0.12);
   --user-tag-text: #6e9ffc;
 
   // Component: Leaderboard ranks
@@ -287,12 +277,6 @@
   --btn-primary-bg-hover: #a8210f;
   --btn-primary-text: #faf8f4;
 
-  // Button: secondary/default
-  --btn-secondary-bg: #f2efe8;
-  --btn-secondary-bg-hover: #ede9e1;
-  --btn-secondary-border: #c4bfb3;
-  --btn-secondary-text: #2a2721;
-
   // Focus
   --focus-ring: rgba(92, 122, 0, 0.45);
 
@@ -329,7 +313,6 @@
 
   // Grays
   --gray-100: #f2efe8;
-  --gray-200: #e6e2da;
   --gray-300: #dcd8cf;
   --gray-400: #a8a29a;
   --gray-500: #8a857a;
@@ -374,7 +357,6 @@
   --error-border-light: #ffcecb;
   --danger: #c4291b;
   --danger-hover: #a8210f;
-  --danger-text: #c4291b;
 
   // Semantic: Success
   --success: #1a7f37;
@@ -394,7 +376,6 @@
   --accent: #1d23a7;
   --accent-light: #4c51c8;
   --accent-bg: #e8eaf7;
-  --accent-surface: #f3f5fc;
 
   // Component: Tabs
   --tab-text: #6b6559;
@@ -412,7 +393,6 @@
   --badge-bg: transparent;
   --badge-text: #1d23a7;
   --badge-border: #dcd8cf;
-  --badge-primary-bg: transparent;
   --badge-primary-text: #5c7a00;
 
   // Component: Access badges
@@ -422,7 +402,6 @@
   --access-view-text: #7d4e00;
 
   // Component: User tag
-  --user-tag-bg: #e8eaf7;
   --user-tag-text: #1d23a7;
 
   // Component: Leaderboard ranks

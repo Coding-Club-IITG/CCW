@@ -16,7 +16,7 @@ import CompatibleImage from "@/components/shared/CompatibleImage";
 import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
 
 import styles from "../Hackathons.module.scss";
-import HackathonDetailLoading from "./loading";
+import { ListSkeletonContent } from "@/components/shared/skeletons/ListSkeleton";
 
 interface MemberDetail {
   id: string;
@@ -344,13 +344,18 @@ export default function HackathonDetailPage({
     }
   }
 
-  if (loading) return <HackathonDetailLoading />;
+  if (loading)
+    return (
+      <div>
+        <ListSkeletonContent label="hackathon" />
+      </div>
+    );
   if (!hackathon) return <p className={styles.error}>Hackathon not found.</p>;
 
   const deadlinePassed = new Date(hackathon.deadline) < new Date();
 
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/internal/hackathons" label="Back to Hackathons" />
 
       <header className={styles.detailHeader}>

@@ -53,7 +53,7 @@
 
 .nextUpKicker {
   @include meta-row;
-  @include micro-label(10.5px);
+  @include micro-label($text-xs);
 }
 
 .nextUpBadge {
@@ -86,13 +86,13 @@
   margin: 6px 0 0;
 
   dt {
-    @include micro-label(11px, 0.09em);
+    @include micro-label($text-xs, 0.09em);
     margin-bottom: 7px;
   }
 
   dd {
     margin: 0;
-    @include metadata(13px);
+    @include metadata($text-md);
     color: var(--foreground-strong);
   }
 }
@@ -102,7 +102,7 @@
   align-items: center;
   gap: 9px;
   margin-top: 8px;
-  @include micro-label(11px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
   color: var(--danger);
 }
 
@@ -189,7 +189,7 @@
   padding: 4px 9px;
   background: var(--background);
   color: var(--foreground-strong);
-  @include micro-label(11px, 0.09em);
+  @include micro-label($text-xs, 0.09em);
   color: var(--foreground-strong);
 }
 
@@ -206,7 +206,7 @@
   background: var(--nav-surface);
   backdrop-filter: blur(6px);
   border: 1px solid var(--border-input);
-  @include micro-label(11px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
   color: var(--foreground-strong);
   opacity: 0;
   transform: translateY(8px);
@@ -230,7 +230,7 @@
 }
 
 .cardModule {
-  @include micro-label(11px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
   color: var(--accent, var(--muted));
 }
 
@@ -249,7 +249,7 @@
   justify-content: space-between;
   gap: 10px;
   margin-top: auto;
-  @include metadata(11px);
+  @include metadata($text-xs);
 }
 
 .cardWhere {
@@ -280,12 +280,12 @@
   top: 0;
   width: 112px;
   text-align: right;
-  @include display-type(30px);
+  @include display-type($display-md);
   color: var(--muted);
 }
 
 .monthCount {
-  @include micro-label(10.5px, 0.11em);
+  @include micro-label($text-xs, 0.11em);
 }
 
 .timelineRow {
@@ -372,13 +372,13 @@
 
 .timelineDay {
   display: block;
-  @include display-type(34px, 0.02em, 0.9);
+  @include display-type($display-lg, 0.02em, 0.9);
 }
 
 .timelineTime {
   display: block;
   margin-top: 6px;
-  @include micro-label(11px, 0.09em);
+  @include micro-label($text-xs, 0.09em);
   color: var(--muted-light);
 }
 
@@ -403,7 +403,7 @@
   align-items: center;
   gap: 9px;
   margin-top: 10px;
-  @include micro-label(11px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
 }
 
 .timelineDescription {
@@ -426,7 +426,7 @@
   padding: 5px 11px;
   border: 1px solid var(--border-input);
   white-space: nowrap;
-  @include micro-label(11px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
 }
 
 .timelineArrow {
@@ -459,7 +459,7 @@
   justify-content: space-between;
   gap: 16px;
   margin: 0;
-  @include micro-label(11px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
 }
 
 .archiveDone {
@@ -490,7 +490,7 @@
   border: 1px solid var(--primary);
   background: var(--primary-alpha);
   color: var(--primary);
-  @include micro-label(12px, 0.12em);
+  @include micro-label($text-sm, 0.12em);
   transition:
     background 0.2s ease,
     border-color 0.2s ease;
@@ -505,7 +505,7 @@
 
 .archiveComplete {
   margin: 0;
-  @include metadata(11px);
+  @include metadata($text-xs);
 }
 
 // Expand sheet
@@ -537,7 +537,7 @@
 
 .sheetKicker {
   @include meta-row;
-  @include micro-label(10.5px, 0.09em);
+  @include micro-label($text-xs, 0.09em);
 }
 
 .sheetStatus {
@@ -576,12 +576,12 @@
 
   dt {
     margin-bottom: 7px;
-    @include micro-label(11px, 0.09em);
+    @include micro-label($text-xs, 0.09em);
   }
 
   dd {
     margin: 0;
-    @include metadata(13px);
+    @include metadata($text-md);
     color: var(--foreground-strong);
   }
 }
@@ -596,13 +596,13 @@
 
 .sheetTagsLabel {
   margin-right: 4px;
-  @include micro-label(11px, 0.09em);
+  @include micro-label($text-xs, 0.09em);
 }
 
 .sheetTag {
   padding: 4px 11px;
   border: 1px solid var(--border-input);
-  @include metadata(11px);
+  @include metadata($text-xs);
   color: var(--foreground-secondary);
 }
 

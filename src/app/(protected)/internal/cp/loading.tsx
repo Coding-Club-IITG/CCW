@@ -5,7 +5,6 @@ export default function Loading() {
     <RankedTableSkeleton
       title="Competitive Programming"
       lead="Leaderboards, contests and your CP performance tracker."
-      kicker="Internal"
     />
   );
 }

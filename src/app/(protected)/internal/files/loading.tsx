@@ -5,7 +5,6 @@ export default function Loading() {
     <TableSkeleton
       title="Internal Files"
       lead="Shared resources, documentation, and module-specific files."
-      kicker="Internal"
       columns={7}
     />
   );

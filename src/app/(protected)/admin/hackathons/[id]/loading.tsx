@@ -1,11 +1,5 @@
 import FormSkeleton from "@/components/shared/skeletons/FormSkeleton";
 
-export default function AdminHackathonLoading() {
-  return (
-    <FormSkeleton
-      title="Hackathon Management"
-      kicker="Administration"
-      fields={5}
-    />
-  );
+export default function Loading() {
+  return <FormSkeleton label="hackathon" fields={5} />;
 }

@@ -5,6 +5,6 @@
   border: 1px solid var(--error-border-light);
   border-radius: 0;
   background: var(--error-bg);
-  @include metadata(11.5px, var(--danger-text));
+  @include metadata($text-sm, var(--error-text));
   text-transform: uppercase;
 }

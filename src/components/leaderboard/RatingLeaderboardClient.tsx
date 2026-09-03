@@ -9,10 +9,12 @@ import LeaderboardTable, {
   type Column,
   leaderboardStyles as styles,
 } from "@/components/leaderboard/LeaderboardTable";
+import MemberCell from "@/components/leaderboard/MemberCell";
+import RankCell from "@/components/leaderboard/RankCell";
 import SearchInput from "@/components/shared/SearchInput";
 import SegmentedControl from "@/components/shared/SegmentedControl";
 
-type RatingLeaderboardEntry = {
+export type RatingLeaderboardEntry = {
   id: string;
   name: string;
   handle: string;
@@ -54,30 +56,12 @@ export default function RatingLeaderboardClient({
     {
       key: "rank",
       header: "Rank",
-      render: (_item, index) => {
-        const rank = index + 1;
-        let rankClass = "";
-        if (rank === 1) rankClass = styles.top1;
-        else if (rank === 2) rankClass = styles.top2;
-        else if (rank === 3) rankClass = styles.top3;
-
-        return (
-          <span
-            className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
-          >
-            {String(rank).padStart(2, "0")}
-          </span>
-        );
-      },
+      render: (_item, index) => <RankCell rank={index + 1} />,
     },
     {
       key: "member",
       header: "Member",
-      render: (item) => (
-        <div className={styles.userInfo}>
-          <span className={styles.userName}>{item.name}</span>
-        </div>
-      ),
+      render: (item) => <MemberCell name={item.name} />,
     },
     {
       key: "handle",

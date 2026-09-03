@@ -777,7 +777,6 @@ export default function BracketRoomClient({
             <div className={styles.headerDivider} />
           </div>
           <div>
-            <p className={styles.kicker}>Internal</p>
             <div className={styles.titleRow}>
               <h2 className={styles.title}>{contest.name}</h2>
               <span className={styles.knockoutBadge}>Knockout</span>

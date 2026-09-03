@@ -5,7 +5,6 @@ export default function Loading() {
     <TableSkeleton
       title="Past Problems"
       lead="Previous daily challenges and your submissions."
-      kicker="Internal"
       columns={5}
     />
   );

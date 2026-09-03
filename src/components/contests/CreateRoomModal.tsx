@@ -456,7 +456,7 @@ export default function CreateRoomModal({
               (formData.problemSelectionMode === "fine-tuned" &&
                 !!fineTunedCountError)
             }
-            className={styles.submitBtn}
+            className={styles.primaryBtn}
           >
             {loading ? "Creating..." : "Create Room"}
           </button>

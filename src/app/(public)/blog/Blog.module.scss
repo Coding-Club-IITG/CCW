@@ -18,12 +18,12 @@
 }
 
 .searchField {
+  @include search-field;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 9px 13px;
   min-width: 260px;
-  border: 1px solid var(--border-input);
   color: var(--muted);
 
   input {
@@ -36,14 +36,6 @@
     font-family: inherit;
     font-size: 12px;
     letter-spacing: 0.04em;
-
-    &::placeholder {
-      color: var(--muted-light);
-    }
-  }
-
-  &:focus-within {
-    border-color: var(--primary);
   }
 }
 
@@ -88,7 +80,7 @@
 
 .featuredKicker {
   @include meta-row;
-  @include micro-label(10.5px);
+  @include micro-label($text-xs);
 }
 
 .latest {
@@ -118,7 +110,7 @@
   gap: 14px;
   flex-wrap: wrap;
   margin: 0;
-  @include metadata(11px);
+  @include metadata($text-xs);
 }
 
 .authors {
@@ -177,7 +169,7 @@
 
 .rowTag {
   margin: 10px 0 0;
-  @include micro-label(10.5px, 0.05em);
+  @include micro-label($text-xs, 0.05em);
   color: var(--accent, var(--muted));
 }
 
@@ -193,7 +185,7 @@
   display: flex;
   flex-direction: column;
   text-align: right;
-  @include metadata(11px);
+  @include metadata($text-xs);
   line-height: 1.8;
 }
 

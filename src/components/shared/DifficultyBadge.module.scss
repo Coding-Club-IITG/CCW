@@ -6,6 +6,6 @@
   gap: 0.25rem;
   padding: 4px 9px;
   border-radius: 0;
-  @include micro-label(10.5px, 0.05em, currentcolor);
+  @include micro-label($text-xs, 0.05em, currentcolor);
   white-space: nowrap;
 }

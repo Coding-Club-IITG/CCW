@@ -5,7 +5,6 @@ export default function Loading() {
     <RankedTableSkeleton
       title="Streak Leaderboard"
       lead="Longest running daily solve streaks."
-      kicker="Internal"
     />
   );
 }

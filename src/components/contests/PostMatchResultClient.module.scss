@@ -1,6 +1,6 @@
 @use "../../styles/mixins" as *;
 
-@include contest-kf-spin;
+@include kf-spin;
 @include contest-kf-pulse;
 
 /* Processing / loading state */
@@ -18,7 +18,7 @@
 .processingIcon {
   font-size: 48px;
   color: var(--primary);
-  animation: contestSpin 1s linear infinite;
+  @include spinner;
 }
 
 .processingText {
@@ -38,7 +38,7 @@
   display: flex;
   flex-direction: column;
   gap: 3rem;
-  padding-top: 2rem;
+  padding-top: 3rem;
   padding-bottom: 2rem;
 }
 
@@ -113,7 +113,7 @@
   gap: 0.25rem;
   padding: 5px 13px;
   background: var(--primary);
-  @include micro-label(10.5px, 0.08em, var(--btn-primary-text));
+  @include micro-label($text-xs, 0.08em, var(--btn-primary-text));
   white-space: nowrap;
   @include contest-glow;
 }
@@ -136,7 +136,7 @@
 }
 
 .teamScore {
-  @include display-type(56px);
+  @include display-type($display-2xl);
   color: var(--foreground-strong);
 }
 
@@ -146,7 +146,7 @@
 
 .heroMeta {
   margin-top: 1rem;
-  @include micro-label(10.5px, 0.1em);
+  @include micro-label($text-xs, 0.1em);
 
   strong {
     color: var(--primary);
@@ -185,7 +185,7 @@
 
   h3 {
     margin: 0;
-    @include display-type(28px, 0.05em);
+    @include display-type($display-md, 0.05em);
     z-index: 1;
   }
 }
@@ -231,7 +231,7 @@
   margin: 0;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
-  @include micro-label(11px, 0.1em, var(--foreground-strong));
+  @include micro-label($text-xs, 0.1em, var(--foreground-strong));
 }
 
 /* MVP card */
@@ -280,7 +280,7 @@
   align-items: center;
   gap: 0.25rem;
   margin-bottom: 0.25rem;
-  @include micro-label(10.5px, 0.1em, var(--primary));
+  @include micro-label($text-xs, 0.1em, var(--primary));
 }
 
 .mvpName {
@@ -304,11 +304,11 @@
 }
 
 .mvpContribLabel {
-  @include micro-label(10.5px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
 }
 
 .mvpContribValue {
-  @include display-type(32px);
+  @include display-type($display-lg);
   color: var(--primary);
 }
 
@@ -366,7 +366,7 @@
 .teamRank {
   padding: 4px 9px;
   background: var(--surface-hover);
-  @include metadata(11px, var(--foreground-strong));
+  @include metadata($text-xs, var(--foreground-strong));
 }
 
 .teamStandingAvatar {

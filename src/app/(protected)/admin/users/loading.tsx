@@ -5,7 +5,6 @@ export default function Loading() {
     <TableSkeleton
       title="User Management"
       lead="Access levels, roles and tenure."
-      kicker="Administration"
       columns={6}
     />
   );

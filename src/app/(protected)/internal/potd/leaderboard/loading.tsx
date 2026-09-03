@@ -5,7 +5,6 @@ export default function Loading() {
     <RankedTableSkeleton
       title="POTD Leaderboard"
       lead="Rankings based on Problem of the Day performance."
-      kicker="Internal"
     />
   );
 }

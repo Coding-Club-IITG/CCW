@@ -5,7 +5,6 @@ export default function Loading() {
     <RankedTableSkeleton
       title="Match History"
       lead="Review your recent algorithmic battles and performance metrics."
-      kicker="Internal"
     />
   );
 }

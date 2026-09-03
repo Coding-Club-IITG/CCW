@@ -1,9 +1,5 @@
 @use "../../../../styles/mixins" as *;
 
-.container {
-  @include admin-page;
-}
-
 .header {
   @include standard-page-header($bottom-margin: 0.75rem);
 }
@@ -25,11 +21,11 @@
 
 // Hackathon listing grid
 .grid {
-  @include card-grid(300px);
+  @include hairline-grid($min: 300px);
 }
 
 .card {
-  @include card-grid-cell(0);
+  @include hairline-cell;
   display: block;
   text-decoration: none;
   overflow: hidden;
@@ -278,12 +274,10 @@
 // Buttons
 .btnPrimary {
   @include btn-primary;
-  padding: 0.5rem 1rem;
 }
 
 .btnSecondary {
   @include btn-secondary;
-  padding: 0.375rem 0.75rem;
   font-size: 0.8125rem;
 }
 
@@ -408,9 +402,9 @@
 }
 
 .badgeOpen {
-  @include badge-semantic(var(--success-bg), var(--success-text));
+  @include badge-success;
 }
 
 .badgeFull {
-  @include badge-semantic(var(--warning-bg), var(--warning-text));
+  @include badge-warning;
 }

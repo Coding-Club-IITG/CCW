@@ -1,5 +1,7 @@
 @use "@/styles/mixins" as *;
 
+@include kf-spin;
+
 .wrapper {
   position: relative;
 }
@@ -101,10 +103,5 @@
   font-size: 0.75rem;
 }
 .spinner {
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  @include spinner(0.8s);
 }

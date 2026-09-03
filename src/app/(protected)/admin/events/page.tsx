@@ -15,7 +15,6 @@ import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 
 import styles from "./AdminEvents.module.scss";
-import AdminEventsLoading from "./loading";
 
 interface EventItem {
   _id: string;
@@ -97,10 +96,8 @@ export default function AdminEventsPage() {
     void fetchEvents();
   }, [page, publicationFilter]);
 
-  if (loading && events.length === 0) return <AdminEventsLoading />;
-
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/admin" label="Back to Administration" />
 
       <div className={styles.header}>

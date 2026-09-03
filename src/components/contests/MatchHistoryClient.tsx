@@ -84,7 +84,6 @@ export default function MatchHistoryClient({
 
         {/* Page Header */}
         <header className={styles.header}>
-          <p className={styles.kicker}>Internal</p>
           <h1>Match History</h1>
           <p>Review your recent algorithmic battles and performance metrics.</p>
         </header>

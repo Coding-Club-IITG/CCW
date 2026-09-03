@@ -1,7 +1,4 @@
 @use "@/styles/mixins" as *;
-.container {
-  padding: 0;
-}
 .formPage {
   max-width: 72rem;
   margin: 0 auto;
@@ -16,10 +13,10 @@
   @include btn-primary;
 }
 .secondaryAction {
-  @include btn-secondary;
+  @include btn-secondary($btn-md);
 }
 .dangerAction {
-  @include btn-danger;
+  @include btn-danger($btn-md);
 }
 .filters {
   @include segmented-control;
@@ -48,7 +45,7 @@
   @include meta-row(0.65rem 1.25rem);
 
   span {
-    @include metadata(11.5px, var(--muted-light));
+    @include metadata($text-sm, var(--muted-light));
   }
 }
 .section {

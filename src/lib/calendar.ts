@@ -1,10 +1,12 @@
 import { createHash } from "crypto";
-import type { EventRecurrenceType, ModuleName } from "@/lib/constants";
+import type {
+  CalendarScope,
+  EventRecurrenceType,
+  ModuleName,
+} from "@/lib/constants";
 
 const IST_OFFSET_MINUTES = 330;
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-export type CalendarScope = "general" | "module";
 
 export interface CalendarSchedule {
   title: string;

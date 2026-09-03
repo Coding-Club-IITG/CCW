@@ -12,7 +12,6 @@ import { ListSkeletonContent } from "@/components/shared/skeletons/ListSkeleton"
 
 import PushNotificationSetup from "./PushNotificationSetup";
 import styles from "./Notifications.module.scss";
-import NotificationsLoading from "./loading";
 
 interface Notification {
   _id: string;
@@ -103,10 +102,8 @@ export default function NotificationsPage() {
     setPage(1);
   }
 
-  if (loading && notifications.length === 0) return <NotificationsLoading />;
-
   return (
-    <div className={styles.container}>
+    <div>
       <header className={styles.header}>
         <h1>Notifications</h1>
         <p>

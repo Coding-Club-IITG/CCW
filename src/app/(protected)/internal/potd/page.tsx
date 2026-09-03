@@ -18,6 +18,7 @@ export default async function PotdPage() {
     <div>
       <header className={styles.pageHeader}>
         <h1>Daily Challenge</h1>
+        <p>Today&apos;s problems across three difficulties.</p>
       </header>
       <DailyChallengeClient
         cfVerified={cfVerified}

@@ -1,13 +1,9 @@
 @use "../../../styles/mixins" as *;
 
-.container {
-  @include admin-page;
-}
-
 .header {
-  @include admin-page-header;
+  @include standard-page-header;
 }
 
 .grid {
-  @include card-grid(280px);
+  @include hairline-grid($min: 280px);
 }

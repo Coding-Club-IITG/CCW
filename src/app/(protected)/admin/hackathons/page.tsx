@@ -10,7 +10,6 @@ import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 
 import styles from "./Hackathons.module.scss";
-import AdminHackathonsLoading from "./loading";
 
 interface Hackathon {
   _id: string;
@@ -154,10 +153,8 @@ export default function AdminHackathonsPage() {
     }
   }
 
-  if (loading && hackathons.length === 0) return <AdminHackathonsLoading />;
-
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/admin" label="Back to Administration" />
       <header className={styles.header}>
         <h1>Hackathon Management</h1>

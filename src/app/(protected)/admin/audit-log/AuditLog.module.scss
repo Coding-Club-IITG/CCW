@@ -1,10 +1,7 @@
 @use "../../../../styles/mixins" as *;
 
-.container {
-  @include admin-page;
-}
 .container header {
-  @include standard-page-header($top-margin: 1.5rem);
+  @include standard-page-header;
 }
 .container header p,
 .card span,
@@ -23,7 +20,7 @@
 .filters label {
   display: grid;
   gap: 0.35rem;
-  @include micro-label(10.5px, 0.09em);
+  @include micro-label($text-xs, 0.09em);
 }
 .filters input,
 .filters select {
@@ -52,7 +49,7 @@
 }
 .cardTop time {
   white-space: nowrap;
-  @include metadata(11px);
+  @include metadata($text-xs);
   text-transform: uppercase;
 }
 
@@ -61,17 +58,17 @@
   padding: 2px 7px;
   border: 1px solid var(--border-input);
   border-radius: 0;
-  @include micro-label(9.5px, 0.06em, var(--muted-light));
+  @include micro-label($text-2xs, 0.06em, var(--muted-light));
 }
 
 .verb {
   margin-inline: 0.35rem;
-  @include micro-label(10px, 0.08em, var(--primary));
+  @include micro-label($text-2xs, 0.08em, var(--primary));
 }
 
 .changes summary {
   cursor: pointer;
-  @include micro-label(10.5px, 0.07em, var(--primary));
+  @include micro-label($text-xs, 0.07em, var(--primary));
 }
 .changes dl {
   margin-bottom: 0;
@@ -84,7 +81,7 @@
   border-top: 1px solid var(--border-lighter);
 }
 .changes dt {
-  @include micro-label(10.5px, 0.07em);
+  @include micro-label($text-xs, 0.07em);
 }
 .changes dd {
   margin: 0;
@@ -94,14 +91,14 @@
   overflow-wrap: anywhere;
 }
 .changes dd span:first-of-type {
-  @include metadata(11.5px, var(--error-text));
+  @include metadata($text-sm, var(--error-text));
 }
 .changes dd span:last-of-type {
-  @include metadata(11.5px, var(--success-text));
+  @include metadata($text-sm, var(--success-text));
 }
 .changes dd b {
   font-weight: 400;
-  @include metadata(11px, var(--muted-lighter));
+  @include metadata($text-xs, var(--muted-lighter));
 }
 
 .error {

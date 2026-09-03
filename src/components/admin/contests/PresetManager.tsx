@@ -264,7 +264,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className={styles.cancelButton}
+                className={styles.cancelBtn}
                 disabled={loading}
               >
                 Cancel
@@ -272,7 +272,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
               <button
                 type="submit"
                 form="preset-form"
-                className={styles.saveButton}
+                className={styles.primaryBtn}
                 disabled={loading}
               >
                 {loading ? (

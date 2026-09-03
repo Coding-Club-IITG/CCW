@@ -65,7 +65,7 @@
   color: var(--badge-text);
   border: 1px solid var(--badge-border);
   padding: 4px 9px;
-  @include micro-label(10.5px, 0.05em, currentcolor);
+  @include micro-label($text-xs, 0.05em, currentcolor);
 }
 
 .authorRemove {
@@ -81,7 +81,7 @@
   transition: color 0.15s ease;
 
   &:hover {
-    color: var(--danger-text);
+    color: var(--danger);
   }
 }
 
@@ -100,13 +100,11 @@
 }
 
 .btnPrimary {
-  @include btn-primary;
-  padding: 0.5rem 1.25rem;
+  @include btn-primary($btn-lg);
 }
 
 .btnSecondary {
   @include btn-secondary;
-  padding: 0.375rem 0.75rem;
   font-size: 0.8125rem;
 
   &.active {
@@ -118,5 +116,4 @@
 
 .btnDanger {
   @include btn-danger;
-  padding: 0.375rem 0.75rem;
 }

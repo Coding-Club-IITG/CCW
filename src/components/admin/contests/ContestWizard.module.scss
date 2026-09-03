@@ -6,10 +6,6 @@
   padding: 2rem 1.5rem;
 }
 
-.wizardKicker {
-  @include standard-page-kicker($margin: 0 0 10px);
-}
-
 .wizardTitle {
   @include standard-page-title($margin: 0 0 1.5rem);
 }
@@ -38,7 +34,7 @@
 
   .circle {
     flex: 0 0 auto;
-    @include metadata(11px, var(--muted));
+    @include metadata($text-xs, var(--muted));
     transition: color 0.3s ease;
   }
 
@@ -47,7 +43,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    @include micro-label(10px, 0.06em);
+    @include micro-label($text-2xs, 0.06em);
     transition: color 0.3s ease;
   }
 
@@ -110,7 +106,7 @@
 /* Shared step form controls */
 .stepTitle {
   margin: 0 0 1.5rem;
-  @include micro-label(11px, 0.1em, var(--foreground-strong));
+  @include micro-label($text-xs, 0.1em, var(--foreground-strong));
 }
 
 .stepDescription {
@@ -136,7 +132,7 @@
 }
 
 .label {
-  @include micro-label(10.5px, 0.09em);
+  @include micro-label($text-xs, 0.09em);
 }
 
 .labelBlock {
@@ -170,7 +166,7 @@
 }
 
 .error {
-  @include metadata(10.5px, var(--danger-text));
+  @include metadata($text-xs, var(--danger));
 }
 
 .errorBlock {

@@ -17,7 +17,7 @@ import MemberPicker from "@/components/shared/MemberPicker";
 import TagEditor from "@/components/shared/TagEditor";
 
 import styles from "../../events/new/EventForm.module.scss";
-import EditProjectLoading from "./loading";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 interface ProjectData {
   _id: string;
@@ -150,14 +150,25 @@ export default function EditProjectPage({
     setSaving(false);
   }
 
+  const header = (
+    <>
+      <BackLink href="/admin/projects" label="Back to Projects" />
+      <h1 className={styles.pageTitle}>Edit Project</h1>
+    </>
+  );
+
   if (loading) {
-    return <EditProjectLoading />;
+    return (
+      <div className={styles.container}>
+        {header}
+        <FormSkeletonContent label="the project" fields={5} />
+      </div>
+    );
   }
 
   return (
     <div className={styles.container}>
-      <BackLink href="/admin/projects" label="Back to Projects" />
-      <h1 className={styles.pageTitle}>Edit Project</h1>
+      {header}
 
       {error && <div className={styles.error}>{error}</div>}
 

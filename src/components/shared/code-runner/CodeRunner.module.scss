@@ -1,5 +1,7 @@
 @use "../../../styles/mixins" as *;
 
+@include kf-spin;
+
 // Language selector
 .languageSelector {
   @include segmented-control;
@@ -35,7 +37,7 @@
 
 .testCaseTab {
   padding: 0.5rem 0.75rem;
-  @include micro-label(10.5px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -93,7 +95,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  @include micro-label(11px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
 
   &:hover {
     color: var(--primary);
@@ -106,7 +108,7 @@
   gap: 0.25rem;
 
   label {
-    @include micro-label(10.5px, 0.06em);
+    @include micro-label($text-xs, 0.06em);
   }
 
   textarea,
@@ -158,7 +160,7 @@
 }
 
 .resultSummary {
-  @include display-type(28px);
+  @include display-type($display-md);
 }
 
 .allPass {
@@ -170,7 +172,7 @@
 }
 
 .resultTime {
-  @include metadata(10.5px, var(--muted));
+  @include metadata($text-xs, var(--muted));
 }
 
 .outputPass {
@@ -178,24 +180,13 @@
 }
 
 .outputFail {
-  border-left-color: var(--danger-text) !important;
+  border-left-color: var(--danger) !important;
   background: var(--error-bg) !important;
 }
 
 .outputError {
   border-color: var(--warning-border) !important;
   color: var(--error-text) !important;
-}
-
-// WASM loader
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 // Editor wrapper

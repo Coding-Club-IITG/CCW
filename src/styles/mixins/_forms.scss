@@ -14,7 +14,7 @@
   margin-bottom: $margin-bottom;
 
   label {
-    @include micro-label(10.5px, 0.09em);
+    @include micro-label($text-xs, 0.09em);
   }
 }
 
@@ -30,7 +30,7 @@
   transition: border-color 0.15s ease;
 
   &::placeholder {
-    color: var(--muted-lighter);
+    color: var(--muted-light);
   }
 
   &:focus {
@@ -47,8 +47,9 @@
   font-size: 0.8125rem;
   transition: border-color 0.15s ease;
 
-  &::placeholder {
-    color: var(--muted);
+  &::placeholder,
+  input::placeholder {
+    color: var(--muted-light);
   }
 
   &:focus,

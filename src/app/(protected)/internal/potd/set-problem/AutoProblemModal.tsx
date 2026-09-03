@@ -331,29 +331,17 @@ export default function AutoProblemModal({
                 2. Release Timeframe / Contest Filter
               </div>
               <div
-                className={styles.ratingsContainer}
-                style={{ gridTemplateColumns: "1fr" }}
+                className={`${styles.ratingsContainer} ${styles.singleColumn}`}
               >
                 <div className={styles.ratingGroup}>
-                  <label
-                    htmlFor="potdMinContestSelect"
-                    style={{ fontSize: "0.8125rem", fontWeight: 600 }}
-                  >
+                  <label htmlFor="potdMinContestSelect">
                     Contest Release Date
                   </label>
                   <select
                     id="potdMinContestSelect"
                     value={minContestId}
                     onChange={(e) => setMinContestId(Number(e.target.value))}
-                    style={{
-                      padding: "0.5rem 0.75rem",
-                      border: "1px solid var(--border-input)",
-                      borderRadius: "6px",
-                      fontSize: "0.875rem",
-                      background: "var(--surface)",
-                      color: "var(--foreground)",
-                      outline: "none",
-                    }}
+                    className={styles.select}
                   >
                     {CF_CONTEST_YEAR_OPTIONS.map((opt) => (
                       <option key={opt.minContestId} value={opt.minContestId}>
@@ -368,7 +356,7 @@ export default function AutoProblemModal({
             {/* Select Dates and Slots */}
             <div>
               <div className={styles.sectionTitle}>
-                2. Select Target Dates & Difficulty Slots
+                3. Select Target Dates & Difficulty Slots
               </div>
               <div className={styles.datesGrid}>
                 {availableDates.map((dateStr) => {
@@ -391,12 +379,7 @@ export default function AutoProblemModal({
                           </span>
                         </label>
                         {taken.size > 0 && (
-                          <span
-                            style={{
-                              fontSize: "0.7rem",
-                              color: "var(--muted)",
-                            }}
-                          >
+                          <span className={styles.slotCount}>
                             ({taken.size}/3 taken)
                           </span>
                         )}

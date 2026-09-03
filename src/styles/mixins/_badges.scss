@@ -12,9 +12,26 @@
   padding: 4px 10px;
   border: 1px solid $border;
   border-radius: 0;
-  @include micro-label(10.5px, 0.05em, $color);
+  @include micro-label($text-xs, 0.05em, $color);
 }
 
-@mixin badge-semantic($bg, $color, $border: transparent) {
-  @include badge-chip($bg, $color, $border);
+/* Semantic status variants */
+@mixin badge-success {
+  @include badge-chip(
+    var(--success-bg),
+    var(--success-text),
+    var(--success-border)
+  );
+}
+
+@mixin badge-warning {
+  @include badge-chip(
+    var(--warning-bg),
+    var(--warning-text),
+    var(--warning-border)
+  );
+}
+
+@mixin badge-neutral {
+  @include badge-chip(var(--badge-bg), var(--badge-text), var(--badge-border));
 }

@@ -1,16 +1,14 @@
-import Link from "next/link";
 import type { ComponentType } from "react";
 
+import ControlOptionItem, {
+  optionKey,
+  type ControlOption,
+} from "./ControlOption";
 import styles from "./FilterControls.module.scss";
 
-type SegmentBase = {
-  label: string;
-  active: boolean;
+export type Segment = ControlOption & {
   Icon?: ComponentType<{ size?: number; "aria-hidden"?: boolean | "true" }>;
 };
-
-export type Segment = SegmentBase &
-  ({ href: string; onClick?: never } | { href?: never; onClick: () => void });
 
 /** Joined two-or-more option control used for sort order and layout choice */
 export default function SegmentedControl({
@@ -22,36 +20,16 @@ export default function SegmentedControl({
 }) {
   return (
     <div className={styles.segmented} role="group" aria-label={label}>
-      {segments.map(({ label: text, href, active, onClick, Icon }) => {
-        const className = `${styles.segment} ${active ? styles.segmentActive : ""}`;
-        const content = (
-          <>
-            {Icon && <Icon size={13} aria-hidden="true" />}
-            {text}
-          </>
-        );
-
-        return href !== undefined ? (
-          <Link
-            key={href + text}
-            href={href}
-            className={className}
-            aria-current={active ? "true" : undefined}
-          >
-            {content}
-          </Link>
-        ) : (
-          <button
-            key={text}
-            type="button"
-            className={className}
-            onClick={onClick}
-            aria-pressed={active}
-          >
-            {content}
-          </button>
-        );
-      })}
+      {segments.map(({ Icon, ...segment }) => (
+        <ControlOptionItem
+          key={optionKey(segment)}
+          option={segment}
+          className={`${styles.segment} ${segment.active ? styles.segmentActive : ""}`}
+        >
+          {Icon && <Icon size={13} aria-hidden="true" />}
+          {segment.label}
+        </ControlOptionItem>
+      ))}
     </div>
   );
 }

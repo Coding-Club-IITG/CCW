@@ -19,7 +19,7 @@ export default async function PresetsPage() {
   const presets = presetsJson.map(toContestPresetDto);
 
   return (
-    <div className={styles.pageContainer}>
+    <div>
       <BackLink href="/admin" label="Back to Administration" />
 
       <header className={styles.header}>

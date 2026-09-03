@@ -16,7 +16,6 @@ import SearchInput from "@/components/shared/SearchInput";
 import { CardGridSkeletonContent } from "@/components/shared/skeletons/CardGridSkeleton";
 
 import styles from "./Hackathons.module.scss";
-import HackathonsLoading from "./loading";
 
 interface Hackathon {
   _id: string;
@@ -61,10 +60,8 @@ export default function HackathonsPage() {
     });
   }, [hackathons, search]);
 
-  if (loading && hackathons.length === 0) return <HackathonsLoading />;
-
   return (
-    <div className={styles.container}>
+    <div>
       <header className={styles.header}>
         <h1>Hackathon Finder</h1>
         <p>Find active hackathons and build your dream team.</p>

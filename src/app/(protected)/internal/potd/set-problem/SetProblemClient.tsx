@@ -22,7 +22,7 @@ import {
 } from "@/lib/potd/utils";
 
 import EmptyState from "@/components/shared/EmptyState";
-import CardGridSkeleton from "@/components/shared/skeletons/CardGridSkeleton";
+import { CardGridSkeletonContent } from "@/components/shared/skeletons/CardGridSkeleton";
 
 import AutoProblemModal from "./AutoProblemModal";
 import { ScheduledProblemCard } from "./ScheduledProblemCard";
@@ -191,48 +191,50 @@ export default function SetProblemClient() {
     problems.length < maxSlots &&
     availableDates.some((d) => takenDifficulties(d).size < 3);
 
+  const header = (
+    <div className={styles.header}>
+      <div className={styles.headerFlex}>
+        <div>
+          <h1>Manage Upcoming Problems</h1>
+          <p>
+            Schedule up to 10 days in advance. Each day can have up to 3
+            problems (Easy, Medium, Hard). Today&apos;s problems can be edited
+            until end of day.
+          </p>
+        </div>
+        <div className={styles.headerActions}>
+          <button
+            className={styles.autoBtn}
+            onClick={() => setIsAutoModalOpen(true)}
+            disabled={loadingInitial || isAdding || !hasOpenSlots}
+          >
+            <Sparkles size={16} />
+            Auto Problem Setting
+          </button>
+          <button
+            className={styles.addBtn}
+            onClick={handleAddNew}
+            disabled={loadingInitial || isAdding || !hasOpenSlots}
+          >
+            + Add Problem
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   if (loadingInitial) {
     return (
-      <CardGridSkeleton
-        title="Manage Upcoming Problems"
-        lead="Schedule up to 10 days in advance."
-        kicker="Internal"
-        cards={6}
-      />
+      <div>
+        {header}
+        <CardGridSkeletonContent label="upcoming problems" cards={6} />
+      </div>
     );
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.headerFlex}>
-          <div>
-            <h1>Manage Upcoming Problems</h1>
-            <p>
-              Schedule up to 10 days in advance. Each day can have up to 3
-              problems (Easy, Medium, Hard). Today&apos;s problems can be edited
-              until end of day.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button
-              className={styles.autoBtn}
-              onClick={() => setIsAutoModalOpen(true)}
-              disabled={isAdding || !hasOpenSlots}
-            >
-              <Sparkles size={16} />
-              Auto Problem Setting
-            </button>
-            <button
-              className={styles.addBtn}
-              onClick={handleAddNew}
-              disabled={isAdding || !hasOpenSlots}
-            >
-              + Add Problem
-            </button>
-          </div>
-        </div>
-      </div>
+    <div>
+      {header}
 
       <div className={styles.grid}>
         {/* Add form */}
@@ -355,17 +357,7 @@ export default function SetProblemClient() {
               </div>
             </div>
 
-            {formError && (
-              <p
-                style={{
-                  color: "var(--danger-text)",
-                  fontSize: "0.875rem",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                {formError}
-              </p>
-            )}
+            {formError && <p className={styles.formError}>{formError}</p>}
 
             <div className={styles.actions}>
               <button

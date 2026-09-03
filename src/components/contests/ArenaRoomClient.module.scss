@@ -1,7 +1,7 @@
 @use "../../styles/mixins" as *;
 
 @include contest-kf-pulse;
-@include contest-kf-spin;
+@include kf-spin;
 @include contest-kf-slide-in;
 @include contest-kf-loading-dots;
 
@@ -98,7 +98,7 @@
 
 .ratingBadge {
   padding: 4px 10px;
-  @include micro-label(10.5px, 0.05em, currentcolor);
+  @include micro-label($text-xs, 0.05em, currentcolor);
 }
 
 .badgeMine {

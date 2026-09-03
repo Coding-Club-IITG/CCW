@@ -15,7 +15,7 @@
 
   th {
     background: var(--table-header-bg);
-    @include micro-label(10.5px, 0.09em, var(--table-header-text));
+    @include micro-label($text-xs, 0.09em, var(--table-header-text));
   }
 
   td {
@@ -36,13 +36,13 @@
 
 // Values inside cell
 @mixin table-meta {
-  @include metadata(11.5px);
+  @include metadata($text-sm);
   text-transform: uppercase;
 }
 
 // Ranked-list cells
 @mixin rank-cell {
-  @include metadata(11.5px, var(--muted-lighter));
+  @include metadata($text-sm, var(--muted-lighter));
 }
 
 @mixin rank-medal {
@@ -53,7 +53,7 @@
   height: 24px;
   padding: 0 7px;
   border-radius: 0;
-  @include metadata(11.5px, inherit);
+  @include metadata($text-sm, inherit);
 }
 
 @mixin rank-medal-gold {

@@ -29,16 +29,6 @@
   background-size: 24px 24px;
 }
 
-// Hide scrollbars while keeping scroll behaviour
-@mixin contest-scroll-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-}
-
 // Small meta/label text
 @mixin contest-label {
   font-size: 0.75rem;
@@ -61,14 +51,6 @@
     }
     50% {
       opacity: 0.5;
-    }
-  }
-}
-
-@mixin contest-kf-spin {
-  @keyframes contestSpin {
-    to {
-      transform: rotate(360deg);
     }
   }
 }

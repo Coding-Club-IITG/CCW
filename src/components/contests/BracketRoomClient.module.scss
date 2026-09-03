@@ -71,10 +71,6 @@
   @include standard-page-title($margin: 0);
 }
 
-.kicker {
-  @include standard-page-kicker($margin: 0 0 8px);
-}
-
 .knockoutBadge {
   margin-left: 0.5rem;
   @include badge-chip(transparent, var(--primary), var(--primary));
@@ -242,11 +238,11 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  @include micro-label(10.5px, 0.08em, var(--foreground-strong));
+  @include micro-label($text-xs, 0.08em, var(--foreground-strong));
 }
 
 .nodeHeaderLabel {
-  @include micro-label(10.5px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
 }
 
 .trophyIcon {
@@ -257,7 +253,7 @@
 /* Status badges */
 .badge {
   padding: 3px 8px;
-  @include micro-label(10px, 0.06em, currentcolor);
+  @include micro-label($text-2xs, 0.06em, currentcolor);
   white-space: nowrap;
 }
 
@@ -442,7 +438,7 @@
 .rowScoreActive,
 .rowScoreMuted,
 .rowScoreLoser {
-  @include metadata(18px, var(--foreground-strong));
+  @include metadata($score-sm, var(--foreground-strong));
   font-weight: 500;
 }
 
@@ -479,7 +475,7 @@
   height: 1.5rem;
   border: 1px solid var(--border-input);
   background: var(--surface-hover);
-  @include metadata(10px, var(--muted));
+  @include metadata($text-2xs, var(--muted));
 }
 
 .teamAvatarFallbackHi {
@@ -496,7 +492,7 @@
   bottom: 0;
   left: 0;
   background: var(--overlay);
-  z-index: var(--z-sheet);
+  z-index: var(--z-overlay);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -511,7 +507,7 @@
   position: fixed;
   right: 0;
   top: 64px;
-  z-index: calc(var(--z-sheet) + 1);
+  z-index: calc(var(--z-overlay) + 1);
   height: calc(100vh - 64px);
   width: 400px;
   max-width: 90vw;
@@ -545,17 +541,17 @@
 }
 
 .sidebarLabel {
-  @include micro-label(10.5px, 0.18em, var(--primary));
+  @include micro-label($text-xs, 0.18em, var(--primary));
 }
 
 .sidebarTitle {
   margin: 0;
-  @include display-type(24px, 0.05em);
+  @include display-type($display-sm, 0.05em);
 }
 
 .sidebarStatus {
   margin: 0.25rem 0 0;
-  @include micro-label(10.5px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
 }
 
 .sidebarClose {
@@ -616,7 +612,7 @@
   height: 3rem;
   border: 1px solid var(--border-input);
   background: var(--surface-hover);
-  @include metadata(15px, var(--muted));
+  @include metadata($text-md, var(--muted));
 }
 
 .scoreAvatarWinner {
@@ -630,7 +626,7 @@
 }
 
 .scoreValue {
-  @include metadata(26px, var(--foreground-strong));
+  @include metadata($score-lg, var(--foreground-strong));
   font-weight: 500;
 }
 
@@ -641,7 +637,7 @@
 .winnerPill {
   padding: 3px 9px;
   border: 1px solid var(--primary);
-  @include micro-label(10px, 0.06em, var(--primary));
+  @include micro-label($text-2xs, 0.06em, var(--primary));
 }
 
 .vsCol {
@@ -655,14 +651,14 @@
 }
 
 .vsColLabel {
-  @include metadata(11px, var(--muted-lighter));
+  @include metadata($text-xs, var(--muted-lighter));
 }
 
 .matchInfoHeading {
   margin: 0 0 0.75rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
-  @include micro-label(10.5px, 0.1em);
+  @include micro-label($text-xs, 0.1em);
 }
 
 .infoList {
@@ -689,11 +685,11 @@
 }
 
 .infoLabel {
-  @include micro-label(10.5px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
 }
 
 .infoValue {
-  @include metadata(11.5px, var(--foreground-strong));
+  @include metadata($text-sm, var(--foreground-strong));
   text-align: right;
 }
 
@@ -722,14 +718,14 @@
 
 .footerNote {
   text-align: center;
-  @include metadata(11px, var(--muted));
+  @include metadata($text-xs, var(--muted));
   padding: 0.5rem 0;
 }
 
 .footerClose {
   width: 100%;
   padding: 0.5rem;
-  @include micro-label(11px, 0.06em, var(--muted));
+  @include micro-label($text-xs, 0.06em, var(--muted));
   transition: color 0.15s ease;
 
   &:hover {

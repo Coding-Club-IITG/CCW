@@ -1,9 +1,5 @@
 @use "../../../../../../styles/mixins" as *;
 
-.container {
-  @include admin-page;
-}
-
 .topBar {
   display: flex;
   align-items: center;
@@ -19,12 +15,6 @@
   &:hover {
     color: var(--primary);
   }
-}
-
-.loading {
-  text-align: center;
-  padding: 3rem 1rem;
-  color: var(--muted);
 }
 
 .error {

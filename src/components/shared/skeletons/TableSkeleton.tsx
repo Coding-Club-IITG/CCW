@@ -1,28 +1,23 @@
 import Skeleton from "./Skeleton";
-import SkeletonPage from "./SkeletonPage";
+import SkeletonPage, {
+  SkeletonBody,
+  type SkeletonContentProps,
+  type SkeletonPageProps,
+} from "./SkeletonPage";
 import styles from "./Skeleton.module.scss";
 
 const WIDTHS = ["58%", "72%", "46%", "64%", "80%", "52%"];
 
+type TableShape = { columns?: number; rows?: number };
+
 export function TableSkeletonContent({
   columns = 4,
   rows = 6,
-  label = "table",
-  announce = true,
-}: {
-  columns?: number;
-  rows?: number;
-  label?: string;
-  announce?: boolean;
-}) {
+  label,
+}: SkeletonContentProps & TableShape) {
   const template = `2.2fr ${Array.from({ length: columns - 1 }, () => "1fr").join(" ")}`;
   return (
-    <div className={styles.frame} aria-busy="true">
-      {announce && (
-        <span className={styles.status} role="status" aria-live="polite">
-          Loading {label}…
-        </span>
-      )}
+    <SkeletonBody label={label} className={styles.frame}>
       <div
         className={styles.tableHead}
         style={{ gridTemplateColumns: template }}
@@ -48,31 +43,19 @@ export function TableSkeletonContent({
           ))}
         </div>
       ))}
-    </div>
+    </SkeletonBody>
   );
 }
 
 export default function TableSkeleton({
   title,
   lead,
-  kicker,
-  columns = 4,
-  rows = 6,
-}: {
-  title: string;
-  lead?: string;
-  kicker?: string;
-  columns?: number;
-  rows?: number;
-}) {
+  label,
+  ...shape
+}: SkeletonPageProps & TableShape) {
   return (
-    <SkeletonPage title={title} lead={lead} kicker={kicker}>
-      <TableSkeletonContent
-        columns={columns}
-        rows={rows}
-        label={title}
-        announce={false}
-      />
+    <SkeletonPage title={title} lead={lead}>
+      <TableSkeletonContent {...shape} label={label ?? title} />
     </SkeletonPage>
   );
 }

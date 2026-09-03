@@ -1,4 +1,4 @@
-import { createClient, type RedisClientType } from "redis";
+import { createClient } from "redis";
 import { logger } from "@/lib/utils";
 import { sharedServerEnv } from "@/lib/env/shared";
 

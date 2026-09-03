@@ -44,7 +44,7 @@
   flex-direction: column;
   gap: 0.35rem;
   label {
-    @include micro-label(10.5px, 0.09em, var(--foreground));
+    @include micro-label($text-xs, 0.09em, var(--foreground));
   }
   input {
     min-height: 38px;
@@ -72,7 +72,7 @@
   max-width: 25rem;
 }
 .resultCount {
-  @include metadata(11.5px, var(--muted));
+  @include metadata($text-sm, var(--muted));
 }
 .tableContainer {
   overflow-x: auto;
@@ -112,7 +112,7 @@
   @include entity-name;
 }
 .memberCell span {
-  @include metadata(11.5px, var(--muted));
+  @include metadata($text-sm, var(--muted));
   overflow-wrap: anywhere;
 }
 
@@ -140,7 +140,7 @@
   padding: 0;
   border: 0;
   background: none;
-  @include metadata(11px, var(--link));
+  @include metadata($text-xs, var(--link));
   cursor: pointer;
 }
 .inlineAction:hover {
@@ -162,7 +162,7 @@
   border: 1px solid var(--border);
   border-radius: 0;
   background: var(--surface-secondary);
-  @include metadata(11px, var(--muted));
+  @include metadata($text-xs, var(--muted));
   line-height: 1.2;
 }
 .roleBadge strong {
@@ -170,13 +170,13 @@
   font-weight: 650;
 }
 .emptyValue {
-  @include metadata(11.5px, var(--muted));
+  @include metadata($text-sm, var(--muted));
   font-style: italic;
 }
 .tenureValue {
   display: inline-block;
   min-width: 62px;
-  @include metadata(12px, var(--foreground-strong));
+  @include metadata($text-sm, var(--foreground-strong));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -211,7 +211,7 @@
 .pizzaCount {
   min-width: 24px;
   text-align: center;
-  @include metadata(12px, var(--foreground-strong));
+  @include metadata($text-sm, var(--foreground-strong));
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -252,14 +252,14 @@
 .modalLabel {
   display: block;
   margin-bottom: 0.35rem;
-  @include micro-label(10.5px, 0.09em, var(--foreground));
+  @include micro-label($text-xs, 0.09em, var(--foreground));
 }
 .modalEmpty {
   margin: 0 0 0.75rem;
   padding: 0.8rem;
   border: 1px dashed var(--border);
   border-radius: 0;
-  @include metadata(11.5px, var(--muted));
+  @include metadata($text-sm, var(--muted));
   text-align: center;
 }
 
@@ -271,11 +271,11 @@
 }
 .modulePicker legend {
   padding: 0 0.25rem;
-  @include micro-label(11px, 0.08em, var(--foreground-strong));
+  @include micro-label($text-xs, 0.08em, var(--foreground-strong));
 }
 .modulePicker > p {
   margin: 0 0 0.75rem;
-  @include metadata(11.5px, var(--muted));
+  @include metadata($text-sm, var(--muted));
   line-height: 1.45;
 }
 .modulePicker label {
@@ -326,7 +326,7 @@
   padding: 0.35rem 0;
   border: 0;
   background: none;
-  @include metadata(11.5px, var(--link));
+  @include metadata($text-sm, var(--link));
   cursor: pointer;
   font-weight: 600;
 }
@@ -359,18 +359,14 @@
 }
 .fieldHint {
   margin: 0.4rem 0 0;
-  @include metadata(11px, var(--muted));
+  @include metadata($text-xs, var(--muted));
 }
-.cancel {
-  @include btn-secondary;
-  padding: 0.42rem 0.85rem;
+.cancelBtn {
+  @include modal-action;
 }
-.save {
-  @include btn-primary;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.42rem 0.85rem;
+
+.primaryBtn {
+  @include modal-action-primary;
 }
 
 .srOnly {
@@ -394,9 +390,6 @@
   .table th,
   .table td {
     padding: 0.65rem;
-  }
-  .modal {
-    width: calc(100vw - 1.5rem);
   }
   .moduleRoleItem {
     grid-template-columns: 1fr;

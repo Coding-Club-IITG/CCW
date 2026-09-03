@@ -1,7 +1,5 @@
 import CardGridSkeleton from "@/components/shared/skeletons/CardGridSkeleton";
 
 export default function Loading() {
-  return (
-    <CardGridSkeleton title="Member Dashboard" kicker="Internal" cards={8} />
-  );
+  return <CardGridSkeleton title="Member Dashboard" cards={8} />;
 }

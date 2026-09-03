@@ -72,12 +72,12 @@
 }
 
 .userHandle {
-  @include metadata(11px);
+  @include metadata($text-xs);
 }
 
 .handleLink {
   text-decoration: none;
-  @include metadata(11px, var(--link));
+  @include metadata($text-xs, var(--link));
 
   &:hover {
     text-decoration: underline;
@@ -85,7 +85,7 @@
 }
 
 .ratingBadge {
-  @include display-type(22px, 0.04em);
+  @include display-type($display-sm, 0.04em);
 }
 
 .cpRank {

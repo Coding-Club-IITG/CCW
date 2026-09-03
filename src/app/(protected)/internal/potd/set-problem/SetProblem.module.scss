@@ -1,9 +1,5 @@
 @use "@/styles/mixins" as *;
 
-.container {
-  padding: 0.75rem;
-}
-
 .header {
   @include standard-page-header;
   border-bottom: 1px solid var(--border);
@@ -16,6 +12,12 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .header h1 {
@@ -57,6 +59,21 @@
   font-weight: 600;
   font-size: 0.8125rem;
   color: var(--foreground-secondary);
+}
+
+.cardHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+// Live reads as a primary outline everywhere in the product
+.liveBadge {
+  @include badge-chip(transparent, var(--primary), var(--primary));
+}
+
+.problemCardToday {
+  border-left: 3px solid var(--primary);
 }
 
 .cardActions {
@@ -198,4 +215,9 @@
 
 .saveBtn {
   @include btn-primary(0.375rem 0.875rem);
+}
+
+.formError {
+  @include error-banner;
+  margin-bottom: 0.5rem;
 }

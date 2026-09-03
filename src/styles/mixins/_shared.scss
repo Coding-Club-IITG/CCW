@@ -2,6 +2,23 @@
 
 $nav-height: 59px;
 
+/* Type scale */
+$text-2xs: 10px; // dense metadata, count badges, timestamps
+$text-xs: 11px; // default label and micro-label size
+$text-sm: 12px; // values inside table cells and meta rows
+$text-md: 13px; // page subtitles and secondary copy
+
+$display-xs: 20px; // section headings
+$display-sm: 24px; // modal titles, panel headings, wordmarks
+$display-md: 28px; // page titles
+$display-lg: 34px; // public section display
+$display-xl: 40px; // contest HUD scores
+$display-2xl: 56px; // public hero
+$display-numeral: 150px; // hero numerals
+
+$score-sm: 18px; // bracket node scores
+$score-lg: 26px; // bracket drawer scores
+
 // Horizontal page gutter
 @mixin page-gutter {
   padding-inline: clamp(1.25rem, 4vw, 40px);
@@ -99,13 +116,13 @@ $nav-height: 59px;
 }
 
 // Sheet fact cell
-@mixin sheet-fact($value-size: 12.5px) {
+@mixin sheet-fact($value-size: $text-sm) {
   @include hairline-cell;
   padding: 16px 18px;
 
   dt {
     margin-bottom: 7px;
-    @include micro-label(11px, 0.09em);
+    @include micro-label($text-xs, 0.09em);
   }
 
   dd {
@@ -124,7 +141,7 @@ $nav-height: 59px;
   border: 1px solid var(--border-input);
   background: none;
   cursor: pointer;
-  @include micro-label(11px, 0.07em, $color);
+  @include micro-label($text-xs, 0.07em, $color);
 
   &:hover {
     border-color: var(--primary);
@@ -160,7 +177,7 @@ $nav-height: 59px;
   color: $color;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 10px;
+  font-size: $text-2xs;
 }
 
 @mixin hairline-cell {
@@ -168,7 +185,7 @@ $nav-height: 59px;
 }
 
 // Mono micro-label
-@mixin micro-label($size: 11px, $tracking: 0.08em, $color: var(--muted)) {
+@mixin micro-label($size: $text-xs, $tracking: 0.08em, $color: var(--muted)) {
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   font-size: $size;
   font-weight: 400;
@@ -178,7 +195,7 @@ $nav-height: 59px;
 }
 
 // Mono metadata
-@mixin metadata($size: 11px, $color: var(--muted-light)) {
+@mixin metadata($size: $text-xs, $color: var(--muted-light)) {
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   font-size: $size;
   letter-spacing: 0.04em;
@@ -223,7 +240,7 @@ $nav-height: 59px;
   border-radius: 0;
   background: transparent;
   color: var(--foreground-secondary);
-  @include micro-label(11px, 0.05em);
+  @include micro-label($text-xs, 0.05em);
 
   @if $active {
     border-color: var(--primary);
@@ -339,7 +356,7 @@ $nav-height: 59px;
 
 @mixin page-header-kicker {
   margin: 0 0 18px;
-  @include micro-label(11px, 0.18em);
+  @include micro-label($text-xs, 0.18em);
 }
 
 @mixin page-header-lead {
@@ -412,7 +429,7 @@ $nav-height: 59px;
   background: transparent;
   border: none;
   cursor: pointer;
-  @include micro-label(11px, 0.05em);
+  @include micro-label($text-xs, 0.05em);
   transition:
     background 0.18s ease,
     color 0.18s ease;
@@ -442,13 +459,40 @@ $nav-height: 59px;
 
 @mixin empty-state-title {
   margin: 0;
-  @include display-type(40px, 0.05em);
+  @include display-type($display-xl, 0.05em);
   color: var(--muted);
 }
 
 @mixin empty-state-hint {
   margin: 10px 0 0;
-  @include metadata(11.5px);
+  @include metadata($text-sm);
+}
+
+// Rotation for busy indicators
+@mixin kf-spin {
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+@mixin spinner($duration: 1s) {
+  animation: spin $duration linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+// Opt a scroller out of the global scrollbar
+@mixin scroll-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 // Visually hidden, still announced

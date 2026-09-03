@@ -5,7 +5,6 @@ export default function Loading() {
     <CardGridSkeleton
       title="CCW Administration"
       lead="Manage website settings."
-      kicker="Administration"
       cards={8}
     />
   );

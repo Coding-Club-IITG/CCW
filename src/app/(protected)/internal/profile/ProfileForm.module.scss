@@ -1,9 +1,8 @@
 @use "../../../../styles/mixins" as *;
 
 .container {
-  @include card;
   max-width: 600px;
-  margin: 1.5rem auto;
+  margin-inline: auto;
 }
 
 .title {
@@ -15,6 +14,7 @@
 }
 
 .form {
+  @include form-panel;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;

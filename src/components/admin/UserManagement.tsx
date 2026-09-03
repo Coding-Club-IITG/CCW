@@ -168,10 +168,6 @@ export default function UserManagement() {
     setTenureUser(null);
   };
 
-  if (loading && users.length === 0) {
-    return <TableSkeletonContent label="users" columns={6} />;
-  }
-
   return (
     <div className={styles.container}>
       <div className={styles.addUserSection}>
@@ -406,10 +402,13 @@ export default function UserManagement() {
           maxWidth={520}
           footer={
             <>
-              <button className={styles.cancel} onClick={closeModals}>
+              <button className={styles.cancelBtn} onClick={closeModals}>
                 Cancel
               </button>
-              <button className={styles.save} onClick={() => void saveAccess()}>
+              <button
+                className={styles.primaryBtn}
+                onClick={() => void saveAccess()}
+              >
                 <Save size={16} /> Save access
               </button>
             </>
@@ -462,11 +461,11 @@ export default function UserManagement() {
           maxWidth={520}
           footer={
             <>
-              <button className={styles.cancel} onClick={closeModals}>
+              <button className={styles.cancelBtn} onClick={closeModals}>
                 Cancel
               </button>
               <button
-                className={styles.save}
+                className={styles.primaryBtn}
                 onClick={async () => {
                   if (await run(updateUserRoles(roleUser._id, tempRoles)))
                     setRoleUser(null);
@@ -545,11 +544,11 @@ export default function UserManagement() {
           maxWidth={410}
           footer={
             <>
-              <button className={styles.cancel} onClick={closeModals}>
+              <button className={styles.cancelBtn} onClick={closeModals}>
                 Cancel
               </button>
               <button
-                className={styles.save}
+                className={styles.primaryBtn}
                 onClick={async () => {
                   if (await run(updateUserTenure(tenureUser._id, tempTenure)))
                     setTenureUser(null);

@@ -5,7 +5,6 @@ export default function Loading() {
     <TableSkeleton
       title="Contest Presets"
       lead="Manage reusable match settings and problem selections."
-      kicker="Administration"
       columns={6}
     />
   );

@@ -1,3 +1,7 @@
+@use "@/styles/mixins" as *;
+
+@include kf-spin;
+
 .rowActions {
   display: flex;
   align-items: center;
@@ -148,18 +152,13 @@
 .error {
   margin: 1rem 0 0;
   padding: 0.625rem 0.75rem;
-  color: var(--danger-text);
+  color: var(--danger);
   background: var(--error-bg);
   border-radius: 0;
   font-size: 0.8125rem;
 }
 .spinner {
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  @include spinner(0.8s);
 }
 
 @media (max-width: 600px) {

@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { type LeaderboardEntry } from "@/lib/actions/potd";
 
+import MemberCell from "@/components/leaderboard/MemberCell";
+import RankCell from "@/components/leaderboard/RankCell";
 import EmptyState from "@/components/shared/EmptyState";
 import SearchInput from "@/components/shared/SearchInput";
 import SegmentedControl from "@/components/shared/SegmentedControl";
@@ -105,30 +107,13 @@ export default function LeaderboardClient({
                 });
 
                 return filteredData.map((user, index) => {
-                  const rank = ranks[index];
-                  let rankClass = "";
-                  if (rank === 1) rankClass = styles.top1;
-                  if (rank === 2) rankClass = styles.top2;
-                  if (rank === 3) rankClass = styles.top3;
-
                   return (
                     <tr key={user.userId}>
                       <td>
-                        <span
-                          className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
-                        >
-                          {String(rank).padStart(2, "0")}
-                        </span>
+                        <RankCell rank={ranks[index]} />
                       </td>
                       <td>
-                        <div className={styles.userInfo}>
-                          <span className={styles.userName}>{user.name}</span>
-                          {user.handle && (
-                            <span className={styles.userHandle}>
-                              @{user.handle}
-                            </span>
-                          )}
-                        </div>
+                        <MemberCell name={user.name} handle={user.handle} />
                       </td>
                       <td>
                         <span className={styles.points}>

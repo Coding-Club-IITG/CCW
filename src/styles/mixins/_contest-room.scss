@@ -50,7 +50,7 @@
   }
 
   .spin {
-    animation: contestSpin 1s linear infinite;
+    @include spinner;
   }
 
   /* HUD */
@@ -79,7 +79,7 @@
 
   .hudTitle {
     margin: 0;
-    @include display-type(24px, 0.05em);
+    @include display-type($display-sm, 0.05em);
   }
 
   .statusBadge {
@@ -89,7 +89,7 @@
     padding: 5px 11px;
     background: var(--surface);
     border: 1px solid var(--border);
-    @include micro-label(10.5px, 0.06em, var(--muted));
+    @include micro-label($text-xs, 0.06em, var(--muted));
   }
 
   .statusBadgeActive {
@@ -113,7 +113,7 @@
   }
 
   .teamName {
-    @include micro-label(11px, 0.06em, var(--muted));
+    @include micro-label($text-xs, 0.06em, var(--muted));
     max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -121,7 +121,7 @@
   }
 
   .teamNameActive {
-    @include micro-label(11px, 0.06em, var(--primary));
+    @include micro-label($text-xs, 0.06em, var(--primary));
     max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -129,16 +129,16 @@
   }
 
   .scoreVal {
-    @include display-type(40px);
+    @include display-type($display-xl);
     color: var(--foreground-strong);
   }
 
   .vs {
-    @include metadata(11px, var(--muted-light));
+    @include metadata($text-xs, var(--muted-light));
   }
 
   .vsInline {
-    @include metadata(11px, var(--muted-light));
+    @include metadata($text-xs, var(--muted-light));
     margin: 0 0.5rem;
   }
 
@@ -162,12 +162,12 @@
   }
 
   .timerText {
-    @include display-type(26px);
+    @include display-type($display-sm);
     color: var(--foreground-strong);
   }
 
   .timerSub {
-    @include micro-label(10.5px, 0.09em);
+    @include micro-label($text-xs, 0.09em);
   }
 
   /* Layout grid */
@@ -216,7 +216,7 @@
     padding: 1rem;
     background: var(--surface-secondary);
     border: 1px solid var(--border);
-    @include contest-scroll-hide;
+    @include scroll-hide;
   }
 
   .panelStage {
@@ -233,7 +233,7 @@
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border);
     background: var(--surface-secondary);
-    @include micro-label(10.5px, 0.1em);
+    @include micro-label($text-xs, 0.1em);
   }
 
   /* Roster */
@@ -251,7 +251,7 @@
   .rosterTeamName {
     padding-bottom: 0.25rem;
     margin-bottom: 0.25rem;
-    @include micro-label(10px, 0.08em, var(--secondary));
+    @include micro-label($text-2xs, 0.08em, var(--secondary));
   }
 
   .rosterTeamNameOwn {
@@ -299,7 +299,7 @@
 
   .memberName {
     flex: 1;
-    @include metadata(12.5px, var(--foreground-strong));
+    @include metadata($text-sm, var(--foreground-strong));
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -342,7 +342,8 @@
     width: 6rem;
     height: 6rem;
     margin-bottom: 1.5rem;
-    border-radius: 50%;
+    border-radius: 0;
+    border: 1px solid var(--primary);
     background: var(--primary-alpha);
     @include contest-glow;
 
@@ -393,7 +394,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    @include micro-label(10.5px, 0.1em, var(--foreground-strong));
+    @include micro-label($text-xs, 0.1em, var(--foreground-strong));
 
     svg {
       color: var(--primary);
@@ -402,7 +403,7 @@
 
   .activitySub {
     margin: 0.25rem 0 0;
-    @include metadata(10px, var(--muted));
+    @include metadata($text-2xs, var(--muted));
     opacity: 0.75;
   }
 
@@ -414,7 +415,7 @@
     padding: 5px 11px;
     border: 1px solid var(--primary);
     background: transparent;
-    @include micro-label(10px, 0.06em, var(--primary));
+    @include micro-label($text-2xs, 0.06em, var(--primary));
     cursor: pointer;
     transition:
       background 0.15s,
@@ -433,7 +434,7 @@
     overflow-y: auto;
     height: 100%;
     font-size: 0.75rem;
-    @include contest-scroll-hide;
+    @include scroll-hide;
   }
 
   .activityEmpty {
@@ -491,7 +492,7 @@
     position: fixed;
     bottom: 1.5rem;
     right: 1.5rem;
-    z-index: 50;
+    z-index: var(--z-toast);
     animation: contestSlideIn 0.4s ease-out forwards;
   }
 
@@ -535,7 +536,7 @@
 
   .toastTitle {
     margin: 0;
-    @include display-type(20px, 0.05em);
+    @include display-type($display-xs, 0.05em);
   }
 
   .toastClose {

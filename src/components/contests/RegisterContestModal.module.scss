@@ -1,6 +1,6 @@
 @use "../../styles/mixins" as *;
 
-@include contest-kf-spin;
+@include kf-spin;
 
 /* Body */
 .body {
@@ -40,14 +40,14 @@
   border: 2px solid var(--primary);
   border-top-color: transparent;
   border-radius: 50%;
-  animation: contestSpin 1s linear infinite;
+  @include spinner;
 }
 
 .regEmpty {
   padding: 1rem;
   text-align: center;
   border: 1px dashed var(--border);
-  @include metadata(11.5px, var(--muted));
+  @include metadata($text-sm, var(--muted));
 }
 
 .regList {
@@ -122,7 +122,7 @@
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
-  @include micro-label(10.5px, 0.08em, var(--primary));
+  @include micro-label($text-xs, 0.08em, var(--primary));
 }
 
 .teamHeaderName {
@@ -310,8 +310,7 @@
 /* Footer */
 
 .btnPrimary {
-  @include btn-primary;
-  padding: 0.5rem 1.5rem;
+  @include btn-primary($btn-lg);
   font-size: 0.8125rem;
   border: 1px solid transparent;
 }
@@ -320,7 +319,7 @@
   @include btn-base(0.5rem 1rem);
   background: none;
   border: 1px solid transparent;
-  @include micro-label(11px, 0.06em, var(--muted));
+  @include micro-label($text-xs, 0.06em, var(--muted));
   transition:
     color 0.15s ease,
     background 0.15s ease;

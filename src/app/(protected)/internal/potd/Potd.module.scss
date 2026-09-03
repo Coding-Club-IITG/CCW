@@ -26,7 +26,7 @@
 .problemId {
   display: block;
   margin-bottom: 0.375rem;
-  @include micro-label(10.5px, 0.09em);
+  @include micro-label($text-xs, 0.09em);
 }
 
 .title {
@@ -35,7 +35,7 @@
 }
 
 .rating {
-  @include badge-semantic(var(--accent-bg), var(--accent));
+  @include badge-chip(var(--accent-bg), var(--accent), transparent);
 }
 
 .stats {
@@ -54,7 +54,7 @@
     gap: 0.125rem;
 
     .label {
-      @include micro-label(10.5px, 0.09em);
+      @include micro-label($text-xs, 0.09em);
     }
 
     .value {
@@ -65,7 +65,7 @@
       color: var(--foreground-strong);
 
       &.timerValue {
-        @include metadata(13px, var(--foreground-strong));
+        @include metadata($text-md, var(--foreground-strong));
         font-variant-numeric: tabular-nums;
         transition: color 0.15s ease;
       }
@@ -157,7 +157,7 @@
 }
 
 .syncError {
-  color: var(--danger-text);
+  color: var(--danger);
   margin-bottom: 0.75rem;
   font-size: 13px;
 }
@@ -264,7 +264,7 @@
   font-size: 13px;
 
   > span:first-child {
-    @include micro-label(10.5px, 0.09em, var(--foreground-secondary));
+    @include micro-label($text-xs, 0.09em, var(--foreground-secondary));
   }
 
   > span:last-child {
@@ -287,4 +287,26 @@
     flex-shrink: 0;
     margin-top: 1px;
   }
+}
+
+.statusIconSolved {
+  margin-right: 8px;
+  color: var(--success);
+}
+
+.statusIconGrace {
+  margin-right: 8px;
+  color: var(--warning);
+}
+
+.timerCalm {
+  color: var(--success);
+}
+
+.timerWarning {
+  color: var(--warning);
+}
+
+.timerUrgent {
+  color: var(--danger);
 }

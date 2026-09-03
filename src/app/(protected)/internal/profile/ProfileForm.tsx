@@ -10,9 +10,9 @@ import { expectAppData } from "@/lib/api/result";
 import { useSession } from "@/lib/auth-client";
 
 import ImageUpload from "@/components/shared/ImageUpload";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 import styles from "./ProfileForm.module.scss";
-import ProfileLoading from "./loading";
 
 export default function ProfileForm() {
   const { data: session, isPending } = useSession();
@@ -162,14 +162,27 @@ export default function ProfileForm() {
     }
   }
 
-  if (isPending) return <ProfileLoading />;
-
-  return (
-    <div className={styles.container}>
+  const header = (
+    <>
       <h1 className={styles.title}>Your Profile</h1>
       <p className={styles.subtitle}>
         Update your personal details and platform IDs.
       </p>
+    </>
+  );
+
+  if (isPending) {
+    return (
+      <div className={styles.container}>
+        {header}
+        <FormSkeletonContent label="your profile" fields={5} />
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.container}>
+      {header}
 
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.field}>

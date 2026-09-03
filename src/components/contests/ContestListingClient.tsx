@@ -242,8 +242,11 @@ export default function ContestListingClient({
           {/* Header & Filters */}
           <div className={styles.headerRow}>
             <div>
-              <p className={styles.kicker}>Internal</p>
               <h1 className={styles.title}>Contests</h1>
+              <p className={styles.lead}>
+                Join a live room or start your own across Blitz, Arena and
+                knockout brackets.
+              </p>
             </div>
             <div className={styles.headerControls}>
               <SegmentedControl

@@ -3,32 +3,23 @@
 import {
   CircleAlert,
   CircleCheck,
-  CircleCheck as IconCheckCircle,
   Code,
   ExternalLink,
   Gavel,
-  Gavel as IconGavel,
   Hourglass,
   Info,
-  Info as IconInfoCircle,
   Lock,
-  Lock as IconLock,
   type LucideIcon,
   RefreshCw,
-  RefreshCw as IconSwitchView,
   Rss,
   Timer,
-  TriangleAlert as IconWarning,
   Trophy,
   User,
-  UserRoundX as IconPersonOff,
   UserX,
   Users,
-  Users as IconUsers,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { createElement, useEffect, useRef, useState } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
@@ -44,6 +35,7 @@ import {
   formatRoomActivityTime,
   getContestRoomResultsPath,
 } from "@/components/contests/roomPresentation";
+import { sendBrowserNotification } from "@/components/contests/roomNotification";
 import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
 import CompatibleImage from "@/components/shared/CompatibleImage";
@@ -61,49 +53,6 @@ const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
   person: User,
   person_off: UserX,
 };
-
-// SVG sources (matching Lucide icons) for browser desktop notifications
-// Icon color map matching the activity feed color scheme
-const NOTIFICATION_ICON_MAP: Record<
-  string,
-  { component: React.FC<React.SVGProps<SVGSVGElement>>; color: string }
-> = {
-  info: { component: IconInfoCircle, color: "#8b5cf6" },
-  gavel: { component: IconGavel, color: "#ef4444" },
-  lock: { component: IconLock, color: "#8b5cf6" },
-  sync: { component: IconSwitchView, color: "#06b6d4" },
-  check_circle: { component: IconCheckCircle, color: "#22c55e" },
-  error: { component: IconWarning, color: "#ef4444" },
-  person: { component: IconUsers, color: "#06b6d4" },
-  person_off: { component: IconPersonOff, color: "#ef4444" },
-};
-
-function getNotificationIconUri(icon: string): string {
-  const entry = NOTIFICATION_ICON_MAP[icon] ?? NOTIFICATION_ICON_MAP.info;
-  const svg = renderToStaticMarkup(
-    createElement(entry.component, {
-      width: 24,
-      height: 24,
-      stroke: entry.color,
-    }),
-  );
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
-
-function sendBrowserNotification(icon: string, text: string) {
-  if (
-    typeof Notification === "undefined" ||
-    Notification.permission !== "granted"
-  )
-    return;
-  try {
-    new Notification("CCW Match", {
-      body: text,
-      icon: getNotificationIconUri(icon),
-      silent: true,
-    });
-  } catch (_) {}
-}
 
 export default function ArenaRoomClient({
   contest,

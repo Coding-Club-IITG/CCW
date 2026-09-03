@@ -168,7 +168,7 @@
   margin: 0;
   padding: 12px 0.65rem 8px;
   background: var(--surface-secondary);
-  @include micro-label(11px, 0.12em);
+  @include micro-label($text-xs, 0.12em);
   line-height: 1.25;
 }
 
@@ -290,7 +290,7 @@
   padding: 2px 7px;
   border: 1px solid var(--danger);
   color: var(--danger);
-  @include micro-label(11px, 0.07em);
+  @include micro-label($text-xs, 0.07em);
   color: var(--danger);
 }
 
@@ -482,7 +482,7 @@
   padding: 12px 1rem;
   border-top: 1px solid var(--border);
   background: var(--background);
-  @include micro-label(11px, 0.07em);
+  @include micro-label($text-xs, 0.07em);
   line-height: 1.35;
 }
 

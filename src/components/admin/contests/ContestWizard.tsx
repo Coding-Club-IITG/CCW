@@ -132,7 +132,6 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
   return (
     <div className={styles.wizardContainer}>
       <BackLink href="/admin" label="Back to Administration" />
-      <p className={styles.wizardKicker}>Administration</p>
       <h1 className={styles.wizardTitle}>Create Bracket Tournament</h1>
 
       {/* Progress Tracker */}

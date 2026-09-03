@@ -87,7 +87,7 @@ export default async function CalendarPage({
   };
 
   return (
-    <div className={styles.container}>
+    <div>
       <header className={styles.header}>
         <div>
           <h1>Club Calendar</h1>

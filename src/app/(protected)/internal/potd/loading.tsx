@@ -5,7 +5,6 @@ export default function Loading() {
     <CardGridSkeleton
       title="Daily Challenge"
       lead="Today's problems across three difficulties."
-      kicker="Internal"
       cards={3}
     />
   );

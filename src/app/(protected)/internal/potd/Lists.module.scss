@@ -31,10 +31,7 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 
-  scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  @include scroll-hide;
 }
 
 .tab {
@@ -73,39 +70,8 @@
   }
 }
 
-.rank {
-  @include rank-cell;
-}
-
-.rankBadge {
-  @include rank-medal;
-}
-
-.top1 {
-  @include rank-medal-gold;
-}
-.top2 {
-  @include rank-medal-silver;
-}
-.top3 {
-  @include rank-medal-bronze;
-}
-
-.userInfo {
-  display: flex;
-  flex-direction: column;
-}
-
-.userName {
-  @include entity-name;
-}
-
-.userHandle {
-  @include metadata(11px, var(--link));
-}
-
 .points {
-  @include display-type(22px, 0.04em);
+  @include display-type($display-sm, 0.04em);
 }
 
 .maxStreakWrapper {
@@ -172,7 +138,7 @@
 }
 
 .rating {
-  @include badge-semantic(var(--accent-bg), var(--accent));
+  @include badge-chip(var(--accent-bg), var(--accent), transparent);
 }
 
 .difficultyBadge {
@@ -191,7 +157,7 @@
 }
 
 .difficultyHard {
-  color: var(--danger-text);
+  color: var(--danger);
   border-color: var(--error-border);
 }
 

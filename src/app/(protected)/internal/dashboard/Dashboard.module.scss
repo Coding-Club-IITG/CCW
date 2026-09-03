@@ -1,9 +1,5 @@
 @use "../../../../styles/mixins" as *;
 
-.container {
-  padding: 1.5rem 2rem;
-}
-
 .header {
   @include standard-page-header;
 }
@@ -18,11 +14,12 @@
 }
 
 .grid {
-  @include card-grid(280px);
+  @include hairline-grid($min: 280px);
 }
 
 .blogCard {
-  @include card-grid-cell;
+  @include hairline-cell;
+  padding: 20px;
   position: relative;
 }
 

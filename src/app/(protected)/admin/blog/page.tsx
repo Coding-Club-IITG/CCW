@@ -13,7 +13,6 @@ import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 
 import styles from "./AdminBlog.module.scss";
-import AdminBlogLoading from "./loading";
 
 interface Post {
   _id: string;
@@ -89,10 +88,8 @@ export default function AdminBlogPage() {
     }
   };
 
-  if (loading && posts.length === 0) return <AdminBlogLoading />;
-
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/admin" label="Back to Administration" />
 
       <header className={styles.header}>
@@ -155,6 +152,7 @@ export default function AdminBlogPage() {
                       href={`/blog/${post.slug}`}
                       className={styles.btnSecondary}
                       target="_blank"
+                      rel="noreferrer"
                     >
                       View <IconExternalLink width={12} height={12} />
                     </Link>

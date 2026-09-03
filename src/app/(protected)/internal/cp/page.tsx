@@ -3,16 +3,9 @@ import CPUser from "@/models/CPUser";
 import Contest from "@/models/Contest";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
+import { type RatingLeaderboardEntry } from "@/components/leaderboard/RatingLeaderboardClient";
 import CPPageClient from "@/components/cp/CPPageClient";
 import { getDisplayName } from "@/lib/utils";
-
-type RatingLeaderboardEntry = {
-  id: string;
-  name: string;
-  handle: string;
-  rating: number;
-  rank: string;
-};
 
 async function getCFLeaderboard(): Promise<RatingLeaderboardEntry[]> {
   await dbConnect();

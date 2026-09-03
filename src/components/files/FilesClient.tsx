@@ -18,9 +18,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
 import TagBadge from "@/components/shared/TagBadge";
-import TableSkeleton, {
-  TableSkeletonContent,
-} from "@/components/shared/skeletons/TableSkeleton";
+import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 
 import EditModal from "./EditModal";
 import FileViewer from "./FileViewer";
@@ -119,19 +117,8 @@ export default function FilesClient({ currentUser }: Props) {
 
   // Render
 
-  if (loading && files.length === 0) {
-    return (
-      <TableSkeleton
-        title="Internal Files"
-        lead="Shared resources, documentation, and module-specific files."
-        kicker="Internal"
-        columns={7}
-      />
-    );
-  }
-
   return (
-    <div className={styles.container}>
+    <div>
       {/* Header */}
       <div className={styles.header}>
         <div>

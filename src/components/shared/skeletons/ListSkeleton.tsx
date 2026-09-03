@@ -1,25 +1,21 @@
 import Skeleton from "./Skeleton";
-import SkeletonPage from "./SkeletonPage";
+import SkeletonPage, {
+  SkeletonBody,
+  type SkeletonContentProps,
+  type SkeletonPageProps,
+} from "./SkeletonPage";
 import styles from "./Skeleton.module.scss";
 
 const WIDTHS = ["62%", "76%", "54%", "69%", "58%", "72%"];
 
+type ListShape = { rows?: number };
+
 export function ListSkeletonContent({
   rows = 5,
-  label = "items",
-  announce = true,
-}: {
-  rows?: number;
-  label?: string;
-  announce?: boolean;
-}) {
+  label,
+}: SkeletonContentProps & ListShape) {
   return (
-    <div className={styles.frame} aria-busy="true">
-      {announce && (
-        <span className={styles.status} role="status" aria-live="polite">
-          Loading {label}…
-        </span>
-      )}
+    <SkeletonBody label={label} className={styles.frame}>
       {Array.from({ length: rows }, (_, index) => (
         <div className={styles.listRow} key={index}>
           <Skeleton width="32px" height={32} />
@@ -30,24 +26,19 @@ export function ListSkeletonContent({
           <Skeleton width="68px" height={10} />
         </div>
       ))}
-    </div>
+    </SkeletonBody>
   );
 }
 
 export default function ListSkeleton({
   title,
   lead,
-  kicker,
-  rows = 5,
-}: {
-  title: string;
-  lead?: string;
-  kicker?: string;
-  rows?: number;
-}) {
+  label,
+  ...shape
+}: SkeletonPageProps & ListShape) {
   return (
-    <SkeletonPage title={title} lead={lead} kicker={kicker}>
-      <ListSkeletonContent rows={rows} label={title} announce={false} />
+    <SkeletonPage title={title} lead={lead}>
+      <ListSkeletonContent {...shape} label={label ?? title} />
     </SkeletonPage>
   );
 }

@@ -1,7 +1,7 @@
 @use "../../styles/mixins" as *;
 
 @include contest-kf-pulse;
-@include contest-kf-spin;
+@include kf-spin;
 @include contest-kf-slide-in;
 @include contest-kf-loading-dots;
 
@@ -87,7 +87,7 @@
 
 .problemTitle {
   margin: 0 0 0.5rem;
-  @include display-type(28px, 0.05em);
+  @include display-type($display-md, 0.05em);
 }
 
 .problemMeta {
@@ -131,7 +131,7 @@
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
   border: 1px solid var(--border-input);
-  @include micro-label(11px, 0.06em, var(--foreground-strong));
+  @include micro-label($text-xs, 0.06em, var(--foreground-strong));
   transition: background 0.15s ease;
 
   &:hover {

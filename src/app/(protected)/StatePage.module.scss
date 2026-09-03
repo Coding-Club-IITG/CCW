@@ -13,13 +13,12 @@
 }
 
 .kicker {
-  margin: 0;
-  @include micro-label(10.5px, 0.18em);
+  @include standard-page-kicker($margin: 0);
 }
 
 .code {
   margin: 0;
-  @include display-type(150px, 0.02em);
+  @include display-type($display-numeral, 0.02em);
   color: var(--foreground-strong);
 }
 
@@ -58,11 +57,11 @@
 
 .error {
   .kicker {
-    color: var(--danger-text);
+    color: var(--danger);
   }
 
   .code {
-    color: var(--danger-text);
+    color: var(--danger);
   }
 }
 
@@ -70,6 +69,6 @@
   margin-top: 4px;
   padding: 6px 10px;
   border: 1px solid var(--border-input);
-  @include metadata(11px, var(--muted-light));
+  @include metadata($text-xs, var(--muted-light));
   text-transform: uppercase;
 }

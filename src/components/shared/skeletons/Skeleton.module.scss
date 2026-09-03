@@ -27,10 +27,6 @@
   }
 }
 
-.page {
-  @include admin-page;
-}
-
 .header {
   @include standard-page-header($bottom-margin: 1.5rem);
 }
@@ -87,6 +83,8 @@
 
 .cardCell {
   @include hairline-cell;
+  display: grid;
+  gap: 9px;
   padding: 20px;
 }
 
@@ -120,10 +118,6 @@
   display: flex;
   gap: 10px;
   margin-top: 4px;
-}
-
-.kicker {
-  @include standard-page-kicker($margin: 0 0 11px);
 }
 
 .status {

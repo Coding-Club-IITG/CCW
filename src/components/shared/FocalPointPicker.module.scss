@@ -42,7 +42,6 @@
 }
 
 .reset {
-  @include btn-secondary;
-  padding: 0.25rem 0.625rem;
+  @include btn-secondary($btn-xs);
   font-size: 0.75rem;
 }

@@ -29,7 +29,7 @@
   height: 14px;
   padding: 0 3px;
   background: var(--error);
-  @include metadata(9px, var(--fg-on-emphasis));
+  @include metadata($text-2xs, var(--fg-on-emphasis));
   line-height: 1;
 }
 
@@ -65,12 +65,12 @@
   gap: 1rem;
   padding: 11px 14px;
   border-bottom: 1px solid var(--border);
-  @include micro-label(10px, 0.1em, var(--foreground-strong));
+  @include micro-label($text-2xs, 0.1em, var(--foreground-strong));
 }
 
 .viewAll {
   text-decoration: none;
-  @include micro-label(9.5px, 0.06em, var(--primary));
+  @include micro-label($text-2xs, 0.06em, var(--primary));
 
   &:hover {
     text-decoration: underline;
@@ -80,7 +80,7 @@
 .empty {
   padding: 1.5rem 1rem;
   text-align: center;
-  @include metadata(11px, var(--muted));
+  @include metadata($text-xs, var(--muted));
 }
 
 .list {
@@ -113,7 +113,7 @@
   display: inline-block;
   margin-top: 0.375rem;
   text-decoration: none;
-  @include micro-label(9.5px, 0.06em, var(--primary));
+  @include micro-label($text-2xs, 0.06em, var(--primary));
 
   &:hover {
     text-decoration: underline;

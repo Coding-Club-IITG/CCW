@@ -52,7 +52,7 @@
   padding: 0.5rem 0.75rem;
   text-align: left;
   border-radius: 0;
-  @include micro-label(11px, 0.06em, var(--muted));
+  @include micro-label($text-xs, 0.06em, var(--muted));
   display: flex;
   align-items: center;
   gap: 0.625rem;
@@ -116,11 +116,11 @@
 @mixin sidebar-content {
   flex: 1;
   min-width: 0;
-  padding: 0 0.75rem 1.5rem;
+  padding: 1rem 0.75rem 1.5rem;
   width: 100%;
   overflow-x: hidden;
 
   @media (min-width: 768px) {
-    padding: 0.75rem 1rem 1.5rem 0;
+    padding: 1rem 1rem 1.5rem 0;
   }
 }
