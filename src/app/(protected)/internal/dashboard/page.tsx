@@ -29,9 +29,14 @@ export default async function DashboardPage() {
   const userIsAdmin = isHead(user.access);
 
   await dbConnect();
-  const myBlogs = await BlogPost.find({
-    "authors.userId": user.id,
-  })
+  const authorQuery = mongoose.Types.ObjectId.isValid(user.id)
+    ? [
+        { "authors.userId": new mongoose.Types.ObjectId(String(user.id)) },
+        { "authors.userId": String(user.id) },
+      ]
+    : [{ "authors.userId": String(user.id) }];
+
+  const myBlogs = await BlogPost.find({ $or: authorQuery })
     .select("title slug excerpt status updatedAt pendingRevision")
     .sort({ updatedAt: -1 })
     .lean();

@@ -41,12 +41,6 @@
 .blogTitleLink {
   text-decoration: none;
 
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-  }
-
   &:hover {
     color: var(--primary);
   }
@@ -54,14 +48,22 @@
 
 .editBlogLink {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   color: var(--muted);
-  padding: 0.125rem;
+  padding: 0.35rem;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
 
   &:hover {
     color: var(--primary);
+    background: var(--surface-hover);
+    border-color: var(--primary);
   }
 }
 
