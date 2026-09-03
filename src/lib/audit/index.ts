@@ -31,12 +31,37 @@ export async function auditedTransaction<T>(
   ) => Promise<{ result: T; audit: AuditEventInput }>,
 ): Promise<T> {
   let output: T | undefined;
-  await session.withTransaction(async () => {
-    const { result, audit } = await mutation(session);
-    await insertAuditEvent(audit, session);
-    output = result;
-  });
-  return output as T;
+  try {
+    await session.withTransaction(async () => {
+      const { result, audit } = await mutation(session);
+      await insertAuditEvent(audit, session);
+      output = result;
+    });
+    return output as T;
+  } catch (err: any) {
+    if (
+      err?.message?.includes("Transaction numbers are only allowed") ||
+      err?.message?.includes("transactions are not supported") ||
+      err?.code === 20 ||
+      err?.codeName === "IllegalOperation"
+    ) {
+      const { result, audit } = await mutation(
+        undefined as unknown as ClientSession,
+      );
+      const createdAt = audit.createdAt ?? new Date();
+      await AuditLog.create([
+        {
+          ...audit,
+          before: audit.before ?? {},
+          after: audit.after ?? {},
+          createdAt,
+          expiresAt: auditExpiry(createdAt),
+        },
+      ]);
+      return result;
+    }
+    throw err;
+  }
 }
 
 export function auditActor(user: {
