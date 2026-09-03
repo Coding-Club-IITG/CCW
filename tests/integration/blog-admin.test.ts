@@ -263,7 +263,7 @@ describe("admin blog routes", () => {
       category: "blog",
       action: "update",
       operation: "blog.revision.approve",
-      actor: { userId: BLOG_ADMIN_ID.toString(), access: "Admin" },
+      actor: { userId: BLOG_ADMIN_ID.toString(), access: "Head" },
     });
   });
 
@@ -314,7 +314,7 @@ describe("admin blog routes", () => {
       category: "blog",
       action: "delete",
       operation: "blog.revision.reject",
-      actor: { userId: BLOG_ADMIN_ID.toString(), access: "Admin" },
+      actor: { userId: BLOG_ADMIN_ID.toString(), access: "Head" },
     });
   });
 });
