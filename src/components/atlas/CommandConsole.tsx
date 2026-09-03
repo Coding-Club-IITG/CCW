@@ -44,6 +44,8 @@ import { useSession } from "@/lib/auth-client";
 import { parseRoles } from "@/lib/roles";
 import { useThemeStore } from "@/lib/store/theme";
 import { useViewModeStore } from "@/lib/store/view-mode";
+import { useScrollLock } from "@/components/shared/useScrollLock";
+import { useEscapeLayer } from "@/components/shared/overlayStack";
 import styles from "./CommandConsole.module.scss";
 
 type ConsoleContextValue = { open: () => void };
@@ -156,6 +158,8 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
   const resultsRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
+  useScrollLock(open);
+
   const user = session?.user as
     { access?: string; roles?: unknown } | undefined;
   const catalog = useMemo(
@@ -202,17 +206,12 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("keydown", handle);
   }, [close, open, show]);
 
+  useEscapeLayer(open, close);
+
   useEffect(() => {
     if (!open) return;
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     requestAnimationFrame(() => inputRef.current?.focus());
     const handleDialogKeys = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        close();
-        return;
-      }
       if (event.key !== "Tab" || !consoleRef.current) return;
       const focusable = Array.from(
         consoleRef.current.querySelectorAll<HTMLElement>(
@@ -231,11 +230,8 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
       }
     };
     document.addEventListener("keydown", handleDialogKeys);
-    return () => {
-      document.body.style.overflow = overflow;
-      document.removeEventListener("keydown", handleDialogKeys);
-    };
-  }, [close, open]);
+    return () => document.removeEventListener("keydown", handleDialogKeys);
+  }, [open]);
 
   const parsed = useMemo(
     () => parseAtlasQuery(query.replace(/^[>/]\s*/, "")),
@@ -457,10 +453,7 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
   );
 
   function onKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close();
-    } else if (event.key === "ArrowDown") {
+    if (event.key === "ArrowDown") {
       event.preventDefault();
       setActive((value) => Math.min(value + 1, results.length - 1));
     } else if (event.key === "ArrowUp") {

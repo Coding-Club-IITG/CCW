@@ -9,7 +9,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.25rem;
+  margin-bottom: 18px;
 }
 
 .title {
@@ -19,46 +19,40 @@
 .weekNav {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1px;
+  background: var(--border-input);
+  border: 1px solid var(--border-input);
 }
 
 .navBtn {
   width: 2rem;
-  height: 2rem;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--foreground);
-  font-size: 1.25rem;
+  border: none;
+  background: var(--background);
   cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+  @include metadata($text-sm, var(--foreground-secondary));
+  transition: color 0.15s ease;
 
   &:hover {
-    background: var(--surface-hover);
-    border-color: var(--border-light);
+    color: var(--primary);
   }
 }
 
 .todayBtn {
-  padding: 0.25rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--foreground);
-  font-size: 0.8125rem;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  border: none;
+  background: var(--background);
   cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+  @include micro-label($text-xs, 0.06em, var(--foreground-secondary));
+  transition: color 0.15s ease;
 
   &:hover:not(:disabled) {
-    background: var(--surface-hover);
+    color: var(--primary);
   }
 
   &:disabled {
@@ -73,7 +67,6 @@
   grid-template-columns: 3.5rem repeat(7, 1fr);
   gap: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
   overflow: hidden;
   background: var(--surface);
 }
@@ -99,8 +92,7 @@
   position: absolute;
   right: 0.5rem;
   transform: translateY(-50%);
-  font-size: 0.6875rem;
-  color: var(--muted);
+  @include metadata($text-2xs, var(--muted-light));
   white-space: nowrap;
 }
 
@@ -108,7 +100,7 @@
 .dayColumn {
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--border-lighter);
 }
 
 .dayColumn.today {
@@ -120,27 +112,23 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   height: 3.5rem;
   padding: 0.25rem;
   border-bottom: 1px solid var(--border);
 }
 
 .dayName {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--muted);
+  @include micro-label($text-2xs, 0.09em);
 }
 
 .dayDate {
-  font-size: 0.8125rem;
-  font-weight: 500;
+  @include display-type($display-xs);
   color: var(--foreground-strong);
 }
 
 .today .dayDate {
   color: var(--primary);
-  font-weight: 700;
 }
 
 /* Day body with time slots */
@@ -183,66 +171,77 @@
 /* Contest bars */
 .contestBar {
   position: absolute;
-  border-radius: 4px;
-  padding: 0.2rem 0.25rem;
+  padding: 4px 6px;
   text-decoration: none;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   overflow: hidden;
   cursor: pointer;
   z-index: 1;
-  color: var(--fg-on-emphasis);
+  background: var(--surface-hover);
+  border-left: 3px solid var(--border-input);
   transition:
-    opacity 0.15s ease,
+    background 0.15s ease,
     box-shadow 0.15s ease;
 
   &:hover {
-    opacity: 0.9;
     box-shadow: 0 2px 8px var(--shadow-md);
     z-index: 2;
   }
 
   &.cf {
-    background: var(--contest-cf);
+    border-left-color: var(--contest-cf);
+
+    .barPlatform {
+      color: var(--contest-cf);
+    }
   }
 
   &.ac {
-    background: var(--contest-ac);
+    border-left-color: var(--contest-ac);
+
+    .barPlatform {
+      color: var(--contest-ac);
+    }
   }
 
   &.cc {
-    background: var(--contest-cc);
+    border-left-color: var(--contest-cc);
+
+    .barPlatform {
+      color: var(--contest-cc);
+    }
   }
 
   &.lc {
-    background: var(--contest-lc);
+    border-left-color: var(--contest-lc);
+
+    .barPlatform {
+      color: var(--contest-lc);
+    }
   }
 }
 
 .barPlatform {
-  font-size: 0.5625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  opacity: 0.85;
+  @include micro-label($text-2xs, 0.06em, var(--foreground-secondary));
+  font-weight: 500;
   line-height: 1.2;
 }
 
 .barTime {
-  font-size: 0.5625rem;
-  opacity: 0.85;
+  @include metadata($text-2xs, var(--foreground-secondary));
   line-height: 1.2;
 }
 
 /* Hover popover */
 .popover {
   position: absolute;
-  z-index: 100;
+  z-index: var(--z-popover);
   transform: translate(-50%, -100%);
   margin-top: -8px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
   padding: 0.75rem;
   box-shadow: 0 8px 24px var(--shadow-lg);
   pointer-events: none;
@@ -275,9 +274,8 @@
 }
 
 .popoverPlatform {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
+  @include micro-label($text-2xs, 0.06em, currentcolor);
+  font-weight: 500;
   margin-bottom: 0.25rem;
 
   &.cf {
@@ -306,8 +304,7 @@
 }
 
 .popoverMeta {
-  font-size: 0.75rem;
-  color: var(--muted);
+  @include metadata($text-xs, var(--muted));
   display: flex;
   align-items: center;
   gap: 0.375rem;
@@ -318,16 +315,12 @@
 }
 
 .popoverDate {
-  font-size: 0.6875rem;
-  color: var(--muted-light);
+  @include metadata($text-2xs, var(--muted-light));
   margin-top: 0.25rem;
 }
 
 .empty {
-  text-align: center;
-  color: var(--muted);
-  padding: 2rem;
-  font-size: 0.875rem;
+  @include empty-state;
 }
 
 @media (max-width: 768px) {

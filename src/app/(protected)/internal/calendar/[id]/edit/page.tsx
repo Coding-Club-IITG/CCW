@@ -32,7 +32,7 @@ export default async function EditCalendarEventPage({
     redirect(`/internal/calendar/${id}`);
   const scopes = getCreatableCalendarScopes(user.access, roles);
   return (
-    <div className={`${styles.container} ${styles.formPage}`}>
+    <div className={styles.formPage}>
       <BackLink
         href={`/internal/calendar/${id}`}
         label="Back to Calendar Event"

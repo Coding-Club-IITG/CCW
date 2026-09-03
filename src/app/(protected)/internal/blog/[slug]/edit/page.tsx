@@ -1,13 +1,16 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
 import { use, useEffect, useState } from "react";
-import BackLink from "@/components/shared/BackLink";
-import BlogEditor from "@/components/blog/BlogEditor";
+
+import { expectAppData } from "@/lib/api/result";
 import type { BlogStatus } from "@/lib/constants";
 import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+
+import BlogEditor from "@/components/blog/BlogEditor";
+import BackLink from "@/components/shared/BackLink";
+
 import styles from "./EditBlog.module.scss";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -81,15 +84,18 @@ export default function EditMyBlogPage({ params }: Props) {
 
   if (loading) {
     return (
-      <div className={styles.container}>
-        <p className={styles.loading}>Loading...</p>
+      <div>
+        <div className={styles.topBar}>
+          <BackLink href="/internal/dashboard" label="Back to My Blogs" />
+        </div>
+        <FormSkeletonContent label="the editor" fields={5} />
       </div>
     );
   }
 
   if (error || !post) {
     return (
-      <div className={styles.container}>
+      <div>
         <p className={styles.error}>{error || "Blog not found."}</p>
         <BackLink href="/internal/dashboard" label="Back to Dashboard" />
       </div>
@@ -97,7 +103,7 @@ export default function EditMyBlogPage({ params }: Props) {
   }
 
   return (
-    <div className={styles.container}>
+    <div>
       <div className={styles.topBar}>
         <BackLink href="/internal/dashboard" label="Back to My Blogs" />
       </div>

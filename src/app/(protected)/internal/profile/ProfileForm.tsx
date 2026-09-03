@@ -1,14 +1,17 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
+import { Check as IconCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 
-import { useState, useEffect } from "react";
-import { useSession } from "@/lib/auth-client";
-import { updateProfile } from "@/lib/actions/user";
 import { requestHandleVerification } from "@/lib/actions/cp-verification";
 import { getCPStatus } from "@/lib/actions/cp-status";
+import { updateProfile } from "@/lib/actions/user";
+import { expectAppData } from "@/lib/api/result";
+import { useSession } from "@/lib/auth-client";
+
 import ImageUpload from "@/components/shared/ImageUpload";
-import { Check as IconCheck } from "lucide-react";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
+
 import styles from "./ProfileForm.module.scss";
 
 export default function ProfileForm() {
@@ -159,14 +162,27 @@ export default function ProfileForm() {
     }
   }
 
-  if (isPending) return <div>Loading...</div>;
-
-  return (
-    <div className={styles.container}>
+  const header = (
+    <>
       <h1 className={styles.title}>Your Profile</h1>
       <p className={styles.subtitle}>
         Update your personal details and platform IDs.
       </p>
+    </>
+  );
+
+  if (isPending) {
+    return (
+      <div className={styles.container}>
+        {header}
+        <FormSkeletonContent label="your profile" fields={5} />
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.container}>
+      {header}
 
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.field}>
@@ -228,11 +244,12 @@ export default function ProfileForm() {
             (!cfVerified || formData.codeforcesId !== savedCodeforcesId) && (
               <div className={styles.verificationBox}>
                 <div
-                  className={
-                    cfVerificationToken
-                      ? styles.verificationHeaderWithMargin
-                      : styles.verificationHeader
-                  }
+                  className={[
+                    styles.verificationHeader,
+                    cfVerificationToken && styles.verificationHeaderWithMargin,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   <span className={styles.verificationText}>
                     <strong>Unverified Handle.</strong>
@@ -306,11 +323,12 @@ export default function ProfileForm() {
             (!acVerified || formData.atcoderId !== savedAtcoderId) && (
               <div className={styles.verificationBox}>
                 <div
-                  className={
-                    acVerificationToken
-                      ? styles.verificationHeaderWithMargin
-                      : styles.verificationHeader
-                  }
+                  className={[
+                    styles.verificationHeader,
+                    acVerificationToken && styles.verificationHeaderWithMargin,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   <span className={styles.verificationText}>
                     <strong>Unverified Handle.</strong>

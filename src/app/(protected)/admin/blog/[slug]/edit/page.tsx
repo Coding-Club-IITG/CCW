@@ -1,17 +1,19 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { use } from "react";
 import Link from "next/link";
-import BackLink from "@/components/shared/BackLink";
+import { useRouter } from "next/navigation";
+import { use, useEffect, useState } from "react";
 import { ExternalLink as IconExternalLink } from "lucide-react";
-import BlogEditor from "@/components/blog/BlogEditor";
+
+import { expectAppData } from "@/lib/api/result";
 import type { BlogStatus } from "@/lib/constants";
 import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+
+import BlogEditor from "@/components/blog/BlogEditor";
+import BackLink from "@/components/shared/BackLink";
+
 import styles from "./EditPost.module.scss";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -65,15 +67,18 @@ export default function EditBlogPostPage({ params }: Props) {
 
   if (loading) {
     return (
-      <div className={styles.container}>
-        <p className={styles.loading}>Loading...</p>
+      <div>
+        <div className={styles.topBar}>
+          <BackLink href="/admin/blog" label="Back to Blog Management" />
+        </div>
+        <FormSkeletonContent label="the editor" fields={5} />
       </div>
     );
   }
 
   if (error || !post) {
     return (
-      <div className={styles.container}>
+      <div>
         <p className={styles.error}>{error || "Post not found."}</p>
         <BackLink href="/admin/blog" label="Back to Blog Management" />
       </div>
@@ -81,7 +86,7 @@ export default function EditBlogPostPage({ params }: Props) {
   }
 
   return (
-    <div className={styles.container}>
+    <div>
       <div className={styles.topBar}>
         <BackLink href="/admin/blog" label="Back to Blog Management" />
         {post.status === "published" && (
@@ -89,6 +94,7 @@ export default function EditBlogPostPage({ params }: Props) {
             href={`/blog/${slug}`}
             className={styles.viewLink}
             target="_blank"
+            rel="noreferrer"
           >
             View Published Post <IconExternalLink width={12} height={12} />
           </Link>

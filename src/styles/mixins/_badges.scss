@@ -1,16 +1,37 @@
-// Badge pill
-@mixin badge-pill(
-  $bg: var(--badge-bg),
-  $color: var(--badge-text),
-  $border: var(--badge-border)
+@use "shared" as *;
+
+// Square badge chip with outline and semantic-fill variants
+@mixin badge-chip(
+  $bg: transparent,
+  $color: var(--muted),
+  $border: var(--border-input)
 ) {
   display: inline-flex;
   align-items: center;
   background: $bg;
-  color: $color;
-  padding: 0.125rem 0.5rem;
-  border-radius: 2rem;
-  font-size: 0.75rem;
-  font-weight: 500;
+  padding: 4px 10px;
   border: 1px solid $border;
+  border-radius: 0;
+  @include micro-label($text-xs, 0.05em, $color);
+}
+
+/* Semantic status variants */
+@mixin badge-success {
+  @include badge-chip(
+    var(--success-bg),
+    var(--success-text),
+    var(--success-border)
+  );
+}
+
+@mixin badge-warning {
+  @include badge-chip(
+    var(--warning-bg),
+    var(--warning-text),
+    var(--warning-border)
+  );
+}
+
+@mixin badge-neutral {
+  @include badge-chip(var(--badge-bg), var(--badge-text), var(--badge-border));
 }

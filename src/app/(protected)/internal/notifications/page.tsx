@@ -1,12 +1,15 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
-import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ExternalLink as IconExternalLink } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+
+import { expectAppData } from "@/lib/api/result";
+
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
+import { ListSkeletonContent } from "@/components/shared/skeletons/ListSkeleton";
+
 import PushNotificationSetup from "./PushNotificationSetup";
 import styles from "./Notifications.module.scss";
 
@@ -100,7 +103,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className={styles.container}>
+    <div>
       <header className={styles.header}>
         <h1>Notifications</h1>
         <p>
@@ -128,7 +131,7 @@ export default function NotificationsPage() {
       </div>
 
       {loading ? (
-        <p className={styles.muted}>Loading...</p>
+        <ListSkeletonContent label="notifications" />
       ) : notifications.length === 0 ? (
         <p className={styles.muted}>No notifications yet.</p>
       ) : (

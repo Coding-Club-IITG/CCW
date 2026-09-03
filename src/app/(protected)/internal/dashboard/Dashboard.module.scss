@@ -1,9 +1,5 @@
 @use "../../../../styles/mixins" as *;
 
-.container {
-  padding: 1.5rem 2rem;
-}
-
 .header {
   @include standard-page-header;
 }
@@ -18,17 +14,13 @@
 }
 
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
+  @include hairline-grid($min: 280px);
 }
 
 .blogCard {
+  @include hairline-cell;
+  padding: 20px;
   position: relative;
-  padding: 1.25rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface-secondary);
 }
 
 .blogCardHeader {
@@ -41,9 +33,9 @@
 .blogTitle,
 .blogTitleLink {
   margin: 0;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  @include card-title(15px);
   color: var(--foreground-strong);
+  letter-spacing: -0.012em;
 }
 
 .blogTitleLink {
@@ -75,17 +67,11 @@
 
 .blogDescription {
   margin: 0.375rem 0 0.75rem;
-  font-size: 0.8125rem;
+  font-size: 13px;
   line-height: 1.4;
   color: var(--muted);
 }
 
 .blogStatus {
-  display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 6px;
-  background: var(--surface-hover);
-  color: var(--muted);
-  font-size: 0.6875rem;
-  text-transform: capitalize;
+  @include badge-chip;
 }

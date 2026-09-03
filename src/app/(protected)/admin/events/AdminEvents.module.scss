@@ -1,16 +1,11 @@
 @use "../../../../styles/mixins" as *;
 
-.container {
-  @include admin-page;
-}
-
 .header {
-  @include admin-page-header($split: true, $top-margin: 1rem);
+  @include standard-page-header($split: true);
 }
 
 .addBtn {
   @include btn-primary;
-  padding: 0.5rem 1rem;
   text-decoration: none;
 }
 
@@ -22,20 +17,14 @@
 }
 
 .error {
+  @include error-banner;
   margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--error-border-light);
-  border-radius: 6px;
-  background: var(--error-bg);
-  color: var(--error-text);
-  font-size: 0.875rem;
 }
 
 .list {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 12px;
   overflow: hidden;
   background: var(--card-bg);
 }
@@ -90,30 +79,19 @@
 }
 
 .statusBadge {
-  @include badge-pill;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  padding: 0.125rem 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  @include badge-chip;
 }
 
 .upcoming {
-  background: var(--warning-bg);
-  color: var(--warning-text);
-  border-color: var(--warning-border);
+  @include badge-warning;
 }
 
 .ongoing {
-  background: var(--success-bg);
-  color: var(--success-text);
-  border-color: var(--success-border);
+  @include badge-success;
 }
 
 .completed {
-  background: var(--badge-bg);
-  color: var(--badge-text);
-  border-color: var(--badge-border);
+  @include badge-neutral;
 }
 
 .itemActions {
@@ -134,29 +112,10 @@
 
 .editBtn {
   @include btn-secondary;
-  padding: 0.375rem 0.75rem;
   font-size: 0.8125rem;
   text-decoration: none;
 }
 
 .deleteBtn {
-  border: 1px solid var(--error-border-light);
-  border-radius: 6px;
-  background: var(--error-bg);
-  color: var(--danger-text);
-  padding: 0.375rem 0.75rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s ease;
-
-  &:hover {
-    background: var(--error-bg-hover);
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+  @include btn-danger(0.375rem 0.75rem);
 }

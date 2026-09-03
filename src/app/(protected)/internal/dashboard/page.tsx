@@ -37,7 +37,7 @@ export default async function DashboardPage() {
     .lean();
 
   return (
-    <div className={styles.container}>
+    <div>
       <header className={styles.header}>
         <h1>Member Dashboard</h1>
         <p>Welcome back, {getDisplayName(user.name, user.pizza_count)}!</p>

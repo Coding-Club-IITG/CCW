@@ -1,0 +1,125 @@
+@use "@/styles/mixins" as *;
+
+@keyframes skeletonSweep {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+.bar {
+  display: block;
+  background: var(--skeleton);
+  background-image: linear-gradient(
+    90deg,
+    var(--skeleton) 25%,
+    var(--skeleton-hi) 37%,
+    var(--skeleton) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeletonSweep 1.4s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    background-image: none;
+    animation: none;
+  }
+}
+
+.header {
+  @include standard-page-header($bottom-margin: 1.5rem);
+}
+
+.frame {
+  border: 1px solid var(--border);
+}
+
+.tableHead {
+  display: grid;
+  background: var(--table-header-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.tableHead span {
+  padding: 11px 14px;
+}
+
+.row {
+  display: grid;
+  align-items: center;
+  border-bottom: 1px solid var(--border-lighter);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.row span {
+  padding: 14px;
+}
+
+.listRow {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border-lighter);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.listCopy {
+  display: grid;
+  gap: 7px;
+}
+
+.cardGrid {
+  @include hairline-grid($min: 280px);
+}
+
+.cardCell {
+  @include hairline-cell;
+  display: grid;
+  gap: 9px;
+  padding: 20px;
+}
+
+.rankRow {
+  display: grid;
+  grid-template-columns: 44px 1fr 88px;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border-lighter);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.form {
+  display: grid;
+  gap: 22px;
+  max-width: 720px;
+  padding: 22px;
+  border: 1px solid var(--border);
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.status {
+  @include sr-only;
+}

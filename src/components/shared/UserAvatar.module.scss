@@ -1,0 +1,20 @@
+@use "@/styles/mixins" as *;
+
+.image,
+.fallback {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-input);
+  border-radius: 0;
+}
+
+.image {
+  object-fit: cover;
+}
+
+.fallback {
+  display: grid;
+  place-items: center;
+  background: var(--surface-secondary);
+  @include metadata($text-2xs, var(--foreground-strong));
+  text-transform: uppercase;
+}

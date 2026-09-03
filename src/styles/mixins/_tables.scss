@@ -1,8 +1,10 @@
+@use "shared" as *;
+
 // Table styles
 @mixin table-base {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8125rem;
+  font-size: 13.5px;
 
   th,
   td {
@@ -12,19 +14,67 @@
   }
 
   th {
-    font-weight: 600;
-    color: var(--table-header-text);
     background: var(--table-header-bg);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    @include micro-label($text-xs, 0.09em, var(--table-header-text));
   }
 
   td {
-    color: var(--foreground);
+    color: var(--foreground-strong);
   }
 
   tr:last-child td {
     border-bottom: none;
   }
+}
+
+// Wrapper around table
+@mixin table-frame {
+  border: 1px solid var(--border);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+// Values inside cell
+@mixin table-meta {
+  @include metadata($text-sm);
+  text-transform: uppercase;
+}
+
+// Ranked-list cells
+@mixin rank-cell {
+  @include metadata($text-sm, var(--muted-lighter));
+}
+
+@mixin rank-medal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 0;
+  @include metadata($text-sm, inherit);
+}
+
+@mixin rank-medal-gold {
+  background: var(--rank-gold-bg);
+  color: var(--rank-gold-text);
+}
+
+@mixin rank-medal-silver {
+  background: var(--rank-silver-bg);
+  color: var(--rank-silver-text);
+}
+
+@mixin rank-medal-bronze {
+  background: var(--rank-bronze-bg);
+  color: var(--rank-bronze-text);
+}
+
+// The "primary entity in row"
+@mixin entity-name($size: 13.5px) {
+  font-family: var(--font-hanken-grotesk), sans-serif;
+  font-size: $size;
+  font-weight: 600;
+  color: var(--foreground-strong);
 }

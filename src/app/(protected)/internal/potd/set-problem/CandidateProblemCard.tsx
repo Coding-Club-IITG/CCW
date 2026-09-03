@@ -30,7 +30,7 @@ export function CandidateProblemCard({
             {isToday ? "Today" : formatDate(item.dateStr, "short")}
           </span>
           <DifficultyBadge difficulty={item.difficulty} />
-          <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+          <span className={styles.ratingTarget}>
             (Rating target: {item.ratingMin}-{item.ratingMax})
           </span>
         </div>
@@ -54,15 +54,7 @@ export function CandidateProblemCard({
           <div className={styles.probDetails}>
             <div className={styles.probTitle}>
               <span>{prob.name}</span>
-              <span
-                style={{
-                  fontSize: "0.8125rem",
-                  fontWeight: 600,
-                  color: "var(--primary)",
-                }}
-              >
-                #{prob.problemId}
-              </span>
+              <span className={styles.probId}>#{prob.problemId}</span>
             </div>
             <div className={styles.probSubText}>
               <span>Rating: {prob.rating || "Unrated"}</span>
@@ -83,15 +75,14 @@ export function CandidateProblemCard({
                 )}
                 target="_blank"
                 rel="noreferrer"
-                className={styles.probSubText}
-                style={{ color: "var(--link)", textDecoration: "none" }}
+                className={`${styles.probSubText} ${styles.probLink}`}
               >
                 View on Codeforces <ExternalLink size={12} />
               </a>
             </div>
           </div>
         ) : (
-          <div style={{ color: "var(--danger)", fontSize: "0.875rem" }}>
+          <div className={styles.probError}>
             {item.error || "No problem found"}
           </div>
         )}

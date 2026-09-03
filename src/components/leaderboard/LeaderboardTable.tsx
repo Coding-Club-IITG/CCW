@@ -1,3 +1,4 @@
+import EmptyState from "@/components/shared/EmptyState";
 import styles from "./LeaderboardTable.module.scss";
 
 export type Column<T> = {
@@ -36,7 +37,7 @@ export default function LeaderboardTable<T>({
 
       <div className={styles.tableContainer}>
         {data.length === 0 ? (
-          <p className={styles.emptyState}>{emptyMessage}</p>
+          <EmptyState title={emptyMessage} />
         ) : (
           <table className={styles.table}>
             <thead>

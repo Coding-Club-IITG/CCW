@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import {
-  ArrowLeft,
   BarChart3,
   CircleAlert,
   CircleCheck,
@@ -24,7 +22,10 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { ContestListingItem } from "@/lib/actions/contests";
+import { useRouter } from "next/navigation";
+import React, { createElement, useEffect, useRef, useState } from "react";
+
+import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
 import type {
   ContestRoomProblemDto,
@@ -32,29 +33,18 @@ import type {
   RoomActivityDto,
   RoomEventPayloadDto,
 } from "@/lib/contests/dtos";
-
-import React, { useEffect, useState, useRef, createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import {
-  Info as IconInfoCircle,
-  Gavel as IconGavel,
-  Lock as IconLock,
-  RefreshCw as IconSwitchView,
-  CircleCheck as IconCheckCircle,
-  TriangleAlert as IconWarning,
-  Users as IconUsers,
-  UserRoundX as IconPersonOff,
-  Bell as IconBell,
-} from "lucide-react";
-import CompatibleImage from "@/components/shared/CompatibleImage";
-import { useRouter } from "next/navigation";
 import { getDisplayName } from "@/lib/utils";
-import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
+
 import {
   formatRoomActivityTime,
   getContestRoomResultsPath,
 } from "@/components/contests/roomPresentation";
+import { sendBrowserNotification } from "@/components/contests/roomNotification";
 import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
+import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
+import CompatibleImage from "@/components/shared/CompatibleImage";
+import BackLink from "@/components/shared/BackLink";
+
 import styles from "./BlitzRoomClient.module.scss";
 
 const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
@@ -66,48 +56,6 @@ const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
   person: User,
   person_off: UserX,
 };
-
-// Icon color map matching the activity feed color scheme
-const NOTIFICATION_ICON_MAP: Record<
-  string,
-  { component: React.FC<React.SVGProps<SVGSVGElement>>; color: string }
-> = {
-  info: { component: IconInfoCircle, color: "#8b5cf6" },
-  gavel: { component: IconGavel, color: "#ef4444" },
-  lock: { component: IconLock, color: "#8b5cf6" },
-  sync: { component: IconSwitchView, color: "#06b6d4" },
-  check_circle: { component: IconCheckCircle, color: "#22c55e" },
-  error: { component: IconWarning, color: "#ef4444" },
-  person: { component: IconUsers, color: "#06b6d4" },
-  person_off: { component: IconPersonOff, color: "#ef4444" },
-};
-
-function getNotificationIconUri(icon: string): string {
-  const entry = NOTIFICATION_ICON_MAP[icon] ?? NOTIFICATION_ICON_MAP.info;
-  const svg = renderToStaticMarkup(
-    createElement(entry.component, {
-      width: 24,
-      height: 24,
-      stroke: entry.color,
-    }),
-  );
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
-
-function sendBrowserNotification(icon: string, text: string) {
-  if (
-    typeof Notification === "undefined" ||
-    Notification.permission !== "granted"
-  )
-    return;
-  try {
-    new Notification("CCW Match", {
-      body: text,
-      icon: getNotificationIconUri(icon),
-      silent: true,
-    });
-  } catch (_) {}
-}
 
 export default function BlitzRoomClient({
   contest,
@@ -153,6 +101,7 @@ export default function BlitzRoomClient({
   >(initialMatchState);
   const matchStateRef = useRef(initialMatchState);
   const [showMatchStartedModal, setShowMatchStartedModal] = useState(false);
+  const [matchOverDismissed, setMatchOverDismissed] = useState(false);
   const [problems, setProblems] =
     useState<ContestRoomProblemDto[]>(initialProblems);
   const [currentProblemIndex, setCurrentProblemIndex] =
@@ -506,17 +455,16 @@ export default function BlitzRoomClient({
 
       <main className={styles.main}>
         <div>
-          <Link
+          <BackLink
             href={
               from === "bracket"
                 ? `/internal/contests/${contest._id}`
                 : "/internal/contests"
             }
-            className={styles.backLink}
-          >
-            <ArrowLeft className={styles.icon18} size={18} />
-            {from === "bracket" ? "Back to Bracket Canvas" : "Back to Contests"}
-          </Link>
+            label={
+              from === "bracket" ? "Back to Bracket Canvas" : "Back to Contests"
+            }
+          />
         </div>
 
         {/* Compact HUD */}
@@ -854,7 +802,7 @@ export default function BlitzRoomClient({
       )}
 
       {/* Match Over Overlay Modal */}
-      {matchState === "completed" && (
+      {matchState === "completed" && !matchOverDismissed && (
         <div className={styles.toast}>
           <div className={styles.toastCard}>
             <div className={styles.toastAccent}></div>
@@ -863,7 +811,12 @@ export default function BlitzRoomClient({
                 <Trophy className={styles.toastIcon} size={28} />
                 <h3 className={styles.toastTitle}>Match Over!</h3>
               </div>
-              <button className={styles.toastClose}>
+              <button
+                type="button"
+                className={styles.toastClose}
+                aria-label="Dismiss match results"
+                onClick={() => setMatchOverDismissed(true)}
+              >
                 <X size={18} />
               </button>
             </div>

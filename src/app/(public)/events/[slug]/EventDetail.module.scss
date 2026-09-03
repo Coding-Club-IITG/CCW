@@ -57,7 +57,7 @@
   gap: 12px;
   flex-wrap: wrap;
   margin: 0 0 22px;
-  @include micro-label(10.5px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
 }
 
 .status {
@@ -92,12 +92,12 @@
 
   dt {
     margin-bottom: 9px;
-    @include micro-label(11px, 0.09em);
+    @include micro-label($text-xs, 0.09em);
   }
 
   dd {
     margin: 0;
-    @include metadata(13px);
+    @include metadata($text-md);
     color: var(--foreground-strong);
     line-height: 1.45;
   }
@@ -112,7 +112,7 @@
 
 .occurrenceLabel {
   margin: 0 0 12px;
-  @include micro-label(11px, 0.09em);
+  @include micro-label($text-xs, 0.09em);
 }
 
 .occurrenceList {
@@ -122,7 +122,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  @include metadata(12px);
+  @include metadata($text-sm);
   color: var(--foreground-secondary);
 }
 
@@ -209,19 +209,19 @@
 
 .organiserLabel {
   margin: 0 0 8px;
-  @include micro-label(11px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
 }
 
 .organiserValue {
   margin: 0;
-  @include metadata(12px);
+  @include metadata($text-sm);
   color: var(--foreground-secondary);
 }
 
 .organiserLink {
   display: inline-block;
   margin-top: 4px;
-  @include metadata(12px);
+  @include metadata($text-sm);
 
   &:hover {
     color: var(--primary);
@@ -259,7 +259,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  @include micro-label(11px, 0.07em);
+  @include micro-label($text-xs, 0.07em);
 
   &:hover {
     color: var(--primary);
@@ -299,7 +299,7 @@
 }
 
 .relatedModule {
-  @include micro-label(11px);
+  @include micro-label($text-xs);
   color: var(--accent, var(--muted));
 }
 
@@ -309,7 +309,7 @@
 
 .relatedWhen {
   margin-top: auto;
-  @include metadata(11px);
+  @include metadata($text-xs);
 }
 
 @media (max-width: 1000px) {

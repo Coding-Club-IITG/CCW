@@ -15,7 +15,7 @@ import styles from "./Admin.module.scss";
 
 export default async function AdminPage() {
   return (
-    <div className={styles.container}>
+    <div>
       <header className={styles.header}>
         <h1>CCW Administration</h1>
         <p>Manage the Coding Club website.</p>

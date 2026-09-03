@@ -1,3 +1,5 @@
+@use "shared" as *;
+
 // Underline tabs
 @mixin underline-tabs {
   display: flex;
@@ -7,24 +9,25 @@
 
 @mixin underline-tab {
   padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--tab-text);
+  background: none;
+  border: none;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  cursor: pointer;
+  @include micro-label($text-xs, 0.08em, var(--tab-text));
   transition:
     color 0.15s ease,
     border-color 0.15s ease;
-  cursor: pointer;
 
   &:hover {
     color: var(--foreground-strong);
     border-bottom-color: var(--border);
   }
+
+  @include focus-ring;
 }
 
 @mixin underline-tab-active {
   color: var(--tab-active-text);
-  font-weight: 600;
   border-bottom-color: var(--tab-active-border);
 }

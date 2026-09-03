@@ -1,82 +1,6 @@
 @use "../../styles/mixins" as *;
 
-@include contest-kf-spin;
-
-.overlay {
-  @include modal-overlay;
-  z-index: 9999;
-  padding: 1rem;
-  backdrop-filter: grayscale(1);
-
-  @media (min-width: 768px) {
-    padding: 3rem;
-  }
-}
-
-.dialog {
-  position: relative;
-  z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 448px;
-  overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow:
-    0 8px 24px var(--shadow-lg),
-    0 0 0 1px var(--primary-alpha);
-}
-
-.accentLine {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--primary),
-    transparent
-  );
-  opacity: 0.7;
-}
-
-/* Header */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-secondary);
-
-  h2 {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--foreground-strong);
-  }
-}
-
-.closeBtn {
-  display: inline-flex;
-  color: var(--muted);
-  border-radius: 6px;
-  padding: 0.25rem;
-  transition: color 0.15s ease;
-
-  &:hover {
-    color: var(--primary);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 1px;
-  }
-}
+@include kf-spin;
 
 /* Body */
 .body {
@@ -116,16 +40,14 @@
   border: 2px solid var(--primary);
   border-top-color: transparent;
   border-radius: 50%;
-  animation: contestSpin 1s linear infinite;
+  @include spinner;
 }
 
 .regEmpty {
   padding: 1rem;
   text-align: center;
-  font-size: 0.875rem;
-  color: var(--muted);
   border: 1px dashed var(--border);
-  border-radius: 6px;
+  @include metadata($text-sm, var(--muted));
 }
 
 .regList {
@@ -148,7 +70,6 @@
   gap: 0.75rem;
   padding: 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
   background: var(--surface-secondary);
   transition: border-color 0.15s ease;
 
@@ -164,7 +85,7 @@
   flex-shrink: 0;
   width: 2rem;
   height: 2rem;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--surface-hover);
   overflow: hidden;
   color: var(--muted);
@@ -186,7 +107,6 @@
 .teamCard {
   padding: 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
   background: var(--surface-secondary);
   transition: border-color 0.15s ease;
 
@@ -202,9 +122,7 @@
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--primary);
+  @include micro-label($text-xs, 0.08em, var(--primary));
 }
 
 .teamHeaderName {
@@ -214,13 +132,7 @@
 }
 
 .teamCount {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--muted);
-  background: var(--surface);
-  padding: 0.125rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
+  @include badge-chip;
 }
 
 .memberChips {
@@ -238,13 +150,12 @@
   padding: 0.375rem 0.625rem;
   background: var(--surface-hover);
   border: 1px solid var(--border);
-  border-radius: 6px;
 }
 
 .memberChipImg {
   width: 1rem;
   height: 1rem;
-  border-radius: 50%;
+  border-radius: 0;
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -299,7 +210,6 @@
   gap: 0.75rem;
   padding: 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
   cursor: pointer;
   transition:
     border-color 0.15s ease,
@@ -317,15 +227,7 @@
 }
 
 .radio {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+  @include sr-only;
 }
 
 .radioDot {
@@ -344,7 +246,7 @@
 .radio:checked + .radioDot {
   border-color: var(--primary);
   background: var(--primary);
-  box-shadow: 0 0 8px var(--focus-ring);
+  @include contest-glow($blur: 8px);
 
   &::after {
     content: "";
@@ -391,26 +293,11 @@
 
 .input,
 .select {
+  @include form-control;
   width: 100%;
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 6px;
   padding: 0.75rem 0.75rem 0.75rem 2.5rem;
-  font-size: 0.875rem;
-  color: var(--foreground);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease;
-
-  &::placeholder {
-    color: var(--muted-light);
-  }
 
   &:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 1px var(--primary);
     background: var(--background-secondary);
   }
 }
@@ -421,37 +308,18 @@
 }
 
 /* Footer */
-.footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  background: var(--surface-hover);
-  border-top: 1px solid var(--border);
-}
-
-.footerActions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
 
 .btnPrimary {
-  @include btn-primary;
-  padding: 0.5rem 1.5rem;
+  @include btn-primary($btn-lg);
   font-size: 0.8125rem;
   border: 1px solid transparent;
 }
 
 .btnGhost {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--muted);
+  @include btn-base(0.5rem 1rem);
   background: none;
   border: 1px solid transparent;
+  @include micro-label($text-xs, 0.06em, var(--muted));
   transition:
     color 0.15s ease,
     background 0.15s ease;
@@ -460,29 +328,10 @@
     color: var(--foreground-strong);
     background: var(--surface-hover);
   }
-
-  &:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-  }
 }
 
 .btnDanger {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--danger-text);
-  background: none;
-  border: 1px solid var(--error-border);
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-
-  &:hover {
-    background: var(--error-bg);
-    color: var(--error-text);
-  }
+  @include btn-danger(0.5rem 1rem);
 
   &:disabled {
     opacity: 0.5;
@@ -503,25 +352,7 @@
 }
 
 /* Apply Fonts */
-.header h2 {
-  font-family: var(--font-hanken-grotesk), sans-serif;
-}
 .regName,
 .teamHeaderName {
-  font-family: var(--font-inter), sans-serif;
-}
-.sectionTitle,
-.regLoading,
-.regEmpty,
-.teamCount,
-.memberChip,
-.fieldLabel,
-.soloNote,
-.radioText,
-.input,
-.select,
-.btnPrimary,
-.btnGhost,
-.btnDanger {
-  font-family: var(--font-jetbrains-mono), monospace;
+  font-family: var(--font-hanken-grotesk), sans-serif;
 }

@@ -1,11 +1,14 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
+import { useEffect, useState } from "react";
 
-import { useState, useEffect } from "react";
-import BackLink from "@/components/shared/BackLink";
+import { expectAppData } from "@/lib/api/result";
 import { getDisplayName } from "@/lib/utils";
+
+import BackLink from "@/components/shared/BackLink";
+
 import styles from "../Hackathons.module.scss";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 interface Team {
   _id: string;
@@ -57,11 +60,16 @@ export default function AdminHackathonMonitorPage({
     }
   }
 
-  if (loading) return <p className={styles.muted}>Loading...</p>;
+  if (loading)
+    return (
+      <div>
+        <FormSkeletonContent label="hackathon" fields={5} />
+      </div>
+    );
   if (!hackathon) return <p className={styles.error}>Hackathon not found.</p>;
 
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/admin/hackathons" label="Back to Hackathons" />
 
       <header className={styles.header}>

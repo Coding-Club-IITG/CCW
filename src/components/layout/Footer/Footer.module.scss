@@ -33,14 +33,14 @@
   }
 
   span {
-    @include display-type(21px, 0.14em);
+    @include display-type($display-xs, 0.14em);
   }
 }
 
 .address {
   display: flex;
   flex-direction: column;
-  @include metadata(13px);
+  @include metadata($text-md);
   font-style: normal;
   line-height: 1.55;
   max-width: 24rem;
@@ -58,7 +58,7 @@
 }
 
 .columnLabel {
-  @include micro-label(12px);
+  @include micro-label($text-sm);
   margin-bottom: 6px;
 }
 
@@ -66,7 +66,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  @include metadata(13.5px);
+  @include metadata($text-md);
   color: var(--foreground-secondary);
   line-height: 1.6;
   transition: color 0.2s ease;
@@ -90,7 +90,7 @@
   margin-top: 26px;
   padding-top: 16px;
   border-top: 1px solid var(--border-light);
-  @include metadata(12px);
+  @include metadata($text-sm);
   color: var(--muted-lighter);
 }
 

@@ -34,18 +34,15 @@ button.tag {
 }
 
 .active {
-  background: var(--primary-alpha);
-  color: var(--primary);
-  border-color: var(--primary);
+  @include badge-chip(var(--primary-alpha), var(--primary), var(--primary));
 }
 
 .count {
   min-width: 1rem;
   padding-inline: 0.25rem;
-  border-radius: 999px;
-  background: var(--surface-secondary);
-  color: var(--muted);
-  font-size: 0.65rem;
-  line-height: 1.5;
+  border: 1px solid var(--border-input);
+  border-radius: 0;
   text-align: center;
+  line-height: 1.5;
+  @include metadata($text-xs);
 }

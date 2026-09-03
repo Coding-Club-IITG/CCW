@@ -4,8 +4,8 @@ import {
   type EventQuery,
   type EventView,
 } from "@/lib/events/listing";
-import FilterChips from "@/components/public/FilterChips";
-import SegmentedControl from "@/components/public/SegmentedControl";
+import FilterChips from "@/components/shared/FilterChips";
+import SegmentedControl from "@/components/shared/SegmentedControl";
 import styles from "./Events.module.scss";
 
 type Props = {

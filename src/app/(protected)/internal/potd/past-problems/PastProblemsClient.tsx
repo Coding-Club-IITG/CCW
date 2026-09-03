@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import SearchInput from "@/components/shared/SearchInput";
-import Pagination from "@/components/shared/Pagination";
+
 import { getPastProblems, type PastProblemEntry } from "@/lib/actions/potd";
 import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROBLEM_URLS } from "@/lib/constants";
 import { windowStartToISTDateStr } from "@/lib/potd/utils";
+
+import EmptyState from "@/components/shared/EmptyState";
+import Pagination from "@/components/shared/Pagination";
+import SearchInput from "@/components/shared/SearchInput";
+
 import styles from "../Lists.module.scss";
 
 const PAGE_SIZE = 30;
@@ -80,11 +84,13 @@ export default function PastProblemsClient({
       </div>
 
       {pastProblems.length === 0 ? (
-        <p className={styles.emptyState}>
-          {search
-            ? "No past problems match your search."
-            : "No past problems yet."}
-        </p>
+        <EmptyState
+          title={
+            search
+              ? "No past problems match your search."
+              : "No past problems yet."
+          }
+        />
       ) : (
         <div className={styles.tableContainer}>
           <table className={styles.table} aria-busy={isLoading}>

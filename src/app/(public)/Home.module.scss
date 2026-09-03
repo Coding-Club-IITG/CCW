@@ -22,7 +22,7 @@
   strong {
     flex: none;
     padding-top: 3px;
-    @include micro-label(11px, 0.09em);
+    @include micro-label($text-xs, 0.09em);
     color: var(--danger);
   }
 }
@@ -215,7 +215,7 @@
 
 .heroKicker {
   margin: 0 0 26px;
-  @include micro-label(11.5px, 0.2em);
+  @include micro-label($text-sm, 0.2em);
   color: var(--primary);
 }
 
@@ -288,7 +288,7 @@
   bottom: 32px;
   z-index: 3;
   margin: 0;
-  @include micro-label(11px, 0.1em);
+  @include micro-label($text-xs, 0.1em);
   color: var(--muted-lighter);
 }
 
@@ -422,7 +422,7 @@
   display: inline-flex;
   align-items: center;
   gap: 26px;
-  @include display-type(26px, 0.1em);
+  @include display-type($display-sm, 0.1em);
   font-weight: 500;
   color: var(--primary);
   white-space: nowrap;
@@ -454,7 +454,7 @@
     display: block;
     margin-bottom: 8px;
     visibility: hidden;
-    @include micro-label(11px, 0.14em);
+    @include micro-label($text-xs, 0.14em);
   }
 
   &:last-child {
@@ -468,7 +468,7 @@
 
 .statValue {
   display: block;
-  @include display-type(52px, 0.02em);
+  @include display-type($display-2xl, 0.02em);
 }
 
 .statRed {
@@ -486,7 +486,7 @@
 .statKicker {
   display: block;
   margin-bottom: 8px;
-  @include micro-label(11px, 0.14em);
+  @include micro-label($text-xs, 0.14em);
   color: var(--primary);
 }
 
@@ -500,7 +500,7 @@
 .statLabel {
   display: block;
   margin-top: 10px;
-  @include micro-label(11px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
 }
 
 // Sections
@@ -539,7 +539,7 @@
 .sectionKickerSky,
 .sectionKickerEmber {
   margin: 0 0 14px;
-  @include micro-label(11px, 0.18em);
+  @include micro-label($text-xs, 0.18em);
 }
 
 .sectionKickerViolet {
@@ -567,7 +567,7 @@
 }
 
 .sectionLink {
-  @include micro-label(11.5px, 0.06em);
+  @include micro-label($text-sm, 0.06em);
 
   &:hover {
     color: var(--primary);
@@ -619,7 +619,7 @@
 
 .moduleIndex {
   display: block;
-  @include micro-label(10.5px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
   color: var(--module-accent);
 }
 
@@ -655,7 +655,7 @@
 }
 
 .projectIndex {
-  @include micro-label(11px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
   color: var(--muted-lighter);
 }
 
@@ -682,7 +682,7 @@
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 9px;
-  @include micro-label(10.5px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
 }
 
 .projectText {
@@ -701,7 +701,7 @@
   background: var(--nav-surface);
   color: var(--accent, var(--primary));
   cursor: pointer;
-  @include micro-label(11px, 0.08em);
+  @include micro-label($text-xs, 0.08em);
   transition:
     background 0.2s ease,
     color 0.2s ease;
@@ -776,7 +776,7 @@
   align-items: center;
   gap: 9px;
   flex-wrap: wrap;
-  @include micro-label(10.5px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
 }
 
 .eventDot {
@@ -805,7 +805,7 @@
 .eventWhen {
   margin-top: auto;
   padding-top: 8px;
-  @include metadata(11px);
+  @include metadata($text-xs);
 }
 
 // Writing rows
@@ -841,7 +841,7 @@
 .postTag {
   display: block;
   margin-top: 8px;
-  @include micro-label(11px, 0.05em);
+  @include micro-label($text-xs, 0.05em);
   color: var(--accent, var(--muted));
 }
 
@@ -857,7 +857,7 @@
   flex-direction: column;
   text-align: right;
   gap: 4px;
-  @include metadata(11px);
+  @include metadata($text-xs);
 }
 
 // Team faces
@@ -903,7 +903,7 @@
   position: absolute;
   top: 11px;
   right: 13px;
-  @include display-type(26px, 0.02em);
+  @include display-type($display-sm, 0.02em);
   color: var(--accent, var(--foreground-strong));
 }
 
@@ -955,7 +955,7 @@
 
 .faceRole {
   display: block;
-  @include micro-label(10.5px, 0.07em);
+  @include micro-label($text-xs, 0.07em);
   line-height: 1.3;
   color: var(--accent, var(--muted));
 }
@@ -975,7 +975,7 @@
 
 .partnerKicker {
   margin: 0;
-  @include micro-label(11px, 0.18em);
+  @include micro-label($text-xs, 0.18em);
   color: color-mix(in srgb, var(--btn-primary-text) 62%, transparent);
 }
 
@@ -1003,7 +1003,7 @@
 
 .partnerNote {
   margin: 0;
-  @include metadata(11.5px);
+  @include metadata($text-sm);
   color: color-mix(in srgb, var(--btn-primary-text) 55%, transparent);
 }
 

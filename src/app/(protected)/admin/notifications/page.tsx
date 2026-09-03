@@ -52,7 +52,7 @@ export default function AdminNotificationsPage() {
   }
 
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/admin" label="Back to Administration" />
 
       <header className={styles.header}>

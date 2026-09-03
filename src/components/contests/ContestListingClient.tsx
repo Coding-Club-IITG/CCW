@@ -1,10 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { type ContestListingItem } from "@/lib/actions/contests";
-import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   CalendarX,
@@ -18,6 +15,12 @@ import {
   TimerOff,
   Users,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { type ContestListingItem } from "@/lib/actions/contests";
+
+import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
+import SegmentedControl from "@/components/shared/SegmentedControl";
 
 import CreateRoomModal from "./CreateRoomModal";
 import RegisterContestModal from "./RegisterContestModal";
@@ -238,43 +241,40 @@ export default function ContestListingClient({
         <div className={styles.container}>
           {/* Header & Filters */}
           <div className={styles.headerRow}>
-            <h1 className={styles.title}>Contests</h1>
+            <div>
+              <h1 className={styles.title}>Contests</h1>
+              <p className={styles.lead}>
+                Join a live room or start your own across Blitz, Arena and
+                knockout brackets.
+              </p>
+            </div>
             <div className={styles.headerControls}>
-              <div className={styles.filterRow}>
-                <button
-                  onClick={() => setFormatFilter("all")}
-                  className={`${styles.filterBtn} ${
-                    formatFilter === "all" ? styles.filterBtnActive : ""
-                  }`}
-                >
-                  <ListFilter className={styles.icon18} size={18} />
-                  All Formats
-                </button>
-                <button
-                  onClick={() => setFormatFilter("blitz")}
-                  className={`${styles.filterBtn} ${
-                    formatFilter === "blitz" ? styles.filterBtnActive : ""
-                  }`}
-                >
-                  Blitz
-                </button>
-                <button
-                  onClick={() => setFormatFilter("arena")}
-                  className={`${styles.filterBtn} ${
-                    formatFilter === "arena" ? styles.filterBtnActive : ""
-                  }`}
-                >
-                  Arena
-                </button>
-                <button
-                  onClick={() => setFormatFilter("bracket")}
-                  className={`${styles.filterBtn} ${
-                    formatFilter === "bracket" ? styles.filterBtnActive : ""
-                  }`}
-                >
-                  Knockout
-                </button>
-              </div>
+              <SegmentedControl
+                label="Contest format"
+                segments={[
+                  {
+                    label: "All formats",
+                    active: formatFilter === "all",
+                    onClick: () => setFormatFilter("all"),
+                    Icon: ListFilter,
+                  },
+                  {
+                    label: "Blitz",
+                    active: formatFilter === "blitz",
+                    onClick: () => setFormatFilter("blitz"),
+                  },
+                  {
+                    label: "Arena",
+                    active: formatFilter === "arena",
+                    onClick: () => setFormatFilter("arena"),
+                  },
+                  {
+                    label: "Knockout",
+                    active: formatFilter === "bracket",
+                    onClick: () => setFormatFilter("bracket"),
+                  },
+                ]}
+              />
               <button
                 onClick={() => setShowCreateModal(true)}
                 className={styles.createBtn}

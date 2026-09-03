@@ -49,26 +49,6 @@
   margin-bottom: 1rem;
 }
 
-.backLink {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  color: var(--muted);
-  background: var(--surface-hover);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 0.75rem;
-  transition:
-    color 0.15s ease,
-    border-color 0.15s ease;
-
-  &:hover {
-    color: var(--primary);
-    border-color: var(--primary);
-  }
-}
-
 .headerDivider {
   height: 1.5rem;
   width: 1px;
@@ -88,19 +68,12 @@
 }
 
 .title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
+  @include standard-page-title($margin: 0);
 }
 
 .knockoutBadge {
   margin-left: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  background: var(--primary-alpha);
-  color: var(--primary);
-  border-radius: 6px;
-  font-size: 0.75rem;
+  @include badge-chip(transparent, var(--primary), var(--primary));
 }
 
 .subtitle {
@@ -122,7 +95,7 @@
   padding: 0.375rem 0.75rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 0;
   font-size: 0.75rem;
   color: var(--muted);
 
@@ -168,7 +141,6 @@
 
 .canvas :global(.react-flow__controls) {
   box-shadow: 0 4px 12px var(--shadow-lg) !important;
-  border-radius: 8px !important;
   overflow: hidden !important;
   border: 1px solid var(--border) !important;
 }
@@ -203,14 +175,21 @@
   fill: var(--border);
 }
 
+@mixin tbd-slot {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 1px dashed var(--border-input);
+  font-size: 0;
+}
+
 /* Node cards */
 .matchNode {
   position: relative;
   width: 280px;
   overflow: hidden;
   background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -218,7 +197,7 @@
     transform: scale(1.03);
     border-color: var(--primary);
     box-shadow:
-      0 0 20px var(--focus-ring),
+      0 0 20px var(--contest-glow),
       0 10px 15px -3px var(--shadow-lg);
     z-index: 50;
   }
@@ -244,17 +223,6 @@
   opacity: 0.5;
 }
 
-.nodeGradient {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom right,
-    transparent,
-    var(--surface-hover)
-  );
-  pointer-events: none;
-}
-
 .nodeHeader {
   display: flex;
   justify-content: space-between;
@@ -270,14 +238,11 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
+  @include micro-label($text-xs, 0.08em, var(--foreground-strong));
 }
 
 .nodeHeaderLabel {
-  font-size: 0.75rem;
-  color: var(--muted);
+  @include micro-label($text-xs, 0.08em);
 }
 
 .trophyIcon {
@@ -287,11 +252,8 @@
 
 /* Status badges */
 .badge {
-  padding: 0.125rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  @include micro-label($text-2xs, 0.06em, currentcolor);
   white-space: nowrap;
 }
 
@@ -344,15 +306,15 @@
 .nodeBody {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: 0;
+  padding: 0;
   position: relative;
   z-index: 1;
 }
 
 .nodeBodyCompact {
-  gap: 0.25rem;
-  padding: 0.5rem;
+  gap: 0;
+  padding: 0;
 }
 
 .vsLabel {
@@ -368,15 +330,17 @@
   justify-content: space-between;
   align-items: center;
   position: relative;
-  padding: 0.75rem;
-  border-radius: 6px;
+  padding: 0.625rem 0.875rem;
   background: var(--background);
-  border: 1px solid var(--border);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-bottom: 1px solid var(--border-lighter);
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:last-child {
+    border-bottom: none;
+  }
 
   &:hover {
-    transform: scale(1.02) translateY(-1px);
-    box-shadow: 0 4px 6px -1px var(--shadow-md);
+    background: var(--surface-hover);
   }
 }
 
@@ -387,7 +351,7 @@
 }
 
 .teamSlotTbd {
-  border-style: dashed;
+  color: var(--muted-lighter);
 }
 
 .teamSlotInner {
@@ -398,8 +362,7 @@
 }
 
 .slotName {
-  font-size: 0.875rem;
-  color: var(--foreground-strong);
+  @include entity-name;
 }
 
 .slotNameWinner {
@@ -407,9 +370,7 @@
 }
 
 .slotTbd {
-  font-size: 0.875rem;
-  color: var(--muted);
-  font-style: italic;
+  @include tbd-slot;
 }
 
 .winnerTrophy {
@@ -428,14 +389,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem;
-  border-radius: 6px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--border-lighter);
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:last-child {
+    border-bottom: none;
+  }
 
   &:hover {
-    transform: scale(1.02) translateY(-1px);
     background: var(--surface-hover);
-    box-shadow: 0 4px 6px -1px var(--shadow-md);
   }
 }
 
@@ -459,24 +422,24 @@
 }
 
 .rowName {
-  font-size: 0.875rem;
-  color: var(--foreground-strong);
+  @include entity-name;
 }
 
 .rowNameMuted {
-  font-size: 0.875rem;
+  font-size: 13.5px;
   color: var(--muted);
 }
 
 .rowTbd {
-  font-size: 0.875rem;
-  color: var(--muted);
-  font-style: italic;
+  @include tbd-slot;
 }
 
-.rowScore {
-  font-size: 0.75rem;
-  color: var(--foreground-strong);
+.rowScoreWinner,
+.rowScoreActive,
+.rowScoreMuted,
+.rowScoreLoser {
+  @include metadata($score-sm, var(--foreground-strong));
+  font-weight: 500;
 }
 
 .rowScoreWinner {
@@ -486,7 +449,6 @@
 
 .rowScoreActive {
   font-weight: 700;
-  color: var(--foreground-strong);
 }
 
 .rowScoreMuted {
@@ -501,7 +463,7 @@
 .teamAvatar {
   width: 1.5rem;
   height: 1.5rem;
-  border-radius: 50%;
+  border: 1px solid var(--border-input);
   object-fit: cover;
 }
 
@@ -511,10 +473,9 @@
   justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  border-radius: 50%;
-  font-size: 0.75rem;
+  border: 1px solid var(--border-input);
   background: var(--surface-hover);
-  color: var(--muted);
+  @include metadata($text-2xs, var(--muted));
 }
 
 .teamAvatarFallbackHi {
@@ -531,7 +492,7 @@
   bottom: 0;
   left: 0;
   background: var(--overlay);
-  z-index: 9998;
+  z-index: var(--z-overlay);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -546,7 +507,7 @@
   position: fixed;
   right: 0;
   top: 64px;
-  z-index: 9999;
+  z-index: calc(var(--z-overlay) + 1);
   height: calc(100vh - 64px);
   width: 400px;
   max-width: 90vw;
@@ -580,23 +541,17 @@
 }
 
 .sidebarLabel {
-  font-size: 0.75rem;
-  color: var(--primary);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  @include micro-label($text-xs, 0.18em, var(--primary));
 }
 
 .sidebarTitle {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
+  @include display-type($display-sm, 0.05em);
 }
 
 .sidebarStatus {
   margin: 0.25rem 0 0;
-  font-size: 0.75rem;
-  color: var(--muted);
+  @include micro-label($text-xs, 0.08em);
 }
 
 .sidebarClose {
@@ -604,7 +559,7 @@
   align-items: center;
   justify-content: center;
   padding: 0.5rem;
-  border-radius: 999px;
+  border-radius: 0;
   color: var(--muted);
   transition:
     background 0.15s ease,
@@ -626,13 +581,12 @@
 }
 
 .scoreOverview {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  background: var(--surface);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  gap: 1px;
+  background: var(--border);
   border: 1px solid var(--border);
-  border-radius: 8px;
 }
 
 .scoreTeam {
@@ -640,7 +594,14 @@
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  flex: 1;
+  padding: 1rem 0.75rem;
+  background: var(--surface);
+  border-top: 2px solid transparent;
+}
+
+.scoreTeamWinner {
+  border-top-color: var(--primary);
+  background: var(--primary-alpha);
 }
 
 .scoreAvatar {
@@ -649,12 +610,9 @@
   justify-content: center;
   width: 3rem;
   height: 3rem;
-  border-radius: 50%;
-  font-size: 1.125rem;
-  font-weight: 700;
-  border: 2px solid transparent;
+  border: 1px solid var(--border-input);
   background: var(--surface-hover);
-  color: var(--muted);
+  @include metadata($text-md, var(--muted));
 }
 
 .scoreAvatarWinner {
@@ -664,14 +622,12 @@
 }
 
 .scoreName {
-  font-size: 0.875rem;
-  color: var(--foreground-strong);
+  @include entity-name;
 }
 
 .scoreValue {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
+  @include metadata($score-lg, var(--foreground-strong));
+  font-weight: 500;
 }
 
 .scoreValueWinner {
@@ -679,51 +635,49 @@
 }
 
 .winnerPill {
-  padding: 0.125rem 0.5rem;
-  background: var(--primary-alpha);
-  color: var(--primary);
-  border-radius: 6px;
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border: 1px solid var(--primary);
+  @include micro-label($text-2xs, 0.06em, var(--primary));
 }
 
 .vsCol {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0.25rem;
   padding: 0 1rem;
+  background: var(--surface);
 }
 
 .vsColLabel {
-  font-size: 0.875rem;
-  color: var(--muted);
+  @include metadata($text-xs, var(--muted-lighter));
 }
 
 .matchInfoHeading {
   margin: 0 0 0.75rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
-  font-size: 0.75rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  @include micro-label($text-xs, 0.1em);
 }
 
 .infoList {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  font-size: 0.75rem;
+  border: 1px solid var(--border);
 }
 
 .infoRow {
   display: flex;
   justify-content: space-between;
-  padding: 0.5rem;
-  background: var(--background);
-  border-left: 2px solid var(--border);
+  gap: 1rem;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border-lighter);
+  border-left: 2px solid transparent;
+
+  &:last-child {
+    border-bottom: none;
+  }
 }
 
 .infoRowWinner {
@@ -731,11 +685,12 @@
 }
 
 .infoLabel {
-  color: var(--muted);
+  @include micro-label($text-xs, 0.06em);
 }
 
 .infoValue {
-  color: var(--foreground-strong);
+  @include metadata($text-sm, var(--foreground-strong));
+  text-align: right;
 }
 
 .infoValueActive {
@@ -757,29 +712,20 @@
 }
 
 .footerBtn {
-  @include btn-primary;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  @include btn-primary(0.75rem);
   width: 100%;
-  padding: 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 700;
 }
 
 .footerNote {
   text-align: center;
-  font-size: 0.75rem;
-  color: var(--muted);
+  @include metadata($text-xs, var(--muted));
   padding: 0.5rem 0;
 }
 
 .footerClose {
   width: 100%;
   padding: 0.5rem;
-  color: var(--muted);
-  font-size: 0.75rem;
+  @include micro-label($text-xs, 0.06em, var(--muted));
   transition: color 0.15s ease;
 
   &:hover {
@@ -795,40 +741,8 @@
 }
 
 /* Apply Fonts */
-.title,
-.sidebarTitle {
-  font-family: var(--font-hanken-grotesk), sans-serif;
-}
 
-.scoreValue,
-.scoreName,
-.slotName,
-.rowName,
-.infoValue,
-.infoValueActive,
-.infoValueWinner {
-  font-family: var(--font-inter), sans-serif;
-}
-
-.backLink,
 .liveIndicator,
-.knockoutBadge,
-.badge,
-.nodeHeaderTitle,
-.nodeHeaderLabel,
-.vsLabel,
-.slotTbd,
-.rowTbd,
-.rowScore,
-.sidebarLabel,
-.sidebarStatus,
-.winnerPill,
-.vsColLabel,
-.matchInfoHeading,
-.infoList,
-.infoLabel,
-.footerBtn,
-.footerNote,
-.footerClose {
+.vsLabel {
   font-family: var(--font-jetbrains-mono), monospace;
 }

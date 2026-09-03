@@ -20,7 +20,7 @@ import {
 import BlogPost from "@/models/BlogPost";
 import FocalImage from "@/components/shared/FocalImage";
 import Pagination from "@/components/shared/Pagination";
-import EmptyState from "@/components/public/EmptyState";
+import EmptyState from "@/components/shared/EmptyState";
 import PageHeader from "@/components/public/PageHeader";
 import BlogFilters from "./BlogFilters";
 import styles from "./Blog.module.scss";
