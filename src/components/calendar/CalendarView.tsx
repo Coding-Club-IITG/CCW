@@ -96,6 +96,7 @@ export default function CalendarView({ initialMonth, events }: Props) {
   const firstDay = new Date(Date.UTC(year, month, 1));
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const offset = firstDay.getUTCDay();
+  const trailing = (7 - ((offset + daysInMonth) % 7)) % 7;
   const monthLabel = new Intl.DateTimeFormat("en-IN", {
     month: "long",
     year: "numeric",
@@ -124,19 +125,21 @@ export default function CalendarView({ initialMonth, events }: Props) {
     <div className={styles.layout}>
       <section className={styles.calendar} aria-label="Month calendar">
         <header className={styles.monthHeader}>
-          <Link
-            href={`/internal/calendar?month=${monthKey(year, month - 1)}`}
-            aria-label="Previous month"
-          >
-            ‹
-          </Link>
           <h2>{monthLabel}</h2>
-          <Link
-            href={`/internal/calendar?month=${monthKey(year, month + 1)}`}
-            aria-label="Next month"
-          >
-            ›
-          </Link>
+          <div className={styles.monthNav}>
+            <Link
+              href={`/internal/calendar?month=${monthKey(year, month - 1)}`}
+              aria-label="Previous month"
+            >
+              ←
+            </Link>
+            <Link
+              href={`/internal/calendar?month=${monthKey(year, month + 1)}`}
+              aria-label="Next month"
+            >
+              →
+            </Link>
+          </div>
         </header>
         <div className={styles.weekdays} aria-hidden="true">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
@@ -175,10 +178,13 @@ export default function CalendarView({ initialMonth, events }: Props) {
               </div>
             );
           })}
+          {Array.from({ length: trailing }, (_, index) => (
+            <div key={`trailing-${index}`} className={styles.emptyDay} />
+          ))}
         </div>
       </section>
       <aside className={styles.monthEvents}>
-        <h2>Events this month</h2>
+        <h2>This month</h2>
         {monthEvents.length === 0 ? (
           <p>No events this month.</p>
         ) : (
