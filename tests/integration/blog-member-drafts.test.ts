@@ -112,15 +112,89 @@ describe("member-owned blog drafts", () => {
     });
   });
 
-  it("does not allow members to edit a published post even when credited", async () => {
+  it("allows an author to create a staged revision on a published post without altering live content", async () => {
     const BlogPost = (await import("@/models/BlogPost")).default;
-    const { PATCH } = await import("@/app/api/internal/blog/[slug]/route");
-    await BlogPost.create(blogPost({ slug: "published-post" }));
-    const response = await PATCH(
+    const { GET, PATCH, DELETE } = await import(
+      "@/app/api/internal/blog/[slug]/route"
+    );
+    await BlogPost.create(
+      blogPost({
+        slug: "published-post",
+        title: "Live Title",
+        content: "Live Content",
+        status: "published",
+        publishedAt: new Date("2026-01-01"),
+        authors: [{ userId: BLOG_AUTHOR_ID, name: "Author" }],
+      }),
+    );
+
+    // Can GET published post
+    const getRes = await GET(
+      new NextRequest("http://localhost/api/internal/blog/published-post"),
+      context("published-post"),
+    );
+    expect(getRes.status).toBe(200);
+
+    // PATCH creates staged pendingRevision
+    const patchRes = await PATCH(
       jsonRequest("/api/internal/blog/published-post", {
-        title: "Changed",
+        title: "Proposed New Title",
+        content: "Proposed New Content",
+        requestApproval: true,
       }),
       context("published-post"),
+    );
+    expect(patchRes.status).toBe(200);
+
+    const updated = await BlogPost.findOne({ slug: "published-post" }).lean();
+    // Live post is completely unchanged
+    expect(updated?.title).toBe("Live Title");
+    expect(updated?.content).toBe("Live Content");
+    expect(updated?.status).toBe("published");
+
+    // Staged revision is created with submittedAt
+    expect(updated?.pendingRevision).toMatchObject({
+      title: "Proposed New Title",
+      content: "Proposed New Content",
+      submittedBy: BLOG_AUTHOR_ID,
+    });
+    expect(updated?.pendingRevision?.submittedAt).toBeDefined();
+
+    // Audit log records revision submission
+    expect(await AuditLog.findOne({ operation: "blog.revision.submit" })).toMatchObject({
+      category: "blog",
+      action: "update",
+      operation: "blog.revision.submit",
+      actor: { userId: BLOG_AUTHOR_ID.toString(), access: "Member" },
+    });
+
+    // Author can discard staged revision
+    const deleteRes = await DELETE(
+      new NextRequest("http://localhost/api/internal/blog/published-post", {
+        method: "DELETE",
+      }),
+      context("published-post"),
+    );
+    expect(deleteRes.status).toBe(200);
+    const afterDelete = await BlogPost.findOne({ slug: "published-post" }).lean();
+    expect(afterDelete?.pendingRevision).toBeNull();
+  });
+
+  it("does not allow non-authors to edit a published post", async () => {
+    const BlogPost = (await import("@/models/BlogPost")).default;
+    const { PATCH } = await import("@/app/api/internal/blog/[slug]/route");
+    await BlogPost.create(
+      blogPost({
+        slug: "someone-elses-post",
+        status: "published",
+        authors: [{ userId: BLOG_OTHER_ID, name: "Other Author" }],
+      }),
+    );
+    const response = await PATCH(
+      jsonRequest("/api/internal/blog/someone-elses-post", {
+        title: "Unauthorized Edit",
+      }),
+      context("someone-elses-post"),
     );
     expect(response.status).toBe(403);
   });

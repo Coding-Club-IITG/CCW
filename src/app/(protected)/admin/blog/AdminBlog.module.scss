@@ -76,6 +76,12 @@
   @include badge-warning;
 }
 
+.revisionPending {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--badge-border);
+}
+
 .rowAuthor {
   color: var(--muted);
 }

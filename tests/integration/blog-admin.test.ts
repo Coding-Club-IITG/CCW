@@ -216,6 +216,107 @@ describe("admin blog routes", () => {
       after: {},
     });
   });
+
+  it("allows admin to approve a staged blog revision, applying it to the live post", async () => {
+    const BlogPost = (await import("@/models/BlogPost")).default;
+    const revisionRoute = await import(
+      "@/app/api/admin/blog/[slug]/revision/route"
+    );
+    await BlogPost.create(
+      blogPost({
+        slug: "post-with-revision",
+        title: "Old Live Title",
+        content: "Old Live Content",
+        status: "published",
+        pendingRevision: {
+          title: "Approved New Title",
+          content: "Approved New Content",
+          excerpt: "New excerpt",
+          coverImage: "",
+          coverFocalPoint: { x: 0.5, y: 0.5 },
+          tags: ["Tutorial"],
+          updatedAt: new Date(),
+          submittedAt: new Date(),
+          submittedBy: BLOG_AUTHOR_ID,
+        },
+      }),
+    );
+
+    const response = await revisionRoute.POST(
+      jsonRequest(
+        "/api/admin/blog/post-with-revision/revision",
+        "POST",
+        { action: "approve" },
+      ),
+      context("post-with-revision"),
+    );
+    expect(response.status).toBe(200);
+
+    const updated = await BlogPost.findOne({ slug: "post-with-revision" }).lean();
+    expect(updated?.title).toBe("Approved New Title");
+    expect(updated?.content).toBe("Approved New Content");
+    expect(updated?.pendingRevision).toBeNull();
+    expect(revalidatePath).toHaveBeenCalledWith("/blog/post-with-revision");
+    expect(
+      await AuditLog.findOne({ operation: "blog.revision.approve" }),
+    ).toMatchObject({
+      category: "blog",
+      action: "update",
+      operation: "blog.revision.approve",
+      actor: { userId: BLOG_ADMIN_ID.toString(), access: "Admin" },
+    });
+  });
+
+  it("allows admin to reject a staged blog revision", async () => {
+    const BlogPost = (await import("@/models/BlogPost")).default;
+    const revisionRoute = await import(
+      "@/app/api/admin/blog/[slug]/revision/route"
+    );
+    await BlogPost.create(
+      blogPost({
+        slug: "rejected-revision-post",
+        title: "Original Live Title",
+        content: "Original Live Content",
+        status: "published",
+        pendingRevision: {
+          title: "Bad Proposal",
+          content: "Bad Content",
+          excerpt: "",
+          coverImage: "",
+          coverFocalPoint: { x: 0.5, y: 0.5 },
+          tags: [],
+          updatedAt: new Date(),
+          submittedAt: new Date(),
+          submittedBy: BLOG_AUTHOR_ID,
+        },
+      }),
+    );
+
+    const response = await revisionRoute.POST(
+      jsonRequest(
+        "/api/admin/blog/rejected-revision-post/revision",
+        "POST",
+        { action: "reject" },
+      ),
+      context("rejected-revision-post"),
+    );
+    expect(response.status).toBe(200);
+
+    const updated = await BlogPost.findOne({
+      slug: "rejected-revision-post",
+    }).lean();
+    expect(updated?.title).toBe("Original Live Title");
+    expect(updated?.content).toBe("Original Live Content");
+    expect(updated?.pendingRevision).toBeNull();
+    expect(
+      await AuditLog.findOne({ operation: "blog.revision.reject" }),
+    ).toMatchObject({
+      category: "blog",
+      action: "delete",
+      operation: "blog.revision.reject",
+      actor: { userId: BLOG_ADMIN_ID.toString(), access: "Admin" },
+    });
+  });
 });
 
 function jsonRequest(path: string, method: string, body: unknown) {

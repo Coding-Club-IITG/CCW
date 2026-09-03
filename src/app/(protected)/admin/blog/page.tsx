@@ -25,6 +25,10 @@ interface Post {
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  pendingRevision?: {
+    submittedAt?: string | null;
+    updatedAt?: string;
+  } | null;
 }
 
 export default function AdminBlogPage() {
@@ -126,6 +130,19 @@ export default function AdminBlogPage() {
                     >
                       {post.status}
                     </span>
+                    {post.pendingRevision?.submittedAt ? (
+                      <span
+                        className={`${styles.statusBadge} ${styles.revisionPending}`}
+                      >
+                        Changes Requested
+                      </span>
+                    ) : post.pendingRevision ? (
+                      <span
+                        className={`${styles.statusBadge} ${styles.draft}`}
+                      >
+                        Draft Revision
+                      </span>
+                    ) : null}
                     <span className={styles.rowAuthor}>
                       {post.authors?.map((a) => a.name).join(", ") || "Unknown"}
                     </span>
