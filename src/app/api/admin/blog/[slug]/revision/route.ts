@@ -51,8 +51,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return jsonError("VALIDATION_ERROR", "No pending revision found for this post.");
     }
 
-    const submitterUserId = post.pendingRevision?.submittedBy;
-
     const dbSession = await mongoose.startSession();
     let saved;
     try {
@@ -134,36 +132,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       revalidatePath("/sitemap.xml");
     } else {
       await invalidateCache("admin:blog");
-    }
-
-    // Send notification to author regarding revision decision
-    if (submitterUserId) {
-      try {
-        const { notify } = await import("@/lib/notify");
-        if (action === "approve") {
-          await notify({
-            userId: String(submitterUserId),
-            type: "blog_revision",
-            title: "Blog Revision Approved",
-            message: `Your changes to "${saved.title}" have been approved and published!`,
-            link: `/blog/${saved.slug}`,
-          });
-        } else {
-          await notify({
-            userId: String(submitterUserId),
-            type: "blog_revision",
-            title: "Blog Revision Rejected",
-            message: `Your proposed updates to "${saved.title}" were not approved.`,
-            link: `/internal/blog/${saved.slug}/edit`,
-          });
-        }
-      } catch (notifErr) {
-        logger.error("Failed to notify author of revision decision", {
-          route: "POST /api/admin/blog/[slug]/revision",
-          operation: "notify_author",
-          ...errorToLogMetadata(notifErr),
-        });
-      }
     }
 
     return jsonOk({ post: saved.toObject() });

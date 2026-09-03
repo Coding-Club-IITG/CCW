@@ -223,36 +223,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
     await invalidateCache("admin:blog");
 
-    // Send notifications to Heads/Admins if revision was submitted for review
-    if (isPublished && requestApproval) {
-      try {
-        const User = (await import("@/models/User")).default;
-        const { notifyMany } = await import("@/lib/notify");
-        const adminUsers = await User.find({
-          access: { $in: ["Head", "Admin"] },
-        })
-          .select("_id")
-          .lean();
-
-        const adminIds = adminUsers.map((u: any) => String(u._id));
-
-        if (adminIds.length > 0) {
-          await notifyMany(adminIds, {
-            type: "blog_revision",
-            title: "Blog Revision Submitted",
-            message: `${user.name || "A member"} requested approval for changes to "${saved.title}".`,
-            link: `/admin/blog/${saved.slug}/edit`,
-          });
-        }
-      } catch (notifErr) {
-        logger.error("Failed to notify admins of blog revision", {
-          route: "PATCH /api/internal/blog/[slug]",
-          operation: "notify_admins",
-          ...errorToLogMetadata(notifErr),
-        });
-      }
-    }
-
     return jsonOk({ post: saved.toObject() });
   } catch (err) {
     logger.error("Internal blog update failed", {
