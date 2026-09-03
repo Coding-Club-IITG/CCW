@@ -11,20 +11,14 @@
 }
 
 .error {
+  @include error-banner;
   margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--error-border-light);
-  border-radius: 6px;
-  background: var(--error-bg);
-  color: var(--error-text);
-  font-size: 0.875rem;
 }
 
 .notice {
   margin-bottom: 0.25rem;
   padding: 0.75rem 1rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
   background: var(--surface-2);
   color: var(--muted);
   font-size: 0.875rem;
@@ -63,7 +57,6 @@
 .textarea,
 .select {
   border: 1px solid var(--border-input);
-  border-radius: 6px;
   background: var(--blog-editor-bg);
   color: var(--foreground);
   padding: 0.5rem 0.75rem;
@@ -98,7 +91,6 @@
   width: 12rem;
   height: 6.75rem;
   border: 1px solid var(--border-input);
-  border-radius: 6px;
   object-fit: cover;
   background: var(--surface-secondary);
 }

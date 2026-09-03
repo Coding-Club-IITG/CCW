@@ -28,8 +28,7 @@
   height: 2.5rem;
   flex: 0 0 auto;
   color: var(--primary);
-  background: var(--primary-alpha);
-  border-radius: 0;
+  border: 1px solid var(--primary);
 }
 
 .pushContent {

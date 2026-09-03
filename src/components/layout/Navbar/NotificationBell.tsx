@@ -127,6 +127,8 @@ export default function NotificationBell() {
         )}
       </button>
 
+      {open && <span className={styles.arrow} aria-hidden="true" />}
+
       {open && (
         <div className={styles.dropdown}>
           <div className={styles.dropdownHeader}>

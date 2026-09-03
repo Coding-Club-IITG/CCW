@@ -37,23 +37,6 @@
     padding-bottom: 1.5rem;
   }
 
-  .backLink {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.375rem 0.75rem;
-    border: 1px solid transparent;
-    @include micro-label(11px, 0.04em, var(--primary));
-    transition:
-      background 0.15s ease,
-      border-color 0.15s ease;
-
-    &:hover {
-      background: var(--primary-alpha);
-      border-color: var(--primary);
-    }
-  }
-
   .problemTransition {
     animation: contestSlideIn 0.4s ease-out forwards;
   }

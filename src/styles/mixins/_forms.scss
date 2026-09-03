@@ -38,3 +38,22 @@
     border-color: var(--primary);
   }
 }
+
+@mixin search-field {
+  border: 1px solid var(--border-input);
+  border-radius: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  transition: border-color 0.15s ease;
+
+  &::placeholder {
+    color: var(--muted);
+  }
+
+  &:focus,
+  &:focus-within {
+    outline: none;
+    border-color: var(--primary);
+  }
+}

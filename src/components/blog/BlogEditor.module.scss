@@ -7,12 +7,7 @@
 }
 
 .error {
-  background: var(--error-bg);
-  color: var(--error-text);
-  border: 1px solid var(--error-border-light);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  @include error-banner;
 }
 
 .field {
@@ -32,7 +27,6 @@
 .select {
   background: var(--blog-editor-bg);
   border: 1px solid var(--blog-editor-border);
-  border-radius: 6px;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   color: var(--foreground);
@@ -67,7 +61,6 @@
   width: 120px;
   height: 68px;
   object-fit: cover;
-  border-radius: 6px;
   border: 1px solid var(--border);
 }
 
@@ -85,10 +78,8 @@
   background: var(--badge-bg);
   color: var(--badge-text);
   border: 1px solid var(--badge-border);
-  border-radius: 2rem;
-  padding: 0.1875rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
+  padding: 4px 9px;
+  @include micro-label(10.5px, 0.05em, currentcolor);
 }
 
 .authorRemove {
@@ -97,7 +88,6 @@
   justify-content: center;
   width: 14px;
   height: 14px;
-  border-radius: 50%;
   font-size: 0.75rem;
   line-height: 1;
   color: var(--muted);
@@ -123,7 +113,6 @@
 .contentTextarea {
   background: var(--blog-editor-bg);
   border: 1px solid var(--blog-editor-border);
-  border-radius: 6px;
   padding: 1rem;
   font-size: 0.875rem;
   color: var(--foreground);
@@ -136,14 +125,12 @@
   &:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--focus-ring);
   }
 }
 
 .preview {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
   padding: 1.5rem;
   min-height: 400px;
 }

@@ -220,7 +220,10 @@ export default function ContestCalendar({ contests }: Props) {
   return (
     <div className={styles.calendar} ref={calendarRef}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Contest Schedule</h2>
+        <div>
+          <p className={styles.kicker}>Competitive programming</p>
+          <h2 className={styles.title}>Contest Schedule</h2>
+        </div>
         <div className={styles.weekNav}>
           <button
             className={styles.navBtn}

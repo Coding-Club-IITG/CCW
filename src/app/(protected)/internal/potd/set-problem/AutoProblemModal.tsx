@@ -277,9 +277,7 @@ export default function AutoProblemModal({
                   <div key={diff} className={styles.ratingGroup}>
                     <div className={styles.ratingGroupHeader}>
                       <DifficultyBadge difficulty={diff} />
-                      <span
-                        style={{ fontSize: "0.75rem", color: "var(--muted)" }}
-                      >
+                      <span className={styles.boundsLabel}>
                         Rating Bounds
                       </span>
                     </div>

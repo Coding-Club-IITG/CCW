@@ -1,5 +1,6 @@
 "use client";
 
+import BackLink from "@/components/shared/BackLink";
 import { expectAppData } from "@/lib/api/result";
 
 import Link from "next/link";
@@ -769,10 +770,7 @@ export default function BracketRoomClient({
       <header ref={headerRef} className={styles.header}>
         <div className={styles.headerLeft}>
           <div className={styles.headerTop}>
-            <Link href="/internal/contests" className={styles.backLink}>
-              <ArrowLeft className={styles.icon16} size={16} />
-              Back to Contests
-            </Link>
+            <BackLink href="/internal/contests" label="Back to Contests" />
             <div className={styles.headerDivider} />
           </div>
           <div>

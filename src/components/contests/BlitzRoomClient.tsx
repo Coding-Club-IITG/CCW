@@ -1,5 +1,6 @@
 "use client";
 
+import BackLink from "@/components/shared/BackLink";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -506,17 +507,16 @@ export default function BlitzRoomClient({
 
       <main className={styles.main}>
         <div>
-          <Link
+          <BackLink
             href={
               from === "bracket"
                 ? `/internal/contests/${contest._id}`
                 : "/internal/contests"
             }
-            className={styles.backLink}
-          >
-            <ArrowLeft className={styles.icon18} size={18} />
-            {from === "bracket" ? "Back to Bracket Canvas" : "Back to Contests"}
-          </Link>
+            label={
+              from === "bracket" ? "Back to Bracket Canvas" : "Back to Contests"
+            }
+          />
         </div>
 
         {/* Compact HUD */}

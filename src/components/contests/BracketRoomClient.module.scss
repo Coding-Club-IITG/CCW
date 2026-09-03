@@ -49,23 +49,6 @@
   margin-bottom: 1rem;
 }
 
-.backLink {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  border: 1px solid var(--border-input);
-  @include micro-label(11px, 0.06em, var(--muted));
-  transition:
-    color 0.15s ease,
-    border-color 0.15s ease;
-
-  &:hover {
-    color: var(--primary);
-    border-color: var(--primary);
-  }
-}
-
 .headerDivider {
   height: 1.5rem;
   width: 1px;

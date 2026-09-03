@@ -10,13 +10,15 @@
 }
 
 .sectionTitle {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--foreground-strong);
+  @include micro-label(11px, 0.1em, var(--foreground-strong));
   margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.boundsLabel {
+  @include micro-label(10.5px, 0.06em);
 }
 
 .datesGrid {

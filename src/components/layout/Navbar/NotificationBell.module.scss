@@ -1,3 +1,5 @@
+@use "@/styles/mixins" as *;
+
 .wrapper {
   position: relative;
   display: inline-flex;
@@ -5,42 +7,43 @@
 }
 
 .bell {
-  background: none;
-  border: none;
+  @include icon-button(30px);
+  border-color: transparent;
   color: var(--foreground-secondary);
-  cursor: pointer;
-  padding: 0.375rem;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   position: relative;
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
 
-  &:hover {
+  &:hover:not(:disabled) {
+    border-color: var(--border-input);
     color: var(--foreground-strong);
-    background: var(--surface-hover);
   }
 }
 
 .badge {
   position: absolute;
-  top: 0;
-  right: 0;
-  background: var(--error);
-  color: var(--fg-on-emphasis);
-  font-size: 0.625rem;
-  font-weight: 600;
-  min-width: 14px;
-  height: 14px;
-  border-radius: 7px;
+  top: -2px;
+  right: -2px;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 14px;
+  height: 14px;
   padding: 0 3px;
+  background: var(--error);
+  @include metadata(9px, var(--fg-on-emphasis));
   line-height: 1;
+}
+
+.arrow {
+  position: absolute;
+  top: calc(100% + 0.5rem - 4px);
+  right: 11px;
+  width: 8px;
+  height: 8px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  transform: rotate(45deg);
+  z-index: calc(var(--z-overlay) + 1);
 }
 
 .dropdown {
@@ -50,29 +53,24 @@
   width: 320px;
   max-height: 360px;
   overflow-y: auto;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px var(--shadow-md);
-  z-index: 1000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  z-index: var(--z-overlay);
 }
 
 .dropdownHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-light);
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--foreground-strong);
+  gap: 1rem;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  @include micro-label(10px, 0.1em, var(--foreground-strong));
 }
 
 .viewAll {
-  font-size: 0.75rem;
-  font-weight: 400;
-  color: var(--primary);
   text-decoration: none;
+  @include micro-label(9.5px, 0.06em, var(--primary));
 
   &:hover {
     text-decoration: underline;
@@ -82,51 +80,40 @@
 .empty {
   padding: 1.5rem 1rem;
   text-align: center;
-  color: var(--muted);
-  font-size: 0.8125rem;
+  @include metadata(11px, var(--muted));
 }
 
 .list {
-  padding: 0.25rem 0;
+  display: grid;
 }
 
 .item {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-light);
+  @include list-row(0.625rem 0.875rem);
   cursor: pointer;
-  transition: background 0.15s ease;
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:hover {
-    background: var(--surface-hover);
-  }
 }
 
 .itemTitle {
   display: block;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--foreground-strong);
   margin-bottom: 0.125rem;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--foreground-strong);
 }
 
 .itemMsg {
   display: block;
-  font-size: 0.75rem;
+  font-size: 11.5px;
   color: var(--foreground-secondary);
-  line-height: 1.3;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .itemLink {
   display: inline-block;
-  margin-top: 0.25rem;
-  font-size: 0.6875rem;
-  color: var(--primary);
+  margin-top: 0.375rem;
   text-decoration: none;
+  @include micro-label(9.5px, 0.06em, var(--primary));
 
   &:hover {
     text-decoration: underline;

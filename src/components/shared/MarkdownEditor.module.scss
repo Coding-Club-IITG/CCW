@@ -7,12 +7,7 @@
 }
 
 .error {
-  background: var(--error-bg);
-  color: var(--error-text);
-  border: 1px solid var(--error-border-light);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.8125rem;
+  @include error-banner;
 }
 
 .toolbar {
@@ -24,7 +19,6 @@
 .textarea {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
   padding: 1rem;
   font-size: 0.875rem;
   color: var(--foreground);
@@ -44,7 +38,6 @@
 .preview {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
   padding: 1.5rem;
   min-height: 300px;
 }

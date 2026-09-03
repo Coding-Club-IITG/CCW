@@ -107,11 +107,6 @@ export default function RatingLeaderboardClient({
 
   return (
     <div>
-      <PlatformTabs
-        tabs={TABS}
-        activeTab={platform}
-        onTabChange={(key) => setPlatform(key as Platform)}
-      />
       <LeaderboardTable
         title={`${PLATFORM_DISPLAY_NAMES[platform]} Leaderboard`}
         description="Current member standings."
@@ -120,11 +115,18 @@ export default function RatingLeaderboardClient({
         getKey={(item) => item.id}
         emptyMessage="No data available yet. Ratings sync every 6 hours."
         toolbar={
-          <SearchInput
-            placeholder="Search by name or handle"
-            value={search}
-            onChange={setSearch}
-          />
+          <>
+            <PlatformTabs
+              tabs={TABS}
+              activeTab={platform}
+              onTabChange={(key) => setPlatform(key as Platform)}
+            />
+            <SearchInput
+              placeholder="Search by name or handle"
+              value={search}
+              onChange={setSearch}
+            />
+          </>
         }
       />
     </div>
