@@ -90,37 +90,8 @@
   font-size: 0.8125rem;
 }
 
-.modeToggle {
-  display: inline-flex;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.1875rem;
-  gap: 0.25rem;
-  margin-bottom: 1rem;
-}
-
-.modeBtn {
-  background: none;
-  border: none;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--muted);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  &.active {
-    background: var(--surface-hover);
-    color: var(--foreground-strong);
-    font-weight: 600;
-  }
-}
-
 .error {
   text-align: center;
   padding: 2rem 1rem;
   color: var(--error-text);
 }
-

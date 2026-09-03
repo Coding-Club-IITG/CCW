@@ -233,6 +233,7 @@ export const NOTIFICATION_TYPES = [
   "potd_reminder",
   "announcement",
   "calendar_reminder",
+  "blog_revision",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

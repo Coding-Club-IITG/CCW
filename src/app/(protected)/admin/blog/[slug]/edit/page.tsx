@@ -6,9 +6,8 @@ import { use, useEffect, useState } from "react";
 import { ExternalLink as IconExternalLink, Check, X as IconX } from "lucide-react";
 
 import { expectAppData } from "@/lib/api/result";
-import type { BlogStatus } from "@/lib/constants";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import BlogEditor, { BlogEditorData } from "@/components/blog/BlogEditor";
+import RevisionDiffViewer from "@/components/blog/RevisionDiffViewer";
 import BackLink from "@/components/shared/BackLink";
 
 import styles from "./EditPost.module.scss";
@@ -25,7 +24,6 @@ export default function EditBlogPostPage({ params }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [viewingMode, setViewingMode] = useState<"live" | "revision">("revision");
 
   useEffect(() => {
     async function fetchPost() {
@@ -33,11 +31,6 @@ export default function EditBlogPostPage({ params }: Props) {
         const res = await fetch(`/api/admin/blog/${slug}`);
         const data = await expectAppData(res);
         setPost(data.post);
-        if (data.post?.pendingRevision) {
-          setViewingMode("revision");
-        } else {
-          setViewingMode("live");
-        }
       } catch {
         setError("Failed to load post.");
       } finally {
@@ -79,7 +72,6 @@ export default function EditBlogPostPage({ params }: Props) {
       });
       const data = await expectAppData(res);
       setPost(data.post);
-      setViewingMode("live");
       alert("Changes have been approved and published to the live website!");
     } catch {
       alert("Failed to approve revision.");
@@ -105,7 +97,6 @@ export default function EditBlogPostPage({ params }: Props) {
       });
       const data = await expectAppData(res);
       setPost(data.post);
-      setViewingMode("live");
       alert("Proposed changes have been discarded.");
     } catch {
       alert("Failed to reject revision.");
@@ -137,28 +128,27 @@ export default function EditBlogPostPage({ params }: Props) {
   const hasRevision = Boolean(post.pendingRevision);
   const isSubmitted = Boolean(post.pendingRevision?.submittedAt);
 
-  const activeEditorData =
-    hasRevision && viewingMode === "revision"
-      ? {
-          title: post.pendingRevision.title,
-          content: post.pendingRevision.content,
-          excerpt: post.pendingRevision.excerpt,
-          coverImage: post.pendingRevision.coverImage,
-          coverFocalPoint: post.pendingRevision.coverFocalPoint,
-          tags: post.pendingRevision.tags,
-          status: post.status,
-          authors: post.authors || [],
-        }
-      : {
-          title: post.title,
-          content: post.content,
-          excerpt: post.excerpt,
-          coverImage: post.coverImage,
-          coverFocalPoint: post.coverFocalPoint,
-          tags: post.tags,
-          status: post.status,
-          authors: post.authors || [],
-        };
+  const activeEditorData = hasRevision
+    ? {
+        title: post.pendingRevision.title,
+        content: post.pendingRevision.content,
+        excerpt: post.pendingRevision.excerpt,
+        coverImage: post.pendingRevision.coverImage,
+        coverFocalPoint: post.pendingRevision.coverFocalPoint,
+        tags: post.pendingRevision.tags,
+        status: post.status,
+        authors: post.authors || [],
+      }
+    : {
+        title: post.title,
+        content: post.content,
+        excerpt: post.excerpt,
+        coverImage: post.coverImage,
+        coverFocalPoint: post.coverFocalPoint,
+        tags: post.tags,
+        status: post.status,
+        authors: post.authors || [],
+      };
 
   return (
     <div>
@@ -192,7 +182,11 @@ export default function EditBlogPostPage({ params }: Props) {
                 onClick={handleApproveRevision}
                 disabled={actionLoading}
               >
-                <Check width={14} height={14} style={{ display: "inline", marginRight: "4px" }} />
+                <Check
+                  width={14}
+                  height={14}
+                  style={{ display: "inline", marginRight: "4px" }}
+                />
                 Approve & Publish Changes
               </button>
               <button
@@ -201,7 +195,11 @@ export default function EditBlogPostPage({ params }: Props) {
                 onClick={handleRejectRevision}
                 disabled={actionLoading}
               >
-                <IconX width={14} height={14} style={{ display: "inline", marginRight: "4px" }} />
+                <IconX
+                  width={14}
+                  height={14}
+                  style={{ display: "inline", marginRight: "4px" }}
+                />
                 Reject Changes
               </button>
             </div>
@@ -209,37 +207,32 @@ export default function EditBlogPostPage({ params }: Props) {
           <p className={styles.revisionBannerDesc}>
             An author submitted updates to this published post on{" "}
             {post.pendingRevision.submittedAt
-              ? new Date(post.pendingRevision.submittedAt).toLocaleString("en-IN", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })
-              : new Date(post.pendingRevision.updatedAt).toLocaleString("en-IN", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
-            . Use the toggle below to compare the live version with the proposed revision.
+              ? new Date(post.pendingRevision.submittedAt).toLocaleString(
+                  "en-IN",
+                  {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  },
+                )
+              : new Date(post.pendingRevision.updatedAt).toLocaleString(
+                  "en-IN",
+                  {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  },
+                )}
+            . Review the diff below and approve or edit before publishing.
           </p>
-          <div className={styles.modeToggle}>
-            <button
-              type="button"
-              className={`${styles.modeBtn} ${viewingMode === "revision" ? styles.active : ""}`}
-              onClick={() => setViewingMode("revision")}
-            >
-              Proposed Revision (Staged)
-            </button>
-            <button
-              type="button"
-              className={`${styles.modeBtn} ${viewingMode === "live" ? styles.active : ""}`}
-              onClick={() => setViewingMode("live")}
-            >
-              Current Live Version
-            </button>
-          </div>
+
+          <RevisionDiffViewer
+            livePost={post}
+            revision={post.pendingRevision}
+          />
         </div>
       )}
 
       <BlogEditor
-        key={`${viewingMode}-${hasRevision ? post.pendingRevision?.updatedAt : post.updatedAt}`}
+        key={`admin-${hasRevision ? post.pendingRevision?.updatedAt : post.updatedAt}`}
         initialData={activeEditorData}
         onSave={handleSave}
       />
