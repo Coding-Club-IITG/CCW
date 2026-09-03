@@ -88,7 +88,7 @@
   flex-shrink: 0;
   width: 2rem;
   height: 2rem;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--surface-hover);
   overflow: hidden;
   color: var(--muted);
@@ -168,7 +168,7 @@
 .memberChipImg {
   width: 1rem;
   height: 1rem;
-  border-radius: 50%;
+  border-radius: 0;
   object-fit: cover;
   flex-shrink: 0;
 }

@@ -93,7 +93,7 @@
   flex: 0 0 auto;
   width: 2rem;
   height: 2rem;
-  border-radius: 50%;
+  border-radius: 0;
 }
 .avatar {
   object-fit: cover;
@@ -104,7 +104,6 @@
   color: var(--foreground-strong);
   background: var(--surface-hover);
   font-size: 0.75rem;
-  font-weight: 600;
 }
 .spinner {
   animation: spin 0.8s linear infinite;
