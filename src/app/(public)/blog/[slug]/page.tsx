@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { isHead } from "@/lib/access/roles";
+import { PencilLine as IconEdit } from "lucide-react";
 import { rankRelatedPosts } from "@/lib/blog/relatedPosts";
 import { extractMarkdownHeadings } from "@/lib/blog/markdownHeadings";
 import dbConnect from "@/lib/mongodb";
@@ -52,6 +56,19 @@ export default async function BlogPostPage({ params }: Props) {
   if (!post) {
     notFound();
   }
+
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  const user = session?.user;
+  const userIsAdmin = user ? isHead(user.access) : false;
+  const userIsAuthor = user
+    ? post.authors.some((a: any) => String(a.userId) === String(user.id))
+    : false;
+  const canEdit = userIsAdmin || userIsAuthor;
+  const editHref = userIsAdmin
+    ? `/admin/blog/${post.slug}/edit`
+    : `/internal/blog/${post.slug}/edit`;
 
   const relatedDocuments =
     post.tags.length > 0
@@ -195,6 +212,12 @@ export default async function BlogPostPage({ params }: Props) {
             {readingTime && <span>{readingTime}</span>}
             {wasEdited && (
               <span className={styles.edited}>Updated {updatedDate}</span>
+            )}
+            {canEdit && (
+              <Link href={editHref} className={styles.editLink}>
+                <IconEdit width={13} height={13} />
+                Edit Article
+              </Link>
             )}
           </div>
         </header>

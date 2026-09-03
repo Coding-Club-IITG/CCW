@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   const myBlogs = await BlogPost.find({
     "authors.userId": user.id,
   })
-    .select("title slug excerpt status updatedAt")
+    .select("title slug excerpt status updatedAt pendingRevision")
     .sort({ updatedAt: -1 })
     .lean();
 
@@ -103,10 +103,14 @@ export default async function DashboardPage() {
           <div className={styles.grid}>
             {myBlogs.map((post) => {
               const isDraft = post.status === "draft";
-              const canEdit = userIsAdmin || isDraft;
               const editHref = userIsAdmin
                 ? `/admin/blog/${post.slug}/edit`
                 : `/internal/blog/${post.slug}/edit`;
+
+              const isSubmitted = Boolean(post.pendingRevision?.submittedAt);
+              const hasDraftRevision = Boolean(
+                post.pendingRevision && !post.pendingRevision.submittedAt,
+              );
 
               return (
                 <article key={String(post._id)} className={styles.blogCard}>
@@ -121,16 +125,14 @@ export default async function DashboardPage() {
                         {post.title}
                       </Link>
                     )}
-                    {canEdit && (
-                      <Link
-                        href={editHref}
-                        className={styles.editBlogLink}
-                        aria-label={`Edit ${post.title}`}
-                        title="Edit blog"
-                      >
-                        <IconEdit width={16} height={16} />
-                      </Link>
-                    )}
+                    <Link
+                      href={editHref}
+                      className={styles.editBlogLink}
+                      aria-label={`Edit ${post.title}`}
+                      title="Edit blog"
+                    >
+                      <IconEdit width={16} height={16} />
+                    </Link>
                   </div>
                   <p className={styles.blogDescription}>
                     {post.excerpt ||
@@ -138,7 +140,15 @@ export default async function DashboardPage() {
                         ? "Blog draft"
                         : "Read this published blog post.")}
                   </p>
-                  <span className={styles.blogStatus}>{post.status}</span>
+                  <span className={styles.blogStatus}>
+                    {isDraft
+                      ? "draft"
+                      : isSubmitted
+                        ? "published · changes pending approval"
+                        : hasDraftRevision
+                          ? "published · draft changes saved"
+                          : "published"}
+                  </span>
                 </article>
               );
             })}

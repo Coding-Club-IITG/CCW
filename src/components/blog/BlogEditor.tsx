@@ -18,6 +18,17 @@ interface BlogAuthor {
   name: string;
 }
 
+export interface BlogEditorData {
+  title: string;
+  content: string;
+  excerpt: string;
+  coverImage: string;
+  coverFocalPoint: ImageFocalPoint;
+  tags: string[];
+  status: BlogStatus;
+  authors: BlogAuthor[];
+}
+
 interface BlogEditorProps {
   initialData?: {
     title: string;
@@ -29,20 +40,18 @@ interface BlogEditorProps {
     status: BlogStatus;
     authors: BlogAuthor[];
   };
-  onSave: (data: {
-    title: string;
-    content: string;
-    excerpt: string;
-    coverImage: string;
-    coverFocalPoint: ImageFocalPoint;
-    tags: string[];
-    status: BlogStatus;
-    authors: BlogAuthor[];
-  }) => Promise<void>;
+  onSave: (data: BlogEditorData) => Promise<void>;
   isNew?: boolean;
   canManageAuthors?: boolean;
   canManageStatus?: boolean;
   uploadEndpoint?: string;
+  saveButtonLabel?: string;
+  secondaryButton?: {
+    label: string;
+    onClick: (data: BlogEditorData) => Promise<void>;
+    disabled?: boolean;
+    variant?: "primary" | "secondary" | "danger";
+  };
 }
 
 export default function BlogEditor({
@@ -52,6 +61,8 @@ export default function BlogEditor({
   canManageAuthors = true,
   canManageStatus = true,
   uploadEndpoint = "/api/admin/blog/upload-image",
+  saveButtonLabel,
+  secondaryButton,
 }: BlogEditorProps) {
   const [title, setTitle] = useState(initialData?.title || "");
   const [content, setContent] = useState(initialData?.content || "");
@@ -240,9 +251,52 @@ export default function BlogEditor({
           onClick={handleSave}
           disabled={saving}
         >
-          {saving ? "Saving..." : isNew ? "Create Post" : "Save Changes"}
+          {saving
+            ? "Saving..."
+            : saveButtonLabel || (isNew ? "Create Post" : "Save Changes")}
         </button>
+
+        {secondaryButton && (
+          <button
+            type="button"
+            className={
+              secondaryButton.variant === "primary"
+                ? styles.btnPrimary
+                : secondaryButton.variant === "danger"
+                  ? styles.btnDanger
+                  : styles.btnSecondary
+            }
+            onClick={async () => {
+              if (!title.trim()) {
+                setError("Title is required.");
+                return;
+              }
+              setSaving(true);
+              setError("");
+              try {
+                await secondaryButton.onClick({
+                  title,
+                  content,
+                  excerpt,
+                  coverImage,
+                  coverFocalPoint,
+                  tags,
+                  status,
+                  authors,
+                });
+              } catch (err: any) {
+                setError(err.message || "Action failed.");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving || secondaryButton.disabled}
+          >
+            {secondaryButton.label}
+          </button>
+        )}
       </div>
     </div>
   );
 }
+
