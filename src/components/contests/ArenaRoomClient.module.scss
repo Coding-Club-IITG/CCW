@@ -48,8 +48,7 @@
   flex-direction: column;
   gap: 1rem;
   padding: 1.25rem;
-  border: 2px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--border);
   background: var(--surface);
   transition: border-color 0.15s ease;
 }
@@ -60,7 +59,7 @@
 
 .gridCardMine {
   border-color: var(--primary);
-  @include contest-glow(var(--focus-ring));
+  @include contest-glow;
 }
 
 .gridCardOther {
@@ -98,9 +97,8 @@
 }
 
 .ratingBadge {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
+  padding: 4px 10px;
+  @include micro-label(10.5px, 0.05em, currentcolor);
 }
 
 .badgeMine {
@@ -211,8 +209,7 @@
   align-items: center;
   justify-content: center;
   padding: 0.5rem;
-  border-radius: 6px;
-  background: var(--surface-hover);
+  border: 1px solid var(--border-input);
   color: var(--foreground-strong);
   transition: background 0.15s ease;
 

@@ -111,17 +111,11 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.25rem 1rem;
-  border-radius: 999px;
+  padding: 5px 13px;
   background: var(--primary);
-  color: var(--btn-primary-text);
-  font-size: 14px;
-  font-family: var(--font-jetbrains-mono), monospace;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  @include micro-label(10.5px, 0.08em, var(--btn-primary-text));
   white-space: nowrap;
-  box-shadow: 0 0 15px var(--focus-ring);
+  @include contest-glow;
 }
 
 .teamName {
@@ -137,17 +131,12 @@
 
 .teamNameWinner {
   color: var(--primary);
-  border-radius: 999px;
   padding: 0 1rem;
   box-shadow: 0 0 40px var(--primary-alpha);
 }
 
 .teamScore {
-  font-family: var(--font-hanken-grotesk), sans-serif;
-  font-size: 56px;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  @include display-type(56px);
   color: var(--foreground-strong);
 }
 
@@ -157,10 +146,7 @@
 
 .heroMeta {
   margin-top: 1rem;
-  font-size: 0.75rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  @include micro-label(10.5px, 0.1em);
 
   strong {
     color: var(--primary);
@@ -170,20 +156,13 @@
 
 /* Banners */
 .terminationBanner {
+  @include error-banner;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
   padding: 1rem;
-  border-radius: 12px;
-  background: var(--error-bg);
-  border: 1px solid var(--error-border);
-  color: var(--error-text);
-  font-size: 0.875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .advancementBanner {
@@ -194,7 +173,6 @@
   justify-content: center;
   gap: 1rem;
   padding: 1.5rem;
-  border-radius: 12px;
   overflow: hidden;
   background: linear-gradient(
     to right,
@@ -207,10 +185,7 @@
 
   h3 {
     margin: 0;
-    font-family: var(--font-hanken-grotesk), sans-serif;
-    font-size: 32px;
-    font-weight: 600;
-    color: var(--foreground-strong);
+    @include display-type(28px, 0.05em);
     z-index: 1;
   }
 }
@@ -256,10 +231,7 @@
   margin: 0;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
-  font-family: var(--font-hanken-grotesk), sans-serif;
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--foreground-strong);
+  @include micro-label(11px, 0.1em, var(--foreground-strong));
 }
 
 /* MVP card */
@@ -267,7 +239,6 @@
   position: relative;
   overflow: hidden;
   padding: 1.5rem;
-  border-radius: 12px;
   background: var(--surface);
   border: 1px solid var(--focus-ring);
   transition: background 0.15s ease;
@@ -285,7 +256,6 @@
   align-items: center;
   justify-content: center;
   padding: 0.75rem;
-  border-bottom-left-radius: 8px;
   background: var(--primary);
   color: var(--btn-primary-text);
 }
@@ -300,7 +270,6 @@
 .mvpAvatar {
   width: 4rem;
   height: 4rem;
-  border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--primary);
   padding: 1px;
@@ -311,11 +280,7 @@
   align-items: center;
   gap: 0.25rem;
   margin-bottom: 0.25rem;
-  font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 14px;
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  @include micro-label(10.5px, 0.1em, var(--primary));
 }
 
 .mvpName {
@@ -339,17 +304,11 @@
 }
 
 .mvpContribLabel {
-  font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 14px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  @include micro-label(10.5px, 0.06em);
 }
 
 .mvpContribValue {
-  font-family: var(--font-hanken-grotesk), sans-serif;
-  font-size: 32px;
-  font-weight: 700;
+  @include display-type(32px);
   color: var(--primary);
 }
 
@@ -357,7 +316,6 @@
   position: relative;
   overflow: hidden;
   padding: 1.5rem;
-  border-radius: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
 }
@@ -386,7 +344,6 @@
 
 .teamStanding {
   overflow: hidden;
-  border-radius: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
 }
@@ -407,15 +364,14 @@
 }
 
 .teamRank {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--muted);
+  padding: 4px 9px;
+  background: var(--surface-hover);
+  @include metadata(11px, var(--foreground-strong));
 }
 
 .teamStandingAvatar {
   width: 1.5rem;
   height: 1.5rem;
-  border-radius: 50%;
   object-fit: cover;
   border: 1px solid var(--border);
 }
@@ -457,7 +413,6 @@
 .memberAvatar {
   width: 2rem;
   height: 2rem;
-  border-radius: 50%;
   object-fit: cover;
   border: 1px solid var(--border);
 }
@@ -478,7 +433,6 @@
   gap: 0.75rem;
   padding: 1rem;
   overflow: hidden;
-  border-radius: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
 }
@@ -487,7 +441,6 @@
   position: relative;
   display: block;
   padding: 1rem;
-  border-radius: 8px;
   background: var(--surface-hover);
   border: 1px solid var(--border);
   cursor: pointer;
@@ -497,7 +450,7 @@
     transform 0.15s ease;
 
   &:hover {
-    box-shadow: 0 0 20px var(--focus-ring) !important;
+    box-shadow: 0 0 20px var(--contest-glow) !important;
     border-color: var(--primary) !important;
     transform: scale(1.01);
     z-index: 10;
@@ -526,7 +479,6 @@
 .problemBar {
   width: 0.375rem;
   height: 2.5rem;
-  border-radius: 999px;
   background: var(--border);
 }
 
@@ -621,7 +573,6 @@
 .solverAvatar {
   width: 1.25rem;
   height: 1.25rem;
-  border-radius: 50%;
   object-fit: cover;
   border: 1px solid var(--primary);
 }

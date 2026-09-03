@@ -462,7 +462,11 @@ function MatchSidePanel({
           {/* Score Overview */}
           <div className={styles.scoreOverview}>
             {/* Team 1 */}
-            <div className={styles.scoreTeam}>
+            <div
+              className={`${styles.scoreTeam} ${
+                t1 && winnerId && t1 === winnerId ? styles.scoreTeamWinner : ""
+              }`}
+            >
               <div
                 className={`${styles.scoreAvatar} ${
                   t1 && winnerId && t1 === winnerId
@@ -494,7 +498,11 @@ function MatchSidePanel({
             </div>
 
             {/* Team 2 */}
-            <div className={styles.scoreTeam}>
+            <div
+              className={`${styles.scoreTeam} ${
+                t2 && winnerId && t2 === winnerId ? styles.scoreTeamWinner : ""
+              }`}
+            >
               <div
                 className={`${styles.scoreAvatar} ${
                   t2 && winnerId && t2 === winnerId
@@ -768,6 +776,7 @@ export default function BracketRoomClient({
             <div className={styles.headerDivider} />
           </div>
           <div>
+            <p className={styles.kicker}>Internal</p>
             <div className={styles.titleRow}>
               <h2 className={styles.title}>{contest.name}</h2>
               <span className={styles.knockoutBadge}>Knockout</span>

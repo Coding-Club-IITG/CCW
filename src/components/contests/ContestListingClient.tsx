@@ -21,6 +21,7 @@ import {
 
 import CreateRoomModal from "./CreateRoomModal";
 import RegisterContestModal from "./RegisterContestModal";
+import SegmentedControl from "@/components/public/SegmentedControl";
 import styles from "./ContestListingClient.module.scss";
 
 function RegisterButton({
@@ -238,43 +239,37 @@ export default function ContestListingClient({
         <div className={styles.container}>
           {/* Header & Filters */}
           <div className={styles.headerRow}>
-            <h1 className={styles.title}>Contests</h1>
+            <div>
+              <p className={styles.kicker}>Internal</p>
+              <h1 className={styles.title}>Contests</h1>
+            </div>
             <div className={styles.headerControls}>
-              <div className={styles.filterRow}>
-                <button
-                  onClick={() => setFormatFilter("all")}
-                  className={`${styles.filterBtn} ${
-                    formatFilter === "all" ? styles.filterBtnActive : ""
-                  }`}
-                >
-                  <ListFilter className={styles.icon18} size={18} />
-                  All Formats
-                </button>
-                <button
-                  onClick={() => setFormatFilter("blitz")}
-                  className={`${styles.filterBtn} ${
-                    formatFilter === "blitz" ? styles.filterBtnActive : ""
-                  }`}
-                >
-                  Blitz
-                </button>
-                <button
-                  onClick={() => setFormatFilter("arena")}
-                  className={`${styles.filterBtn} ${
-                    formatFilter === "arena" ? styles.filterBtnActive : ""
-                  }`}
-                >
-                  Arena
-                </button>
-                <button
-                  onClick={() => setFormatFilter("bracket")}
-                  className={`${styles.filterBtn} ${
-                    formatFilter === "bracket" ? styles.filterBtnActive : ""
-                  }`}
-                >
-                  Knockout
-                </button>
-              </div>
+              <SegmentedControl
+                label="Contest format"
+                segments={[
+                  {
+                    label: "All formats",
+                    active: formatFilter === "all",
+                    onClick: () => setFormatFilter("all"),
+                    Icon: ListFilter,
+                  },
+                  {
+                    label: "Blitz",
+                    active: formatFilter === "blitz",
+                    onClick: () => setFormatFilter("blitz"),
+                  },
+                  {
+                    label: "Arena",
+                    active: formatFilter === "arena",
+                    onClick: () => setFormatFilter("arena"),
+                  },
+                  {
+                    label: "Knockout",
+                    active: formatFilter === "bracket",
+                    onClick: () => setFormatFilter("bracket"),
+                  },
+                ]}
+              />
               <button
                 onClick={() => setShowCreateModal(true)}
                 className={styles.createBtn}

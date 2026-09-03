@@ -114,7 +114,7 @@ export default function RatingLeaderboardClient({
       />
       <LeaderboardTable
         title={`${PLATFORM_DISPLAY_NAMES[platform]} Leaderboard`}
-        description="Current standings of coding club members."
+        description="Current member standings."
         columns={columns}
         data={filteredEntries}
         getKey={(item) => item.id}

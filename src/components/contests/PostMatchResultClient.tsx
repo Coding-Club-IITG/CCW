@@ -266,7 +266,9 @@ export default function PostMatchResultClient({
                 <div key={team.id} className={styles.teamStanding}>
                   <div className={styles.teamStandingHeader}>
                     <div className={styles.teamStandingLeft}>
-                      <span className={styles.teamRank}>#{tIdx + 1}</span>
+                      <span className={styles.teamRank}>
+                        {String(tIdx + 1).padStart(2, "0")}
+                      </span>
                       {isSoloFormat && team.members[0] && (
                         <CompatibleImage
                           src={team.members[0].avatar}

@@ -2,7 +2,7 @@
 
 @use "layout" as *;
 
-// Full-bleed page root for contest screens (rooms, listings, history)
+// Full-bleed page root
 @mixin contest-page {
   flex: 1;
   display: flex;
@@ -12,12 +12,12 @@
   color: var(--foreground);
 }
 
-// Centered content column using the shared site-wide page width and gutters
+// Centered content column
 @mixin contest-container {
   @include page-container;
 }
 
-// Subtle decorative dot pattern (apply to an absolutely-positioned overlay layer)
+// Subtle decorative dot pattern
 @mixin contest-bg-pattern {
   position: absolute;
   inset: 0;
@@ -39,7 +39,7 @@
   }
 }
 
-// Small meta/label text (replaces Material-3 label-sm; system font, GitHub style)
+// Small meta/label text
 @mixin contest-label {
   font-size: 0.75rem;
   font-weight: 500;
@@ -47,13 +47,12 @@
   line-height: 1.2;
 }
 
-// Soft glow, recoloured to the GitHub palette via alpha vars
-@mixin contest-glow($color: var(--focus-ring), $blur: 15px) {
+// Soft glow
+@mixin contest-glow($color: var(--contest-glow), $blur: 15px) {
   box-shadow: 0 0 $blur $color;
 }
 
-// Shared keyframes - include at a module's TOP LEVEL, then reference by name.
-// Split so modules only emit the keyframes they use.
+// Shared keyframes
 @mixin contest-kf-pulse {
   @keyframes contestPulse {
     0%,
