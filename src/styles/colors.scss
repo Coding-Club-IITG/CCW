@@ -82,6 +82,10 @@
   // Contest HUD and card glows
   --contest-glow: rgba(192, 224, 74, 0.5);
 
+  // Loading skeletons
+  --skeleton: #1c1c1a;
+  --skeleton-hi: #2a2a26;
+
   // On emphasis
   --fg-on-emphasis: #ffffff;
 
@@ -293,6 +297,10 @@
 
   // Contest HUD and card glows
   --contest-glow: rgba(92, 122, 0, 0.16);
+
+  // Loading skeletons
+  --skeleton: #e8e6df;
+  --skeleton-hi: #f3f2ec;
 
   // On emphasis
   --fg-on-emphasis: #ffffff;
