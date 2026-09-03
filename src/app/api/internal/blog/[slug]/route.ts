@@ -239,7 +239,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     const post = result.data.post;
     if (post.status !== "published" || !post.pendingRevision) {
-      return jsonError("BAD_REQUEST", "No pending revision to discard.");
+      return jsonError("VALIDATION_ERROR", "No pending revision to discard.");
     }
 
     const dbSession = await mongoose.startSession();
