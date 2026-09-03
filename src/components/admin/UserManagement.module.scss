@@ -9,7 +9,7 @@
   padding: 1.1rem 1.25rem;
   background: var(--surface-secondary);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
 
   form {
     display: grid;
@@ -52,7 +52,7 @@
     min-height: 38px;
     padding: 0.45rem 0.65rem;
     border: 1px solid var(--border-input);
-    border-radius: 7px;
+    border-radius: 0;
     background: var(--surface);
     color: var(--foreground);
     font-size: 0.85rem;
@@ -87,7 +87,7 @@
 .tableContainer {
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--surface);
 }
 .table {
@@ -151,7 +151,7 @@
   min-height: 34px;
   padding: 0.35rem 1.8rem 0.35rem 0.55rem;
   border: 1px solid var(--border-input);
-  border-radius: 7px;
+  border-radius: 0;
   background: var(--surface);
   color: var(--foreground);
   font-size: 0.8rem;
@@ -192,7 +192,7 @@
   max-width: 260px;
   padding: 0.28rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--surface-secondary);
   color: var(--muted);
   font-size: 0.7rem;
@@ -228,7 +228,7 @@
   place-items: center;
   padding: 0;
   border: 1px solid var(--border-input);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--surface-secondary);
   color: var(--foreground);
   cursor: pointer;
@@ -258,12 +258,11 @@
   min-width: 100px;
 }
 .iconButton,
-.closeButton,
 .removeRoleButton {
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 0;
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
@@ -272,8 +271,7 @@
   width: 31px;
   height: 31px;
 }
-.iconButton:hover,
-.closeButton:hover {
+.iconButton:hover {
   border-color: var(--primary);
   color: var(--primary);
   background: var(--surface-hover);
@@ -283,46 +281,6 @@
   color: var(--danger);
 }
 
-.overlay {
-  @include modal-overlay;
-  z-index: 999;
-}
-.modal {
-  @include modal-dialog(520px);
-  z-index: 1000;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  max-height: min(680px, calc(100vh - 2rem));
-  overflow-y: auto;
-  transform: translate(-50%, -50%);
-  border-radius: 10px;
-}
-.smallModal {
-  max-width: 410px;
-}
-.modalHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1.1rem;
-}
-.modalHeader h2 {
-  margin: 0;
-  color: var(--foreground-strong);
-  font-size: 1.08rem;
-}
-.modalHeader p {
-  margin: 0.25rem 0 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-}
-.closeButton {
-  flex: 0 0 auto;
-  width: 31px;
-  height: 31px;
-}
 .modalBody {
   margin-bottom: 1.2rem;
 }
@@ -337,7 +295,7 @@
   margin: 0 0 0.75rem;
   padding: 0.8rem;
   border: 1px dashed var(--border);
-  border-radius: 7px;
+  border-radius: 0;
   color: var(--muted);
   font-size: 0.78rem;
   text-align: center;
@@ -347,7 +305,7 @@
   margin: 1rem 0 0;
   padding: 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0;
 }
 .modulePicker legend {
   padding: 0 0.25rem;
@@ -366,7 +324,7 @@
   align-items: center;
   gap: 0.55rem;
   padding: 0.48rem 0.55rem;
-  border-radius: 6px;
+  border-radius: 0;
   color: var(--foreground);
   cursor: pointer;
   font-size: 0.8rem;
@@ -390,7 +348,7 @@
   min-height: 36px;
   padding: 0.35rem 0.5rem;
   border: 1px solid var(--border-input);
-  border-radius: 7px;
+  border-radius: 0;
   background: var(--surface);
   color: var(--foreground);
   font-size: 0.78rem;
@@ -427,7 +385,7 @@
   gap: 0.5rem;
   padding: 0 0.65rem;
   border: 1px solid var(--border-input);
-  border-radius: 7px;
+  border-radius: 0;
   color: var(--muted);
 }
 .tenureInput:focus-within {
@@ -448,13 +406,6 @@
   margin: 0.4rem 0 0;
   color: var(--muted);
   font-size: 0.7rem;
-}
-.modalActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--border);
 }
 .cancel {
   @include btn-secondary;

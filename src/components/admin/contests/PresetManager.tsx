@@ -1,5 +1,6 @@
 "use client";
 
+import Modal from "@/components/shared/Modal";
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import type { ContestPresetDto } from "@/lib/contests/dtos";
 
@@ -250,218 +251,214 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
       </div>
 
       {modalOpen && (
-        <>
-          <div className={styles.overlay} onClick={() => setModalOpen(false)} />
-          <div className={styles.modal}>
-            <form onSubmit={handleSubmit}>
-              <h2>{editingPreset ? "Edit Preset" : "New Preset"}</h2>
+        <Modal
+          kicker="Presets"
+          title={editingPreset ? "Edit preset" : "New preset"}
+          onClose={() => setModalOpen(false)}
+          closeDisabled={loading}
+          maxWidth={500}
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className={styles.cancelButton}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="preset-form"
+                className={styles.saveButton}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className={styles.spinner} size={16} />
+                ) : (
+                  "Save Preset"
+                )}
+              </button>
+            </>
+          }
+        >
+          <form id="preset-form" onSubmit={handleSubmit}>
+            <div className={styles.field}>
+              <label>Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Eg. Blitz 5min Easy"
+                required
+              />
+            </div>
 
+            <div className={styles.field}>
+              <label>Description (Optional)</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Details about this preset..."
+              />
+            </div>
+
+            <div className={styles.row}>
               <div className={styles.field}>
-                <label>Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Eg. Blitz 5min Easy"
-                  required
-                />
-              </div>
-
-              <div className={styles.field}>
-                <label>Description (Optional)</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Details about this preset..."
-                />
-              </div>
-
-              <div className={styles.row}>
-                <div className={styles.field}>
-                  <label>Format</label>
-                  <select
-                    value={format}
-                    onChange={(e) => setFormat(e.target.value)}
-                  >
-                    <option value="bracket">Bracket (Knockout)</option>
-                    <option value="1v1">1v1</option>
-                    <option value="solo-tournament">Solo Tournament</option>
-                    <option value="team-tournament">Team Tournament</option>
-                  </select>
-                </div>
-
-                <div className={styles.field}>
-                  <label>Mode</label>
-                  <select
-                    value={mode}
-                    onChange={(e) => setMode(e.target.value)}
-                  >
-                    <option value="blitz">Blitz</option>
-                    <option value="arena">Arena</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className={styles.field}>
-                <label>Duration (Seconds)</label>
-                <input
-                  type="number"
-                  value={durationSeconds}
-                  onChange={(e) => setDurationSeconds(Number(e.target.value))}
-                  min={60}
-                  required
-                />
-              </div>
-
-              <div className={styles.field}>
-                <label>Problem Selection Mode</label>
+                <label>Format</label>
                 <select
-                  value={problemSelectionMode}
-                  onChange={(e) => setProblemSelectionMode(e.target.value)}
+                  value={format}
+                  onChange={(e) => setFormat(e.target.value)}
                 >
-                  <option value="bulk">Bulk (Automatic query)</option>
-                  <option value="fine-tuned">
-                    Fine-Tuned (Manual rating slots)
-                  </option>
+                  <option value="bracket">Bracket (Knockout)</option>
+                  <option value="1v1">1v1</option>
+                  <option value="solo-tournament">Solo Tournament</option>
+                  <option value="team-tournament">Team Tournament</option>
                 </select>
               </div>
 
-              {problemSelectionMode === "bulk" ? (
-                <div className={styles.bulkSection}>
+              <div className={styles.field}>
+                <label>Mode</label>
+                <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                  <option value="blitz">Blitz</option>
+                  <option value="arena">Arena</option>
+                </select>
+              </div>
+            </div>
+
+            <div className={styles.field}>
+              <label>Duration (Seconds)</label>
+              <input
+                type="number"
+                value={durationSeconds}
+                onChange={(e) => setDurationSeconds(Number(e.target.value))}
+                min={60}
+                required
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label>Problem Selection Mode</label>
+              <select
+                value={problemSelectionMode}
+                onChange={(e) => setProblemSelectionMode(e.target.value)}
+              >
+                <option value="bulk">Bulk (Automatic query)</option>
+                <option value="fine-tuned">
+                  Fine-Tuned (Manual rating slots)
+                </option>
+              </select>
+            </div>
+
+            {problemSelectionMode === "bulk" ? (
+              <div className={styles.bulkSection}>
+                <div className={styles.field}>
+                  <label>Platform</label>
+                  <select
+                    value={bulkPlatform}
+                    onChange={(e) => setBulkPlatform(e.target.value)}
+                  >
+                    <option value="codeforces">Codeforces</option>
+                  </select>
+                </div>
+                <div className={styles.row}>
                   <div className={styles.field}>
-                    <label>Platform</label>
-                    <select
-                      value={bulkPlatform}
-                      onChange={(e) => setBulkPlatform(e.target.value)}
-                    >
-                      <option value="codeforces">Codeforces</option>
-                    </select>
-                  </div>
-                  <div className={styles.row}>
-                    <div className={styles.field}>
-                      <label>Min Rating</label>
-                      <input
-                        type="number"
-                        value={bulkRatingMin}
-                        onChange={(e) =>
-                          setBulkRatingMin(Number(e.target.value))
-                        }
-                        min={800}
-                        max={3500}
-                        step={100}
-                      />
-                    </div>
-                    <div className={styles.field}>
-                      <label>Max Rating</label>
-                      <input
-                        type="number"
-                        value={bulkRatingMax}
-                        onChange={(e) =>
-                          setBulkRatingMax(Number(e.target.value))
-                        }
-                        min={800}
-                        max={3500}
-                        step={100}
-                      />
-                    </div>
-                  </div>
-                  <div className={styles.field}>
-                    <label>Problem Count</label>
+                    <label>Min Rating</label>
                     <input
                       type="number"
-                      value={bulkProblemCount}
-                      onChange={(e) =>
-                        setBulkProblemCount(Number(e.target.value))
-                      }
-                      min={1}
-                      max={10}
+                      value={bulkRatingMin}
+                      onChange={(e) => setBulkRatingMin(Number(e.target.value))}
+                      min={800}
+                      max={3500}
+                      step={100}
                     />
                   </div>
                   <div className={styles.field}>
-                    <label>Contest Release Date</label>
-                    <select
-                      value={bulkMinContestId}
-                      onChange={(e) =>
-                        setBulkMinContestId(Number(e.target.value))
-                      }
-                    >
-                      {CF_CONTEST_YEAR_OPTIONS.map((opt) => (
-                        <option key={opt.minContestId} value={opt.minContestId}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                    <label>Max Rating</label>
+                    <input
+                      type="number"
+                      value={bulkRatingMax}
+                      onChange={(e) => setBulkRatingMax(Number(e.target.value))}
+                      min={800}
+                      max={3500}
+                      step={100}
+                    />
                   </div>
                 </div>
-              ) : (
-                <div className={styles.fineTunedSection}>
-                  <label>Problem Slots</label>
-                  {problemSlots.map((slot, index) => (
-                    <div key={index} className={styles.slotRow}>
-                      <select
-                        value={slot.platform}
-                        onChange={(e) =>
-                          updateSlot(index, "platform", e.target.value)
-                        }
-                      >
-                        <option value="codeforces">Codeforces</option>
-                      </select>
-                      <input
-                        type="number"
-                        value={slot.rating}
-                        onChange={(e) =>
-                          updateSlot(index, "rating", Number(e.target.value))
-                        }
-                        min={800}
-                        max={3500}
-                        step={100}
-                        placeholder="Rating"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeSlot(index)}
-                        disabled={problemSlots.length <= 1}
-                        className={styles.removeSlotBtn}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={addSlot}
-                    className={styles.addSlotBtn}
-                  >
-                    + Add Slot
-                  </button>
+                <div className={styles.field}>
+                  <label>Problem Count</label>
+                  <input
+                    type="number"
+                    value={bulkProblemCount}
+                    onChange={(e) =>
+                      setBulkProblemCount(Number(e.target.value))
+                    }
+                    min={1}
+                    max={10}
+                  />
                 </div>
-              )}
-
-              <div className={styles.modalActions}>
+                <div className={styles.field}>
+                  <label>Contest Release Date</label>
+                  <select
+                    value={bulkMinContestId}
+                    onChange={(e) =>
+                      setBulkMinContestId(Number(e.target.value))
+                    }
+                  >
+                    {CF_CONTEST_YEAR_OPTIONS.map((opt) => (
+                      <option key={opt.minContestId} value={opt.minContestId}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.fineTunedSection}>
+                <label>Problem Slots</label>
+                {problemSlots.map((slot, index) => (
+                  <div key={index} className={styles.slotRow}>
+                    <select
+                      value={slot.platform}
+                      onChange={(e) =>
+                        updateSlot(index, "platform", e.target.value)
+                      }
+                    >
+                      <option value="codeforces">Codeforces</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={slot.rating}
+                      onChange={(e) =>
+                        updateSlot(index, "rating", Number(e.target.value))
+                      }
+                      min={800}
+                      max={3500}
+                      step={100}
+                      placeholder="Rating"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeSlot(index)}
+                      disabled={problemSlots.length <= 1}
+                      className={styles.removeSlotBtn}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
                 <button
                   type="button"
-                  onClick={() => setModalOpen(false)}
-                  className={styles.cancelButton}
-                  disabled={loading}
+                  onClick={addSlot}
+                  className={styles.addSlotBtn}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={styles.saveButton}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className={styles.spinner} size={16} />
-                  ) : (
-                    "Save Preset"
-                  )}
+                  + Add Slot
                 </button>
               </div>
-            </form>
-          </div>
-        </>
+            )}
+          </form>
+        </Modal>
       )}
     </div>
   );

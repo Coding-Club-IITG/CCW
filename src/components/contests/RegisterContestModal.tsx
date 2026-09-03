@@ -1,5 +1,6 @@
 "use client";
 
+import Modal from "@/components/shared/Modal";
 import { useState, useEffect } from "react";
 import {
   registerForContest,
@@ -231,203 +232,174 @@ export default function RegisterContestModal({
     }
   };
 
+  const footer = viewOnly ? (
+    <>
+      {!isDeadlinePassed && registrationType !== "closed" && (
+        <button
+          className={styles.btnDanger}
+          type="button"
+          onClick={handleUnregister}
+          disabled={loading}
+        >
+          {loading ? "Leaving..." : "Leave Contest"}
+        </button>
+      )}
+      <button className={styles.btnPrimary} type="button" onClick={onClose}>
+        Close
+      </button>
+    </>
+  ) : (
+    <>
+      <button className={styles.btnGhost} type="button" onClick={onClose}>
+        Cancel
+      </button>
+      <button
+        className={styles.btnPrimary}
+        type="submit"
+        form="register-contest-form"
+        disabled={loading}
+      >
+        {loading ? "Registering..." : "Register"}
+      </button>
+    </>
+  );
+
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      {/* Modal Container */}
-      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-        {/* Accent line */}
-        <div className={styles.accentLine}></div>
+    <Modal
+      kicker="Contests"
+      title={viewOnly ? "Contest registrations" : "Register for contest"}
+      onClose={onClose}
+      closeDisabled={loading}
+      maxWidth={448}
+      contentClassName={styles.body}
+      footer={footer}
+    >
+      <div>
+        {/* Current Registrations Display */}
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>
+            <List className={styles.icon18} size={18} />
+            Current Registrations
+          </h3>
+          {renderRegistrations()}
+        </div>
 
-        {/* Header */}
-        <div className={styles.header}>
-          <h2>{viewOnly ? "Contest Registrations" : "Register for Contest"}</h2>
-          <button
-            onClick={onClose}
-            aria-label="Close modal"
-            className={styles.closeBtn}
-            type="button"
+        {/* Body / Form Fields */}
+        {!viewOnly && (
+          <form
+            id="register-contest-form"
+            onSubmit={handleSubmit}
+            className={styles.form}
           >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className={styles.body}>
-          {/* Current Registrations Display */}
-          <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>
-              <List className={styles.icon18} size={18} />
-              Current Registrations
-            </h3>
-            {renderRegistrations()}
-          </div>
-
-          {/* Body / Form Fields */}
-          {!viewOnly && (
-            <form
-              id="register-contest-form"
-              onSubmit={handleSubmit}
-              className={styles.form}
-            >
-              <div className={styles.divider}></div>
-              {teamSize > 1 ? (
-                <div className={styles.field}>
-                  <span className={styles.fieldLabel}>Registration Mode</span>
-                  <div className={styles.radioGroup}>
-                    {/* Option: Create New Team */}
-                    <label className={styles.radioLabel}>
-                      <input
-                        className={styles.radio}
-                        name="registration_mode"
-                        type="radio"
-                        value="new"
-                        checked={mode === "new"}
-                        onChange={() => setMode("new")}
-                      />
-                      <div className={styles.radioDot}></div>
-                      <span className={styles.radioText}>Create New Team</span>
-                    </label>
-
-                    {/* Option: Join Existing */}
-                    <label className={styles.radioLabel}>
-                      <input
-                        className={styles.radio}
-                        name="registration_mode"
-                        type="radio"
-                        value="existing"
-                        checked={mode === "existing"}
-                        onChange={() => setMode("existing")}
-                      />
-                      <div className={styles.radioDot}></div>
-                      <span className={styles.radioText}>Join Existing</span>
-                    </label>
-                  </div>
-                </div>
-              ) : (
-                <div className={styles.soloNote}>
-                  You are registering as a Solo player.
-                </div>
-              )}
-
-              {/* Team Name Text Input */}
-              {!["1v1", "solo-tournament"].includes(format) && (
-                <div className={styles.field}>
-                  <label className={styles.fieldLabel} htmlFor="team_name">
-                    {mode === "existing"
-                      ? "Team Name to Join"
-                      : teamSize === 1
-                        ? "Your Display Name"
-                        : "New Team Name"}
+            <div className={styles.divider}></div>
+            {teamSize > 1 ? (
+              <div className={styles.field}>
+                <span className={styles.fieldLabel}>Registration Mode</span>
+                <div className={styles.radioGroup}>
+                  {/* Option: Create New Team */}
+                  <label className={styles.radioLabel}>
+                    <input
+                      className={styles.radio}
+                      name="registration_mode"
+                      type="radio"
+                      value="new"
+                      checked={mode === "new"}
+                      onChange={() => setMode("new")}
+                    />
+                    <div className={styles.radioDot}></div>
+                    <span className={styles.radioText}>Create New Team</span>
                   </label>
-                  <div className={styles.inputWrap}>
-                    {mode === "existing" ? (
-                      <>
-                        <Users className={styles.inputIcon} size={18} />
-                        <select
-                          className={styles.select}
-                          id="team_name"
-                          name="team_name"
-                          required={
-                            !["1v1", "solo-tournament"].includes(format)
-                          }
-                          value={teamName}
-                          onChange={(e) => setTeamName(e.target.value)}
-                        >
-                          <option value="" disabled>
-                            Select a team to join
-                          </option>
-                          {loadingTeams ? (
-                            <option value="" disabled>
-                              Loading teams...
-                            </option>
-                          ) : availableTeams.length === 0 ? (
-                            <option value="" disabled>
-                              No available teams to join
-                            </option>
-                          ) : (
-                            availableTeams.map((t) => (
-                              <option key={t.teamName} value={t.teamName}>
-                                {t.teamName} ({t.memberCount}/{t.maxCapacity}{" "}
-                                members)
-                              </option>
-                            ))
-                          )}
-                        </select>
-                        <ChevronDown className={styles.dropIcon} size={18} />
-                      </>
-                    ) : (
-                      <>
-                        <Terminal className={styles.inputIcon} size={18} />
-                        <input
-                          className={styles.input}
-                          id="team_name"
-                          name="team_name"
-                          placeholder={
-                            teamSize === 1
-                              ? "Eg. Code Ninja"
-                              : "Eg. Null Pointers"
-                          }
-                          required={
-                            !["1v1", "solo-tournament"].includes(format)
-                          }
-                          type="text"
-                          value={teamName}
-                          onChange={(e) => setTeamName(e.target.value)}
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </form>
-          )}
-        </div>
 
-        {/* Footer / Actions */}
-        <div className={styles.footer}>
-          {viewOnly ? (
-            <>
-              {!isDeadlinePassed && registrationType !== "closed" && (
-                <button
-                  className={styles.btnDanger}
-                  type="button"
-                  onClick={handleUnregister}
-                  disabled={loading}
-                >
-                  {loading ? "Leaving..." : "Leave Contest"}
-                </button>
-              )}
-              <button
-                className={styles.btnPrimary}
-                type="button"
-                onClick={onClose}
-              >
-                Close
-              </button>
-            </>
-          ) : (
-            <>
-              <div></div> {/* spacer */}
-              <div className={styles.footerActions}>
-                <button
-                  className={styles.btnGhost}
-                  type="button"
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-                <button
-                  className={styles.btnPrimary}
-                  type="submit"
-                  form="register-contest-form"
-                  disabled={loading}
-                >
-                  {loading ? "Registering..." : "Register"}
-                </button>
+                  {/* Option: Join Existing */}
+                  <label className={styles.radioLabel}>
+                    <input
+                      className={styles.radio}
+                      name="registration_mode"
+                      type="radio"
+                      value="existing"
+                      checked={mode === "existing"}
+                      onChange={() => setMode("existing")}
+                    />
+                    <div className={styles.radioDot}></div>
+                    <span className={styles.radioText}>Join Existing</span>
+                  </label>
+                </div>
               </div>
-            </>
-          )}
-        </div>
+            ) : (
+              <div className={styles.soloNote}>
+                You are registering as a Solo player.
+              </div>
+            )}
+
+            {/* Team Name Text Input */}
+            {!["1v1", "solo-tournament"].includes(format) && (
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="team_name">
+                  {mode === "existing"
+                    ? "Team Name to Join"
+                    : teamSize === 1
+                      ? "Your Display Name"
+                      : "New Team Name"}
+                </label>
+                <div className={styles.inputWrap}>
+                  {mode === "existing" ? (
+                    <>
+                      <Users className={styles.inputIcon} size={18} />
+                      <select
+                        className={styles.select}
+                        id="team_name"
+                        name="team_name"
+                        required={!["1v1", "solo-tournament"].includes(format)}
+                        value={teamName}
+                        onChange={(e) => setTeamName(e.target.value)}
+                      >
+                        <option value="" disabled>
+                          Select a team to join
+                        </option>
+                        {loadingTeams ? (
+                          <option value="" disabled>
+                            Loading teams...
+                          </option>
+                        ) : availableTeams.length === 0 ? (
+                          <option value="" disabled>
+                            No available teams to join
+                          </option>
+                        ) : (
+                          availableTeams.map((t) => (
+                            <option key={t.teamName} value={t.teamName}>
+                              {t.teamName} ({t.memberCount}/{t.maxCapacity}{" "}
+                              members)
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <ChevronDown className={styles.dropIcon} size={18} />
+                    </>
+                  ) : (
+                    <>
+                      <Terminal className={styles.inputIcon} size={18} />
+                      <input
+                        className={styles.input}
+                        id="team_name"
+                        name="team_name"
+                        placeholder={
+                          teamSize === 1
+                            ? "Eg. Code Ninja"
+                            : "Eg. Null Pointers"
+                        }
+                        required={!["1v1", "solo-tournament"].includes(format)}
+                        type="text"
+                        value={teamName}
+                        onChange={(e) => setTeamName(e.target.value)}
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </form>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

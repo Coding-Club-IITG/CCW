@@ -2,65 +2,6 @@
 
 @include contest-kf-spin;
 
-/* Modal chrome */
-.overlay {
-  @include modal-overlay;
-  z-index: 9999;
-  padding: 1rem;
-  overflow-y: auto;
-  backdrop-filter: grayscale(1);
-
-  @media (min-width: 768px) {
-    padding: 3rem;
-  }
-}
-
-.dialog {
-  position: relative;
-  z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 672px;
-  margin: 0 auto;
-  max-height: 85vh;
-  overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px var(--shadow-lg);
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-
-  h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--foreground-strong);
-  }
-}
-
-.closeBtn {
-  display: inline-flex;
-  padding: 0.5rem;
-  border-radius: 6px;
-  color: var(--muted);
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
-
-  &:hover {
-    color: var(--foreground-strong);
-    background: var(--surface-hover);
-  }
-}
-
 .body {
   flex: 1;
   overflow-y: auto;
@@ -85,16 +26,6 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-.footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border);
-  background: var(--surface-secondary);
 }
 
 .cancelBtn {

@@ -46,6 +46,13 @@
     #ff4e41,
     #a849ec
   );
+
+  // Stacking order
+  --z-sticky: 40; // filter bars and rails docked under navbar
+  --z-nav: 100; // the navbar
+  --z-sheet: 120; // slide-in sheets and side panels
+  --z-overlay: 1000; // modal backdrops
+  --z-console: 2000; // Atlas
 }
 
 // Dark theme (default)

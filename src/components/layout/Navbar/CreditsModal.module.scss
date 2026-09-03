@@ -37,7 +37,7 @@
   padding: 0.625rem;
   background: var(--surface-secondary);
   border: 1px solid var(--border-light);
-  border-radius: 6px;
+  border-radius: 0;
   div {
     display: flex;
     min-width: 0;
@@ -61,7 +61,7 @@
   flex: 0 0 auto;
   width: 2rem;
   height: 2rem;
-  border-radius: 50%;
+  border-radius: 0;
 }
 .avatarImage {
   object-fit: cover;
@@ -79,7 +79,7 @@
   padding: 0.875rem;
   background: var(--surface-secondary);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0;
 }
 .editSectionHeader {
   display: flex;
@@ -114,7 +114,7 @@
   color: var(--foreground);
   background: var(--surface);
   border: 1px solid var(--border-input);
-  border-radius: 6px;
+  border-radius: 0;
   font: inherit;
   font-size: 0.8125rem;
 }
@@ -151,7 +151,7 @@
   padding: 0.625rem 0.75rem;
   color: var(--danger-text);
   background: var(--danger-bg);
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.8125rem;
 }
 .spinner {

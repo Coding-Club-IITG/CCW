@@ -9,17 +9,15 @@ import {
   deleteScheduledChallenge,
   type ScheduledChallenge,
 } from "@/lib/actions/admin/potd";
-import { Sparkles, Trash2 as IconTrash } from "lucide-react";
-import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
+import { Sparkles } from "lucide-react";
 import { ScheduledProblemCard } from "./ScheduledProblemCard";
 import AutoProblemModal from "./AutoProblemModal";
 import {
   DIFFICULTIES,
   PLATFORMS,
   PLATFORM_DISPLAY_NAMES,
-  PLATFORM_PROBLEM_URLS,
 } from "@/lib/constants";
-import type { Platform, Difficulty } from "@/lib/constants";
+import type { Platform } from "@/lib/constants";
 import {
   formatDate,
   getAvailableDates,
@@ -399,13 +397,14 @@ export default function SetProblemClient() {
         )}
       </div>
 
-      <AutoProblemModal
-        isOpen={isAutoModalOpen}
-        onClose={() => setIsAutoModalOpen(false)}
-        availableDates={availableDates}
-        takenDifficultiesMap={takenDifficulties}
-        onSuccess={fetchScheduled}
-      />
+      {isAutoModalOpen && (
+        <AutoProblemModal
+          onClose={() => setIsAutoModalOpen(false)}
+          availableDates={availableDates}
+          takenDifficultiesMap={takenDifficulties}
+          onSuccess={fetchScheduled}
+        />
+      )}
     </div>
   );
 }

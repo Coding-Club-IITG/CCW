@@ -3,7 +3,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  z-index: var(--z-console);
   display: flex;
   align-items: flex-start;
   justify-content: center;

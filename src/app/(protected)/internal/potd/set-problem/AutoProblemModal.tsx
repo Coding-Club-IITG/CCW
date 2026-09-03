@@ -4,11 +4,11 @@ import { useState } from "react";
 import styles from "./AutoProblemModal.module.scss";
 import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
 import { CandidateProblemCard } from "./CandidateProblemCard";
-import { X, Sparkles, Play, Save, ArrowLeft } from "lucide-react";
+import Modal from "@/components/shared/Modal";
+import { Sparkles, Play, Save, ArrowLeft } from "lucide-react";
 import {
   type Difficulty,
   DIFFICULTIES,
-  PLATFORM_PROBLEM_URLS,
   CF_CONTEST_YEAR_OPTIONS,
 } from "@/lib/constants";
 import { formatDate, getTodayISTDateStr } from "@/lib/potd/utils";
@@ -20,7 +20,6 @@ import {
 } from "@/lib/actions/admin/potd";
 
 interface AutoProblemModalProps {
-  isOpen: boolean;
   onClose: () => void;
   availableDates: string[];
   takenDifficultiesMap: (dateStr: string) => Set<Difficulty>;
@@ -33,7 +32,6 @@ type RatingRange = {
 };
 
 export default function AutoProblemModal({
-  isOpen,
   onClose,
   availableDates,
   takenDifficultiesMap,
@@ -80,8 +78,6 @@ export default function AutoProblemModal({
   const [rerollingId, setRerollingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  if (!isOpen) return null;
 
   const handleToggleDate = (d: string) => {
     if (selectedDates.includes(d)) {
@@ -213,261 +209,253 @@ export default function AutoProblemModal({
     }
   };
 
+  const footer =
+    step === "config" ? (
+      <>
+        <button className={styles.cancelBtn} onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          className={styles.primaryBtn}
+          disabled={loading}
+          onClick={handleGeneratePreview}
+        >
+          <Play size={16} />
+          {loading ? "Generating Candidate Preview..." : "Generate Preview"}
+        </button>
+      </>
+    ) : (
+      <>
+        <button
+          className={styles.cancelBtn}
+          onClick={() => setStep("config")}
+          disabled={saving}
+        >
+          <ArrowLeft size={16} />
+          Back to Config
+        </button>
+        <button
+          className={styles.primaryBtn}
+          disabled={saving || candidates.every((c) => !c.problem)}
+          onClick={handleSaveAll}
+        >
+          <Save size={16} />
+          {saving ? "Saving Schedule..." : "Confirm & Save Schedule"}
+        </button>
+      </>
+    );
+
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className={styles.header}>
-          <h2>
-            <Sparkles size={18} />
-            Auto Problem Setting
-          </h2>
-          <button className={styles.closeBtn} onClick={onClose} title="Close">
-            <X size={20} />
-          </button>
-        </div>
+    <Modal
+      kicker="POTD"
+      title={
+        <>
+          <Sparkles size={18} aria-hidden="true" />
+          Auto problem setting
+        </>
+      }
+      closeLabel="Close auto problem setting"
+      onClose={onClose}
+      closeDisabled={loading || saving}
+      maxWidth={800}
+      backdropClassName={styles.blurBackdrop}
+      contentClassName={styles.body}
+      footer={footer}
+    >
+      <div>
+        {errorMsg && <div className={styles.errorMessage}>{errorMsg}</div>}
 
-        {/* Body */}
-        <div className={styles.body}>
-          {errorMsg && <div className={styles.errorMessage}>{errorMsg}</div>}
-
-          {step === "config" ? (
-            <>
-              {/* Rating Parameters per Difficulty */}
-              <div>
-                <div className={styles.sectionTitle}>
-                  1. Rating Parameters per Difficulty
-                </div>
-                <div className={styles.ratingsContainer}>
-                  {DIFFICULTIES.map((diff) => (
-                    <div key={diff} className={styles.ratingGroup}>
-                      <div className={styles.ratingGroupHeader}>
-                        <DifficultyBadge difficulty={diff} />
-                        <span
-                          style={{ fontSize: "0.75rem", color: "var(--muted)" }}
-                        >
-                          Rating Bounds
-                        </span>
-                      </div>
-                      <div className={styles.inputsRow}>
-                        <input
-                          type="number"
-                          title={`${diff} Minimum Rating`}
-                          value={ratingRanges[diff].min}
-                          onChange={(e) =>
-                            setRatingRanges({
-                              ...ratingRanges,
-                              [diff]: {
-                                ...ratingRanges[diff],
-                                min: Math.max(0, parseInt(e.target.value) || 0),
-                              },
-                            })
-                          }
-                          step={100}
-                        />
-                        <span>to</span>
-                        <input
-                          type="number"
-                          title={`${diff} Maximum Rating`}
-                          value={ratingRanges[diff].max}
-                          onChange={(e) =>
-                            setRatingRanges({
-                              ...ratingRanges,
-                              [diff]: {
-                                ...ratingRanges[diff],
-                                max: Math.max(0, parseInt(e.target.value) || 0),
-                              },
-                            })
-                          }
-                          step={100}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Release Timeframe / Contest Filter */}
-              <div>
-                <div className={styles.sectionTitle}>
-                  2. Release Timeframe / Contest Filter
-                </div>
-                <div
-                  className={styles.ratingsContainer}
-                  style={{ gridTemplateColumns: "1fr" }}
-                >
-                  <div className={styles.ratingGroup}>
-                    <label
-                      htmlFor="potdMinContestSelect"
-                      style={{ fontSize: "0.8125rem", fontWeight: 600 }}
-                    >
-                      Contest Release Date
-                    </label>
-                    <select
-                      id="potdMinContestSelect"
-                      value={minContestId}
-                      onChange={(e) => setMinContestId(Number(e.target.value))}
-                      style={{
-                        padding: "0.5rem 0.75rem",
-                        border: "1px solid var(--border-input)",
-                        borderRadius: "6px",
-                        fontSize: "0.875rem",
-                        background: "var(--surface)",
-                        color: "var(--foreground)",
-                        outline: "none",
-                      }}
-                    >
-                      {CF_CONTEST_YEAR_OPTIONS.map((opt) => (
-                        <option key={opt.minContestId} value={opt.minContestId}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Select Dates and Slots */}
-              <div>
-                <div className={styles.sectionTitle}>
-                  2. Select Target Dates & Difficulty Slots
-                </div>
-                <div className={styles.datesGrid}>
-                  {availableDates.map((dateStr) => {
-                    const isToday = dateStr === todayIST;
-                    const taken = takenDifficultiesMap(dateStr);
-                    const isSelectedDate = selectedDates.includes(dateStr);
-                    const activeDiffs = dateSlots[dateStr] || [];
-
-                    return (
-                      <div key={dateStr} className={styles.dateCard}>
-                        <div className={styles.dateCardHeader}>
-                          <label className={styles.checkboxLabel}>
-                            <input
-                              type="checkbox"
-                              checked={isSelectedDate}
-                              onChange={() => handleToggleDate(dateStr)}
-                            />
-                            <span>
-                              {isToday ? "Today" : formatDate(dateStr, "short")}
-                            </span>
-                          </label>
-                          {taken.size > 0 && (
-                            <span
-                              style={{
-                                fontSize: "0.7rem",
-                                color: "var(--muted)",
-                              }}
-                            >
-                              ({taken.size}/3 taken)
-                            </span>
-                          )}
-                        </div>
-
-                        <div className={styles.diffCheckboxes}>
-                          {DIFFICULTIES.map((diff) => {
-                            const isTaken = taken.has(diff);
-                            const isChecked =
-                              isSelectedDate && activeDiffs.includes(diff);
-
-                            return (
-                              <label
-                                key={diff}
-                                className={`${styles.checkboxLabel} ${
-                                  isTaken ? styles.disabled : ""
-                                }`}
-                                title={
-                                  isTaken
-                                    ? "Already set for this date"
-                                    : undefined
-                                }
-                              >
-                                <input
-                                  type="checkbox"
-                                  disabled={isTaken || !isSelectedDate}
-                                  checked={isChecked && !isTaken}
-                                  onChange={() =>
-                                    handleToggleDifficulty(dateStr, diff)
-                                  }
-                                />
-                                <span>{diff}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
-          ) : (
-            /* Step 2: Interactive Candidate Preview */
+        {step === "config" ? (
+          <>
+            {/* Rating Parameters per Difficulty */}
             <div>
               <div className={styles.sectionTitle}>
-                Candidate Problems Preview ({candidates.length} slots)
+                1. Rating Parameters per Difficulty
               </div>
-              <div className={styles.previewGrid}>
-                {candidates.map((item) => (
-                  <CandidateProblemCard
-                    key={item.id}
-                    item={item}
-                    isToday={item.dateStr === todayIST}
-                    isRerolling={rerollingId === item.id}
-                    saving={saving}
-                    onReroll={handleRerollSingle}
-                  />
+              <div className={styles.ratingsContainer}>
+                {DIFFICULTIES.map((diff) => (
+                  <div key={diff} className={styles.ratingGroup}>
+                    <div className={styles.ratingGroupHeader}>
+                      <DifficultyBadge difficulty={diff} />
+                      <span
+                        style={{ fontSize: "0.75rem", color: "var(--muted)" }}
+                      >
+                        Rating Bounds
+                      </span>
+                    </div>
+                    <div className={styles.inputsRow}>
+                      <input
+                        type="number"
+                        title={`${diff} Minimum Rating`}
+                        value={ratingRanges[diff].min}
+                        onChange={(e) =>
+                          setRatingRanges({
+                            ...ratingRanges,
+                            [diff]: {
+                              ...ratingRanges[diff],
+                              min: Math.max(0, parseInt(e.target.value) || 0),
+                            },
+                          })
+                        }
+                        step={100}
+                      />
+                      <span>to</span>
+                      <input
+                        type="number"
+                        title={`${diff} Maximum Rating`}
+                        value={ratingRanges[diff].max}
+                        onChange={(e) =>
+                          setRatingRanges({
+                            ...ratingRanges,
+                            [diff]: {
+                              ...ratingRanges[diff],
+                              max: Math.max(0, parseInt(e.target.value) || 0),
+                            },
+                          })
+                        }
+                        step={100}
+                      />
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Footer Actions */}
-        <div className={styles.footer}>
-          {step === "config" ? (
-            <>
-              <button className={styles.cancelBtn} onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                className={styles.primaryBtn}
-                disabled={loading}
-                onClick={handleGeneratePreview}
+            {/* Release Timeframe / Contest Filter */}
+            <div>
+              <div className={styles.sectionTitle}>
+                2. Release Timeframe / Contest Filter
+              </div>
+              <div
+                className={styles.ratingsContainer}
+                style={{ gridTemplateColumns: "1fr" }}
               >
-                <Play size={16} />
-                {loading
-                  ? "Generating Candidate Preview..."
-                  : "Generate Preview"}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                className={styles.cancelBtn}
-                onClick={() => setStep("config")}
-                disabled={saving}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.375rem",
-                }}
-              >
-                <ArrowLeft size={16} />
-                Back to Config
-              </button>
-              <button
-                className={styles.primaryBtn}
-                disabled={saving || candidates.every((c) => !c.problem)}
-                onClick={handleSaveAll}
-              >
-                <Save size={16} />
-                {saving ? "Saving Schedule..." : "Confirm & Save Schedule"}
-              </button>
-            </>
-          )}
-        </div>
+                <div className={styles.ratingGroup}>
+                  <label
+                    htmlFor="potdMinContestSelect"
+                    style={{ fontSize: "0.8125rem", fontWeight: 600 }}
+                  >
+                    Contest Release Date
+                  </label>
+                  <select
+                    id="potdMinContestSelect"
+                    value={minContestId}
+                    onChange={(e) => setMinContestId(Number(e.target.value))}
+                    style={{
+                      padding: "0.5rem 0.75rem",
+                      border: "1px solid var(--border-input)",
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                      background: "var(--surface)",
+                      color: "var(--foreground)",
+                      outline: "none",
+                    }}
+                  >
+                    {CF_CONTEST_YEAR_OPTIONS.map((opt) => (
+                      <option key={opt.minContestId} value={opt.minContestId}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Select Dates and Slots */}
+            <div>
+              <div className={styles.sectionTitle}>
+                2. Select Target Dates & Difficulty Slots
+              </div>
+              <div className={styles.datesGrid}>
+                {availableDates.map((dateStr) => {
+                  const isToday = dateStr === todayIST;
+                  const taken = takenDifficultiesMap(dateStr);
+                  const isSelectedDate = selectedDates.includes(dateStr);
+                  const activeDiffs = dateSlots[dateStr] || [];
+
+                  return (
+                    <div key={dateStr} className={styles.dateCard}>
+                      <div className={styles.dateCardHeader}>
+                        <label className={styles.checkboxLabel}>
+                          <input
+                            type="checkbox"
+                            checked={isSelectedDate}
+                            onChange={() => handleToggleDate(dateStr)}
+                          />
+                          <span>
+                            {isToday ? "Today" : formatDate(dateStr, "short")}
+                          </span>
+                        </label>
+                        {taken.size > 0 && (
+                          <span
+                            style={{
+                              fontSize: "0.7rem",
+                              color: "var(--muted)",
+                            }}
+                          >
+                            ({taken.size}/3 taken)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className={styles.diffCheckboxes}>
+                        {DIFFICULTIES.map((diff) => {
+                          const isTaken = taken.has(diff);
+                          const isChecked =
+                            isSelectedDate && activeDiffs.includes(diff);
+
+                          return (
+                            <label
+                              key={diff}
+                              className={`${styles.checkboxLabel} ${
+                                isTaken ? styles.disabled : ""
+                              }`}
+                              title={
+                                isTaken
+                                  ? "Already set for this date"
+                                  : undefined
+                              }
+                            >
+                              <input
+                                type="checkbox"
+                                disabled={isTaken || !isSelectedDate}
+                                checked={isChecked && !isTaken}
+                                onChange={() =>
+                                  handleToggleDifficulty(dateStr, diff)
+                                }
+                              />
+                              <span>{diff}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Step 2: Interactive Candidate Preview */
+          <div>
+            <div className={styles.sectionTitle}>
+              Candidate Problems Preview ({candidates.length} slots)
+            </div>
+            <div className={styles.previewGrid}>
+              {candidates.map((item) => (
+                <CandidateProblemCard
+                  key={item.id}
+                  item={item}
+                  isToday={item.dateStr === todayIST}
+                  isRerolling={rerollingId === item.id}
+                  saving={saving}
+                  onReroll={handleRerollSingle}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

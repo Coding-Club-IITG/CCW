@@ -1,5 +1,6 @@
 "use client";
 
+import Modal from "@/components/shared/Modal";
 import { useCallback, useEffect, useState } from "react";
 import {
   CalendarDays,
@@ -390,30 +391,24 @@ export default function UserManagement() {
         </>
       )}
 
-      {(roleUser || accessUser || tenureUser) && (
-        <div className={styles.overlay} onMouseDown={closeModals} />
-      )}
-
       {accessUser && (
-        <div
-          className={styles.modal}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="access-title"
+        <Modal
+          kicker="Users"
+          title="Access and modules"
+          description={accessUser.name || accessUser.email}
+          onClose={closeModals}
+          maxWidth={520}
+          footer={
+            <>
+              <button className={styles.cancel} onClick={closeModals}>
+                Cancel
+              </button>
+              <button className={styles.save} onClick={() => void saveAccess()}>
+                <Save size={16} /> Save access
+              </button>
+            </>
+          }
         >
-          <div className={styles.modalHeader}>
-            <div>
-              <h2 id="access-title">Access and modules</h2>
-              <p>{accessUser.name || accessUser.email}</p>
-            </div>
-            <button
-              className={styles.closeButton}
-              onClick={closeModals}
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
-          </div>
           <div className={styles.modalBody}>
             <label className={styles.modalLabel} htmlFor="access-level">
               Access
@@ -449,37 +444,33 @@ export default function UserManagement() {
               </fieldset>
             )}
           </div>
-          <div className={styles.modalActions}>
-            <button className={styles.cancel} onClick={closeModals}>
-              Cancel
-            </button>
-            <button className={styles.save} onClick={() => void saveAccess()}>
-              <Save size={16} /> Save access
-            </button>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {roleUser && (
-        <div
-          className={styles.modal}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="roles-title"
+        <Modal
+          kicker="Users"
+          title="Edit roles"
+          description={roleUser.name || roleUser.email}
+          onClose={closeModals}
+          maxWidth={520}
+          footer={
+            <>
+              <button className={styles.cancel} onClick={closeModals}>
+                Cancel
+              </button>
+              <button
+                className={styles.save}
+                onClick={async () => {
+                  if (await run(updateUserRoles(roleUser._id, tempRoles)))
+                    setRoleUser(null);
+                }}
+              >
+                <Save size={16} /> Save roles
+              </button>
+            </>
+          }
         >
-          <div className={styles.modalHeader}>
-            <div>
-              <h2 id="roles-title">Edit roles</h2>
-              <p>{roleUser.name || roleUser.email}</p>
-            </div>
-            <button
-              className={styles.closeButton}
-              onClick={closeModals}
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
-          </div>
           <div className={styles.modalBody}>
             {tempRoles.length === 0 && (
               <p className={styles.modalEmpty}>No roles assigned yet.</p>
@@ -536,43 +527,33 @@ export default function UserManagement() {
               <Plus size={14} /> Add role
             </button>
           </div>
-          <div className={styles.modalActions}>
-            <button className={styles.cancel} onClick={closeModals}>
-              Cancel
-            </button>
-            <button
-              className={styles.save}
-              onClick={async () => {
-                if (await run(updateUserRoles(roleUser._id, tempRoles)))
-                  setRoleUser(null);
-              }}
-            >
-              <Save size={16} /> Save roles
-            </button>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {tenureUser && (
-        <div
-          className={`${styles.modal} ${styles.smallModal}`}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="tenure-title"
+        <Modal
+          kicker="Users"
+          title="Edit tenure"
+          description={tenureUser.name || tenureUser.email}
+          onClose={closeModals}
+          maxWidth={410}
+          footer={
+            <>
+              <button className={styles.cancel} onClick={closeModals}>
+                Cancel
+              </button>
+              <button
+                className={styles.save}
+                onClick={async () => {
+                  if (await run(updateUserTenure(tenureUser._id, tempTenure)))
+                    setTenureUser(null);
+                }}
+              >
+                <Save size={16} /> Save tenure
+              </button>
+            </>
+          }
         >
-          <div className={styles.modalHeader}>
-            <div>
-              <h2 id="tenure-title">Edit tenure</h2>
-              <p>{tenureUser.name || tenureUser.email}</p>
-            </div>
-            <button
-              className={styles.closeButton}
-              onClick={closeModals}
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
-          </div>
           <div className={styles.modalBody}>
             <label className={styles.modalLabel} htmlFor="tenure-value">
               Academic year
@@ -592,21 +573,7 @@ export default function UserManagement() {
               Use the format YYYY-YY, for example 2026-27.
             </p>
           </div>
-          <div className={styles.modalActions}>
-            <button className={styles.cancel} onClick={closeModals}>
-              Cancel
-            </button>
-            <button
-              className={styles.save}
-              onClick={async () => {
-                if (await run(updateUserTenure(tenureUser._id, tempTenure)))
-                  setTenureUser(null);
-              }}
-            >
-              <Save size={16} /> Save tenure
-            </button>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

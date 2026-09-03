@@ -2,82 +2,6 @@
 
 @include contest-kf-spin;
 
-.overlay {
-  @include modal-overlay;
-  z-index: 9999;
-  padding: 1rem;
-  backdrop-filter: grayscale(1);
-
-  @media (min-width: 768px) {
-    padding: 3rem;
-  }
-}
-
-.dialog {
-  position: relative;
-  z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 448px;
-  overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow:
-    0 8px 24px var(--shadow-lg),
-    0 0 0 1px var(--primary-alpha);
-}
-
-.accentLine {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--primary),
-    transparent
-  );
-  opacity: 0.7;
-}
-
-/* Header */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-secondary);
-
-  h2 {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--foreground-strong);
-  }
-}
-
-.closeBtn {
-  display: inline-flex;
-  color: var(--muted);
-  border-radius: 6px;
-  padding: 0.25rem;
-  transition: color 0.15s ease;
-
-  &:hover {
-    color: var(--primary);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 1px;
-  }
-}
-
 /* Body */
 .body {
   display: flex;
@@ -421,21 +345,6 @@
 }
 
 /* Footer */
-.footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  background: var(--surface-hover);
-  border-top: 1px solid var(--border);
-}
-
-.footerActions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
 
 .btnPrimary {
   @include btn-primary;

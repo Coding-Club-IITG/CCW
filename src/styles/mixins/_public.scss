@@ -245,7 +245,7 @@ $nav-height: 59px;
 @mixin sticky-under-nav($offset: 0px) {
   position: sticky;
   top: calc(#{$nav-height} + #{$offset});
-  z-index: 40;
+  z-index: var(--z-sticky);
 }
 
 // Scroll reveal

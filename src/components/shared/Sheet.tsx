@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { useFocusTrap } from "./useFocusTrap";
+import { useScrollLock } from "./useScrollLock";
+import { useEscapeLayer } from "./overlayStack";
 import styles from "./Sheet.module.scss";
 
 interface SheetProps {
@@ -31,22 +33,12 @@ export default function Sheet({
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useFocusTrap(panelRef);
+  useScrollLock();
+  useEscapeLayer(true, onClose);
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     closeRef.current?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onClose]);
+  }, []);
 
   return createPortal(
     <div className={styles.backdrop} onMouseDown={onClose}>

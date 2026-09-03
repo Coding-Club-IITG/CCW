@@ -531,7 +531,7 @@
   bottom: 0;
   left: 0;
   background: var(--overlay);
-  z-index: 9998;
+  z-index: var(--z-sheet);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -546,7 +546,7 @@
   position: fixed;
   right: 0;
   top: 64px;
-  z-index: 9999;
+  z-index: calc(var(--z-sheet) + 1);
   height: calc(100vh - 64px);
   width: 400px;
   max-width: 90vw;
