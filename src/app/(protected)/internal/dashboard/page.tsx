@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import Link from "next/link";
