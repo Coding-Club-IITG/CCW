@@ -9,7 +9,7 @@ import { expectAppData } from "@/lib/api/result";
 import type { BlogStatus } from "@/lib/constants";
 import { formatShortDate } from "@/lib/utils";
 
-import BackLink from "@/components/shared/BackLink";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 import { useToast } from "@/components/shared/Toast";
@@ -104,17 +104,15 @@ export default function AdminBlogPage() {
 
   return (
     <div>
-      <BackLink href="/admin" label="Back to Administration" />
-
-      <header className={styles.header}>
-        <div>
-          <h1>Blog Management</h1>
-          <p>Create, edit, and manage blog posts.</p>
-        </div>
-        <button className={styles.btnPrimary} onClick={handleNew}>
-          New Post
-        </button>
-      </header>
+      <AdminPageHeader
+        title="Blog Management"
+        lead="Create, edit, and manage blog posts."
+        action={
+          <button className={styles.btnPrimary} onClick={handleNew}>
+            New Post
+          </button>
+        }
+      />
 
       {loading ? (
         <TableSkeletonContent label="blog posts" columns={4} />

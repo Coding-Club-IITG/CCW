@@ -2,7 +2,15 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { BarChart3, LogIn, Trophy, X } from "lucide-react";
+import {
+  BarChart3,
+  Circle,
+  CircleCheck,
+  Hourglass,
+  LogIn,
+  Trophy,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Handle,
@@ -442,11 +450,22 @@ function MatchSidePanel({
             <span className={styles.sidebarLabel}>{matchLabel}</span>
             <h3 className={styles.sidebarTitle}>Match Details</h3>
             <p className={styles.sidebarStatus}>
-              {isActive
-                ? "🔴 Live"
-                : isCompleted
-                  ? "✅ Completed"
-                  : "⏳ Upcoming"}
+              {isActive ? (
+                <>
+                  <Circle className={styles.statusLive} size={12} />
+                  Live
+                </>
+              ) : isCompleted ? (
+                <>
+                  <CircleCheck className={styles.statusDone} size={12} />
+                  Completed
+                </>
+              ) : (
+                <>
+                  <Hourglass className={styles.statusPending} size={12} />
+                  Upcoming
+                </>
+              )}
             </p>
           </div>
           <button

@@ -284,14 +284,6 @@
     border-left-color: transparent;
   }
 
-  .memberAvatar {
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: 0;
-    object-fit: cover;
-    border: 1px solid var(--primary);
-  }
-
   .memberAvatarOffline {
     border-color: var(--error);
     filter: grayscale(1);

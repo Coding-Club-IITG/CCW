@@ -16,7 +16,7 @@ import ImageUpload from "@/components/shared/ImageUpload";
 import MemberPicker from "@/components/shared/MemberPicker";
 import TagEditor from "@/components/shared/TagEditor";
 
-import styles from "../../events/new/EventForm.module.scss";
+import styles from "../AdminProjectForm.module.scss";
 import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 interface ProjectData {

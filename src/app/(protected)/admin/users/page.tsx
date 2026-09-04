@@ -1,16 +1,14 @@
 import UserManagement from "@/components/admin/UserManagement";
-import BackLink from "@/components/shared/BackLink";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import styles from "./Users.module.scss";
 
 export default async function AdminUsersPage() {
   return (
     <div>
-      <BackLink href="/admin" label="Back to Administration" />
-
-      <header className={styles.header}>
-        <h1>User Management</h1>
-        <p>Manage members, assign roles, and configure module permissions.</p>
-      </header>
+      <AdminPageHeader
+        title="User Management"
+        lead="Manage members, assign roles, and configure module permissions."
+      />
 
       <section className={styles.section}>
         <UserManagement />

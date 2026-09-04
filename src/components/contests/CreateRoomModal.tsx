@@ -31,6 +31,7 @@ import {
 } from "@/components/contests/contestCreationForm";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import Modal from "@/components/shared/Modal";
+import UserAvatar from "@/components/shared/UserAvatar";
 import { useToast } from "@/components/shared/Toast";
 
 import styles from "./CreateRoomModal.module.scss";
@@ -916,19 +917,11 @@ export default function CreateRoomModal({
                           {team.members.map((member) => (
                             <div key={member.id} className={styles.memberRow}>
                               <div className={styles.memberInfo}>
-                                {member.image ? (
-                                  <CompatibleImage
-                                    src={member.image}
-                                    alt={member.name}
-                                    className={styles.avatarSm}
-                                    width={24}
-                                    height={24}
-                                  />
-                                ) : (
-                                  <div className={styles.avatarFallback}>
-                                    {member.name.charAt(0).toUpperCase()}
-                                  </div>
-                                )}
+                                <UserAvatar
+                                  name={member.name}
+                                  image={member.image}
+                                  size={24}
+                                />
                                 <span className={styles.memberName}>
                                   {getDisplayName(
                                     member.name,
@@ -1042,21 +1035,11 @@ export default function CreateRoomModal({
                                           setSelectedUserIndex(0);
                                         }}
                                       >
-                                        {user.image ? (
-                                          <CompatibleImage
-                                            src={user.image}
-                                            alt={user.name}
-                                            className={styles.avatarSm}
-                                            width={24}
-                                            height={24}
-                                          />
-                                        ) : (
-                                          <div
-                                            className={styles.avatarFallback}
-                                          >
-                                            {user.name.charAt(0).toUpperCase()}
-                                          </div>
-                                        )}
+                                        <UserAvatar
+                                          name={user.name}
+                                          image={user.image}
+                                          size={24}
+                                        />
                                         <div className={styles.searchUserCol}>
                                           <div className={styles.searchUserTop}>
                                             <span
@@ -1206,19 +1189,11 @@ export default function CreateRoomModal({
                                     setSelectedUserIndex(0);
                                   }}
                                 >
-                                  {user.image ? (
-                                    <CompatibleImage
-                                      src={user.image}
-                                      alt={user.name}
-                                      className={styles.avatarSm}
-                                      width={24}
-                                      height={24}
-                                    />
-                                  ) : (
-                                    <div className={styles.avatarFallback}>
-                                      {user.name.charAt(0).toUpperCase()}
-                                    </div>
-                                  )}
+                                  <UserAvatar
+                                    name={user.name}
+                                    image={user.image}
+                                    size={24}
+                                  />
                                   <div className={styles.searchUserCol}>
                                     <div className={styles.searchUserTop}>
                                       <span className={styles.searchUserName}>
@@ -1280,19 +1255,11 @@ export default function CreateRoomModal({
                               <span className={styles.seedNum}>
                                 #{index + 1}
                               </span>
-                              {u.image ? (
-                                <CompatibleImage
-                                  src={u.image}
-                                  alt={u.name}
-                                  className={styles.avatarMd}
-                                  width={32}
-                                  height={32}
-                                />
-                              ) : (
-                                <div className={styles.avatarFallbackLg}>
-                                  {u.name.charAt(0).toUpperCase()}
-                                </div>
-                              )}
+                              <UserAvatar
+                                name={u.name}
+                                image={u.image}
+                                size={32}
+                              />
                               <div className={styles.soloUserCol}>
                                 <div className={styles.searchUserTop}>
                                   <span className={styles.searchUserName}>
@@ -1330,19 +1297,11 @@ export default function CreateRoomModal({
                       <div className={styles.chipList}>
                         {registeredUsers.map((u) => (
                           <div key={u.id} className={styles.chip}>
-                            {u.image ? (
-                              <CompatibleImage
-                                src={u.image}
-                                alt={u.name}
-                                className={styles.avatarSm}
-                                width={24}
-                                height={24}
-                              />
-                            ) : (
-                              <div className={styles.avatarFallback}>
-                                {u.name.charAt(0).toUpperCase()}
-                              </div>
-                            )}
+                            <UserAvatar
+                              name={u.name}
+                              image={u.image}
+                              size={24}
+                            />
                             <div className={styles.chipBody}>
                               <span className={styles.memberName}>
                                 {getDisplayName(u.name, u.pizza_count)}

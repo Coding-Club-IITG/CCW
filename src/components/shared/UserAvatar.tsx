@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 import CompatibleImage from "@/components/shared/CompatibleImage";
 
 import styles from "./UserAvatar.module.scss";
@@ -17,6 +21,9 @@ export default function UserAvatar({
   imageClassName = "",
   fallbackClassName = "",
 }: UserAvatarProps) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [image]);
+
   const displayName = name || "User";
   const initials = displayName
     .split(" ")
@@ -25,7 +32,7 @@ export default function UserAvatar({
     .slice(0, 2)
     .toUpperCase();
 
-  if (image) {
+  if (image && !failed) {
     return (
       <CompatibleImage
         src={image}
@@ -33,12 +40,17 @@ export default function UserAvatar({
         className={`${styles.image} ${imageClassName}`}
         width={size}
         height={size}
+        onError={() => setFailed(true)}
       />
     );
   }
 
   return (
-    <span className={`${styles.fallback} ${fallbackClassName}`}>
+    <span
+      className={`${styles.fallback} ${fallbackClassName}`}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
+      aria-label={displayName}
+    >
       {initials}
     </span>
   );

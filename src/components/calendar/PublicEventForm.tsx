@@ -16,7 +16,7 @@ import {
 import ImageUpload from "@/components/shared/ImageUpload";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import TagEditor from "@/components/shared/TagEditor";
-import styles from "@/app/(protected)/admin/events/new/EventForm.module.scss";
+import styles from "./PublicEventForm.module.scss";
 
 interface ExistingPublicEvent {
   _id: string;

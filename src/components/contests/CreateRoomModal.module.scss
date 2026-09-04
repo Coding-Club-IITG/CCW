@@ -468,37 +468,6 @@
   gap: 0.5rem;
 }
 
-.avatarSm {
-  width: 1.5rem;
-  height: 1.5rem;
-  object-fit: cover;
-}
-
-.avatarFallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  background: var(--primary-alpha);
-  color: var(--primary);
-  font-size: 0.625rem;
-  font-weight: 700;
-}
-
-.avatarFallbackLg {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  background: var(--primary-alpha);
-  color: var(--primary);
-  font-size: 0.75rem;
-  font-weight: 700;
-  pointer-events: none;
-}
-
 .memberName {
   font-size: 0.875rem;
   color: var(--foreground-strong);
@@ -659,13 +628,6 @@
 .soloUserCol {
   display: flex;
   flex-direction: column;
-  pointer-events: none;
-}
-
-.avatarMd {
-  width: 2rem;
-  height: 2rem;
-  object-fit: cover;
   pointer-events: none;
 }
 

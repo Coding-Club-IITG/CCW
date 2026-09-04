@@ -9,7 +9,7 @@ import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
 import BackLink from "@/components/shared/BackLink";
 import PublicEventForm from "@/components/calendar/PublicEventForm";
-import styles from "../new/EventForm.module.scss";
+import styles from "../EventForm.module.scss";
 
 export default async function EditPublicEventPage({
   params,

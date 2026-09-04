@@ -8,7 +8,7 @@ import TagEditor from "@/components/shared/TagEditor";
 import MemberPicker from "@/components/shared/MemberPicker";
 import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
 import { createProject } from "@/lib/actions/admin/projects";
-import styles from "../../events/new/EventForm.module.scss";
+import styles from "../AdminProjectForm.module.scss";
 import {
   DEFAULT_IMAGE_FOCAL_POINT,
   type ImageFocalPoint,

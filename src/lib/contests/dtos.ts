@@ -40,7 +40,7 @@ export type ContestRoomMemberDto = {
   name: string;
   pizza_count: number;
   handle: string;
-  avatar: string;
+  avatar: string | null;
 };
 
 export type ContestRoomTeamDto = {

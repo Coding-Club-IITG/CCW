@@ -33,7 +33,7 @@ import { useSyncCooldown } from "@/components/contests/useSyncCooldown";
 import { sendBrowserNotification } from "@/components/contests/roomNotification";
 import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
 
 import styles from "./ArenaRoomClient.module.scss";
@@ -477,17 +477,16 @@ export default function ArenaRoomClient({
                         key={member.id}
                         className={`${styles.memberRow} ${borderClass}`}
                       >
-                        <CompatibleImage
-                          src={
-                            member.avatar ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "U")}&background=random`
-                          }
-                          alt={member.name}
-                          className={`${styles.memberAvatar} ${
+                        <UserAvatar
+                          name={member.name}
+                          image={member.avatar}
+                          size={24}
+                          imageClassName={
                             memberIsOnline ? "" : styles.memberAvatarOffline
-                          }`}
-                          width={40}
-                          height={40}
+                          }
+                          fallbackClassName={
+                            memberIsOnline ? "" : styles.memberAvatarOffline
+                          }
                         />
                         <span className={styles.memberName}>
                           {getDisplayName(member.name, member.pizza_count)}{" "}

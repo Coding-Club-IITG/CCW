@@ -2,6 +2,7 @@
 
 import { createElement, useEffect, useState } from "react";
 import {
+  Bell,
   CircleAlert,
   CircleCheck,
   Gavel,
@@ -72,7 +73,8 @@ export default function RoomActivityFeed({
               )
             }
           >
-            🔔 Enable Notifications
+            <Bell size={12} aria-hidden="true" />
+            Enable Notifications
           </button>
         )}
       </div>

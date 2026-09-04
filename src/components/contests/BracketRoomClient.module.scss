@@ -550,8 +550,24 @@
 }
 
 .sidebarStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   margin: 0.25rem 0 0;
   @include micro-label($text-xs, 0.08em);
+}
+
+.statusLive {
+  color: var(--error);
+  fill: currentcolor;
+}
+
+.statusDone {
+  color: var(--success);
+}
+
+.statusPending {
+  color: var(--muted);
 }
 
 .sidebarClose {

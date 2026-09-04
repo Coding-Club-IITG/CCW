@@ -9,7 +9,7 @@ import {
   AUDIT_ACTIONS,
   AUDIT_CATEGORIES,
 } from "@/lib/constants";
-import BackLink from "@/components/shared/BackLink";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Pagination from "@/components/shared/Pagination";
 import { ListSkeletonContent } from "@/components/shared/skeletons/ListSkeleton";
 
@@ -139,11 +139,10 @@ export default function AuditLogPage() {
 
   return (
     <main>
-      <BackLink href="/admin" label="Back to Administration" />
-      <header>
-        <h1>Audit Log</h1>
-        <p>Privileged changes from the last six months.</p>
-      </header>
+      <AdminPageHeader
+        title="Audit Log"
+        lead="Privileged changes from the last six months."
+      />
       <form className={styles.filters} onSubmit={submit}>
         <label>
           Actor or target

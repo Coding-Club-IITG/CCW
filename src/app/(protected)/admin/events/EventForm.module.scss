@@ -1,5 +1,3 @@
 @use "../../../../styles/mixins" as *;
 
-.section {
-  @include card;
-}
+@include admin-form-page;

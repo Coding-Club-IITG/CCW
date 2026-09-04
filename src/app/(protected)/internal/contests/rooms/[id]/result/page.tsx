@@ -10,6 +10,7 @@ import CPUser from "@/models/CPUser";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { isHead } from "@/lib/access/roles";
+import { normalizeAvatar } from "@/lib/utils";
 import { redirect } from "next/navigation";
 
 export default async function PostMatchResultPage({
@@ -80,10 +81,7 @@ export default async function PostMatchResultPage({
         const t = teams.find((t) => t._id.toString() === solverTeamId);
 
         if (t && u) {
-          let avatarUrl =
-            u.image ||
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "U")}&background=random`;
-          if (avatarUrl.startsWith("//")) avatarUrl = `https:${avatarUrl}`;
+          const avatarUrl = normalizeAvatar(u.image);
           solverDetails = {
             userId: u._id.toString(),
             userName: cp?.cfHandle || u.name,
@@ -130,10 +128,7 @@ export default async function PostMatchResultPage({
           const cpUser = cpUsers.find(
             (cp) => cp.userId?.toString() === u._id.toString(),
           );
-          let avatarUrl =
-            u.image ||
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "U")}&background=random`;
-          if (avatarUrl.startsWith("//")) avatarUrl = `https:${avatarUrl}`;
+          const avatarUrl = normalizeAvatar(u.image);
 
           return {
             id: u._id.toString(),
@@ -167,10 +162,7 @@ export default async function PostMatchResultPage({
     );
     if (mvpUser && mvpTeam) {
       const cpUser = cpUsers.find((cp) => cp.userId?.toString() === mvp);
-      let mvpAvatar =
-        mvpUser.image ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(mvpUser.name || "U")}&background=random`;
-      if (mvpAvatar.startsWith("//")) mvpAvatar = `https:${mvpAvatar}`;
+      const mvpAvatar = normalizeAvatar(mvpUser.image);
 
       mvpDetails = {
         userId: mvpUser._id.toString(),

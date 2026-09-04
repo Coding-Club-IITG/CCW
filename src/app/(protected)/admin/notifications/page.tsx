@@ -3,7 +3,7 @@
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 
 import { useState } from "react";
-import BackLink from "@/components/shared/BackLink";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { Send as IconSend } from "lucide-react";
 import { MODULES } from "@/lib/constants";
 import styles from "./Notifications.module.scss";
@@ -53,12 +53,10 @@ export default function AdminNotificationsPage() {
 
   return (
     <div>
-      <BackLink href="/admin" label="Back to Administration" />
-
-      <header className={styles.header}>
-        <h1>Send Notifications</h1>
-        <p>Broadcast announcements to all members or specific modules.</p>
-      </header>
+      <AdminPageHeader
+        title="Send Notifications"
+        lead="Broadcast announcements to all members or specific modules."
+      />
 
       <form className={styles.form} onSubmit={handleSend}>
         <div className={styles.field}>

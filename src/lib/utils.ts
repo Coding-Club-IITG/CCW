@@ -64,5 +64,11 @@ export function formatMonthYear(date?: Date | string | null) {
   }).format(new Date(date));
 }
 
+/** Stored avatars may be protocol-relative */
+export function normalizeAvatar(image?: string | null): string | null {
+  if (!image) return null;
+  return image.startsWith("//") ? `https:${image}` : image;
+}
+
 export { errorToLogMetadata, logger } from "@/lib/logger";
 export type { LogMetadata } from "@/lib/logger";
