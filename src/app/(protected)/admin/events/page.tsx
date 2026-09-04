@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { expectAppData } from "@/lib/api/result";
 import { getEventStatus } from "@/lib/eventStatus";
+import { APP_TIME_ZONE } from "@/lib/constants";
 import type {
   EventPublicationStatus,
   EventRecurrenceType,
@@ -40,7 +41,7 @@ function formatEventDate(startDate: string, endDate?: string, allDay = true) {
   const formattedStart = allDay
     ? new Date(startDate).toLocaleDateString("en-IN", formatOptions)
     : new Intl.DateTimeFormat("en-IN", {
-        timeZone: "Asia/Kolkata",
+        timeZone: APP_TIME_ZONE,
         dateStyle: "medium",
         timeStyle: "short",
       }).format(new Date(startDate));
@@ -52,7 +53,7 @@ function formatEventDate(startDate: string, endDate?: string, allDay = true) {
   const formattedEnd = allDay
     ? new Date(endDate).toLocaleDateString("en-IN", formatOptions)
     : new Intl.DateTimeFormat("en-IN", {
-        timeZone: "Asia/Kolkata",
+        timeZone: APP_TIME_ZONE,
         dateStyle: "medium",
         timeStyle: "short",
       }).format(new Date(endDate));

@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { canManageFile } from "@/lib/access/files";
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
+import { formatShortDate } from "@/lib/utils";
 
 import EmptyState from "@/components/shared/EmptyState";
 import Pagination from "@/components/shared/Pagination";
@@ -25,7 +26,7 @@ import FileViewer from "./FileViewer";
 import styles from "./FilesClient.module.scss";
 import UploadModal from "./UploadModal";
 import type { AvailableTag, CurrentUser, FileEntry } from "./types";
-import { formatBytes, formatDate, aclSummary } from "./utils";
+import { formatBytes, aclSummary } from "./utils";
 
 interface Props {
   currentUser: CurrentUser;
@@ -240,7 +241,7 @@ export default function FilesClient({ currentUser }: Props) {
                       </td>
                       <td className={styles.person}>{file.uploadedByName}</td>
                       <td className={styles.subtle}>
-                        {formatDate(file.createdAt)}
+                        {formatShortDate(file.createdAt)}
                       </td>
                       <td className={styles.subtle}>
                         {formatBytes(file.size)}

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowRight, Calendar, ChevronDown, Timer, Trophy } from "lucide-react";
 
 import { ContestListingItem } from "@/lib/actions/contests";
+import { formatDateTime } from "@/lib/utils";
+
 import BackLink from "@/components/shared/BackLink";
 import styles from "./MatchHistoryClient.module.scss";
 
@@ -197,14 +199,7 @@ export default function MatchHistoryClient({
                     <Calendar className={styles.metaIcon} size={14} />
                     <span className={styles.metaText}>
                       {contest.startTime
-                        ? new Intl.DateTimeFormat("en-US", {
-                            month: "short",
-                            day: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          }).format(new Date(contest.startTime))
+                        ? formatDateTime(contest.startTime)
                         : "-"}
                     </span>
                     <span className={styles.metaDot}></span>

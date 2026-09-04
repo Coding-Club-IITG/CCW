@@ -2,7 +2,11 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { MODULE_ACCENTS, type EventRecurrenceType } from "@/lib/constants";
+import {
+  APP_TIME_ZONE,
+  MODULE_ACCENTS,
+  type EventRecurrenceType,
+} from "@/lib/constants";
 import type { ProjectModuleName } from "@/lib/constants";
 import {
   istEventWhen,
@@ -196,7 +200,7 @@ export default async function EventDetailPage({ params }: Props) {
       value: event.allDay
         ? "All day"
         : new Intl.DateTimeFormat("en-IN", {
-            timeZone: "Asia/Kolkata",
+            timeZone: APP_TIME_ZONE,
             timeStyle: "short",
           }).format(new Date(event.startDate)),
     },

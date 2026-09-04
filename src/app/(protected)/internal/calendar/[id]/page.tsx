@@ -5,6 +5,7 @@ import {
   canManageCalendarEvent,
   canPublishCalendarEvent,
 } from "@/lib/access/calendar";
+import { APP_TIME_ZONE } from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
 import { parseManagedModules } from "@/lib/roles";
 import CalendarEvent from "@/models/CalendarEvent";
@@ -15,12 +16,12 @@ import CalendarEventActions from "@/components/calendar/CalendarEventActions";
 import styles from "../Calendar.module.scss";
 
 const DATE_TIME = new Intl.DateTimeFormat("en-IN", {
-  timeZone: "Asia/Kolkata",
+  timeZone: APP_TIME_ZONE,
   dateStyle: "long",
   timeStyle: "short",
 });
 const DATE = new Intl.DateTimeFormat("en-IN", {
-  timeZone: "Asia/Kolkata",
+  timeZone: APP_TIME_ZONE,
   dateStyle: "long",
 });
 

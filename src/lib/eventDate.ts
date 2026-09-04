@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 
 type DateValue = Date | string;
@@ -20,7 +21,7 @@ export function formatEventDate(
     ? (value: Date) => formatDate(value)
     : (value: Date) =>
         new Intl.DateTimeFormat("en-IN", {
-          timeZone: "Asia/Kolkata",
+          timeZone: APP_TIME_ZONE,
           dateStyle: "medium",
           timeStyle: "short",
         }).format(value);

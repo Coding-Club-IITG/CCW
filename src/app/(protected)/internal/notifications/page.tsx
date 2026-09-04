@@ -5,6 +5,7 @@ import { ExternalLink as IconExternalLink } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { expectAppData } from "@/lib/api/result";
+import { formatDateTime } from "@/lib/utils";
 
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
@@ -147,7 +148,7 @@ export default function NotificationsPage() {
                   <h3>{n.title}</h3>
                   <p>{n.message}</p>
                   <span className={styles.time}>
-                    {new Date(n.createdAt).toLocaleString()}
+                    {formatDateTime(n.createdAt)}
                   </span>
                 </div>
                 {n.link && (

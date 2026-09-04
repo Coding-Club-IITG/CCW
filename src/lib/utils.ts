@@ -8,13 +8,14 @@ export function getDisplayName(name: string, pizzaCount: number = 0): string {
   return `${name} ${"🍕".repeat(pizzaCount)}`;
 }
 
-// Formats a date to a readable string
+/** Day, full month and year in IST, Eg. "17 August 2026" */
 export function formatDate(date: Date | string) {
-  return new Date(date).toLocaleDateString("en-IN", {
+  return new Intl.DateTimeFormat("en-IN", {
     day: "numeric",
     month: "long",
     year: "numeric",
-  });
+    timeZone: APP_TIME_ZONE,
+  }).format(new Date(date));
 }
 
 /** Day, short month and year in IST, Eg. "17 Aug 2026" */
@@ -35,6 +36,18 @@ export function formatDateTime(date?: Date | string | null) {
     day: "numeric",
     month: "short",
     year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: APP_TIME_ZONE,
+  }).format(new Date(date));
+}
+
+/** Day, short month and time in IST without a year, Eg. "17 Aug, 9:30 pm" */
+export function formatDayTime(date?: Date | string | null) {
+  if (!date) return "";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
     hour: "numeric",
     minute: "2-digit",
     timeZone: APP_TIME_ZONE,

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { deleteProject } from "@/lib/actions/admin/projects";
 import { expectAppData } from "@/lib/api/result";
+import { formatMonthYear } from "@/lib/utils";
 
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
@@ -18,13 +19,6 @@ interface ProjectItem {
   module: string;
   date: string;
   status: "Upcoming" | "Completed";
-}
-
-function formatMonthYear(date: string) {
-  return new Date(date).toLocaleDateString("en-IN", {
-    month: "short",
-    year: "numeric",
-  });
 }
 
 export default function AdminProjectsPage() {

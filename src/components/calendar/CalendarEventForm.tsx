@@ -6,7 +6,7 @@ import {
   createCalendarEvent,
   updateCalendarEvent,
 } from "@/lib/actions/calendar";
-import { EVENT_RECURRENCE_TYPES } from "@/lib/constants";
+import { APP_TIME_ZONE, EVENT_RECURRENCE_TYPES } from "@/lib/constants";
 import type { CalendarScopeTarget } from "@/lib/access/calendar";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import styles from "./CalendarEventForm.module.scss";
@@ -32,7 +32,7 @@ interface InitialCalendarEvent {
 function istParts(value?: string) {
   if (!value) return { date: "", time: "" };
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
+    timeZone: APP_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

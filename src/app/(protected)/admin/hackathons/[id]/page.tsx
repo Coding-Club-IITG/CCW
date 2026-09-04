@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { expectAppData } from "@/lib/api/result";
-import { getDisplayName } from "@/lib/utils";
+import { formatDate, getDisplayName } from "@/lib/utils";
 
 import BackLink from "@/components/shared/BackLink";
 
@@ -79,7 +79,7 @@ export default function AdminHackathonMonitorPage({
           {hackathon.minMembers === hackathon.maxMembers
             ? hackathon.maxMembers
             : `${hackathon.minMembers}-${hackathon.maxMembers}`}{" "}
-          • Deadline: {new Date(hackathon.deadline).toLocaleDateString()}
+          • Deadline: {formatDate(hackathon.deadline)}
         </p>
       </header>
 

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
+import { formatDate } from "@/lib/utils";
 
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
@@ -307,9 +308,7 @@ export default function AdminHackathonsPage() {
                       ? h.maxMembers
                       : `${h.minMembers}-${h.maxMembers}`}
                   </span>
-                  <span>
-                    Deadline: {new Date(h.deadline).toLocaleDateString()}
-                  </span>
+                  <span>Deadline: {formatDate(h.deadline)}</span>
                 </div>
                 {h.skills.length > 0 && (
                   <div className={styles.skills}>

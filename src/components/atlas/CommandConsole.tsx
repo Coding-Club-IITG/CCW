@@ -44,6 +44,7 @@ import { useSession } from "@/lib/auth-client";
 import { parseRoles } from "@/lib/roles";
 import { useThemeStore } from "@/lib/store/theme";
 import { useViewModeStore } from "@/lib/store/view-mode";
+import { formatShortDate } from "@/lib/utils";
 import { useScrollLock } from "@/components/shared/useScrollLock";
 import { useEscapeLayer } from "@/components/shared/overlayStack";
 import styles from "./CommandConsole.module.scss";
@@ -689,12 +690,7 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
                           {selected.module && <span>{selected.module}</span>}
                           {selected.status && <span>{selected.status}</span>}
                           {selected.date && (
-                            <span>
-                              {new Date(selected.date).toLocaleDateString(
-                                "en-IN",
-                                { dateStyle: "medium" },
-                              )}
-                            </span>
+                            <span>{formatShortDate(selected.date)}</span>
                           )}
                         </div>
                         {selected.tags?.length ? (

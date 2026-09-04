@@ -18,6 +18,7 @@ import {
 import { useEffect, useState } from "react";
 
 import { type ContestListingItem } from "@/lib/actions/contests";
+import { formatDayTime, formatShortDate } from "@/lib/utils";
 
 import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
 import SegmentedControl from "@/components/shared/SegmentedControl";
@@ -394,13 +395,7 @@ export default function ContestListingClient({
                       </span>
                       <span className={styles.cardDateBadge}>
                         {contest.startTime
-                          ? new Intl.DateTimeFormat("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: true,
-                            }).format(new Date(contest.startTime))
+                          ? formatDayTime(contest.startTime)
                           : "TBD"}
                       </span>
                     </div>
@@ -428,15 +423,7 @@ export default function ContestListingClient({
                                 />
                                 <span>
                                   Registration Starts:{" "}
-                                  {new Intl.DateTimeFormat("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    hour12: true,
-                                  }).format(
-                                    new Date(contest.registrationStartTime),
-                                  )}
+                                  {formatDayTime(contest.registrationStartTime)}
                                 </span>
                               </span>
                             )}
@@ -445,15 +432,7 @@ export default function ContestListingClient({
                               <Timer className={styles.icon14} size={14} />
                               <span>
                                 Closes:{" "}
-                                {new Intl.DateTimeFormat("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                }).format(
-                                  new Date(contest.registrationDeadline),
-                                )}
+                                {formatDayTime(contest.registrationDeadline)}
                               </span>
                             </span>
                           ) : (
@@ -625,11 +604,7 @@ export default function ContestListingClient({
                           </td>
                           <td>
                             {contest.startTime
-                              ? new Intl.DateTimeFormat("en-US", {
-                                  month: "short",
-                                  day: "2-digit",
-                                  year: "numeric",
-                                }).format(new Date(contest.startTime))
+                              ? formatShortDate(contest.startTime)
                               : "-"}
                           </td>
                           <td>

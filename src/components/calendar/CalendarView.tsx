@@ -1,4 +1,7 @@
 import Link from "next/link";
+
+import { APP_TIME_ZONE } from "@/lib/constants";
+
 import type { CalendarEventView, CalendarOccurrenceView } from "./types";
 import styles from "./CalendarView.module.scss";
 
@@ -8,13 +11,13 @@ interface Props {
 }
 
 const IST_FORMAT = new Intl.DateTimeFormat("en-IN", {
-  timeZone: "Asia/Kolkata",
+  timeZone: APP_TIME_ZONE,
   hour: "numeric",
   minute: "2-digit",
 });
 
 const IST_DATE_FORMAT = new Intl.DateTimeFormat("en-IN", {
-  timeZone: "Asia/Kolkata",
+  timeZone: APP_TIME_ZONE,
   weekday: "short",
   day: "numeric",
   month: "short",
@@ -35,7 +38,7 @@ function monthKey(year: number, month: number) {
 
 function istDateKey(value: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
+    timeZone: APP_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

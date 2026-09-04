@@ -4,7 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 
 import type { AuditLogDto, AuditSummaryValue } from "@/lib/audit/types";
 import { expectAppData } from "@/lib/api/result";
-import { AUDIT_ACTIONS, AUDIT_CATEGORIES } from "@/lib/constants";
+import {
+  APP_TIME_ZONE,
+  AUDIT_ACTIONS,
+  AUDIT_CATEGORIES,
+} from "@/lib/constants";
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
 import { ListSkeletonContent } from "@/components/shared/skeletons/ListSkeleton";
@@ -232,7 +236,7 @@ export default function AuditLogPage() {
                   </div>
                   <time dateTime={event.createdAt}>
                     {new Date(event.createdAt).toLocaleString("en-IN", {
-                      timeZone: "Asia/Kolkata",
+                      timeZone: APP_TIME_ZONE,
                       dateStyle: "medium",
                       timeStyle: "short",
                     })}{" "}

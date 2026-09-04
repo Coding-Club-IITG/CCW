@@ -19,6 +19,7 @@ import {
   SITE_NAME,
   SITE_URL,
 } from "@/lib/seo";
+import { formatDate, formatShortDate } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 import ArticleReader from "@/components/blog/ArticleReader";
 import BackLink from "@/components/shared/BackLink";
@@ -136,20 +137,8 @@ export default async function BlogPostPage({ params }: Props) {
       .lean(),
   ]);
 
-  const publishedDate = new Date(post.publishedAt!).toLocaleDateString(
-    "en-IN",
-    {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    },
-  );
-
-  const updatedDate = new Date(post.updatedAt).toLocaleDateString("en-IN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const publishedDate = formatDate(post.publishedAt!);
+  const updatedDate = formatDate(post.updatedAt);
 
   const wasEdited =
     post.updatedAt.getTime() - post.publishedAt!.getTime() > 60000;
@@ -310,12 +299,7 @@ export default async function BlogPostPage({ params }: Props) {
                 )}
                 <span className={styles.relatedTitle}>{related.title}</span>
                 <span className={styles.relatedMeta}>
-                  {new Date(related.publishedAt).toLocaleDateString("en-IN", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                    timeZone: "Asia/Kolkata",
-                  })}
+                  {formatShortDate(related.publishedAt)}
                 </span>
               </Link>
             ))}
