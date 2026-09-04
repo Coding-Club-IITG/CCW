@@ -13,12 +13,17 @@ export interface ContestCreationForm {
   bulkMinContestId: number;
   fineTunedProblemCount: string | number;
   fineTunedProblems: string[];
+  fineTunedProblemPoints?: number[];
+  fineTunedProblemTimeLimits?: number[];
   presetId: string;
   thirdPlacePlayoff: boolean;
   seedingMethod: string;
+  bracketType?: "single_elimination" | "double_elimination";
   registrationStartMode: string;
   registrationStartTime: string;
   registrationType: string;
+  overallDurationMinutes?: number;
+  perProblemDurationMinutes?: number;
 }
 
 export type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
@@ -29,6 +34,7 @@ export interface AdminContestWizardForm {
   description: string;
   mode: "blitz" | "arena";
   format: "bracket";
+  bracketType?: "single_elimination" | "double_elimination";
   teamSize: 1 | 3;
   maxParticipants: number;
   startTime: string;
@@ -39,10 +45,14 @@ export interface AdminContestWizardForm {
     platform: string;
     problemId: string;
     roundNumber: number;
+    points?: number;
+    timeLimitMinutes?: number;
   }>;
   bulkProblemCount?: number;
   thirdPlacePlayoff: boolean;
   seedingMethod: "cf_rating" | "manual";
+  overallDurationMinutes?: number;
+  perProblemDurationMinutes?: number;
 }
 
 export interface ContestParticipant {
@@ -55,14 +65,14 @@ export interface ContestParticipant {
   teamName?: string;
 }
 
-export function createInitialContestForm(): ContestCreationForm {
+export function createInitialContestForm(isHead = true): ContestCreationForm {
   return {
     name: "",
     description: "",
     mode: "blitz",
-    format: "solo-tournament",
+    format: isHead ? "solo-tournament" : "1v1",
     teamSize: 1,
-    maxParticipants: 16,
+    maxParticipants: isHead ? 16 : 2,
     startTime: "",
     problemSelectionMode: "bulk",
     bulkRatingMin: 800,
@@ -71,12 +81,17 @@ export function createInitialContestForm(): ContestCreationForm {
     bulkMinContestId: 0,
     fineTunedProblemCount: 1,
     fineTunedProblems: [""],
+    fineTunedProblemPoints: [100],
+    fineTunedProblemTimeLimits: [],
     presetId: "",
     thirdPlacePlayoff: false,
     seedingMethod: "cf_rating",
+    bracketType: "single_elimination",
     registrationStartMode: "immediate",
     registrationStartTime: "",
-    registrationType: "open",
+    registrationType: isHead ? "open" : "closed",
+    overallDurationMinutes: 60,
+    perProblemDurationMinutes: 15,
   };
 }
 
@@ -103,6 +118,10 @@ export function applyContestPreset(
   preset: ContestCreationPreset,
 ): ContestCreationForm {
   const problemIds = preset.problemSlots?.map((slot) => slot.problemId || "");
+  const points = preset.problemSlots?.map((slot) => slot.points ?? 100);
+  const timeLimits = preset.problemSlots?.map(
+    (slot) => slot.timeLimitMinutes ?? 15,
+  );
 
   return {
     ...form,
@@ -118,6 +137,12 @@ export function applyContestPreset(
     bulkMinContestId: preset.bulkMinContestId ?? form.bulkMinContestId,
     fineTunedProblems:
       problemIds && problemIds.length > 0 ? problemIds : form.fineTunedProblems,
+    fineTunedProblemPoints:
+      points && points.length > 0 ? points : form.fineTunedProblemPoints,
+    fineTunedProblemTimeLimits:
+      timeLimits && timeLimits.length > 0
+        ? timeLimits
+        : form.fineTunedProblemTimeLimits,
     fineTunedProblemCount:
       problemIds && problemIds.length > 0
         ? problemIds.length

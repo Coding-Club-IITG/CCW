@@ -64,7 +64,9 @@ export default function CreateRoomModal({
     return styles.ratingRed;
   };
 
-  const [formData, setFormData] = useState(createInitialContestForm);
+  const [formData, setFormData] = useState(() =>
+    createInitialContestForm(isHead),
+  );
 
   const [registeredUsers, setRegisteredUsers] = useState<ContestParticipant[]>(
     [],
@@ -288,6 +290,17 @@ export default function CreateRoomModal({
       return;
     }
 
+    const fineTunedSlots =
+      formData.problemSelectionMode === "fine-tuned" &&
+      formData.fineTunedProblems.length > 0
+        ? formData.fineTunedProblems.map((pid, idx) => ({
+            platform: "codeforces",
+            problemId: pid.trim(),
+            points: formData.fineTunedProblemPoints?.[idx] ?? 100,
+            timeLimitMinutes: formData.fineTunedProblemTimeLimits?.[idx],
+          }))
+        : undefined;
+
     setLoading(true);
     try {
       const res = await createRoomContest({
@@ -295,6 +308,7 @@ export default function CreateRoomModal({
         startTime: start.toISOString(),
         registrationStartTime: regStartIso,
         registeredUsers: finalRegisteredUsers,
+        problemSlots: fineTunedSlots,
       });
       if (!res.ok) {
         toast.error(res.error.message);
@@ -560,13 +574,19 @@ export default function CreateRoomModal({
                 onChange={(e) =>
                   setFormData({ ...formData, format: e.target.value })
                 }
-                disabled={!!topPresetId}
+                disabled={!!topPresetId || !isHead}
                 className={`${styles.formInput} ${styles.formSelect}`}
               >
                 <option value="1v1">1v1</option>
-                <option value="solo-tournament">Solo Tournament</option>
-                <option value="team-tournament">Team Battle</option>
-                <option value="bracket">Bracket (Knockout)</option>
+                <option value="solo-tournament" disabled={!isHead}>
+                  Solo Tournament {!isHead ? "(Admin Only)" : ""}
+                </option>
+                <option value="team-tournament" disabled={!isHead}>
+                  Team Battle {!isHead ? "(Admin Only)" : ""}
+                </option>
+                <option value="bracket" disabled={!isHead}>
+                  Bracket (Knockout) {!isHead ? "(Admin Only)" : ""}
+                </option>
               </select>
             </div>
           </div>
@@ -729,6 +749,32 @@ export default function CreateRoomModal({
                       Codeforces Rating (Average)
                     </option>
                     <option value="manual">Manual Seeding</option>
+                  </select>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="bracket-type">
+                    Elimination Type
+                  </label>
+                  <select
+                    id="bracket-type"
+                    value={formData.bracketType || "single_elimination"}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bracketType: e.target.value as
+                          | "single_elimination"
+                          | "double_elimination",
+                      })
+                    }
+                    className={`${styles.formInput} ${styles.formSelect}`}
+                  >
+                    <option value="single_elimination">
+                      Single Elimination
+                    </option>
+                    <option value="double_elimination">
+                      Double Elimination
+                    </option>
                   </select>
                 </div>
 
@@ -1393,22 +1439,34 @@ export default function CreateRoomModal({
                 }
                 className={`${styles.formInput} ${styles.dateInput}`}
               />
-              <div className={styles.timeAddRow}>
-                {[3, 5, 10, 15].map((mins) => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => handleTimeAdd(mins)}
-                    className={styles.timeAddBtn}
-                  >
-                    +{mins} min{mins > 1 ? "s" : ""}
-                  </button>
-                ))}
-              </div>
+              {(() => {
+                const isCasual1v1 =
+                  formData.format === "1v1" &&
+                  formData.registrationType === "closed";
+                const quickAddMins = isCasual1v1
+                  ? [1, 2, 5, 10]
+                  : [deadlineMinutes + 1, deadlineMinutes + 2, 10, 15];
+                return (
+                  <div className={styles.timeAddRow}>
+                    {quickAddMins.map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => handleTimeAdd(mins)}
+                        className={styles.timeAddBtn}
+                      >
+                        +{mins} min{mins > 1 ? "s" : ""}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <span className={styles.hint}>
-              Scheduled rooms start automatically. Registration deadline will be
-              exactly 1 minute before the start time for all users.
+              {formData.format === "1v1" &&
+              formData.registrationType === "closed"
+                ? "Casual 1v1 matches can start as soon as 1 minute from now."
+                : `Scheduled tournaments start automatically. Registration deadline is ${deadlineMinutes} minute${deadlineMinutes > 1 ? "s" : ""} before the start time.`}
             </span>
           </div>
         </form>
