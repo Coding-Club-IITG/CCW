@@ -17,6 +17,7 @@ import type { ContestListingItem } from "@/lib/actions/contests";
 import { expectAppData } from "@/lib/api/result";
 import {
   getRoundName,
+  parseBracketPosition,
   type BracketNode,
   type BracketSnapshot,
 } from "@/types/bracket";
@@ -280,7 +281,11 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
   const isWaiting = node.status === "waiting";
   const isPending = !isCompleted && !isActive && !isWaiting && !isBye;
 
-  const roundName = getRoundName(node.roundNumber, totalRounds);
+  const roundName = getRoundName(
+    node.roundNumber,
+    totalRounds,
+    node.bracketType,
+  );
   const matchLabel = `${roundName === "Final" || roundName.startsWith("Semi") ? roundName.replace("s", "") : roundName} ${node.matchIndex + 1}`;
 
   const winnerId = node.winner;
@@ -414,7 +419,11 @@ function MatchSidePanel({
   const isActive = displayNode?.status === "active";
   const isPending = displayNode?.status === "pending";
   const roundName = displayNode
-    ? getRoundName(displayNode.roundNumber, totalRounds)
+    ? getRoundName(
+        displayNode.roundNumber,
+        totalRounds,
+        displayNode.bracketType,
+      )
     : "";
   const matchLabel = displayNode
     ? `${roundName.includes("Final") ? roundName : roundName} ${displayNode.matchIndex + 1}`
@@ -711,61 +720,322 @@ export default function BracketRoomClient({
   );
   const hasActiveMatches = snapshot.nodes.some((n) => n.status === "active");
 
+  const [filter, setFilter] = useState<
+    "all" | "upper" | "lower" | "grand_final"
+  >("all");
+
   const { nodes, edges } = useMemo(() => {
     const flowNodes: BracketFlowNode[] = [];
     const flowEdges: Edge[] = [];
-    const rounds: BracketNode[][] = Array.from(
-      { length: snapshot.totalRounds },
-      () => [],
-    );
-    snapshot.nodes.forEach((nd) => {
-      if (nd.roundNumber >= 1 && nd.roundNumber <= snapshot.totalRounds)
-        rounds[nd.roundNumber - 1].push(nd);
+
+    const isDoubleElim = snapshot.bracketType === "double_elimination";
+
+    if (!isDoubleElim) {
+      const rounds: BracketNode[][] = Array.from(
+        { length: snapshot.totalRounds },
+        () => [],
+      );
+      snapshot.nodes.forEach((nd) => {
+        if (nd.roundNumber >= 1 && nd.roundNumber <= snapshot.totalRounds)
+          rounds[nd.roundNumber - 1].push(nd);
+      });
+
+      const X_GAP = 380;
+      const Y_GAP = 200;
+
+      for (let r = 0; r < snapshot.totalRounds; r++) {
+        const isGrandFinal = r === snapshot.totalRounds - 1;
+        rounds[r].forEach((nd, i) => {
+          const scale = Math.pow(2, r);
+          const x = r * X_GAP;
+          const y = ((scale - 1) * Y_GAP) / 2 + i * scale * Y_GAP;
+
+          flowNodes.push({
+            id: nd.roomId,
+            type: isGrandFinal ? "grandFinalNode" : "matchNode",
+            position: { x, y },
+            data: {
+              node: nd,
+              totalRounds: snapshot.totalRounds,
+              openMatchDetails,
+            },
+          });
+
+          if (r < snapshot.totalRounds - 1) {
+            const pi = Math.floor(i / 2);
+            const parent = rounds[r + 1][pi];
+            if (parent) {
+              const active = nd.status === "completed" && nd.winner !== null;
+              flowEdges.push({
+                id: `e-${nd.roomId}-${parent.roomId}`,
+                source: nd.roomId,
+                target: parent.roomId,
+                type: "smoothstep",
+                animated: active,
+                style: {
+                  stroke: active ? "var(--success)" : "var(--border)",
+                  strokeWidth: 2,
+                },
+              });
+            }
+          }
+        });
+      }
+      return { nodes: flowNodes, edges: flowEdges };
+    }
+
+    // ── Double Elimination Layout ────────────────────────────────────
+    const upperNodes = snapshot.nodes.filter((n) => {
+      const stage = parseBracketPosition(n.bracketPosition || "").stage;
+      return stage === "upper";
+    });
+    const lowerNodes = snapshot.nodes.filter((n) => {
+      const stage = parseBracketPosition(n.bracketPosition || "").stage;
+      return stage === "lower";
+    });
+    const gfNode = snapshot.nodes.find((n) => {
+      const stage = parseBracketPosition(n.bracketPosition || "").stage;
+      return stage === "grand_final";
     });
 
+    const U =
+      snapshot.upperRounds ||
+      Math.max(
+        ...upperNodes.map(
+          (n) => parseBracketPosition(n.bracketPosition).roundIndex + 1,
+        ),
+        1,
+      );
+    const L =
+      snapshot.lowerRounds ||
+      Math.max(
+        ...lowerNodes.map(
+          (n) => parseBracketPosition(n.bracketPosition).roundIndex + 1,
+        ),
+        1,
+      );
+
+    const upperRounds: BracketNode[][] = Array.from({ length: U }, () => []);
+    upperNodes.forEach((n) => {
+      const pos = parseBracketPosition(n.bracketPosition);
+      if (pos.roundIndex >= 0 && pos.roundIndex < U) {
+        upperRounds[pos.roundIndex].push(n);
+      }
+    });
+    upperRounds.forEach((rnd) =>
+      rnd.sort(
+        (a, b) =>
+          parseBracketPosition(a.bracketPosition).matchIndex -
+          parseBracketPosition(b.bracketPosition).matchIndex,
+      ),
+    );
+
+    const lowerRounds: BracketNode[][] = Array.from({ length: L }, () => []);
+    lowerNodes.forEach((n) => {
+      const pos = parseBracketPosition(n.bracketPosition);
+      if (pos.roundIndex >= 0 && pos.roundIndex < L) {
+        lowerRounds[pos.roundIndex].push(n);
+      }
+    });
+    lowerRounds.forEach((rnd) =>
+      rnd.sort(
+        (a, b) =>
+          parseBracketPosition(a.bracketPosition).matchIndex -
+          parseBracketPosition(b.bracketPosition).matchIndex,
+      ),
+    );
+
     const X_GAP = 380;
-    const Y_GAP = 200;
+    const Y_GAP = 180;
+    const maxUpperMatches = upperRounds[0]?.length || 2;
+    const upperHeight = maxUpperMatches * Y_GAP;
+    const lowerYOffset = filter === "all" ? upperHeight + 140 : 0;
 
-    for (let r = 0; r < snapshot.totalRounds; r++) {
-      const isGrandFinal = r === snapshot.totalRounds - 1;
-      rounds[r].forEach((nd, i) => {
-        const scale = Math.pow(2, r);
-        const x = r * X_GAP;
-        const y = ((scale - 1) * Y_GAP) / 2 + i * scale * Y_GAP;
+    const showUpper = filter === "all" || filter === "upper";
+    const showLower = filter === "all" || filter === "lower";
+    const showGf =
+      filter === "all" ||
+      filter === "grand_final" ||
+      filter === "upper" ||
+      filter === "lower";
 
-        flowNodes.push({
-          id: nd.roomId,
-          type: isGrandFinal ? "grandFinalNode" : "matchNode",
-          position: { x, y },
-          data: {
-            node: nd,
-            totalRounds: snapshot.totalRounds,
-            openMatchDetails,
-          },
+    // 1. Position Upper Nodes
+    if (showUpper) {
+      for (let u = 0; u < U; u++) {
+        const scale = Math.pow(2, u);
+        upperRounds[u].forEach((nd, i) => {
+          const x = u * X_GAP;
+          const y = ((scale - 1) * Y_GAP) / 2 + i * scale * Y_GAP;
+
+          flowNodes.push({
+            id: nd.roomId,
+            type: "matchNode",
+            position: { x, y },
+            data: {
+              node: nd,
+              totalRounds: U,
+              openMatchDetails,
+            },
+          });
+
+          // Upper -> Next Upper Edge
+          if (u < U - 1) {
+            const pi = Math.floor(i / 2);
+            const parent = upperRounds[u + 1]?.[pi];
+            if (parent) {
+              const active = nd.status === "completed" && nd.winner !== null;
+              flowEdges.push({
+                id: `e-${nd.roomId}-${parent.roomId}`,
+                source: nd.roomId,
+                target: parent.roomId,
+                type: "smoothstep",
+                animated: active,
+                style: {
+                  stroke: active ? "var(--success)" : "var(--border)",
+                  strokeWidth: 2,
+                },
+              });
+            }
+          }
         });
+      }
+    }
 
-        if (r < snapshot.totalRounds - 1) {
-          const pi = Math.floor(i / 2);
-          const parent = rounds[r + 1][pi];
-          if (parent) {
-            const active = nd.status === "completed" && nd.winner !== null;
+    // 2. Position Lower Nodes
+    if (showLower) {
+      for (let l = 0; l < L; l++) {
+        lowerRounds[l].forEach((nd, i) => {
+          const x = l * (X_GAP * 0.88);
+          const y = lowerYOffset + i * Y_GAP * 1.15;
+
+          flowNodes.push({
+            id: nd.roomId,
+            type: "matchNode",
+            position: { x, y },
+            data: {
+              node: nd,
+              totalRounds: L,
+              openMatchDetails,
+            },
+          });
+
+          // Lower -> Next Lower Edge
+          if (l < L - 1) {
+            const nextMatchIdx = l % 2 === 0 ? i : Math.floor(i / 2);
+            const parent = lowerRounds[l + 1]?.[nextMatchIdx];
+            if (parent) {
+              const active = nd.status === "completed" && nd.winner !== null;
+              flowEdges.push({
+                id: `e-${nd.roomId}-${parent.roomId}`,
+                source: nd.roomId,
+                target: parent.roomId,
+                type: "smoothstep",
+                animated: active,
+                style: {
+                  stroke: active ? "var(--success)" : "var(--border)",
+                  strokeWidth: 2,
+                },
+              });
+            }
+          }
+        });
+      }
+    }
+
+    // 3. Drop-down edges from Upper to Lower (only in 'all' view)
+    if (filter === "all") {
+      for (let u = 0; u < U; u++) {
+        upperRounds[u].forEach((uNode, m) => {
+          let targetLowerNode: BracketNode | undefined;
+          if (u === 0) {
+            targetLowerNode = lowerRounds[0]?.[Math.floor(m / 2)];
+          } else if (u < U - 1) {
+            const targetLowerRoundIdx = 2 * u - 1;
+            targetLowerNode = lowerRounds[targetLowerRoundIdx]?.[m];
+          } else {
+            targetLowerNode = lowerRounds[L - 1]?.[0];
+          }
+
+          if (targetLowerNode) {
             flowEdges.push({
-              id: `e-${nd.roomId}-${parent.roomId}`,
-              source: nd.roomId,
-              target: parent.roomId,
+              id: `e-drop-${uNode.roomId}-${targetLowerNode.roomId}`,
+              source: uNode.roomId,
+              target: targetLowerNode.roomId,
               type: "smoothstep",
-              animated: active,
               style: {
-                stroke: active ? "var(--success)" : "var(--border)",
-                strokeWidth: 2,
+                stroke: "var(--warning, #f59e0b)",
+                strokeDasharray: "4 4",
+                strokeWidth: 1.5,
               },
             });
           }
-        }
-      });
+        });
+      }
     }
+
+    // 4. Position Grand Final Node
+    if (gfNode && showGf) {
+      const gfX =
+        filter === "grand_final"
+          ? 0
+          : Math.max(U * X_GAP, L * (X_GAP * 0.88)) + 40;
+      const gfY =
+        filter === "grand_final"
+          ? 0
+          : filter === "all"
+            ? (upperHeight + lowerYOffset) / 2 - 50
+            : 100;
+
+      flowNodes.push({
+        id: gfNode.roomId,
+        type: "grandFinalNode",
+        position: { x: gfX, y: gfY },
+        data: {
+          node: gfNode,
+          totalRounds: 1,
+          openMatchDetails,
+        },
+      });
+
+      // Upper Final to Grand Final Edge
+      const upperFinal = upperRounds[U - 1]?.[0];
+      if (upperFinal && showUpper) {
+        const active =
+          upperFinal.status === "completed" && upperFinal.winner !== null;
+        flowEdges.push({
+          id: `e-${upperFinal.roomId}-${gfNode.roomId}`,
+          source: upperFinal.roomId,
+          target: gfNode.roomId,
+          type: "smoothstep",
+          animated: active,
+          style: {
+            stroke: active ? "var(--success)" : "var(--border)",
+            strokeWidth: 2,
+          },
+        });
+      }
+
+      // Lower Final to Grand Final Edge
+      const lowerFinal = lowerRounds[L - 1]?.[0];
+      if (lowerFinal && showLower) {
+        const active =
+          lowerFinal.status === "completed" && lowerFinal.winner !== null;
+        flowEdges.push({
+          id: `e-${lowerFinal.roomId}-${gfNode.roomId}`,
+          source: lowerFinal.roomId,
+          target: gfNode.roomId,
+          type: "smoothstep",
+          animated: active,
+          style: {
+            stroke: active ? "var(--success)" : "var(--border)",
+            strokeWidth: 2,
+          },
+        });
+      }
+    }
+
     return { nodes: flowNodes, edges: flowEdges };
-  }, [snapshot, openMatchDetails]);
+  }, [snapshot, openMatchDetails, filter]);
 
   return (
     <div className={styles.page}>
@@ -779,7 +1049,11 @@ export default function BracketRoomClient({
           <div>
             <div className={styles.titleRow}>
               <h2 className={styles.title}>{contest.name}</h2>
-              <span className={styles.knockoutBadge}>Knockout</span>
+              <span className={styles.knockoutBadge}>
+                {snapshot.bracketType === "double_elimination"
+                  ? "Double Elimination"
+                  : "Knockout"}
+              </span>
             </div>
             <p className={styles.subtitle}>
               Contests • {currentRoundName} •{" "}
@@ -788,6 +1062,29 @@ export default function BracketRoomClient({
           </div>
         </div>
         <div className={styles.headerRight}>
+          {snapshot.bracketType === "double_elimination" && (
+            <div className={styles.viewSwitcher}>
+              {(
+                [
+                  { id: "all", label: "All Brackets" },
+                  { id: "upper", label: "Upper Bracket" },
+                  { id: "lower", label: "Lower Bracket" },
+                  { id: "grand_final", label: "Grand Finals" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setFilter(tab.id)}
+                  className={`${styles.viewTab} ${
+                    filter === tab.id ? styles.viewTabActive : ""
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
           {/* Live SSE indicator - only show "Live" */}
           <div className={styles.liveIndicator}>
             <span className={styles.dotError} />
