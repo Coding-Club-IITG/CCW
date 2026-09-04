@@ -33,6 +33,8 @@ import {
 } from "@/lib/constants";
 
 import Modal from "@/components/shared/Modal";
+import { useToast } from "@/components/shared/Toast";
+import { useConfirm } from "@/components/shared/useConfirm";
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
@@ -51,6 +53,8 @@ interface AdminUser {
 }
 
 export default function UserManagement() {
+  const toast = useToast();
+  const { confirm, confirmDialog } = useConfirm();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [newEmail, setNewEmail] = useState("");
@@ -86,11 +90,20 @@ export default function UserManagement() {
   async function run(result: Promise<AppResult<unknown>>) {
     const value = await result;
     if (!value.ok) {
-      alert(value.error.message);
+      toast.error(value.error.message);
       return false;
     }
     await fetchUsers();
     return true;
+  }
+
+  async function handleDelete(user: AdminUser) {
+    const confirmed = await confirm({
+      title: "Delete this member?",
+      description: `${user.name || user.email} will lose access to the workspace. This cannot be undone.`,
+      confirmLabel: "Delete member",
+    });
+    if (confirmed) await run(deleteUser(user._id));
   }
 
   function openAccessEditor(user: AdminUser, access = user.access || "Member") {
@@ -110,26 +123,28 @@ export default function UserManagement() {
   async function saveAccess() {
     if (!accessUser) return;
     if (tempAccess === "Head" && tempManagedModules.length === 0) {
-      alert("Select at least one module for Head access.");
+      toast.error("Select at least one module for Head access.");
       return;
     }
     const changingToHead =
       tempAccess === "Head" && accessUser.access !== "Head";
-    if (
-      changingToHead &&
-      accessUser.roles?.length &&
-      !confirm(
-        "Head roles are generated from managed modules. Existing custom roles will be cleared. Continue?",
-      )
-    ) {
-      return;
+    if (changingToHead && accessUser.roles?.length) {
+      const confirmed = await confirm({
+        title: "Clear existing custom roles?",
+        description:
+          "Head roles are generated from managed modules, so the roles currently assigned to this member will be removed.",
+        confirmLabel: "Grant Head access",
+      });
+      if (!confirmed) return;
     }
-    if (
-      tempAccess !== "Head" &&
-      accessUser.managedModules?.length &&
-      !confirm("Changing access will clear managed modules. Continue?")
-    ) {
-      return;
+    if (tempAccess !== "Head" && accessUser.managedModules?.length) {
+      const confirmed = await confirm({
+        title: "Clear managed modules?",
+        description:
+          "Changing access away from Head will remove the modules this member manages.",
+        confirmLabel: "Change access",
+      });
+      if (!confirmed) return;
     }
     if (
       await run(
@@ -366,14 +381,7 @@ export default function UserManagement() {
                             className={`${styles.iconButton} ${styles.dangerButton}`}
                             aria-label={`Delete ${user.name || user.email}`}
                             title="Delete member"
-                            onClick={() => {
-                              if (
-                                confirm(
-                                  "Are you sure you want to delete this user?",
-                                )
-                              )
-                                void run(deleteUser(user._id));
-                            }}
+                            onClick={() => void handleDelete(user)}
                           >
                             <Trash2 size={15} />
                           </button>
@@ -580,6 +588,7 @@ export default function UserManagement() {
           </div>
         </Modal>
       )}
+      {confirmDialog}
     </div>
   );
 }

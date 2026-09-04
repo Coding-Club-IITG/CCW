@@ -19,6 +19,8 @@ import EmptyState from "@/components/shared/EmptyState";
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
 import TagBadge from "@/components/shared/TagBadge";
+import { useToast } from "@/components/shared/Toast";
+import { useConfirm } from "@/components/shared/useConfirm";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 
 import EditModal from "./EditModal";
@@ -33,6 +35,9 @@ interface Props {
 }
 
 export default function FilesClient({ currentUser }: Props) {
+  const toast = useToast();
+  const { confirm, confirmDialog } = useConfirm();
+
   // Data
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,19 +87,19 @@ export default function FilesClient({ currentUser }: Props) {
   // Delete
 
   async function handleDelete(file: FileEntry) {
-    if (
-      !confirm(
-        `Delete "${file.title}"?\n\nThis will permanently remove the file from the server.`,
-      )
-    )
-      return;
+    const confirmed = await confirm({
+      title: "Delete this file?",
+      description: `"${file.title}" will be permanently removed from the server. This cannot be undone.`,
+      confirmLabel: "Delete file",
+    });
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`/api/files/${file._id}`, { method: "DELETE" });
       await expectAppData(res);
       fetchFiles();
     } catch (error) {
-      alert(appErrorMessage(error, "Network error. Please try again."));
+      toast.error(appErrorMessage(error, "Network error. Please try again."));
     }
   }
 
@@ -352,6 +357,7 @@ export default function FilesClient({ currentUser }: Props) {
           onClose={() => setEditFile(null)}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }

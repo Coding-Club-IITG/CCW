@@ -8,6 +8,8 @@ import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
 import type { ContestPresetDto } from "@/lib/contests/dtos";
 
 import Modal from "@/components/shared/Modal";
+import { useToast } from "@/components/shared/Toast";
+import { useConfirm } from "@/components/shared/useConfirm";
 
 import styles from "./PresetManager.module.scss";
 
@@ -16,6 +18,8 @@ interface PresetManagerProps {
 }
 
 export default function PresetManager({ initialPresets }: PresetManagerProps) {
+  const toast = useToast();
+  const { confirm, confirmDialog } = useConfirm();
   const [presets, setPresets] = useState<ContestPresetDto[]>(initialPresets);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -136,15 +140,24 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
       setModalOpen(false);
       resetForm();
     } catch (error: unknown) {
-      alert(appErrorMessage(error, "Unable to save the preset."));
+      toast.error(appErrorMessage(error, "Unable to save the preset."));
     } finally {
       setLoading(false);
     }
   }
 
   async function toggleArchive(preset: ContestPresetDto) {
-    const action = preset.archived ? "unarchive" : "archive";
-    if (!confirm(`Are you sure you want to ${action} this preset?`)) return;
+    const confirmed = await confirm({
+      title: preset.archived
+        ? "Unarchive this preset?"
+        : "Archive this preset?",
+      description: preset.archived
+        ? `"${preset.name}" will be selectable again when creating contests.`
+        : `"${preset.name}" will be hidden from contest creation. Existing contests keep their settings.`,
+      confirmLabel: preset.archived ? "Unarchive" : "Archive",
+      variant: preset.archived ? "primary" : "danger",
+    });
+    if (!confirmed) return;
 
     setLoading(true);
     try {
@@ -157,7 +170,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
       const updated = await expectAppData<ContestPresetDto>(res);
       setPresets(presets.map((p) => (p._id === updated._id ? updated : p)));
     } catch (error: unknown) {
-      alert(appErrorMessage(error, "Unable to update the preset."));
+      toast.error(appErrorMessage(error, "Unable to update the preset."));
     } finally {
       setLoading(false);
     }
@@ -462,6 +475,7 @@ export default function PresetManager({ initialPresets }: PresetManagerProps) {
           </form>
         </Modal>
       )}
+      {confirmDialog}
     </div>
   );
 }

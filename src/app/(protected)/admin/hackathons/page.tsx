@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/utils";
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
+import { useConfirm } from "@/components/shared/useConfirm";
 
 import styles from "./Hackathons.module.scss";
 
@@ -28,6 +29,7 @@ interface Hackathon {
 
 export default function AdminHackathonsPage() {
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -141,8 +143,13 @@ export default function AdminHackathonsPage() {
     }
   }
 
-  async function handleArchive(id: string) {
-    if (!confirm("Archive this hackathon?")) return;
+  async function handleArchive(id: string, name: string) {
+    const confirmed = await confirm({
+      title: "Archive this hackathon?",
+      description: `"${name}" will be hidden from members. Registered teams are kept.`,
+      confirmLabel: "Archive",
+    });
+    if (!confirmed) return;
     try {
       const response = await fetch(`/api/admin/hackathons/${id}`, {
         method: "DELETE",
@@ -335,7 +342,7 @@ export default function AdminHackathonsPage() {
                   {h.status === "active" && (
                     <button
                       className={styles.btnDanger}
-                      onClick={() => handleArchive(h._id)}
+                      onClick={() => void handleArchive(h._id, h.name)}
                     >
                       Archive
                     </button>
@@ -351,6 +358,7 @@ export default function AdminHackathonsPage() {
           />
         </>
       )}
+      {confirmDialog}
     </div>
   );
 }

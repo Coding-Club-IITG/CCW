@@ -12,6 +12,8 @@ import { formatShortDate } from "@/lib/utils";
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
+import { useToast } from "@/components/shared/Toast";
+import { useConfirm } from "@/components/shared/useConfirm";
 
 import styles from "./AdminBlog.module.scss";
 
@@ -38,6 +40,8 @@ export default function AdminBlogPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const router = useRouter();
+  const toast = useToast();
+  const { confirm, confirmDialog } = useConfirm();
 
   useEffect(() => {
     async function fetchPosts() {
@@ -58,8 +62,13 @@ export default function AdminBlogPage() {
     void fetchPosts();
   }, [page]);
 
-  const handleDelete = async (slug: string) => {
-    if (!confirm("Are you sure you want to delete this post?")) return;
+  const handleDelete = async (slug: string, title: string) => {
+    const confirmed = await confirm({
+      title: "Delete this post?",
+      description: `"${title}" will be removed permanently. This cannot be undone.`,
+      confirmLabel: "Delete post",
+    });
+    if (!confirmed) return;
     try {
       const response = await fetch(`/api/admin/blog/${slug}`, {
         method: "DELETE",
@@ -67,7 +76,7 @@ export default function AdminBlogPage() {
       await expectAppData(response);
       setPosts((prev) => prev.filter((p) => p.slug !== slug));
     } catch {
-      alert("Failed to delete post.");
+      toast.error("Failed to delete post.");
     }
   };
 
@@ -89,7 +98,7 @@ export default function AdminBlogPage() {
         router.push(`/admin/blog/${data.post.slug}/edit`);
       }
     } catch {
-      alert("Failed to create post.");
+      toast.error("Failed to create post.");
     }
   };
 
@@ -171,7 +180,7 @@ export default function AdminBlogPage() {
                   )}
                   <button
                     className={styles.btnDanger}
-                    onClick={() => handleDelete(post.slug)}
+                    onClick={() => void handleDelete(post.slug, post.title)}
                   >
                     Delete
                   </button>
@@ -186,6 +195,7 @@ export default function AdminBlogPage() {
           />
         </>
       )}
+      {confirmDialog}
     </div>
   );
 }

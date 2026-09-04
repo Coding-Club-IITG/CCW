@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { useThemeStore } from "@/lib/store/theme";
 import { CommandConsoleProvider } from "@/components/atlas/CommandConsole";
+import { ToastProvider } from "@/components/shared/Toast";
 
 export interface RuntimeConfig {
   developmentAuthEnabled: boolean;
@@ -31,7 +32,9 @@ export default function Providers({
 
   return (
     <RuntimeConfigContext value={runtimeConfig}>
-      <CommandConsoleProvider>{children}</CommandConsoleProvider>
+      <ToastProvider>
+        <CommandConsoleProvider>{children}</CommandConsoleProvider>
+      </ToastProvider>
     </RuntimeConfigContext>
   );
 }

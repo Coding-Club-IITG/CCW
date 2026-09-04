@@ -23,6 +23,8 @@ import {
 
 import EmptyState from "@/components/shared/EmptyState";
 import { CardGridSkeletonContent } from "@/components/shared/skeletons/CardGridSkeleton";
+import { useToast } from "@/components/shared/Toast";
+import { useConfirm } from "@/components/shared/useConfirm";
 
 import AutoProblemModal from "./AutoProblemModal";
 import { ScheduledProblemCard } from "./ScheduledProblemCard";
@@ -36,6 +38,8 @@ type FormData = {
 };
 
 export default function SetProblemClient() {
+  const toast = useToast();
+  const { confirm, confirmDialog } = useConfirm();
   const availableDates = getAvailableDates();
   const todayIST = getTodayISTDateStr();
 
@@ -137,9 +141,13 @@ export default function SetProblemClient() {
       );
       if (!result.ok) {
         if (/already used/i.test(result.error.message)) {
-          if (confirm(result.error.message)) {
-            await handleSave(true);
-          }
+          const confirmed = await confirm({
+            title: "Schedule this problem anyway?",
+            description: result.error.message,
+            confirmLabel: "Schedule anyway",
+            variant: "primary",
+          });
+          if (confirmed) await handleSave(true);
           return;
         }
         setFormError(result.error.message);
@@ -159,15 +167,19 @@ export default function SetProblemClient() {
   };
 
   const handleDelete = async (id: string, isToday: boolean) => {
-    const msg = isToday
-      ? "This problem is live today. Remove it anyway?"
-      : "Remove this scheduled problem?";
-    if (!confirm(msg)) return;
+    const confirmed = await confirm({
+      title: isToday ? "Remove today's live problem?" : "Remove this problem?",
+      description: isToday
+        ? "This problem is live today. Removing it takes it out of the daily challenge for everyone."
+        : "This scheduled problem will be removed from the upcoming rotation.",
+      confirmLabel: "Remove",
+    });
+    if (!confirmed) return;
     setDeletingId(id);
     try {
       const result = await deleteScheduledChallenge(id);
       if (!result.ok) {
-        alert(result.error.message);
+        toast.error(result.error.message);
         return;
       }
       await fetchScheduled();
@@ -408,6 +420,7 @@ export default function SetProblemClient() {
           onSuccess={fetchScheduled}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }

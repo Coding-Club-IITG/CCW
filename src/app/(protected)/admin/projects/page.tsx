@@ -10,6 +10,7 @@ import { formatMonthYear } from "@/lib/utils";
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
+import { useConfirm } from "@/components/shared/useConfirm";
 
 import styles from "../events/AdminEvents.module.scss";
 
@@ -22,6 +23,7 @@ interface ProjectItem {
 }
 
 export default function AdminProjectsPage() {
+  const { confirm, confirmDialog } = useConfirm();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -52,10 +54,13 @@ export default function AdminProjectsPage() {
     void fetchProjects();
   }, [page]);
 
-  async function handleDelete(id: string) {
-    if (!window.confirm("Are you sure you want to delete this project?")) {
-      return;
-    }
+  async function handleDelete(id: string, title: string) {
+    const confirmed = await confirm({
+      title: "Delete this project?",
+      description: `"${title}" will be removed from the public website. This cannot be undone.`,
+      confirmLabel: "Delete project",
+    });
+    if (!confirmed) return;
 
     setDeleting(id);
     setError("");
@@ -118,7 +123,9 @@ export default function AdminProjectsPage() {
                   <button
                     type="button"
                     className={styles.deleteBtn}
-                    onClick={() => void handleDelete(project._id)}
+                    onClick={() =>
+                      void handleDelete(project._id, project.title)
+                    }
                     disabled={deleting === project._id}
                   >
                     {deleting === project._id ? "Deleting..." : "Delete"}
@@ -134,6 +141,7 @@ export default function AdminProjectsPage() {
           />
         </>
       )}
+      {confirmDialog}
     </div>
   );
 }

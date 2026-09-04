@@ -13,10 +13,12 @@ import { formatDate, getDisplayName } from "@/lib/utils";
 
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
+import { ListSkeletonContent } from "@/components/shared/skeletons/ListSkeleton";
+import { useToast } from "@/components/shared/Toast";
 import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
+import { useConfirm } from "@/components/shared/useConfirm";
 
 import styles from "../Hackathons.module.scss";
-import { ListSkeletonContent } from "@/components/shared/skeletons/ListSkeleton";
 
 interface MemberDetail {
   id: string;
@@ -85,6 +87,8 @@ export default function HackathonDetailPage({
 }) {
   const { data: session } = useSession();
   const currentUserId = session?.user.id || "";
+  const toast = useToast();
+  const { confirm, confirmDialog } = useConfirm();
 
   const [hackathonId, setHackathonId] = useState("");
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
@@ -226,7 +230,13 @@ export default function HackathonDetailPage({
 
   async function handleRemoveMember(memberId: string) {
     if (!myTeam) return;
-    if (!confirm("Remove this member from the team?")) return;
+    const confirmed = await confirm({
+      title: "Remove this member?",
+      description:
+        "They will be removed from your team and can request to join again.",
+      confirmLabel: "Remove member",
+    });
+    if (!confirmed) return;
     setError("");
     try {
       const res = await fetch(`/api/hackathons/teams/${myTeam._id}`, {
@@ -259,7 +269,13 @@ export default function HackathonDetailPage({
 
   async function handleDeleteTeam() {
     if (!myTeam) return;
-    if (!confirm("Delete this team? This cannot be undone.")) return;
+    const confirmed = await confirm({
+      title: "Delete this team?",
+      description:
+        "Every member will be removed and pending requests are dropped. This cannot be undone.",
+      confirmLabel: "Delete team",
+    });
+    if (!confirmed) return;
     setError("");
     try {
       const res = await fetch(`/api/hackathons/teams/${myTeam._id}`, {
@@ -283,7 +299,7 @@ export default function HackathonDetailPage({
 
       await expectAppData(res);
 
-      alert("Join request sent!");
+      toast.success("Join request sent!");
     } catch (error) {
       setError(appErrorMessage(error, "Failed to send request."));
     }
@@ -300,7 +316,7 @@ export default function HackathonDetailPage({
 
       await expectAppData(res);
 
-      alert("Invite sent!");
+      toast.success("Invite sent!");
     } catch (error) {
       setError(appErrorMessage(error, "Failed to send invite."));
     } finally {
@@ -700,6 +716,7 @@ export default function HackathonDetailPage({
           ))}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

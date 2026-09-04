@@ -12,6 +12,7 @@ import type {
   ContestCreationPreset,
 } from "@/components/contests/contestCreationForm";
 import BackLink from "@/components/shared/BackLink";
+import { useToast } from "@/components/shared/Toast";
 
 import styles from "./ContestWizard.module.scss";
 import Step1BasicInfo from "./steps/Step1BasicInfo";
@@ -27,6 +28,7 @@ interface ContestWizardProps {
 
 export default function ContestWizard({ presets }: ContestWizardProps) {
   const router = useRouter();
+  const toast = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -91,7 +93,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     try {
       const result = await validateStep(currentStep, formData);
       if (!result.ok) {
-        alert(result.error.message);
+        toast.error(result.error.message);
       } else if (!result.data.valid) {
         setErrors(result.data.errors);
       } else {
@@ -99,7 +101,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
         setCurrentStep((prev) => prev + 1);
       }
     } catch {
-      alert("Validation failed");
+      toast.error("Validation failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -117,13 +119,13 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     try {
       const result = await createBracketContest(formData);
       if (!result.ok) {
-        alert(result.error.message);
+        toast.error(result.error.message);
       } else {
-        alert("Contest created successfully!");
+        toast.success("Contest created successfully!");
         router.push(`/admin`);
       }
     } catch {
-      alert("Failed to create contest");
+      toast.error("Failed to create contest");
     } finally {
       setIsSubmitting(false);
     }

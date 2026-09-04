@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteCalendarEvent } from "@/lib/actions/calendar";
+
+import { useConfirm } from "@/components/shared/useConfirm";
+
 import styles from "@/app/(protected)/internal/calendar/Calendar.module.scss";
 
 export default function CalendarEventActions({
@@ -18,13 +21,20 @@ export default function CalendarEventActions({
   canPublish: boolean;
 }) {
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   async function remove() {
-    const message = publicEventId
-      ? "This permanently deletes both the calendar entry and its public event. Continue?"
-      : "Delete this calendar event?";
-    if (!window.confirm(message)) return;
+    const confirmed = await confirm({
+      title: publicEventId
+        ? "Delete the calendar and public event?"
+        : "Delete this calendar event?",
+      description: publicEventId
+        ? "This permanently removes the calendar entry and the public event linked to it."
+        : "This permanently removes the calendar entry, including its agenda, minutes and reminders.",
+      confirmLabel: "Delete event",
+    });
+    if (!confirmed) return;
     setDeleting(true);
     const result = await deleteCalendarEvent(id);
     if (!result.ok) {
@@ -82,6 +92,7 @@ export default function CalendarEventActions({
           </button>
         )}
       </div>
+      {confirmDialog}
     </div>
   );
 }

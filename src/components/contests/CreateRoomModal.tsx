@@ -31,6 +31,7 @@ import {
 } from "@/components/contests/contestCreationForm";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import Modal from "@/components/shared/Modal";
+import { useToast } from "@/components/shared/Toast";
 
 import styles from "./CreateRoomModal.module.scss";
 
@@ -48,6 +49,7 @@ export default function CreateRoomModal({
   deadlineMinutes?: number;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [topPresetId, setTopPresetId] = useState("");
 
@@ -161,7 +163,7 @@ export default function CreateRoomModal({
     // Eg. if deadlineMinutes is 1, minimum wait is (1 + 1) = 2 mins
     const requiredBufferMinutes = deadlineMinutes + 1;
     if (start.getTime() < Date.now() + requiredBufferMinutes * 60000 - 5000) {
-      alert(
+      toast.error(
         `Start time (Deadline) must be at least ${requiredBufferMinutes} minutes ahead of the current time (to allow for the ${deadlineMinutes}-minute registration deadline plus a 1-minute buffer).`,
       );
       return;
@@ -180,7 +182,7 @@ export default function CreateRoomModal({
     ) {
       const emptyIndex = formData.fineTunedProblems.findIndex((p) => !p.trim());
       if (emptyIndex !== -1) {
-        alert(`Please enter a Problem ID for Problem ${emptyIndex + 1}.`);
+        toast.error(`Please enter a Problem ID for Problem ${emptyIndex + 1}.`);
         return;
       }
     }
@@ -189,11 +191,11 @@ export default function CreateRoomModal({
     if (formData.registrationStartMode === "schedule") {
       const rStart = new Date(formData.registrationStartTime);
       if (isNaN(rStart.getTime()) || rStart.getTime() <= Date.now()) {
-        alert("Scheduled registration start time must be in the future.");
+        toast.error("Scheduled registration start time must be in the future.");
         return;
       }
       if (rStart.getTime() >= start.getTime()) {
-        alert("Registration must start before the contest deadline.");
+        toast.error("Registration must start before the contest deadline.");
         return;
       }
       regStartIso = rStart.toISOString();
@@ -205,7 +207,7 @@ export default function CreateRoomModal({
       if (useTeamsUI) {
         for (const team of manualTeams) {
           if (team.members.length !== membersPerTeamLimit) {
-            alert(
+            toast.error(
               `Team "${team.name}" does not have exactly ${membersPerTeamLimit} member(s).`,
             );
             return;
@@ -217,7 +219,7 @@ export default function CreateRoomModal({
       } else {
         if (formData.format === "1v1") {
           if (registeredUsers.length !== 2) {
-            alert("1v1 format requires exactly 2 participants.");
+            toast.error("1v1 format requires exactly 2 participants.");
             return;
           }
         }
@@ -230,7 +232,7 @@ export default function CreateRoomModal({
 
     if (formData.format === "bracket") {
       if (!formData.presetId) {
-        alert("Please select a match preset for the bracket.");
+        toast.error("Please select a match preset for the bracket.");
         return;
       }
 
@@ -244,7 +246,7 @@ export default function CreateRoomModal({
         for (const rnd of bracketRoundProblems) {
           for (const pid of rnd.problemIds) {
             if (!pid.trim()) {
-              alert(
+              toast.error(
                 `Round ${rnd.roundNumber}: all problem IDs must be filled in.`,
               );
               return;
@@ -273,13 +275,13 @@ export default function CreateRoomModal({
             : {}),
         });
         if (!res.ok) {
-          alert(res.error.message);
+          toast.error(res.error.message);
         } else {
           onClose();
           router.refresh();
         }
       } catch {
-        alert("Error creating bracket");
+        toast.error("Error creating bracket");
       } finally {
         setLoading(false);
       }
@@ -295,13 +297,13 @@ export default function CreateRoomModal({
         registeredUsers: finalRegisteredUsers,
       });
       if (!res.ok) {
-        alert(res.error.message);
+        toast.error(res.error.message);
       } else {
         onClose();
         router.refresh();
       }
     } catch {
-      alert("Error creating room");
+      toast.error("Error creating room");
     } finally {
       setLoading(false);
     }

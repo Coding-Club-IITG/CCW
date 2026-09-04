@@ -22,6 +22,7 @@ import {
 
 import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
 import { useRuntimeConfig } from "@/components/layout/Providers";
+import { useToast } from "@/components/shared/Toast";
 
 import styles from "./Potd.module.scss";
 
@@ -37,6 +38,7 @@ export default function DailyChallengeClient({
   initialData,
 }: Props) {
   const { userRateLimitsEnabled } = useRuntimeConfig();
+  const toast = useToast();
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [hoursLeft, setHoursLeft] = useState<number>(0);
   const [isClient, setIsClient] = useState(false);
@@ -157,15 +159,17 @@ export default function DailyChallengeClient({
         });
 
         if (submission.status === "Accepted") {
-          alert(`Sync complete! You earned ${submission.pointsAwarded} pts.`);
+          toast.success(
+            `Sync complete! You earned ${submission.pointsAwarded} pts.`,
+          );
         } else if (submission.status === "Late") {
-          alert(
+          toast.warning(
             `Sync complete! Grace window solve - ${submission.pointsAwarded} pts earned (50% penalty applied, streak saved).`,
           );
         } else if (submission.status === "Pending") {
-          alert("No accepted submission found yet. Try again later.");
+          toast.info("No accepted submission found yet. Try again later.");
         } else if (submission.status === "NotSolved") {
-          alert("The window has closed and no solve was detected.");
+          toast.warning("The window has closed and no solve was detected.");
         }
       } else {
         setSyncErrors((p) => ({
