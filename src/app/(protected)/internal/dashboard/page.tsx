@@ -38,7 +38,9 @@ export default async function DashboardPage() {
     : [{ "authors.userId": String(user.id) }];
 
   const myBlogs = await BlogPost.find({ $or: authorQuery })
-    .select("title slug excerpt status updatedAt pendingRevision")
+    .select(
+      "title slug excerpt status updatedAt pendingRevision.submittedAt pendingRevision.updatedAt",
+    )
     .sort({ updatedAt: -1 })
     .lean();
 

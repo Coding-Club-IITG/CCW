@@ -15,8 +15,16 @@ import { auditActor, auditedTransaction } from "@/lib/audit";
 import { summarizePublicContent } from "@/lib/audit/summary";
 import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
+import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
+
+async function uniqueSlug(base: string, currentSlug?: string): Promise<string> {
+  return findUniqueSlug(base, async (candidate) => {
+    const existing = await BlogPost.findOne({ slug: candidate }).select("slug").lean();
+    return Boolean(existing && (!currentSlug || existing.slug !== currentSlug));
+  });
+}
 
 const revisionActionSchema = z.object({
   action: z.enum(["approve", "reject"]),
@@ -65,8 +73,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
         if (!rev) throw new Error("No pending revision found on post.");
 
         if (action === "approve") {
+          let nextSlug = current.slug;
+          const nextTitle = (rev.title ?? current.title).trim();
+          if (nextTitle && nextTitle !== current.title) {
+            const newSlugBase = titleToSlug(nextTitle);
+            if (newSlugBase) {
+              nextSlug = await uniqueSlug(newSlugBase, slug);
+            }
+          }
+
           current.set({
-            title: rev.title ?? current.title,
+            title: nextTitle || current.title,
+            slug: nextSlug,
             content: rev.content ?? current.content,
             excerpt: rev.excerpt ?? current.excerpt,
             coverImage: rev.coverImage ?? current.coverImage,
@@ -132,6 +150,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       await invalidateCache("home");
       revalidatePath("/");
       revalidatePath(`/blog/${slug}`);
+      if (saved.slug !== slug) {
+        revalidatePath(`/blog/${saved.slug}`);
+      }
       revalidatePath("/sitemap.xml");
     } else {
       await invalidateCache("admin:blog");

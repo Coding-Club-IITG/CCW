@@ -42,6 +42,7 @@ export async function auditedTransaction<T>(
     if (
       err?.message?.includes("Transaction numbers are only allowed") ||
       err?.message?.includes("transactions are not supported") ||
+      err?.message?.includes("does not support retryable writes") ||
       err?.code === 20 ||
       err?.codeName === "IllegalOperation"
     ) {

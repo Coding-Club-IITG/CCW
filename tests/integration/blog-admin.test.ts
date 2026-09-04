@@ -250,12 +250,14 @@ describe("admin blog routes", () => {
     expect(response.status).toBe(200);
 
     const updated = await BlogPost.findOne({
-      slug: "post-with-revision",
+      slug: "approved-new-title",
     }).lean();
     expect(updated?.title).toBe("Approved New Title");
+    expect(updated?.slug).toBe("approved-new-title");
     expect(updated?.content).toBe("Approved New Content");
     expect(updated?.pendingRevision).toBeNull();
     expect(revalidatePath).toHaveBeenCalledWith("/blog/post-with-revision");
+    expect(revalidatePath).toHaveBeenCalledWith("/blog/approved-new-title");
     expect(
       await AuditLog.findOne({ operation: "blog.revision.approve" }),
     ).toMatchObject({
@@ -264,6 +266,47 @@ describe("admin blog routes", () => {
       operation: "blog.revision.approve",
       actor: { userId: BLOG_ADMIN_ID.toString(), access: "Head" },
     });
+  });
+
+  it("preserves existing slug when approved revision keeps the same title", async () => {
+    const BlogPost = (await import("@/models/BlogPost")).default;
+    const revisionRoute =
+      await import("@/app/api/admin/blog/[slug]/revision/route");
+    await BlogPost.create(
+      blogPost({
+        slug: "post-same-title",
+        title: "Unchanged Title",
+        content: "Old Content",
+        status: "published",
+        pendingRevision: {
+          title: "Unchanged Title",
+          content: "Updated Content Only",
+          excerpt: "Updated Excerpt",
+          coverImage: "",
+          coverFocalPoint: { x: 0.5, y: 0.5 },
+          tags: ["Development"],
+          updatedAt: new Date(),
+          submittedAt: new Date(),
+          submittedBy: BLOG_AUTHOR_ID,
+        },
+      }),
+    );
+
+    const response = await revisionRoute.POST(
+      jsonRequest("/api/admin/blog/post-same-title/revision", "POST", {
+        action: "approve",
+      }),
+      context("post-same-title"),
+    );
+    expect(response.status).toBe(200);
+
+    const updated = await BlogPost.findOne({
+      slug: "post-same-title",
+    }).lean();
+    expect(updated?.title).toBe("Unchanged Title");
+    expect(updated?.slug).toBe("post-same-title");
+    expect(updated?.content).toBe("Updated Content Only");
+    expect(updated?.pendingRevision).toBeNull();
   });
 
   it("allows admin to reject a staged blog revision", async () => {

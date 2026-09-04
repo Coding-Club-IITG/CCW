@@ -1,12 +1,16 @@
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { isHead } from "@/lib/access/roles";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { PencilLine as IconEdit } from "lucide-react";
-import { rankRelatedPosts } from "@/lib/blog/relatedPosts";
+
+import { isBlogAuthor } from "@/lib/access/blog";
+import { isHead } from "@/lib/access/roles";
+import { auth } from "@/lib/auth";
 import { extractMarkdownHeadings } from "@/lib/blog/markdownHeadings";
+import { readingTimeLabel } from "@/lib/blog/readingTime";
+import { rankRelatedPosts } from "@/lib/blog/relatedPosts";
+import { tagAccent } from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
 import {
   ogImage,
@@ -15,13 +19,12 @@ import {
   SITE_NAME,
   SITE_URL,
 } from "@/lib/seo";
-import { readingTimeLabel } from "@/lib/blog/readingTime";
-import { tagAccent } from "@/lib/constants";
 import BlogPost from "@/models/BlogPost";
 import ArticleReader from "@/components/blog/ArticleReader";
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import JsonLd from "@/components/shared/JsonLd";
+
 import styles from "./BlogPost.module.scss";
 
 interface Props {
@@ -62,9 +65,7 @@ export default async function BlogPostPage({ params }: Props) {
   });
   const user = session?.user;
   const userIsAdmin = user ? isHead(user.access) : false;
-  const userIsAuthor = user
-    ? post.authors.some((a: any) => String(a.userId) === String(user.id))
-    : false;
+  const userIsAuthor = user ? isBlogAuthor(user, post) : false;
   const canEdit = userIsAdmin || userIsAuthor;
   const editHref = userIsAdmin
     ? `/admin/blog/${post.slug}/edit`

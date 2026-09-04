@@ -122,6 +122,9 @@ export default function EditBlogPostPage({ params }: Props) {
             : "Proposed changes rejected and discarded.",
         tone: "success",
       });
+      if (data.post?.slug && data.post.slug !== slug) {
+        router.push(`/admin/blog/${data.post.slug}/edit`);
+      }
     } catch {
       setReviewAction(null);
       setNotice({
