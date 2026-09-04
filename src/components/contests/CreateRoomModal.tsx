@@ -269,7 +269,9 @@ export default function CreateRoomModal({
                 fineTunedProblems: bracketProblemSlots.map((s) => s.problemId),
                 problemSlots: bracketProblemSlots,
               }
-            : {}),
+            : {
+                fineTunedProblems: undefined,
+              }),
         });
         if (!res.ok) {
           alert(res.error.message);
@@ -292,6 +294,9 @@ export default function CreateRoomModal({
         startTime: start.toISOString(),
         registrationStartTime: regStartIso,
         registeredUsers: finalRegisteredUsers,
+        ...(formData.problemSelectionMode !== "fine-tuned"
+          ? { fineTunedProblems: undefined }
+          : {}),
       });
       if (!res.ok) {
         alert(res.error.message);

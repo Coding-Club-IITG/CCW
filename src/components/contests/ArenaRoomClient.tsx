@@ -57,11 +57,44 @@ const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
   info: Info,
   gavel: Gavel,
   lock: Lock,
-  sync: RefreshCw,
+  switch: RefreshCw,
   check_circle: CircleCheck,
-  error: CircleAlert,
+  warning: CircleAlert,
   person: User,
   person_off: UserX,
+  team: Users,
+};
+
+const filterActivitySpam = (feed: RoomActivityDto[]) => {
+  const result: RoomActivityDto[] = [];
+  const skipIndex = new Set<number>();
+  
+  for (let i = 0; i < feed.length; i++) {
+    if (skipIndex.has(i)) continue;
+    
+    const current = feed[i];
+    if (current.icon === "person") {
+      const nameMatch = current.text.match(/^(.+?) (connected|reconnected)/);
+      if (nameMatch) {
+        const name = nameMatch[1];
+        let isSpam = false;
+        
+        for (let j = i + 1; j < feed.length; j++) {
+          const older = feed[j];
+          if (current.timestamp - older.timestamp > 6000) break;
+          
+          if (older.icon === "person_off" && older.text.startsWith(name + " disconnected")) {
+            skipIndex.add(j);
+            isSpam = true;
+            break;
+          }
+        }
+        if (isSpam) continue;
+      }
+    }
+    result.push(current);
+  }
+  return result;
 };
 
 // SVG sources (matching Lucide icons) for browser desktop notifications
@@ -215,10 +248,16 @@ export default function ArenaRoomClient({
   }, [syncCooldown]);
 
   // Notification permission state - used to render the "Enable Notifications" button
-  const [notifGranted, setNotifGranted] = useState(
-    typeof Notification !== "undefined" &&
-      Notification.permission === "granted",
-  );
+  const [notifGranted, setNotifGranted] = useState(true); // Default to true to prevent hydration mismatch
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    setNotifGranted(
+      typeof Notification !== "undefined" &&
+        Notification.permission === "granted",
+    );
+  }, []);
 
   useEffect(() => {
     const lastSyncStr = localStorage.getItem(`sync_${roomId}_${userId}`);
@@ -275,6 +314,7 @@ export default function ArenaRoomClient({
         ) {
           break;
         }
+        const prevStatus = matchStateRef.current;
         matchStateRef.current = nextStatus;
         setMatchState(nextStatus);
         if (payload.state.startTime)
@@ -284,7 +324,19 @@ export default function ArenaRoomClient({
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
         if (payload.locks) setLocks(payload.locks);
-        if (nextStatus === "active") {
+        if (payload.activityLog && payload.activityLog.length > 0) {
+          setActivityFeed(
+            filterActivitySpam(
+              payload.activityLog.map((entry: any, i: number) => ({
+                icon: entry.icon,
+                text: entry.text,
+                timestamp: entry.timestamp,
+                color: entry.color,
+                id: entry.timestamp + i,
+              }))
+            )
+          );
+        } else if (nextStatus === "active" && prevStatus === "waiting") {
           addActivity("info", "Arena match started! Good luck.");
         }
         break;
@@ -345,32 +397,32 @@ export default function ArenaRoomClient({
         );
         break;
       case "sync.detected":
-        if (payload.problemId) {
+        if (payload.problemId && payload.userId === stateRef.current.userId) {
           const problemId = payload.problemId;
           setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
         }
         if (payload.verdict === "OK") {
           addActivity(
             "check_circle",
-            `Valid AC detected! +${payload.pointsAwarded || 100} pts`,
+            `${payload.solverName || "Someone"} solved it! +${payload.pointsAwarded || 100} pts`,
             "text-primary",
           );
         } else {
           addActivity(
-            "error",
-            `Submission failed: ${payload.verdict}`,
+            "warning",
+            `${payload.solverName || "Someone"}'s submission failed: ${payload.verdict}`,
             "text-error",
           );
         }
         break;
       case "sync.failed":
-        if (payload.problemId) {
+        if (payload.problemId && payload.userId === stateRef.current.userId) {
           const problemId = payload.problemId;
           setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
         }
         addActivity(
-          "error",
-          `Sync failed: ${payload.reason || payload.verdict || "Unknown error"}`,
+          "warning",
+          `${payload.solverName || "Someone"}'s sync failed: ${payload.reason || payload.verdict || "Unknown error"}`,
           "text-error",
         );
         break;
@@ -382,6 +434,9 @@ export default function ArenaRoomClient({
         });
         if (payload.userId === stateRef.current.userId) {
           setIsReady(true);
+        }
+        if (payload.readyName) {
+          addActivity("person", `${payload.readyName} is ready`, "text-secondary");
         }
         break;
       case "presence.online": {
@@ -444,8 +499,29 @@ export default function ArenaRoomClient({
     text: string,
     color: string = "text-on-surface",
   ) => {
-    setActivityFeed((prev) =>
-      [
+    let isSpam = false;
+    if (icon === "person") {
+      const nameMatch = text.match(/^(.+?) (connected|reconnected)/);
+      if (nameMatch) {
+        const name = nameMatch[1];
+        const now = Date.now();
+        for (const older of activityFeed) {
+          if (now - older.timestamp > 6000) break;
+          if (older.icon === "person_off" && older.text.startsWith(name + " disconnected")) {
+            isSpam = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!isSpam) {
+      // Fire a matching desktop notification
+      sendBrowserNotification(icon, text);
+    }
+
+    setActivityFeed((prev) => {
+      const updated = [
         {
           icon,
           text,
@@ -454,10 +530,9 @@ export default function ArenaRoomClient({
           id: Date.now() + Math.random(),
         },
         ...prev,
-      ].slice(0, 15),
-    );
-    // Fire a matching desktop notification
-    sendBrowserNotification(icon, text);
+      ];
+      return filterActivitySpam(updated).slice(0, 50);
+    });
   };
 
   const handleReady = async () => {
@@ -820,13 +895,13 @@ export default function ArenaRoomClient({
 
           {/* Right Sidebar (Activity Log) */}
           <div className={styles.sideCol}>
-            <div className={`${styles.panel} ${styles.panelStage}`}>
+            <div className={`${styles.panel} ${styles.panelStage} ${styles.activityPanel}`}>
               <div className={styles.activityHead}>
                 <h2 className={styles.activityTitle}>
                   <Rss size={18} />
                   Activity Feed
                 </h2>
-                {typeof Notification !== "undefined" && !notifGranted && (
+                {mounted && typeof Notification !== "undefined" && !notifGranted && (
                   <button
                     className={styles.notifBtn}
                     onClick={() =>

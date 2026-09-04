@@ -11,6 +11,7 @@ import {
   type ReconciliationJobData,
   type ReconciliationJobName,
 } from "@/lib/contests/runtime";
+import { appendActivityLog } from "@/lib/contests/activityLog";
 import { workerEnv } from "@/lib/env/worker";
 import dbConnect from "@/lib/mongodb";
 import { notify } from "@/lib/notify";
@@ -161,6 +162,8 @@ export const reconciliationWorker = new Worker<
             `[reconciliationWorker] Team ${teamId} not ready within 60s, withdrawing from room ${roomId}`,
           );
 
+          const teamName = await redis.hGet(`team:${teamId}:meta`, "name") || "Unknown Team";
+
           // Remove team from room and mark participants as withdrawn
           await redis.sRem(`room:${roomId}:teams`, teamId);
           await redis.del(`team:${teamId}:users`);
@@ -176,6 +179,13 @@ export const reconciliationWorker = new Worker<
             type: "team.withdrawn",
             teamId,
             reason: "ready_timeout",
+          });
+
+          await appendActivityLog(redis, `room:${roomId}:activity_log`, {
+            icon: "gavel",
+            text: `${teamName} was withdrawn due to readiness timeout.`,
+            color: "text-error",
+            eventType: "team.withdrawn"
           });
 
           // If no teams are left or only one team, end the room

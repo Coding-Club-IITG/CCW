@@ -11,7 +11,10 @@ import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   contestRoomStateSchema,
   parseContestRoomProblems,
+  storedActivityEntrySchema,
 } from "@/lib/contests/runtime";
+import { getDisplayName } from "@/lib/contests/names";
+import { appendActivityLog } from "@/lib/contests/activityLog";
 import { parseSearchParams } from "@/lib/api/result";
 import { contestStreamQuerySchema } from "@/lib/api/schemas/contestRoute";
 
@@ -41,6 +44,8 @@ export async function GET(request: NextRequest) {
     : [];
 
   const redis = await getRedis();
+  
+  const initialSyncEvents: any[] = [];
 
   for (const room of activeRooms) {
     const roomId = room._id.toString();
@@ -94,6 +99,30 @@ export async function GET(request: NextRequest) {
       cancelledForfeit: cancelled,
     });
 
+    let displayName = "Unknown";
+    let teamIdForUser: string | null = null;
+    const allTeamsForName = await redis.sMembers(`room:${roomId}:teams`);
+    for (const tId of allTeamsForName) {
+      const isMember = await redis.sIsMember(`team:${tId}:users`, userId);
+      if (isMember) {
+        teamIdForUser = tId;
+        break;
+      }
+    }
+    displayName = await getDisplayName(redis, userId, teamIdForUser);
+
+
+    const text = cancelled
+      ? `${displayName} reconnected. Forfeiture cancelled.`
+      : `${displayName} connected${currentStatus === "waiting" ? " (Not Ready)" : ""}.`;
+
+    await appendActivityLog(redis, `room:${roomId}:activity_log`, {
+      icon: "person",
+      text,
+      color: "text-secondary",
+      eventType: "presence.online"
+    });
+
     // Send a full state resync directly to the reconnecting user so they catch up on any
     // changes that happened while they were disconnected (missed SSE events).
     if (currentStatus === "active" || currentStatus === "waiting") {
@@ -117,16 +146,32 @@ export async function GET(request: NextRequest) {
             ? await redis.hGetAll(`room:${roomId}:locks`)
             : {};
 
-        await publishUser(userId, {
-          type: "room.state_sync",
-          roomId,
-          state: stateObj,
-          problems,
-          scores,
-          locks,
+        const sharedLogRaw = await redis.lRange(`room:${roomId}:activity_log`, 0, 49);
+        const userLogRaw = await redis.lRange(`room:${roomId}:activity_log:${userId}`, 0, 49);
+        
+        const mergedLog = [...sharedLogRaw, ...userLogRaw]
+          .map(str => {
+            try { return storedActivityEntrySchema.parse(JSON.parse(str)); }
+            catch (e) { return null; }
+          })
+          .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, 50);
+
+        initialSyncEvents.push({
+          channel: `events:user:${userId}`,
+          payload: {
+            type: "room.state_sync",
+            roomId,
+            state: stateObj,
+            problems,
+            scores,
+            locks,
+            activityLog: mergedLog,
+          }
         });
       } catch (syncErr) {
-        logger.error("[SSE] Failed to send reconnect state_sync:", syncErr);
+        logger.error("[SSE] Failed to prepare reconnect state_sync:", syncErr);
       }
     }
   }
@@ -216,6 +261,24 @@ export async function GET(request: NextRequest) {
               forfeitTimeout: timeoutSeconds,
             });
 
+            let displayName = "Unknown";
+            let teamIdForUser: string | null = null;
+            const allTeamsForName = await redis.sMembers(`room:${roomId}:teams`);
+            for (const tId of allTeamsForName) {
+              const isMember = await redis.sIsMember(`team:${tId}:users`, userId);
+              if (isMember) {
+                teamIdForUser = tId;
+                break;
+              }
+            }
+            displayName = await getDisplayName(redis, userId, teamIdForUser);
+            await appendActivityLog(redis, `room:${roomId}:activity_log`, {
+              icon: "person_off",
+              text: `${displayName} disconnected. Match will be forfeited in ${timeoutSeconds}s.`,
+              color: "text-error",
+              eventType: "presence.offline"
+            });
+
             await reconciliationQueue.add(
               "mid_match_disconnect_timeout",
               {
@@ -232,10 +295,46 @@ export async function GET(request: NextRequest) {
           } else {
             // Publish offline status without scheduling forfeit
             await publishRoom(roomId, { type: "presence.offline", userId });
+
+            let displayName = "Unknown";
+            let teamIdForUser: string | null = null;
+            const allTeamsForName = await redis.sMembers(`room:${roomId}:teams`);
+            for (const tId of allTeamsForName) {
+              const isMember = await redis.sIsMember(`team:${tId}:users`, userId);
+              if (isMember) {
+                teamIdForUser = tId;
+                break;
+              }
+            }
+            displayName = await getDisplayName(redis, userId, teamIdForUser);
+            await appendActivityLog(redis, `room:${roomId}:activity_log`, {
+              icon: "person_off",
+              text: `${displayName} disconnected.`,
+              color: "text-error",
+              eventType: "presence.offline"
+            });
           }
         } else {
           // If room is not active (Eg. waiting), just publish offline status normally
           await publishRoom(roomId, { type: "presence.offline", userId });
+          
+          let displayName = "Unknown";
+          let teamIdForUser: string | null = null;
+          const allTeamsForName = await redis.sMembers(`room:${roomId}:teams`);
+          for (const tId of allTeamsForName) {
+            const isMember = await redis.sIsMember(`team:${tId}:users`, userId);
+            if (isMember) {
+              teamIdForUser = tId;
+              break;
+            }
+          }
+          displayName = await getDisplayName(redis, userId, teamIdForUser);
+          await appendActivityLog(redis, `room:${roomId}:activity_log`, {
+            icon: "person_off",
+            text: `${displayName} disconnected.`,
+            color: "text-error",
+            eventType: "presence.offline"
+          });
         }
       }
     } catch (err) {
@@ -285,6 +384,11 @@ export async function GET(request: NextRequest) {
           } catch (e) {}
           sendEvent("message", { channel, payload: parsed });
         });
+        
+        // Send the initial state syncs now that the connection is fully established
+        for (const ev of initialSyncEvents) {
+          sendEvent("message", ev);
+        }
       } catch (err) {
         logger.error("[SSE] Failed to subscribe to Redis channels:", err);
         controller.error(err);
