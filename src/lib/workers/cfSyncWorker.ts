@@ -23,6 +23,9 @@ import { claimProblem, getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
+import User from "@/models/User";
+import { appendActivityLog } from "@/lib/contests/activityLog";
+import { getDisplayName } from "@/lib/contests/names";
 
 // Circuit breaker removed, relying on BullMQ job-level retries
 
@@ -200,6 +203,9 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
         }
 
         // 4. Result Handling
+
+        const solverName = await getDisplayName(redis, userId, teamId);
+
         if (isValid && matchedSubmission) {
           const eventPayload: UserEvent = {
             type: "sync.detected",
@@ -211,6 +217,7 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             cfTimestamp: matchedSubmission.creationTimeSeconds * 1000,
             verdict: "OK",
             pointsAwarded: null, // Stage 3 fills this
+            solverName,
           };
 
           let isAdvanceTriggered = false;
@@ -299,6 +306,25 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                     claimedBy: teamId,
                     timestamp: cfTimestamp,
                   });
+
+                  const tName = await getDisplayName(redis, userId, teamId);
+                  const pName = targetProblem?.name || problemId;
+
+                  if (claimResult.startsWith("reclaimed|")) {
+                    await appendActivityLog(redis, `room:${roomId}:activity_log`, {
+                      icon: "gavel",
+                      text: `CRITICAL: ${tName} RECLAIMED ${problemId} - ${pName}!`,
+                      color: "text-error",
+                      eventType: "room.locked"
+                    });
+                  } else {
+                    await appendActivityLog(redis, `room:${roomId}:activity_log`, {
+                      icon: "lock",
+                      text: `${tName} solved ${problemId} - ${pName}`,
+                      color: "text-primary",
+                      eventType: "room.locked"
+                    });
+                  }
 
                   const scores: Record<string, number> = {};
                   const teams = await redis.sMembers(`room:${roomId}:teams`);
@@ -493,7 +519,15 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             }
           }
 
-          await publishUser(userId, eventPayload);
+          await publishRoom(roomId, eventPayload);
+
+          const pName = targetProblem?.name || problemId;
+          await appendActivityLog(redis, `room:${roomId}:activity_log`, {
+            icon: "check_circle",
+            text: `${solverName} solved ${pName}! +${points} pts`,
+            color: "text-primary",
+            eventType: "sync.detected"
+          });
 
           logger.info("Accepted contest submission detected", {
             worker: "cfSyncWorker",
@@ -514,6 +548,15 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             type: "sync.failed",
             verdict: failVerdict,
             problemId,
+            solverName,
+            userId,
+          });
+
+          await appendActivityLog(redis, `room:${roomId}:activity_log:${userId}`, {
+            icon: "warning",
+            text: `${solverName}'s submission failed: ${failVerdict}`,
+            color: "text-error",
+            eventType: "sync.failed"
           });
         }
       } catch (error) {
@@ -556,13 +599,26 @@ cfSyncWorker.on(
       job?.name === "cf_sync" &&
       job.attemptsMade >= (job.opts.attempts || 3)
     ) {
-      const { userId } = cfSyncJobDataSchema.parse(job.data);
+      const { userId, roomId, teamId, cfHandle } = cfSyncJobDataSchema.parse(job.data);
+      
+      const redis = await getRedis();
+      const solverName = await getDisplayName(redis, userId, teamId);
+
       logger.error(
         `[cfSyncWorker] Permanent failure for sync job ${job.id}. Publishing cf_unavailable to user ${userId}`,
       );
       await publishUser(userId, {
         type: "sync.failed",
         reason: "cf_unavailable",
+        solverName,
+        userId,
+      });
+
+      await appendActivityLog(redis, `room:${roomId}:activity_log:${userId}`, {
+        icon: "error",
+        text: `${solverName}'s sync failed: Codeforces is unavailable`,
+        color: "text-error",
+        eventType: "sync.failed"
       });
     }
   },

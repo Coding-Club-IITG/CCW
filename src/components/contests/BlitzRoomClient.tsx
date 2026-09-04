@@ -57,6 +57,39 @@ const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
   person_off: UserX,
 };
 
+const filterActivitySpam = (feed: RoomActivityDto[]) => {
+  const result: RoomActivityDto[] = [];
+  const skipIndex = new Set<number>();
+  
+  for (let i = 0; i < feed.length; i++) {
+    if (skipIndex.has(i)) continue;
+    
+    const current = feed[i];
+    if (current.icon === "person") {
+      const nameMatch = current.text.match(/^(.+?) (connected|reconnected)/);
+      if (nameMatch) {
+        const name = nameMatch[1];
+        let isSpam = false;
+        
+        for (let j = i + 1; j < feed.length; j++) {
+          const older = feed[j];
+          if (current.timestamp - older.timestamp > 6000) break;
+          
+          if (older.icon === "person_off" && older.text.startsWith(name + " disconnected")) {
+            skipIndex.add(j);
+            isSpam = true;
+            break;
+          }
+        }
+        if (isSpam) continue;
+      }
+    }
+    result.push(current);
+  }
+  return result;
+};
+
+
 export default function BlitzRoomClient({
   contest,
   roomId,
@@ -129,10 +162,16 @@ export default function BlitzRoomClient({
   const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
 
   // Notification permission state - used to render the "Enable Notifications" button
-  const [notifGranted, setNotifGranted] = useState(
-    typeof Notification !== "undefined" &&
-      Notification.permission === "granted",
-  );
+  const [notifGranted, setNotifGranted] = useState(true); // Default to true to prevent hydration mismatch
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    setNotifGranted(
+      typeof Notification !== "undefined" &&
+        Notification.permission === "granted",
+    );
+  }, []);
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
   const getDisplayTeamName = (team?: ContestRoomTeamDto) => {
@@ -225,6 +264,7 @@ export default function BlitzRoomClient({
         ) {
           break;
         }
+        const prevStatus = matchStateRef.current;
         matchStateRef.current = nextStatus;
         setMatchState((prev) => {
           if (prev !== "active" && nextStatus === "active") {
@@ -238,7 +278,19 @@ export default function BlitzRoomClient({
           setTimeLimit(parseInt(payload.state.timeLimit));
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
-        if (nextStatus === "active") {
+        if (payload.activityLog && payload.activityLog.length > 0) {
+          setActivityFeed(
+            filterActivitySpam(
+              payload.activityLog.map((entry: any, i: number) => ({
+                icon: entry.icon,
+                text: entry.text,
+                timestamp: entry.timestamp,
+                color: entry.color,
+                id: entry.timestamp + i,
+              }))
+            )
+          );
+        } else if (nextStatus === "active" && prevStatus === "waiting") {
           addActivity("info", "Match started! Good luck.");
         }
         break;
@@ -292,17 +344,17 @@ export default function BlitzRoomClient({
         );
         break;
       case "sync.detected":
-        setSyncing(false);
+        if (payload.userId === userId) setSyncing(false);
         if (payload.verdict === "OK") {
           addActivity(
             "check_circle",
-            `Valid AC detected! +${payload.pointsAwarded || 100} pts`,
+            `${payload.solverName || "Someone"} solved it! +${payload.pointsAwarded || 100} pts`,
             "text-primary",
           );
         } else {
           addActivity(
-            "error",
-            `Submission failed: ${payload.verdict}`,
+            "warning",
+            `${payload.solverName || "Someone"}'s submission failed: ${payload.verdict}`,
             "text-error",
           );
         }
@@ -316,19 +368,22 @@ export default function BlitzRoomClient({
         if (payload.userId === userId) {
           setIsReady(true);
         }
+        if (payload.readyName) {
+          addActivity("person", `${payload.readyName} is ready`, "text-secondary");
+        }
         break;
       case "sync.failed":
-        setSyncing(false);
+        if (payload.userId === userId) setSyncing(false);
         if (payload.verdict) {
           addActivity(
-            "error",
-            `Sync succeeded, but verdict is ${payload.verdict}`,
+            "warning",
+            `${payload.solverName || "Someone"}'s sync succeeded, but verdict is ${payload.verdict}`,
             "text-error",
           );
         } else {
           addActivity(
-            "error",
-            `Sync failed: ${payload.reason || "Unknown error"}`,
+            "warning",
+            `${payload.solverName || "Someone"}'s sync failed: ${payload.reason || "Unknown error"}`,
             "text-error",
           );
         }
@@ -393,8 +448,28 @@ export default function BlitzRoomClient({
     text: string,
     color: string = "text-on-surface",
   ) => {
-    setActivityFeed((prev) =>
-      [
+    let isSpam = false;
+    if (icon === "person") {
+      const nameMatch = text.match(/^(.+?) (connected|reconnected)/);
+      if (nameMatch) {
+        const name = nameMatch[1];
+        const now = Date.now();
+        for (const older of activityFeed) {
+          if (now - older.timestamp > 6000) break;
+          if (older.icon === "person_off" && older.text.startsWith(name + " disconnected")) {
+            isSpam = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!isSpam) {
+      sendBrowserNotification(icon, text);
+    }
+
+    setActivityFeed((prev) => {
+      const updated = [
         {
           icon,
           text,
@@ -403,10 +478,9 @@ export default function BlitzRoomClient({
           id: Date.now() + Math.random(),
         },
         ...prev,
-      ].slice(0, 10),
-    );
-    // Fire a matching desktop notification
-    sendBrowserNotification(icon, text);
+      ];
+      return filterActivitySpam(updated).slice(0, 50);
+    });
   };
 
   const handleReady = async () => {
@@ -728,7 +802,7 @@ export default function BlitzRoomClient({
 
           {/* Right Sidebar (Activity Log) */}
           <div className={styles.sideCol}>
-            <div className={`${styles.panel} ${styles.panelStage}`}>
+            <div className={`${styles.panel} ${styles.panelStage} ${styles.activityPanel}`}>
               <div className={styles.activityHead}>
                 <h2 className={styles.activityTitle}>
                   <Rss size={18} />
@@ -737,7 +811,7 @@ export default function BlitzRoomClient({
                 <p className={styles.activitySub}>
                   Logs since last refresh. May disappear on reload.
                 </p>
-                {typeof Notification !== "undefined" && !notifGranted && (
+                {mounted && typeof Notification !== "undefined" && !notifGranted && (
                   <button
                     className={styles.notifBtn}
                     onClick={() =>

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { getRedis } from "@/lib/redis";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
+import User from "@/models/User";
 import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
 import { publishRoom } from "@/lib/contests/events";
@@ -13,6 +14,8 @@ import {
   contestRoomStateSchema,
   parseContestRoomProblems,
 } from "@/lib/contests/runtime";
+import { getDisplayName } from "@/lib/contests/names";
+import { appendActivityLog } from "@/lib/contests/activityLog";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import { parseRouteParams } from "@/lib/api/result";
 import { contestIdParamsSchema } from "@/lib/api/schemas/contestRoute";
@@ -76,11 +79,14 @@ export async function POST(
     const readyAdded = await redis.sAdd(`room:${roomId}:ready_users`, userId);
 
     if (readyAdded) {
+      const readyName = await getDisplayName(redis, userId, userTeamId);
+
       // Publish individual ready state
       await publishRoom(roomId, {
         type: "room.user_ready",
         roomId,
         userId,
+        readyName,
       });
 
       // Check if this user's entire team is ready
@@ -177,6 +183,13 @@ export async function POST(
           state: updatedState,
           problems: parseContestRoomProblems(updatedProblems),
           scores,
+        });
+
+        await appendActivityLog(redis, `room:${roomId}:activity_log`, {
+          icon: "info",
+          text: state.type === "arena" ? "Arena match started! Good luck." : "Match started! Good luck.",
+          color: "text-on-surface",
+          eventType: "room.state_sync"
         });
 
         // Enqueue time limit job

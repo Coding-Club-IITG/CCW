@@ -104,6 +104,16 @@ const roomParticipantSchema = z.object({
 });
 const synchronizedRoomStateSchema = contestRoomStateSchema;
 
+export const storedActivityEntrySchema = z.object({
+  icon: z.string(),
+  text: z.string(),
+  color: z.string(),
+  timestamp: z.number(),
+  eventType: z.string(),
+});
+
+export type StoredActivityEntry = z.infer<typeof storedActivityEntrySchema>;
+
 const roomStateSyncEventSchema = z
   .object({
     type: z.literal("room.state_sync"),
@@ -111,6 +121,7 @@ const roomStateSyncEventSchema = z
     problems: z.array(contestRoomProblemSchema).optional(),
     scores: scoreMapSchema.optional(),
     locks: z.record(z.string(), z.string()).optional(),
+    activityLog: z.array(storedActivityEntrySchema).optional(),
   })
   .passthrough();
 
@@ -138,6 +149,35 @@ export const roomEventSchema = z.discriminatedUnion("type", [
     .passthrough(),
   z
     .object({
+      type: z.literal("sync.queued"),
+      problemId: z.string().min(1).optional(),
+      position: z.number().optional(),
+      solverName: z.string().optional(),
+      userId: z.string().min(1).optional(),
+    })
+    .passthrough(),
+  z
+    .object({
+      type: z.literal("sync.detected"),
+      problemId: z.string().min(1).optional(),
+      verdict: z.string().min(1),
+      pointsAwarded: z.number().nullable().optional(),
+      solverName: z.string().optional(),
+      userId: z.string().min(1).optional(),
+    })
+    .passthrough(),
+  z
+    .object({
+      type: z.literal("sync.failed"),
+      problemId: z.string().min(1).optional(),
+      verdict: z.string().optional(),
+      reason: z.string().optional(),
+      solverName: z.string().optional(),
+      userId: z.string().min(1).optional(),
+    })
+    .passthrough(),
+  z
+    .object({
       type: z.literal("room.advance"),
       problemIndex: z.number().int().nonnegative(),
       nextProblem: contestRoomProblemSchema,
@@ -156,6 +196,7 @@ export const roomEventSchema = z.discriminatedUnion("type", [
     .object({
       type: z.literal("room.user_ready"),
       userId: z.string().min(1),
+      readyName: z.string().optional(),
     })
     .passthrough(),
   z
@@ -197,6 +238,8 @@ const typedUserEventSchema = z.discriminatedUnion("type", [
       type: z.literal("sync.queued"),
       problemId: z.string().min(1).optional(),
       position: z.number().optional(),
+      solverName: z.string().optional(),
+      userId: z.string().min(1).optional(),
     })
     .passthrough(),
   z
@@ -205,6 +248,8 @@ const typedUserEventSchema = z.discriminatedUnion("type", [
       problemId: z.string().min(1).optional(),
       verdict: z.string().min(1),
       pointsAwarded: z.number().nullable().optional(),
+      solverName: z.string().optional(),
+      userId: z.string().min(1).optional(),
     })
     .passthrough(),
   z
@@ -220,6 +265,8 @@ const typedUserEventSchema = z.discriminatedUnion("type", [
       problemId: z.string().min(1).optional(),
       verdict: z.string().optional(),
       reason: z.string().optional(),
+      solverName: z.string().optional(),
+      userId: z.string().min(1).optional(),
     })
     .passthrough(),
   roomStateSyncEventSchema,

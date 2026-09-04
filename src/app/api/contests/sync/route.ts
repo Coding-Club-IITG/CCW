@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { getRedis } from "@/lib/redis";
 import { publishUser } from "@/lib/contests/events";
 import { cfSyncQueue } from "@/lib/contests/queues";
+import User from "@/models/User";
+import { appendActivityLog } from "@/lib/contests/activityLog";
 import { logger } from "@/lib/utils";
 import { parseJson } from "@/lib/api/result";
 import { contestSyncSchema } from "@/lib/api/schemas/contestRoute";
@@ -89,6 +91,13 @@ export async function POST(request: NextRequest) {
 
     // 5. Publish event to user
     await publishUser(userId, { type: "sync.queued", position, problemId });
+
+    await appendActivityLog(redis, `room:${roomId}:activity_log:${userId}`, {
+      icon: "sync",
+      text: "Submission queued for verification...",
+      color: "text-secondary",
+      eventType: "sync.queued"
+    });
 
     // 6. Return 202
     return jsonOk({ queued: true }, { status: 202 });
