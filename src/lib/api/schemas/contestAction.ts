@@ -30,6 +30,8 @@ export const contestProblemSlotSchema = z.object({
   platform: z.string().trim().min(1).max(50),
   problemId: z.string().trim().min(1).max(100),
   roundNumber: z.number().int().min(1).optional(),
+  points: z.number().int().min(1).max(10000).optional(),
+  timeLimitMinutes: z.number().int().min(1).max(300).optional(),
 });
 
 const contestCreationFields = {
@@ -54,6 +56,11 @@ const contestCreationFields = {
     (value) => (value === "" ? undefined : value),
     z.union([objectIdStringSchema, z.literal("custom")]).optional(),
   ),
+  bracketType: z
+    .enum(["single_elimination", "double_elimination"])
+    .default("single_elimination"),
+  overallDurationMinutes: z.number().int().min(1).max(600).optional(),
+  perProblemDurationMinutes: z.number().int().min(1).max(120).optional(),
   thirdPlacePlayoff: z.boolean().default(false),
   seedingMethod: contestSeedingMethodSchema.default("cf_rating"),
   registeredUsers: z.array(contestRegisteredUserSchema).max(256).default([]),
