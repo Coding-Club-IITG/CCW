@@ -8,27 +8,37 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireHead } from "@/lib/api/auth";
-import { parseJson, parseRouteParams } from "@/lib/api/result";
+import {
+  parseJson,
+  parseRouteParams,
+  type AppErrorCode,
+} from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
 import { auditActor, auditedTransaction } from "@/lib/audit";
-import { summarizePublicContent } from "@/lib/audit/summary";
+import {
+  summarizeBlogRevision,
+  summarizePublicContent,
+} from "@/lib/audit/summary";
 import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
-import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 
-async function uniqueSlug(base: string, currentSlug?: string): Promise<string> {
-  return findUniqueSlug(base, async (candidate) => {
-    const existing = await BlogPost.findOne({ slug: candidate }).select("slug").lean();
-    return Boolean(existing && (!currentSlug || existing.slug !== currentSlug));
-  });
-}
+const revisionActionSchema = z
+  .object({
+    action: z.enum(["approve", "reject"]),
+  })
+  .strict();
 
-const revisionActionSchema = z.object({
-  action: z.enum(["approve", "reject"]),
-});
+class RevisionRouteError extends Error {
+  constructor(
+    readonly code: AppErrorCode,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -50,41 +60,48 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { action } = parsedBody.data;
 
     await dbConnect();
-    const post = await BlogPost.findOne({ slug });
-    if (!post) {
-      return jsonError("NOT_FOUND", "Blog post not found.");
-    }
-
-    if (!post.pendingRevision) {
-      return jsonError(
-        "VALIDATION_ERROR",
-        "No pending revision found for this post.",
-      );
-    }
-
     const dbSession = await mongoose.startSession();
     let saved;
     try {
       saved = await auditedTransaction(dbSession, async (transaction) => {
         const current = await BlogPost.findOne({ slug }).session(transaction);
-        if (!current) throw new Error("Blog post disappeared during update.");
+        if (!current) {
+          throw new RevisionRouteError("NOT_FOUND", "Blog post not found.");
+        }
+        if (current.status !== "published") {
+          throw new RevisionRouteError(
+            "CONFLICT",
+            "Only published posts can have revisions reviewed.",
+          );
+        }
         const before = current.toObject();
         const rev = current.pendingRevision;
-        if (!rev) throw new Error("No pending revision found on post.");
+        if (!rev) {
+          throw new RevisionRouteError(
+            "VALIDATION_ERROR",
+            "No pending revision found for this post.",
+          );
+        }
+        if (!rev.submittedAt) {
+          throw new RevisionRouteError(
+            "CONFLICT",
+            "This revision has not been submitted for review.",
+          );
+        }
 
         if (action === "approve") {
-          let nextSlug = current.slug;
-          const nextTitle = (rev.title ?? current.title).trim();
-          if (nextTitle && nextTitle !== current.title) {
-            const newSlugBase = titleToSlug(nextTitle);
-            if (newSlugBase) {
-              nextSlug = await uniqueSlug(newSlugBase, slug);
-            }
+          if (
+            !rev.baseUpdatedAt ||
+            rev.baseUpdatedAt.getTime() !== current.updatedAt.getTime()
+          ) {
+            throw new RevisionRouteError(
+              "CONFLICT",
+              "The live post changed after this revision was started. Discard it and create a new revision before approval.",
+            );
           }
 
           current.set({
-            title: nextTitle || current.title,
-            slug: nextSlug,
+            title: rev.title ?? current.title,
             content: rev.content ?? current.content,
             excerpt: rev.excerpt ?? current.excerpt,
             coverImage: rev.coverImage ?? current.coverImage,
@@ -115,8 +132,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
           };
         } else {
+          const revisionBefore = rev.toObject?.() || rev;
           current.set({ pendingRevision: null });
-          await current.save({ session: transaction });
+          await current.save({ session: transaction, timestamps: false });
 
           return {
             result: current,
@@ -126,16 +144,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
               action: "delete" as const,
               operation: "blog.revision.reject",
               target: {
-                type: "blog-post",
+                type: "blog-revision",
                 id: String(current._id),
-                label: current.title,
+                label: rev.title,
               },
-              before: summarizePublicContent(
-                before as unknown as Record<string, unknown>,
+              before: summarizeBlogRevision(
+                revisionBefore as unknown as Record<string, unknown>,
               ),
-              after: summarizePublicContent(
-                current.toObject() as unknown as Record<string, unknown>,
-              ),
+              after: {},
             },
           };
         }
@@ -150,9 +166,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       await invalidateCache("home");
       revalidatePath("/");
       revalidatePath(`/blog/${slug}`);
-      if (saved.slug !== slug) {
-        revalidatePath(`/blog/${saved.slug}`);
-      }
       revalidatePath("/sitemap.xml");
     } else {
       await invalidateCache("admin:blog");
@@ -160,6 +173,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return jsonOk({ post: saved.toObject() });
   } catch (err) {
+    if (err instanceof RevisionRouteError) {
+      return jsonError(err.code, err.message);
+    }
     logger.error("Admin blog revision action failed", {
       route: "POST /api/admin/blog/[slug]/revision",
       operation: "process_revision",

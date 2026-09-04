@@ -85,6 +85,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const parsedBody = await parseJson(request, jsonObjectSchema);
     if (!parsedBody.ok) return jsonResult(parsedBody);
     const body = parsedBody.data;
+    const wasPublished = post.status === "published";
 
     // Updatable fields
     if (body.title !== undefined) {
@@ -93,9 +94,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         return jsonError("VALIDATION_ERROR", "Title must be 1-200 characters.");
       }
       post.title = title;
-      // Regenerate slug from new title
-      const newSlugBase = titleToSlug(title);
-      if (newSlugBase) post.slug = await uniqueSlug(newSlugBase, slug);
+      if (!wasPublished) {
+        const newSlugBase = titleToSlug(title);
+        if (newSlugBase) post.slug = await uniqueSlug(newSlugBase, slug);
+      }
     }
 
     if (body.content !== undefined) {
@@ -206,6 +208,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     await invalidateCache("admin:blog");
     await invalidateCache("home");
     revalidatePath("/");
+    revalidatePath(`/blog/${slug}`);
+    if (saved.slug !== slug) revalidatePath(`/blog/${saved.slug}`);
     revalidatePath("/sitemap.xml");
 
     return jsonOk({ post: saved.toObject() });

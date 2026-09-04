@@ -187,6 +187,27 @@ describe("admin blog routes", () => {
     });
   });
 
+  it("keeps an existing published URL stable when an admin changes its title", async () => {
+    const BlogPost = (await import("@/models/BlogPost")).default;
+    const { PATCH } = await import("@/app/api/admin/blog/[slug]/route");
+    await BlogPost.create(
+      blogPost({ slug: "stable-published-url", title: "Original title" }),
+    );
+
+    const response = await PATCH(
+      jsonRequest("/api/admin/blog/stable-published-url", "PATCH", {
+        title: "Renamed published post",
+      }),
+      context("stable-published-url"),
+    );
+    const updated = await BlogPost.findOne({ slug: "stable-published-url" });
+
+    expect(response.status).toBe(200);
+    expect(updated?.title).toBe("Renamed published post");
+    expect(updated?.slug).toBe("stable-published-url");
+    expect(revalidatePath).toHaveBeenCalledWith("/blog/stable-published-url");
+  });
+
   it("filters admin listing and deletes the selected post", async () => {
     const BlogPost = (await import("@/models/BlogPost")).default;
     const collection = await import("@/app/api/admin/blog/route");
@@ -221,24 +242,24 @@ describe("admin blog routes", () => {
     const BlogPost = (await import("@/models/BlogPost")).default;
     const revisionRoute =
       await import("@/app/api/admin/blog/[slug]/revision/route");
-    await BlogPost.create(
-      blogPost({
+    await seedRevision(
+      {
         slug: "post-with-revision",
         title: "Old Live Title",
         content: "Old Live Content",
         status: "published",
-        pendingRevision: {
-          title: "Approved New Title",
-          content: "Approved New Content",
-          excerpt: "New excerpt",
-          coverImage: "",
-          coverFocalPoint: { x: 0.5, y: 0.5 },
-          tags: ["Tutorial"],
-          updatedAt: new Date(),
-          submittedAt: new Date(),
-          submittedBy: BLOG_AUTHOR_ID,
-        },
-      }),
+      },
+      {
+        title: "Approved New Title",
+        content: "Approved New Content",
+        excerpt: "New excerpt",
+        coverImage: "",
+        coverFocalPoint: { x: 0.5, y: 0.5 },
+        tags: ["Tutorial"],
+        updatedAt: new Date(),
+        submittedAt: new Date(),
+        submittedBy: BLOG_AUTHOR_ID,
+      },
     );
 
     const response = await revisionRoute.POST(
@@ -250,14 +271,13 @@ describe("admin blog routes", () => {
     expect(response.status).toBe(200);
 
     const updated = await BlogPost.findOne({
-      slug: "approved-new-title",
+      slug: "post-with-revision",
     }).lean();
     expect(updated?.title).toBe("Approved New Title");
-    expect(updated?.slug).toBe("approved-new-title");
+    expect(updated?.slug).toBe("post-with-revision");
     expect(updated?.content).toBe("Approved New Content");
     expect(updated?.pendingRevision).toBeNull();
     expect(revalidatePath).toHaveBeenCalledWith("/blog/post-with-revision");
-    expect(revalidatePath).toHaveBeenCalledWith("/blog/approved-new-title");
     expect(
       await AuditLog.findOne({ operation: "blog.revision.approve" }),
     ).toMatchObject({
@@ -268,28 +288,28 @@ describe("admin blog routes", () => {
     });
   });
 
-  it("preserves existing slug when approved revision keeps the same title", async () => {
+  it("keeps the published URL stable when a revision changes the title", async () => {
     const BlogPost = (await import("@/models/BlogPost")).default;
     const revisionRoute =
       await import("@/app/api/admin/blog/[slug]/revision/route");
-    await BlogPost.create(
-      blogPost({
+    await seedRevision(
+      {
         slug: "post-same-title",
         title: "Unchanged Title",
         content: "Old Content",
         status: "published",
-        pendingRevision: {
-          title: "Unchanged Title",
-          content: "Updated Content Only",
-          excerpt: "Updated Excerpt",
-          coverImage: "",
-          coverFocalPoint: { x: 0.5, y: 0.5 },
-          tags: ["Development"],
-          updatedAt: new Date(),
-          submittedAt: new Date(),
-          submittedBy: BLOG_AUTHOR_ID,
-        },
-      }),
+      },
+      {
+        title: "Changed Title",
+        content: "Updated Content Only",
+        excerpt: "Updated Excerpt",
+        coverImage: "",
+        coverFocalPoint: { x: 0.5, y: 0.5 },
+        tags: ["Development"],
+        updatedAt: new Date(),
+        submittedAt: new Date(),
+        submittedBy: BLOG_AUTHOR_ID,
+      },
     );
 
     const response = await revisionRoute.POST(
@@ -303,35 +323,129 @@ describe("admin blog routes", () => {
     const updated = await BlogPost.findOne({
       slug: "post-same-title",
     }).lean();
-    expect(updated?.title).toBe("Unchanged Title");
+    expect(updated?.title).toBe("Changed Title");
     expect(updated?.slug).toBe("post-same-title");
     expect(updated?.content).toBe("Updated Content Only");
     expect(updated?.pendingRevision).toBeNull();
+  });
+
+  it("refuses to approve an unsubmitted or non-published revision", async () => {
+    const revisionRoute =
+      await import("@/app/api/admin/blog/[slug]/revision/route");
+    await seedRevision(
+      { slug: "unsubmitted-revision", status: "published" },
+      {
+        title: "Unsubmitted",
+        content: "Not ready",
+        excerpt: "",
+        coverImage: "",
+        coverFocalPoint: { x: 0.5, y: 0.5 },
+        tags: [],
+        updatedAt: new Date(),
+        submittedAt: null,
+        submittedBy: BLOG_AUTHOR_ID,
+      },
+    );
+    await seedRevision(
+      { slug: "draft-revision", status: "draft", publishedAt: null },
+      {
+        title: "Draft revision",
+        content: "Draft",
+        excerpt: "",
+        coverImage: "",
+        coverFocalPoint: { x: 0.5, y: 0.5 },
+        tags: [],
+        updatedAt: new Date(),
+        submittedAt: new Date(),
+        submittedBy: BLOG_AUTHOR_ID,
+      },
+    );
+
+    const unsubmitted = await revisionRoute.POST(
+      jsonRequest("/api/admin/blog/unsubmitted-revision/revision", "POST", {
+        action: "approve",
+      }),
+      context("unsubmitted-revision"),
+    );
+    const draft = await revisionRoute.POST(
+      jsonRequest("/api/admin/blog/draft-revision/revision", "POST", {
+        action: "approve",
+      }),
+      context("draft-revision"),
+    );
+
+    expect(unsubmitted.status).toBe(409);
+    expect(draft.status).toBe(409);
+  });
+
+  it("does not overwrite a live edit made after revision staging", async () => {
+    const BlogPost = (await import("@/models/BlogPost")).default;
+    const revisionRoute =
+      await import("@/app/api/admin/blog/[slug]/revision/route");
+    const post = await seedRevision(
+      {
+        slug: "revision-with-stale-base",
+        title: "Live title",
+        content: "Original live content",
+        status: "published",
+      },
+      {
+        title: "Proposed title",
+        content: "Original live content",
+        excerpt: "",
+        coverImage: "",
+        coverFocalPoint: { x: 0.5, y: 0.5 },
+        tags: [],
+        updatedAt: new Date(),
+        submittedAt: new Date(),
+        submittedBy: BLOG_AUTHOR_ID,
+      },
+    );
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(post.updatedAt.getTime() + 1000));
+    post.content = "Newer admin correction";
+    await post.save();
+
+    const response = await revisionRoute.POST(
+      jsonRequest("/api/admin/blog/revision-with-stale-base/revision", "POST", {
+        action: "approve",
+      }),
+      context("revision-with-stale-base"),
+    );
+    const unchanged = await BlogPost.findOne({
+      slug: "revision-with-stale-base",
+    }).lean();
+
+    expect(response.status).toBe(409);
+    expect(unchanged?.title).toBe("Live title");
+    expect(unchanged?.content).toBe("Newer admin correction");
+    expect(unchanged?.pendingRevision).not.toBeNull();
   });
 
   it("allows admin to reject a staged blog revision", async () => {
     const BlogPost = (await import("@/models/BlogPost")).default;
     const revisionRoute =
       await import("@/app/api/admin/blog/[slug]/revision/route");
-    await BlogPost.create(
-      blogPost({
+    const seeded = await seedRevision(
+      {
         slug: "rejected-revision-post",
         title: "Original Live Title",
         content: "Original Live Content",
         status: "published",
-        pendingRevision: {
-          title: "Bad Proposal",
-          content: "Bad Content",
-          excerpt: "",
-          coverImage: "",
-          coverFocalPoint: { x: 0.5, y: 0.5 },
-          tags: [],
-          updatedAt: new Date(),
-          submittedAt: new Date(),
-          submittedBy: BLOG_AUTHOR_ID,
-        },
-      }),
+      },
+      {
+        title: "Bad Proposal",
+        content: "Bad Content",
+        excerpt: "",
+        coverImage: "",
+        coverFocalPoint: { x: 0.5, y: 0.5 },
+        tags: [],
+        updatedAt: new Date(),
+        submittedAt: new Date(),
+        submittedBy: BLOG_AUTHOR_ID,
+      },
     );
+    const liveUpdatedAt = seeded.updatedAt;
 
     const response = await revisionRoute.POST(
       jsonRequest("/api/admin/blog/rejected-revision-post/revision", "POST", {
@@ -347,6 +461,7 @@ describe("admin blog routes", () => {
     expect(updated?.title).toBe("Original Live Title");
     expect(updated?.content).toBe("Original Live Content");
     expect(updated?.pendingRevision).toBeNull();
+    expect(updated?.updatedAt).toEqual(liveUpdatedAt);
     expect(
       await AuditLog.findOne({ operation: "blog.revision.reject" }),
     ).toMatchObject({
@@ -354,6 +469,9 @@ describe("admin blog routes", () => {
       action: "delete",
       operation: "blog.revision.reject",
       actor: { userId: BLOG_ADMIN_ID.toString(), access: "Head" },
+      target: { type: "blog-revision", label: "Bad Proposal" },
+      before: { title: "Bad Proposal", bodyLength: 11 },
+      after: {},
     });
   });
 });
@@ -367,4 +485,22 @@ function jsonRequest(path: string, method: string, body: unknown) {
 }
 function context(slug: string) {
   return { params: Promise.resolve({ slug }) };
+}
+
+async function seedRevision(
+  postOverrides: Record<string, unknown>,
+  revision: Record<string, unknown>,
+) {
+  const BlogPost = (await import("@/models/BlogPost")).default;
+  const post = await BlogPost.create(
+    blogPost({ ...postOverrides, pendingRevision: null }),
+  );
+  post.set({
+    pendingRevision: {
+      ...revision,
+      baseUpdatedAt: post.updatedAt,
+    },
+  });
+  await post.save({ timestamps: false });
+  return post;
 }

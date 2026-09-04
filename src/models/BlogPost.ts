@@ -15,6 +15,7 @@ export interface IBlogRevision {
   coverImage: string;
   coverFocalPoint: ImageFocalPoint;
   tags: string[];
+  baseUpdatedAt: Date;
   updatedAt: Date;
   submittedAt: Date | null;
   submittedBy: Types.ObjectId;
@@ -56,6 +57,7 @@ const BlogRevisionSchema = new Schema<IBlogRevision>(
       _id: false,
     },
     tags: [{ type: String }],
+    baseUpdatedAt: { type: Date, required: true },
     updatedAt: { type: Date, default: Date.now },
     submittedAt: { type: Date, default: null },
     submittedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },

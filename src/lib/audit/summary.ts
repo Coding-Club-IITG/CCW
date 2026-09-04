@@ -115,6 +115,37 @@ export function summarizePublicContent(
   );
 }
 
+export function summarizeBlogRevision(
+  input?: Record<string, unknown> | null,
+): AuditSummary {
+  if (!input) return {};
+  return boundedSummary(
+    {
+      title: input.title,
+      tags: input.tags,
+      baseUpdatedAt: input.baseUpdatedAt,
+      updatedAt: input.updatedAt,
+      submittedAt: input.submittedAt,
+      submittedBy: input.submittedBy,
+      hasCoverImage:
+        typeof input.coverImage === "string" && input.coverImage.length > 0,
+      bodyLength: length(input.content),
+      excerptLength: length(input.excerpt),
+    },
+    [
+      "title",
+      "tags",
+      "baseUpdatedAt",
+      "updatedAt",
+      "submittedAt",
+      "submittedBy",
+      "hasCoverImage",
+      "bodyLength",
+      "excerptLength",
+    ],
+  );
+}
+
 export function summarizeNotification(
   input: Record<string, unknown>,
 ): AuditSummary {
