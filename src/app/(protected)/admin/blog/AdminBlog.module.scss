@@ -76,6 +76,14 @@
   @include badge-warning;
 }
 
+.revisionPending {
+  @include badge-warning;
+}
+
+.revisionDraft {
+  @include badge-info;
+}
+
 .rowAuthor {
   color: var(--muted);
 }

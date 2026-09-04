@@ -94,26 +94,8 @@
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   padding-top: 0.5rem;
   border-top: 1px solid var(--border);
-}
-
-.btnPrimary {
-  @include btn-primary($btn-lg);
-}
-
-.btnSecondary {
-  @include btn-secondary;
-  font-size: 0.8125rem;
-
-  &.active {
-    background: var(--primary-alpha);
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-}
-
-.btnDanger {
-  @include btn-danger;
 }

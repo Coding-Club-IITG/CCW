@@ -59,6 +59,12 @@
   @include outline-chip;
 }
 
+.editLink {
+  @include btn-secondary($btn-xs);
+  margin-left: auto;
+  text-decoration: none;
+}
+
 .coverWrapper {
   max-width: 1360px;
   margin: 40px auto 0;

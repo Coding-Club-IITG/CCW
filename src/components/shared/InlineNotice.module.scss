@@ -1,0 +1,45 @@
+@use "../../styles/mixins" as *;
+
+.notice {
+  --notice-accent: var(--accent);
+  --notice-bg: var(--accent-bg);
+
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 0.875rem;
+  background: var(--notice-bg);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.marker {
+  width: 3px;
+  min-height: 1.25rem;
+  align-self: stretch;
+  flex-shrink: 0;
+  background: var(--notice-accent);
+}
+
+.info {
+  --notice-accent: var(--accent);
+  --notice-bg: var(--accent-bg);
+}
+
+.success {
+  --notice-accent: var(--success);
+  --notice-bg: var(--success-bg);
+}
+
+.warning {
+  --notice-accent: var(--warning);
+  --notice-bg: var(--warning-bg);
+}
+
+.error {
+  --notice-accent: var(--error);
+  --notice-bg: var(--error-bg);
+}

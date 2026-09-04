@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       const [posts, total] = await Promise.all([
         BlogPost.find(filter)
           .select(
-            "title slug excerpt tags status publishedAt createdAt updatedAt authors",
+            "title slug excerpt tags status publishedAt createdAt updatedAt authors pendingRevision.submittedAt pendingRevision.updatedAt",
           )
           .sort({ updatedAt: -1 })
           .skip(skip)

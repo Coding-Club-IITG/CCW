@@ -32,6 +32,10 @@
   );
 }
 
+@mixin badge-info {
+  @include badge-chip(var(--accent-bg), var(--accent), var(--badge-border));
+}
+
 @mixin badge-neutral {
   @include badge-chip(var(--badge-bg), var(--badge-text), var(--badge-border));
 }

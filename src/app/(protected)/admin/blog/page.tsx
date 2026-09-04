@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 
 import { expectAppData } from "@/lib/api/result";
 import type { BlogStatus } from "@/lib/constants";
+import { formatShortDate } from "@/lib/utils";
 
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
@@ -25,6 +26,10 @@ interface Post {
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  pendingRevision?: {
+    submittedAt?: string | null;
+    updatedAt?: string;
+  } | null;
 }
 
 export default function AdminBlogPage() {
@@ -126,17 +131,24 @@ export default function AdminBlogPage() {
                     >
                       {post.status}
                     </span>
+                    {post.pendingRevision?.submittedAt ? (
+                      <span
+                        className={`${styles.statusBadge} ${styles.revisionPending}`}
+                      >
+                        Review Requested
+                      </span>
+                    ) : post.pendingRevision ? (
+                      <span
+                        className={`${styles.statusBadge} ${styles.revisionDraft}`}
+                      >
+                        Draft Revision
+                      </span>
+                    ) : null}
                     <span className={styles.rowAuthor}>
                       {post.authors?.map((a) => a.name).join(", ") || "Unknown"}
                     </span>
                     <span className={styles.rowDate}>
-                      {new Date(
-                        post.publishedAt || post.createdAt,
-                      ).toLocaleDateString("en-IN", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {formatShortDate(post.publishedAt || post.createdAt)}
                     </span>
                   </div>
                 </div>
@@ -152,7 +164,7 @@ export default function AdminBlogPage() {
                       href={`/blog/${post.slug}`}
                       className={styles.btnSecondary}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                     >
                       View <IconExternalLink width={12} height={12} />
                     </Link>

@@ -167,24 +167,36 @@ describe("blog image uploads and assets", () => {
         publishedAt: null,
         authors: [{ userId: BLOG_OTHER_ID, name: "Other" }],
       }),
-      blogPost({ slug: "published-post" }),
+      blogPost({
+        slug: "other-published",
+        status: "published",
+        authors: [{ userId: BLOG_OTHER_ID, name: "Other" }],
+      }),
+      blogPost({
+        slug: "my-published",
+        status: "published",
+        authors: [{ userId: BLOG_AUTHOR_ID, name: "Author" }],
+      }),
     ]);
     getSession.mockResolvedValue(blogSession({ access: "Member" }));
 
     expect((await POST(uploadRequest({ slug: "my-draft" }))).status).toBe(201);
+    expect((await POST(uploadRequest({ slug: "my-published" }))).status).toBe(
+      201,
+    );
     expect((await POST(uploadRequest({ slug: "other-draft" }))).status).toBe(
       403,
     );
-    expect((await POST(uploadRequest({ slug: "published-post" }))).status).toBe(
-      403,
-    );
+    expect(
+      (await POST(uploadRequest({ slug: "other-published" }))).status,
+    ).toBe(403);
     expect(await AuditLog.findOne()).toMatchObject({
       category: "blog",
       action: "upload",
       operation: "blog.asset.upload",
       actor: { userId: BLOG_AUTHOR_ID.toString(), access: "Member" },
     });
-    expect(await AuditLog.countDocuments()).toBe(1);
+    expect(await AuditLog.countDocuments()).toBe(2);
   });
 });
 

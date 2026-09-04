@@ -41,12 +41,6 @@
 .blogTitleLink {
   text-decoration: none;
 
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-  }
-
   &:hover {
     color: var(--primary);
   }
@@ -54,15 +48,8 @@
 
 .editBlogLink {
   position: relative;
-  z-index: 1;
-  display: inline-flex;
-  flex: 0 0 auto;
-  color: var(--muted);
-  padding: 0.125rem;
-
-  &:hover {
-    color: var(--primary);
-  }
+  z-index: 2;
+  @include icon-button(32px);
 }
 
 .blogDescription {
@@ -72,6 +59,27 @@
   color: var(--muted);
 }
 
-.blogStatus {
+.blogStatuses {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.blogStatus,
+.blogRevisionStatus {
   @include badge-chip;
+}
+
+.blogPublished {
+  @include badge-success;
+}
+
+.blogRevisionStatus {
+  @include badge-info;
+}
+
+.blogDraft,
+.blogReviewStatus {
+  @include badge-warning;
 }
