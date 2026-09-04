@@ -37,4 +37,3 @@ export function canEditBlogDraft(
 ): boolean {
   return canAccessBlogEditor(user, post);
 }
-

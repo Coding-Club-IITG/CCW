@@ -219,9 +219,8 @@ describe("admin blog routes", () => {
 
   it("allows admin to approve a staged blog revision, applying it to the live post", async () => {
     const BlogPost = (await import("@/models/BlogPost")).default;
-    const revisionRoute = await import(
-      "@/app/api/admin/blog/[slug]/revision/route"
-    );
+    const revisionRoute =
+      await import("@/app/api/admin/blog/[slug]/revision/route");
     await BlogPost.create(
       blogPost({
         slug: "post-with-revision",
@@ -243,16 +242,16 @@ describe("admin blog routes", () => {
     );
 
     const response = await revisionRoute.POST(
-      jsonRequest(
-        "/api/admin/blog/post-with-revision/revision",
-        "POST",
-        { action: "approve" },
-      ),
+      jsonRequest("/api/admin/blog/post-with-revision/revision", "POST", {
+        action: "approve",
+      }),
       context("post-with-revision"),
     );
     expect(response.status).toBe(200);
 
-    const updated = await BlogPost.findOne({ slug: "post-with-revision" }).lean();
+    const updated = await BlogPost.findOne({
+      slug: "post-with-revision",
+    }).lean();
     expect(updated?.title).toBe("Approved New Title");
     expect(updated?.content).toBe("Approved New Content");
     expect(updated?.pendingRevision).toBeNull();
@@ -269,9 +268,8 @@ describe("admin blog routes", () => {
 
   it("allows admin to reject a staged blog revision", async () => {
     const BlogPost = (await import("@/models/BlogPost")).default;
-    const revisionRoute = await import(
-      "@/app/api/admin/blog/[slug]/revision/route"
-    );
+    const revisionRoute =
+      await import("@/app/api/admin/blog/[slug]/revision/route");
     await BlogPost.create(
       blogPost({
         slug: "rejected-revision-post",
@@ -293,11 +291,9 @@ describe("admin blog routes", () => {
     );
 
     const response = await revisionRoute.POST(
-      jsonRequest(
-        "/api/admin/blog/rejected-revision-post/revision",
-        "POST",
-        { action: "reject" },
-      ),
+      jsonRequest("/api/admin/blog/rejected-revision-post/revision", "POST", {
+        action: "reject",
+      }),
       context("rejected-revision-post"),
     );
     expect(response.status).toBe(200);

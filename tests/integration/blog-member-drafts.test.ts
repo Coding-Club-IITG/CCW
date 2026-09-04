@@ -114,9 +114,8 @@ describe("member-owned blog drafts", () => {
 
   it("allows an author to create a staged revision on a published post without altering live content", async () => {
     const BlogPost = (await import("@/models/BlogPost")).default;
-    const { GET, PATCH, DELETE } = await import(
-      "@/app/api/internal/blog/[slug]/route"
-    );
+    const { GET, PATCH, DELETE } =
+      await import("@/app/api/internal/blog/[slug]/route");
     await BlogPost.create(
       blogPost({
         slug: "published-post",
@@ -161,7 +160,9 @@ describe("member-owned blog drafts", () => {
     expect(updated?.pendingRevision?.submittedAt).toBeDefined();
 
     // Audit log records revision submission
-    expect(await AuditLog.findOne({ operation: "blog.revision.submit" })).toMatchObject({
+    expect(
+      await AuditLog.findOne({ operation: "blog.revision.submit" }),
+    ).toMatchObject({
       category: "blog",
       action: "update",
       operation: "blog.revision.submit",
@@ -176,7 +177,9 @@ describe("member-owned blog drafts", () => {
       context("published-post"),
     );
     expect(deleteRes.status).toBe(200);
-    const afterDelete = await BlogPost.findOne({ slug: "published-post" }).lean();
+    const afterDelete = await BlogPost.findOne({
+      slug: "published-post",
+    }).lean();
     expect(afterDelete?.pendingRevision).toBeNull();
   });
 

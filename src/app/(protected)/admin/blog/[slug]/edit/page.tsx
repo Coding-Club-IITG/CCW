@@ -1,116 +1,153 @@
 "use client";
 
-import Link from "next/link";
+import { Check, X as IconX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
-import { ExternalLink as IconExternalLink, Check, X as IconX } from "lucide-react";
 
-import { expectAppData } from "@/lib/api/result";
 import BlogEditor, { BlogEditorData } from "@/components/blog/BlogEditor";
+import BlogEditorHeading from "@/components/blog/BlogEditorHeading";
+import BlogEditorToolbar from "@/components/blog/BlogEditorToolbar";
 import RevisionDiffViewer from "@/components/blog/RevisionDiffViewer";
-import BackLink from "@/components/shared/BackLink";
-
-import styles from "./EditPost.module.scss";
+import RevisionPanel from "@/components/blog/RevisionPanel";
+import Button from "@/components/shared/Button";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import InlineNotice from "@/components/shared/InlineNotice";
 import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
+import { expectAppData } from "@/lib/api/result";
+import type { BlogStatus } from "@/lib/constants";
+import {
+  DEFAULT_IMAGE_FOCAL_POINT,
+  type ImageFocalPoint,
+} from "@/lib/imageFocalPoint";
+import { formatDateTime } from "@/lib/utils";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
+interface RevisionData {
+  title: string;
+  content: string;
+  excerpt: string;
+  coverImage: string;
+  coverFocalPoint?: ImageFocalPoint;
+  tags: string[];
+  updatedAt: string;
+  submittedAt: string | null;
+}
+
+interface EditablePost {
+  title: string;
+  content: string;
+  excerpt: string;
+  coverImage: string;
+  coverFocalPoint?: ImageFocalPoint;
+  tags: string[];
+  status: BlogStatus;
+  authors: { userId: string; name: string }[];
+  slug: string;
+  updatedAt: string;
+  pendingRevision?: RevisionData | null;
+}
+
+type ReviewAction = "approve" | "reject";
+
+interface Notice {
+  message: string;
+  tone: "error" | "success";
+}
+
 export default function EditBlogPostPage({ params }: Props) {
   const { slug } = use(params);
   const router = useRouter();
-  const [post, setPost] = useState<any>(null);
+  const [post, setPost] = useState<EditablePost | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reviewAction, setReviewAction] = useState<ReviewAction | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchPost() {
       try {
-        const res = await fetch(`/api/admin/blog/${slug}`);
-        const data = await expectAppData(res);
-        setPost(data.post);
+        const response = await fetch(`/api/admin/blog/${slug}`);
+        const data = await expectAppData(response);
+        if (!cancelled) setPost(data.post);
       } catch {
-        setError("Failed to load post.");
+        if (!cancelled) setError("Failed to load post.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     void fetchPost();
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
   const handleSave = async (data: BlogEditorData) => {
-    const res = await fetch(`/api/admin/blog/${slug}`, {
+    const response = await fetch(`/api/admin/blog/${slug}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
 
-    const updated = await expectAppData(res);
+    const updated = await expectAppData(response);
     setPost(updated.post);
+    setNotice({ message: "Live post saved.", tone: "success" });
     if (updated.post?.slug && updated.post.slug !== slug) {
       router.push(`/admin/blog/${updated.post.slug}/edit`);
     }
   };
 
-  const handleApproveRevision = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to approve and publish these changes to the live blog?",
-      )
-    ) {
-      return;
-    }
+  const submitReviewAction = async (action: ReviewAction) => {
     setActionLoading(true);
+    setNotice(null);
     try {
-      const res = await fetch(`/api/admin/blog/${slug}/revision`, {
+      const response = await fetch(`/api/admin/blog/${slug}/revision`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "approve" }),
+        body: JSON.stringify({ action }),
       });
-      const data = await expectAppData(res);
+      const data = await expectAppData(response);
       setPost(data.post);
-      alert("Changes have been approved and published to the live website!");
+      setReviewAction(null);
+      setNotice({
+        message:
+          action === "approve"
+            ? "Changes approved and published."
+            : "Proposed changes rejected and discarded.",
+        tone: "success",
+      });
     } catch {
-      alert("Failed to approve revision.");
+      setReviewAction(null);
+      setNotice({
+        message:
+          action === "approve"
+            ? "Failed to approve the revision."
+            : "Failed to reject the revision.",
+        tone: "error",
+      });
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleRejectRevision = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to reject and discard these proposed changes?",
-      )
-    ) {
-      return;
-    }
-    setActionLoading(true);
-    try {
-      const res = await fetch(`/api/admin/blog/${slug}/revision`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
-      });
-      const data = await expectAppData(res);
-      setPost(data.post);
-      alert("Proposed changes have been discarded.");
-    } catch {
-      alert("Failed to reject revision.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const toolbar = (
+    <BlogEditorToolbar
+      backHref="/admin/blog"
+      backLabel="Back to Blog Management"
+      liveHref={post?.status === "published" ? `/blog/${slug}` : undefined}
+    />
+  );
 
   if (loading) {
     return (
       <div>
-        <div className={styles.topBar}>
-          <BackLink href="/admin/blog" label="Back to Blog Management" />
-        </div>
+        {toolbar}
         <FormSkeletonContent label="the editor" fields={5} />
       </div>
     );
@@ -119,124 +156,108 @@ export default function EditBlogPostPage({ params }: Props) {
   if (error || !post) {
     return (
       <div>
-        <p className={styles.error}>{error || "Post not found."}</p>
-        <BackLink href="/admin/blog" label="Back to Blog Management" />
+        {toolbar}
+        <InlineNotice tone="error">{error || "Post not found."}</InlineNotice>
       </div>
     );
   }
 
-  const hasRevision = Boolean(post.pendingRevision);
-  const isSubmitted = Boolean(post.pendingRevision?.submittedAt);
-
-  const activeEditorData = hasRevision
-    ? {
-        title: post.pendingRevision.title,
-        content: post.pendingRevision.content,
-        excerpt: post.pendingRevision.excerpt,
-        coverImage: post.pendingRevision.coverImage,
-        coverFocalPoint: post.pendingRevision.coverFocalPoint,
-        tags: post.pendingRevision.tags,
-        status: post.status,
-        authors: post.authors || [],
-      }
-    : {
-        title: post.title,
-        content: post.content,
-        excerpt: post.excerpt,
-        coverImage: post.coverImage,
-        coverFocalPoint: post.coverFocalPoint,
-        tags: post.tags,
-        status: post.status,
-        authors: post.authors || [],
-      };
+  const revision = post.pendingRevision;
+  const isSubmitted = Boolean(revision?.submittedAt);
+  const liveEditorData = {
+    title: post.title,
+    content: post.content,
+    excerpt: post.excerpt,
+    coverImage: post.coverImage,
+    coverFocalPoint: post.coverFocalPoint || DEFAULT_IMAGE_FOCAL_POINT,
+    tags: post.tags,
+    status: post.status,
+    authors: post.authors || [],
+  };
 
   return (
     <div>
-      <div className={styles.topBar}>
-        <BackLink href="/admin/blog" label="Back to Blog Management" />
-        {post.status === "published" && (
-          <Link
-            href={`/blog/${slug}`}
-            className={styles.viewLink}
-            target="_blank"
-            rel="noreferrer"
-          >
-            View Live Post <IconExternalLink width={14} height={14} />
-          </Link>
-        )}
-      </div>
+      {toolbar}
 
-      {hasRevision && (
-        <div className={styles.revisionBanner}>
-          <div className={styles.revisionBannerHeader}>
-            <div className={styles.revisionBannerTitle}>
-              <span>Proposed Changes Pending Review</span>
-              <span className={styles.revisionBannerBadge}>
-                {isSubmitted ? "Review Requested" : "Draft Staged"}
-              </span>
-            </div>
-            <div className={styles.revisionActions}>
-              <button
-                type="button"
-                className={styles.btnSuccess}
-                onClick={handleApproveRevision}
-                disabled={actionLoading}
-              >
-                <Check
-                  width={14}
-                  height={14}
-                  style={{ display: "inline", marginRight: "4px" }}
-                />
-                Approve & Publish Changes
-              </button>
-              <button
-                type="button"
-                className={styles.btnDanger}
-                onClick={handleRejectRevision}
-                disabled={actionLoading}
-              >
-                <IconX
-                  width={14}
-                  height={14}
-                  style={{ display: "inline", marginRight: "4px" }}
-                />
-                Reject Changes
-              </button>
-            </div>
-          </div>
-          <p className={styles.revisionBannerDesc}>
-            An author submitted updates to this published post on{" "}
-            {post.pendingRevision.submittedAt
-              ? new Date(post.pendingRevision.submittedAt).toLocaleString(
-                  "en-IN",
-                  {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  },
-                )
-              : new Date(post.pendingRevision.updatedAt).toLocaleString(
-                  "en-IN",
-                  {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  },
-                )}
-            . Review the diff below and approve or edit before publishing.
-          </p>
+      <BlogEditorHeading
+        kicker="Admin blog editor"
+        title={post.title}
+        description="Edit the live article and/or review staged author changes."
+      />
 
-          <RevisionDiffViewer
-            livePost={post}
-            revision={post.pendingRevision}
-          />
-        </div>
+      {notice && (
+        <InlineNotice tone={notice.tone}>{notice.message}</InlineNotice>
+      )}
+
+      {revision && (
+        <RevisionPanel
+          title={
+            isSubmitted
+              ? "Revision ready for review"
+              : "Author draft in progress"
+          }
+          badge={isSubmitted ? "Review requested" : "Draft staged"}
+          tone={isSubmitted ? "warning" : "info"}
+          description={
+            isSubmitted
+              ? `Submitted ${formatDateTime(revision.submittedAt)}. Compare the proposal with the live post before publishing or rejecting it.`
+              : `Last saved ${formatDateTime(revision.updatedAt)}. The author has not requested review yet, so publishing actions are unavailable. The live post remains unchanged.`
+          }
+          actions={
+            isSubmitted ? (
+              <>
+                <Button
+                  variant="primary"
+                  size="small"
+                  onClick={() => setReviewAction("approve")}
+                  disabled={actionLoading}
+                >
+                  <Check width={14} height={14} /> Approve &amp; publish
+                </Button>
+                <Button
+                  variant="danger"
+                  size="small"
+                  onClick={() => setReviewAction("reject")}
+                  disabled={actionLoading}
+                >
+                  <IconX width={14} height={14} /> Reject changes
+                </Button>
+              </>
+            ) : undefined
+          }
+        >
+          <RevisionDiffViewer livePost={post} revision={revision} />
+        </RevisionPanel>
       )}
 
       <BlogEditor
-        key={`admin-${hasRevision ? post.pendingRevision?.updatedAt : post.updatedAt}`}
-        initialData={activeEditorData}
+        key={`admin-live-${post.updatedAt}`}
+        initialData={liveEditorData}
         onSave={handleSave}
       />
+
+      {reviewAction && (
+        <ConfirmDialog
+          title={
+            reviewAction === "approve"
+              ? "Publish this revision?"
+              : "Reject this revision?"
+          }
+          description={
+            reviewAction === "approve"
+              ? "The proposed fields will replace the live article immediately."
+              : "The proposed changes will be permanently discarded. The live article will not change."
+          }
+          confirmLabel={
+            reviewAction === "approve" ? "Approve & publish" : "Reject changes"
+          }
+          busyLabel={reviewAction === "approve" ? "Publishing…" : "Rejecting…"}
+          variant={reviewAction === "approve" ? "primary" : "danger"}
+          busy={actionLoading}
+          onCancel={() => setReviewAction(null)}
+          onConfirm={() => void submitReviewAction(reviewAction)}
+        />
+      )}
     </div>
   );
 }
-

@@ -28,6 +28,19 @@ export function formatShortDate(date?: Date | string | null) {
   }).format(new Date(date));
 }
 
+/** Date and time in IST, Eg. "17 Aug 2026, 9:30 pm" */
+export function formatDateTime(date?: Date | string | null) {
+  if (!date) return "";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: APP_TIME_ZONE,
+  }).format(new Date(date));
+}
+
 /** Short month and year, Eg. "Aug 2024" */
 export function formatMonthYear(date?: Date | string | null) {
   if (!date) return "";

@@ -1,17 +1,22 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import Link from "next/link";
-import { ExternalLink as IconExternalLink } from "lucide-react";
 
+import BlogEditor, { BlogEditorData } from "@/components/blog/BlogEditor";
+import BlogEditorHeading from "@/components/blog/BlogEditorHeading";
+import BlogEditorToolbar from "@/components/blog/BlogEditorToolbar";
+import RevisionPanel from "@/components/blog/RevisionPanel";
+import Button from "@/components/shared/Button";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import InlineNotice from "@/components/shared/InlineNotice";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 import { expectAppData } from "@/lib/api/result";
 import type { BlogStatus } from "@/lib/constants";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
-import BlogEditor, { BlogEditorData } from "@/components/blog/BlogEditor";
-import BackLink from "@/components/shared/BackLink";
-
-import styles from "./EditBlog.module.scss";
-import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
+import {
+  DEFAULT_IMAGE_FOCAL_POINT,
+  type ImageFocalPoint,
+} from "@/lib/imageFocalPoint";
+import { formatDateTime } from "@/lib/utils";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -39,12 +44,25 @@ interface EditablePost {
   } | null;
 }
 
+interface Notice {
+  message: string;
+  tone: "error" | "success";
+}
+
 export default function EditMyBlogPage({ params }: Props) {
   const { slug } = use(params);
   const [post, setPost] = useState<EditablePost | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [toastMessage, setToastMessage] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<
+    "withdraw" | "discard" | null
+  >(null);
+
+  const isPublished = post?.status === "published";
+  const hasRevision = Boolean(post?.pendingRevision);
+  const isSubmitted = Boolean(post?.pendingRevision?.submittedAt);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +72,7 @@ export default function EditMyBlogPage({ params }: Props) {
         const response = await fetch(`/api/internal/blog/${slug}`);
         const data = await expectAppData(response);
         if (!cancelled) setPost(data.post);
-      } catch (err) {
+      } catch (err: unknown) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load blog.");
         }
@@ -69,10 +87,11 @@ export default function EditMyBlogPage({ params }: Props) {
     };
   }, [slug]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(""), 5000);
-  };
+  useEffect(() => {
+    if (!notice || notice.tone === "error") return;
+    const timeout = window.setTimeout(() => setNotice(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
 
   const handleSave = async (data: BlogEditorData, requestApproval = false) => {
     const response = await fetch(`/api/internal/blog/${slug}`, {
@@ -90,16 +109,19 @@ export default function EditMyBlogPage({ params }: Props) {
     });
     const result = await expectAppData(response);
     setPost(result.post);
-    showToast(
-      requestApproval
-        ? "Changes submitted for approval! An administrator will review and publish them."
+    setNotice({
+      message: requestApproval
+        ? "Changes submitted for administrator review."
         : isPublished
-          ? "Draft revision saved successfully."
-          : "Draft saved successfully.",
-    );
+          ? "Draft revision saved."
+          : "Draft saved.",
+      tone: "success",
+    });
   };
 
   const handleWithdrawReview = async () => {
+    setPendingAction("withdraw");
+    setNotice(null);
     try {
       const response = await fetch(`/api/internal/blog/${slug}`, {
         method: "PATCH",
@@ -108,40 +130,57 @@ export default function EditMyBlogPage({ params }: Props) {
       });
       const result = await expectAppData(response);
       setPost(result.post);
-      showToast(
-        "Review request withdrawn. You can continue editing your draft changes.",
-      );
+      setNotice({
+        message: "Review request withdrawn. The draft is editable again.",
+        tone: "success",
+      });
     } catch {
-      alert("Failed to withdraw review request.");
+      setNotice({
+        message: "Failed to withdraw the review request.",
+        tone: "error",
+      });
+    } finally {
+      setPendingAction(null);
     }
   };
 
   const handleDiscardRevision = async () => {
-    const confirmText = isSubmitted
-      ? "Are you sure you want to cancel your review request and discard all unapproved changes? This will revert your editor to the live published post."
-      : "Are you sure you want to discard your unapproved draft changes? This will revert your editor to the live published post.";
-
-    if (!confirm(confirmText)) {
-      return;
-    }
+    setPendingAction("discard");
+    setNotice(null);
     try {
       const response = await fetch(`/api/internal/blog/${slug}`, {
         method: "DELETE",
       });
       const result = await expectAppData(response);
       setPost(result.post);
-      showToast("Staged changes discarded. Reverted to live published content.");
+      setDiscardDialogOpen(false);
+      setNotice({
+        message: "Draft changes discarded. The editor now shows live content.",
+        tone: "success",
+      });
     } catch {
-      alert("Failed to discard revision.");
+      setDiscardDialogOpen(false);
+      setNotice({
+        message: "Failed to discard the draft changes.",
+        tone: "error",
+      });
+    } finally {
+      setPendingAction(null);
     }
   };
+
+  const toolbar = (
+    <BlogEditorToolbar
+      backHref="/internal/dashboard"
+      backLabel="Back to My Blogs"
+      liveHref={isPublished ? `/blog/${slug}` : undefined}
+    />
+  );
 
   if (loading) {
     return (
       <div>
-        <div className={styles.topBar}>
-          <BackLink href="/internal/dashboard" label="Back to My Blogs" />
-        </div>
+        {toolbar}
         <FormSkeletonContent label="the editor" fields={5} />
       </div>
     );
@@ -150,145 +189,143 @@ export default function EditMyBlogPage({ params }: Props) {
   if (error || !post) {
     return (
       <div>
-        <p className={styles.error}>{error || "Blog not found."}</p>
-        <BackLink href="/internal/dashboard" label="Back to Dashboard" />
+        {toolbar}
+        <InlineNotice tone="error">{error || "Blog not found."}</InlineNotice>
       </div>
     );
   }
 
-  const isPublished = post.status === "published";
-  const hasRevision = Boolean(post.pendingRevision);
-  const isSubmitted = Boolean(post.pendingRevision?.submittedAt);
-
-  // Use pendingRevision if available, otherwise live fields
-  const initialEditorData = isPublished && post.pendingRevision
-    ? {
-        title: post.pendingRevision.title,
-        content: post.pendingRevision.content,
-        excerpt: post.pendingRevision.excerpt,
-        coverImage: post.pendingRevision.coverImage,
-        coverFocalPoint: post.pendingRevision.coverFocalPoint,
-        tags: post.pendingRevision.tags,
-        status: post.status,
-        authors: post.authors,
-      }
-    : {
-        title: post.title,
-        content: post.content,
-        excerpt: post.excerpt,
-        coverImage: post.coverImage,
-        coverFocalPoint: post.coverFocalPoint,
-        tags: post.tags,
-        status: post.status,
-        authors: post.authors,
-      };
+  const revision = post.pendingRevision;
+  const initialEditorData =
+    isPublished && revision
+      ? {
+          title: revision.title,
+          content: revision.content,
+          excerpt: revision.excerpt,
+          coverImage: revision.coverImage,
+          coverFocalPoint:
+            revision.coverFocalPoint || DEFAULT_IMAGE_FOCAL_POINT,
+          tags: revision.tags,
+          status: post.status,
+          authors: post.authors,
+        }
+      : {
+          title: post.title,
+          content: post.content,
+          excerpt: post.excerpt,
+          coverImage: post.coverImage,
+          coverFocalPoint: post.coverFocalPoint || DEFAULT_IMAGE_FOCAL_POINT,
+          tags: post.tags,
+          status: post.status,
+          authors: post.authors,
+        };
 
   return (
     <div>
-      <div className={styles.topBar}>
-        <BackLink href="/internal/dashboard" label="Back to My Blogs" />
-        {isPublished && (
-          <Link
-            href={`/blog/${slug}`}
-            className={styles.viewLink}
-            target="_blank"
-          >
-            View Live Post <IconExternalLink width={14} height={14} />
-          </Link>
-        )}
-      </div>
+      {toolbar}
 
-      {toastMessage && (
-        <div className={`${styles.banner} ${styles.submitted}`}>
-          <span className={styles.bannerTitle}>{toastMessage}</span>
-        </div>
+      <BlogEditorHeading
+        kicker="Blog editor"
+        title={post.title}
+        description={
+          isPublished
+            ? "Prepare changes without interrupting the live article."
+            : "Edit and save this unpublished article."
+        }
+      />
+
+      {notice && (
+        <InlineNotice tone={notice.tone}>{notice.message}</InlineNotice>
       )}
 
       {isPublished && (
-        <div
-          className={`${styles.banner} ${
+        <RevisionPanel
+          title={
             isSubmitted
-              ? styles.submitted
+              ? "Changes pending review"
               : hasRevision
-                ? styles.draftRevision
-                : ""
-          }`}
-        >
-          <span className={styles.bannerTitle}>
-            {isSubmitted
-              ? "Changes Pending Review"
+                ? "Draft changes saved"
+                : "Editing a published article"
+          }
+          badge={
+            isSubmitted
+              ? "Review requested"
               : hasRevision
-                ? "Draft Changes Saved (Staging)"
-                : "Editing Published Article"}
-          </span>
-          <p className={styles.bannerText}>
-            {isSubmitted
-              ? `You requested approval to publish these updates on ${new Date(
-                  post.pendingRevision!.submittedAt!,
-                ).toLocaleString("en-IN", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}. The live article remains online and unchanged until an administrator reviews and approves.`
+                ? "Staged draft"
+                : "Live"
+          }
+          tone={isSubmitted ? "warning" : "info"}
+          description={
+            isSubmitted
+              ? `Submitted ${formatDateTime(revision?.submittedAt)}. The live article remains unchanged while an administrator reviews it. Withdraw the request before making more edits.`
               : hasRevision
-                ? "You have saved draft updates. The live article remains online unchanged. Click 'Request Approval to Publish' when your changes are ready for review."
-                : "This article is currently live. Any changes you make will be saved as a staged draft revision and will not affect the live website until approved by an administrator."}
-          </p>
-          {hasRevision && (
-            <div className={styles.bannerActions}>
-              {isSubmitted ? (
-                <>
-                  <button
-                    type="button"
-                    className={styles.btnSecondarySmall}
-                    onClick={handleWithdrawReview}
+                ? "The saved draft does not affect the live article. Request approval from the editor when it is ready."
+                : "Your next save creates a staged revision. The live article stays unchanged until an administrator approves it."
+          }
+          actions={
+            hasRevision ? (
+              <>
+                {isSubmitted && (
+                  <Button
+                    size="small"
+                    onClick={() => void handleWithdrawReview()}
+                    disabled={pendingAction !== null}
                   >
-                    Withdraw Review Request
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.btnDangerSmall}
-                    onClick={handleDiscardRevision}
-                  >
-                    Discard All Changes
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className={styles.btnDangerSmall}
-                  onClick={handleDiscardRevision}
+                    {pendingAction === "withdraw"
+                      ? "Withdrawing…"
+                      : "Withdraw request"}
+                  </Button>
+                )}
+                <Button
+                  variant="danger"
+                  size="small"
+                  onClick={() => setDiscardDialogOpen(true)}
+                  disabled={pendingAction !== null}
                 >
-                  Discard Draft Changes
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+                  Discard changes
+                </Button>
+              </>
+            ) : undefined
+          }
+        />
       )}
 
-      <BlogEditor
-        key={
-          post.pendingRevision
-            ? `rev-${post.pendingRevision.updatedAt}`
-            : `live-${post.status}`
-        }
-        initialData={initialEditorData}
-        onSave={(data) => handleSave(data, false)}
-        saveButtonLabel={isPublished ? "Save Draft Revision" : "Save Changes"}
-        secondaryButton={
-          isPublished
-            ? {
-                label: "Request Approval to Publish",
-                onClick: (data) => handleSave(data, true),
-                variant: "primary",
-              }
-            : undefined
-        }
-        canManageAuthors={false}
-        canManageStatus={false}
-        uploadEndpoint={`/api/internal/blog/upload-image?slug=${encodeURIComponent(slug)}`}
-      />
+      {!isSubmitted && (
+        <BlogEditor
+          key={revision ? `rev-${revision.updatedAt}` : `live-${post.status}`}
+          initialData={initialEditorData}
+          onSave={(data) => handleSave(data, false)}
+          saveButtonLabel={isPublished ? "Save Draft Revision" : "Save Changes"}
+          secondaryButton={
+            isPublished
+              ? {
+                  label: "Request Approval to Publish",
+                  onClick: (data) => handleSave(data, true),
+                  variant: "primary",
+                }
+              : undefined
+          }
+          canManageAuthors={false}
+          canManageStatus={false}
+          uploadEndpoint={`/api/internal/blog/upload-image?slug=${encodeURIComponent(slug)}`}
+        />
+      )}
+
+      {discardDialogOpen && (
+        <ConfirmDialog
+          title="Discard draft changes?"
+          description={
+            isSubmitted
+              ? "This will cancel the review request and permanently discard every unapproved change."
+              : "This will permanently discard every staged change and restore the editor to the live article."
+          }
+          confirmLabel="Discard changes"
+          busyLabel="Discarding…"
+          busy={pendingAction === "discard"}
+          onCancel={() => setDiscardDialogOpen(false)}
+          onConfirm={() => void handleDiscardRevision()}
+        />
+      )}
     </div>
   );
 }
-

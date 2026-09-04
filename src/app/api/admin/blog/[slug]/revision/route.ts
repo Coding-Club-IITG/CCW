@@ -48,7 +48,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     if (!post.pendingRevision) {
-      return jsonError("VALIDATION_ERROR", "No pending revision found for this post.");
+      return jsonError(
+        "VALIDATION_ERROR",
+        "No pending revision found for this post.",
+      );
     }
 
     const dbSession = await mongoose.startSession();

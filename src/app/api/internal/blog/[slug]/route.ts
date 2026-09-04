@@ -136,7 +136,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
         if (isPublished) {
           // Staged revision workflow for published posts
-          const existingRev = current.pendingRevision?.toObject?.() || current.pendingRevision;
+          const existingRev =
+            current.pendingRevision?.toObject?.() || current.pendingRevision;
           const currentBase = existingRev || current;
 
           let submittedAt = existingRev?.submittedAt || null;
@@ -148,10 +149,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
           const updatedRevision = {
             title: newTitle !== undefined ? newTitle : currentBase.title,
-            content: newContent !== undefined ? newContent : currentBase.content,
-            excerpt: newExcerpt !== undefined ? newExcerpt : currentBase.excerpt,
-            coverImage: newCoverImage !== undefined ? newCoverImage : currentBase.coverImage,
-            coverFocalPoint: newCoverFocalPoint !== undefined ? newCoverFocalPoint : currentBase.coverFocalPoint,
+            content:
+              newContent !== undefined ? newContent : currentBase.content,
+            excerpt:
+              newExcerpt !== undefined ? newExcerpt : currentBase.excerpt,
+            coverImage:
+              newCoverImage !== undefined
+                ? newCoverImage
+                : currentBase.coverImage,
+            coverFocalPoint:
+              newCoverFocalPoint !== undefined
+                ? newCoverFocalPoint
+                : currentBase.coverFocalPoint,
             tags: newTags !== undefined ? newTags : currentBase.tags,
             updatedAt: new Date(),
             submittedAt,
@@ -177,7 +186,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
                 id: String(current._id),
                 label: current.title,
               },
-              before: summarizePublicContent(before as unknown as Record<string, unknown>),
+              before: summarizePublicContent(
+                before as unknown as Record<string, unknown>,
+              ),
               after: summarizePublicContent({
                 ...before,
                 ...updatedRevision,
@@ -190,8 +201,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             title: newTitle !== undefined ? newTitle : current.title,
             content: newContent !== undefined ? newContent : current.content,
             excerpt: newExcerpt !== undefined ? newExcerpt : current.excerpt,
-            coverImage: newCoverImage !== undefined ? newCoverImage : current.coverImage,
-            coverFocalPoint: newCoverFocalPoint !== undefined ? newCoverFocalPoint : current.coverFocalPoint,
+            coverImage:
+              newCoverImage !== undefined ? newCoverImage : current.coverImage,
+            coverFocalPoint:
+              newCoverFocalPoint !== undefined
+                ? newCoverFocalPoint
+                : current.coverFocalPoint,
             tags: newTags !== undefined ? newTags : current.tags,
           });
           await current.save({ session: transaction });
@@ -208,8 +223,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
                 id: String(current._id),
                 label: current.title,
               },
-              before: summarizePublicContent(before as unknown as Record<string, unknown>),
-              after: summarizePublicContent(current.toObject() as unknown as Record<string, unknown>),
+              before: summarizePublicContent(
+                before as unknown as Record<string, unknown>,
+              ),
+              after: summarizePublicContent(
+                current.toObject() as unknown as Record<string, unknown>,
+              ),
             },
           };
         }
@@ -255,7 +274,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     try {
       saved = await auditedTransaction(dbSession, async (transaction) => {
         const current = await BlogPost.findOne({ slug }).session(transaction);
-        if (!current) throw new Error("Blog post disappeared during revision discard.");
+        if (!current)
+          throw new Error("Blog post disappeared during revision discard.");
         const before = current.toObject();
         current.set({ pendingRevision: null });
         await current.save({ session: transaction });
@@ -272,8 +292,12 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
               id: String(current._id),
               label: current.title,
             },
-            before: summarizePublicContent(before as unknown as Record<string, unknown>),
-            after: summarizePublicContent(current.toObject() as unknown as Record<string, unknown>),
+            before: summarizePublicContent(
+              before as unknown as Record<string, unknown>,
+            ),
+            after: summarizePublicContent(
+              current.toObject() as unknown as Record<string, unknown>,
+            ),
           },
         };
       });
@@ -292,4 +316,3 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
 }
-

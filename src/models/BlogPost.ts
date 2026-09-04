@@ -90,4 +90,3 @@ BlogPostSchema.index({ "pendingRevision.submittedAt": 1 });
 
 export default mongoose.models.BlogPost ||
   mongoose.model<IBlogPost>("BlogPost", BlogPostSchema);
-

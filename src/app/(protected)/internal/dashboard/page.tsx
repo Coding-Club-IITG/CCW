@@ -146,15 +146,24 @@ export default async function DashboardPage() {
                         ? "Blog draft"
                         : "Read this published blog post.")}
                   </p>
-                  <span className={styles.blogStatus}>
-                    {isDraft
-                      ? "draft"
-                      : isSubmitted
-                        ? "published · changes pending approval"
-                        : hasDraftRevision
-                          ? "published · draft changes saved"
-                          : "published"}
-                  </span>
+                  <div className={styles.blogStatuses}>
+                    <span
+                      className={`${styles.blogStatus} ${isDraft ? styles.blogDraft : styles.blogPublished}`}
+                    >
+                      {isDraft ? "draft" : "published"}
+                    </span>
+                    {isSubmitted ? (
+                      <span
+                        className={`${styles.blogRevisionStatus} ${styles.blogReviewStatus}`}
+                      >
+                        Review requested
+                      </span>
+                    ) : hasDraftRevision ? (
+                      <span className={styles.blogRevisionStatus}>
+                        Draft changes saved
+                      </span>
+                    ) : null}
+                  </div>
                 </article>
               );
             })}

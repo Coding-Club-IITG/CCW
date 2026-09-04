@@ -60,13 +60,7 @@
 }
 
 .editLink {
-  @include btn-secondary;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11.5px;
-  padding: 3px 8px;
-  border-radius: 4px;
+  @include btn-secondary($btn-xs);
   margin-left: auto;
   text-decoration: none;
 }

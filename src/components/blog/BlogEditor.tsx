@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import ImageUpload from "@/components/shared/ImageUpload";
-import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
+import MarkdownEditor from "@/components/shared/MarkdownEditor";
+import Button from "@/components/shared/Button";
 import TagEditor from "@/components/shared/TagEditor";
+import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
 import { X as IconX } from "lucide-react";
 import { BLOG_TAGS, BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import {
@@ -81,6 +82,17 @@ export default function BlogEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const editorData = (): BlogEditorData => ({
+    title,
+    content,
+    excerpt,
+    coverImage,
+    coverFocalPoint,
+    tags,
+    status,
+    authors,
+  });
+
   const addAuthor = (user: UserSearchItem) => {
     if (authors.some((author) => author.userId === user.id)) return;
     setAuthors((previous) => [
@@ -101,18 +113,9 @@ export default function BlogEditor({
     setSaving(true);
     setError("");
     try {
-      await onSave({
-        title,
-        content,
-        excerpt,
-        coverImage,
-        coverFocalPoint,
-        tags,
-        status,
-        authors,
-      });
-    } catch (err: any) {
-      setError(err.message || "Failed to save.");
+      await onSave(editorData());
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save.");
     } finally {
       setSaving(false);
     }
@@ -124,8 +127,11 @@ export default function BlogEditor({
 
       {/* Title */}
       <div className={styles.field}>
-        <label className={styles.label}>Title</label>
+        <label className={styles.label} htmlFor="blog-title">
+          Title
+        </label>
         <input
+          id="blog-title"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -137,8 +143,11 @@ export default function BlogEditor({
 
       {/* Excerpt */}
       <div className={styles.field}>
-        <label className={styles.label}>Excerpt</label>
+        <label className={styles.label} htmlFor="blog-excerpt">
+          Excerpt
+        </label>
         <textarea
+          id="blog-excerpt"
           value={excerpt}
           onChange={(e) => setExcerpt(e.target.value)}
           className={styles.textarea}
@@ -213,8 +222,11 @@ export default function BlogEditor({
       {/* Status */}
       {canManageStatus && (
         <div className={styles.field}>
-          <label className={styles.label}>Status</label>
+          <label className={styles.label} htmlFor="blog-status">
+            Status
+          </label>
           <select
+            id="blog-status"
             value={status}
             onChange={(e) => setStatus(e.target.value as BlogStatus)}
             className={styles.select}
@@ -245,27 +257,15 @@ export default function BlogEditor({
 
       {/* Actions */}
       <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.btnPrimary}
-          onClick={handleSave}
-          disabled={saving}
-        >
+        <Button variant="primary" onClick={handleSave} disabled={saving}>
           {saving
             ? "Saving..."
             : saveButtonLabel || (isNew ? "Create Post" : "Save Changes")}
-        </button>
+        </Button>
 
         {secondaryButton && (
-          <button
-            type="button"
-            className={
-              secondaryButton.variant === "primary"
-                ? styles.btnPrimary
-                : secondaryButton.variant === "danger"
-                  ? styles.btnDanger
-                  : styles.btnSecondary
-            }
+          <Button
+            variant={secondaryButton.variant || "secondary"}
             onClick={async () => {
               if (!title.trim()) {
                 setError("Title is required.");
@@ -274,18 +274,9 @@ export default function BlogEditor({
               setSaving(true);
               setError("");
               try {
-                await secondaryButton.onClick({
-                  title,
-                  content,
-                  excerpt,
-                  coverImage,
-                  coverFocalPoint,
-                  tags,
-                  status,
-                  authors,
-                });
-              } catch (err: any) {
-                setError(err.message || "Action failed.");
+                await secondaryButton.onClick(editorData());
+              } catch (err: unknown) {
+                setError(err instanceof Error ? err.message : "Action failed.");
               } finally {
                 setSaving(false);
               }
@@ -293,10 +284,9 @@ export default function BlogEditor({
             disabled={saving || secondaryButton.disabled}
           >
             {secondaryButton.label}
-          </button>
+          </Button>
         )}
       </div>
     </div>
   );
 }
-

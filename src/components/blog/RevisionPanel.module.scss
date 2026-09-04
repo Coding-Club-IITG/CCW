@@ -1,0 +1,88 @@
+@use "../../styles/mixins" as *;
+
+.panel {
+  --revision-accent: var(--accent);
+
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--revision-accent);
+}
+
+.info {
+  --revision-accent: var(--accent);
+}
+
+.warning {
+  --revision-accent: var(--warning);
+}
+
+.success {
+  --revision-accent: var(--success);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  @include card-title(15px);
+}
+
+.badge {
+  @include badge-chip(
+    transparent,
+    var(--revision-accent),
+    var(--revision-accent)
+  );
+}
+
+.description {
+  max-width: 72ch;
+  margin: 0.625rem 0 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.content {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 720px) {
+  .panel {
+    padding: 1rem;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+
+  .actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
