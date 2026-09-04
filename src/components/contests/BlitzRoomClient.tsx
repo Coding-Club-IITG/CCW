@@ -2,28 +2,20 @@
 
 import {
   BarChart3,
-  CircleAlert,
-  CircleCheck,
   Code,
   ExternalLink,
-  Gavel,
   Hourglass,
-  Info,
-  type LucideIcon,
   Play,
   RefreshCw,
-  Rss,
   Sparkles,
   Target,
   Timer,
   Trophy,
-  User,
-  UserX,
   Users,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { createElement, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
@@ -36,9 +28,11 @@ import type {
 import { getDisplayName } from "@/lib/utils";
 
 import {
-  formatRoomActivityTime,
   getContestRoomResultsPath,
+  getDisplayTeamName,
 } from "@/components/contests/roomPresentation";
+import RoomActivityFeed from "@/components/contests/RoomActivityFeed";
+import { useSyncCooldown } from "@/components/contests/useSyncCooldown";
 import { sendBrowserNotification } from "@/components/contests/roomNotification";
 import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
@@ -46,16 +40,6 @@ import CompatibleImage from "@/components/shared/CompatibleImage";
 import BackLink from "@/components/shared/BackLink";
 
 import styles from "./BlitzRoomClient.module.scss";
-
-const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
-  info: Info,
-  gavel: Gavel,
-  sync: RefreshCw,
-  check_circle: CircleCheck,
-  error: CircleAlert,
-  person: User,
-  person_off: UserX,
-};
 
 export default function BlitzRoomClient({
   contest,
@@ -118,7 +102,11 @@ export default function BlitzRoomClient({
   );
   const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
   const [syncing, setSyncing] = useState(false);
-  const [syncCooldown, setSyncCooldown] = useState(0);
+  const { cooldown: syncCooldown, begin: beginSync } = useSyncCooldown(
+    roomId,
+    userId,
+    syncCooldownSeconds,
+  );
 
   const [startTime, setStartTime] = useState<number | undefined>(
     initialStartTime,
@@ -128,62 +116,11 @@ export default function BlitzRoomClient({
   );
   const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
 
-  // Notification permission state - used to render the "Enable Notifications" button
-  const [notifGranted, setNotifGranted] = useState(
-    typeof Notification !== "undefined" &&
-      Notification.permission === "granted",
-  );
-
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
-  const getDisplayTeamName = (team?: ContestRoomTeamDto) => {
-    if (!team) return "Unknown";
-    if (isSoloFormat && team.members.length > 0) {
-      return getDisplayName(team.members[0].name, team.members[0].pizza_count);
-    }
-    return team.name;
-  };
+  const displayTeamName = (team?: ContestRoomTeamDto) =>
+    getDisplayTeamName(team, contest?.format);
 
-  useEffect(() => {
-    if (syncCooldown > 0) {
-      const timer = setInterval(() => {
-        setSyncCooldown((prev) => prev - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [syncCooldown]);
-
-  useEffect(() => {
-    const lastSyncStr = localStorage.getItem(`sync_${roomId}_${userId}`);
-    if (lastSyncStr) {
-      const lastSync = parseInt(lastSyncStr, 10);
-      const elapsed = (Date.now() - lastSync) / 1000;
-      if (elapsed < syncCooldownSeconds && elapsed > 0) {
-        setSyncCooldown(Math.ceil(syncCooldownSeconds - elapsed));
-      }
-    }
-  }, [roomId, userId, syncCooldownSeconds]);
-
-  // Each entry stores { icon, text, timestamp (epoch ms), color, id }
   const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
-  const [, setTick] = useState(0); // forces re-render every second to update relative times
-  useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  const activityColorClass = (color: string) => {
-    switch (color) {
-      case "text-primary":
-        return styles.actPrimary;
-      case "text-error":
-        return styles.actError;
-      case "text-secondary":
-        return styles.actSecondary;
-      default:
-        return styles.actDefault;
-    }
-  };
-
   const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
 
   // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
@@ -262,7 +199,7 @@ export default function BlitzRoomClient({
         break;
       case "room.reclaimed": {
         const team = teams?.find((item) => item._id === payload.teamId);
-        const tName = getDisplayTeamName(team);
+        const tName = displayTeamName(team);
         addActivity(
           "gavel",
           `CRITICAL: ${tName} RECLAIMED points for an earlier solve!`,
@@ -434,8 +371,7 @@ export default function BlitzRoomClient({
       }),
     });
 
-    setSyncCooldown(syncCooldownSeconds);
-    localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
+    beginSync();
 
     if (!(await readAppResult(res)).ok) {
       // If it failed immediately (Eg. 429), turn off syncing spinner since SSE won't fire
@@ -496,7 +432,7 @@ export default function BlitzRoomClient({
                       : styles.teamName
                   }
                 >
-                  {getDisplayTeamName(teams[0])}
+                  {displayTeamName(teams[0])}
                 </span>
                 <span className={styles.scoreVal}>
                   {scores[teams[0]._id] || 0} pts
@@ -512,7 +448,7 @@ export default function BlitzRoomClient({
                       : styles.teamName
                   }
                 >
-                  {getDisplayTeamName(teams[1])}
+                  {displayTeamName(teams[1])}
                 </span>
               </>
             ) : (
@@ -523,7 +459,7 @@ export default function BlitzRoomClient({
                       t._id === teamId ? styles.teamNameActive : styles.teamName
                     }
                   >
-                    {getDisplayTeamName(t)}
+                    {displayTeamName(t)}
                   </span>
                   <span className={styles.scoreVal}>
                     {scores[t._id] || 0} pts
@@ -729,49 +665,10 @@ export default function BlitzRoomClient({
           {/* Right Sidebar (Activity Log) */}
           <div className={styles.sideCol}>
             <div className={`${styles.panel} ${styles.panelStage}`}>
-              <div className={styles.activityHead}>
-                <h2 className={styles.activityTitle}>
-                  <Rss size={18} />
-                  Activity Feed
-                </h2>
-                <p className={styles.activitySub}>
-                  Logs since last refresh. May disappear on reload.
-                </p>
-                {typeof Notification !== "undefined" && !notifGranted && (
-                  <button
-                    className={styles.notifBtn}
-                    onClick={() =>
-                      Notification.requestPermission().then((perm) =>
-                        setNotifGranted(perm === "granted"),
-                      )
-                    }
-                  >
-                    🔔 Enable Notifications
-                  </button>
-                )}
-              </div>
-              <div className={styles.activityList}>
-                {activityFeed.length === 0 ? (
-                  <p className={styles.activityEmpty}>No activity yet.</p>
-                ) : (
-                  activityFeed.map((act) => (
-                    <div key={act.id} className={styles.activityItem}>
-                      <div className={styles.activityIconWrap}>
-                        {createElement(ACTIVITY_ICON_MAP[act.icon] ?? Info, {
-                          className: `${activityColorClass(act.color)} ${styles.icon16}`,
-                          size: 16,
-                        })}
-                      </div>
-                      <div>
-                        <p className={styles.activityText}>{act.text}</p>
-                        <span className={styles.activityTime}>
-                          {formatRoomActivityTime(act.timestamp)}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <RoomActivityFeed
+                entries={activityFeed}
+                subtitle="Logs since last refresh. May disappear on reload."
+              />
             </div>
           </div>
         </div>
@@ -823,14 +720,14 @@ export default function BlitzRoomClient({
             <p className={styles.toastText}>
               Final Scores: <br />
               <strong className={styles.toastScoreOwn}>
-                {teams?.[0] ? getDisplayTeamName(teams[0]) : "Team Alpha"}:{" "}
+                {teams?.[0] ? displayTeamName(teams[0]) : "Team Alpha"}:{" "}
                 {teams?.[0]
                   ? scores[teams[0]._id] || 0
                   : Object.values(scores)[0] || 0}
               </strong>
               <br />
               <strong className={styles.toastScoreOther}>
-                {teams?.[1] ? getDisplayTeamName(teams[1]) : "Team Beta"}:{" "}
+                {teams?.[1] ? displayTeamName(teams[1]) : "Team Beta"}:{" "}
                 {teams?.[1]
                   ? scores[teams[1]._id] || 0
                   : Object.values(scores)[1] || 0}

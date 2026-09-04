@@ -1,3 +1,20 @@
+import type { ContestRoomTeamDto } from "@/lib/contests/dtos";
+import { getDisplayName } from "@/lib/utils";
+
+export function getDisplayTeamName(
+  team: ContestRoomTeamDto | undefined,
+  format?: string,
+): string {
+  if (!team) return "Unknown";
+  if (
+    ["1v1", "solo-tournament"].includes(format ?? "") &&
+    team.members.length
+  ) {
+    return getDisplayName(team.members[0].name, team.members[0].pizza_count);
+  }
+  return team.name;
+}
+
 export function formatRemainingTime(totalSeconds: number): string {
   const clampedSeconds = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(clampedSeconds / 60);

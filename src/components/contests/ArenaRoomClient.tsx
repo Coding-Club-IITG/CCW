@@ -1,25 +1,18 @@
 "use client";
 
 import {
-  CircleAlert,
   CircleCheck,
   Code,
   ExternalLink,
-  Gavel,
   Hourglass,
-  Info,
   Lock,
-  type LucideIcon,
   RefreshCw,
-  Rss,
   Timer,
   Trophy,
-  User,
-  UserX,
   Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { createElement, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
@@ -32,9 +25,11 @@ import type {
 import { getDisplayName } from "@/lib/utils";
 
 import {
-  formatRoomActivityTime,
   getContestRoomResultsPath,
+  getDisplayTeamName,
 } from "@/components/contests/roomPresentation";
+import RoomActivityFeed from "@/components/contests/RoomActivityFeed";
+import { useSyncCooldown } from "@/components/contests/useSyncCooldown";
 import { sendBrowserNotification } from "@/components/contests/roomNotification";
 import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
@@ -42,17 +37,6 @@ import CompatibleImage from "@/components/shared/CompatibleImage";
 import BackLink from "@/components/shared/BackLink";
 
 import styles from "./ArenaRoomClient.module.scss";
-
-const ACTIVITY_ICON_MAP: Record<string, LucideIcon> = {
-  info: Info,
-  gavel: Gavel,
-  lock: Lock,
-  sync: RefreshCw,
-  check_circle: CircleCheck,
-  error: CircleAlert,
-  person: User,
-  person_off: UserX,
-};
 
 export default function ArenaRoomClient({
   contest,
@@ -113,27 +97,12 @@ export default function ArenaRoomClient({
   const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
 
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
-  const [syncCooldown, setSyncCooldown] = useState(0);
+  const {
+    cooldown: syncCooldown,
+    hold: holdSync,
+    begin: beginSync,
+  } = useSyncCooldown(roomId, userId, syncCooldownSeconds);
   const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  const activityColorClass = (color: string) => {
-    switch (color) {
-      case "text-primary":
-        return styles.actPrimary;
-      case "text-error":
-        return styles.actError;
-      case "text-secondary":
-        return styles.actSecondary;
-      default:
-        return styles.actDefault;
-    }
-  };
-
   const [startTime, setStartTime] = useState<number | undefined>(
     initialStartTime,
   );
@@ -143,40 +112,8 @@ export default function ArenaRoomClient({
   const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
-  const getDisplayTeamName = (team?: ContestRoomTeamDto) => {
-    if (!team) return "Unknown";
-    if (isSoloFormat && team.members.length > 0) {
-      return getDisplayName(team.members[0].name, team.members[0].pizza_count);
-    }
-    return team.name;
-  };
-
-  useEffect(() => {
-    if (syncCooldown > 0) {
-      const timer = setInterval(
-        () => setSyncCooldown((prev) => prev - 1),
-        1000,
-      );
-      return () => clearInterval(timer);
-    }
-  }, [syncCooldown]);
-
-  // Notification permission state - used to render the "Enable Notifications" button
-  const [notifGranted, setNotifGranted] = useState(
-    typeof Notification !== "undefined" &&
-      Notification.permission === "granted",
-  );
-
-  useEffect(() => {
-    const lastSyncStr = localStorage.getItem(`sync_${roomId}_${userId}`);
-    if (lastSyncStr) {
-      const lastSync = parseInt(lastSyncStr, 10);
-      const elapsed = (Date.now() - lastSync) / 1000;
-      if (elapsed < syncCooldownSeconds && elapsed > 0) {
-        setSyncCooldown(Math.ceil(syncCooldownSeconds - elapsed));
-      }
-    }
-  }, [roomId, syncCooldownSeconds, userId]);
+  const displayTeamName = (team?: ContestRoomTeamDto) =>
+    getDisplayTeamName(team, contest?.format);
 
   // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
   useEffect(() => {
@@ -419,7 +356,7 @@ export default function ArenaRoomClient({
     if (syncingMap[problemId] || matchState !== "active" || syncCooldown > 0)
       return;
 
-    setSyncCooldown(syncCooldownSeconds);
+    holdSync();
 
     const res = await fetch("/api/contests/sync", {
       method: "POST",
@@ -432,8 +369,7 @@ export default function ArenaRoomClient({
       }),
     });
 
-    setSyncCooldown(syncCooldownSeconds); // Apply frontend cooldown directly
-    localStorage.setItem(`sync_${roomId}_${userId}`, Date.now().toString());
+    beginSync();
 
     if (!(await readAppResult(res)).ok) {
       setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
@@ -486,7 +422,7 @@ export default function ArenaRoomClient({
                     t._id === teamId ? styles.teamNameActive : styles.teamName
                   }
                 >
-                  {getDisplayTeamName(t)}
+                  {displayTeamName(t)}
                 </span>
                 <span className={styles.scoreVal}>{scores[t._id] || 0}</span>
                 {idx < (teams.length || 0) - 1 && (
@@ -612,9 +548,7 @@ export default function ArenaRoomClient({
                         const [cTeamId, cTimestamp] = lockVal.split("|");
                         claimedByMe = cTeamId === teamId;
                         const t = teams?.find((t) => t._id === cTeamId);
-                        claimedByWhoName = t
-                          ? getDisplayTeamName(t)
-                          : "Unknown";
+                        claimedByWhoName = t ? displayTeamName(t) : "Unknown";
                       }
 
                       const cardStateClass = isClaimed
@@ -767,54 +701,7 @@ export default function ArenaRoomClient({
           {/* Right Sidebar (Activity Log) */}
           <div className={styles.sideCol}>
             <div className={`${styles.panel} ${styles.panelStage}`}>
-              <div className={styles.activityHead}>
-                <h2 className={styles.activityTitle}>
-                  <Rss size={18} />
-                  Activity Feed
-                </h2>
-                {typeof Notification !== "undefined" && !notifGranted && (
-                  <button
-                    className={styles.notifBtn}
-                    onClick={() =>
-                      Notification.requestPermission().then((perm) =>
-                        setNotifGranted(perm === "granted"),
-                      )
-                    }
-                  >
-                    🔔 Enable Notifications
-                  </button>
-                )}
-              </div>
-              <div className={styles.activityList}>
-                {activityFeed.length === 0 ? (
-                  <p className={styles.activityEmpty}>No activity yet.</p>
-                ) : (
-                  activityFeed.map((act) => (
-                    <div key={act.id} className={styles.activityItem}>
-                      <div className={styles.activityIconWrap}>
-                        {createElement(ACTIVITY_ICON_MAP[act.icon] ?? Info, {
-                          className: `${activityColorClass(act.color)} ${styles.icon16}`,
-                          size: 16,
-                        })}
-                      </div>
-                      <div className={styles.activityBody}>
-                        <p
-                          className={`${styles.activityText} ${
-                            act.icon === "gavel"
-                              ? styles.activityTextCritical
-                              : ""
-                          }`}
-                        >
-                          {act.text}
-                        </p>
-                        <span className={styles.activityTime}>
-                          {formatRoomActivityTime(act.timestamp)}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <RoomActivityFeed entries={activityFeed} />
             </div>
           </div>
         </div>
@@ -840,7 +727,7 @@ export default function ArenaRoomClient({
                       t._id === teamId ? styles.toastScoreOwn : undefined
                     }
                   >
-                    {getDisplayTeamName(t)}
+                    {displayTeamName(t)}
                   </strong>
                   <span>{scores[t._id] || 0} pts</span>
                 </div>
