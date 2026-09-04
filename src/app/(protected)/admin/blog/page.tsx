@@ -1,14 +1,18 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import BackLink from "@/components/shared/BackLink";
 import { ExternalLink as IconExternalLink } from "lucide-react";
-import Pagination from "@/components/shared/Pagination";
+import { useEffect, useState } from "react";
+
+import { expectAppData } from "@/lib/api/result";
 import type { BlogStatus } from "@/lib/constants";
+import { formatShortDate } from "@/lib/utils";
+
+import BackLink from "@/components/shared/BackLink";
+import Pagination from "@/components/shared/Pagination";
+import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
+
 import styles from "./AdminBlog.module.scss";
 
 interface Post {
@@ -22,6 +26,10 @@ interface Post {
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  pendingRevision?: {
+    submittedAt?: string | null;
+    updatedAt?: string;
+  } | null;
 }
 
 export default function AdminBlogPage() {
@@ -86,7 +94,7 @@ export default function AdminBlogPage() {
   };
 
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/admin" label="Back to Administration" />
 
       <header className={styles.header}>
@@ -100,7 +108,7 @@ export default function AdminBlogPage() {
       </header>
 
       {loading ? (
-        <p className={styles.loading}>Loading...</p>
+        <TableSkeletonContent label="blog posts" columns={4} />
       ) : posts.length === 0 ? (
         <div className={styles.empty}>
           <p>No blog posts yet. Create your first post to get started.</p>
@@ -123,17 +131,24 @@ export default function AdminBlogPage() {
                     >
                       {post.status}
                     </span>
+                    {post.pendingRevision?.submittedAt ? (
+                      <span
+                        className={`${styles.statusBadge} ${styles.revisionPending}`}
+                      >
+                        Review Requested
+                      </span>
+                    ) : post.pendingRevision ? (
+                      <span
+                        className={`${styles.statusBadge} ${styles.revisionDraft}`}
+                      >
+                        Draft Revision
+                      </span>
+                    ) : null}
                     <span className={styles.rowAuthor}>
                       {post.authors?.map((a) => a.name).join(", ") || "Unknown"}
                     </span>
                     <span className={styles.rowDate}>
-                      {new Date(
-                        post.publishedAt || post.createdAt,
-                      ).toLocaleDateString("en-IN", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {formatShortDate(post.publishedAt || post.createdAt)}
                     </span>
                   </div>
                 </div>
@@ -149,6 +164,7 @@ export default function AdminBlogPage() {
                       href={`/blog/${post.slug}`}
                       className={styles.btnSecondary}
                       target="_blank"
+                      rel="noopener noreferrer"
                     >
                       View <IconExternalLink width={12} height={12} />
                     </Link>

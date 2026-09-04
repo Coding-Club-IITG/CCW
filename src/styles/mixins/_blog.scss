@@ -63,8 +63,7 @@
     border-radius: 6px;
     padding: 0.2em 0.4em;
     font-size: 0.85em;
-    font-family:
-      ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   }
 
   pre {
@@ -141,27 +140,9 @@
   }
 }
 
-// Blog card
-@mixin blog-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 6px;
-  padding: 1.25rem;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
-  text-decoration: none;
-  display: block;
-
-  &:hover {
-    border-color: var(--primary);
-    background: var(--blog-card-hover);
-  }
-}
-
 // Blog tag badge
 @mixin blog-tag {
-  @include badge-pill;
+  @include badge-chip;
   font-size: 0.6875rem;
   padding: 0.125rem 0.5rem;
 }

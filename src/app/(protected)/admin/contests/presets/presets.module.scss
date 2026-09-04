@@ -1,9 +1,5 @@
 @use "../../../../../styles/mixins" as *;
 
-.pageContainer {
-  @include admin-page;
-}
-
 .header {
-  @include admin-page-header($top-margin: 1rem);
+  @include standard-page-header;
 }

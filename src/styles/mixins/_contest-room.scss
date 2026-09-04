@@ -1,7 +1,6 @@
-// Shared "room" chrome for the live contest rooms (Blitz + Arena).
-// Both room modules @include contest-room-base to avoid duplicating the
-// HUD / roster / activity-feed / toast layout. Only the problem area differs.
+// Shared "room" chrome for the live contest rooms (Blitz + Arena)
 
+@use "shared" as *;
 @use "contests" as *;
 @use "buttons" as *;
 
@@ -38,27 +37,6 @@
     padding-bottom: 1.5rem;
   }
 
-  .backLink {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.375rem 0.75rem;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    color: var(--primary);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    transition:
-      background 0.15s ease,
-      border-color 0.15s ease;
-
-    &:hover {
-      background: var(--primary-alpha);
-      border-color: var(--primary);
-    }
-  }
-
   .problemTransition {
     animation: contestSlideIn 0.4s ease-out forwards;
   }
@@ -72,7 +50,7 @@
   }
 
   .spin {
-    animation: contestSpin 1s linear infinite;
+    @include spinner;
   }
 
   /* HUD */
@@ -85,8 +63,7 @@
     padding: 1rem;
     background: var(--surface-secondary);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    @include contest-glow(var(--focus-ring));
+    @include contest-glow;
 
     @media (min-width: 768px) {
       flex-direction: row;
@@ -102,24 +79,17 @@
 
   .hudTitle {
     margin: 0;
-    font-size: 1.25rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--foreground-strong);
+    @include display-type($display-sm, 0.05em);
   }
 
   .statusBadge {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.25rem 0.75rem;
+    padding: 5px 11px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 999px;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
+    @include micro-label($text-xs, 0.06em, var(--muted));
   }
 
   .statusBadgeActive {
@@ -138,14 +108,12 @@
   .scoreRow {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 1rem;
-    font-size: 1.5rem;
+    align-items: baseline;
+    gap: 0.875rem;
   }
 
   .teamName {
-    color: var(--muted);
-    font-size: 1.125rem;
+    @include micro-label($text-xs, 0.06em, var(--muted));
     max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -153,8 +121,7 @@
   }
 
   .teamNameActive {
-    color: var(--primary);
-    font-size: 1.5rem;
+    @include micro-label($text-xs, 0.06em, var(--primary));
     max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -162,18 +129,16 @@
   }
 
   .scoreVal {
+    @include display-type($display-xl);
     color: var(--foreground-strong);
-    font-weight: 700;
   }
 
   .vs {
-    color: var(--border);
-    font-size: 1rem;
+    @include metadata($text-xs, var(--muted-light));
   }
 
   .vsInline {
-    color: var(--border);
-    font-size: 0.875rem;
+    @include metadata($text-xs, var(--muted-light));
     margin: 0 0.5rem;
   }
 
@@ -190,7 +155,6 @@
     padding: 0.5rem 1rem;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
   }
 
   .timerIcon {
@@ -198,13 +162,12 @@
   }
 
   .timerText {
-    font-size: 0.875rem;
+    @include display-type($display-sm);
     color: var(--foreground-strong);
   }
 
   .timerSub {
-    font-size: 0.75rem;
-    color: var(--muted);
+    @include micro-label($text-xs, 0.09em);
   }
 
   /* Layout grid */
@@ -253,8 +216,7 @@
     padding: 1rem;
     background: var(--surface-secondary);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    @include contest-scroll-hide;
+    @include scroll-hide;
   }
 
   .panelStage {
@@ -271,10 +233,7 @@
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border);
     background: var(--surface-secondary);
-    font-size: 0.75rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    @include micro-label($text-xs, 0.1em);
   }
 
   /* Roster */
@@ -292,10 +251,7 @@
   .rosterTeamName {
     padding-bottom: 0.25rem;
     margin-bottom: 0.25rem;
-    font-size: 0.625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--secondary);
+    @include micro-label($text-2xs, 0.08em, var(--secondary));
   }
 
   .rosterTeamNameOwn {
@@ -307,7 +263,6 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem;
-    border-radius: 6px;
     background: var(--surface-hover);
     border-left: 2px solid transparent;
     transition: background 0.15s ease;
@@ -332,7 +287,7 @@
   .memberAvatar {
     width: 1.5rem;
     height: 1.5rem;
-    border-radius: 50%;
+    border-radius: 0;
     object-fit: cover;
     border: 1px solid var(--primary);
   }
@@ -344,8 +299,7 @@
 
   .memberName {
     flex: 1;
-    font-size: 0.875rem;
-    color: var(--foreground-strong);
+    @include metadata($text-sm, var(--foreground-strong));
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -388,9 +342,10 @@
     width: 6rem;
     height: 6rem;
     margin-bottom: 1.5rem;
-    border-radius: 50%;
+    border-radius: 0;
+    border: 1px solid var(--primary);
     background: var(--primary-alpha);
-    @include contest-glow(var(--focus-ring));
+    @include contest-glow;
 
     svg {
       font-size: 3rem;
@@ -418,7 +373,6 @@
     width: 100%;
     max-width: 24rem;
     padding: 1rem 2rem;
-    border-radius: 8px;
     font-size: 1rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -445,9 +399,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--foreground-strong);
+    @include micro-label($text-xs, 0.1em, var(--foreground-strong));
 
     svg {
       color: var(--primary);
@@ -456,8 +408,7 @@
 
   .activitySub {
     margin: 0.25rem 0 0;
-    font-size: 0.625rem;
-    color: var(--muted);
+    @include metadata($text-2xs, var(--muted));
     opacity: 0.75;
   }
 
@@ -466,13 +417,10 @@
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    padding: 0.25rem 0.6rem;
-    font-size: 0.65rem;
-    font-weight: 600;
-    border-radius: 999px;
+    padding: 5px 11px;
     border: 1px solid var(--primary);
     background: transparent;
-    color: var(--primary);
+    @include micro-label($text-2xs, 0.06em, var(--primary));
     cursor: pointer;
     transition:
       background 0.15s,
@@ -493,7 +441,7 @@
     min-height: 0;
     font-size: 0.75rem;
     padding-bottom: 1rem;
-    @include contest-scroll-hide;
+    @include scroll-hide;
   }
 
   .activityEmpty {
@@ -551,7 +499,7 @@
     position: fixed;
     bottom: 1.5rem;
     right: 1.5rem;
-    z-index: 50;
+    z-index: var(--z-toast);
     animation: contestSlideIn 0.4s ease-out forwards;
   }
 
@@ -562,9 +510,8 @@
     padding: 1.5rem;
     background: var(--surface-hover);
     border: 1px solid var(--primary);
-    border-radius: 12px;
     box-shadow: 0 8px 24px var(--shadow-lg);
-    @include contest-glow(var(--focus-ring));
+    @include contest-glow;
   }
 
   .toastAccent {
@@ -596,9 +543,7 @@
 
   .toastTitle {
     margin: 0;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--foreground-strong);
+    @include display-type($display-xs, 0.05em);
   }
 
   .toastClose {
@@ -627,7 +572,6 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.5rem;
-    border-radius: 6px;
     background: var(--surface);
   }
 
@@ -642,27 +586,13 @@
   }
 
   .toastBtn {
-    @include btn-primary;
+    @include btn-primary(0.5rem);
     width: 100%;
-    padding: 0.5rem;
-    border-radius: 8px;
-    font-size: 0.75rem;
-    font-weight: 700;
   }
 
   .toastBtnSecondary {
+    @include btn-secondary(0.5rem);
     width: 100%;
-    padding: 0.5rem;
-    background: var(--surface-hover);
-    color: var(--foreground-strong);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 0.75rem;
-    transition: background 0.15s ease;
-
-    &:hover {
-      background: var(--surface-secondary);
-    }
   }
 
   /* Icon sizes */
@@ -677,41 +607,20 @@
   }
 
   /* Apply Fonts */
-  .hudTitle,
   .waitingTitle {
     font-family: var(--font-hanken-grotesk), sans-serif;
-  }
-  .hudTitle {
-    font-size: 1.25rem;
-  }
-  .waitingTitle {
     font-size: 1.875rem; /* 30px */
-  }
-
-  .teamName,
-  .teamNameActive,
-  .scoreRow,
-  .scoreVal,
-  .toastScoreOwn,
-  .toastScoreOther,
-  .toastTitle {
-    font-family: var(--font-inter), sans-serif;
     font-weight: 700;
   }
 
-  .backLink,
-  .statusBadge,
-  .timerText,
-  .timerSub,
-  .panelTitle,
-  .rosterTeamName,
-  .memberName,
-  .activityTitle,
-  .activitySub,
+  .toastScoreOwn,
+  .toastScoreOther {
+    font-family: var(--font-handjet), var(--font-jetbrains-mono), monospace;
+    font-weight: 700;
+  }
+
   .activityTime,
   .readyBtn,
-  .toastBtn,
-  .toastBtnSecondary,
   .activityText {
     font-family: var(--font-jetbrains-mono), monospace;
   }

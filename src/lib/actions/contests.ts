@@ -3,7 +3,6 @@
 import { err as appError, ok, validationError } from "@/lib/api/result";
 
 import { defineAction } from "@/lib/actions/defineAction";
-import { toBsonSafe } from "@/lib/api/result";
 
 export const getContestListing = defineAction(
   "getContestListing",

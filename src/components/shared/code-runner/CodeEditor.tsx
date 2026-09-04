@@ -26,6 +26,9 @@ export default function CodeEditor({ language, value, onChange }: Props) {
     setMounted(true);
     const { KeyMod, KeyCode } = monaco;
 
+    // Monaco measures glyph width at mount, so remeasure once webfont is ready
+    document.fonts?.ready.then(() => monaco.editor.remeasureFonts());
+
     // Ctrl+/ - Open command palette
     editorInstance.addAction({
       id: "open-command-palette",
@@ -84,8 +87,7 @@ export default function CodeEditor({ language, value, onChange }: Props) {
         theme={theme === "light" ? "vs" : "vs-dark"}
         options={{
           fontSize: 14,
-          fontFamily:
-            "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
+          fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
           padding: { top: 12, bottom: 12 },

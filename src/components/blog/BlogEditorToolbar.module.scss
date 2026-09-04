@@ -1,0 +1,22 @@
+@use "../../styles/mixins" as *;
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.liveLink {
+  @include btn-secondary($btn-sm);
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+@media (max-width: 480px) {
+  .toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

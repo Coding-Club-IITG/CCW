@@ -2,21 +2,12 @@
 
 // Layout
 
-.container {
-  padding: 0;
-}
-
 .header {
   @include standard-page-header($split: true, $bottom-margin: 1.25rem);
 }
 
 .uploadBtn {
-  @include btn-primary;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.875rem;
-  font-weight: 600;
+  @include btn-primary(0.4rem 0.875rem);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -40,10 +31,7 @@
   overflow-x: auto;
   padding: 0.125rem 0.125rem 0.375rem;
 
-  scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  @include scroll-hide;
 }
 
 .selectedFilters {
@@ -51,8 +39,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  font-size: 0.8rem;
-  color: var(--muted);
+  @include metadata($text-sm, var(--muted));
 
   button {
     color: var(--primary);
@@ -69,40 +56,25 @@
 // Table
 
 .tableContainer {
+  @include table-frame;
   overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 6px;
 }
 
 .table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
+  @include table-base;
 
   th,
   td {
-    text-align: left;
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
 
   th {
-    background: var(--table-header-bg);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--table-header-text);
     white-space: nowrap;
   }
 
   tbody tr {
     transition: background 0.15s ease;
-
-    &:last-child td {
-      border-bottom: none;
-    }
 
     &:hover {
       background: var(--surface-hover);
@@ -123,14 +95,14 @@
 }
 
 .fileName {
-  font-weight: 600;
-  color: var(--foreground);
   display: block;
+  font-weight: 600;
+  color: var(--foreground-strong);
 }
 
 .fileDesc {
   display: block;
-  font-size: 0.8rem;
+  font-size: 13px;
   color: var(--muted-light);
   margin-top: 0.1rem;
   max-width: 260px;
@@ -139,9 +111,14 @@
   white-space: nowrap;
 }
 
+// Dates and sizes
 .subtle {
-  color: var(--muted);
-  font-size: 0.85rem;
+  @include table-meta;
+}
+
+.person {
+  font-size: 13px;
+  color: var(--foreground-secondary);
 }
 
 .fileTags {
@@ -152,29 +129,28 @@
 }
 
 .accessBadge {
-  display: inline-flex;
-  align-items: center;
   gap: 0.3rem;
-  font-size: 0.78rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 4px;
-  font-weight: 600;
   white-space: nowrap;
 
   &.download {
-    background: var(--access-download-bg);
-    color: var(--access-download-text);
+    @include badge-chip(
+      var(--access-download-bg),
+      var(--access-download-text),
+      transparent
+    );
   }
 
   &.viewOnly {
-    background: var(--access-view-bg);
-    color: var(--access-view-text);
+    @include badge-chip(
+      var(--access-view-bg),
+      var(--access-view-text),
+      transparent
+    );
   }
 }
 
 .aclHint {
-  font-size: 0.75rem;
-  color: var(--gray-400);
+  @include metadata($text-sm, var(--gray-400));
   margin-top: 0.2rem;
 }
 
@@ -185,123 +161,36 @@
 }
 
 .actionBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.15s;
-  text-decoration: none;
+  @include icon-button;
 
-  &:hover {
-    background: var(--surface-hover);
-    color: var(--foreground);
-    border-color: var(--border-input);
-  }
-
-  &.danger {
-    &:hover {
-      background: var(--error-bg-hover);
-      border-color: var(--error-border-light);
-      color: var(--error);
-    }
+  &.danger:hover {
+    border-color: var(--danger);
+    color: var(--danger);
   }
 }
 
-// Empty / Error states
-
-.emptyState {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--muted);
-  border: 2px dashed var(--border);
-  border-radius: 6px;
-  font-size: 0.875rem;
-}
+// Error state
 
 .errorState {
+  @include error-banner;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 1rem 1.25rem;
-  background: var(--error-bg);
-  border: 1px solid var(--error-border-light);
-  border-radius: 6px;
-  color: var(--error);
-  font-size: 0.9rem;
 }
 
-// Shared overlay
-
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay);
-  z-index: 1000;
-}
-
-// File Viewer Modal
+// File Viewer
 
 .viewerModal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--surface);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 32px var(--shadow-lg);
-  z-index: 1001;
-  width: min(900px, 95vw);
   height: min(85vh, 860px);
+}
+
+.viewerContent {
+  padding: 0;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
-}
-
-.viewerHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  gap: 1rem;
-}
-
-.viewerTitle {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-width: 0; // allow text truncation
-
-  .fileIcon {
-    flex-shrink: 0;
-  }
-}
-
-.viewerFileName {
-  display: block;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.viewerOriginalName {
-  display: block;
-  font-size: 0.78rem;
-  color: var(--muted-light);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .viewerBody {
@@ -311,14 +200,6 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
-}
-
-// Hide the entire viewer when printing
-@media print {
-  .viewerModal,
-  .overlay {
-    display: none !important;
-  }
 }
 
 // The iframe fills the entire viewer body
@@ -338,7 +219,7 @@
   height: 100%;
   gap: 0.6rem;
   color: var(--muted-light);
-  font-size: 0.95rem;
+  font-size: 15px;
   text-align: center;
   padding: 2rem;
 
@@ -353,8 +234,7 @@
 }
 
 .viewerNoPreviewHint {
-  font-size: 0.82rem;
-  color: var(--muted-lighter);
+  @include metadata($text-sm, var(--muted-lighter));
   margin-top: 0.25rem !important;
 }
 
@@ -364,8 +244,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--muted-light);
-  font-size: 0.9rem;
+  @include metadata($text-sm, var(--muted-light));
 }
 
 // Image rendered directly (no iframe needed)
@@ -414,128 +293,18 @@
   // Canvases are appended here by PdfCanvasViewer via ref
 }
 
-// Edit / Upload Modal
-
-.modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--surface);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 32px var(--shadow-lg);
-  z-index: 1001;
-  width: min(680px, 95vw);
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.modalHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-
-  h2 {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: var(--foreground-strong);
-    margin-bottom: 0.125rem;
-  }
-
-  p {
-    font-size: 0.8125rem;
-    color: var(--muted);
-  }
-}
-
-.closeBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  color: var(--muted);
-  flex-shrink: 0;
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    background: var(--surface-hover);
-    color: var(--foreground);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-}
-
-.modalForm {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
-}
-
-.modalBody {
-  padding: 1.25rem;
-  overflow-y: auto;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.modalActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-  background: var(--surface-secondary);
-}
-
 // Form fields
 
 .field {
-  display: flex;
-  flex-direction: column;
+  @include form-field($margin-bottom: 0);
   gap: 0.4rem;
-
-  label {
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: var(--foreground-secondary);
-  }
 
   input[type="text"],
   input[type="email"],
   select,
   textarea {
+    @include form-control;
     padding: 0.6rem 0.75rem;
-    border: 1px solid var(--border-input);
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-family: inherit;
-    outline: none;
-    transition:
-      border-color 0.15s,
-      box-shadow 0.15s;
-    background: var(--surface);
-    color: var(--foreground);
-
-    &:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--primary-alpha);
-    }
   }
 
   textarea {
@@ -555,16 +324,15 @@
 }
 
 .hint {
-  font-size: 0.78rem;
-  color: var(--gray-400);
+  @include metadata($text-sm, var(--gray-400));
 }
 
 .toggleLabel {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-size: 13.5px;
   font-weight: 600;
-  font-size: 0.85rem;
   color: var(--foreground-secondary);
   cursor: pointer;
 
@@ -577,13 +345,13 @@
 }
 
 .toggleHint {
-  font-size: 0.78rem;
-  color: var(--gray-400);
+  @include metadata($text-sm, var(--gray-400));
   font-weight: 400;
 }
 
 // File drop zone
 
+// A real drop zone, so it keeps its dashed edge.
 .fileDropZone {
   display: flex;
   flex-direction: column;
@@ -591,18 +359,18 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 1.5rem;
-  border: 2px dashed var(--border-input);
-  border-radius: 8px;
+  border: 1px dashed var(--border-input);
+  border-radius: 0;
   cursor: pointer;
-  color: var(--muted-light);
-  font-size: 0.9rem;
-  transition: all 0.15s;
   background: var(--surface-secondary);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+  @include micro-label($text-xs, 0.05em, var(--muted-light));
 
   &:hover {
     border-color: var(--primary);
     color: var(--primary);
-    background: var(--accent-surface);
   }
 }
 
@@ -611,7 +379,7 @@
   align-items: center;
   gap: 0.5rem;
   color: var(--foreground-secondary);
-  font-size: 0.9rem;
+  font-size: 13.5px;
   flex-wrap: wrap;
   justify-content: center;
   text-align: center;
@@ -621,7 +389,7 @@
 
 .aclSection {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .aclSectionHeader {
@@ -630,11 +398,8 @@
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   background: var(--surface-secondary);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--foreground-secondary);
   border-bottom: 1px solid var(--border);
-  border-radius: 5px 5px 0 0;
+  @include micro-label($text-xs, 0.09em);
 }
 
 .aclForm {
@@ -648,7 +413,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.88rem;
+  font-size: 13.5px;
   color: var(--foreground-secondary);
   cursor: pointer;
 
@@ -670,11 +435,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted-light);
+  @include micro-label($text-xs, 0.09em, var(--muted-light));
 }
 
 .checkGrid {
@@ -687,7 +448,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.85rem;
+  font-size: 13.5px;
   color: var(--foreground-secondary);
   cursor: pointer;
 
@@ -709,15 +470,8 @@
 }
 
 .userTag {
-  display: inline-flex;
-  align-items: center;
+  @include badge-chip($color: var(--user-tag-text));
   gap: 0.3rem;
-  padding: 0.2rem 0.5rem 0.2rem 0.65rem;
-  background: var(--user-tag-bg);
-  border-radius: 20px;
-  font-size: 0.8rem;
-  color: var(--user-tag-text);
-  font-weight: 500;
 
   button {
     display: flex;
@@ -725,12 +479,12 @@
     justify-content: center;
     width: 16px;
     height: 16px;
-    border-radius: 50%;
+    padding: 0;
+    border-radius: 0;
     cursor: pointer;
     color: var(--user-tag-text);
     opacity: 0.6;
     transition: opacity 0.1s;
-    padding: 0;
 
     &:hover {
       opacity: 1;
@@ -738,124 +492,25 @@
   }
 }
 
-.userPickerWrapper {
-  position: relative;
-}
-
-.userSearchInput {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-input);
-  border-radius: 6px;
-  font-size: 0.88rem;
-  color: var(--muted-light);
-  background: var(--surface);
-
-  input {
-    flex: 1;
-    border: none;
-    outline: none;
-    font-size: 0.88rem;
-    color: var(--foreground);
-    background: transparent;
-
-    &::placeholder {
-      color: var(--muted-lighter);
-    }
-  }
-
-  &:focus-within {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--primary-alpha);
-  }
-}
-
-.userDropdown {
-  margin-top: 4px;
-  background: var(--surface);
-  border: 1px solid var(--border-input);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px var(--shadow-md);
-  overflow: hidden;
-}
-
-.userDropdownItem {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.6rem 0.75rem;
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  transition: background 0.1s;
-
-  strong {
-    font-size: 0.88rem;
-    color: var(--foreground-strong);
-  }
-
-  span {
-    font-size: 0.78rem;
-    color: var(--muted-light);
-  }
-
-  &:hover {
-    background: var(--gray-100);
-  }
-
-  & + & {
-    border-top: 1px solid var(--gray-200);
-  }
-}
-
 // Form buttons & feedback
 
 .primaryBtn {
-  @include btn-primary;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.875rem;
-  font-weight: 600;
-
-  &:disabled {
-    opacity: 0.55;
-  }
+  @include modal-action-primary;
 }
 
 .cancelBtn {
-  padding: 0.6rem 1.1rem;
-  background: var(--surface);
-  color: var(--foreground-secondary);
-  border: 1px solid var(--border-input);
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-
-  &:hover:not(:disabled) {
-    background: var(--gray-100);
-  }
-
-  &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
+  @include modal-action;
 }
 
 .formError {
+  @include error-banner;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: var(--error-bg);
-  border: 1px solid var(--error-border-light);
-  border-radius: 6px;
-  color: var(--error);
-  font-size: 0.85rem;
+}
+
+.modalFields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }

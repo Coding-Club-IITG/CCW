@@ -24,7 +24,7 @@ import { errorToLogMetadata, logger } from "@/lib/utils";
 import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
 import FocalImage from "@/components/shared/FocalImage";
-import EmptyState from "@/components/public/EmptyState";
+import EmptyState from "@/components/shared/EmptyState";
 import PageHeader from "@/components/public/PageHeader";
 import EventFilters from "./EventFilters";
 import EventPreview, { type PreviewEvent } from "./EventPreview";

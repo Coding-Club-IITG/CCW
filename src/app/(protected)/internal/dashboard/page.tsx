@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -29,15 +30,22 @@ export default async function DashboardPage() {
   const userIsAdmin = isHead(user.access);
 
   await dbConnect();
-  const myBlogs = await BlogPost.find({
-    "authors.userId": user.id,
-  })
-    .select("title slug excerpt status updatedAt")
+  const authorQuery = mongoose.Types.ObjectId.isValid(user.id)
+    ? [
+        { "authors.userId": new mongoose.Types.ObjectId(String(user.id)) },
+        { "authors.userId": String(user.id) },
+      ]
+    : [{ "authors.userId": String(user.id) }];
+
+  const myBlogs = await BlogPost.find({ $or: authorQuery })
+    .select(
+      "title slug excerpt status updatedAt pendingRevision.submittedAt pendingRevision.updatedAt",
+    )
     .sort({ updatedAt: -1 })
     .lean();
 
   return (
-    <div className={styles.container}>
+    <div>
       <header className={styles.header}>
         <h1>Member Dashboard</h1>
         <p>Welcome back, {getDisplayName(user.name, user.pizza_count)}!</p>
@@ -103,10 +111,14 @@ export default async function DashboardPage() {
           <div className={styles.grid}>
             {myBlogs.map((post) => {
               const isDraft = post.status === "draft";
-              const canEdit = userIsAdmin || isDraft;
               const editHref = userIsAdmin
                 ? `/admin/blog/${post.slug}/edit`
                 : `/internal/blog/${post.slug}/edit`;
+
+              const isSubmitted = Boolean(post.pendingRevision?.submittedAt);
+              const hasDraftRevision = Boolean(
+                post.pendingRevision && !post.pendingRevision.submittedAt,
+              );
 
               return (
                 <article key={String(post._id)} className={styles.blogCard}>
@@ -121,16 +133,14 @@ export default async function DashboardPage() {
                         {post.title}
                       </Link>
                     )}
-                    {canEdit && (
-                      <Link
-                        href={editHref}
-                        className={styles.editBlogLink}
-                        aria-label={`Edit ${post.title}`}
-                        title="Edit blog"
-                      >
-                        <IconEdit width={16} height={16} />
-                      </Link>
-                    )}
+                    <Link
+                      href={editHref}
+                      className={styles.editBlogLink}
+                      aria-label={`Edit ${post.title}`}
+                      title="Edit blog"
+                    >
+                      <IconEdit width={16} height={16} />
+                    </Link>
                   </div>
                   <p className={styles.blogDescription}>
                     {post.excerpt ||
@@ -138,7 +148,24 @@ export default async function DashboardPage() {
                         ? "Blog draft"
                         : "Read this published blog post.")}
                   </p>
-                  <span className={styles.blogStatus}>{post.status}</span>
+                  <div className={styles.blogStatuses}>
+                    <span
+                      className={`${styles.blogStatus} ${isDraft ? styles.blogDraft : styles.blogPublished}`}
+                    >
+                      {isDraft ? "draft" : "published"}
+                    </span>
+                    {isSubmitted ? (
+                      <span
+                        className={`${styles.blogRevisionStatus} ${styles.blogReviewStatus}`}
+                      >
+                        Review requested
+                      </span>
+                    ) : hasDraftRevision ? (
+                      <span className={styles.blogRevisionStatus}>
+                        Draft changes saved
+                      </span>
+                    ) : null}
+                  </div>
                 </article>
               );
             })}

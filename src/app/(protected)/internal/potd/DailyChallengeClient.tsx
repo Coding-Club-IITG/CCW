@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import styles from "./Potd.module.scss";
+import {
+  CircleCheck as IconCheckCircle,
+  Info as IconInfoCircle,
+  Star as IconStar,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
 import {
   syncMySubmission,
   markChallengeOpened,
@@ -10,17 +15,15 @@ import {
   type ChallengeEntry,
 } from "@/lib/actions/potd";
 import {
-  CircleCheck as IconCheckCircle,
-  Info as IconInfoCircle,
-  Star as IconStar,
-} from "lucide-react";
-import {
-  DIFFICULTY_COLORS,
   IST_OFFSET_MS,
   PLATFORM_DISPLAY_NAMES,
   PLATFORM_PROBLEM_URLS,
 } from "@/lib/constants";
+
+import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
 import { useRuntimeConfig } from "@/components/layout/Providers";
+
+import styles from "./Potd.module.scss";
 
 type Props = {
   cfVerified: boolean;
@@ -238,16 +241,15 @@ export default function DailyChallengeClient({
                 {isInGrace ? "Grace Window Ends" : "Window Closes"}
               </span>
               <span
-                className={`${styles.value} ${styles.timerValue}`}
-                style={{
-                  color: !isClient
-                    ? "inherit"
+                className={`${styles.value} ${styles.timerValue} ${
+                  !isClient
+                    ? ""
                     : hoursLeft > 10
-                      ? "var(--success)"
+                      ? styles.timerCalm
                       : hoursLeft < 2
-                        ? "var(--danger)"
-                        : "var(--warning)",
-                }}
+                        ? styles.timerUrgent
+                        : styles.timerWarning
+                }`}
               >
                 {isClient ? timeLeft : "00:00:00"}
               </span>
@@ -358,22 +360,17 @@ function ProblemCard({
             <span className={styles.problemId}>
               {platformName} {problem.contestId}-{problem.problemIndex}
             </span>
-            <span
+            <DifficultyBadge
+              difficulty={difficulty}
               className={styles.difficultyBadge}
-              style={{
-                color: DIFFICULTY_COLORS[difficulty],
-                borderColor: DIFFICULTY_COLORS[difficulty],
-              }}
-            >
-              {difficulty}
-            </span>
+            />
           </div>
           <h2 className={styles.title}>{problem.name}</h2>
         </div>
         <div className={styles.rating}>{problem.rating || "Unrated"}</div>
       </div>
 
-      <div className={styles.statsWithBorder}>
+      <div className={`${styles.stats} ${styles.statsWithBorder}`}>
         <div className={styles.stat}>
           <span className={styles.label}>Your Status</span>
           <span className={styles.value}>
@@ -382,7 +379,7 @@ function ProblemCard({
                 <IconCheckCircle
                   width="20"
                   height="20"
-                  style={{ marginRight: "8px", color: "#10b981" }}
+                  className={styles.statusIconSolved}
                 />
                 Solved ({mySubmission.pointsAwarded} pts)
               </>
@@ -391,7 +388,7 @@ function ProblemCard({
                 <IconCheckCircle
                   width="20"
                   height="20"
-                  style={{ marginRight: "8px", color: "#f59e0b" }}
+                  className={styles.statusIconGrace}
                 />
                 Grace solve ({mySubmission.pointsAwarded} pts)
               </>

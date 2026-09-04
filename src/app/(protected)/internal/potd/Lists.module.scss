@@ -31,10 +31,7 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 
-  scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  @include scroll-hide;
 }
 
 .tab {
@@ -73,57 +70,8 @@
   }
 }
 
-.rank {
-  font-weight: 700;
-  color: var(--foreground-strong);
-  font-size: 0.875rem;
-}
-
-.rankBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  font-size: 0.8125rem;
-  font-weight: 700;
-}
-
-.top1 {
-  background: var(--rank-gold-bg);
-  color: var(--rank-gold-text);
-}
-.top2 {
-  background: var(--rank-silver-bg);
-  color: var(--rank-silver-text);
-}
-.top3 {
-  background: var(--rank-bronze-bg);
-  color: var(--rank-bronze-text);
-}
-
-.userInfo {
-  display: flex;
-  flex-direction: column;
-}
-
-.userName {
-  font-weight: 600;
-  color: var(--foreground-strong);
-  font-size: 0.875rem;
-}
-
-.userHandle {
-  font-size: 0.75rem;
-  color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
 .points {
-  font-weight: 700;
-  color: var(--foreground-strong);
-  font-size: 0.875rem;
+  @include display-type($display-sm, 0.04em);
 }
 
 .maxStreakWrapper {
@@ -158,23 +106,12 @@
 }
 
 .sortSelect {
+  @include form-control;
   padding: 0.25rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background-color: var(--surface);
-  font-size: 0.8125rem;
-  color: var(--foreground-secondary);
   cursor: pointer;
-  outline: none;
-  transition: border-color 0.15s ease;
 
   &:hover {
-    border-color: var(--border-input);
-  }
-
-  &:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--focus-ring);
   }
 }
 
@@ -194,30 +131,19 @@
 }
 
 .streak {
-  @include badge-pill(var(--streak-bg), var(--streak-text), transparent);
+  @include badge-chip(var(--streak-bg), var(--streak-text), transparent);
   font-weight: 600;
   font-size: 0.8125rem;
   gap: 0.25rem;
 }
 
 .rating {
-  font-weight: 600;
-  color: var(--accent);
-  font-size: 0.8125rem;
-  background: var(--accent-bg);
-  padding: 0.125rem 0.5rem;
-  border-radius: 2rem;
+  @include badge-chip(var(--accent-bg), var(--accent), transparent);
 }
 
 .difficultyBadge {
-  display: inline-flex;
-  align-items: center;
+  @include badge-chip($color: inherit, $border: transparent);
   white-space: nowrap;
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font-size: 0.8rem;
-  font-weight: 600;
 }
 
 .difficultyEasy {
@@ -231,7 +157,7 @@
 }
 
 .difficultyHard {
-  color: var(--danger-text);
+  color: var(--danger);
   border-color: var(--error-border);
 }
 
@@ -260,16 +186,8 @@
   padding-left: 1.25rem !important;
 }
 
-.emptyState {
-  padding: 2rem;
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
 .subText {
-  color: var(--muted);
-  font-size: 0.8125rem;
+  @include table-meta;
 }
 
 .boldText {

@@ -1,23 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+
 import {
   validateStep,
   createBracketContest,
 } from "@/lib/actions/admin/contests";
+import type {
+  AdminContestWizardForm,
+  ContestCreationPreset,
+} from "@/components/contests/contestCreationForm";
 import BackLink from "@/components/shared/BackLink";
+
+import styles from "./ContestWizard.module.scss";
 import Step1BasicInfo from "./steps/Step1BasicInfo";
 import Step2Registration from "./steps/Step2Registration";
 import Step3MatchPreset from "./steps/Step3MatchPreset";
 import Step3aFineTuned from "./steps/Step3aFineTuned";
 import Step4BracketSettings from "./steps/Step4BracketSettings";
 import Step5Preview from "./steps/Step5Preview";
-import styles from "./ContestWizard.module.scss";
-import type {
-  AdminContestWizardForm,
-  ContestCreationPreset,
-} from "@/components/contests/contestCreationForm";
 
 interface ContestWizardProps {
   presets: ContestCreationPreset[];
@@ -134,22 +136,18 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
 
       {/* Progress Tracker */}
       <div className={styles.progressTracker}>
-        {steps.map((step, index) => (
-          <React.Fragment key={step.number}>
-            <div
-              className={`${styles.step} ${currentStep === step.number ? styles.active : ""} ${
-                currentStep > step.number ? styles.completed : ""
-              }`}
-            >
-              <div className={styles.circle}>{step.number}</div>
-              <div className={styles.label}>{step.title}</div>
+        {steps.map((step) => (
+          <div
+            key={step.number}
+            className={`${styles.step} ${currentStep === step.number ? styles.active : ""} ${
+              currentStep > step.number ? styles.completed : ""
+            }`}
+          >
+            <div className={styles.circle}>
+              {String(step.number).padStart(2, "0")}
             </div>
-            {index < steps.length - 1 && (
-              <div
-                className={`${styles.line} ${currentStep > step.number ? styles.completedLine : ""}`}
-              />
-            )}
-          </React.Fragment>
+            <div className={styles.label}>{step.title}</div>
+          </div>
         ))}
       </div>
 

@@ -1,5 +1,7 @@
 import CompatibleImage from "@/components/shared/CompatibleImage";
 
+import styles from "./UserAvatar.module.scss";
+
 interface UserAvatarProps {
   name?: string;
   image?: string | null;
@@ -12,8 +14,8 @@ export default function UserAvatar({
   name,
   image,
   size,
-  imageClassName,
-  fallbackClassName,
+  imageClassName = "",
+  fallbackClassName = "",
 }: UserAvatarProps) {
   const displayName = name || "User";
   const initials = displayName
@@ -28,12 +30,16 @@ export default function UserAvatar({
       <CompatibleImage
         src={image}
         alt={displayName}
-        className={imageClassName}
+        className={`${styles.image} ${imageClassName}`}
         width={size}
         height={size}
       />
     );
   }
 
-  return <span className={fallbackClassName}>{initials}</span>;
+  return (
+    <span className={`${styles.fallback} ${fallbackClassName}`}>
+      {initials}
+    </span>
+  );
 }

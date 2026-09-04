@@ -1,16 +1,20 @@
 "use client";
 
 import { useState } from "react";
+
+import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROFILE_URLS } from "@/lib/constants";
+import type { Platform } from "@/lib/constants";
+
 import LeaderboardTable, {
   type Column,
   leaderboardStyles as styles,
 } from "@/components/leaderboard/LeaderboardTable";
-import PlatformTabs from "@/components/shared/PlatformTabs";
+import MemberCell from "@/components/leaderboard/MemberCell";
+import RankCell from "@/components/leaderboard/RankCell";
 import SearchInput from "@/components/shared/SearchInput";
-import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROFILE_URLS } from "@/lib/constants";
-import type { Platform } from "@/lib/constants";
+import SegmentedControl from "@/components/shared/SegmentedControl";
 
-type RatingLeaderboardEntry = {
+export type RatingLeaderboardEntry = {
   id: string;
   name: string;
   handle: string;
@@ -52,30 +56,12 @@ export default function RatingLeaderboardClient({
     {
       key: "rank",
       header: "Rank",
-      render: (_item, index) => {
-        const rank = index + 1;
-        let rankClass = "";
-        if (rank === 1) rankClass = styles.top1;
-        else if (rank === 2) rankClass = styles.top2;
-        else if (rank === 3) rankClass = styles.top3;
-
-        return (
-          <span
-            className={`${styles.rank} ${rankClass ? styles.rankBadge : ""} ${rankClass}`}
-          >
-            {rank}
-          </span>
-        );
-      },
+      render: (_item, index) => <RankCell rank={index + 1} />,
     },
     {
       key: "member",
       header: "Member",
-      render: (item) => (
-        <div className={styles.userInfo}>
-          <span className={styles.userName}>{item.name}</span>
-        </div>
-      ),
+      render: (item) => <MemberCell name={item.name} />,
     },
     {
       key: "handle",
@@ -107,24 +93,29 @@ export default function RatingLeaderboardClient({
 
   return (
     <div>
-      <PlatformTabs
-        tabs={TABS}
-        activeTab={platform}
-        onTabChange={(key) => setPlatform(key as Platform)}
-      />
       <LeaderboardTable
         title={`${PLATFORM_DISPLAY_NAMES[platform]} Leaderboard`}
-        description="Current standings of coding club members."
+        description="Current member standings."
         columns={columns}
         data={filteredEntries}
         getKey={(item) => item.id}
         emptyMessage="No data available yet. Ratings sync every 6 hours."
         toolbar={
-          <SearchInput
-            placeholder="Search by name or handle"
-            value={search}
-            onChange={setSearch}
-          />
+          <>
+            <SegmentedControl
+              label="Rating platform"
+              segments={TABS.map((tab) => ({
+                label: tab.label,
+                active: platform === tab.key,
+                onClick: () => setPlatform(tab.key as Platform),
+              }))}
+            />
+            <SearchInput
+              placeholder="Search by name or handle"
+              value={search}
+              onChange={setSearch}
+            />
+          </>
         }
       />
     </div>

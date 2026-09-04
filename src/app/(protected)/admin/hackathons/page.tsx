@@ -1,11 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
+import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
+
 import styles from "./Hackathons.module.scss";
 
 interface Hackathon {
@@ -151,7 +154,7 @@ export default function AdminHackathonsPage() {
   }
 
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/admin" label="Back to Administration" />
       <header className={styles.header}>
         <h1>Hackathon Management</h1>
@@ -280,7 +283,7 @@ export default function AdminHackathonsPage() {
       <h2 className={styles.sectionTitle}>All Hackathons</h2>
 
       {loading ? (
-        <p className={styles.muted}>Loading...</p>
+        <TableSkeletonContent label="hackathons" columns={4} />
       ) : hackathons.length === 0 ? (
         <p className={styles.muted}>No hackathons yet.</p>
       ) : (

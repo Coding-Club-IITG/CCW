@@ -16,7 +16,7 @@ import { getDisplayName } from "@/lib/utils";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import Sheet from "@/components/shared/Sheet";
 import { IconGithub, IconLinkedIn } from "@/components/shared/Icons";
-import EmptyState from "@/components/public/EmptyState";
+import EmptyState from "@/components/shared/EmptyState";
 import styles from "./Team.module.scss";
 
 export interface PublicTeamMember {

@@ -1,7 +1,9 @@
+@use "@/styles/mixins" as *;
+
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -18,7 +20,7 @@
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
   box-shadow: var(--modal-shadow);
 }
 .header {
@@ -26,31 +28,77 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  padding: 1.25rem 1.5rem;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
+
   h2 {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     margin: 0;
-    color: var(--foreground-strong);
-    font-size: 1.375rem;
+    @include display-type($display-sm, 0.05em);
   }
+
   p {
     margin: 0.3rem 0 0;
+    font-size: 13px;
     color: var(--muted);
-    font-size: 0.8125rem;
   }
 }
+
+// Mono kicker above the title
+.kicker {
+  display: block;
+  @include standard-page-kicker($margin: 0 0 6px);
+}
+
+.close {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border-input);
+  border-radius: 0;
+  background: none;
+  cursor: pointer;
+  @include micro-label($text-xs, 0.05em);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  @include focus-ring;
+}
+
 .content {
-  padding: 1.25rem 1.5rem;
+  padding: 20px;
   overflow-y: auto;
 }
+
+// Edge to edge
 .footer {
   display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 0.875rem 1.5rem;
-  background: var(--background-secondary);
   border-top: 1px solid var(--border);
+
+  > * {
+    flex: 1;
+    min-height: 0;
+    padding: 13px 20px;
+    border-radius: 0;
+  }
+
+  > * + * {
+    border-left: 1px solid var(--border);
+  }
 }
+
 @media (max-width: 600px) {
   .backdrop {
     align-items: flex-end;
@@ -61,11 +109,16 @@
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
-    border-radius: 10px 10px 0 0;
   }
   .header,
   .content {
     padding-right: 1rem;
     padding-left: 1rem;
+  }
+}
+
+@media print {
+  .backdrop {
+    display: none !important;
   }
 }

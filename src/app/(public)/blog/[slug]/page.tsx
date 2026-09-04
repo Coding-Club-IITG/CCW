@@ -1,8 +1,16 @@
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
-import { rankRelatedPosts } from "@/lib/blog/relatedPosts";
+import { notFound } from "next/navigation";
+import { PencilLine as IconEdit } from "lucide-react";
+
+import { isBlogAuthor } from "@/lib/access/blog";
+import { isHead } from "@/lib/access/roles";
+import { auth } from "@/lib/auth";
 import { extractMarkdownHeadings } from "@/lib/blog/markdownHeadings";
+import { readingTimeLabel } from "@/lib/blog/readingTime";
+import { rankRelatedPosts } from "@/lib/blog/relatedPosts";
+import { tagAccent } from "@/lib/constants";
 import dbConnect from "@/lib/mongodb";
 import {
   ogImage,
@@ -11,13 +19,12 @@ import {
   SITE_NAME,
   SITE_URL,
 } from "@/lib/seo";
-import { readingTimeLabel } from "@/lib/blog/readingTime";
-import { tagAccent } from "@/lib/constants";
 import BlogPost from "@/models/BlogPost";
 import ArticleReader from "@/components/blog/ArticleReader";
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import JsonLd from "@/components/shared/JsonLd";
+
 import styles from "./BlogPost.module.scss";
 
 interface Props {
@@ -52,6 +59,17 @@ export default async function BlogPostPage({ params }: Props) {
   if (!post) {
     notFound();
   }
+
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  const user = session?.user;
+  const userIsAdmin = user ? isHead(user.access) : false;
+  const userIsAuthor = user ? isBlogAuthor(user, post) : false;
+  const canEdit = userIsAdmin || userIsAuthor;
+  const editHref = userIsAdmin
+    ? `/admin/blog/${post.slug}/edit`
+    : `/internal/blog/${post.slug}/edit`;
 
   const relatedDocuments =
     post.tags.length > 0
@@ -195,6 +213,12 @@ export default async function BlogPostPage({ params }: Props) {
             {readingTime && <span>{readingTime}</span>}
             {wasEdited && (
               <span className={styles.edited}>Updated {updatedDate}</span>
+            )}
+            {canEdit && (
+              <Link href={editHref} className={styles.editLink}>
+                <IconEdit width={13} height={13} />
+                Edit Article
+              </Link>
             )}
           </div>
         </header>

@@ -39,7 +39,7 @@
 
 .kicker {
   margin: 0 0 24px;
-  @include micro-label(11px, 0.2em);
+  @include micro-label($text-xs, 0.2em);
   color: var(--danger);
 }
 
@@ -116,7 +116,7 @@
   flex-wrap: wrap;
 
   a {
-    @include micro-label(11px, 0.07em);
+    @include micro-label($text-xs, 0.07em);
     color: var(--muted-light);
     transition: color 0.2s ease;
 

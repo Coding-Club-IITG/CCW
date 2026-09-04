@@ -1,0 +1,20 @@
+@use "../../styles/mixins" as *;
+
+.header {
+  @include standard-page-header;
+
+  h1 {
+    max-width: 28ch;
+    overflow-wrap: anywhere;
+  }
+
+  p {
+    max-width: 70ch;
+    line-height: 1.5;
+  }
+}
+
+.kicker {
+  display: block;
+  @include standard-page-kicker;
+}

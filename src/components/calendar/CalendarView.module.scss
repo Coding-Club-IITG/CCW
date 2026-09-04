@@ -2,91 +2,105 @@
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 20rem;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  align-items: start;
   gap: 1.5rem;
 }
+
 .calendar,
 .monthEvents {
-  @include card;
-  padding: 0;
-  border-radius: 12px;
-  overflow: hidden;
+  @include list-frame;
+  align-content: start;
 }
+
 .monthHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
+  gap: 1rem;
+  padding: 13px 16px;
 }
-.monthHeader a {
-  @include btn-secondary;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  text-decoration: none;
-  font-size: 1.25rem;
-  line-height: 1;
-}
-.monthHeader h2,
-.monthEvents h2 {
+
+.monthHeader h2 {
   margin: 0;
-  font-size: 1rem;
-  color: var(--foreground-strong);
+  @include micro-label($text-xs, 0.1em, var(--foreground-strong));
 }
+
+.monthNav {
+  display: flex;
+}
+
+.monthNav a {
+  @include icon-button(28px);
+  width: 30px;
+  border-color: var(--border-input);
+  color: var(--foreground-secondary);
+  @include metadata($text-sm, currentcolor);
+
+  // Joined pair
+  & + & {
+    border-left: none;
+  }
+}
+
 .weekdays,
 .grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
+
 .weekdays {
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
+
 .weekdays span {
-  padding: 0.65rem;
+  padding: 9px;
   text-align: center;
-  color: var(--foreground-secondary);
-  font-size: 0.8rem;
+  @include micro-label($text-xs, 0.09em);
 }
+
 .day,
 .emptyDay {
   min-width: 0;
-  min-height: 7rem;
-  padding: 0.45rem;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  min-height: 6.5rem;
+  padding: 7px;
+  border-right: 1px solid var(--border-lighter);
+  border-bottom: 1px solid var(--border-lighter);
 }
+
 .day time {
-  color: var(--foreground-secondary);
-  font-size: 0.8rem;
+  @include metadata($text-xs, var(--muted));
 }
+
 .currentDay {
   background: var(--primary-alpha);
 }
+
 .currentDay time {
   color: var(--primary);
-  font-weight: 600;
 }
+
 .dayEvents {
   display: grid;
   min-width: 0;
-  gap: 0.3rem;
-  margin-top: 0.35rem;
+  gap: 4px;
+  margin-top: 6px;
 }
+
 .compactEvent {
   display: block;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  padding: 0.3rem 0.4rem;
-  border-radius: 4px;
-  background: var(--badge-primary-bg);
-  color: var(--badge-primary-text);
+  padding: 4px 6px;
+  border-left: 2px solid var(--primary);
+  background: var(--primary-alpha);
+  color: var(--foreground-strong);
   text-decoration: none;
-  font-size: 0.75rem;
+  font-size: 11.5px;
 }
+
 .eventTitle {
   display: block;
   min-width: 0;
@@ -95,40 +109,45 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.monthEvents {
-  align-self: start;
-  padding: 1rem;
-  display: grid;
-  gap: 0.75rem;
+
+.monthEvents h2 {
+  margin: 0;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  @include micro-label($text-xs, 0.1em, var(--foreground-strong));
 }
+
+.monthEvents p {
+  margin: 0;
+  @include list-row(14px 16px);
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .upcomingEvent {
   display: grid;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  gap: 7px;
+  @include list-row(14px 16px);
   color: var(--foreground);
-  border: 1px solid var(--border);
-  border-radius: 6px;
   text-decoration: none;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
 }
-.upcomingEvent:hover {
-  background: var(--surface-secondary);
-  border-color: var(--border-input);
+
+.upcomingEvent .eventTitle {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  color: var(--foreground-strong);
 }
+
 .eventMeta {
-  color: var(--foreground-secondary);
-  font-size: 0.82rem;
+  @include metadata($text-xs);
 }
+
 .scopeBadge {
-  width: fit-content;
-  font-size: 0.72rem;
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
-  background: var(--badge-primary-bg);
-  color: var(--badge-primary-text);
+  justify-self: start;
+  @include badge-chip;
 }
+
 @media (max-width: 800px) {
   .layout {
     grid-template-columns: 1fr;

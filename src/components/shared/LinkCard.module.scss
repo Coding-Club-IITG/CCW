@@ -1,17 +1,20 @@
+@use "@/styles/mixins" as *;
+
 .card {
-  padding: 1.25rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface-secondary);
-  text-decoration: none;
+  @include hairline-cell;
+  padding: 20px;
   display: block;
+  text-decoration: none;
   transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+    background 0.15s ease,
+    color 0.15s ease;
 
   &:hover {
-    border-color: var(--primary);
     background: var(--surface-hover);
+
+    .title {
+      color: var(--primary);
+    }
   }
 }
 
@@ -30,14 +33,15 @@
 
 .title {
   margin: 0;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  @include card-title(15px);
   color: var(--foreground-strong);
+  letter-spacing: -0.012em;
+  transition: color 0.15s ease;
 }
 
 .description {
-  font-size: 0.8125rem;
-  color: var(--muted);
   margin: 0;
+  font-size: 13px;
   line-height: 1.4;
+  color: var(--muted);
 }

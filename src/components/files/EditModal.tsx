@@ -1,15 +1,18 @@
 "use client";
 
-import { appErrorMessage, expectAppData } from "@/lib/api/result";
-
+import { Shield, AlertCircle } from "lucide-react";
 import { useState } from "react";
-import { X, Shield, AlertCircle } from "lucide-react";
-import TagEditor from "@/components/shared/TagEditor";
+
+import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { validateTags } from "@/lib/tagUtils";
-import type { FileEntry } from "./types";
-import { EMPTY_ACL } from "./utils";
+
+import Modal from "@/components/shared/Modal";
+import TagEditor from "@/components/shared/TagEditor";
+
 import AccessControlForm from "./AccessControlForm";
 import styles from "./FilesClient.module.scss";
+import type { FileEntry } from "./types";
+import { EMPTY_ACL } from "./utils";
 
 interface Props {
   file: FileEntry;
@@ -65,120 +68,108 @@ export default function EditModal({
   }
 
   return (
-    <>
-      <div className={styles.overlay} onClick={() => !loading && onClose()} />
-      <div className={styles.modal}>
-        <div className={styles.modalHeader}>
-          <div>
-            <h2>Edit File</h2>
-            <p className={styles.subtle}>{file.originalName}</p>
-          </div>
+    <Modal
+      kicker="Files"
+      title="Edit file"
+      description={file.originalName}
+      onClose={onClose}
+      closeDisabled={loading}
+      maxWidth={680}
+      footer={
+        <>
           <button
-            className={styles.closeBtn}
+            type="button"
+            className={styles.cancelBtn}
             onClick={onClose}
             disabled={loading}
           >
-            <X size={18} />
+            Cancel
           </button>
+          <button
+            type="submit"
+            form="edit-file-form"
+            className={styles.primaryBtn}
+            disabled={loading}
+          >
+            {loading ? "Saving…" : "Save Changes"}
+          </button>
+        </>
+      }
+    >
+      <form
+        id="edit-file-form"
+        onSubmit={handleSubmit}
+        className={styles.modalFields}
+      >
+        <div className={styles.field}>
+          <label>Title *</label>
+          <input
+            type="text"
+            value={form.title}
+            onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+            required
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className={styles.modalForm}>
-          <div className={styles.modalBody}>
-            <div className={styles.field}>
-              <label>Title *</label>
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, title: e.target.value }))
-                }
-                required
-              />
-            </div>
+        <div className={styles.field}>
+          <label>Description</label>
+          <textarea
+            value={form.description}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, description: e.target.value }))
+            }
+            rows={2}
+          />
+        </div>
 
-            <div className={styles.field}>
-              <label>Description</label>
-              <textarea
-                value={form.description}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, description: e.target.value }))
-                }
-                rows={2}
-              />
-            </div>
+        <div className={styles.field}>
+          <label htmlFor="edit-file-tags">Tags *</label>
+          <TagEditor
+            id="edit-file-tags"
+            value={form.tags}
+            onChange={(tags) => setForm((previous) => ({ ...previous, tags }))}
+            suggestions={existingTags}
+            maxTags={10}
+            required
+            placeholder="Add a tag…"
+          />
+        </div>
 
-            <div className={styles.field}>
-              <label htmlFor="edit-file-tags">Tags *</label>
-              <TagEditor
-                id="edit-file-tags"
-                value={form.tags}
-                onChange={(tags) =>
-                  setForm((previous) => ({ ...previous, tags }))
-                }
-                suggestions={existingTags}
-                maxTags={10}
-                required
-                placeholder="Add a tag…"
-              />
-            </div>
+        <div className={styles.field}>
+          <label className={styles.toggleLabel}>
+            <input
+              type="checkbox"
+              checked={form.isDownloadable}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, isDownloadable: e.target.checked }))
+              }
+            />
+            <span>Allow downloading</span>
+            <span className={styles.toggleHint}>
+              {form.isDownloadable
+                ? "Users can download this file"
+                : "View-only - no download option"}
+            </span>
+          </label>
+        </div>
 
-            <div className={styles.field}>
-              <label className={styles.toggleLabel}>
-                <input
-                  type="checkbox"
-                  checked={form.isDownloadable}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, isDownloadable: e.target.checked }))
-                  }
-                />
-                <span>Allow downloading</span>
-                <span className={styles.toggleHint}>
-                  {form.isDownloadable
-                    ? "Users can download this file"
-                    : "View-only - no download option"}
-                </span>
-              </label>
-            </div>
-
-            <div className={styles.aclSection}>
-              <div className={styles.aclSectionHeader}>
-                <Shield size={14} />
-                <strong>Access Permissions</strong>
-              </div>
-              <AccessControlForm
-                value={form.accessControl}
-                onChange={(acl) =>
-                  setForm((p) => ({ ...p, accessControl: acl }))
-                }
-              />
-            </div>
-
-            {error && (
-              <div className={styles.formError}>
-                <AlertCircle size={14} /> {error}
-              </div>
-            )}
+        <div className={styles.aclSection}>
+          <div className={styles.aclSectionHeader}>
+            <Shield size={14} />
+            <strong>Access Permissions</strong>
           </div>
+          <AccessControlForm
+            value={form.accessControl}
+            onChange={(acl) => setForm((p) => ({ ...p, accessControl: acl }))}
+          />
+        </div>
 
-          <div className={styles.modalActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={onClose}
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className={styles.primaryBtn}
-              disabled={loading}
-            >
-              {loading ? "Saving…" : "Save Changes"}
-            </button>
+        {error && (
+          <div className={styles.formError}>
+            <AlertCircle size={14} /> {error}
           </div>
-        </form>
-      </div>
-    </>
+        )}
+      </form>
+    </Modal>
   );
 }

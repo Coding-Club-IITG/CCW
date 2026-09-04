@@ -1,15 +1,9 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
-import Link from "next/link";
-import { ArrowLeft, BarChart3, LogIn, Trophy, X } from "lucide-react";
-import { ContestListingItem } from "@/lib/actions/contests";
-
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { BracketSnapshot, BracketNode, getRoundName } from "@/types/bracket";
-import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import { BarChart3, LogIn, Trophy, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Handle,
   Position,
@@ -17,8 +11,19 @@ import {
   type Edge,
   type NodeProps,
 } from "@xyflow/react";
-import CompatibleImage from "@/components/shared/CompatibleImage";
 import "@xyflow/react/dist/style.css";
+
+import type { ContestListingItem } from "@/lib/actions/contests";
+import { expectAppData } from "@/lib/api/result";
+import {
+  getRoundName,
+  type BracketNode,
+  type BracketSnapshot,
+} from "@/types/bracket";
+
+import BackLink from "@/components/shared/BackLink";
+import CompatibleImage from "@/components/shared/CompatibleImage";
+
 import styles from "./BracketRoomClient.module.scss";
 
 const ReactFlow = dynamic(
@@ -216,7 +221,6 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
       }}
     >
       <Handle type="target" position={Position.Left} />
-      <div className={styles.nodeGradient} />
       <div className={styles.nodeHeader}>
         <span className={styles.nodeHeaderTitle}>
           <Trophy className={styles.trophyIcon} size={16} />
@@ -462,7 +466,11 @@ function MatchSidePanel({
           {/* Score Overview */}
           <div className={styles.scoreOverview}>
             {/* Team 1 */}
-            <div className={styles.scoreTeam}>
+            <div
+              className={`${styles.scoreTeam} ${
+                t1 && winnerId && t1 === winnerId ? styles.scoreTeamWinner : ""
+              }`}
+            >
               <div
                 className={`${styles.scoreAvatar} ${
                   t1 && winnerId && t1 === winnerId
@@ -494,7 +502,11 @@ function MatchSidePanel({
             </div>
 
             {/* Team 2 */}
-            <div className={styles.scoreTeam}>
+            <div
+              className={`${styles.scoreTeam} ${
+                t2 && winnerId && t2 === winnerId ? styles.scoreTeamWinner : ""
+              }`}
+            >
               <div
                 className={`${styles.scoreAvatar} ${
                   t2 && winnerId && t2 === winnerId
@@ -761,10 +773,7 @@ export default function BracketRoomClient({
       <header ref={headerRef} className={styles.header}>
         <div className={styles.headerLeft}>
           <div className={styles.headerTop}>
-            <Link href="/internal/contests" className={styles.backLink}>
-              <ArrowLeft className={styles.icon16} size={16} />
-              Back to Contests
-            </Link>
+            <BackLink href="/internal/contests" label="Back to Contests" />
             <div className={styles.headerDivider} />
           </div>
           <div>

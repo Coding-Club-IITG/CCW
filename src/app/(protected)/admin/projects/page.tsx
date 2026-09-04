@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import { deleteProject } from "@/lib/actions/admin/projects";
 import { expectAppData } from "@/lib/api/result";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
-import { deleteProject } from "@/lib/actions/admin/projects";
+import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
+
 import styles from "../events/AdminEvents.module.scss";
 
 interface ProjectItem {
@@ -74,7 +77,7 @@ export default function AdminProjectsPage() {
   }
 
   return (
-    <div className={styles.container}>
+    <div>
       <BackLink href="/admin" label="Back to Administration" />
 
       <div className={styles.header}>
@@ -90,7 +93,7 @@ export default function AdminProjectsPage() {
       {error && <div className={styles.error}>{error}</div>}
 
       {loading ? (
-        <p className={styles.loading}>Loading projects...</p>
+        <TableSkeletonContent label="projects" columns={4} />
       ) : projects.length === 0 ? (
         <p className={styles.empty}>No projects yet.</p>
       ) : (

@@ -1,84 +1,11 @@
 @use "../../styles/mixins" as *;
 
-@include contest-kf-spin;
-
-/* Modal chrome */
-.overlay {
-  @include modal-overlay;
-  z-index: 9999;
-  padding: 1rem;
-  overflow-y: auto;
-  backdrop-filter: grayscale(1);
-
-  @media (min-width: 768px) {
-    padding: 3rem;
-  }
-}
-
-.dialog {
-  position: relative;
-  z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 672px;
-  margin: 0 auto;
-  max-height: 85vh;
-  overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px var(--shadow-lg);
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-
-  h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--foreground-strong);
-  }
-}
-
-.closeBtn {
-  display: inline-flex;
-  padding: 0.5rem;
-  border-radius: 6px;
-  color: var(--muted);
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
-
-  &:hover {
-    color: var(--foreground-strong);
-    background: var(--surface-hover);
-  }
-}
+@include kf-spin;
 
 .body {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem;
-
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 4px;
-  }
-  &::-webkit-scrollbar-thumb:hover {
-    background: var(--muted-light);
-  }
 }
 
 .form {
@@ -87,62 +14,22 @@
   gap: 1rem;
 }
 
-.footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border);
-  background: var(--surface-secondary);
-}
-
 .cancelBtn {
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  color: var(--foreground-strong);
-  background: none;
-  border: 1px solid transparent;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
-
-  &:hover {
-    border-color: var(--border);
-    background: var(--surface-hover);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-  }
+  @include modal-action;
 }
 
-.submitBtn {
-  @include btn-primary;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-size: 0.75rem;
+.primaryBtn {
+  @include modal-action-primary;
 }
 
 /* Form primitives (deduped) */
 .field {
-  display: flex;
-  flex-direction: column;
+  @include form-field($margin-bottom: 0);
   gap: 0.5rem;
 }
 
 .label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.labelStrong {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--foreground-strong);
+  @include micro-label($text-xs, 0.09em);
 }
 
 .hint {
@@ -164,26 +51,8 @@
 }
 
 .formInput {
+  @include form-control;
   width: 100%;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  background: var(--background);
-  border: 1px solid var(--border);
-  color: var(--foreground);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-
-  &::placeholder {
-    color: var(--muted-light);
-  }
-
-  &:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 1px var(--primary);
-  }
 
   &:disabled {
     opacity: 0.5;
@@ -221,19 +90,6 @@
     border-color: var(--error);
     box-shadow: 0 0 0 1px var(--error);
   }
-}
-
-.disabledField {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cursorPointer {
-  cursor: pointer;
-}
-
-.cursorNotAllowed {
-  cursor: not-allowed;
 }
 
 .grid2 {
@@ -288,9 +144,7 @@
 
 .sectionHeading {
   margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--foreground-strong);
+  @include micro-label($text-xs, 0.1em, var(--foreground-strong));
 }
 
 .locked {
@@ -312,13 +166,10 @@
   padding: 1rem;
   background: var(--primary-alpha);
   border: 1px solid var(--primary-alpha);
-  border-radius: 8px;
 }
 
 .templateLabel {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--primary);
+  @include micro-label($text-xs, 0.09em, var(--primary));
 }
 
 /* Preset info */
@@ -328,11 +179,8 @@
   gap: 0.25rem;
   margin-top: 0.5rem;
   padding: 0.75rem;
-  background: var(--surface-hover);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 0.75rem;
-  color: var(--muted);
+  @include metadata($text-xs, var(--muted));
 }
 
 .presetInfoName {
@@ -373,7 +221,6 @@
   margin-top: 1rem;
   padding: 1rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
   background: var(--surface-secondary);
 }
 
@@ -381,9 +228,7 @@
   margin: 0 0 0.5rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--foreground-strong);
+  @include micro-label($text-xs, 0.1em, var(--foreground-strong));
 }
 
 .regSub {
@@ -411,7 +256,6 @@
 
 .timeChip {
   padding: 0.25rem 0.75rem;
-  border-radius: 6px;
   font-size: 0.75rem;
   background: var(--surface-hover);
   color: var(--foreground);
@@ -438,7 +282,6 @@
   align-items: center;
   justify-content: center;
   padding: 0.75rem 2rem;
-  border-radius: 8px;
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--foreground-strong);
@@ -475,7 +318,6 @@
   padding: 0.75rem;
   background: var(--surface-hover);
   border: 1px solid var(--border);
-  border-radius: 8px;
   transition:
     border-color 0.2s ease,
     background 0.2s ease,
@@ -577,8 +419,7 @@
   align-items: center;
   justify-content: center;
   padding: 0.25rem;
-  border-radius: 6px;
-  color: var(--danger-text);
+  color: var(--danger);
   transition:
     color 0.15s ease,
     background 0.15s ease;
@@ -594,7 +435,6 @@
   align-items: center;
   justify-content: center;
   padding: 0.25rem;
-  border-radius: 6px;
   color: var(--muted);
   transition:
     color 0.15s ease,
@@ -620,7 +460,6 @@
   padding: 0.5rem;
   background: var(--surface-hover);
   border: 1px solid var(--border);
-  border-radius: 6px;
 }
 
 .memberInfo {
@@ -632,7 +471,6 @@
 .avatarSm {
   width: 1.5rem;
   height: 1.5rem;
-  border-radius: 50%;
   object-fit: cover;
 }
 
@@ -642,7 +480,6 @@
   justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  border-radius: 50%;
   background: var(--primary-alpha);
   color: var(--primary);
   font-size: 0.625rem;
@@ -655,7 +492,6 @@
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border-radius: 50%;
   background: var(--primary-alpha);
   color: var(--primary);
   font-size: 0.75rem;
@@ -688,7 +524,7 @@
   right: 0.75rem;
   top: 0.625rem;
   color: var(--muted);
-  animation: contestSpin 1s linear infinite;
+  @include spinner;
 }
 
 .searchDropdown {
@@ -700,7 +536,6 @@
   overflow-y: auto;
   background: var(--surface-hover);
   border: 1px solid var(--border);
-  border-radius: 8px;
   box-shadow: 0 8px 24px var(--shadow-md);
 }
 
@@ -768,7 +603,6 @@
   background: var(--surface-hover);
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 6px;
   font-size: 0.8125rem;
   transition:
     background 0.15s ease,
@@ -798,7 +632,6 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem;
-  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface-hover);
   cursor: grab;
@@ -832,7 +665,6 @@
 .avatarMd {
   width: 2rem;
   height: 2rem;
-  border-radius: 50%;
   object-fit: cover;
   pointer-events: none;
 }
@@ -848,9 +680,7 @@
   display: flex;
   align-items: center;
   padding: 0.375rem 0.25rem 0.375rem 0.5rem;
-  background: var(--surface-hover);
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  border: 1px solid var(--border-input);
 }
 
 .chipBody {
@@ -865,7 +695,6 @@
   justify-content: center;
   padding: 0.25rem;
   margin-left: 0.25rem;
-  border-radius: 999px;
   color: var(--muted);
   transition:
     color 0.15s ease,
@@ -920,7 +749,6 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.75rem;
-  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface-secondary);
 }
@@ -975,27 +803,8 @@
 }
 
 /* Apply Fonts */
-.header h2,
-.sectionHeading {
-  font-family: var(--font-hanken-grotesk), sans-serif;
-}
 .teamNameInput,
 .memberName,
 .searchUserName {
-  font-family: var(--font-inter), sans-serif;
-}
-.label,
-.labelStrong,
-.hint,
-.hintMuted,
-.errorText,
-.formInput,
-.presetInfoName,
-.presetInfoMeta,
-.checkboxLabel,
-.timeChip,
-.seedNum,
-.regTitle,
-.roundLabel {
-  font-family: var(--font-jetbrains-mono), monospace;
+  font-family: var(--font-hanken-grotesk), sans-serif;
 }

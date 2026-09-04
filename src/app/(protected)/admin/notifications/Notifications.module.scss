@@ -1,11 +1,7 @@
 @use "../../../../styles/mixins" as *;
 
-.container {
-  @include admin-page;
-}
-
 .header {
-  @include admin-page-header($top-margin: 1rem);
+  @include standard-page-header;
 }
 
 .form {
@@ -38,21 +34,14 @@
 }
 
 .success {
+  @include error-banner;
   margin-top: 1rem;
-  padding: 0.75rem 1rem;
+  border-color: var(--success-border);
   background: var(--success-bg);
   color: var(--success-text);
-  border: 1px solid var(--success-border);
-  border-radius: 6px;
-  font-size: 0.875rem;
 }
 
 .error {
+  @include error-banner;
   margin-top: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--error-bg);
-  color: var(--error-text);
-  border: 1px solid var(--error-border-light);
-  border-radius: 6px;
-  font-size: 0.875rem;
 }

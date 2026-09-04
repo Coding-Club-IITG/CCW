@@ -27,6 +27,6 @@
 /* Standard centred page shell for the rest of the protected area */
 .pageMain {
   @include page-container;
-  padding-top: 2rem;
+  padding-top: 3rem;
   padding-bottom: 2rem;
 }

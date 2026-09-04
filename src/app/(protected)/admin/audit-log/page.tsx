@@ -7,6 +7,7 @@ import { expectAppData } from "@/lib/api/result";
 import { AUDIT_ACTIONS, AUDIT_CATEGORIES } from "@/lib/constants";
 import BackLink from "@/components/shared/BackLink";
 import Pagination from "@/components/shared/Pagination";
+import { ListSkeletonContent } from "@/components/shared/skeletons/ListSkeleton";
 
 import styles from "./AuditLog.module.scss";
 
@@ -133,7 +134,7 @@ export default function AuditLogPage() {
   }
 
   return (
-    <main className={styles.container}>
+    <main>
       <BackLink href="/admin" label="Back to Administration" />
       <header>
         <h1>Audit Log</h1>
@@ -209,9 +210,7 @@ export default function AuditLogPage() {
           {error}
         </div>
       ) : loading ? (
-        <p className={styles.state} aria-live="polite">
-          Loading audit history…
-        </p>
+        <ListSkeletonContent label="audit history" />
       ) : events.length === 0 ? (
         <p className={styles.state} aria-live="polite">
           No audit events match these filters.
@@ -242,7 +241,7 @@ export default function AuditLogPage() {
                 </div>
                 <p>
                   <b>{event.actor.displayName}</b> ({event.actor.access})
-                  {` ${eventVerb(event)} `}
+                  <span className={styles.verb}>{eventVerb(event)}</span>
                   <b>{event.target.label}</b>{" "}
                   <span className={styles.type}>{event.target.type}</span>
                 </p>

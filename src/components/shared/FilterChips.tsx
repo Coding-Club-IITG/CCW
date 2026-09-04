@@ -1,12 +1,10 @@
-import Link from "next/link";
-
+import ControlOptionItem, {
+  optionKey,
+  type ControlOption,
+} from "./ControlOption";
 import styles from "./FilterControls.module.scss";
 
-export type FilterOption = {
-  label: string;
-  href: string;
-  active: boolean;
-};
+export type FilterOption = ControlOption;
 
 /** Row of outlined filter chips */
 export default function FilterChips({
@@ -19,14 +17,11 @@ export default function FilterChips({
   return (
     <div className={styles.chipRow} role="group" aria-label={label}>
       {options.map((option) => (
-        <Link
-          key={option.href + option.label}
-          href={option.href}
+        <ControlOptionItem
+          key={optionKey(option)}
+          option={option}
           className={`${styles.chip} ${option.active ? styles.chipActive : ""}`}
-          aria-current={option.active ? "true" : undefined}
-        >
-          {option.label}
-        </Link>
+        />
       ))}
     </div>
   );

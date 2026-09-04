@@ -1,15 +1,9 @@
 @use "../../../styles/mixins" as *;
 
-.container {
-  @include admin-page;
-}
-
 .header {
-  @include admin-page-header;
+  @include standard-page-header;
 }
 
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
+  @include hairline-grid($min: 280px);
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Award,
@@ -12,9 +11,13 @@ import {
   Trophy,
   UserX,
 } from "lucide-react";
+import { useEffect } from "react";
+
+import { getDisplayName } from "@/lib/utils";
+
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
-import { getDisplayName } from "@/lib/utils";
+
 import styles from "./PostMatchResultClient.module.scss";
 
 export type MatchData = {
@@ -266,7 +269,9 @@ export default function PostMatchResultClient({
                 <div key={team.id} className={styles.teamStanding}>
                   <div className={styles.teamStandingHeader}>
                     <div className={styles.teamStandingLeft}>
-                      <span className={styles.teamRank}>#{tIdx + 1}</span>
+                      <span className={styles.teamRank}>
+                        {String(tIdx + 1).padStart(2, "0")}
+                      </span>
                       {isSoloFormat && team.members[0] && (
                         <CompatibleImage
                           src={team.members[0].avatar}

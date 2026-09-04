@@ -9,7 +9,7 @@
   padding: 1.1rem 1.25rem;
   background: var(--surface-secondary);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
 
   form {
     display: grid;
@@ -35,7 +35,7 @@
   p {
     margin: 0.25rem 0 0;
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 13px;
   }
 }
 
@@ -44,18 +44,16 @@
   flex-direction: column;
   gap: 0.35rem;
   label {
-    color: var(--foreground);
-    font-size: 0.78rem;
-    font-weight: 600;
+    @include micro-label($text-xs, 0.09em, var(--foreground));
   }
   input {
     min-height: 38px;
     padding: 0.45rem 0.65rem;
     border: 1px solid var(--border-input);
-    border-radius: 7px;
+    border-radius: 0;
     background: var(--surface);
     color: var(--foreground);
-    font-size: 0.85rem;
+    font-size: 13.5px;
   }
   input:focus {
     outline: 2px solid var(--focus-ring);
@@ -74,42 +72,23 @@
   max-width: 25rem;
 }
 .resultCount {
-  color: var(--muted);
-  font-size: 0.78rem;
+  @include metadata($text-sm, var(--muted));
 }
-.loadingState {
-  margin: 0;
-  padding: 3rem;
-  color: var(--muted);
-  text-align: center;
-}
-
 .tableContainer {
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--surface);
 }
 .table {
-  width: 100%;
-  border-collapse: collapse;
+  @include table-base;
+
   th {
     padding: 0.7rem 0.8rem;
-    background: var(--surface-secondary);
-    border-bottom: 1px solid var(--border);
-    color: var(--muted);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.035em;
-    text-align: left;
-    text-transform: uppercase;
     white-space: nowrap;
   }
   td {
     padding: 0.8rem;
-    border-bottom: 1px solid var(--border);
-    color: var(--foreground);
-    font-size: 0.82rem;
     vertical-align: middle;
   }
   tbody tr:last-child td {
@@ -130,12 +109,10 @@
   gap: 0.2rem;
 }
 .memberCell strong {
-  color: var(--foreground-strong);
-  font-size: 0.86rem;
+  @include entity-name;
 }
 .memberCell span {
-  color: var(--muted);
-  font-size: 0.74rem;
+  @include metadata($text-sm, var(--muted));
   overflow-wrap: anywhere;
 }
 
@@ -148,18 +125,10 @@
 }
 .roleSelect,
 .fullSelect {
+  @include form-control;
   min-height: 34px;
   padding: 0.35rem 1.8rem 0.35rem 0.55rem;
-  border: 1px solid var(--border-input);
-  border-radius: 7px;
   background: var(--surface);
-  color: var(--foreground);
-  font-size: 0.8rem;
-}
-.roleSelect:focus,
-.fullSelect:focus {
-  outline: 2px solid var(--focus-ring);
-  border-color: var(--primary);
 }
 .fullSelect {
   width: 100%;
@@ -171,9 +140,8 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--link);
+  @include metadata($text-xs, var(--link));
   cursor: pointer;
-  font-size: 0.7rem;
 }
 .inlineAction:hover {
   text-decoration: underline;
@@ -192,10 +160,9 @@
   max-width: 260px;
   padding: 0.28rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--surface-secondary);
-  color: var(--muted);
-  font-size: 0.7rem;
+  @include metadata($text-xs, var(--muted));
   line-height: 1.2;
 }
 .roleBadge strong {
@@ -203,15 +170,13 @@
   font-weight: 650;
 }
 .emptyValue {
-  color: var(--muted);
-  font-size: 0.74rem;
+  @include metadata($text-sm, var(--muted));
   font-style: italic;
 }
 .tenureValue {
   display: inline-block;
   min-width: 62px;
-  color: var(--foreground-strong);
-  font-size: 0.78rem;
+  @include metadata($text-sm, var(--foreground-strong));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -228,11 +193,11 @@
   place-items: center;
   padding: 0;
   border: 1px solid var(--border-input);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--surface-secondary);
   color: var(--foreground);
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 13.5px;
   font-weight: 700;
 }
 .pizzaButton:hover:not(:disabled) {
@@ -246,7 +211,7 @@
 .pizzaCount {
   min-width: 24px;
   text-align: center;
-  font-size: 0.78rem;
+  @include metadata($text-sm, var(--foreground-strong));
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -258,12 +223,11 @@
   min-width: 100px;
 }
 .iconButton,
-.closeButton,
 .removeRoleButton {
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 0;
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
@@ -272,8 +236,7 @@
   width: 31px;
   height: 31px;
 }
-.iconButton:hover,
-.closeButton:hover {
+.iconButton:hover {
   border-color: var(--primary);
   color: var(--primary);
   background: var(--surface-hover);
@@ -283,63 +246,20 @@
   color: var(--danger);
 }
 
-.overlay {
-  @include modal-overlay;
-  z-index: 999;
-}
-.modal {
-  @include modal-dialog(520px);
-  z-index: 1000;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  max-height: min(680px, calc(100vh - 2rem));
-  overflow-y: auto;
-  transform: translate(-50%, -50%);
-  border-radius: 10px;
-}
-.smallModal {
-  max-width: 410px;
-}
-.modalHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1.1rem;
-}
-.modalHeader h2 {
-  margin: 0;
-  color: var(--foreground-strong);
-  font-size: 1.08rem;
-}
-.modalHeader p {
-  margin: 0.25rem 0 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-}
-.closeButton {
-  flex: 0 0 auto;
-  width: 31px;
-  height: 31px;
-}
 .modalBody {
   margin-bottom: 1.2rem;
 }
 .modalLabel {
   display: block;
   margin-bottom: 0.35rem;
-  color: var(--foreground);
-  font-size: 0.78rem;
-  font-weight: 650;
+  @include micro-label($text-xs, 0.09em, var(--foreground));
 }
 .modalEmpty {
   margin: 0 0 0.75rem;
   padding: 0.8rem;
   border: 1px dashed var(--border);
-  border-radius: 7px;
-  color: var(--muted);
-  font-size: 0.78rem;
+  border-radius: 0;
+  @include metadata($text-sm, var(--muted));
   text-align: center;
 }
 
@@ -347,18 +267,15 @@
   margin: 1rem 0 0;
   padding: 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0;
 }
 .modulePicker legend {
   padding: 0 0.25rem;
-  color: var(--foreground-strong);
-  font-size: 0.8rem;
-  font-weight: 700;
+  @include micro-label($text-xs, 0.08em, var(--foreground-strong));
 }
 .modulePicker > p {
   margin: 0 0 0.75rem;
-  color: var(--muted);
-  font-size: 0.73rem;
+  @include metadata($text-sm, var(--muted));
   line-height: 1.45;
 }
 .modulePicker label {
@@ -366,10 +283,10 @@
   align-items: center;
   gap: 0.55rem;
   padding: 0.48rem 0.55rem;
-  border-radius: 6px;
+  border-radius: 0;
   color: var(--foreground);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 13px;
 }
 .modulePicker label:hover {
   background: var(--surface-hover);
@@ -386,14 +303,11 @@
   align-items: center;
 }
 .moduleRoleItem select {
+  @include form-control;
   min-width: 0;
   min-height: 36px;
   padding: 0.35rem 0.5rem;
-  border: 1px solid var(--border-input);
-  border-radius: 7px;
   background: var(--surface);
-  color: var(--foreground);
-  font-size: 0.78rem;
 }
 .removeRoleButton {
   width: 32px;
@@ -412,9 +326,8 @@
   padding: 0.35rem 0;
   border: 0;
   background: none;
-  color: var(--link);
+  @include metadata($text-sm, var(--link));
   cursor: pointer;
-  font-size: 0.76rem;
   font-weight: 600;
 }
 .addModuleRole:hover {
@@ -427,7 +340,7 @@
   gap: 0.5rem;
   padding: 0 0.65rem;
   border: 1px solid var(--border-input);
-  border-radius: 7px;
+  border-radius: 0;
   color: var(--muted);
 }
 .tenureInput:focus-within {
@@ -442,42 +355,22 @@
   background: transparent;
   color: var(--foreground);
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 13.5px;
 }
 .fieldHint {
   margin: 0.4rem 0 0;
-  color: var(--muted);
-  font-size: 0.7rem;
+  @include metadata($text-xs, var(--muted));
 }
-.modalActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--border);
+.cancelBtn {
+  @include modal-action;
 }
-.cancel {
-  @include btn-secondary;
-  padding: 0.42rem 0.85rem;
-}
-.save {
-  @include btn-primary;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.42rem 0.85rem;
+
+.primaryBtn {
+  @include modal-action-primary;
 }
 
 .srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+  @include sr-only;
 }
 
 @media (max-width: 760px) {
@@ -497,9 +390,6 @@
   .table th,
   .table td {
     padding: 0.65rem;
-  }
-  .modal {
-    width: calc(100vw - 1.5rem);
   }
   .moduleRoleItem {
     grid-template-columns: 1fr;

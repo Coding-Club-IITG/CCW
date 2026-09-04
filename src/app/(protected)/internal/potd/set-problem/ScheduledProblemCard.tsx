@@ -20,29 +20,14 @@ export function ScheduledProblemCard({
 }: ScheduledProblemCardProps) {
   return (
     <div
-      className={styles.problemCard}
-      style={
-        isToday ? { borderLeft: "3px solid var(--accent-light)" } : undefined
-      }
+      className={`${styles.problemCard} ${isToday ? styles.problemCardToday : ""}`}
     >
       <div className={styles.cardHeader}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div className={styles.cardHeaderLeft}>
           <span className={styles.dateLabel}>
             {isToday ? "Today" : formatDate(prob.dateStr, "long")}
           </span>
-          {isToday && (
-            <span
-              style={{
-                fontSize: "0.7rem",
-                background: "var(--accent-light)",
-                color: "white",
-                padding: "1px 6px",
-                borderRadius: "999px",
-              }}
-            >
-              LIVE
-            </span>
-          )}
+          {isToday && <span className={styles.liveBadge}>Live</span>}
           <DifficultyBadge difficulty={prob.difficulty} />
         </div>
         <div className={styles.cardActions}>

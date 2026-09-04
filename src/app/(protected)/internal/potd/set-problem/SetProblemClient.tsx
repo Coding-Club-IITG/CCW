@@ -1,29 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import styles from "./SetProblem.module.scss";
+import { Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+
 import {
   setDailyProblem,
   getScheduledChallenges,
   deleteScheduledChallenge,
   type ScheduledChallenge,
 } from "@/lib/actions/admin/potd";
-import { Sparkles, Trash2 as IconTrash } from "lucide-react";
-import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
-import { ScheduledProblemCard } from "./ScheduledProblemCard";
-import AutoProblemModal from "./AutoProblemModal";
 import {
   DIFFICULTIES,
   PLATFORMS,
   PLATFORM_DISPLAY_NAMES,
-  PLATFORM_PROBLEM_URLS,
 } from "@/lib/constants";
-import type { Platform, Difficulty } from "@/lib/constants";
+import type { Platform } from "@/lib/constants";
 import {
   formatDate,
   getAvailableDates,
   getTodayISTDateStr,
 } from "@/lib/potd/utils";
+
+import EmptyState from "@/components/shared/EmptyState";
+import { CardGridSkeletonContent } from "@/components/shared/skeletons/CardGridSkeleton";
+
+import AutoProblemModal from "./AutoProblemModal";
+import { ScheduledProblemCard } from "./ScheduledProblemCard";
+import styles from "./SetProblem.module.scss";
 
 type FormData = {
   date: string;
@@ -188,43 +191,52 @@ export default function SetProblemClient() {
     problems.length < maxSlots &&
     availableDates.some((d) => takenDifficulties(d).size < 3);
 
-  return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.headerFlex}>
-          <div>
-            <h1>Manage Upcoming Problems</h1>
-            <p>
-              Schedule up to 10 days in advance. Each day can have up to 3
-              problems (Easy, Medium, Hard). Today&apos;s problems can be edited
-              until end of day.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button
-              className={styles.autoBtn}
-              onClick={() => setIsAutoModalOpen(true)}
-              disabled={isAdding || !hasOpenSlots}
-            >
-              <Sparkles size={16} />
-              Auto Problem Setting
-            </button>
-            <button
-              className={styles.addBtn}
-              onClick={handleAddNew}
-              disabled={isAdding || !hasOpenSlots}
-            >
-              + Add Problem
-            </button>
-          </div>
+  const header = (
+    <div className={styles.header}>
+      <div className={styles.headerFlex}>
+        <div>
+          <h1>Manage Upcoming Problems</h1>
+          <p>
+            Schedule up to 10 days in advance. Each day can have up to 3
+            problems (Easy, Medium, Hard). Today&apos;s problems can be edited
+            until end of day.
+          </p>
+        </div>
+        <div className={styles.headerActions}>
+          <button
+            className={styles.autoBtn}
+            onClick={() => setIsAutoModalOpen(true)}
+            disabled={loadingInitial || isAdding || !hasOpenSlots}
+          >
+            <Sparkles size={16} />
+            Auto Problem Setting
+          </button>
+          <button
+            className={styles.addBtn}
+            onClick={handleAddNew}
+            disabled={loadingInitial || isAdding || !hasOpenSlots}
+          >
+            + Add Problem
+          </button>
         </div>
       </div>
+    </div>
+  );
+
+  if (loadingInitial) {
+    return (
+      <div>
+        {header}
+        <CardGridSkeletonContent label="upcoming problems" cards={6} />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {header}
 
       <div className={styles.grid}>
-        {loadingInitial && (
-          <p style={{ color: "var(--muted)" }}>Loading scheduled problems...</p>
-        )}
-
         {/* Add form */}
         {isAdding && (
           <div className={styles.editCard}>
@@ -345,17 +357,7 @@ export default function SetProblemClient() {
               </div>
             </div>
 
-            {formError && (
-              <p
-                style={{
-                  color: "var(--danger-text)",
-                  fontSize: "0.875rem",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                {formError}
-              </p>
-            )}
+            {formError && <p className={styles.formError}>{formError}</p>}
 
             <div className={styles.actions}>
               <button
@@ -378,10 +380,10 @@ export default function SetProblemClient() {
 
         {/* Empty state */}
         {!loadingInitial && totalScheduled === 0 && !isAdding && (
-          <div className={styles.emptyState}>
-            No upcoming problems scheduled. Click &quot;Add Problem&quot; to get
-            started.
-          </div>
+          <EmptyState
+            title="No upcoming problems scheduled."
+            hint='Click "Add Problem" to get started.'
+          />
         )}
 
         {/* Problems grouped by date */}
@@ -398,13 +400,14 @@ export default function SetProblemClient() {
         )}
       </div>
 
-      <AutoProblemModal
-        isOpen={isAutoModalOpen}
-        onClose={() => setIsAutoModalOpen(false)}
-        availableDates={availableDates}
-        takenDifficultiesMap={takenDifficulties}
-        onSuccess={fetchScheduled}
-      />
+      {isAutoModalOpen && (
+        <AutoProblemModal
+          onClose={() => setIsAutoModalOpen(false)}
+          availableDates={availableDates}
+          takenDifficultiesMap={takenDifficulties}
+          onSuccess={fetchScheduled}
+        />
+      )}
     </div>
   );
 }

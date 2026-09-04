@@ -3,7 +3,7 @@
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: var(--z-nav);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -28,7 +28,7 @@
   }
 
   span {
-    @include display-type(23px, 0.14em);
+    @include display-type($display-sm, 0.14em);
     white-space: nowrap;
   }
 
@@ -50,7 +50,7 @@
   a {
     position: relative;
     padding-bottom: 5px;
-    @include metadata(11.5px);
+    @include metadata($text-sm);
     color: var(--foreground-secondary);
     transition: color 0.2s ease;
     white-space: nowrap;
@@ -147,7 +147,7 @@
   color: var(--danger);
   cursor: pointer;
   white-space: nowrap;
-  @include micro-label(11px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
   color: var(--danger);
   transition:
     background 0.2s ease,
@@ -219,7 +219,7 @@
 }
 
 .avatarInitials {
-  @include micro-label(11px, 0.04em);
+  @include micro-label($text-xs, 0.04em);
   color: var(--foreground-strong);
   line-height: 1;
 }
@@ -233,7 +233,7 @@
   border: 1px solid var(--border);
   box-shadow: var(--modal-shadow);
   padding-block: 6px;
-  z-index: 200;
+  z-index: var(--z-menu);
   animation: menuFadeIn 0.14s ease;
 
   @media (prefers-reduced-motion: reduce) {
@@ -267,7 +267,7 @@
 }
 
 .userMenuEmail {
-  @include metadata(11px);
+  @include metadata($text-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -281,7 +281,7 @@
 }
 
 .userMenuRole {
-  @include metadata(10.5px);
+  @include metadata($text-xs);
   line-height: 1.45;
 }
 
@@ -327,7 +327,7 @@
   background: none;
   color: var(--danger);
   cursor: pointer;
-  @include micro-label(11px, 0.06em);
+  @include micro-label($text-xs, 0.06em);
   color: var(--danger);
   transition:
     background 0.2s ease,
@@ -371,7 +371,7 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     box-shadow: var(--modal-shadow);
-    z-index: 90;
+    z-index: var(--z-menu);
 
     &.open {
       display: flex;
@@ -411,7 +411,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    @include micro-label(11px, 0.06em);
+    @include micro-label($text-xs, 0.06em);
 
     @include focus-ring;
   }

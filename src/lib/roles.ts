@@ -6,7 +6,6 @@ import {
   ACCESS_LEVELS,
   AccessLevel,
   CLUB_POSITIONS,
-  CURRENT_TENURE,
   MODULE_POSITIONS,
   MODULES,
   ModuleName,

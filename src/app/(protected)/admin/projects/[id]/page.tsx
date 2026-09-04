@@ -1,20 +1,23 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import BackLink from "@/components/shared/BackLink";
-import ImageUpload from "@/components/shared/ImageUpload";
-import TagEditor from "@/components/shared/TagEditor";
-import MemberPicker from "@/components/shared/MemberPicker";
-import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
+
 import { updateProject } from "@/lib/actions/admin/projects";
-import styles from "../../events/new/EventForm.module.scss";
+import { expectAppData } from "@/lib/api/result";
+import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
 import {
   DEFAULT_IMAGE_FOCAL_POINT,
   type ImageFocalPoint,
 } from "@/lib/imageFocalPoint";
+
+import BackLink from "@/components/shared/BackLink";
+import ImageUpload from "@/components/shared/ImageUpload";
+import MemberPicker from "@/components/shared/MemberPicker";
+import TagEditor from "@/components/shared/TagEditor";
+
+import styles from "../../events/new/EventForm.module.scss";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 interface ProjectData {
   _id: string;
@@ -147,19 +150,25 @@ export default function EditProjectPage({
     setSaving(false);
   }
 
+  const header = (
+    <>
+      <BackLink href="/admin/projects" label="Back to Projects" />
+      <h1 className={styles.pageTitle}>Edit Project</h1>
+    </>
+  );
+
   if (loading) {
     return (
       <div className={styles.container}>
-        <BackLink href="/admin/projects" label="Back to Projects" />
-        <p>Loading project...</p>
+        {header}
+        <FormSkeletonContent label="the project" fields={5} />
       </div>
     );
   }
 
   return (
     <div className={styles.container}>
-      <BackLink href="/admin/projects" label="Back to Projects" />
-      <h1 className={styles.pageTitle}>Edit Project</h1>
+      {header}
 
       {error && <div className={styles.error}>{error}</div>}
 

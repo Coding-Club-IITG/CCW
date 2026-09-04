@@ -2,14 +2,18 @@
 
 import { ReactNode, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
 
-import Button from "@/components/shared/Button";
 import { useFocusTrap } from "./useFocusTrap";
+import { useScrollLock } from "./useScrollLock";
+import { useEscapeLayer } from "./overlayStack";
 import styles from "./Modal.module.scss";
 
 interface ModalProps {
-  title: string;
+  /** Mono kicker above the title, Eg. "Files" */
+  kicker?: string;
+  title: ReactNode;
+  /** Needed for the close button's label when 'title' is not a string */
+  closeLabel?: string;
   description?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
@@ -18,10 +22,14 @@ interface ModalProps {
   maxWidth?: number;
   className?: string;
   contentClassName?: string;
+  /** Per-consumer backdrop treatment, Eg. a blur or grayscale filter */
+  backdropClassName?: string;
 }
 
 export default function Modal({
+  kicker,
   title,
+  closeLabel,
   description,
   children,
   footer,
@@ -30,6 +38,7 @@ export default function Modal({
   maxWidth = 640,
   className = "",
   contentClassName = "",
+  backdropClassName = "",
 }: ModalProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -38,28 +47,25 @@ export default function Modal({
   const disabledRef = useRef(closeDisabled);
 
   useFocusTrap(dialogRef);
+  useScrollLock();
+  useEscapeLayer(true, onClose, () => !disabledRef.current);
 
   useEffect(() => {
     disabledRef.current = closeDisabled;
   }, [closeDisabled]);
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     closeRef.current?.focus();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !disabledRef.current) onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onClose]);
+  }, []);
+
+  if (typeof document === "undefined") return null;
+
+  const label =
+    closeLabel ?? (typeof title === "string" ? `Close ${title}` : "Close");
 
   return createPortal(
     <div
-      className={styles.backdrop}
+      className={`${styles.backdrop} ${backdropClassName}`}
       onMouseDown={() => !closeDisabled && onClose()}
     >
       <section
@@ -74,19 +80,20 @@ export default function Modal({
       >
         <header className={styles.header}>
           <div>
+            {kicker && <span className={styles.kicker}>{kicker}</span>}
             <h2 id={titleId}>{title}</h2>
             {description && <p id={descriptionId}>{description}</p>}
           </div>
-          <Button
+          <button
             ref={closeRef}
-            variant="ghost"
-            iconOnly
-            aria-label={`Close ${title}`}
+            type="button"
+            className={styles.close}
+            aria-label={label}
             onClick={onClose}
             disabled={closeDisabled}
           >
-            <X size={20} />
-          </Button>
+            Esc
+          </button>
         </header>
         <div className={`${styles.content} ${contentClassName}`}>
           {children}

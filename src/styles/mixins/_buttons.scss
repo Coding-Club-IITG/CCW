@@ -1,18 +1,20 @@
-// Primary button
-@mixin btn-primary {
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-  border: none;
-  border-radius: 6px;
-  font-weight: 500;
-  font-size: 0.875rem;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s ease;
+@use "shared" as *;
 
-  &:hover:not(:disabled) {
-    background: var(--btn-primary-bg-hover);
-  }
+/* Button sizes */
+$btn-xs: 0.25rem 0.625rem; // icon-adjacent, inside a control
+$btn-sm: 0.375rem 0.75rem; // compact inline and table actions
+$btn-md: 0.5rem 1rem; // the standard action
+$btn-lg: 0.5rem 1.5rem; // prominent call to action
+
+// Shared button chrome
+@mixin btn-base($padding: $btn-md) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: $padding;
+  border-radius: 0;
+  cursor: pointer;
 
   &:focus-visible {
     outline: 2px solid var(--focus-ring);
@@ -25,58 +27,152 @@
   }
 }
 
-// Secondary button
-@mixin btn-secondary {
-  background: var(--btn-secondary-bg);
-  color: var(--btn-secondary-text);
-  border: 1px solid var(--btn-secondary-border);
-  border-radius: 6px;
-  font-weight: 500;
-  font-size: 0.875rem;
-  cursor: pointer;
-  font-family: inherit;
+/*
+  Each variant is split into a colour-only skin and a full mixin
+  Components that own their own sizing take the skin alone.
+*/
+@mixin btn-primary-skin {
+  background: var(--btn-primary-bg);
+  border: 1px solid var(--btn-primary-bg);
+  color: var(--btn-primary-text);
   transition:
     background 0.15s ease,
     border-color 0.15s ease;
 
   &:hover:not(:disabled) {
-    background: var(--btn-secondary-bg-hover);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+    background: var(--btn-primary-bg-hover);
+    border-color: var(--btn-primary-bg-hover);
   }
 }
 
-// Destructive action button used by editors and administration surfaces.
-@mixin btn-danger {
-  background: var(--error-bg);
-  color: var(--danger-text);
-  border: 1px solid var(--error-border-light);
-  border-radius: 6px;
-  font-weight: 500;
-  font-size: 0.8125rem;
-  cursor: pointer;
-  font-family: inherit;
+@mixin btn-secondary-skin {
+  background: none;
+  border: 1px solid var(--border-input);
+  color: var(--foreground-strong);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+}
+
+@mixin btn-danger-skin {
+  background: none;
+  border: 1px solid var(--danger);
+  color: var(--danger);
   transition: background 0.15s ease;
 
   &:hover:not(:disabled) {
-    background: var(--error-bg-hover);
+    background: var(--error-bg);
   }
+}
 
-  &:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
+// Borderless action that only shows on hover
+@mixin btn-ghost-skin {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: var(--surface-hover);
+    color: var(--foreground-strong);
+  }
+}
+
+// Primary button
+@mixin btn-primary($padding: $btn-md) {
+  @include btn-base($padding);
+  @include micro-label($text-xs, 0.06em, inherit);
+  @include btn-primary-skin;
+}
+
+// Secondary button
+@mixin btn-secondary($padding: $btn-sm) {
+  @include btn-base($padding);
+  @include micro-label($text-xs, 0.06em, inherit);
+  @include btn-secondary-skin;
+}
+
+// Square icon-only control
+@mixin icon-button($size: 28px) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: $size;
+  height: $size;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
   }
 
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  @include focus-ring;
+}
+
+// Destructive action button
+@mixin btn-danger($padding: $btn-sm) {
+  @include btn-base($padding);
+  @include micro-label($text-xs, 0.06em, inherit);
+  @include btn-danger-skin;
+}
+
+/* Actions inside a shared Modal footer */
+@mixin modal-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  cursor: pointer;
+  @include micro-label($text-xs, 0.06em, var(--foreground-strong));
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: var(--surface-hover);
+    color: var(--primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  @include focus-ring;
+}
+
+@mixin modal-action-primary {
+  @include modal-action;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+
+  &:hover:not(:disabled) {
+    background: var(--btn-primary-bg-hover);
+    color: var(--btn-primary-text);
   }
 }

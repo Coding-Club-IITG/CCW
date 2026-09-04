@@ -1,3 +1,5 @@
+@use "shared" as *;
+
 // Sidebar layout
 @mixin sidebar-layout {
   display: flex;
@@ -49,10 +51,8 @@
 @mixin sidebar-tab {
   padding: 0.5rem 0.75rem;
   text-align: left;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--muted);
+  border-radius: 0;
+  @include micro-label($text-xs, 0.06em, var(--muted));
   display: flex;
   align-items: center;
   gap: 0.625rem;
@@ -72,7 +72,6 @@
 @mixin sidebar-tab-active {
   background: var(--surface-hover);
   color: var(--foreground-strong);
-  font-weight: 600;
 
   &::before {
     content: "";
@@ -81,7 +80,7 @@
     top: 0.375rem;
     bottom: 0.375rem;
     width: 3px;
-    border-radius: 3px;
+    border-radius: 0;
     background: var(--tab-active-border);
   }
 
@@ -117,11 +116,11 @@
 @mixin sidebar-content {
   flex: 1;
   min-width: 0;
-  padding: 0 0.75rem 1.5rem;
+  padding: 1rem 0.75rem 1.5rem;
   width: 100%;
   overflow-x: hidden;
 
   @media (min-width: 768px) {
-    padding: 0.75rem 1rem 1.5rem 0;
+    padding: 1rem 1rem 1.5rem 0;
   }
 }

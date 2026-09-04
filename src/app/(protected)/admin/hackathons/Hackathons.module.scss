@@ -1,11 +1,7 @@
 @use "../../../../styles/mixins" as *;
 
-.container {
-  @include admin-page;
-}
-
 .header {
-  @include admin-page-header($top-margin: 1rem);
+  @include standard-page-header;
 }
 
 .actions {
@@ -56,18 +52,15 @@
 // Buttons
 .btnPrimary {
   @include btn-primary;
-  padding: 0.5rem 1rem;
 }
 
 .btnSecondary {
   @include btn-secondary;
-  padding: 0.375rem 0.75rem;
   font-size: 0.8125rem;
 }
 
 .btnDanger {
   @include btn-danger;
-  padding: 0.375rem 0.75rem;
 }
 
 // List
@@ -77,10 +70,7 @@
 }
 
 .card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 1.25rem;
+  @include card(1.25rem);
 }
 
 .cardHeader {
@@ -119,33 +109,19 @@
 }
 
 .skill {
-  background: var(--badge-bg);
-  color: var(--badge-text);
-  border: 1px solid var(--badge-border);
-  border-radius: 6px;
-  padding: 0.125rem 0.5rem;
-  font-size: 0.75rem;
+  @include badge-chip;
 }
 
 .badge {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  padding: 0.125rem 0.5rem;
-  border-radius: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  @include badge-chip;
 }
 
 .badgeActive {
-  background: var(--success-bg);
-  color: var(--success-text);
-  border: 1px solid var(--success-border);
+  @include badge-success;
 }
 
 .badgeArchived {
-  background: var(--warning-bg);
-  color: var(--warning-text);
-  border: 1px solid var(--warning-border);
+  @include badge-warning;
 }
 
 .cardActions {
@@ -161,10 +137,7 @@
 }
 
 .teamCard {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 1.25rem;
+  @include card(1.25rem);
 }
 
 .teamHeader {
@@ -202,9 +175,8 @@
 }
 
 .ownerBadge {
-  font-size: 0.6875rem;
-  background: var(--badge-primary-bg);
-  color: var(--badge-primary-text);
-  padding: 0.0625rem 0.375rem;
-  border-radius: 4px;
+  @include badge-chip(
+    $color: var(--badge-primary-text),
+    $border: var(--primary)
+  );
 }
