@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <TableSkeleton
       title="User Management"
-      lead="Access levels, roles and tenure."
+      lead="Manage members, assign roles, and configure module permissions."
       columns={6}
     />
   );

@@ -3,8 +3,8 @@ import RankedTableSkeleton from "@/components/shared/skeletons/RankedTableSkelet
 export default function Loading() {
   return (
     <RankedTableSkeleton
-      title="Competitive Programming"
-      lead="Leaderboards, contests and your CP performance tracker."
+      title="Codeforces Leaderboard"
+      lead="Current member standings."
     />
   );
 }

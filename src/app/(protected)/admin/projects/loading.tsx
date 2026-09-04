@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <TableSkeleton
       title="Project Management"
-      lead="Projects listed on the public site."
+      lead="Manage showcase projects for the public website."
       columns={4}
     />
   );

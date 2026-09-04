@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <FormSkeleton
       title="Your Profile"
-      lead="Edit your display name, bio, and linked platform handles."
+      lead="Update your personal details and platform IDs."
       fields={5}
     />
   );

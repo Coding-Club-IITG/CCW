@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <CardGridSkeleton
       title="CCW Administration"
-      lead="Manage website settings."
+      lead="Manage the Coding Club website."
       cards={8}
     />
   );

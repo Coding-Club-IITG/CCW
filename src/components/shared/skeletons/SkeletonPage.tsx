@@ -5,19 +5,17 @@ import styles from "./Skeleton.module.scss";
 
 /** Header copy every loading.tsx supplies */
 export type SkeletonPageProps = {
-  /**
-   * The page's real title. Omit on detail routes whose title is fetched data,
-   * so the header draws a bar instead of copy the page will not show.
-   */
+  // Page title
   title?: string;
-  lead?: string;
-  /** Names the thing being loaded in the live region; defaults to 'title' */
+  // Page lead
+  lead?: string | true;
+  // Names the thing being loaded in the live region, defaults to 'title'
   label?: string;
 };
 
 /** Body of a skeleton */
 export type SkeletonContentProps = {
-  /** Names the thing being loaded in the live region, Eg. "files" */
+  // Names the thing being loaded in the live region, Eg. "files"
   label?: string;
 };
 
@@ -32,7 +30,11 @@ export default function SkeletonPage({
       <header className={styles.header}>
         <div>
           {title ? <h1>{title}</h1> : <Skeleton width="240px" height={26} />}
-          {lead && <p>{lead}</p>}
+          {lead === true ? (
+            <Skeleton width="320px" height={15} />
+          ) : (
+            lead && <p>{lead}</p>
+          )}
         </div>
       </header>
       {children}

@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <TableSkeleton
       title="Public Events"
-      lead="Events listed on the public site."
+      lead="Manage club events linked to the calendar."
       columns={4}
     />
   );

@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <RankedTableSkeleton
       title="Streak Leaderboard"
-      lead="Longest running daily solve streaks."
+      lead="Rankings based on consecutive days of solving the POTD."
     />
   );
 }

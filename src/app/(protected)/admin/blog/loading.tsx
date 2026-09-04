@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <TableSkeleton
       title="Blog Management"
-      lead="Drafts and published posts."
+      lead="Create, edit, and manage blog posts."
       columns={4}
     />
   );

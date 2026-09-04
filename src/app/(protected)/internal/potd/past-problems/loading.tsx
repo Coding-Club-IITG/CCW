@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <TableSkeleton
       title="Past Problems"
-      lead="Previous daily challenges and your submissions."
+      lead="A history of all previous Problems of the Day."
       columns={5}
     />
   );

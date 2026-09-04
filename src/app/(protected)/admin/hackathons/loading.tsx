@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <TableSkeleton
       title="Hackathon Management"
-      lead="Hackathons and team requests."
+      lead="Create and monitor hackathons for club members."
       columns={4}
     />
   );
