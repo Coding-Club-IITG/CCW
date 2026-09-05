@@ -1,54 +1,27 @@
-import mongoose, { Schema, Document, Types } from "mongoose";
+import mongoose, { Schema, type Document, type Model, Types } from "mongoose";
 
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+import type { BlogContent, BlogPerson } from "@/lib/blog/types";
+import {
+  BLOG_REVISION_SOURCES,
+  BLOG_REVISION_SUMMARY_MAX_LENGTH,
+  type BlogRevisionSource,
+} from "@/lib/constants";
 
-export const BLOG_REVISION_SOURCES = [
-  "initial_publish",
-  "admin_edit",
-  "approved_revision",
-  "rollback",
-] as const;
-
-export type BlogRevisionSource = (typeof BLOG_REVISION_SOURCES)[number];
-
-export interface IBlogPostRevisionAuthor {
-  userId: Types.ObjectId;
-  name: string;
-}
-
-export interface IBlogPostRevisionEditor {
-  userId: Types.ObjectId;
-  name: string;
-}
-
-export interface IBlogPostRevision extends Document {
+export interface IBlogPostRevision
+  extends Document<Types.ObjectId>, BlogContent {
   postId: Types.ObjectId;
   slug: string;
   version: number;
-  title: string;
-  content: string;
-  excerpt: string;
-  coverImage: string;
-  coverFocalPoint: ImageFocalPoint;
-  tags: string[];
-  authors: IBlogPostRevisionAuthor[];
-  editor: IBlogPostRevisionEditor;
-  approvedBy: IBlogPostRevisionEditor | null;
+  authors: BlogPerson<Types.ObjectId>[];
+  editor: BlogPerson<Types.ObjectId>;
+  approvedBy: BlogPerson<Types.ObjectId> | null;
   source: BlogRevisionSource;
   restoredFromVersion: number | null;
   changeSummary: string | null;
   createdAt: Date;
 }
 
-const RevisionAuthorSchema = new Schema<IBlogPostRevisionAuthor>(
-  {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    name: { type: String, required: true },
-  },
-  { _id: false },
-);
-
-const RevisionEditorSchema = new Schema<IBlogPostRevisionEditor>(
+const RevisionPersonSchema = new Schema<BlogPerson<Types.ObjectId>>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     name: { type: String, required: true },
@@ -76,16 +49,20 @@ const BlogPostRevisionSchema = new Schema<IBlogPostRevision>(
       _id: false,
     },
     tags: [{ type: String }],
-    authors: { type: [RevisionAuthorSchema], default: [] },
-    editor: { type: RevisionEditorSchema, required: true },
-    approvedBy: { type: RevisionEditorSchema, default: null },
+    authors: { type: [RevisionPersonSchema], default: [] },
+    editor: { type: RevisionPersonSchema, required: true },
+    approvedBy: { type: RevisionPersonSchema, default: null },
     source: {
       type: String,
       enum: BLOG_REVISION_SOURCES,
       required: true,
     },
     restoredFromVersion: { type: Number, default: null },
-    changeSummary: { type: String, default: null, maxlength: 500 },
+    changeSummary: {
+      type: String,
+      default: null,
+      maxlength: BLOG_REVISION_SUMMARY_MAX_LENGTH,
+    },
     createdAt: { type: Date, default: Date.now },
   },
   { timestamps: false, versionKey: false },
@@ -95,8 +72,6 @@ BlogPostRevisionSchema.index({ postId: 1, version: -1 }, { unique: true });
 BlogPostRevisionSchema.index({ postId: 1, createdAt: -1 });
 BlogPostRevisionSchema.index({ slug: 1, createdAt: -1 });
 
-export default mongoose.models.BlogPostRevision ||
-  mongoose.model<IBlogPostRevision>(
-    "BlogPostRevision",
-    BlogPostRevisionSchema,
-  );
+export default (mongoose.models.BlogPostRevision as
+  Model<IBlogPostRevision> | undefined) ||
+  mongoose.model<IBlogPostRevision>("BlogPostRevision", BlogPostRevisionSchema);

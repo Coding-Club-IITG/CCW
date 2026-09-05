@@ -4,6 +4,10 @@ import { Check, X as IconX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
+import { expectAppData } from "@/lib/api/result";
+import type { EditableBlogPost } from "@/lib/blog/types";
+import { DEFAULT_IMAGE_FOCAL_POINT } from "@/lib/imageFocalPoint";
+import { formatDateTime } from "@/lib/utils";
 import BlogEditor, { BlogEditorData } from "@/components/blog/BlogEditor";
 import BlogEditorHeading from "@/components/blog/BlogEditorHeading";
 import BlogEditorToolbar from "@/components/blog/BlogEditorToolbar";
@@ -14,41 +18,9 @@ import Button from "@/components/shared/Button";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import InlineNotice from "@/components/shared/InlineNotice";
 import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
-import { expectAppData } from "@/lib/api/result";
-import type { BlogStatus } from "@/lib/constants";
-import {
-  DEFAULT_IMAGE_FOCAL_POINT,
-  type ImageFocalPoint,
-} from "@/lib/imageFocalPoint";
-import { formatDateTime } from "@/lib/utils";
 
 interface Props {
   params: Promise<{ slug: string }>;
-}
-
-interface RevisionData {
-  title: string;
-  content: string;
-  excerpt: string;
-  coverImage: string;
-  coverFocalPoint?: ImageFocalPoint;
-  tags: string[];
-  updatedAt: string;
-  submittedAt: string | null;
-}
-
-interface EditablePost {
-  title: string;
-  content: string;
-  excerpt: string;
-  coverImage: string;
-  coverFocalPoint?: ImageFocalPoint;
-  tags: string[];
-  status: BlogStatus;
-  authors: { userId: string; name: string }[];
-  slug: string;
-  updatedAt: string;
-  pendingRevision?: RevisionData | null;
 }
 
 type ReviewAction = "approve" | "reject";
@@ -61,7 +33,7 @@ interface Notice {
 export default function EditBlogPostPage({ params }: Props) {
   const { slug } = use(params);
   const router = useRouter();
-  const [post, setPost] = useState<EditablePost | null>(null);
+  const [post, setPost] = useState<EditableBlogPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reviewAction, setReviewAction] = useState<ReviewAction | null>(null);
@@ -245,19 +217,11 @@ export default function EditBlogPostPage({ params }: Props) {
 
       {historyModalOpen && (
         <RevisionHistoryModal
-          isOpen={historyModalOpen}
+          key={slug}
           onClose={() => setHistoryModalOpen(false)}
           slug={slug}
-          livePost={{
-            title: post.title,
-            content: post.content,
-            excerpt: post.excerpt,
-            coverImage: post.coverImage,
-            coverFocalPoint: post.coverFocalPoint,
-            tags: post.tags,
-          }}
-          endpointPrefix="/api/admin/blog"
-          userRole="admin"
+          livePost={post}
+          mode="admin"
           onRestoreSuccess={(restoredPost) => {
             setPost(restoredPost);
             setNotice({

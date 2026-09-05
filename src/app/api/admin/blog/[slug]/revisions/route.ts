@@ -6,12 +6,9 @@ import { NextRequest } from "next/server";
 
 import { requireHead } from "@/lib/api/auth";
 import { parseRouteParams } from "@/lib/api/result";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { jsonError, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
-import {
-  getPostRevisionByVersion,
-  getPostRevisionSummaries,
-} from "@/lib/blog/revisions";
+import { readPostRevisions } from "@/lib/blog/revisions";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
@@ -36,23 +33,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return jsonError("NOT_FOUND", "Blog post not found.");
     }
 
-    const { searchParams } = new URL(request.url);
-    const versionParam = searchParams.get("version");
-
-    if (versionParam !== null) {
-      const version = parseInt(versionParam, 10);
-      if (isNaN(version) || version < 1) {
-        return jsonError("VALIDATION_ERROR", "Invalid version number.");
-      }
-      const revision = await getPostRevisionByVersion(post, version);
-      if (!revision) {
-        return jsonError("NOT_FOUND", "Revision not found.");
-      }
-      return jsonOk({ revision });
-    }
-
-    const revisions = await getPostRevisionSummaries(post);
-    return jsonOk({ revisions });
+    return jsonResult(
+      await readPostRevisions(post, request.nextUrl.searchParams),
+    );
   } catch (err) {
     logger.error("Admin blog revisions lookup failed", {
       route: "GET /api/admin/blog/[slug]/revisions",

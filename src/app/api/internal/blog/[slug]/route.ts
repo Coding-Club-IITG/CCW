@@ -9,17 +9,14 @@ import {
   summarizePublicContent,
 } from "@/lib/audit/summary";
 import {
-  err as appError,
-  ok,
   parseJson,
   parseRouteParams,
   type AppErrorCode,
 } from "@/lib/api/result";
+import { requireBlogEditor } from "@/lib/blog/access";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
 import { invalidateCache } from "@/lib/cache";
-import dbConnect from "@/lib/mongodb";
 import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/tagUtils";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
@@ -95,22 +92,6 @@ class BlogRouteError extends Error {
   }
 }
 
-async function getAuthorizedDraft(request: NextRequest, slug: string) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
-
-  await dbConnect();
-  const post = await BlogPost.findOne({ slug });
-  if (!post) return appError("NOT_FOUND", "Post not found.");
-
-  const user = session.user;
-  if (!canEditBlogDraft(user, post)) {
-    return appError("FORBIDDEN", "Forbidden");
-  }
-
-  return ok({ post, user });
-}
-
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const validatedParams = parseRouteParams(
@@ -119,7 +100,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
-    const result = await getAuthorizedDraft(request, slug);
+    const result = await requireBlogEditor(request, slug);
     if (!result.ok) return jsonResult(result);
 
     return jsonOk({ post: result.data.post.toObject() });
@@ -141,7 +122,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
-    const result = await getAuthorizedDraft(request, slug);
+    const result = await requireBlogEditor(request, slug);
     if (!result.ok) return jsonResult(result);
 
     const parsedBody = await parseJson(request, memberBlogPatchSchema);
@@ -306,7 +287,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
-    const result = await getAuthorizedDraft(request, slug);
+    const result = await requireBlogEditor(request, slug);
     if (!result.ok) return jsonResult(result);
 
     const dbSession = await mongoose.startSession();

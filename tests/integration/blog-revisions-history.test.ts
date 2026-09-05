@@ -186,9 +186,8 @@ describe("blog revision history lifecycle", () => {
   });
 
   it("records version 3 when admin approves a member staged revision", async () => {
-    const revisionRoute = await import(
-      "@/app/api/admin/blog/[slug]/revision/route"
-    );
+    const revisionRoute =
+      await import("@/app/api/admin/blog/[slug]/revision/route");
     const post = await BlogPost.create(
       blogPost({
         slug: "workflow-post",
@@ -267,9 +266,8 @@ describe("blog revision history lifecycle", () => {
   });
 
   it("supports listing revisions and fetching specific version via admin endpoint", async () => {
-    const revisionsRoute = await import(
-      "@/app/api/admin/blog/[slug]/revisions/route"
-    );
+    const revisionsRoute =
+      await import("@/app/api/admin/blog/[slug]/revisions/route");
     const post = await BlogPost.create(
       blogPost({
         slug: "list-revisions-post",
@@ -300,7 +298,9 @@ describe("blog revision history lifecycle", () => {
     ]);
 
     const listRes = await revisionsRoute.GET(
-      new NextRequest("http://localhost/api/admin/blog/list-revisions-post/revisions"),
+      new NextRequest(
+        "http://localhost/api/admin/blog/list-revisions-post/revisions",
+      ),
       context("list-revisions-post"),
     );
     expect(listRes.status).toBe(200);
@@ -326,9 +326,8 @@ describe("blog revision history lifecycle", () => {
   });
 
   it("allows admin to restore live post to an earlier version", async () => {
-    const restoreRoute = await import(
-      "@/app/api/admin/blog/[slug]/revisions/[version]/restore/route"
-    );
+    const restoreRoute =
+      await import("@/app/api/admin/blog/[slug]/revisions/[version]/restore/route");
     const post = await BlogPost.create(
       blogPost({
         slug: "restore-post",
@@ -399,12 +398,10 @@ describe("blog revision history lifecycle", () => {
   });
 
   it("allows author to load historical version into draft staging without affecting live post", async () => {
-    const internalRevisionsRoute = await import(
-      "@/app/api/internal/blog/[slug]/revisions/route"
-    );
-    const internalRestoreRoute = await import(
-      "@/app/api/internal/blog/[slug]/revisions/[version]/restore/route"
-    );
+    const internalRevisionsRoute =
+      await import("@/app/api/internal/blog/[slug]/revisions/route");
+    const internalRestoreRoute =
+      await import("@/app/api/internal/blog/[slug]/revisions/[version]/restore/route");
 
     const post = await BlogPost.create(
       blogPost({
@@ -449,7 +446,9 @@ describe("blog revision history lifecycle", () => {
     });
 
     const listRes = await internalRevisionsRoute.GET(
-      new NextRequest("http://localhost/api/internal/blog/author-restore-post/revisions"),
+      new NextRequest(
+        "http://localhost/api/internal/blog/author-restore-post/revisions",
+      ),
       context("author-restore-post"),
     );
     expect(listRes.status).toBe(200);
@@ -467,9 +466,12 @@ describe("blog revision history lifecycle", () => {
       },
     );
     expect(restoreRes.status).toBe(200);
+    expect(invalidateCache).toHaveBeenCalledWith("admin:blog");
 
     // Verify live post is unchanged
-    const livePost = await BlogPost.findOne({ slug: "author-restore-post" }).lean();
+    const livePost = await BlogPost.findOne({
+      slug: "author-restore-post",
+    }).lean();
     expect(livePost?.title).toBe("Live Version 2 Title");
     expect(livePost?.content).toBe("Live Version 2 Content");
 
@@ -484,9 +486,8 @@ describe("blog revision history lifecycle", () => {
   });
 
   it("denies access to non-authors and non-admins", async () => {
-    const internalRevisionsRoute = await import(
-      "@/app/api/internal/blog/[slug]/revisions/route"
-    );
+    const internalRevisionsRoute =
+      await import("@/app/api/internal/blog/[slug]/revisions/route");
     await BlogPost.create(
       blogPost({
         slug: "protected-post",
@@ -505,7 +506,9 @@ describe("blog revision history lifecycle", () => {
     });
 
     const res = await internalRevisionsRoute.GET(
-      new NextRequest("http://localhost/api/internal/blog/protected-post/revisions"),
+      new NextRequest(
+        "http://localhost/api/internal/blog/protected-post/revisions",
+      ),
       context("protected-post"),
     );
     expect(res.status).toBe(403);
@@ -551,6 +554,145 @@ describe("blog revision history lifecycle", () => {
       postId: post._id,
     }).lean();
     expect(remainingRevisions).toHaveLength(0);
+  });
+  it("records authors-only edits and skips identical saves", async () => {
+    const route = await import("@/app/api/admin/blog/[slug]/route");
+    const post = await BlogPost.create(
+      blogPost({
+        slug: "authors-only",
+        status: "published",
+        authors: [{ userId: BLOG_ADMIN_ID, name: "Blog Admin" }],
+      }),
+    );
+    const initialAuthors = post.authors.toObject();
+    const authors = [
+      { userId: BLOG_ADMIN_ID.toString(), name: "Blog Admin" },
+      { userId: BLOG_AUTHOR_ID.toString(), name: "Coauthor" },
+    ];
+    for (let save = 0; save < 2; save++) {
+      const response = await route.PATCH(
+        jsonRequest("/api/admin/blog/authors-only", "PATCH", { authors }),
+        context(post.slug),
+      );
+      expect(response.status).toBe(200);
+    }
+    const revisions = await BlogPostRevision.find({ postId: post._id })
+      .sort({ version: 1 })
+      .lean();
+    expect(revisions).toHaveLength(2);
+    expect(revisions[0].authors).toEqual(initialAuthors);
+    expect(revisions[1].authors.map((author) => String(author.userId))).toEqual(
+      authors.map((author) => author.userId),
+    );
+  });
+
+  it("paginates stored metadata and fetches content independently of the page", async () => {
+    const route = await import("@/app/api/admin/blog/[slug]/revisions/route");
+    const post = await BlogPost.create(
+      blogPost({ slug: "paged-history", status: "published" }),
+    );
+    await BlogPostRevision.create(
+      Array.from({ length: 25 }, (_, index) => ({
+        postId: post._id,
+        slug: post.slug,
+        version: index + 1,
+        title: `Version ${index + 1}`,
+        content: `Body ${index + 1}`,
+        editor: { userId: BLOG_ADMIN_ID, name: "Admin" },
+        source: "admin_edit" as const,
+      })),
+    );
+    const get = async (query: string) =>
+      responseData(
+        await route.GET(
+          new NextRequest(
+            `http://localhost/api/admin/blog/paged-history/revisions${query}`,
+          ),
+          context(post.slug),
+        ),
+      );
+    const first = await get("");
+    expect(first.revisions).toHaveLength(20);
+    expect(first.pagination).toMatchObject({
+      page: 1,
+      total: 25,
+      totalPages: 2,
+      hasNext: true,
+    });
+    expect(first.revisions[0].version).toBe(25);
+    expect(first.revisions[0]).not.toHaveProperty("content");
+    expect(first.revisions[0]).not.toHaveProperty("contentLength");
+    const second = await get("?page=2");
+    expect(
+      second.revisions.map((revision: { version: number }) => revision.version),
+    ).toEqual([5, 4, 3, 2, 1]);
+    expect((await get("?version=5")).revision.content).toBe("Body 5");
+    expect((await get("?limit=1000")).pagination.limit).toBe(100);
+  });
+
+  it("paginates legacy history without repeating the synthetic baseline", async () => {
+    const route = await import("@/app/api/admin/blog/[slug]/revisions/route");
+    const post = await BlogPost.create(
+      blogPost({ slug: "legacy-pagination", status: "published" }),
+    );
+    const get = async (query: string) =>
+      responseData(
+        await route.GET(
+          new NextRequest(
+            `http://localhost/api/admin/blog/legacy-pagination/revisions${query}`,
+          ),
+          context(post.slug),
+        ),
+      );
+    const first = await get("");
+    expect(first.revisions).toHaveLength(1);
+    expect(first.pagination.total).toBe(1);
+    expect((await get("?page=2")).revisions).toEqual([]);
+    expect(await BlogPostRevision.countDocuments({ postId: post._id })).toBe(0);
+  });
+
+  it.each(["1abc", "1.5", "0", "", "9007199254740992", "1&version=2"])(
+    "rejects invalid version query %s in both history endpoints",
+    async (version) => {
+      const admin = await import("@/app/api/admin/blog/[slug]/revisions/route");
+      const internal =
+        await import("@/app/api/internal/blog/[slug]/revisions/route");
+      const post = await BlogPost.create(
+        blogPost({ slug: "invalid-version", status: "published" }),
+      );
+      for (const route of [admin, internal]) {
+        const response = await route.GET(
+          new NextRequest(
+            `http://localhost/api/admin/blog/invalid-version/revisions?version=${version}`,
+          ),
+          context(post.slug),
+        );
+        expect(response.status).toBe(400);
+        expect((await responseError(response)).code).toBe("VALIDATION_ERROR");
+      }
+    },
+  );
+
+  it("returns field validation for oversized change summaries without writing", async () => {
+    const route = await import("@/app/api/admin/blog/[slug]/route");
+    const post = await BlogPost.create(
+      blogPost({ slug: "summary-validation", status: "published" }),
+    );
+    const response = await route.PATCH(
+      jsonRequest("/api/admin/blog/summary-validation", "PATCH", {
+        content: "Changed",
+        changeSummary: "x".repeat(501),
+      }),
+      context(post.slug),
+    );
+    expect(response.status).toBe(400);
+    expect((await responseError(response)).fields).toHaveProperty(
+      "changeSummary",
+    );
+    expect((await BlogPost.findById(post._id).lean())?.content).toBe(
+      post.content,
+    );
+    expect(await BlogPostRevision.countDocuments({ postId: post._id })).toBe(0);
   });
 });
 

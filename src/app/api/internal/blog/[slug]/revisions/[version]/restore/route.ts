@@ -4,56 +4,30 @@
 
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
-import { z } from "zod";
 
-import { canEditBlogDraft } from "@/lib/access/blog";
 import { auditActor, auditedTransaction } from "@/lib/audit";
 import { summarizeBlogRevision } from "@/lib/audit/summary";
-import {
-  err as appError,
-  ok,
-  parseRouteParams,
-} from "@/lib/api/result";
+import { parseRouteParams } from "@/lib/api/result";
+import { requireBlogEditor } from "@/lib/blog/access";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { auth } from "@/lib/auth";
+import { blogRevisionParamsSchema } from "@/lib/blog/schemas";
+import { invalidateCache } from "@/lib/cache";
 import { getPostRevisionByVersion } from "@/lib/blog/revisions";
-import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 
-const restoreParamsSchema = z.object({
-  slug: z.string().trim().min(1),
-  version: z.coerce.number().int().min(1),
-});
-
 type RouteContext = { params: Promise<{ slug: string; version: string }> };
-
-async function getAuthorizedDraft(request: NextRequest, slug: string) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
-
-  await dbConnect();
-  const post = await BlogPost.findOne({ slug });
-  if (!post) return appError("NOT_FOUND", "Post not found.");
-
-  const user = session.user;
-  if (!canEditBlogDraft(user, post)) {
-    return appError("FORBIDDEN", "Forbidden");
-  }
-
-  return ok({ post, user });
-}
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const validatedParams = parseRouteParams(
       await context.params,
-      restoreParamsSchema,
+      blogRevisionParamsSchema,
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug, version: targetVersion } = validatedParams.data;
 
-    const authResult = await getAuthorizedDraft(request, slug);
+    const authResult = await requireBlogEditor(request, slug);
     if (!authResult.ok) return jsonResult(authResult);
     const { post, user } = authResult.data;
 
@@ -127,6 +101,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       await dbSession.endSession();
     }
 
+    await invalidateCache("admin:blog");
     return jsonOk({ post: saved.toObject() });
   } catch (err: unknown) {
     logger.error("Author blog draft restore failed", {

@@ -5,6 +5,7 @@ import {
 import Link from "next/link";
 
 import BackLink from "@/components/shared/BackLink";
+import Button from "@/components/shared/Button";
 
 import styles from "./BlogEditorToolbar.module.scss";
 
@@ -13,7 +14,6 @@ interface BlogEditorToolbarProps {
   backLabel: string;
   liveHref?: string;
   onOpenHistory?: () => void;
-  revisionCount?: number;
 }
 
 export default function BlogEditorToolbar({
@@ -21,25 +21,16 @@ export default function BlogEditorToolbar({
   backLabel,
   liveHref,
   onOpenHistory,
-  revisionCount,
 }: BlogEditorToolbarProps) {
   return (
     <nav className={styles.toolbar} aria-label="Blog editor navigation">
       <BackLink href={backHref} label={backLabel} />
       <div className={styles.actions}>
         {onOpenHistory && (
-          <button
-            type="button"
-            className={styles.historyBtn}
-            onClick={onOpenHistory}
-            aria-label="View revision history"
-          >
-            <IconHistory width={14} height={14} />
+          <Button size="small" onClick={onOpenHistory}>
+            <IconHistory width={14} height={14} aria-hidden="true" />
             Revision history
-            {revisionCount !== undefined && revisionCount > 0
-              ? ` (${revisionCount})`
-              : ""}
-          </button>
+          </Button>
         )}
         {liveHref && (
           <Link

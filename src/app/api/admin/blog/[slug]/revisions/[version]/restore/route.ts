@@ -5,7 +5,6 @@
 import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
-import { z } from "zod";
 
 import { requireHead } from "@/lib/api/auth";
 import { parseRouteParams } from "@/lib/api/result";
@@ -16,15 +15,11 @@ import {
   getPostRevisionByVersion,
   recordRevisionSnapshot,
 } from "@/lib/blog/revisions";
+import { blogRevisionParamsSchema } from "@/lib/blog/schemas";
 import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
-
-const restoreParamsSchema = z.object({
-  slug: z.string().trim().min(1),
-  version: z.coerce.number().int().min(1),
-});
 
 type RouteContext = { params: Promise<{ slug: string; version: string }> };
 
@@ -36,7 +31,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const validatedParams = parseRouteParams(
       await context.params,
-      restoreParamsSchema,
+      blogRevisionParamsSchema,
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug, version: targetVersion } = validatedParams.data;
@@ -121,7 +116,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return jsonOk({ post: saved.toObject() });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error.";
+    const message =
+      err instanceof Error ? err.message : "Internal server error.";
     if (message.includes("not found")) {
       return jsonError("NOT_FOUND", message);
     }

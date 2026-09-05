@@ -1,10 +1,7 @@
 import { Types } from "mongoose";
 import { describe, expect, it } from "vitest";
 
-import {
-  serializeRevision,
-  serializeRevisionSummary,
-} from "./revisions";
+import { serializeRevision, serializeRevisionSummary } from "./revisions";
 
 describe("serializeRevision", () => {
   it("serializes revision document fields properly", () => {
@@ -28,7 +25,7 @@ describe("serializeRevision", () => {
       authors: [{ userId: fakeUserId, name: "Author One" }],
       editor: { userId: fakeUserId, name: "Author One" },
       approvedBy: { userId: fakeAdminId, name: "Admin One" },
-      source: "approved_revision",
+      source: "approved_revision" as const,
       restoredFromVersion: null,
       changeSummary: "Fixed typos in section 2",
       createdAt,
@@ -70,7 +67,7 @@ describe("serializeRevision", () => {
       version: 1,
       title: "Minimal Title",
       editor: { userId: fakeUserId, name: "Minimal User" },
-      source: "initial_publish",
+      source: "initial_publish" as const,
       createdAt,
     };
 
@@ -99,7 +96,7 @@ describe("serializeRevision", () => {
 });
 
 describe("serializeRevisionSummary", () => {
-  it("omits full content and includes contentLength", () => {
+  it("omits Markdown and does not invent a length for projected content", () => {
     const fakeId = new Types.ObjectId();
     const fakePostId = new Types.ObjectId();
     const fakeUserId = new Types.ObjectId();
@@ -111,7 +108,6 @@ describe("serializeRevisionSummary", () => {
       slug: "summary-post",
       version: 3,
       title: "Summary Title",
-      content: "1234567890",
       excerpt: "A brief summary",
       coverImage: "",
       coverFocalPoint: { x: 0.5, y: 0.5 },
@@ -119,7 +115,7 @@ describe("serializeRevisionSummary", () => {
       authors: [{ userId: fakeUserId, name: "Author" }],
       editor: { userId: fakeUserId, name: "Author" },
       approvedBy: null,
-      source: "admin_edit",
+      source: "admin_edit" as const,
       restoredFromVersion: null,
       changeSummary: null,
       createdAt,
@@ -128,7 +124,7 @@ describe("serializeRevisionSummary", () => {
     const summary = serializeRevisionSummary(raw);
 
     expect(summary).not.toHaveProperty("content");
-    expect(summary.contentLength).toBe(10);
+    expect(summary).not.toHaveProperty("contentLength");
     expect(summary.version).toBe(3);
     expect(summary.slug).toBe("summary-post");
   });

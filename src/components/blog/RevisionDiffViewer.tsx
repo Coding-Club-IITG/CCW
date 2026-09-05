@@ -12,11 +12,12 @@ import {
 import type { ReactNode } from "react";
 import { useId, useMemo, useState } from "react";
 
-import FocalImage from "@/components/shared/FocalImage";
+import type { BlogContent, BlogSnapshot } from "@/lib/blog/types";
 import {
   parseImageFocalPoint,
   type ImageFocalPoint,
 } from "@/lib/imageFocalPoint";
+import FocalImage from "@/components/shared/FocalImage";
 
 import styles from "./RevisionDiffViewer.module.scss";
 import { computeLineDiff, prepareLineDiff } from "./revisionDiff";
@@ -25,22 +26,8 @@ export { computeLineDiff } from "./revisionDiff";
 export type { DiffLine } from "./revisionDiff";
 
 interface RevisionDiffViewerProps {
-  livePost: {
-    title: string;
-    content: string;
-    excerpt?: string;
-    tags?: string[];
-    coverImage?: string;
-    coverFocalPoint?: ImageFocalPoint;
-  };
-  revision: {
-    title?: string;
-    content?: string;
-    excerpt?: string;
-    tags?: string[];
-    coverImage?: string;
-    coverFocalPoint?: ImageFocalPoint;
-  };
+  livePost: Pick<BlogContent, "title" | "content"> & Partial<BlogSnapshot>;
+  revision: Partial<BlogSnapshot>;
   baseLabel?: string;
   compareLabel?: string;
   title?: string;
@@ -237,7 +224,7 @@ export default function RevisionDiffViewer({
                       <FocalImage
                         className={styles.coverImage}
                         src={proposedCoverImage}
-                        alt="Proposed cover preview"
+                        alt={`${compareLabel} cover preview`}
                         width={640}
                         height={400}
                         focalPoint={proposedFocalPoint}
@@ -324,7 +311,7 @@ export default function RevisionDiffViewer({
 
       {totalChanges === 0 && (
         <p className={styles.noChanges}>
-          No field differences detected between the live post and revision.
+          No field differences detected between {baseLabel} and {compareLabel}.
         </p>
       )}
     </section>

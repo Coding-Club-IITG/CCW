@@ -1,263 +1,187 @@
 @use "@/styles/mixins" as *;
 
+@include kf-spin;
+
 .container {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 1.25rem;
-  min-height: 480px;
-  max-height: 75vh;
+  height: min(65vh, 680px);
+  min-height: 320px;
 }
 
 .timelinePane {
   display: flex;
   flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  min-width: 0;
   border-right: 1px solid var(--border);
   padding-right: 1rem;
-  overflow-y: auto;
 }
 
-.timelineHeader {
+.timelineHeader,
+.itemHeader,
+.detailHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
-
-  h3 {
-    margin: 0;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--foreground-strong);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
+  gap: 0.5rem;
 }
 
-.countBadge {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.75rem;
-  color: var(--muted);
+.timelineHeader h3 {
+  @include micro-label($text-xs);
+}
+
+.metadata {
+  @include metadata($text-2xs);
+  overflow-wrap: anywhere;
 }
 
 .revisionList {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .revisionItem {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.375rem;
+  width: 100%;
   padding: 0.75rem;
-  background: var(--surface-secondary);
+  color: var(--foreground);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 0;
-  cursor: pointer;
   text-align: left;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+  @include focus-ring;
 
   &:hover {
     background: var(--surface-hover);
-    border-color: var(--border-hover);
+    border-color: var(--muted);
   }
 
   &.selected {
-    background: var(--surface);
+    background: var(--primary-alpha);
     border-color: var(--primary);
-    box-shadow: inset 3px 0 0 var(--primary);
+    box-shadow: inset 2px 0 0 var(--primary);
   }
 }
 
 .itemHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  width: 100%;
 }
 
 .versionTag {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
+  @include micro-label($text-sm, 0.04em, var(--foreground-strong));
 }
 
 .sourceBadge {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  padding: 0.125rem 0.375rem;
-  border-radius: 2px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-
-  &.initial_publish {
-    background: rgba(59, 130, 246, 0.15);
-    color: #3b82f6;
-  }
-
-  &.admin_edit {
-    background: rgba(168, 85, 247, 0.15);
-    color: #a855f7;
-  }
-
-  &.approved_revision {
-    background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
-  }
-
-  &.rollback {
-    background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
-  }
+  @include badge-neutral;
 }
 
+.initial_publish {
+  @include badge-info;
+}
+
+.approved_revision,
 .liveBadge {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  padding: 0.125rem 0.375rem;
-  background: var(--primary);
-  color: #fff;
-  border-radius: 2px;
+  @include badge-success;
 }
 
-.metaRow {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  font-size: 0.75rem;
-  color: var(--muted);
+.rollback {
+  @include badge-warning;
 }
 
 .editorInfo {
-  color: var(--foreground);
-  font-weight: 500;
-}
-
-.approverInfo {
-  font-size: 0.6875rem;
-  color: var(--muted);
-}
-
-.timeInfo {
-  font-size: 0.6875rem;
-  color: var(--muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
 }
 
 .summaryText {
   font-size: 0.75rem;
-  font-style: italic;
-  color: var(--muted-strong);
-  margin-top: 0.25rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .detailPane {
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
   min-width: 0;
+  overflow-y: auto;
 }
 
 .detailHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 0.75rem;
-  padding-bottom: 0.75rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 1rem;
 }
 
 .detailInfo {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+  min-width: 0;
+  flex: 1 1 180px;
 
-  h4 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--foreground-strong);
+  h3 {
+    @include card-title(15px);
+  }
+
+  p {
+    margin-top: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
   }
 }
 
-.detailActions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.comparisonControls {
+  margin: 1rem 0;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
-.modeSelector {
-  display: flex;
-  background: var(--surface-secondary);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-.modeBtn {
-  padding: 0.375rem 0.625rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--muted);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
-
-  &:hover {
-    color: var(--foreground);
-  }
-
-  &.active {
-    color: var(--foreground-strong);
-    background: var(--surface);
-    font-weight: 600;
-  }
-}
-
-.diffScrollArea {
-  flex: 1;
-  overflow-y: auto;
+.diffArea {
+  min-width: 0;
 }
 
 .rawContent {
   padding: 1rem;
   background: var(--surface-secondary);
   border: 1px solid var(--border);
-  font-family: var(--font-mono, monospace);
-  font-size: 0.8125rem;
+  @include metadata($text-sm, var(--foreground));
   white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.5;
-  color: var(--foreground);
-  max-height: 500px;
-  overflow-y: auto;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
 }
 
-.loadingBox,
-.emptyBox {
+.loadingBox {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 240px;
+  min-height: 160px;
   gap: 0.75rem;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .spinner {
+  flex-shrink: 0;
   @include spinner(0.8s);
 }
 
 @media (max-width: 768px) {
   .container {
-    grid-template-columns: 1fr;
-    max-height: none;
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
   }
 
   .timelinePane {
@@ -265,6 +189,9 @@
     border-bottom: 1px solid var(--border);
     padding-right: 0;
     padding-bottom: 1rem;
+  }
+
+  .revisionList {
     max-height: 220px;
   }
 }

@@ -1,172 +1,112 @@
-import mongoose, { type ClientSession, Types } from "mongoose";
+import { type ClientSession, Types } from "mongoose";
 
+import { err, ok, parseSearchParams, type AppResult } from "@/lib/api/result";
+import type { BlogRevisionSource } from "@/lib/constants";
+import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
 import {
-  DEFAULT_IMAGE_FOCAL_POINT,
-  parseImageFocalPoint,
-  type ImageFocalPoint,
-} from "@/lib/imageFocalPoint";
-import BlogPost, { type IBlogPost } from "@/models/BlogPost";
+  paginatedResponse,
+  parsePagination,
+  type PaginationParams,
+} from "@/lib/pagination";
+import type { IBlogPost } from "@/models/BlogPost";
 import BlogPostRevision, {
-  type BlogRevisionSource,
   type IBlogPostRevision,
 } from "@/models/BlogPostRevision";
 
-export interface BlogRevisionUserDto {
-  userId: string;
-  name: string;
-}
+import { blogRevisionQuerySchema } from "./schemas";
+import type {
+  BlogContent,
+  BlogPerson,
+  BlogRevisionDto,
+  BlogRevisionListDto,
+  BlogRevisionSummaryDto,
+} from "./types";
 
-export interface BlogRevisionDto {
-  _id: string;
-  postId: string;
-  slug: string;
-  version: number;
-  title: string;
-  content: string;
-  excerpt: string;
-  coverImage: string;
-  coverFocalPoint: ImageFocalPoint;
-  tags: string[];
-  authors: BlogRevisionUserDto[];
-  editor: BlogRevisionUserDto;
-  approvedBy: BlogRevisionUserDto | null;
-  source: BlogRevisionSource;
-  restoredFromVersion: number | null;
-  changeSummary: string | null;
-  createdAt: string;
-}
-
-export interface BlogRevisionSummaryDto {
-  _id: string;
-  postId: string;
-  slug: string;
-  version: number;
-  title: string;
-  excerpt: string;
-  coverImage: string;
-  coverFocalPoint: ImageFocalPoint;
-  tags: string[];
-  authors: BlogRevisionUserDto[];
-  editor: BlogRevisionUserDto;
-  approvedBy: BlogRevisionUserDto | null;
-  source: BlogRevisionSource;
-  restoredFromVersion: number | null;
-  changeSummary: string | null;
-  contentLength: number;
-  createdAt: string;
-}
-
-export interface RecordRevisionParams {
-  post: {
-    _id: Types.ObjectId | string;
-    slug: string;
-    title: string;
-    content?: string;
-    excerpt?: string;
-    coverImage?: string;
-    coverFocalPoint?: ImageFocalPoint;
-    tags?: string[];
-    authors?: { userId: Types.ObjectId | string; name: string }[];
+type Id = Types.ObjectId | string;
+type SnapshotInput = Pick<BlogContent, "title"> &
+  Partial<Omit<BlogContent, "title">> & {
+    authors?: BlogPerson<Id>[];
     publishedAt?: Date | null;
     createdAt?: Date;
   };
-  editor: {
-    userId: Types.ObjectId | string;
-    name: string;
-  };
-  approvedBy?: {
-    userId: Types.ObjectId | string;
-    name: string;
-  } | null;
+
+export interface RecordRevisionParams {
+  post: SnapshotInput & { _id: Id; slug: string };
+  editor: BlogPerson<Id>;
+  approvedBy?: BlogPerson<Id> | null;
   source: BlogRevisionSource;
   changeSummary?: string | null;
   restoredFromVersion?: number | null;
-  preEditState?: {
-    title: string;
-    content?: string;
-    excerpt?: string;
-    coverImage?: string;
-    coverFocalPoint?: ImageFocalPoint;
-    tags?: string[];
-    authors?: { userId: Types.ObjectId | string; name: string }[];
-    publishedAt?: Date | null;
-    createdAt?: Date;
-  } | null;
+  preEditState?: SnapshotInput | null;
 }
 
-function normalizeId(id: Types.ObjectId | string): Types.ObjectId {
-  return typeof id === "string" ? new Types.ObjectId(id) : id;
+type RevisionRecord = SnapshotInput &
+  Pick<
+    RecordRevisionParams,
+    "editor" | "approvedBy" | "source" | "restoredFromVersion" | "changeSummary"
+  > & {
+    _id: Id;
+    postId: Id;
+    slug: string;
+    version: number;
+    createdAt: Date;
+  };
+
+function serializePerson(person: BlogPerson<Id>): BlogPerson {
+  return { userId: String(person.userId), name: person.name };
 }
 
-function serializeUser(user: {
-  userId: unknown;
-  name: string;
-}): BlogRevisionUserDto {
+function snapshotMetadata(post: Omit<SnapshotInput, "content">) {
   return {
-    userId: String(user.userId),
-    name: user.name,
+    title: post.title,
+    excerpt: post.excerpt || "",
+    coverImage: post.coverImage || "",
+    coverFocalPoint: parseImageFocalPoint(post.coverFocalPoint),
+    tags: post.tags || [],
+    authors: (post.authors || []).map(serializePerson),
   };
 }
 
-export function serializeRevision(rev: any): BlogRevisionDto {
+function snapshotFields(post: SnapshotInput) {
+  return { ...snapshotMetadata(post), content: post.content || "" };
+}
+
+export function hasBlogSnapshotChanges(
+  before: SnapshotInput,
+  after: SnapshotInput,
+): boolean {
+  return (
+    JSON.stringify(snapshotFields(before)) !==
+    JSON.stringify(snapshotFields(after))
+  );
+}
+
+export function serializeRevisionSummary(
+  rev: Omit<RevisionRecord, "content">,
+): BlogRevisionSummaryDto {
   return {
+    ...snapshotMetadata(rev),
     _id: String(rev._id),
     postId: String(rev.postId),
     slug: rev.slug,
     version: rev.version,
-    title: rev.title,
-    content: rev.content || "",
-    excerpt: rev.excerpt || "",
-    coverImage: rev.coverImage || "",
-    coverFocalPoint: parseImageFocalPoint(rev.coverFocalPoint),
-    tags: rev.tags || [],
-    authors: (rev.authors || []).map(serializeUser),
-    editor: serializeUser(rev.editor),
-    approvedBy: rev.approvedBy ? serializeUser(rev.approvedBy) : null,
+    editor: serializePerson(rev.editor),
+    approvedBy: rev.approvedBy ? serializePerson(rev.approvedBy) : null,
     source: rev.source,
     restoredFromVersion: rev.restoredFromVersion ?? null,
     changeSummary: rev.changeSummary ?? null,
-    createdAt:
-      rev.createdAt instanceof Date
-        ? rev.createdAt.toISOString()
-        : new Date(rev.createdAt).toISOString(),
+    createdAt: rev.createdAt.toISOString(),
   };
 }
 
-export function serializeRevisionSummary(rev: any): BlogRevisionSummaryDto {
-  return {
-    _id: String(rev._id),
-    postId: String(rev.postId),
-    slug: rev.slug,
-    version: rev.version,
-    title: rev.title,
-    excerpt: rev.excerpt || "",
-    coverImage: rev.coverImage || "",
-    coverFocalPoint: parseImageFocalPoint(rev.coverFocalPoint),
-    tags: rev.tags || [],
-    authors: (rev.authors || []).map(serializeUser),
-    editor: serializeUser(rev.editor),
-    approvedBy: rev.approvedBy ? serializeUser(rev.approvedBy) : null,
-    source: rev.source,
-    restoredFromVersion: rev.restoredFromVersion ?? null,
-    changeSummary: rev.changeSummary ?? null,
-    contentLength: typeof rev.content === "string" ? rev.content.length : 0,
-    createdAt:
-      rev.createdAt instanceof Date
-        ? rev.createdAt.toISOString()
-        : new Date(rev.createdAt).toISOString(),
-  };
+export function serializeRevision(rev: RevisionRecord): BlogRevisionDto {
+  return { ...serializeRevisionSummary(rev), content: rev.content || "" };
 }
 
-/**
- * Persists an immutable revision snapshot inside a MongoDB transaction session.
- * Handles legacy posts by automatically seeding Version 1 from preEditState if needed.
- */
+/** Record a snapshot with the same transaction as its published post mutation */
 export async function recordRevisionSnapshot(
-  session: ClientSession | undefined,
-  params: RecordRevisionParams,
-): Promise<IBlogPostRevision> {
-  const {
+  session: ClientSession,
+  {
     post,
     editor,
     approvedBy,
@@ -174,62 +114,33 @@ export async function recordRevisionSnapshot(
     changeSummary,
     restoredFromVersion,
     preEditState,
-  } = params;
+  }: RecordRevisionParams,
+): Promise<IBlogPostRevision> {
+  const postId = new Types.ObjectId(post._id);
+  const latest = await BlogPostRevision.findOne({ postId })
+    .select("version")
+    .sort({ version: -1 })
+    .session(session)
+    .lean();
+  let nextVersion = latest ? latest.version + 1 : 1;
 
-  const postId = normalizeId(post._id);
-  const editorObj = {
-    userId: normalizeId(editor.userId),
-    name: editor.name,
-  };
-  const approvedByObj = approvedBy
-    ? {
-        userId: normalizeId(approvedBy.userId),
-        name: approvedBy.name,
-      }
-    : null;
-
-  // Find the highest existing version for this post
-  const query = BlogPostRevision.findOne({ postId }).sort({ version: -1 });
-  if (session) query.session(session);
-  const latest = await query.lean();
-
-  let nextVersion = 1;
-
-  if (latest) {
-    nextVersion = latest.version + 1;
-  } else if (source !== "initial_publish" && preEditState) {
-    // Legacy post with no existing revisions: seed Version 1 from preEditState
-    const baseAuthor =
-      preEditState.authors && preEditState.authors.length > 0
-        ? preEditState.authors[0]
-        : post.authors && post.authors.length > 0
-          ? post.authors[0]
-          : editor;
-
+  if (!latest && source !== "initial_publish" && preEditState) {
+    const baseAuthor = preEditState.authors?.[0] || post.authors?.[0] || editor;
     await BlogPostRevision.create(
       [
         {
+          ...snapshotFields({
+            ...preEditState,
+            authors: preEditState.authors || post.authors,
+          }),
           postId,
           slug: post.slug,
           version: 1,
-          title: preEditState.title,
-          content: preEditState.content || "",
-          excerpt: preEditState.excerpt || "",
-          coverImage: preEditState.coverImage || "",
-          coverFocalPoint: parseImageFocalPoint(preEditState.coverFocalPoint),
-          tags: preEditState.tags || [],
-          authors: (preEditState.authors || post.authors || []).map((a) => ({
-            userId: normalizeId(a.userId),
-            name: a.name,
-          })),
-          editor: {
-            userId: normalizeId(baseAuthor.userId),
-            name: baseAuthor.name,
-          },
+          editor: serializePerson(baseAuthor),
           approvedBy: null,
           source: "initial_publish",
           restoredFromVersion: null,
-          changeSummary: "Initial published version (auto-recorded)",
+          changeSummary: "Initial published version",
           createdAt:
             preEditState.publishedAt ||
             preEditState.createdAt ||
@@ -238,90 +149,74 @@ export async function recordRevisionSnapshot(
             new Date(),
         },
       ],
-      session ? { session } : undefined,
+      { session },
     );
-
     nextVersion = 2;
   }
 
   const [created] = await BlogPostRevision.create(
     [
       {
+        ...snapshotFields(post),
         postId,
         slug: post.slug,
         version: nextVersion,
-        title: post.title,
-        content: post.content || "",
-        excerpt: post.excerpt || "",
-        coverImage: post.coverImage || "",
-        coverFocalPoint: parseImageFocalPoint(post.coverFocalPoint),
-        tags: post.tags || [],
-        authors: (post.authors || []).map((a) => ({
-          userId: normalizeId(a.userId),
-          name: a.name,
-        })),
-        editor: editorObj,
-        approvedBy: approvedByObj,
+        editor: serializePerson(editor),
+        approvedBy: approvedBy ? serializePerson(approvedBy) : null,
         source,
         restoredFromVersion: restoredFromVersion ?? null,
         changeSummary: changeSummary ?? null,
         createdAt: new Date(),
       },
     ],
-    session ? { session } : undefined,
+    { session },
   );
-
   return created;
 }
 
-/**
- * Retrieve all revisions for a blog post (metadata summaries).
- * Synthesizes Version 1 for legacy posts if none exist in the database.
- */
-export async function getPostRevisionSummaries(
-  post: IBlogPost,
-): Promise<BlogRevisionSummaryDto[]> {
-  const revisions = await BlogPostRevision.find({ postId: post._id })
-    .select("-content")
-    .sort({ version: -1 })
-    .lean();
-
-  if (revisions.length === 0 && post.status === "published") {
-    // Synthesize Version 1 for legacy published post
-    const primaryAuthor =
-      post.authors && post.authors.length > 0
-        ? post.authors[0]
-        : { userId: new Types.ObjectId(), name: "Author" };
-
-    return [
-      {
-        _id: String(post._id),
-        postId: String(post._id),
-        slug: post.slug,
-        version: 1,
-        title: post.title,
-        excerpt: post.excerpt || "",
-        coverImage: post.coverImage || "",
-        coverFocalPoint: parseImageFocalPoint(post.coverFocalPoint),
-        tags: post.tags || [],
-        authors: (post.authors || []).map(serializeUser),
-        editor: serializeUser(primaryAuthor),
-        approvedBy: null,
-        source: "initial_publish",
-        restoredFromVersion: null,
-        changeSummary: "Initial published version",
-        contentLength: (post.content || "").length,
-        createdAt: (post.publishedAt || post.createdAt || new Date()).toISOString(),
-      },
-    ];
-  }
-
-  return revisions.map(serializeRevisionSummary);
+function legacyRevision(post: IBlogPost): RevisionRecord {
+  return {
+    ...snapshotFields(post),
+    _id: String(post._id),
+    postId: String(post._id),
+    slug: post.slug,
+    version: 1,
+    editor: post.authors[0] || { userId: "", name: "Author" },
+    source: "initial_publish",
+    changeSummary: "Initial published version",
+    createdAt: post.publishedAt || post.createdAt,
+  };
 }
 
-/**
- * Retrieve a specific revision with full content.
- */
+/** Paginate metadata without reading Markdown bodies */
+export async function getPostRevisionSummaries(
+  post: IBlogPost,
+  { page, limit, skip }: PaginationParams,
+): Promise<BlogRevisionListDto> {
+  const filter = { postId: post._id };
+  const [revisions, count] = await Promise.all([
+    BlogPostRevision.find(filter)
+      .select("-content")
+      .sort({ version: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    BlogPostRevision.countDocuments(filter),
+  ]);
+  const legacy = count === 0 && post.status === "published";
+  const summaries =
+    legacy && page === 1
+      ? [serializeRevisionSummary(legacyRevision(post))]
+      : revisions.map(serializeRevisionSummary);
+  const { items, pagination } = paginatedResponse(
+    summaries,
+    legacy ? 1 : count,
+    page,
+    limit,
+  );
+  return { revisions: items, pagination };
+}
+
 export async function getPostRevisionByVersion(
   post: IBlogPost,
   version: number,
@@ -330,37 +225,30 @@ export async function getPostRevisionByVersion(
     postId: post._id,
     version,
   }).lean();
-
-  if (!rev && version === 1 && post.status === "published") {
-    // Check if any other revisions exist
-    const count = await BlogPostRevision.countDocuments({ postId: post._id });
-    if (count === 0) {
-      const primaryAuthor =
-        post.authors && post.authors.length > 0
-          ? post.authors[0]
-          : { userId: new Types.ObjectId(), name: "Author" };
-
-      return {
-        _id: String(post._id),
-        postId: String(post._id),
-        slug: post.slug,
-        version: 1,
-        title: post.title,
-        content: post.content || "",
-        excerpt: post.excerpt || "",
-        coverImage: post.coverImage || "",
-        coverFocalPoint: parseImageFocalPoint(post.coverFocalPoint),
-        tags: post.tags || [],
-        authors: (post.authors || []).map(serializeUser),
-        editor: serializeUser(primaryAuthor),
-        approvedBy: null,
-        source: "initial_publish",
-        restoredFromVersion: null,
-        changeSummary: "Initial published version",
-        createdAt: (post.publishedAt || post.createdAt || new Date()).toISOString(),
-      };
-    }
+  if (rev) return serializeRevision(rev);
+  if (
+    version === 1 &&
+    post.status === "published" &&
+    !(await BlogPostRevision.exists({ postId: post._id }))
+  ) {
+    return serializeRevision(legacyRevision(post));
   }
+  return null;
+}
 
-  return rev ? serializeRevision(rev) : null;
+export async function readPostRevisions(
+  post: IBlogPost,
+  searchParams: URLSearchParams,
+): Promise<AppResult<BlogRevisionListDto | { revision: BlogRevisionDto }>> {
+  const query = parseSearchParams(searchParams, blogRevisionQuerySchema);
+  if (!query.ok) return query;
+  if (query.data.version !== undefined) {
+    const revision = await getPostRevisionByVersion(post, query.data.version);
+    return revision
+      ? ok({ revision })
+      : err("NOT_FOUND", "Revision not found.");
+  }
+  return ok(
+    await getPostRevisionSummaries(post, parsePagination(searchParams)),
+  );
 }

@@ -11,13 +11,8 @@
 .actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
-}
-
-.historyBtn {
-  @include btn-secondary($btn-sm);
-  flex-shrink: 0;
-  cursor: pointer;
 }
 
 .liveLink {

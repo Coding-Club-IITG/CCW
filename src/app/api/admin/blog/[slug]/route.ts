@@ -13,8 +13,12 @@ import { summarizePublicContent } from "@/lib/audit/summary";
 import { requireHead } from "@/lib/api/auth";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { jsonObjectSchema, slugParamsSchema } from "@/lib/api/schemas/boundary";
-import { recordRevisionSnapshot } from "@/lib/blog/revisions";
+import { slugParamsSchema } from "@/lib/api/schemas/boundary";
+import {
+  hasBlogSnapshotChanges,
+  recordRevisionSnapshot,
+} from "@/lib/blog/revisions";
+import { blogAdminPatchSchema } from "@/lib/blog/schemas";
 import { invalidateCache } from "@/lib/cache";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
@@ -84,7 +88,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return jsonError("NOT_FOUND", "Post not found.");
     }
 
-    const parsedBody = await parseJson(request, jsonObjectSchema);
+    const parsedBody = await parseJson(request, blogAdminPatchSchema);
     if (!parsedBody.ok) return jsonResult(parsedBody);
     const body = parsedBody.data;
     const wasPublished = post.status === "published";
@@ -185,15 +189,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         const wasAlreadyPublished =
           before.status === "published" && current.status === "published";
 
-        const contentFieldsChanged =
-          before.title !== current.title ||
-          before.content !== current.content ||
-          before.excerpt !== current.excerpt ||
-          before.coverImage !== current.coverImage ||
-          before.tags?.length !== current.tags?.length ||
-          before.tags?.some((t: string, i: number) => t !== current.tags[i]) ||
-          JSON.stringify(before.coverFocalPoint) !==
-            JSON.stringify(current.coverFocalPoint);
+        const contentFieldsChanged = hasBlogSnapshotChanges(before, current);
 
         if (isTransitionToPublished) {
           await recordRevisionSnapshot(transaction, {
@@ -209,10 +205,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             editor: { userId: user.id, name: user.name || "Unknown" },
             approvedBy: null,
             source: "admin_edit",
-            changeSummary:
-              typeof body.changeSummary === "string"
-                ? body.changeSummary
-                : "Direct admin update",
+            changeSummary: body.changeSummary || "Direct admin update",
             preEditState: before,
           });
         }
