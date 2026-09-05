@@ -44,7 +44,7 @@ export default function RecruitmentSchedule({
       >
         <div className={styles.schedule}>
           <div className={styles.axis}>
-            <span className={styles.meta}>Release schedule · IST</span>
+            <span className={styles.meta}>Release schedule</span>
             <div className={styles.axisTicks}>
               {schedule.ticks.map((tick) => (
                 <span key={tick.at} style={{ left: `${tick.position}%` }}>

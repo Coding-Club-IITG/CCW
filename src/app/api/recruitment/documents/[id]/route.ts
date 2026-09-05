@@ -31,7 +31,7 @@ export async function GET(
       recruitmentDocumentQuerySchema,
     );
     if (!query.ok) return jsonResult(query);
-    const { id } = params.data;
+    const id = params.data.id.toLowerCase();
     await dbConnect();
     const edition = await Recruitment.findOne({
       status: "published",

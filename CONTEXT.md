@@ -12,7 +12,6 @@ programming systems, content, administration, and background integrations.
 ## Major Features
 
 - **Public content:** Blogs, events, projects, and club team information.
-  Failed reads show a load error separately from the empty-edition state.
 - **Member workspace:** A dashboard, member profiles, shared files, and
   notifications, plus an internal calendar for general and module events.
 - **Competitive programming:** Platform profiles, contest rooms and
@@ -38,8 +37,8 @@ programming systems, content, administration, and background integrations.
 
 ## Repository Map
 
-- `src/app/(public)`: public pages such as blogs, events, projects, and team
-  information
+- `src/app/(public)`: public pages such as blogs, events, projects, team
+  information and recruitment
 - `src/app/(protected)`: authenticated internal and administrative pages
 - `src/app/api`: API route handlers
 - `src/components`: feature and shared React components

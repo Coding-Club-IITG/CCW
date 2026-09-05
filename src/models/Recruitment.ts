@@ -2,6 +2,8 @@ import mongoose, { Schema, type Types } from "mongoose";
 
 import {
   MODULES,
+  RECRUITMENT_MAX_YEAR,
+  RECRUITMENT_MIN_YEAR,
   RECRUITMENT_SEASONS,
   RECRUITMENT_STATUSES,
   type ModuleName,
@@ -73,8 +75,8 @@ const RecruitmentSchema = new Schema<IRecruitment>(
     year: {
       type: Number,
       required: true,
-      min: 2000,
-      max: 2200,
+      min: RECRUITMENT_MIN_YEAR,
+      max: RECRUITMENT_MAX_YEAR,
       validate: Number.isInteger,
     },
     season: { type: String, enum: RECRUITMENT_SEASONS, required: true },

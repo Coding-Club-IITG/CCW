@@ -1,12 +1,14 @@
 import { Types } from "mongoose";
 import { describe, expect, it } from "vitest";
 
+import { MAX_RECRUITMENT_SCHEDULE_TICKS } from "@/lib/constants";
 import Recruitment from "@/models/Recruitment";
 import { emptyRecruitmentModules } from "../../tests/fixtures/recruitment";
 
 import {
   buildRecruitmentSchedule,
   isDocumentReleased,
+  publicRecruitment,
   recruitmentStatus,
   serializeRecruitment,
 } from "./recruitment";
@@ -69,23 +71,21 @@ describe("recruitment release boundary", () => {
       releaseAt: new Date(future),
     };
     await edition.validate();
-    const publicData = serializeRecruitment(edition, "public", now);
+    const serialized = serializeRecruitment(edition);
+    const publicData = publicRecruitment(serialized, now);
     expect(publicData.modules[0].resources).toEqual({
       document: null,
       releaseAt: future,
     });
     expect(JSON.stringify(publicData)).not.toContain(String(file._id));
     expect(JSON.stringify(publicData)).not.toContain(file.originalName);
+    expect(serialized.modules[0].resources.document?._id).toBe(
+      String(file._id),
+    );
+    expect(JSON.stringify(serialized)).not.toContain(file.storedName);
     expect(
-      serializeRecruitment(edition, "admin", now).modules[0].resources.document
-        ?._id,
-    ).toBe(String(file._id));
-    expect(
-      JSON.stringify(serializeRecruitment(edition, "admin", now)),
-    ).not.toContain(file.storedName);
-    expect(
-      serializeRecruitment(edition, "public", new Date(future)).modules[0]
-        .resources.document?._id,
+      publicRecruitment(serialized, new Date(future)).modules[0].resources
+        .document?._id,
     ).toBe(String(file._id));
   });
 });
@@ -101,7 +101,7 @@ describe("optional scheduling and edition defaults", () => {
     await edition.validate();
     expect(edition.slug).toBe("2026-winter");
     expect(edition.label).toBe("2026 Winter");
-    expect(serializeRecruitment(edition, "admin").modules).toEqual(
+    expect(serializeRecruitment(edition).modules).toEqual(
       emptyRecruitmentModules(),
     );
   });
@@ -172,6 +172,18 @@ describe("recruitment schedule math", () => {
     const modules = emptyRecruitmentModules();
     modules[0].task.releaseAt = "invalid";
     expect(buildRecruitmentSchedule(modules)).toBeNull();
+  });
+  it("bounds tick rendering even for an old record with a mistyped year", () => {
+    const modules = emptyRecruitmentModules();
+    modules[0].resources.releaseAt = "0026-09-01T06:30:00.000Z";
+    modules[0].submissionDeadline = "2026-09-24T18:29:00.000Z";
+    const schedule = buildRecruitmentSchedule(modules)!;
+    expect(schedule.ticks.length).toBeGreaterThan(1);
+    expect(schedule.ticks.length).toBeLessThanOrEqual(
+      MAX_RECRUITMENT_SCHEDULE_TICKS,
+    );
+    expect(schedule.lanes[0].marks).toHaveLength(2);
+    expect(schedule.ticks.at(-1)!.position).toBeGreaterThan(80);
   });
 });
 

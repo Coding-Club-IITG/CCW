@@ -142,6 +142,9 @@ export type CalendarScope = (typeof CALENDAR_SCOPES)[number];
 
 export const RECRUITMENT_SEASONS = ["Summer", "Winter"] as const;
 export type RecruitmentSeason = (typeof RECRUITMENT_SEASONS)[number];
+export const RECRUITMENT_MIN_YEAR = 2000;
+export const RECRUITMENT_MAX_YEAR = 2200;
+export const MAX_RECRUITMENT_SCHEDULE_TICKS = 12;
 export const RECRUITMENT_STATUSES = ["draft", "published"] as const;
 export type RecruitmentStatus = (typeof RECRUITMENT_STATUSES)[number];
 export const RECRUITMENT_DOCUMENT_KINDS = ["resources", "task"] as const;

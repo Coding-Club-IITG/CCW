@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
           [{ ...parsed.data, createdBy: authorization.data.user.id }],
           { session },
         );
-        return { edition, result: serializeRecruitment(edition, "admin") };
+        return { edition, result: serializeRecruitment(edition) };
       },
     );
     await invalidateRecruitment();

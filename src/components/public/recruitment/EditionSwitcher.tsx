@@ -1,6 +1,6 @@
-import Link from "next/link";
-
 import type { RecruitmentDto } from "@/lib/recruitment";
+
+import FilterChips from "@/components/shared/FilterChips";
 
 import styles from "./Recruitment.module.scss";
 
@@ -13,18 +13,14 @@ export default function EditionSwitcher({
 }) {
   return (
     <div className={styles.switcher}>
-      <nav className={styles.pills} aria-label="Recruitment editions">
-        {editions.map((edition) => (
-          <Link
-            key={edition.slug}
-            href={`/recruitment?edition=${edition.slug}`}
-            aria-current={edition.slug === selected ? "page" : undefined}
-            className={styles.pill}
-          >
-            {edition.label}
-          </Link>
-        ))}
-      </nav>
+      <FilterChips
+        label="Recruitment editions"
+        options={editions.map((edition) => ({
+          label: edition.label,
+          href: `/recruitment?edition=${edition.slug}`,
+          active: edition.slug === selected,
+        }))}
+      />
     </div>
   );
 }

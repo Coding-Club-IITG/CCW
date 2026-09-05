@@ -37,6 +37,20 @@ describe("recruitment scheduling inputs", () => {
       }).success,
     ).toBe(false);
   });
+
+  it.each([
+    ["0026-09-01T06:30:00.000Z", false],
+    ["1999-12-31T18:29:59.999Z", false],
+    ["1999-12-31T18:30:00.000Z", true],
+    ["2200-12-31T18:29:59.999Z", true],
+    ["2200-12-31T18:30:00.000Z", false],
+  ])("bounds scheduling dates in IST: %s", (value, accepted) => {
+    expect(
+      patchRecruitmentSchema.safeParse({
+        modules: [{ module: MODULES[0], taskReleaseAt: value }],
+      }).success,
+    ).toBe(accepted);
+  });
 });
 
 describe("recruitment PDF inputs", () => {

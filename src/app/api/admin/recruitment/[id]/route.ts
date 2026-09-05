@@ -65,7 +65,7 @@ export async function PATCH(request: NextRequest, context: Context) {
         return {
           edition,
           before,
-          result: serializeRecruitment(edition, "admin"),
+          result: serializeRecruitment(edition),
         };
       },
     );

@@ -15,7 +15,8 @@ import {
   MODULE_ACCENTS,
   MODULE_BARS,
   RECRUITMENT_DOCUMENT_KINDS,
-  RECRUITMENT_SEASONS,
+  RECRUITMENT_MAX_YEAR,
+  RECRUITMENT_MIN_YEAR,
   type ModuleName,
   type RecruitmentDocumentKind,
   type RecruitmentSeason,
@@ -28,7 +29,9 @@ import {
 } from "@/lib/recruitment";
 
 import { useConfirm } from "@/components/shared/useConfirm";
+import InlineNotice from "@/components/shared/InlineNotice";
 
+import EditionFields from "../EditionFields";
 import styles from "../Recruitment.module.scss";
 
 function dateInput(value: string | null) {
@@ -64,6 +67,8 @@ function ScheduleField({
         <input
           id={id}
           type="datetime-local"
+          min={`${RECRUITMENT_MIN_YEAR}-01-01T00:00`}
+          max={`${RECRUITMENT_MAX_YEAR}-12-31T23:59`}
           value={input}
           disabled={busy}
           onChange={(event) => setInput(event.target.value)}
@@ -205,9 +210,9 @@ function UploadSlot({
         </div>
       )}
       {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
+        <div className={styles.feedback}>
+          <InlineNotice tone="error">{error}</InlineNotice>
+        </div>
       )}
     </div>
   );
@@ -315,34 +320,13 @@ export default function RecruitmentEditor({
           );
         }}
       >
-        <div className={styles.field}>
-          <label htmlFor="edition-year">Year</label>
-          <input
-            id="edition-year"
-            type="number"
-            min={2000}
-            max={2200}
-            required
-            value={year}
-            disabled={busy}
-            onChange={(event) => setYear(Number(event.target.value))}
-          />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor="edition-season">Season</label>
-          <select
-            id="edition-season"
-            value={season}
-            disabled={busy}
-            onChange={(event) =>
-              setSeason(event.target.value as RecruitmentSeason)
-            }
-          >
-            {RECRUITMENT_SEASONS.map((season) => (
-              <option key={season}>{season}</option>
-            ))}
-          </select>
-        </div>
+        <EditionFields
+          year={year}
+          season={season}
+          disabled={busy}
+          onYearChange={setYear}
+          onSeasonChange={setSeason}
+        />
         <button
           className={styles.secondary}
           disabled={
@@ -376,12 +360,15 @@ export default function RecruitmentEditor({
           {edition.status === "draft" ? "Publish edition" : "Move to draft"}
         </button>
       </div>
-      <div className={styles.feedback} aria-live="polite">
-        {busy ? "Saving…" : notice}
-        {error && (
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
+      <div className={styles.feedback}>
+        {error ? (
+          <InlineNotice tone="error">{error}</InlineNotice>
+        ) : (
+          (busy || notice) && (
+            <InlineNotice tone={busy ? "info" : "success"}>
+              {busy ? "Saving…" : notice}
+            </InlineNotice>
+          )
         )}
       </div>
       {edition.modules.map((module, index) => (

@@ -18,7 +18,7 @@ import {
 import type { AuditAction } from "@/lib/constants";
 import { webEnv } from "@/lib/env/web";
 import dbConnect from "@/lib/mongodb";
-import { isDocumentReleased, serializeRecruitment } from "@/lib/recruitment";
+import { publicRecruitment, serializeRecruitment } from "@/lib/recruitment";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import Recruitment, { type IRecruitment } from "@/models/Recruitment";
 
@@ -39,28 +39,11 @@ export async function getPublishedRecruitments(now = new Date()) {
         .select(publicProjection)
         .sort({ year: -1, season: -1 })
         .lean();
-      return records.map((edition) => serializeRecruitment(edition, "admin"));
+      return records.map(serializeRecruitment);
     },
   );
   // Time-dependent visibility must never be stored in Redis
-  return editions.map((edition) => ({
-    ...edition,
-    modules: edition.modules.map((module) => ({
-      ...module,
-      resources: {
-        ...module.resources,
-        document: isDocumentReleased(edition, module.resources, now)
-          ? module.resources.document
-          : null,
-      },
-      task: {
-        ...module.task,
-        document: isDocumentReleased(edition, module.task, now)
-          ? module.task.document
-          : null,
-      },
-    })),
-  }));
+  return editions.map((edition) => publicRecruitment(edition, now));
 }
 
 export async function getAdminRecruitments() {
@@ -69,7 +52,7 @@ export async function getAdminRecruitments() {
     .select(publicProjection)
     .sort({ year: -1, season: -1 })
     .lean();
-  return records.map((edition) => serializeRecruitment(edition, "admin"));
+  return records.map(serializeRecruitment);
 }
 
 export async function getAdminRecruitment(id: string) {
@@ -77,7 +60,7 @@ export async function getAdminRecruitment(id: string) {
   const edition = await Recruitment.findById(id)
     .select(publicProjection)
     .lean();
-  return edition ? serializeRecruitment(edition, "admin") : null;
+  return edition ? serializeRecruitment(edition) : null;
 }
 
 export function summarizeRecruitment(edition: IRecruitment): AuditSummary {
@@ -145,6 +128,7 @@ export async function mutateRecruitment<T>(
 export async function invalidateRecruitment() {
   await invalidateCache("recruitment:public:v1");
   revalidatePath("/recruitment");
+  revalidatePath("/sitemap.xml");
   revalidatePath("/admin/recruitment", "layout");
 }
 

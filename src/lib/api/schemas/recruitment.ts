@@ -1,16 +1,26 @@
 import { z } from "zod";
 
 import {
+  IST_OFFSET_MS,
   MAX_RECRUITMENT_PDF_BYTES,
   MODULES,
   RECRUITMENT_DOCUMENT_KINDS,
+  RECRUITMENT_MAX_YEAR,
+  RECRUITMENT_MIN_YEAR,
   RECRUITMENT_SEASONS,
   RECRUITMENT_STATUSES,
 } from "@/lib/constants";
 
-const date = z.iso.datetime({ offset: true }).nullable().optional();
+const date = z.iso
+  .datetime({ offset: true })
+  .refine((value) => {
+    const year = new Date(Date.parse(value) + IST_OFFSET_MS).getUTCFullYear();
+    return year >= RECRUITMENT_MIN_YEAR && year <= RECRUITMENT_MAX_YEAR;
+  }, `Choose a date between ${RECRUITMENT_MIN_YEAR} and ${RECRUITMENT_MAX_YEAR} in IST.`)
+  .nullable()
+  .optional();
 export const createRecruitmentSchema = z.strictObject({
-  year: z.number().int().min(2000).max(2200),
+  year: z.number().int().min(RECRUITMENT_MIN_YEAR).max(RECRUITMENT_MAX_YEAR),
   season: z.enum(RECRUITMENT_SEASONS),
 });
 

@@ -49,31 +49,6 @@
   background: var(--background);
   border-bottom: 1px solid var(--border);
 }
-.pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.pill {
-  @include display-type(23px);
-  @include focus-ring;
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 18px;
-  border: 1px solid var(--border);
-  text-decoration: none;
-  color: var(--muted);
-  transition:
-    border-color 0.2s,
-    background 0.2s;
-  &:hover,
-  &[aria-current="page"] {
-    border-color: var(--foreground);
-    color: var(--foreground-strong);
-    background: var(--surface-hover);
-  }
-}
 .meta {
   @include micro-label(10px, 0.08em);
 }
@@ -395,8 +370,7 @@ a.documentCard {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .documentCard,
-  .pill {
+  .documentCard {
     transition: none;
   }
   a.documentCard:hover {

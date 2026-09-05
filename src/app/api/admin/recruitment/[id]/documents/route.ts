@@ -89,7 +89,7 @@ export async function POST(request: NextRequest, context: Context) {
         return {
           edition,
           before,
-          result: { edition: serializeRecruitment(edition, "admin"), previous },
+          result: { edition: serializeRecruitment(edition), previous },
         };
       },
     );
@@ -131,7 +131,7 @@ export async function DELETE(request: NextRequest, context: Context) {
           edition,
           before,
           result: {
-            edition: serializeRecruitment(edition, "admin"),
+            edition: serializeRecruitment(edition),
             storedName,
           },
         };

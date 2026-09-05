@@ -222,6 +222,7 @@ describe("recruitment editions and public PDF boundary", () => {
     ).toEqual(["2026-winter", "2026-summer", "2025-winter"]);
     expect(invalidateCache).toHaveBeenCalledWith("recruitment:public:v1");
     expect(revalidatePath).toHaveBeenCalledWith("/recruitment");
+    expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
     expect(
       await AuditLog.countDocuments({
         category: "recruitment",
@@ -291,6 +292,9 @@ describe("recruitment editions and public PDF boundary", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(response.headers.get("Content-Disposition")).toMatch(/^inline;/);
     expect(Buffer.from(await response.arrayBuffer())).toEqual(pdf);
+    const uppercase = await requestPdf(id.toUpperCase());
+    expect(uppercase.status).toBe(200);
+    expect(Buffer.from(await uppercase.arrayBuffer())).toEqual(pdf);
     const download = await requestPdf(id, undefined, "?download=1");
     expect(download.headers.get("Content-Disposition")).toMatch(/^attachment;/);
     await download.arrayBuffer();

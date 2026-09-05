@@ -1,6 +1,7 @@
 import {
   APP_TIME_ZONE,
   IST_OFFSET_MS,
+  MAX_RECRUITMENT_SCHEDULE_TICKS,
   MODULES,
   type ModuleName,
   type RecruitmentDocumentKind,
@@ -55,25 +56,19 @@ export function isDocumentReleased(
   );
 }
 
-export function serializeRecruitment(
-  edition: IRecruitment,
-  audience: "public" | "admin",
-  now: Date = new Date(),
-): RecruitmentDto {
+export function serializeRecruitment(edition: IRecruitment): RecruitmentDto {
   const slot = (
     value: IRecruitment["modules"][number]["resources"],
   ): RecruitmentSlotDto => ({
     releaseAt: value.releaseAt ? new Date(value.releaseAt).toISOString() : null,
-    document:
-      value.document &&
-      (audience === "admin" || isDocumentReleased(edition, value, now))
-        ? {
-            _id: String(value.document._id),
-            originalName: value.document.originalName,
-            mimeType: value.document.mimeType,
-            size: value.document.size,
-          }
-        : null,
+    document: value.document
+      ? {
+          _id: String(value.document._id),
+          originalName: value.document.originalName,
+          mimeType: value.document.mimeType,
+          size: value.document.size,
+        }
+      : null,
   });
   return {
     _id: String(edition._id),
@@ -96,6 +91,25 @@ export function serializeRecruitment(
           : null,
       };
     }),
+  };
+}
+
+/** Apply release visibility after reading the cached, serialized edition */
+export function publicRecruitment(
+  edition: RecruitmentDto,
+  now: Date = new Date(),
+): RecruitmentDto {
+  const slot = (value: RecruitmentSlotDto): RecruitmentSlotDto => ({
+    ...value,
+    document: isDocumentReleased(edition, value, now) ? value.document : null,
+  });
+  return {
+    ...edition,
+    modules: edition.modules.map((module) => ({
+      ...module,
+      resources: slot(module.resources),
+      task: slot(module.task),
+    })),
   };
 }
 
@@ -174,7 +188,14 @@ export function buildRecruitmentSchedule(
     dayStart(start) +
     ((8 - new Date(start + IST_OFFSET_MS).getUTCDay()) % 7) * DAY;
   if (firstMonday < start) firstMonday += 7 * DAY;
-  for (let at = firstMonday; at <= end; at += 7 * DAY)
+  const weeks = Math.floor((end - firstMonday) / (7 * DAY)) + 1;
+  const tickStep =
+    Math.max(1, Math.ceil(weeks / MAX_RECRUITMENT_SCHEDULE_TICKS)) * 7 * DAY;
+  for (
+    let at = firstMonday;
+    at <= end && ticks.length < MAX_RECRUITMENT_SCHEDULE_TICKS;
+    at += tickStep
+  )
     ticks.push({ at, position: position(at) });
   return {
     start,
