@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
 
 import { requireHead } from "@/lib/api/auth";
-import { parseRouteParams, type AppErrorCode } from "@/lib/api/result";
+import { AppResultError, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { auditActor, auditedTransaction } from "@/lib/audit";
 import { summarizePublicContent } from "@/lib/audit/summary";
@@ -22,15 +22,6 @@ import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 
 type RouteContext = { params: Promise<{ slug: string; version: string }> };
-
-class BlogRouteError extends Error {
-  constructor(
-    readonly code: AppErrorCode,
-    message: string,
-  ) {
-    super(message);
-  }
-}
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -53,7 +44,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       saved = await auditedTransaction(dbSession, async (transaction) => {
         const current = await BlogPost.findOne({ slug }).session(transaction);
         if (!current) {
-          throw new BlogRouteError("NOT_FOUND", "Blog post not found.");
+          throw new AppResultError({
+            code: "NOT_FOUND",
+            message: "Blog post not found.",
+          });
         }
 
         const historicalRev = await getPostRevisionByVersion(
@@ -61,10 +55,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
           targetVersion,
         );
         if (!historicalRev) {
-          throw new BlogRouteError(
-            "NOT_FOUND",
-            `Revision version ${targetVersion} not found.`,
-          );
+          throw new AppResultError({
+            code: "NOT_FOUND",
+            message: `Revision version ${targetVersion} not found.`,
+          });
         }
 
         const before = current.toObject();
@@ -130,8 +124,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return jsonOk({ post: saved.toObject() });
   } catch (err: unknown) {
-    if (err instanceof BlogRouteError) {
-      return jsonError(err.code, err.message);
+    if (err instanceof AppResultError) {
+      return jsonError(err.detail.code, err.detail.message);
     }
     logger.error("Admin blog restore failed", {
       route: "POST /api/admin/blog/[slug]/revisions/[version]/restore",

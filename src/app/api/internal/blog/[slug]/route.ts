@@ -8,11 +8,7 @@ import {
   summarizeBlogRevision,
   summarizePublicContent,
 } from "@/lib/audit/summary";
-import {
-  parseJson,
-  parseRouteParams,
-  type AppErrorCode,
-} from "@/lib/api/result";
+import { AppResultError, parseJson, parseRouteParams } from "@/lib/api/result";
 import { requireBlogEditor } from "@/lib/blog/access";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
@@ -83,15 +79,6 @@ const memberBlogPatchSchema = z
     }
   });
 
-class BlogRouteError extends Error {
-  constructor(
-    readonly code: AppErrorCode,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const validatedParams = parseRouteParams(
@@ -139,9 +126,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     try {
       saved = await auditedTransaction(dbSession, async (transaction) => {
         const current = await BlogPost.findOne({ slug }).session(transaction);
-        if (!current) throw new BlogRouteError("NOT_FOUND", "Post not found.");
+        if (!current) {
+          throw new AppResultError({
+            code: "NOT_FOUND",
+            message: "Post not found.",
+          });
+        }
         if (!canEditBlogDraft(user, current)) {
-          throw new BlogRouteError("FORBIDDEN", "Forbidden");
+          throw new AppResultError({ code: "FORBIDDEN", message: "Forbidden" });
         }
         const before = current.toObject();
 
@@ -151,16 +143,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           const currentBase = existingRev || current;
 
           if (cancelApproval && !existingRev?.submittedAt) {
-            throw new BlogRouteError(
-              "CONFLICT",
-              "There is no submitted revision to withdraw.",
-            );
+            throw new AppResultError({
+              code: "CONFLICT",
+              message: "There is no submitted revision to withdraw.",
+            });
           }
           if (existingRev?.submittedAt && !cancelApproval) {
-            throw new BlogRouteError(
-              "CONFLICT",
-              "Withdraw the review request before editing the revision.",
-            );
+            throw new AppResultError({
+              code: "CONFLICT",
+              message:
+                "Withdraw the review request before editing the revision.",
+            });
           }
 
           const now = new Date();
@@ -213,10 +206,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           };
         } else {
           if (requestApproval || cancelApproval) {
-            throw new BlogRouteError(
-              "CONFLICT",
-              "Approval actions are only available for published posts.",
-            );
+            throw new AppResultError({
+              code: "CONFLICT",
+              message:
+                "Approval actions are only available for published posts.",
+            });
           }
           current.set({
             title: body.title ?? current.title,
@@ -267,8 +261,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return jsonOk({ post: saved.toObject() });
   } catch (err) {
-    if (err instanceof BlogRouteError) {
-      return jsonError(err.code, err.message);
+    if (err instanceof AppResultError) {
+      return jsonError(err.detail.code, err.detail.message);
     }
     logger.error("Internal blog update failed", {
       route: "PATCH /api/internal/blog/[slug]",
@@ -295,15 +289,20 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     try {
       saved = await auditedTransaction(dbSession, async (transaction) => {
         const current = await BlogPost.findOne({ slug }).session(transaction);
-        if (!current) throw new BlogRouteError("NOT_FOUND", "Post not found.");
+        if (!current) {
+          throw new AppResultError({
+            code: "NOT_FOUND",
+            message: "Post not found.",
+          });
+        }
         if (!canEditBlogDraft(result.data.user, current)) {
-          throw new BlogRouteError("FORBIDDEN", "Forbidden");
+          throw new AppResultError({ code: "FORBIDDEN", message: "Forbidden" });
         }
         if (current.status !== "published" || !current.pendingRevision) {
-          throw new BlogRouteError(
-            "CONFLICT",
-            "There is no pending revision to discard.",
-          );
+          throw new AppResultError({
+            code: "CONFLICT",
+            message: "There is no pending revision to discard.",
+          });
         }
         const revision =
           current.pendingRevision.toObject?.() || current.pendingRevision;
@@ -336,8 +335,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     await invalidateCache("admin:blog");
     return jsonOk({ post: saved.toObject() });
   } catch (err) {
-    if (err instanceof BlogRouteError) {
-      return jsonError(err.code, err.message);
+    if (err instanceof AppResultError) {
+      return jsonError(err.detail.code, err.detail.message);
     }
     logger.error("Internal blog revision discard failed", {
       route: "DELETE /api/internal/blog/[slug]",

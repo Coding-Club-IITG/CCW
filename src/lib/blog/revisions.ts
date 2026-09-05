@@ -103,6 +103,38 @@ export function serializeRevision(rev: RevisionRecord): BlogRevisionDto {
   return { ...serializeRevisionSummary(rev), content: rev.content || "" };
 }
 
+function initialRevisionFields(
+  post: RecordRevisionParams["post"],
+  editor: BlogPerson<Id>,
+) {
+  return {
+    ...snapshotFields(post),
+    postId: post._id,
+    slug: post.slug,
+    version: 1,
+    editor: serializePerson(post.authors?.[0] || editor),
+    approvedBy: null,
+    source: "initial_publish" as const,
+    restoredFromVersion: null,
+    changeSummary: "Initial published version",
+    createdAt: post.publishedAt || post.createdAt || new Date(),
+  };
+}
+
+/** Preserve a legacy post before unpublished edits can replace its live content */
+export async function ensureInitialRevisionSnapshot(
+  session: ClientSession,
+  post: RecordRevisionParams["post"],
+  editor: BlogPerson<Id>,
+): Promise<void> {
+  if (await BlogPostRevision.exists({ postId: post._id }).session(session)) {
+    return;
+  }
+  await BlogPostRevision.create([initialRevisionFields(post, editor)], {
+    session,
+  });
+}
+
 /** Record a snapshot with the same transaction as its published post mutation */
 export async function recordRevisionSnapshot(
   session: ClientSession,
@@ -125,29 +157,22 @@ export async function recordRevisionSnapshot(
   let nextVersion = latest ? latest.version + 1 : 1;
 
   if (!latest && source !== "initial_publish" && preEditState) {
-    const baseAuthor = preEditState.authors?.[0] || post.authors?.[0] || editor;
     await BlogPostRevision.create(
       [
-        {
-          ...snapshotFields({
+        initialRevisionFields(
+          {
             ...preEditState,
+            _id: postId,
+            slug: post.slug,
             authors: preEditState.authors || post.authors,
-          }),
-          postId,
-          slug: post.slug,
-          version: 1,
-          editor: serializePerson(baseAuthor),
-          approvedBy: null,
-          source: "initial_publish",
-          restoredFromVersion: null,
-          changeSummary: "Initial published version",
-          createdAt:
-            preEditState.publishedAt ||
-            preEditState.createdAt ||
-            post.publishedAt ||
-            post.createdAt ||
-            new Date(),
-        },
+            publishedAt:
+              preEditState.publishedAt ||
+              preEditState.createdAt ||
+              post.publishedAt,
+            createdAt: post.createdAt,
+          },
+          post.authors?.[0] || editor,
+        ),
       ],
       { session },
     );
@@ -176,15 +201,8 @@ export async function recordRevisionSnapshot(
 
 function legacyRevision(post: IBlogPost): RevisionRecord {
   return {
-    ...snapshotFields(post),
+    ...initialRevisionFields(post, { userId: "", name: "Author" }),
     _id: String(post._id),
-    postId: String(post._id),
-    slug: post.slug,
-    version: 1,
-    editor: post.authors[0] || { userId: "", name: "Author" },
-    source: "initial_publish",
-    changeSummary: "Initial published version",
-    createdAt: post.publishedAt || post.createdAt,
   };
 }
 

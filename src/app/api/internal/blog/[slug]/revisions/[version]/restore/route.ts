@@ -11,7 +11,7 @@ import {
   summarizeBlogRevision,
   summarizePublicContent,
 } from "@/lib/audit/summary";
-import { parseRouteParams, type AppErrorCode } from "@/lib/api/result";
+import { AppResultError, parseRouteParams } from "@/lib/api/result";
 import { requireBlogEditor } from "@/lib/blog/access";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { blogRevisionParamsSchema } from "@/lib/blog/schemas";
@@ -21,15 +21,6 @@ import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 
 type RouteContext = { params: Promise<{ slug: string; version: string }> };
-
-class BlogRouteError extends Error {
-  constructor(
-    readonly code: AppErrorCode,
-    message: string,
-  ) {
-    super(message);
-  }
-}
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -51,20 +42,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
       saved = await auditedTransaction(dbSession, async (transaction) => {
         const current = await BlogPost.findOne({ slug }).session(transaction);
         if (!current) {
-          throw new BlogRouteError("NOT_FOUND", "Blog post not found.");
+          throw new AppResultError({
+            code: "NOT_FOUND",
+            message: "Blog post not found.",
+          });
         }
         if (!canEditBlogDraft(user, current)) {
-          throw new BlogRouteError("FORBIDDEN", "Forbidden");
+          throw new AppResultError({ code: "FORBIDDEN", message: "Forbidden" });
         }
 
         const existingRev =
           current.pendingRevision?.toObject?.() || current.pendingRevision;
 
         if (existingRev?.submittedAt) {
-          throw new BlogRouteError(
-            "CONFLICT",
-            "Withdraw the review request before restoring a revision into draft staging.",
-          );
+          throw new AppResultError({
+            code: "CONFLICT",
+            message:
+              "Withdraw the review request before restoring a revision into draft staging.",
+          });
         }
 
         const historicalRev = await getPostRevisionByVersion(
@@ -72,10 +67,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
           targetVersion,
         );
         if (!historicalRev) {
-          throw new BlogRouteError(
-            "NOT_FOUND",
-            `Revision version ${targetVersion} not found.`,
-          );
+          throw new AppResultError({
+            code: "NOT_FOUND",
+            message: `Revision version ${targetVersion} not found.`,
+          });
         }
 
         if (current.status === "published") {
@@ -160,8 +155,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     await invalidateCache("admin:blog");
     return jsonOk({ post: saved.toObject() });
   } catch (err: unknown) {
-    if (err instanceof BlogRouteError) {
-      return jsonError(err.code, err.message);
+    if (err instanceof AppResultError) {
+      return jsonError(err.detail.code, err.detail.message);
     }
     logger.error("Author blog draft restore failed", {
       route: "POST /api/internal/blog/[slug]/revisions/[version]/restore",

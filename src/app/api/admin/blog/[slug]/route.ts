@@ -15,6 +15,7 @@ import { parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
 import {
+  ensureInitialRevisionSnapshot,
   hasBlogSnapshotChanges,
   recordRevisionSnapshot,
 } from "@/lib/blog/revisions";
@@ -170,6 +171,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         const current = await BlogPost.findOne({ slug }).session(transaction);
         if (!current) throw new Error("Blog post disappeared during update.");
         const before = current.toObject();
+        if (before.status === "published" && post.status !== "published") {
+          await ensureInitialRevisionSnapshot(transaction, before, {
+            userId: user.id,
+            name: user.name || "Unknown",
+          });
+        }
         current.set({
           title: post.title,
           slug: post.slug,

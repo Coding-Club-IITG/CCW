@@ -8,11 +8,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireHead } from "@/lib/api/auth";
-import {
-  parseJson,
-  parseRouteParams,
-  type AppErrorCode,
-} from "@/lib/api/result";
+import { AppResultError, parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
 import { auditActor, auditedTransaction } from "@/lib/audit";
@@ -31,15 +27,6 @@ const revisionActionSchema = z
     action: z.enum(["approve", "reject"]),
   })
   .strict();
-
-class RevisionRouteError extends Error {
-  constructor(
-    readonly code: AppErrorCode,
-    message: string,
-  ) {
-    super(message);
-  }
-}
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -67,27 +54,30 @@ export async function POST(request: NextRequest, context: RouteContext) {
       saved = await auditedTransaction(dbSession, async (transaction) => {
         const current = await BlogPost.findOne({ slug }).session(transaction);
         if (!current) {
-          throw new RevisionRouteError("NOT_FOUND", "Blog post not found.");
+          throw new AppResultError({
+            code: "NOT_FOUND",
+            message: "Blog post not found.",
+          });
         }
         if (current.status !== "published") {
-          throw new RevisionRouteError(
-            "CONFLICT",
-            "Only published posts can have revisions reviewed.",
-          );
+          throw new AppResultError({
+            code: "CONFLICT",
+            message: "Only published posts can have revisions reviewed.",
+          });
         }
         const before = current.toObject();
         const rev = current.pendingRevision;
         if (!rev) {
-          throw new RevisionRouteError(
-            "VALIDATION_ERROR",
-            "No pending revision found for this post.",
-          );
+          throw new AppResultError({
+            code: "VALIDATION_ERROR",
+            message: "No pending revision found for this post.",
+          });
         }
         if (!rev.submittedAt) {
-          throw new RevisionRouteError(
-            "CONFLICT",
-            "This revision has not been submitted for review.",
-          );
+          throw new AppResultError({
+            code: "CONFLICT",
+            message: "This revision has not been submitted for review.",
+          });
         }
 
         if (action === "approve") {
@@ -95,10 +85,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
             !rev.baseUpdatedAt ||
             rev.baseUpdatedAt.getTime() !== current.updatedAt.getTime()
           ) {
-            throw new RevisionRouteError(
-              "CONFLICT",
-              "The live post changed after this revision was started. Discard it and create a new revision before approval.",
-            );
+            throw new AppResultError({
+              code: "CONFLICT",
+              message:
+                "The live post changed after this revision was started. Discard it and create a new revision before approval.",
+            });
           }
 
           current.set({
@@ -193,8 +184,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return jsonOk({ post: saved.toObject() });
   } catch (err) {
-    if (err instanceof RevisionRouteError) {
-      return jsonError(err.code, err.message);
+    if (err instanceof AppResultError) {
+      return jsonError(err.detail.code, err.detail.message);
     }
     logger.error("Admin blog revision action failed", {
       route: "POST /api/admin/blog/[slug]/revision",

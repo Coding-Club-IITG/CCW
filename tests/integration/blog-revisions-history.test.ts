@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import {
   afterAll,
@@ -805,126 +806,216 @@ describe("blog revision history lifecycle", () => {
     expect(error.code).toBe("FORBIDDEN");
   });
 
-  it("preserves revision history and distinguishes republishing across unpublish-republish cycle", async () => {
-    const adminRoute = await import("@/app/api/admin/blog/[slug]/route");
-    const adminRevisionsRoute =
-      await import("@/app/api/admin/blog/[slug]/revisions/route");
+  it.each([true, false])(
+    "preserves history through unpublished edits with existing snapshots: %s",
+    async (hasSnapshot) => {
+      const adminRoute = await import("@/app/api/admin/blog/[slug]/route");
+      const adminRevisionsRoute =
+        await import("@/app/api/admin/blog/[slug]/revisions/route");
 
-    const post = await BlogPost.create(
-      blogPost({
-        slug: "unpublish-cycle",
-        status: "published",
-        publishedAt: new Date("2026-01-01T00:00:00Z"),
-        content: "Original Live Content",
-      }),
-    );
-    await BlogPostRevision.create({
-      postId: post._id,
-      slug: post.slug,
-      version: 1,
-      title: post.title,
-      content: post.content,
-      editor: { userId: BLOG_ADMIN_ID, name: "Admin" },
-      source: "initial_publish",
-    });
-
-    const unpublishRes = await adminRoute.PATCH(
-      jsonRequest("/api/admin/blog/unpublish-cycle", "PATCH", {
-        status: "draft",
-      }),
-      context(post.slug),
-    );
-    expect(unpublishRes.status).toBe(200);
-
-    const listRes = await adminRevisionsRoute.GET(
-      new NextRequest(
-        "http://localhost/api/admin/blog/unpublish-cycle/revisions",
-      ),
-      context(post.slug),
-    );
-    expect(listRes.status).toBe(200);
-    const listData = await responseData(listRes);
-    expect(listData.revisions).toHaveLength(1);
-    expect(listData.revisions[0].version).toBe(1);
-
-    const editDraftRes = await adminRoute.PATCH(
-      jsonRequest("/api/admin/blog/unpublish-cycle", "PATCH", {
-        content: "Updated Draft Content During Unpublish",
-      }),
-      context(post.slug),
-    );
-    expect(editDraftRes.status).toBe(200);
-
-    const republishRes = await adminRoute.PATCH(
-      jsonRequest("/api/admin/blog/unpublish-cycle", "PATCH", {
-        status: "published",
-        changeSummary: "Republished with improvements",
-      }),
-      context(post.slug),
-    );
-    expect(republishRes.status).toBe(200);
-
-    const revisions = await BlogPostRevision.find({ postId: post._id })
-      .sort({ version: 1 })
-      .lean();
-    expect(revisions).toHaveLength(2);
-    expect(revisions[0].version).toBe(1);
-    expect(revisions[0].content).toBe("Original Live Content");
-    expect(revisions[1].version).toBe(2);
-    expect(revisions[1].content).toBe("Updated Draft Content During Unpublish");
-    expect(revisions[1].source).toBe("admin_edit");
-    expect(revisions[1].changeSummary).toBe("Republished with improvements");
-  });
-
-  it("allows author and admin to restore revisions into draft on unpublished posts", async () => {
-    const internalRestoreRoute =
-      await import("@/app/api/internal/blog/[slug]/revisions/[version]/restore/route");
-
-    const post = await BlogPost.create(
-      blogPost({
-        slug: "draft-restore-post",
-        status: "draft",
-        publishedAt: new Date("2026-01-01T00:00:00Z"),
-        content: "Current Draft Content",
-        authors: [{ userId: BLOG_AUTHOR_ID, name: "Author" }],
-      }),
-    );
-    await BlogPostRevision.create({
-      postId: post._id,
-      slug: post.slug,
-      version: 1,
-      title: "Historical Version 1",
-      content: "Historical Version 1 Content",
-      editor: { userId: BLOG_ADMIN_ID, name: "Admin" },
-      source: "initial_publish",
-    });
-
-    getSession.mockResolvedValue({
-      user: {
-        id: BLOG_AUTHOR_ID.toString(),
-        name: "Author",
-        access: "Member",
-      },
-    });
-
-    const authorRestoreRes = await internalRestoreRoute.POST(
-      new NextRequest(
-        "http://localhost/api/internal/blog/draft-restore-post/revisions/1/restore",
-        { method: "POST" },
-      ),
-      {
-        params: Promise.resolve({
-          slug: "draft-restore-post",
-          version: "1",
+      const post = await BlogPost.create(
+        blogPost({
+          slug: "unpublish-cycle",
+          status: "published",
+          publishedAt: new Date("2026-01-01T00:00:00Z"),
+          content: "Original Live Content",
         }),
-      },
-    );
-    expect(authorRestoreRes.status).toBe(200);
+      );
+      if (hasSnapshot) {
+        await BlogPostRevision.create({
+          postId: post._id,
+          slug: post.slug,
+          version: 1,
+          title: post.title,
+          content: post.content,
+          authors: post.authors,
+          editor: { userId: BLOG_ADMIN_ID, name: "Admin" },
+          source: "initial_publish",
+          createdAt: post.publishedAt,
+        });
+      }
 
-    const updatedPost = await BlogPost.findById(post._id).lean();
-    expect(updatedPost?.title).toBe("Historical Version 1");
-    expect(updatedPost?.content).toBe("Historical Version 1 Content");
-  });
+      const unpublishRes = await adminRoute.PATCH(
+        jsonRequest("/api/admin/blog/unpublish-cycle", "PATCH", {
+          status: "draft",
+          content: "Content changed while unpublishing",
+        }),
+        context(post.slug),
+      );
+      expect(unpublishRes.status).toBe(200);
+
+      const listRes = await adminRevisionsRoute.GET(
+        new NextRequest(
+          "http://localhost/api/admin/blog/unpublish-cycle/revisions",
+        ),
+        context(post.slug),
+      );
+      expect(listRes.status).toBe(200);
+      const listData = await responseData(listRes);
+      expect(listData.revisions).toHaveLength(1);
+      expect(listData.revisions[0].version).toBe(1);
+      const initial = await BlogPostRevision.findOne({
+        postId: post._id,
+      }).lean();
+      expect(initial?.content).toBe("Original Live Content");
+      expect(initial?.authors).toEqual(post.toObject().authors);
+      expect(initial?.createdAt).toEqual(post.publishedAt);
+
+      const editDraftRes = await adminRoute.PATCH(
+        jsonRequest("/api/admin/blog/unpublish-cycle", "PATCH", {
+          content: "Updated Draft Content During Unpublish",
+        }),
+        context(post.slug),
+      );
+      expect(editDraftRes.status).toBe(200);
+
+      const republishRes = await adminRoute.PATCH(
+        jsonRequest("/api/admin/blog/unpublish-cycle", "PATCH", {
+          status: "published",
+          changeSummary: "Republished with improvements",
+        }),
+        context(post.slug),
+      );
+      expect(republishRes.status).toBe(200);
+
+      const revisions = await BlogPostRevision.find({ postId: post._id })
+        .sort({ version: 1 })
+        .lean();
+      expect(revisions).toHaveLength(2);
+      expect(revisions[0].version).toBe(1);
+      expect(revisions[0].content).toBe("Original Live Content");
+      expect(revisions[1].version).toBe(2);
+      expect(revisions[1].content).toBe(
+        "Updated Draft Content During Unpublish",
+      );
+      expect(revisions[1].source).toBe("admin_edit");
+      expect(revisions[1].changeSummary).toBe("Republished with improvements");
+    },
+  );
+
+  it.each(["author", "admin"])(
+    "allows %s to restore an unpublished draft without publishing a snapshot",
+    async (mode) => {
+      const restoreRoute =
+        mode === "author"
+          ? await import("@/app/api/internal/blog/[slug]/revisions/[version]/restore/route")
+          : await import("@/app/api/admin/blog/[slug]/revisions/[version]/restore/route");
+
+      const post = await BlogPost.create(
+        blogPost({
+          slug: "draft-restore-post",
+          status: "draft",
+          publishedAt: new Date("2026-01-01T00:00:00Z"),
+          content: "Current Draft Content",
+          authors: [{ userId: BLOG_AUTHOR_ID, name: "Author" }],
+        }),
+      );
+      await BlogPostRevision.create({
+        postId: post._id,
+        slug: post.slug,
+        version: 1,
+        title: "Historical Version 1",
+        content: "Historical Version 1 Content",
+        editor: { userId: BLOG_ADMIN_ID, name: "Admin" },
+        source: "initial_publish",
+      });
+
+      if (mode === "author")
+        getSession.mockResolvedValue({
+          user: {
+            id: BLOG_AUTHOR_ID.toString(),
+            name: "Author",
+            access: "Member",
+          },
+        });
+
+      const restoreResponse = await restoreRoute.POST(
+        new NextRequest(
+          `http://localhost/api/${mode === "author" ? "internal" : "admin"}/blog/draft-restore-post/revisions/1/restore`,
+          { method: "POST" },
+        ),
+        {
+          params: Promise.resolve({
+            slug: "draft-restore-post",
+            version: "1",
+          }),
+        },
+      );
+      expect(restoreResponse.status).toBe(200);
+
+      const updatedPost = await BlogPost.findById(post._id).lean();
+      expect(updatedPost?.title).toBe("Historical Version 1");
+      expect(updatedPost?.content).toBe("Historical Version 1 Content");
+      expect(updatedPost?.status).toBe("draft");
+      expect(updatedPost?.pendingRevision).toBeNull();
+      expect(await BlogPostRevision.countDocuments({ postId: post._id })).toBe(
+        1,
+      );
+    },
+  );
+
+  it.each(["author removed", "review submitted"])(
+    "rejects restore when %s after the initial permission check",
+    async (change) => {
+      const route =
+        await import("@/app/api/internal/blog/[slug]/revisions/[version]/restore/route");
+      const post = await BlogPost.create(blogPost({ slug: "restore-race" }));
+      getSession.mockResolvedValue({
+        user: {
+          id: BLOG_AUTHOR_ID.toString(),
+          name: "Author",
+          access: "Member",
+        },
+      });
+
+      const startSession = mongoose.startSession.bind(mongoose);
+      vi.spyOn(mongoose, "startSession").mockImplementationOnce(
+        async (...args) => {
+          await BlogPost.updateOne(
+            { _id: post._id },
+            {
+              $set:
+                change === "author removed"
+                  ? {
+                      authors: [
+                        { userId: BLOG_OTHER_ID, name: "Other Author" },
+                      ],
+                    }
+                  : {
+                      pendingRevision: {
+                        title: "Submitted draft",
+                        content: "Submitted content",
+                        baseUpdatedAt: post.updatedAt,
+                        updatedAt: new Date(),
+                        submittedAt: new Date(),
+                        submittedBy: BLOG_AUTHOR_ID,
+                      },
+                    },
+            },
+          );
+          return startSession(...args);
+        },
+      );
+
+      const response = await route.POST(
+        new NextRequest(
+          "http://localhost/api/internal/blog/restore-race/revisions/1/restore",
+          { method: "POST" },
+        ),
+        { params: Promise.resolve({ slug: post.slug, version: "1" }) },
+      );
+      expect(response.status).toBe(change === "author removed" ? 403 : 409);
+      const saved = await BlogPost.findById(post._id).lean();
+      expect(saved?.content).toBe(post.content);
+      if (change === "review submitted") {
+        expect(saved?.pendingRevision?.title).toBe("Submitted draft");
+        expect(saved?.pendingRevision?.submittedAt).toBeInstanceOf(Date);
+      } else {
+        expect(saved?.pendingRevision).toBeNull();
+      }
+      expect(await AuditLog.countDocuments()).toBe(0);
+    },
+  );
 });
 
 function jsonRequest(path: string, method: string, body: unknown) {

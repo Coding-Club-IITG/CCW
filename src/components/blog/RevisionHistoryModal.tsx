@@ -53,7 +53,10 @@ export default function RevisionHistoryModal({
   const [restoring, setRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState("");
   const isAdmin = mode === "admin";
-  const restoreLabel = isAdmin ? "Restore to live" : "Load into draft";
+  const isPublished = livePost.status === "published";
+  const restoresLive = isAdmin && isPublished;
+  const restoreLabel = restoresLive ? "Restore to live" : "Load into draft";
+  const currentLabel = isPublished ? "Live" : "Saved draft";
   const {
     list,
     selectedVersion,
@@ -88,18 +91,20 @@ export default function RevisionHistoryModal({
     return (
       <ConfirmDialog
         title={
-          isAdmin
+          restoresLive
             ? `Restore version ${restoreVersion} to live?`
             : `Load version ${restoreVersion} into draft?`
         }
         description={
-          isAdmin
+          restoresLive
             ? "The live article will be replaced with this version. A new rollback snapshot will be recorded in history."
-            : "This version will replace the saved staged draft. You can edit it and request approval before publishing."
+            : isPublished
+              ? "This version will replace the saved staged draft. You can edit it and request approval before publishing."
+              : "This version will replace the saved draft. The article will remain unpublished."
         }
         confirmLabel={restoreLabel}
-        busyLabel={isAdmin ? "Restoring…" : "Loading…"}
-        variant={isAdmin ? "danger" : "primary"}
+        busyLabel={restoresLive ? "Restoring…" : "Loading…"}
+        variant={restoresLive ? "danger" : "primary"}
         busy={restoring}
         onCancel={() => setRestoreVersion(null)}
         onConfirm={() => void handleRestore()}
@@ -215,7 +220,7 @@ export default function RevisionHistoryModal({
                   )}
                 </div>
                 <Button
-                  variant={isAdmin ? "danger" : "primary"}
+                  variant={restoresLive ? "danger" : "primary"}
                   size="small"
                   disabled={
                     !selectedRevision ||
@@ -232,7 +237,7 @@ export default function RevisionHistoryModal({
                   label="Comparison mode"
                   segments={[
                     {
-                      label: "Live",
+                      label: currentLabel,
                       active: compareMode === "live",
                       onClick: () => history.setCompareMode("live"),
                     },
@@ -287,13 +292,13 @@ export default function RevisionHistoryModal({
                         baseLabel={
                           compareMode === "previous"
                             ? `v${selectedVersion - 1}`
-                            : "Live"
+                            : currentLabel
                         }
                         compareLabel={`v${selectedVersion}`}
                         title={
                           compareMode === "previous"
                             ? `Version ${selectedVersion - 1} → ${selectedVersion}`
-                            : `Live → version ${selectedVersion}`
+                            : `${currentLabel} → version ${selectedVersion}`
                         }
                       />
                     )}

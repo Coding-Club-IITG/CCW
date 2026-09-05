@@ -117,9 +117,7 @@ export default function EditBlogPostPage({ params }: Props) {
       backHref="/admin/blog"
       backLabel="Back to Blog Management"
       liveHref={post?.status === "published" ? `/blog/${slug}` : undefined}
-      onOpenHistory={
-        hasRevisions ? () => setHistoryModalOpen(true) : undefined
-      }
+      onOpenHistory={hasRevisions ? () => setHistoryModalOpen(true) : undefined}
     />
   );
 

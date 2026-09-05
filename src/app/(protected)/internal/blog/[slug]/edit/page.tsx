@@ -271,7 +271,11 @@ export default function EditMyBlogPage({ params }: Props) {
 
       {!isSubmitted && (
         <BlogEditor
-          key={revision ? `rev-${revision.updatedAt}` : `live-${post.status}`}
+          key={
+            isPublished && revision
+              ? `rev-${revision.updatedAt}`
+              : `post-${post.status}-${post.updatedAt}`
+          }
           initialData={initialEditorData}
           onSave={(data) => handleSave(data, false)}
           saveButtonLabel={isPublished ? "Save Draft Revision" : "Save Changes"}
@@ -317,7 +321,9 @@ export default function EditMyBlogPage({ params }: Props) {
             setPost(restoredPost);
             setNotice({
               message:
-                "Historical version loaded into draft. You can make edits and request approval.",
+                restoredPost.status === "published"
+                  ? "Historical version loaded into draft. You can make edits and request approval."
+                  : "Historical version restored to the unpublished draft.",
               tone: "success",
             });
           }}
