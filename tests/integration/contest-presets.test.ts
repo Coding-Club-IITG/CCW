@@ -106,7 +106,7 @@ describe("contest preset routes", () => {
       new NextRequest("http://localhost/api/contests/sync", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ roomId: "bad", cfHandle: "", problemId: "" }),
+        body: JSON.stringify({ roomId: "bad", problemId: "" }),
       }),
     );
     const error = await responseError(response);
@@ -115,7 +115,6 @@ describe("contest preset routes", () => {
     expect(error.code).toBe("VALIDATION_ERROR");
     expect(error.fields).toMatchObject({
       roomId: [expect.any(String)],
-      cfHandle: [expect.any(String)],
       problemId: [expect.any(String)],
     });
   });
