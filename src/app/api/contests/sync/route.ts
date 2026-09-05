@@ -12,6 +12,14 @@ import {
   releaseUserRateLimit,
 } from "@/lib/userRateLimit";
 import { webEnv } from "@/lib/env/web";
+import {
+  contestRoomStateSchema,
+  parseContestRoomProblems,
+} from "@/lib/contests/runtime";
+import dbConnect from "@/lib/mongodb";
+import CPUser from "@/models/CPUser";
+import ContestRoom from "@/models/ContestRoom";
+import ContestTeam from "@/models/ContestTeam";
 
 export async function POST(request: NextRequest) {
   let consumedForUser: string | undefined;
@@ -24,7 +32,18 @@ export async function POST(request: NextRequest) {
 
     const body = await parseJson(request, contestSyncSchema);
     if (!body.ok) return jsonResult(body);
-    const { roomId, teamId, cfHandle, problemId } = body.data;
+    const { roomId, teamId, problemId } = body.data;
+
+    await dbConnect();
+    const cpUser = await CPUser.findOne({ userId }).lean();
+    if (!cpUser?.cfHandle || !cpUser.cfVerified) {
+      return jsonError("FORBIDDEN", "A verified Codeforces handle is required");
+    }
+
+    const room = await ContestRoom.findById(roomId).lean();
+    if (!room || room.status !== "active") {
+      return jsonError("CONFLICT", "This contest room is not active");
+    }
 
     const redis = await getRedis();
 
@@ -47,6 +66,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const team = await ContestTeam.findOne({
+      _id: resolvedTeamId,
+      roomId: room._id,
+      members: userId,
+    }).lean();
+    if (!team) {
+      return jsonError("FORBIDDEN", "You are not a member of this room's team");
+    }
+
+    const state = contestRoomStateSchema.parse(
+      await redis.hGetAll(`room:${roomId}:state`),
+    );
+    if (state.status !== "active") {
+      return jsonError("CONFLICT", "This contest room is not active");
+    }
+    const parsedProblems = parseContestRoomProblems(
+      await redis.lRange(`room:${roomId}:problems`, 0, -1),
+    );
+    const problemIndex = parsedProblems.findIndex(
+      (problem) => problem.problemId === problemId,
+    );
+    if (problemIndex === -1) {
+      return jsonError("VALIDATION_ERROR", "Problem is not assigned to this room");
+    }
+    if (
+      state.type !== "arena" &&
+      problemIndex > Number.parseInt(state.currentProblem || "0", 10)
+    ) {
+      return jsonError("FORBIDDEN", "This problem has not been revealed yet");
+    }
+
     // 2. Check rate limit
     const rateLimit = await consumeUserRateLimit(
       "contest-sync",
@@ -66,7 +116,7 @@ export async function POST(request: NextRequest) {
       roomId,
       userId,
       teamId: resolvedTeamId,
-      cfHandle,
+      cfHandle: cpUser.cfHandle,
       problemId,
     };
     const job = await cfSyncQueue.add("cf_sync", jobData);

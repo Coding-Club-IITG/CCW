@@ -15,4 +15,33 @@ services:
     command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: ccw
+    healthcheck:
+      test: echo "db.runCommand('ping')" | mongosh localhost/test --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 30
     restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+
+  mongodb-init:
+    image: mongo:latest
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    entrypoint: ["mongosh", "mongodb://mongodb:27017/admin", "--quiet", "--eval"]
+    command:
+      - >-
+        try {
+          rs.status();
+          print('MongoDB replica set already initialized');
+        } catch (error) {
+          rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]});
+          print('MongoDB replica set initialized');
+        }
+    restart: "no"
+
+volumes:
+  mongodb_data:

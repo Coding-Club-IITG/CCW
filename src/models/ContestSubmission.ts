@@ -45,6 +45,9 @@ const ContestSubmissionSchema = new Schema<IContestSubmission>(
 
 ContestSubmissionSchema.index({ roomId: 1, userId: 1 });
 ContestSubmissionSchema.index({ contestId: 1, problemId: 1 });
+// Reconciliation jobs can retry; the upstream Codeforces submission is the
+// stable idempotency key for a room.
+ContestSubmissionSchema.index({ roomId: 1, submissionId: 1 }, { unique: true });
 
 const ContestSubmission =
   mongoose.models.ContestSubmission ||
