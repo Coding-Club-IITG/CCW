@@ -203,7 +203,8 @@ export async function getPostRevisionSummaries(
       .lean(),
     BlogPostRevision.countDocuments(filter),
   ]);
-  const legacy = count === 0 && post.status === "published";
+  const legacy =
+    count === 0 && Boolean(post.publishedAt || post.status === "published");
   const summaries =
     legacy && page === 1
       ? [serializeRevisionSummary(legacyRevision(post))]
@@ -228,7 +229,7 @@ export async function getPostRevisionByVersion(
   if (rev) return serializeRevision(rev);
   if (
     version === 1 &&
-    post.status === "published" &&
+    Boolean(post.publishedAt || post.status === "published") &&
     !(await BlogPostRevision.exists({ postId: post._id }))
   ) {
     return serializeRevision(legacyRevision(post));

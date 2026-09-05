@@ -24,6 +24,7 @@ export interface EditableBlogPost extends BlogSnapshot {
   slug: string;
   status: BlogStatus;
   updatedAt: string;
+  publishedAt?: string | null;
   pendingRevision?:
     | (BlogContent & {
         updatedAt: string;

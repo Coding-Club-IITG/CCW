@@ -188,16 +188,29 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           before.status !== "published" && current.status === "published";
         const wasAlreadyPublished =
           before.status === "published" && current.status === "published";
+        const isFirstPublication =
+          isTransitionToPublished && !before.publishedAt;
+        const isRepublication =
+          isTransitionToPublished && Boolean(before.publishedAt);
 
         const contentFieldsChanged = hasBlogSnapshotChanges(before, current);
 
-        if (isTransitionToPublished) {
+        if (isFirstPublication) {
           await recordRevisionSnapshot(transaction, {
             post: current,
             editor: { userId: user.id, name: user.name || "Unknown" },
             approvedBy: null,
             source: "initial_publish",
             changeSummary: "First publication",
+          });
+        } else if (isRepublication) {
+          await recordRevisionSnapshot(transaction, {
+            post: current,
+            editor: { userId: user.id, name: user.name || "Unknown" },
+            approvedBy: null,
+            source: "admin_edit",
+            changeSummary: body.changeSummary || "Republished post",
+            preEditState: before,
           });
         } else if (wasAlreadyPublished && contentFieldsChanged) {
           await recordRevisionSnapshot(transaction, {

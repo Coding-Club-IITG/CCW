@@ -5,9 +5,13 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
+import { canEditBlogDraft } from "@/lib/access/blog";
 import { auditActor, auditedTransaction } from "@/lib/audit";
-import { summarizeBlogRevision } from "@/lib/audit/summary";
-import { parseRouteParams } from "@/lib/api/result";
+import {
+  summarizeBlogRevision,
+  summarizePublicContent,
+} from "@/lib/audit/summary";
+import { parseRouteParams, type AppErrorCode } from "@/lib/api/result";
 import { requireBlogEditor } from "@/lib/blog/access";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { blogRevisionParamsSchema } from "@/lib/blog/schemas";
@@ -17,6 +21,15 @@ import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 
 type RouteContext = { params: Promise<{ slug: string; version: string }> };
+
+class BlogRouteError extends Error {
+  constructor(
+    readonly code: AppErrorCode,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -29,81 +42,127 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const authResult = await requireBlogEditor(request, slug);
     if (!authResult.ok) return jsonResult(authResult);
-    const { post, user } = authResult.data;
-
-    if (post.status !== "published") {
-      return jsonError(
-        "CONFLICT",
-        "Only published posts can have revisions restored.",
-      );
-    }
-
-    const historicalRev = await getPostRevisionByVersion(post, targetVersion);
-    if (!historicalRev) {
-      return jsonError(
-        "NOT_FOUND",
-        `Revision version ${targetVersion} not found.`,
-      );
-    }
+    const { user } = authResult.data;
 
     const dbSession = await mongoose.startSession();
     let saved;
 
     try {
       saved = await auditedTransaction(dbSession, async (transaction) => {
-        const currentQuery = BlogPost.findOne({ slug });
-        if (transaction) currentQuery.session(transaction);
-        const current = await currentQuery;
-        if (!current) throw new Error("Blog post not found.");
+        const current = await BlogPost.findOne({ slug }).session(transaction);
+        if (!current) {
+          throw new BlogRouteError("NOT_FOUND", "Blog post not found.");
+        }
+        if (!canEditBlogDraft(user, current)) {
+          throw new BlogRouteError("FORBIDDEN", "Forbidden");
+        }
 
         const existingRev =
           current.pendingRevision?.toObject?.() || current.pendingRevision;
 
-        const stagedRevision = {
-          title: historicalRev.title,
-          content: historicalRev.content,
-          excerpt: historicalRev.excerpt,
-          coverImage: historicalRev.coverImage,
-          coverFocalPoint: historicalRev.coverFocalPoint,
-          tags: historicalRev.tags,
-          baseUpdatedAt: current.updatedAt,
-          updatedAt: new Date(),
-          submittedAt: null,
-          submittedBy: new mongoose.Types.ObjectId(String(user.id)),
-        };
+        if (existingRev?.submittedAt) {
+          throw new BlogRouteError(
+            "CONFLICT",
+            "Withdraw the review request before restoring a revision into draft staging.",
+          );
+        }
 
-        current.set({ pendingRevision: stagedRevision });
-        await current.save({
-          ...(transaction ? { session: transaction } : {}),
-          timestamps: false,
-        });
+        const historicalRev = await getPostRevisionByVersion(
+          current,
+          targetVersion,
+        );
+        if (!historicalRev) {
+          throw new BlogRouteError(
+            "NOT_FOUND",
+            `Revision version ${targetVersion} not found.`,
+          );
+        }
 
-        return {
-          result: current,
-          audit: {
-            actor: auditActor(user),
-            category: "blog" as const,
-            action: existingRev ? ("update" as const) : ("create" as const),
-            operation: "blog.revision.draft_restore",
-            target: {
-              type: "blog-revision",
-              id: String(current._id),
-              label: stagedRevision.title,
+        if (current.status === "published") {
+          const stagedRevision = {
+            title: historicalRev.title,
+            content: historicalRev.content,
+            excerpt: historicalRev.excerpt,
+            coverImage: historicalRev.coverImage,
+            coverFocalPoint: historicalRev.coverFocalPoint,
+            tags: historicalRev.tags,
+            baseUpdatedAt: current.updatedAt,
+            updatedAt: new Date(),
+            submittedAt: null,
+            submittedBy: new mongoose.Types.ObjectId(String(user.id)),
+          };
+
+          current.set({ pendingRevision: stagedRevision });
+          await current.save({
+            session: transaction,
+            timestamps: false,
+          });
+
+          return {
+            result: current,
+            audit: {
+              actor: auditActor(user),
+              category: "blog" as const,
+              action: existingRev ? ("update" as const) : ("create" as const),
+              operation: "blog.revision.draft_restore",
+              target: {
+                type: "blog-revision",
+                id: String(current._id),
+                label: stagedRevision.title,
+              },
+              before: summarizeBlogRevision(
+                existingRev as unknown as Record<string, unknown> | null,
+              ),
+              after: summarizeBlogRevision(stagedRevision),
             },
-            before: summarizeBlogRevision(
-              existingRev as unknown as Record<string, unknown> | null,
-            ),
-            after: summarizeBlogRevision(stagedRevision),
-          },
-        };
+          };
+        } else {
+          const before = current.toObject();
+          current.set({
+            title: historicalRev.title,
+            content: historicalRev.content,
+            excerpt: historicalRev.excerpt,
+            coverImage: historicalRev.coverImage,
+            coverFocalPoint: historicalRev.coverFocalPoint,
+            tags: historicalRev.tags,
+          });
+          await current.save({ session: transaction });
+
+          return {
+            result: current,
+            audit: {
+              actor: auditActor(user),
+              category: "blog" as const,
+              action: "update" as const,
+              operation: "blog.draft.update",
+              target: {
+                type: "blog-post",
+                id: String(current._id),
+                label: current.title,
+              },
+              before: summarizePublicContent(
+                before as unknown as Record<string, unknown>,
+              ),
+              after: summarizePublicContent(
+                current.toObject() as unknown as Record<string, unknown>,
+              ),
+            },
+          };
+        }
       });
     } finally {
       await dbSession.endSession();
     }
 
+    if (saved.status !== "published") {
+      await invalidateCache("blog");
+    }
     await invalidateCache("admin:blog");
     return jsonOk({ post: saved.toObject() });
   } catch (err: unknown) {
+    if (err instanceof BlogRouteError) {
+      return jsonError(err.code, err.message);
+    }
     logger.error("Author blog draft restore failed", {
       route: "POST /api/internal/blog/[slug]/revisions/[version]/restore",
       operation: "draft_restore_revision",

@@ -146,12 +146,13 @@ export default function EditMyBlogPage({ params }: Props) {
     }
   };
 
+  const hasRevisions = isPublished || Boolean(post?.publishedAt);
   const toolbar = (
     <BlogEditorToolbar
       backHref="/internal/dashboard"
       backLabel="Back to My Blogs"
       liveHref={isPublished ? `/blog/${slug}` : undefined}
-      onOpenHistory={isPublished ? () => setHistoryModalOpen(true) : undefined}
+      onOpenHistory={hasRevisions ? () => setHistoryModalOpen(true) : undefined}
     />
   );
 

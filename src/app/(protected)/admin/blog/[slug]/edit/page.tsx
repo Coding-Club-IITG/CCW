@@ -110,15 +110,15 @@ export default function EditBlogPostPage({ params }: Props) {
     }
   };
 
+  const hasRevisions =
+    post?.status === "published" || Boolean(post?.publishedAt);
   const toolbar = (
     <BlogEditorToolbar
       backHref="/admin/blog"
       backLabel="Back to Blog Management"
       liveHref={post?.status === "published" ? `/blog/${slug}` : undefined}
       onOpenHistory={
-        post?.status === "published"
-          ? () => setHistoryModalOpen(true)
-          : undefined
+        hasRevisions ? () => setHistoryModalOpen(true) : undefined
       }
     />
   );
