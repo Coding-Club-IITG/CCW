@@ -14,6 +14,7 @@ import { requireHead } from "@/lib/api/auth";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { jsonObjectSchema, slugParamsSchema } from "@/lib/api/schemas/boundary";
+import { recordRevisionSnapshot } from "@/lib/blog/revisions";
 import { invalidateCache } from "@/lib/cache";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
@@ -22,6 +23,7 @@ import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/tagUtils";
 import { findUniqueSlug, titleToSlug } from "@/lib/slug";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
+import BlogPostRevision from "@/models/BlogPostRevision";
 
 async function uniqueSlug(base: string, currentSlug?: string): Promise<string> {
   return findUniqueSlug(base, async (slug) => {
@@ -177,6 +179,44 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           publishedAt: post.publishedAt,
         });
         await current.save({ session: transaction });
+
+        const isTransitionToPublished =
+          before.status !== "published" && current.status === "published";
+        const wasAlreadyPublished =
+          before.status === "published" && current.status === "published";
+
+        const contentFieldsChanged =
+          before.title !== current.title ||
+          before.content !== current.content ||
+          before.excerpt !== current.excerpt ||
+          before.coverImage !== current.coverImage ||
+          before.tags?.length !== current.tags?.length ||
+          before.tags?.some((t: string, i: number) => t !== current.tags[i]) ||
+          JSON.stringify(before.coverFocalPoint) !==
+            JSON.stringify(current.coverFocalPoint);
+
+        if (isTransitionToPublished) {
+          await recordRevisionSnapshot(transaction, {
+            post: current,
+            editor: { userId: user.id, name: user.name || "Unknown" },
+            approvedBy: null,
+            source: "initial_publish",
+            changeSummary: "First publication",
+          });
+        } else if (wasAlreadyPublished && contentFieldsChanged) {
+          await recordRevisionSnapshot(transaction, {
+            post: current,
+            editor: { userId: user.id, name: user.name || "Unknown" },
+            approvedBy: null,
+            source: "admin_edit",
+            changeSummary:
+              typeof body.changeSummary === "string"
+                ? body.changeSummary
+                : "Direct admin update",
+            preEditState: before,
+          });
+        }
+
         return {
           result: current,
           audit: {
@@ -245,9 +285,14 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       result = await auditedTransaction(dbSession, async (transaction) => {
         const deleted = await BlogPost.findOneAndDelete(
           { slug },
-          { session: transaction },
+          transaction ? { session: transaction } : undefined,
         );
         if (!deleted) throw new Error("Blog post disappeared during deletion.");
+
+        const revQuery = BlogPostRevision.deleteMany({ postId: deleted._id });
+        if (transaction) revQuery.session(transaction);
+        await revQuery;
+
         return {
           result: deleted,
           audit: {
