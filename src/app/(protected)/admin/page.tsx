@@ -35,6 +35,12 @@ export default async function AdminPage() {
           icon={<UsersRound size={18} />}
         />
         <LinkCard
+          href="/admin/notifications"
+          title="Send Notifications"
+          description="Broadcast announcements to all members or specific modules."
+          icon={<BellRing size={18} />}
+        />
+        <LinkCard
           href="/admin/blog"
           title="Blog Management"
           description="Create, edit, and publish blog posts for the community."
@@ -53,16 +59,16 @@ export default async function AdminPage() {
           icon={<FileCode2 size={18} />}
         />
         <LinkCard
+          href="/admin/recruitment"
+          title="Recruitment"
+          description="Configure Coding Week editions, schedules, resources and tasks."
+          icon={<UsersRound size={18} />}
+        />
+        <LinkCard
           href="/admin/hackathons"
           title="Hackathon Management"
           description="Create hackathons and monitor team registrations."
           icon={<Rocket size={18} />}
-        />
-        <LinkCard
-          href="/admin/notifications"
-          title="Send Notifications"
-          description="Broadcast announcements to all members or specific modules."
-          icon={<BellRing size={18} />}
         />
         <LinkCard
           href="/admin/contests/presets"

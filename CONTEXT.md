@@ -12,6 +12,7 @@ programming systems, content, administration, and background integrations.
 ## Major Features
 
 - **Public content:** Blogs, events, projects, and club team information.
+  Failed reads show a load error separately from the empty-edition state.
 - **Member workspace:** A dashboard, member profiles, shared files, and
   notifications, plus an internal calendar for general and module events.
 - **Competitive programming:** Platform profiles, contest rooms and
@@ -21,7 +22,7 @@ programming systems, content, administration, and background integrations.
 - **Browser notifications:** Opt-in Web Push on supported desktop and mobile
   browsers.
 - **Administration:** Management surfaces for users, content, events, projects,
-  notifications, hackathons, and contests.
+  notifications, hackathons, contests, and recruitment.
 
 ## Stack
 

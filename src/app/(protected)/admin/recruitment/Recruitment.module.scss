@@ -1,0 +1,234 @@
+@use "@/styles/mixins" as *;
+
+.editor {
+  min-width: 0;
+}
+.editionHeading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  h2 {
+    @include section-heading;
+    margin: 0;
+  }
+}
+.editionForm {
+  @include form-panel;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin-block: 24px;
+}
+.field {
+  @include form-field(0);
+  min-width: 0;
+  input,
+  select {
+    @include form-control;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 40px;
+  }
+}
+.editionForm .field {
+  flex: 1 1 160px;
+}
+.primary {
+  @include btn-primary;
+}
+.secondary {
+  @include btn-secondary;
+}
+.danger {
+  @include btn-danger;
+}
+.primary,
+.secondary,
+.danger {
+  min-height: 38px;
+}
+.textButton {
+  @include focus-ring;
+  background: none;
+  border: 0;
+  color: var(--foreground-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 8px;
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+.badge {
+  @include badge-chip;
+  text-transform: capitalize;
+}
+.hint {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+  margin-block: 6px;
+}
+.error {
+  color: var(--danger);
+  font-size: 13px;
+}
+.feedback {
+  min-height: 30px;
+  color: var(--foreground-secondary);
+  font-size: 13px;
+  margin-block: 16px;
+}
+.publishRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  p {
+    margin-top: 0;
+  }
+  > div {
+    flex: 1 1 400px;
+  }
+}
+.module {
+  margin-block: 28px;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--bar);
+  padding: 24px;
+  h3 {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin: 0 0 24px;
+    font-size: 22px;
+    color: var(--foreground-strong);
+    span {
+      @include metadata(12px, var(--accent));
+    }
+  }
+  h4 {
+    margin: 0 0 18px;
+    font-size: 16px;
+    color: var(--foreground-strong);
+  }
+}
+.moduleFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+.slot {
+  min-width: 0;
+}
+.dateForm {
+  margin-top: 22px;
+  .field input {
+    width: 100%;
+  }
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.dropZone {
+  @include focus-ring;
+  width: 100%;
+  min-height: 132px;
+  border: 1px dashed var(--border-input);
+  background: var(--surface);
+  color: var(--foreground-secondary);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  small {
+    color: var(--muted);
+    font-size: 11px;
+  }
+  &:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+.uploaded {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  span {
+    flex: 1;
+    overflow-wrap: anywhere;
+  }
+}
+.previewLink {
+  @include focus-ring;
+  display: inline-block;
+  color: var(--primary);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.deleteRow {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.editionList {
+  display: grid;
+  gap: 12px;
+}
+.editionCard {
+  @include card(20px);
+  @include focus-ring;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  color: var(--foreground);
+  text-decoration: none;
+  &:hover {
+    border-color: var(--primary);
+  }
+}
+@media (max-width: 1100px) {
+  .moduleFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 680px) {
+  .moduleFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .module {
+    padding: 18px;
+  }
+  .module h3 {
+    font-size: 19px;
+  }
+}

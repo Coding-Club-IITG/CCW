@@ -26,6 +26,7 @@ export const AUDIT_CATEGORIES = [
   "events",
   "calendar",
   "files",
+  "recruitment",
   "notifications",
   "credits",
   "hackathons",
@@ -138,6 +139,15 @@ export type EventPublicationStatus =
 
 export const CALENDAR_SCOPES = ["general", "module"] as const;
 export type CalendarScope = (typeof CALENDAR_SCOPES)[number];
+
+export const RECRUITMENT_SEASONS = ["Summer", "Winter"] as const;
+export type RecruitmentSeason = (typeof RECRUITMENT_SEASONS)[number];
+export const RECRUITMENT_STATUSES = ["draft", "published"] as const;
+export type RecruitmentStatus = (typeof RECRUITMENT_STATUSES)[number];
+export const RECRUITMENT_DOCUMENT_KINDS = ["resources", "task"] as const;
+export type RecruitmentDocumentKind =
+  (typeof RECRUITMENT_DOCUMENT_KINDS)[number];
+export const MAX_RECRUITMENT_PDF_BYTES = 20 * 1024 * 1024;
 
 /* CP Platforms */
 
