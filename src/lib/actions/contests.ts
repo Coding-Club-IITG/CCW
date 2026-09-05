@@ -44,6 +44,7 @@ export const createBracketContest = defineAction(
 import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { isHead } from "@/lib/access/roles";
 import { webEnv } from "@/lib/env/web";
 
 import { auth } from "@/lib/auth";
@@ -56,6 +57,9 @@ import {
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import { prepareSearchQuery } from "@/lib/search";
+import { auditActor } from "@/lib/audit";
+import { summarizeContest } from "@/lib/audit/summary";
+import AuditLog, { auditExpiry } from "@/models/AuditLog";
 import ContestMatch from "@/models/ContestMatch";
 import CPUser from "@/models/CPUser";
 import ContestRoom from "@/models/ContestRoom";
@@ -393,18 +397,37 @@ async function createRoomContestAction(input: unknown) {
     const cpUser = await CPUser.findOne({ userId });
     if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
+    const userRole = session.user.access;
+    const isHeadUser = isHead(userRole);
+    if (!isHeadUser) {
+      if (data.format !== "1v1" || data.registrationType === "open") {
+        return appError(
+          "FORBIDDEN",
+          "Only heads and admins can create tournaments or open contests.",
+        );
+      }
+      data.teamSize = 1;
+      data.maxParticipants = 2;
+      data.registrationType = "closed";
+    }
+
     const start = new Date(data.startTime);
     const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
-    const deadline = new Date(start.getTime() - deadlineMinutes * 60000);
+    const isCasual1v1 =
+      data.format === "1v1" && data.registrationType === "closed";
+    const minBufferMinutes = isCasual1v1 ? 1 : deadlineMinutes + 1;
 
-    // Validate start time is at least 2 minutes from now (1 min registration + 1 min buffer)
-    if (start.getTime() < Date.now() + 2 * 60000 - 5000) {
+    if (start.getTime() < Date.now() + minBufferMinutes * 60000 - 5000) {
       // 5s grace period
       return appError(
         "VALIDATION_ERROR",
-        "Start time must be strictly at least 2 minutes ahead of current time",
+        `Start time must be strictly at least ${minBufferMinutes} minute${minBufferMinutes > 1 ? "s" : ""} ahead of current time`,
       );
     }
+
+    const deadline = isCasual1v1
+      ? start
+      : new Date(start.getTime() - deadlineMinutes * 60000);
 
     // Format-specific backend validations and overrides
     let { maxParticipants, teamSize, format } = data;
@@ -430,14 +453,16 @@ async function createRoomContestAction(input: unknown) {
     }
 
     let problemSlots: ContestProblemSlot[] = [];
-    if (
-      data.problemSelectionMode === "fine-tuned" &&
-      Array.isArray(data.fineTunedProblems)
-    ) {
-      problemSlots = data.fineTunedProblems.map((id: string) => ({
-        platform: "codeforces",
-        problemId: id.trim(),
-      }));
+    if (data.problemSelectionMode === "fine-tuned") {
+      if (Array.isArray(data.problemSlots) && data.problemSlots.length > 0) {
+        problemSlots = data.problemSlots;
+      } else if (Array.isArray(data.fineTunedProblems)) {
+        problemSlots = data.fineTunedProblems.map((id: string) => ({
+          platform: "codeforces",
+          problemId: id.trim(),
+          points: 100,
+        }));
+      }
     }
 
     const contest = new ContestMatch({
@@ -455,6 +480,16 @@ async function createRoomContestAction(input: unknown) {
       bulkRatingMax: data.bulkRatingMax,
       bulkProblemCount: data.bulkProblemCount,
       problemSlots: problemSlots.length > 0 ? problemSlots : undefined,
+      overallDurationMinutes: data.overallDurationMinutes,
+      perProblemDurationMinutes: data.perProblemDurationMinutes,
+      bracketSettings:
+        format === "bracket"
+          ? {
+              type: data.bracketType || "single_elimination",
+              thirdPlacePlayoff: data.thirdPlacePlayoff,
+              seedingMethod: data.seedingMethod,
+            }
+          : undefined,
       registrationSettings: {
         type: data.registrationType || "open",
         startTime: data.registrationStartTime
@@ -472,6 +507,27 @@ async function createRoomContestAction(input: unknown) {
     });
 
     await contest.save();
+
+    if (isHeadUser && format !== "1v1") {
+      const auditNow = new Date();
+      await AuditLog.create({
+        actor: auditActor(session.user),
+        category: "contests",
+        action: "create",
+        operation: "contests.room.create",
+        target: {
+          type: "contest",
+          id: String(contest._id),
+          label: contest.name,
+        },
+        before: {},
+        after: summarizeContest(
+          contest.toObject() as unknown as Record<string, unknown>,
+        ),
+        createdAt: auditNow,
+        expiresAt: auditExpiry(auditNow),
+      });
+    }
 
     // Handle scheduling based on registrationStartTime and deadline
     const now = Date.now();
@@ -681,6 +737,7 @@ async function createBracketContestAction(input: unknown) {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
   if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
+  if (!isHead(session.user.access)) return appError("FORBIDDEN", "Forbidden");
 
   const parsed = contestCreationPayloadSchema.safeParse(input);
   if (!parsed.success) return validationError(parsed.error);
@@ -898,10 +955,32 @@ async function createBracketContestAction(input: unknown) {
         ),
         maxParticipants: Number(data.maxParticipants),
       },
+      overallDurationMinutes: data.overallDurationMinutes,
+      perProblemDurationMinutes: data.perProblemDurationMinutes,
       bracketSettings: {
+        type: data.bracketType || "single_elimination",
         thirdPlacePlayoff: !!data.thirdPlacePlayoff,
         seedingMethod: data.seedingMethod || "cf_rating",
       },
+    });
+
+    const auditNow = new Date();
+    await AuditLog.create({
+      actor: auditActor(session.user),
+      category: "contests",
+      action: "create",
+      operation: "contests.tournament.create",
+      target: {
+        type: "contest",
+        id: String(contest._id),
+        label: contest.name,
+      },
+      before: {},
+      after: summarizeContest(
+        contest.toObject() as unknown as Record<string, unknown>,
+      ),
+      createdAt: auditNow,
+      expiresAt: auditExpiry(auditNow),
     });
 
     const now = Date.now();

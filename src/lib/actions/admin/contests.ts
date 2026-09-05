@@ -246,7 +246,10 @@ async function createBracketContestAction(input: unknown) {
                 ), // strictly before based on ENV
                 maxParticipants: Number(data.maxParticipants),
               },
+              overallDurationMinutes: data.overallDurationMinutes,
+              perProblemDurationMinutes: data.perProblemDurationMinutes,
               bracketSettings: {
+                type: data.bracketType || "single_elimination",
                 thirdPlacePlayoff: !!data.thirdPlacePlayoff,
                 seedingMethod: data.seedingMethod,
               },

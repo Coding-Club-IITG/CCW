@@ -19,6 +19,8 @@ export type ContestPresetDto = {
     rating?: number;
     problemId?: string;
     roundNumber?: number;
+    points?: number;
+    timeLimitMinutes?: number;
   }>;
   fineTunedProblemCount?: number;
   archived?: boolean;
