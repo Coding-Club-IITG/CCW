@@ -17,6 +17,7 @@ import { notify } from "@/lib/notify";
 import { bullMqConnection } from "@/lib/bullmq";
 import { getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
+import { fetchContestProblemContent } from "@/lib/contests/problemContent";
 import CPUser from "@/models/CPUser";
 import ContestMatch from "@/models/ContestMatch";
 import ContestProblemSet from "@/models/ContestProblemSet";
@@ -618,6 +619,13 @@ export const reconciliationWorker = new Worker<
         );
       }
 
+      const problemsWithContent = await Promise.all(
+        availableProblems.map(async (problem) => ({
+          problem,
+          content: await fetchContestProblemContent(problem),
+        })),
+      );
+
       const room = new ContestRoom({
         contestId: contest._id,
         name: `Room for ${contest.name}`,
@@ -630,12 +638,13 @@ export const reconciliationWorker = new Worker<
       const problemSet = new ContestProblemSet({
         contestId: contest._id,
         roomId: room._id,
-        problems: availableProblems.map((problem) => ({
+        problems: problemsWithContent.map(({ problem, content }) => ({
           platform: "codeforces",
           problemId: problem.problemId,
-          name: problem.name,
+          name: content?.title || problem.name,
           rating: problem.rating,
           points: Math.floor((problem.rating || 1000) / 10),
+          ...content,
         })),
       });
 
@@ -659,13 +668,14 @@ export const reconciliationWorker = new Worker<
 
       const newRoomId = room._id.toString();
 
-      const redisProblems = availableProblems.map((problem) =>
+      const redisProblems = problemsWithContent.map(({ problem, content }) =>
         JSON.stringify({
           problemId: problem.problemId,
-          name: problem.name,
+          name: content?.title || problem.name,
           rating: problem.rating,
           points: Math.floor((problem.rating || 1000) / 10),
           revealedAt: null,
+          ...content,
         }),
       );
       await redis.del(`room:${newRoomId}:problems`);
@@ -952,20 +962,24 @@ export const reconciliationWorker = new Worker<
       );
       for (const sub of completedSubs) {
         const data = JSON.parse(sub.message.data);
-        const submission = new ContestSubmission({
-          roomId,
-          contestId,
-          userId: data.userId,
-          teamId: data.teamId,
-          problemId: data.problemId,
-          platform: "codeforces",
-          submissionId: data.cfSubmissionId,
-          verdict: data.verdict,
-          points: data.points,
-          solveMs: data.solveMs,
-          submittedAt: new Date(data.cfTimestamp || Date.now()),
-        });
-        await submission.save();
+        await ContestSubmission.updateOne(
+          { roomId, submissionId: String(data.cfSubmissionId) },
+          {
+            $setOnInsert: {
+              contestId,
+              submissionId: String(data.cfSubmissionId),
+              userId: data.userId,
+              teamId: data.teamId,
+              problemId: data.problemId,
+              platform: "codeforces",
+              verdict: data.verdict,
+              points: data.points,
+              solveMs: data.solveMs,
+              submittedAt: new Date(data.cfTimestamp || Date.now()),
+            },
+          },
+          { upsert: true },
+        );
       }
 
       // Finally, update the room status to "ended"
@@ -1187,21 +1201,24 @@ export const reconciliationWorker = new Worker<
       const data = contestSubmissionEventSchema.parse(
         JSON.parse(sub.message.data),
       );
-      // Construct and save ContestSubmission
-      const submission = new ContestSubmission({
-        roomId,
-        contestId,
-        userId: data.userId,
-        teamId: data.teamId,
-        problemId: data.problemId,
-        platform: "codeforces",
-        submissionId: data.cfSubmissionId,
-        verdict: data.verdict,
-        points: data.points,
-        solveMs: data.solveMs,
-        submittedAt: new Date(data.cfTimestamp || Date.now()),
-      });
-      await submission.save();
+      await ContestSubmission.updateOne(
+        { roomId, submissionId: String(data.cfSubmissionId) },
+        {
+          $setOnInsert: {
+            contestId,
+            submissionId: String(data.cfSubmissionId),
+            userId: data.userId,
+            teamId: data.teamId,
+            problemId: data.problemId,
+            platform: "codeforces",
+            verdict: data.verdict,
+            points: data.points,
+            solveMs: data.solveMs,
+            submittedAt: new Date(data.cfTimestamp || Date.now()),
+          },
+        },
+        { upsert: true },
+      );
     }
 
     // 4. Finalise ContestProblemSet

@@ -14,6 +14,7 @@ import { auth } from "@/lib/auth";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import { parseJson } from "@/lib/api/result";
 import { createContestRoomSchema } from "@/lib/api/schemas/contestRoute";
+import { fetchContestProblemContent } from "@/lib/contests/problemContent";
 
 export async function POST(req: NextRequest) {
   try {
@@ -81,6 +82,16 @@ export async function POST(req: NextRequest) {
       return jsonError("VALIDATION_ERROR", "insufficient_problems");
     }
 
+    const problemsWithContent = await Promise.all(
+      availableProblems.map(async (problem) => ({
+        problem,
+        content: await fetchContestProblemContent({
+          platform: "codeforces",
+          problemId: problem.problemId,
+        }),
+      })),
+    );
+
     // Write stub ContestRoom to MongoDB
     const room = new ContestRoom({
       contestId: contest._id,
@@ -95,12 +106,13 @@ export async function POST(req: NextRequest) {
     const problemSet = new ContestProblemSet({
       contestId: contest._id,
       roomId: room._id,
-      problems: availableProblems.map((p) => ({
+      problems: problemsWithContent.map(({ problem, content }) => ({
         platform: "codeforces",
-        problemId: p.problemId,
-        name: p.name,
-        rating: p.rating,
-        points: Math.floor((p.rating || 1000) / 10),
+        problemId: problem.problemId,
+        name: content?.title || problem.name,
+        rating: problem.rating,
+        points: Math.floor((problem.rating || 1000) / 10),
+        ...content,
       })),
     });
 
@@ -128,13 +140,14 @@ export async function POST(req: NextRequest) {
     const redis = await getRedis();
 
     // Write ordered problem array to room:<id>:problems
-    const redisProblems = availableProblems.map((p) =>
+    const redisProblems = problemsWithContent.map(({ problem, content }) =>
       JSON.stringify({
-        problemId: p.problemId,
-        name: p.name,
-        rating: p.rating,
-        points: Math.floor((p.rating || 1000) / 10),
+        problemId: problem.problemId,
+        name: content?.title || problem.name,
+        rating: problem.rating,
+        points: Math.floor((problem.rating || 1000) / 10),
         revealedAt: null,
+        ...content,
       }),
     );
     await redis.del(`room:${roomId}:problems`);
