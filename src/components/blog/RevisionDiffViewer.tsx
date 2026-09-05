@@ -12,11 +12,12 @@ import {
 import type { ReactNode } from "react";
 import { useId, useMemo, useState } from "react";
 
-import FocalImage from "@/components/shared/FocalImage";
+import type { BlogContent, BlogSnapshot } from "@/lib/blog/types";
 import {
   parseImageFocalPoint,
   type ImageFocalPoint,
 } from "@/lib/imageFocalPoint";
+import FocalImage from "@/components/shared/FocalImage";
 
 import styles from "./RevisionDiffViewer.module.scss";
 import { computeLineDiff, prepareLineDiff } from "./revisionDiff";
@@ -25,22 +26,11 @@ export { computeLineDiff } from "./revisionDiff";
 export type { DiffLine } from "./revisionDiff";
 
 interface RevisionDiffViewerProps {
-  livePost: {
-    title: string;
-    content: string;
-    excerpt?: string;
-    tags?: string[];
-    coverImage?: string;
-    coverFocalPoint?: ImageFocalPoint;
-  };
-  revision: {
-    title?: string;
-    content?: string;
-    excerpt?: string;
-    tags?: string[];
-    coverImage?: string;
-    coverFocalPoint?: ImageFocalPoint;
-  };
+  livePost: Pick<BlogContent, "title" | "content"> & Partial<BlogSnapshot>;
+  revision: Partial<BlogSnapshot>;
+  baseLabel?: string;
+  compareLabel?: string;
+  title?: string;
 }
 
 interface FieldChangeProps {
@@ -48,6 +38,8 @@ interface FieldChangeProps {
   label: string;
   liveValue: string;
   proposedValue: string;
+  baseLabel?: string;
+  compareLabel?: string;
 }
 
 function FieldChange({
@@ -55,6 +47,8 @@ function FieldChange({
   label,
   liveValue,
   proposedValue,
+  baseLabel = "Live",
+  compareLabel = "Proposed",
 }: FieldChangeProps) {
   return (
     <div className={styles.metaItem}>
@@ -63,11 +57,11 @@ function FieldChange({
       </div>
       <div className={styles.metaComparison}>
         <div className={styles.metaOld}>
-          <span className={styles.prefix}>Live</span>
+          <span className={styles.prefix}>{baseLabel}</span>
           <span>{liveValue}</span>
         </div>
         <div className={styles.metaNew}>
-          <span className={styles.prefix}>Proposed</span>
+          <span className={styles.prefix}>{compareLabel}</span>
           <span>{proposedValue}</span>
         </div>
       </div>
@@ -82,6 +76,9 @@ function sameFocalPoint(a: ImageFocalPoint, b: ImageFocalPoint) {
 export default function RevisionDiffViewer({
   livePost,
   revision,
+  baseLabel = "Live",
+  compareLabel = "Proposed",
+  title = "Proposed changes",
 }: RevisionDiffViewerProps) {
   const [showContentDiff, setShowContentDiff] = useState(false);
   const titleId = useId();
@@ -143,7 +140,7 @@ export default function RevisionDiffViewer({
         <div className={styles.titleArea}>
           <FileDiff width={18} height={18} className={styles.icon} />
           <h3 id={titleId} className={styles.title}>
-            Proposed changes
+            {title}
           </h3>
           <span className={styles.summaryBadge}>
             {totalChanges} field{totalChanges === 1 ? "" : "s"} modified
@@ -170,6 +167,8 @@ export default function RevisionDiffViewer({
               label="Title"
               liveValue={livePost.title}
               proposedValue={revision.title || "(none)"}
+              baseLabel={baseLabel}
+              compareLabel={compareLabel}
             />
           )}
 
@@ -179,6 +178,8 @@ export default function RevisionDiffViewer({
               label="Excerpt"
               liveValue={livePost.excerpt || "(none)"}
               proposedValue={revision.excerpt || "(none)"}
+              baseLabel={baseLabel}
+              compareLabel={compareLabel}
             />
           )}
 
@@ -188,6 +189,8 @@ export default function RevisionDiffViewer({
               label="Tags"
               liveValue={liveTags.join(", ") || "(none)"}
               proposedValue={proposedTags.join(", ") || "(none)"}
+              baseLabel={baseLabel}
+              compareLabel={compareLabel}
             />
           )}
 
@@ -198,13 +201,13 @@ export default function RevisionDiffViewer({
               </div>
               <div className={styles.coverComparison}>
                 <div className={styles.coverSide}>
-                  <span className={styles.coverLabel}>Live crop</span>
+                  <span className={styles.coverLabel}>{baseLabel} crop</span>
                   <div className={styles.coverFrame}>
                     {liveCoverImage ? (
                       <FocalImage
                         className={styles.coverImage}
                         src={liveCoverImage}
-                        alt="Live cover preview"
+                        alt={`${baseLabel} cover preview`}
                         width={640}
                         height={400}
                         focalPoint={liveFocalPoint}
@@ -215,13 +218,13 @@ export default function RevisionDiffViewer({
                   </div>
                 </div>
                 <div className={styles.coverSide}>
-                  <span className={styles.coverLabel}>Proposed crop</span>
+                  <span className={styles.coverLabel}>{compareLabel} crop</span>
                   <div className={styles.coverFrame}>
                     {proposedCoverImage ? (
                       <FocalImage
                         className={styles.coverImage}
                         src={proposedCoverImage}
-                        alt="Proposed cover preview"
+                        alt={`${compareLabel} cover preview`}
                         width={640}
                         height={400}
                         focalPoint={proposedFocalPoint}
@@ -308,7 +311,7 @@ export default function RevisionDiffViewer({
 
       {totalChanges === 0 && (
         <p className={styles.noChanges}>
-          No field differences detected between the live post and revision.
+          No field differences detected between {baseLabel} and {compareLabel}.
         </p>
       )}
     </section>

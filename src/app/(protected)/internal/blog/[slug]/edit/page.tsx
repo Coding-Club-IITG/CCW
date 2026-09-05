@@ -2,46 +2,22 @@
 
 import { use, useEffect, useState } from "react";
 
+import { expectAppData } from "@/lib/api/result";
+import type { EditableBlogPost } from "@/lib/blog/types";
+import { DEFAULT_IMAGE_FOCAL_POINT } from "@/lib/imageFocalPoint";
+import { formatDateTime } from "@/lib/utils";
 import BlogEditor, { BlogEditorData } from "@/components/blog/BlogEditor";
 import BlogEditorHeading from "@/components/blog/BlogEditorHeading";
 import BlogEditorToolbar from "@/components/blog/BlogEditorToolbar";
+import RevisionHistoryModal from "@/components/blog/RevisionHistoryModal";
 import RevisionPanel from "@/components/blog/RevisionPanel";
 import Button from "@/components/shared/Button";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import InlineNotice from "@/components/shared/InlineNotice";
 import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
-import { expectAppData } from "@/lib/api/result";
-import type { BlogStatus } from "@/lib/constants";
-import {
-  DEFAULT_IMAGE_FOCAL_POINT,
-  type ImageFocalPoint,
-} from "@/lib/imageFocalPoint";
-import { formatDateTime } from "@/lib/utils";
 
 interface Props {
   params: Promise<{ slug: string }>;
-}
-
-interface EditablePost {
-  title: string;
-  content: string;
-  excerpt: string;
-  coverImage: string;
-  coverFocalPoint?: ImageFocalPoint;
-  tags: string[];
-  status: BlogStatus;
-  authors: { userId: string; name: string }[];
-  pendingRevision?: {
-    title: string;
-    content: string;
-    excerpt: string;
-    coverImage: string;
-    coverFocalPoint?: ImageFocalPoint;
-    tags: string[];
-    updatedAt: string;
-    submittedAt: string | null;
-    submittedBy: string;
-  } | null;
 }
 
 interface Notice {
@@ -51,7 +27,7 @@ interface Notice {
 
 export default function EditMyBlogPage({ params }: Props) {
   const { slug } = use(params);
-  const [post, setPost] = useState<EditablePost | null>(null);
+  const [post, setPost] = useState<EditableBlogPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -59,6 +35,7 @@ export default function EditMyBlogPage({ params }: Props) {
   const [pendingAction, setPendingAction] = useState<
     "withdraw" | "discard" | null
   >(null);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   const isPublished = post?.status === "published";
   const hasRevision = Boolean(post?.pendingRevision);
@@ -169,11 +146,13 @@ export default function EditMyBlogPage({ params }: Props) {
     }
   };
 
+  const hasRevisions = isPublished || Boolean(post?.publishedAt);
   const toolbar = (
     <BlogEditorToolbar
       backHref="/internal/dashboard"
       backLabel="Back to My Blogs"
       liveHref={isPublished ? `/blog/${slug}` : undefined}
+      onOpenHistory={hasRevisions ? () => setHistoryModalOpen(true) : undefined}
     />
   );
 
@@ -324,6 +303,24 @@ export default function EditMyBlogPage({ params }: Props) {
           busy={pendingAction === "discard"}
           onCancel={() => setDiscardDialogOpen(false)}
           onConfirm={() => void handleDiscardRevision()}
+        />
+      )}
+
+      {historyModalOpen && (
+        <RevisionHistoryModal
+          key={slug}
+          onClose={() => setHistoryModalOpen(false)}
+          slug={slug}
+          livePost={post}
+          mode="author"
+          onRestoreSuccess={(restoredPost) => {
+            setPost(restoredPost);
+            setNotice({
+              message:
+                "Historical version loaded into draft. You can make edits and request approval.",
+              tone: "success",
+            });
+          }}
         />
       )}
     </div>

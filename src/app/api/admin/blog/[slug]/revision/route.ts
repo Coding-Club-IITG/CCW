@@ -20,6 +20,7 @@ import {
   summarizeBlogRevision,
   summarizePublicContent,
 } from "@/lib/audit/summary";
+import { recordRevisionSnapshot } from "@/lib/blog/revisions";
 import { invalidateCache } from "@/lib/cache";
 import dbConnect from "@/lib/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/utils";
@@ -110,6 +111,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
             pendingRevision: null,
           });
           await current.save({ session: transaction });
+
+          const authorUser = current.authors?.find(
+            (a: any) => String(a.userId) === String(rev.submittedBy),
+          );
+
+          await recordRevisionSnapshot(transaction, {
+            post: current,
+            editor: {
+              userId: rev.submittedBy,
+              name: authorUser?.name || "Author",
+            },
+            approvedBy: {
+              userId: user.id,
+              name: user.name || "Admin",
+            },
+            source: "approved_revision",
+            changeSummary: "Approved member revision",
+            preEditState: before,
+          });
 
           return {
             result: current,
