@@ -254,6 +254,29 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 export const BLOG_STATUSES = ["draft", "published"] as const;
 export type BlogStatus = (typeof BLOG_STATUSES)[number];
 
+export const BLOG_REVISION_SOURCES = [
+  "initial_publish",
+  "admin_edit",
+  "approved_revision",
+  "rollback",
+] as const;
+export type BlogRevisionSource = (typeof BLOG_REVISION_SOURCES)[number];
+
+export const BLOG_REVISION_SOURCE_LABELS: Record<BlogRevisionSource, string> = {
+  initial_publish: "Published",
+  admin_edit: "Admin edit",
+  approved_revision: "Approved edit",
+  rollback: "Restored",
+};
+
+export const BLOG_EDITOR_API_PREFIXES = {
+  admin: "/api/admin/blog",
+  author: "/api/internal/blog",
+} as const;
+export type BlogEditorMode = keyof typeof BLOG_EDITOR_API_PREFIXES;
+
+export const BLOG_REVISION_SUMMARY_MAX_LENGTH = 500;
+
 export const BLOG_TAGS = [
   ...MODULES,
   "General",

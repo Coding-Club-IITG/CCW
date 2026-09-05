@@ -44,7 +44,7 @@
   the requested operation, and validate all untrusted input.
 - Do not rely on hidden UI controls or client-side validation for security.
 - Return a consistent discriminated union from server actions:
-  `{ success: true, data? } | { success: false, error }`.
+  `AppResult<T>` (`{ ok: true, data } | { ok: false, error }`).
 - Return safe, human-readable errors to clients. Log useful diagnostic context
   with the shared logger without exposing internal exception details.
 - Use the `logger` for application warnings and errors; `@coding-club-iitg/ops-logger`

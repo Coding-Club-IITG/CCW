@@ -17,6 +17,7 @@ import {
   jsonObjectSchema,
   paginationQueryFields,
 } from "@/lib/api/schemas/boundary";
+import { recordRevisionSnapshot } from "@/lib/blog/revisions";
 import {
   CACHE_TTLS,
   buildCacheKey,
@@ -174,6 +175,17 @@ export async function POST(request: NextRequest) {
           ],
           { session: transaction },
         );
+
+        if (postStatus === "published") {
+          await recordRevisionSnapshot(transaction, {
+            post: created,
+            editor: { userId: user.id, name: user.name || "Unknown" },
+            approvedBy: null,
+            source: "initial_publish",
+            changeSummary: "Initial publication",
+          });
+        }
+
         return {
           result: created,
           audit: {

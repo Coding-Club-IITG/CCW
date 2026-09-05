@@ -1,45 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import ImageUpload from "@/components/shared/ImageUpload";
-import MarkdownEditor from "@/components/shared/MarkdownEditor";
-import Button from "@/components/shared/Button";
-import TagEditor from "@/components/shared/TagEditor";
-import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
 import { X as IconX } from "lucide-react";
+import type { BlogPerson, BlogSnapshot } from "@/lib/blog/types";
 import { BLOG_TAGS, BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import {
   DEFAULT_IMAGE_FOCAL_POINT,
   type ImageFocalPoint,
 } from "@/lib/imageFocalPoint";
+import ImageUpload from "@/components/shared/ImageUpload";
+import MarkdownEditor from "@/components/shared/MarkdownEditor";
+import Button from "@/components/shared/Button";
+import TagEditor from "@/components/shared/TagEditor";
+import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
 import styles from "./BlogEditor.module.scss";
 
-interface BlogAuthor {
-  userId: string;
-  name: string;
-}
-
-export interface BlogEditorData {
-  title: string;
-  content: string;
-  excerpt: string;
-  coverImage: string;
-  coverFocalPoint: ImageFocalPoint;
-  tags: string[];
+export interface BlogEditorData extends BlogSnapshot {
   status: BlogStatus;
-  authors: BlogAuthor[];
 }
 
 interface BlogEditorProps {
-  initialData?: {
-    title: string;
-    content: string;
-    excerpt: string;
-    coverImage: string;
+  initialData?: Omit<BlogEditorData, "coverFocalPoint"> & {
     coverFocalPoint?: ImageFocalPoint;
-    tags: string[];
-    status: BlogStatus;
-    authors: BlogAuthor[];
   };
   onSave: (data: BlogEditorData) => Promise<void>;
   isNew?: boolean;
@@ -76,7 +58,7 @@ export default function BlogEditor({
   const [status, setStatus] = useState<BlogStatus>(
     initialData?.status || "draft",
   );
-  const [authors, setAuthors] = useState<BlogAuthor[]>(
+  const [authors, setAuthors] = useState<BlogPerson[]>(
     initialData?.authors || [],
   );
   const [saving, setSaving] = useState(false);
