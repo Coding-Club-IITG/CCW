@@ -8,6 +8,7 @@ import BlogEditor, { BlogEditorData } from "@/components/blog/BlogEditor";
 import BlogEditorHeading from "@/components/blog/BlogEditorHeading";
 import BlogEditorToolbar from "@/components/blog/BlogEditorToolbar";
 import RevisionDiffViewer from "@/components/blog/RevisionDiffViewer";
+import RevisionHistoryModal from "@/components/blog/RevisionHistoryModal";
 import RevisionPanel from "@/components/blog/RevisionPanel";
 import Button from "@/components/shared/Button";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -66,6 +67,7 @@ export default function EditBlogPostPage({ params }: Props) {
   const [reviewAction, setReviewAction] = useState<ReviewAction | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,6 +143,11 @@ export default function EditBlogPostPage({ params }: Props) {
       backHref="/admin/blog"
       backLabel="Back to Blog Management"
       liveHref={post?.status === "published" ? `/blog/${slug}` : undefined}
+      onOpenHistory={
+        post?.status === "published"
+          ? () => setHistoryModalOpen(true)
+          : undefined
+      }
     />
   );
 
@@ -235,6 +242,31 @@ export default function EditBlogPostPage({ params }: Props) {
         initialData={liveEditorData}
         onSave={handleSave}
       />
+
+      {historyModalOpen && (
+        <RevisionHistoryModal
+          isOpen={historyModalOpen}
+          onClose={() => setHistoryModalOpen(false)}
+          slug={slug}
+          livePost={{
+            title: post.title,
+            content: post.content,
+            excerpt: post.excerpt,
+            coverImage: post.coverImage,
+            coverFocalPoint: post.coverFocalPoint,
+            tags: post.tags,
+          }}
+          endpointPrefix="/api/admin/blog"
+          userRole="admin"
+          onRestoreSuccess={(restoredPost) => {
+            setPost(restoredPost);
+            setNotice({
+              message: "Blog post successfully restored to earlier version.",
+              tone: "success",
+            });
+          }}
+        />
+      )}
 
       {reviewAction && (
         <ConfirmDialog

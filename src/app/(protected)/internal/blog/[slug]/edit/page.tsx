@@ -5,6 +5,7 @@ import { use, useEffect, useState } from "react";
 import BlogEditor, { BlogEditorData } from "@/components/blog/BlogEditor";
 import BlogEditorHeading from "@/components/blog/BlogEditorHeading";
 import BlogEditorToolbar from "@/components/blog/BlogEditorToolbar";
+import RevisionHistoryModal from "@/components/blog/RevisionHistoryModal";
 import RevisionPanel from "@/components/blog/RevisionPanel";
 import Button from "@/components/shared/Button";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -59,6 +60,7 @@ export default function EditMyBlogPage({ params }: Props) {
   const [pendingAction, setPendingAction] = useState<
     "withdraw" | "discard" | null
   >(null);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   const isPublished = post?.status === "published";
   const hasRevision = Boolean(post?.pendingRevision);
@@ -174,6 +176,7 @@ export default function EditMyBlogPage({ params }: Props) {
       backHref="/internal/dashboard"
       backLabel="Back to My Blogs"
       liveHref={isPublished ? `/blog/${slug}` : undefined}
+      onOpenHistory={isPublished ? () => setHistoryModalOpen(true) : undefined}
     />
   );
 
@@ -324,6 +327,32 @@ export default function EditMyBlogPage({ params }: Props) {
           busy={pendingAction === "discard"}
           onCancel={() => setDiscardDialogOpen(false)}
           onConfirm={() => void handleDiscardRevision()}
+        />
+      )}
+
+      {historyModalOpen && (
+        <RevisionHistoryModal
+          isOpen={historyModalOpen}
+          onClose={() => setHistoryModalOpen(false)}
+          slug={slug}
+          livePost={{
+            title: post.title,
+            content: post.content,
+            excerpt: post.excerpt,
+            coverImage: post.coverImage,
+            coverFocalPoint: post.coverFocalPoint,
+            tags: post.tags,
+          }}
+          endpointPrefix="/api/internal/blog"
+          userRole="author"
+          onRestoreSuccess={(restoredPost) => {
+            setPost(restoredPost);
+            setNotice({
+              message:
+                "Historical version loaded into draft. You can make edits and request approval.",
+              tone: "success",
+            });
+          }}
         />
       )}
     </div>
