@@ -37,6 +37,7 @@ const CYCLE_MS = 18_000;
 const MAX_PARTICLES = 90;
 const IDLE_FRAMES = 150;
 const SHIVER_MS = 620;
+const FLARE_STEPS = 128;
 
 const EXTRUSION = Array.from({ length: MARK_LAYERS }, (_, index) => {
   const half = (MARK_LAYERS - 1) / 2;
@@ -76,6 +77,9 @@ type Flare = {
   vy: number;
   radius: number;
   color: string;
+  wave: number;
+  phase: number;
+  pulse: number;
 };
 
 export default function PrismHero() {
@@ -190,8 +194,11 @@ export default function PrismHero() {
         y: disc.y + Math.sin(angle) * disc.radius,
         vx: Math.cos(tangent) * 0.9,
         vy: Math.sin(tangent) * 0.9,
-        radius: 3,
+        radius: 5,
         color: ray.color,
+        wave: 9 + Math.floor(Math.random() * 4),
+        phase: Math.random() * Math.PI * 2,
+        pulse: Math.random() * Math.PI * 2,
       });
     }
 
@@ -357,11 +364,25 @@ export default function PrismHero() {
         flare.x += flare.vx;
         flare.y += flare.vy;
         flare.radius += 0.05;
+        flare.phase += 0.006;
+        flare.pulse += 0.045;
+        const ripple = 0.055 + 0.045 * Math.sin(flare.pulse);
+        const swell = 1 + 0.07 * Math.sin(flare.pulse * 0.6);
         context.strokeStyle = flare.color;
-        context.globalAlpha = 0.95;
-        context.lineWidth = 2;
+        context.globalAlpha = 0.6 + 0.3 * Math.sin(flare.pulse);
+        context.lineWidth = 1.8;
         context.beginPath();
-        context.arc(flare.x, flare.y, flare.radius, 0, Math.PI * 2);
+        for (let step = 0; step <= FLARE_STEPS; step++) {
+          const theta = (step / FLARE_STEPS) * Math.PI * 2;
+          const wobble =
+            1 + ripple * Math.sin(flare.wave * theta + flare.phase);
+          const reach = flare.radius * swell * wobble;
+          const px = flare.x + Math.cos(theta) * reach;
+          const py = flare.y + Math.sin(theta) * reach;
+          if (step === 0) context.moveTo(px, py);
+          else context.lineTo(px, py);
+        }
+        context.closePath();
         context.stroke();
       }
 
