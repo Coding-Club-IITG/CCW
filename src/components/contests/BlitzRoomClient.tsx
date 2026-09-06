@@ -29,6 +29,7 @@ import { getDisplayName } from "@/lib/utils";
 
 import {
   getContestRoomResultsPath,
+  getCodeforcesProblemUrl,
   getDisplayTeamName,
 } from "@/components/contests/roomPresentation";
 import RoomActivityFeed from "@/components/contests/RoomActivityFeed";
@@ -38,6 +39,8 @@ import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
 import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
+import ContestCodeRunner from "@/components/contests/ContestCodeRunner";
+import ContestProblemContent from "@/components/contests/ContestProblemContent";
 
 import styles from "./BlitzRoomClient.module.scss";
 
@@ -366,7 +369,6 @@ export default function BlitzRoomClient({
       body: JSON.stringify({
         roomId,
         teamId,
-        cfHandle: cfHandle || "dummy0", // Use real handle if available, otherwise fallback
         problemId: activeProblem.problemId,
       }),
     });
@@ -625,7 +627,7 @@ export default function BlitzRoomClient({
 
                     <div className={styles.problemActions}>
                       <a
-                        href={`https://codeforces.com/contest/${activeProblem.problemId?.replace(/[^0-9]/g, "")}/problem/${activeProblem.problemId?.replace(/[0-9]/g, "")}`}
+                        href={getCodeforcesProblemUrl(activeProblem.problemId || "") || "#"}
                         target="_blank"
                         rel="noreferrer"
                         className={styles.cfLink}
@@ -656,6 +658,11 @@ export default function BlitzRoomClient({
                       </button>
                     </div>
                   </div>
+                  <ContestProblemContent problem={activeProblem} />
+                  <ContestCodeRunner
+                    problemId={activeProblem.problemId}
+                    samples={activeProblem.samples}
+                  />
                 </>
               )}
             </div>

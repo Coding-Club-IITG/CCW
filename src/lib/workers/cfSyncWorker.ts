@@ -23,6 +23,7 @@ import { claimProblem, getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
+import ContestTeam from "@/models/ContestTeam";
 
 // Circuit breaker removed, relying on BullMQ job-level retries
 
@@ -93,6 +94,22 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
 
         // Verify userId is part of the team
         const redis = await getRedis();
+        const team = await ContestTeam.findOne({
+          _id: teamId,
+          roomId: room._id,
+          members: userId,
+        }).lean();
+        if (!team) {
+          logger.warn(
+            `[cfSyncWorker] User ${userId} is not a member of team ${teamId} in room ${roomId}.`,
+          );
+          await publishUser(userId, {
+            verdict: "invalid",
+            reason: "not_team_member",
+          });
+          return;
+        }
+
         const isTeamMember = await redis.sIsMember(
           `team:${teamId}:users`,
           userId,
@@ -111,6 +128,14 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
         const state = contestRoomStateSchema.parse(
           await redis.hGetAll(`room:${roomId}:state`),
         );
+        if (state.status !== "active") {
+          await publishUser(userId, {
+            type: "sync.failed",
+            reason: "room_not_active",
+            problemId,
+          });
+          return;
+        }
         const problemsRaw = await redis.lRange(
           `room:${roomId}:problems`,
           0,
