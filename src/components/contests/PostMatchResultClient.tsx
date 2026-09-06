@@ -322,7 +322,7 @@ export default function PostMatchResultClient({
             <h4 className={styles.sectionHeading}>Problem Matrix</h4>
             <div className={styles.problemGrid}>
               {matchData.problems.length > 0 ? (
-                matchData.problems.map((prob) => {
+                matchData.problems.map((prob, idx) => {
                   let isUserTeam = false;
                   if (prob.solved && currentUserTeam) {
                     isUserTeam = prob.solver?.teamId === currentUserTeam.id;
@@ -330,7 +330,7 @@ export default function PostMatchResultClient({
 
                   return (
                     <a
-                      key={prob.id}
+                      key={`${prob.id}-${idx}`}
                       href={getProblemUrl(prob.id)}
                       target="_blank"
                       rel="noopener noreferrer"
