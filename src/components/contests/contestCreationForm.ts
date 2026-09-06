@@ -19,6 +19,7 @@ export interface ContestCreationForm {
   registrationStartMode: string;
   registrationStartTime: string;
   registrationType: string;
+  spectatorRestriction: string;
 }
 
 export type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
@@ -43,6 +44,7 @@ export interface AdminContestWizardForm {
   bulkProblemCount?: number;
   thirdPlacePlayoff: boolean;
   seedingMethod: "cf_rating" | "manual";
+  spectatorRestriction: string;
 }
 
 export interface ContestParticipant {
@@ -77,6 +79,7 @@ export function createInitialContestForm(): ContestCreationForm {
     registrationStartMode: "immediate",
     registrationStartTime: "",
     registrationType: "open",
+    spectatorRestriction: "none",
   };
 }
 

@@ -51,6 +51,7 @@ export interface IContestMatch extends Document {
   registrations?: IRegistration[];
   registrationSettings?: IRegistrationSettings;
   bracketSettings?: IBracketSettings;
+  spectatorRestriction: "none" | "all" | "admin_creator" | "club_members";
   winner?: mongoose.Types.ObjectId;
   winnerName?: string;
   createdAt: Date;
@@ -139,6 +140,11 @@ const ContestMatchSchema = new Schema<IContestMatch>(
     registrations: [RegistrationSchema],
     registrationSettings: RegistrationSettingsSchema,
     bracketSettings: BracketSettingsSchema,
+    spectatorRestriction: {
+      type: String,
+      enum: ["none", "all", "admin_creator", "club_members"],
+      default: "none",
+    },
     winner: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     winnerName: { type: String },
   },

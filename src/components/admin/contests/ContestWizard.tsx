@@ -51,6 +51,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     }[],
     thirdPlacePlayoff: false,
     seedingMethod: "cf_rating",
+      spectatorRestriction: "none",
   });
 
   const selectedPreset = presets.find((p) => p._id === formData.presetId);
@@ -168,6 +169,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
         {steps[currentStep - 1]?.id === "reg" && (
           <Step2Registration
             registrationType={formData.registrationType}
+              spectatorRestriction={formData.spectatorRestriction}
             maxParticipants={formData.maxParticipants}
             startTime={formData.startTime}
             updateFields={updateFields}
@@ -237,3 +239,4 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     </div>
   );
 }
+

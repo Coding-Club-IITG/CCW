@@ -59,11 +59,12 @@ export default function BlitzRoomClient({
   initialTimeLimit,
   from,
   syncCooldownSeconds = 60,
+  isSpectator = false,
 }: {
   contest: ContestListingItem;
   roomId: string;
   roomName: string;
-  teamId: string;
+  teamId: string | null;
   userId: string;
   cfHandle?: string;
   teams?: ContestRoomTeamDto[];
@@ -77,6 +78,7 @@ export default function BlitzRoomClient({
   initialTimeLimit?: number;
   from?: string;
   syncCooldownSeconds?: number;
+  isSpectator?: boolean;
 }) {
   const router = useRouter();
 
@@ -421,6 +423,11 @@ export default function BlitzRoomClient({
                   ? "MATCH OVER"
                   : "WAITING FOR PLAYERS"}
             </div>
+            {isSpectator && (
+              <div className={styles.statusBadge} style={{ background: 'var(--border)', color: 'var(--foreground)' }}>
+                👁 Spectator Mode
+              </div>
+            )}
           </div>
           <div className={styles.scoreRow}>
             {teams && teams.length >= 2 ? (
@@ -633,27 +640,29 @@ export default function BlitzRoomClient({
                         <ExternalLink size={16} />
                         Open in Codeforces
                       </a>
-                      <button
-                        onClick={handleSync}
-                        disabled={
-                          syncing || matchState !== "active" || syncCooldown > 0
-                        }
-                        className={styles.syncBtn}
-                      >
-                        {syncCooldown > 0 && !syncing ? (
-                          <Hourglass size={16} />
-                        ) : (
-                          <RefreshCw
-                            className={syncing ? styles.spin : ""}
-                            size={16}
-                          />
-                        )}
-                        {syncing
-                          ? "Syncing..."
-                          : syncCooldown > 0
-                            ? `Wait ${syncCooldown}s`
-                            : "Sync Submission"}
-                      </button>
+                      {!isSpectator && (
+                        <button
+                          onClick={handleSync}
+                          disabled={
+                            syncing || matchState !== "active" || syncCooldown > 0
+                          }
+                          className={styles.syncBtn}
+                        >
+                          {syncCooldown > 0 && !syncing ? (
+                            <Hourglass size={16} />
+                          ) : (
+                            <RefreshCw
+                              className={syncing ? styles.spin : ""}
+                              size={16}
+                            />
+                          )}
+                          {syncing
+                            ? "Syncing..."
+                            : syncCooldown > 0
+                              ? `Wait ${syncCooldown}s`
+                              : "Sync Submission"}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </>
@@ -752,3 +761,4 @@ export default function BlitzRoomClient({
     </div>
   );
 }
+
