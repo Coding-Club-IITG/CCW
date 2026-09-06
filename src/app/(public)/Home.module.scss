@@ -213,12 +213,6 @@
   }
 }
 
-.heroKicker {
-  margin: 0 0 26px;
-  @include micro-label($text-sm, 0.2em);
-  color: var(--primary);
-}
-
 .heroWordmark {
   margin: 0 0 8px;
   @include display-type(clamp(58px, 7vw, 96px), 0.02em, 0.82);
@@ -811,10 +805,10 @@
 // Writing rows
 .postRow {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 2fr) auto;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 2fr) 170px;
   gap: 32px;
   align-items: start;
-  padding-block: 28px;
+  padding: 28px 24px;
   border-bottom: 1px solid var(--border-light);
   color: var(--foreground-strong);
   transition: background 0.2s ease;
@@ -828,11 +822,12 @@
 
 .postMain {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .postTitle {
   display: block;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.015em;
   line-height: 1.22;
@@ -841,23 +836,26 @@
 .postTag {
   display: block;
   margin-top: 8px;
-  @include micro-label($text-xs, 0.05em);
+  @include micro-label($text-sm, 0.05em);
   color: var(--accent, var(--muted));
 }
 
 .postExcerpt {
-  font-size: 15px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 16px;
   line-height: 1.55;
   color: var(--foreground-secondary);
 }
 
 .postMeta {
-  justify-self: end;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   text-align: right;
   gap: 4px;
-  @include metadata($text-xs);
+  @include metadata($text-sm);
+  line-height: 1.6;
 }
 
 // Team faces
@@ -1045,10 +1043,16 @@
     gap: 12px;
   }
 
-  .projectLearnMore,
-  .postMeta {
+  .projectLearnMore {
     justify-self: start;
     text-align: left;
+  }
+
+  .postMeta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    text-align: left;
+    gap: 8px 16px;
   }
 }
 
@@ -1083,5 +1087,15 @@
   .partner {
     grid-template-columns: minmax(0, 1fr);
     gap: 32px;
+  }
+}
+
+@media (max-width: 760px) {
+  .postRow {
+    padding-inline: 16px;
+  }
+
+  .postTitle {
+    font-size: 22px;
   }
 }

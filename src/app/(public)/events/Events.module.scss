@@ -533,6 +533,10 @@
   display: flex;
   flex-direction: column;
   padding: clamp(28px, 3.4vw, 52px);
+
+  @media (min-width: 901px) {
+    padding-block: clamp(16px, 1.5vw, 22px);
+  }
 }
 
 .sheetKicker {

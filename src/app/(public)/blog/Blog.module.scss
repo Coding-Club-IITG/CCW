@@ -98,6 +98,7 @@
 
 .featuredExcerpt {
   margin: 0;
+  overflow-wrap: anywhere;
   max-width: 520px;
   font-size: 16px;
   line-height: 1.6;
@@ -121,7 +122,7 @@
   @include outline-chip;
 }
 
-// Dense list rows
+// Article rows
 .list {
   @include page-gutter;
   padding-bottom: 40px;
@@ -129,10 +130,11 @@
 
 .row {
   display: grid;
-  grid-template-columns: 110px 1.5fr 1.9fr auto;
+  grid-template-columns: 160px minmax(0, 1.5fr) minmax(0, 1.9fr) 170px;
+  grid-template-areas: "media heading excerpt meta";
   gap: 28px;
-  align-items: center;
-  padding-block: 26px;
+  align-items: start;
+  padding: 32px 24px;
   border-bottom: 1px solid var(--border-light);
   color: var(--foreground-strong);
   transition: background 0.2s ease;
@@ -145,6 +147,7 @@
 }
 
 .rowMedia {
+  grid-area: media;
   @include media-frame(16, 10);
 }
 
@@ -155,12 +158,14 @@
 }
 
 .rowHeading {
+  grid-area: heading;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .rowTitle {
   margin: 0;
-  font-size: 21px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.018em;
   line-height: 1.22;
@@ -169,24 +174,30 @@
 
 .rowTag {
   margin: 10px 0 0;
-  @include micro-label($text-xs, 0.05em);
+  @include micro-label($text-sm, 0.05em);
   color: var(--accent, var(--muted));
 }
 
 .rowExcerpt {
+  grid-area: excerpt;
+  min-width: 0;
+  overflow-wrap: anywhere;
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.55;
   color: var(--foreground-secondary);
 }
 
 .rowMeta {
-  justify-self: end;
+  grid-area: meta;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   text-align: right;
-  @include metadata($text-xs);
-  line-height: 1.8;
+  gap: 4px;
+  overflow-wrap: anywhere;
+  @include metadata($text-sm);
+  line-height: 1.6;
 }
 
 .updatedLine {
@@ -200,12 +211,11 @@
 
 @media (max-width: 1100px) {
   .row {
-    grid-template-columns: 92px minmax(0, 1fr) auto;
-    gap: 20px;
-  }
-
-  .rowExcerpt {
-    display: none;
+    grid-template-columns: 128px minmax(0, 1fr) 170px;
+    grid-template-areas:
+      "media heading meta"
+      "media excerpt meta";
+    gap: 12px 24px;
   }
 }
 
@@ -220,18 +230,24 @@
   }
 
   .row {
-    grid-template-columns: 72px minmax(0, 1fr);
-    align-items: start;
+    grid-template-columns: 80px minmax(0, 1fr);
+    grid-template-areas:
+      "media heading"
+      "excerpt excerpt"
+      "meta meta";
+    gap: 14px 16px;
+    padding: 24px 16px;
+  }
+
+  .rowTitle {
+    font-size: 22px;
   }
 
   .rowMeta {
-    grid-column: 2;
-    justify-self: start;
-    text-align: left;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 10px;
+    text-align: left;
+    gap: 8px 16px;
   }
 
   .filterBar {

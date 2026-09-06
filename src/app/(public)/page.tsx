@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Maximize2 } from "lucide-react";
+import { excerptPreview } from "@/lib/blog/excerptPreview";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import {
   CLUB_POSITIONS,
@@ -41,8 +42,8 @@ import User from "@/models/User";
 import JsonLd from "@/components/shared/JsonLd";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import FocalImage from "@/components/shared/FocalImage";
-import CountUp from "@/components/public/CountUp";
 import Reveal from "@/components/public/Reveal";
+import CountUp from "@/components/public/CountUp";
 import ScrollProgress from "@/components/public/ScrollProgress";
 import PrismHero from "./PrismHero";
 import ProjectSheet from "./projects/ProjectSheet";
@@ -106,7 +107,7 @@ type HomeData = {
     title: string;
     excerpt: string;
     tags: string[];
-    authors: string;
+    authorCount: number;
     date: string;
   }>;
   faces: Array<{
@@ -132,7 +133,7 @@ const EMPTY: HomeData = {
 async function getHomeData(): Promise<HomeData> {
   await dbConnect();
 
-  return cachedFetch(buildCacheKey("home:v3"), CACHE_TTLS.EVENTS, async () => {
+  return cachedFetch(buildCacheKey("home:v4"), CACHE_TTLS.EVENTS, async () => {
     const [
       heads,
       ongoingProjects,
@@ -242,10 +243,7 @@ async function getHomeData(): Promise<HomeData> {
           title: post.title,
           excerpt: post.excerpt,
           tags: post.tags,
-          authors:
-            post.authors
-              .map((author: { name: string }) => author.name)
-              .join(", ") || "Coding Club",
+          authorCount: post.authors.length,
           date: formatShortDate(post.publishedAt),
         })),
         faces: [...team]
@@ -355,12 +353,7 @@ export default async function Home({ searchParams }: Props) {
         <PrismHero />
 
         <div className={styles.heroCopy}>
-          <p className={styles.heroKicker}>Five modules · learn by building</p>
-          <p className={styles.heroWordmark}>
-            Coding
-            <br />
-            Club
-          </p>
+          <p className={styles.heroWordmark}>Coding Club</p>
           <h1 className={styles.heroTitle}>
             The heartbeat of technology and innovation at IIT Guwahati.
           </h1>
@@ -477,9 +470,14 @@ export default async function Home({ searchParams }: Props) {
                     </span>
                   )}
                 </span>
-                <span className={styles.postExcerpt}>{post.excerpt}</span>
+                <span className={styles.postExcerpt}>
+                  {excerptPreview(post.excerpt)}
+                </span>
                 <span className={styles.postMeta}>
-                  <span>{post.authors}</span>
+                  <span>
+                    {post.authorCount}{" "}
+                    {post.authorCount === 1 ? "author" : "authors"}
+                  </span>
                   <span>{post.date}</span>
                 </span>
               </Link>
