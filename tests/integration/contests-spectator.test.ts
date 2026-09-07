@@ -73,7 +73,7 @@ describe("Spectator Mode", () => {
         cfHandle: "tester",
         cfRating: 1500
       });
-      getSession.mockResolvedValue({ user: { id: cpUser.userId.toString() } });
+      getSession.mockResolvedValue({ user: { id: cpUser.userId.toString(), access: "Head" } });
 
       const res = await createRoomContest({
         name: "Test Room",
@@ -103,7 +103,7 @@ describe("Spectator Mode", () => {
         cfHandle: "tester2",
         cfRating: 1500
       });
-      getSession.mockResolvedValue({ user: { id: cpUser.userId.toString() } });
+      getSession.mockResolvedValue({ user: { id: cpUser.userId.toString(), access: "Head" } });
 
       const res = await createBracketContest({
         name: "Bracket Room",
