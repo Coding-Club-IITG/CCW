@@ -467,6 +467,9 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                         newProblemIndex,
                         JSON.stringify(nextProblem),
                       );
+                      await redis.hSet(`room:${roomId}:state`, {
+                        currentProblemStartTime: Date.now().toString(),
+                      });
 
                       await publishRoom(roomId, {
                         type: "room.advance",

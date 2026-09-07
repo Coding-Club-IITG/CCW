@@ -105,4 +105,30 @@ describe("bracket contest invariants", () => {
       }),
     ).toEqual({ success: true });
   });
+
+  it("parses double elimination bracketType, duration, and problem slot points/timeLimit", () => {
+    const payload = validPayload({
+      bracketType: "double_elimination",
+      overallDurationMinutes: 120,
+      perProblemDurationMinutes: 15,
+      problemSlots: [
+        {
+          platform: "codeforces",
+          problemId: "1000A",
+          points: 250,
+          timeLimitMinutes: 20,
+        },
+      ],
+    });
+
+    const parsed = contestCreationPayloadSchema.safeParse(payload);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.bracketType).toBe("double_elimination");
+      expect(parsed.data.overallDurationMinutes).toBe(120);
+      expect(parsed.data.perProblemDurationMinutes).toBe(15);
+      expect(parsed.data.problemSlots[0].points).toBe(250);
+      expect(parsed.data.problemSlots[0].timeLimitMinutes).toBe(20);
+    }
+  });
 });

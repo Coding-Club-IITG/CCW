@@ -7,6 +7,7 @@ export interface ISelectedProblem {
   rating?: number;
   url?: string;
   points: number;
+  timeLimitMinutes?: number;
 }
 
 export interface IContestProblemSet extends Document {
@@ -24,6 +25,7 @@ const SelectedProblemSchema = new Schema<ISelectedProblem>({
   rating: { type: Number },
   url: { type: String },
   points: { type: Number, required: true, default: 100 },
+  timeLimitMinutes: { type: Number },
 });
 
 const ContestProblemSetSchema = new Schema<IContestProblemSet>(

@@ -5,6 +5,8 @@ export interface IProblemSlot {
   rating?: number;
   problemId?: string;
   roundNumber?: number;
+  points?: number;
+  timeLimitMinutes?: number;
 }
 
 export interface IRegistration {
@@ -22,6 +24,7 @@ export interface IRegistrationSettings {
 }
 
 export interface IBracketSettings {
+  type?: "single_elimination" | "double_elimination";
   thirdPlacePlayoff: boolean;
   seedingMethod: "cf_rating" | "manual";
 }
@@ -33,6 +36,8 @@ export interface IContestMatch extends Document {
   startTime?: Date;
   endTime?: Date;
   durationSeconds?: number;
+  overallDurationMinutes?: number;
+  perProblemDurationMinutes?: number;
   format: "1v1" | "solo-tournament" | "team-tournament" | "bracket";
   mode: "blitz" | "arena" | "knockout";
   status: "draft" | "registration" | "provisioning" | "active" | "completed";
@@ -62,6 +67,8 @@ const ProblemSlotSchema = new Schema<IProblemSlot>({
   rating: { type: Number },
   problemId: { type: String },
   roundNumber: { type: Number },
+  points: { type: Number, default: 100 },
+  timeLimitMinutes: { type: Number },
 });
 
 const RegistrationSchema = new Schema<IRegistration>({
@@ -79,6 +86,11 @@ const RegistrationSettingsSchema = new Schema<IRegistrationSettings>({
 });
 
 const BracketSettingsSchema = new Schema<IBracketSettings>({
+  type: {
+    type: String,
+    enum: ["single_elimination", "double_elimination"],
+    default: "single_elimination",
+  },
   thirdPlacePlayoff: { type: Boolean, default: false },
   seedingMethod: {
     type: String,
@@ -100,6 +112,8 @@ const ContestMatchSchema = new Schema<IContestMatch>(
     startTime: { type: Date },
     endTime: { type: Date },
     durationSeconds: { type: Number },
+    overallDurationMinutes: { type: Number },
+    perProblemDurationMinutes: { type: Number },
     format: {
       type: String,
       required: true,

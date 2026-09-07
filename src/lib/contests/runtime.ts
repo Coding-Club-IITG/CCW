@@ -75,6 +75,8 @@ export const contestRoomStateSchema = z
     type: z.string().optional(),
     startTime: z.string().optional(),
     timeLimit: z.string().optional(),
+    problemTimeLimit: z.string().optional(),
+    currentProblemStartTime: z.string().optional(),
     currentProblem: z.string().optional(),
     contestId: z.string().optional(),
   })

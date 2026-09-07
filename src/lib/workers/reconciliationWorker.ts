@@ -541,6 +541,8 @@ export const reconciliationWorker = new Worker<
         problemId: string;
         name: string;
         rating?: number;
+        points?: number;
+        timeLimitMinutes?: number;
       }> = [];
       if (contest.problemSelectionMode === "test") {
         availableProblems = [
@@ -565,12 +567,16 @@ export const reconciliationWorker = new Worker<
               problemId: q.problemId,
               name: q.name,
               rating: q.rating,
+              points: slot.points,
+              timeLimitMinutes: slot.timeLimitMinutes,
             });
           } else {
             availableProblems.push({
               problemId: slot.problemId,
               name: `Problem ${slot.problemId}`,
               rating: 0,
+              points: slot.points,
+              timeLimitMinutes: slot.timeLimitMinutes,
             });
           }
         }
@@ -579,6 +585,8 @@ export const reconciliationWorker = new Worker<
           problemId: string;
           name: string;
           rating?: number;
+          points?: number;
+          timeLimitMinutes?: number;
         }>([
           {
             $match: {
@@ -635,7 +643,10 @@ export const reconciliationWorker = new Worker<
           problemId: problem.problemId,
           name: problem.name,
           rating: problem.rating,
-          points: Math.floor((problem.rating || 1000) / 10),
+          points:
+            problem.points ??
+            (problem.rating ? Math.floor(problem.rating / 10) : 100),
+          timeLimitMinutes: problem.timeLimitMinutes,
         })),
       });
 
@@ -664,7 +675,10 @@ export const reconciliationWorker = new Worker<
           problemId: problem.problemId,
           name: problem.name,
           rating: problem.rating,
-          points: Math.floor((problem.rating || 1000) / 10),
+          points:
+            problem.points ??
+            (problem.rating ? Math.floor(problem.rating / 10) : 100),
+          timeLimitMinutes: problem.timeLimitMinutes,
           revealedAt: null,
         }),
       );
@@ -673,14 +687,23 @@ export const reconciliationWorker = new Worker<
         await redis.rPush(`room:${newRoomId}:problems`, redisProblems);
       }
 
+      const durationSec = contest.overallDurationMinutes
+        ? contest.overallDurationMinutes * 60
+        : contest.durationSeconds || 3600;
+
       const stateObj: Record<string, string | number> = {
         status: "pending",
         type: contest.mode || "blitz",
         startTime: "", // Empty for now, set when all ready
-        timeLimit: (contest.durationSeconds || 3600).toString(),
+        timeLimit: durationSec.toString(),
         contestId: contestId.toString(),
         readyCount: 0,
       };
+      if (contest.perProblemDurationMinutes) {
+        stateObj.problemTimeLimit = (
+          contest.perProblemDurationMinutes * 60
+        ).toString();
+      }
       if (contest.mode !== "arena") {
         stateObj.currentProblem = 0;
       }
