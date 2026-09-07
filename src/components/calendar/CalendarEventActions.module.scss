@@ -1,0 +1,23 @@
+@use "@/styles/mixins" as *;
+
+.error {
+  @include error-banner;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.secondaryAction {
+  @include btn-secondary($btn-md);
+}
+
+.primaryAction {
+  @include btn-primary;
+}
+
+.dangerAction {
+  @include btn-danger($btn-md);
+}

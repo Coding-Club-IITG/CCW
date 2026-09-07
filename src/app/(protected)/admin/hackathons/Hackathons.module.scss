@@ -4,10 +4,6 @@
   @include standard-page-header;
 }
 
-.actions {
-  margin-bottom: 1.5rem;
-}
-
 .sectionTitle {
   @include section-title($margin: 1.5rem 0 1rem);
 }

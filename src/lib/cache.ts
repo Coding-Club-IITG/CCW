@@ -130,6 +130,7 @@ export const CACHE_TTLS = {
   LEADERBOARDS: 300, // 5min
   BLOG: 120, // 2min
   FILES: 120, // 2min
+  RECRUITMENT: 120, // 2min
   USERS: 120, // 2min
   POTD: 120, // 2min
   HACKATHONS: 300, // 5min

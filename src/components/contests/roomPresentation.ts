@@ -51,3 +51,10 @@ export function getContestRoomResultsPath(
     fromBracket ? "?from=bracket" : ""
   }`;
 }
+
+/** Preserve numeric suffixes in Codeforces indexes (for example, B1). */
+export function getCodeforcesProblemUrl(problemId: string): string | null {
+  const match = problemId.trim().match(/^(\d+)([A-Za-z][A-Za-z0-9]*)$/);
+  if (!match) return null;
+  return `https://codeforces.com/contest/${match[1]}/problem/${match[2]}`;
+}

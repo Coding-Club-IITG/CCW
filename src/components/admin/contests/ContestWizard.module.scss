@@ -1,9 +1,8 @@
 @use "../../../styles/mixins" as *;
 
 .wizardContainer {
-  max-width: 800px;
+  max-width: 72rem;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
 }
 
 .wizardTitle {

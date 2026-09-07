@@ -7,7 +7,7 @@ import { deleteCalendarEvent } from "@/lib/actions/calendar";
 
 import { useConfirm } from "@/components/shared/useConfirm";
 
-import styles from "@/app/(protected)/internal/calendar/Calendar.module.scss";
+import styles from "./CalendarEventActions.module.scss";
 
 export default function CalendarEventActions({
   id,

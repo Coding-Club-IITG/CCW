@@ -29,6 +29,7 @@ import { getDisplayName } from "@/lib/utils";
 
 import {
   getContestRoomResultsPath,
+  getCodeforcesProblemUrl,
   getDisplayTeamName,
 } from "@/components/contests/roomPresentation";
 import RoomActivityFeed from "@/components/contests/RoomActivityFeed";
@@ -36,8 +37,10 @@ import { useSyncCooldown } from "@/components/contests/useSyncCooldown";
 import { sendBrowserNotification } from "@/components/contests/roomNotification";
 import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
+import ContestCodeRunner from "@/components/contests/ContestCodeRunner";
+import ContestProblemContent from "@/components/contests/ContestProblemContent";
 
 import styles from "./BlitzRoomClient.module.scss";
 
@@ -366,7 +369,6 @@ export default function BlitzRoomClient({
       body: JSON.stringify({
         roomId,
         teamId,
-        cfHandle: cfHandle || "dummy0", // Use real handle if available, otherwise fallback
         problemId: activeProblem.problemId,
       }),
     });
@@ -518,17 +520,16 @@ export default function BlitzRoomClient({
                         key={member.id}
                         className={`${styles.memberRow} ${borderClass}`}
                       >
-                        <CompatibleImage
-                          src={
-                            member.avatar ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "U")}&background=random`
-                          }
-                          alt={member.name}
-                          className={`${styles.memberAvatar} ${
+                        <UserAvatar
+                          name={member.name}
+                          image={member.avatar}
+                          size={24}
+                          imageClassName={
                             memberIsOnline ? "" : styles.memberAvatarOffline
-                          }`}
-                          width={40}
-                          height={40}
+                          }
+                          fallbackClassName={
+                            memberIsOnline ? "" : styles.memberAvatarOffline
+                          }
                         />
                         <span className={styles.memberName}>
                           {getDisplayName(member.name, member.pizza_count)}{" "}
@@ -626,7 +627,7 @@ export default function BlitzRoomClient({
 
                     <div className={styles.problemActions}>
                       <a
-                        href={`https://codeforces.com/contest/${activeProblem.problemId?.replace(/[^0-9]/g, "")}/problem/${activeProblem.problemId?.replace(/[0-9]/g, "")}`}
+                        href={getCodeforcesProblemUrl(activeProblem.problemId || "") || "#"}
                         target="_blank"
                         rel="noreferrer"
                         className={styles.cfLink}
@@ -657,6 +658,11 @@ export default function BlitzRoomClient({
                       </button>
                     </div>
                   </div>
+                  <ContestProblemContent problem={activeProblem} />
+                  <ContestCodeRunner
+                    problemId={activeProblem.problemId}
+                    samples={activeProblem.samples}
+                  />
                 </>
               )}
             </div>

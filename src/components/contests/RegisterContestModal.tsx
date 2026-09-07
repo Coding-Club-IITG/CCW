@@ -5,7 +5,6 @@ import {
   CircleUserRound,
   List,
   Terminal,
-  User,
   Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -21,6 +20,7 @@ import type { ContestRegistrationDto } from "@/lib/contests/dtos";
 
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import Modal from "@/components/shared/Modal";
+import UserAvatar from "@/components/shared/UserAvatar";
 import { useToast } from "@/components/shared/Toast";
 import { useConfirm } from "@/components/shared/useConfirm";
 
@@ -177,19 +177,11 @@ export default function RegisterContestModal({
         <div className={styles.regList}>
           {registrations.map((reg, i) => (
             <div key={i} className={styles.regItem}>
-              <div className={styles.avatar}>
-                {reg.image ? (
-                  <CompatibleImage
-                    src={reg.image}
-                    alt={reg.cfHandle}
-                    className={styles.avatarImg}
-                    width={40}
-                    height={40}
-                  />
-                ) : (
-                  <User className={styles.icon18} size={18} />
-                )}
-              </div>
+              <UserAvatar
+                name={reg.teamName || reg.cfHandle}
+                image={reg.image}
+                size={32}
+              />
               <span className={styles.regName}>
                 {reg.teamName || reg.cfHandle}
               </span>

@@ -7,6 +7,7 @@ import {
   Lock,
   Medal,
   RefreshCw,
+  Sparkles,
   Star,
   Trophy,
   UserX,
@@ -16,7 +17,7 @@ import { useEffect } from "react";
 import { getDisplayName } from "@/lib/utils";
 
 import BackLink from "@/components/shared/BackLink";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+import UserAvatar from "@/components/shared/UserAvatar";
 
 import styles from "./PostMatchResultClient.module.scss";
 
@@ -31,7 +32,7 @@ export type MatchData = {
       id: string;
       name: string;
       handle: string;
-      avatar: string;
+      avatar: string | null;
       pizza_count: number;
       contribution?: number;
     }[];
@@ -46,7 +47,7 @@ export type MatchData = {
       userId: string;
       userName: string;
       pizza_count: number;
-      userAvatar: string;
+      userAvatar: string | null;
       teamId: string;
       teamName: string;
       solveMs: number;
@@ -56,7 +57,7 @@ export type MatchData = {
     userId: string;
     name: string;
     pizza_count: number;
-    avatar: string;
+    avatar: string | null;
     teamName: string;
     contribution: number;
   } | null;
@@ -204,7 +205,10 @@ export default function PostMatchResultClient({
               className={`${styles.advancementIcon} ${styles.iconFilled}`}
               size={32}
             />
-            <h3>✨ MATCH COMPLETED</h3>
+            <h3>
+              <Sparkles size={18} aria-hidden="true" />
+              MATCH COMPLETED
+            </h3>
           </div>
         )}
 
@@ -221,12 +225,12 @@ export default function PostMatchResultClient({
                   <Star className={styles.iconFilled} size={18} />
                 </div>
                 <div className={styles.mvpInfo}>
-                  <CompatibleImage
-                    alt={matchData.mvp.name}
-                    className={styles.mvpAvatar}
-                    src={matchData.mvp.avatar}
-                    width={64}
-                    height={64}
+                  <UserAvatar
+                    name={matchData.mvp.name}
+                    image={matchData.mvp.avatar}
+                    size={64}
+                    imageClassName={styles.mvpAvatar}
+                    fallbackClassName={styles.mvpAvatar}
                   />
                   <div>
                     <div className={styles.mvpLabel}>
@@ -273,12 +277,10 @@ export default function PostMatchResultClient({
                         {String(tIdx + 1).padStart(2, "0")}
                       </span>
                       {isSoloFormat && team.members[0] && (
-                        <CompatibleImage
-                          src={team.members[0].avatar}
-                          alt={team.members[0].handle}
-                          className={styles.teamStandingAvatar}
-                          width={24}
-                          height={24}
+                        <UserAvatar
+                          name={team.members[0].handle}
+                          image={team.members[0].avatar}
+                          size={24}
                         />
                       )}
                       <span className={styles.teamStandingName}>
@@ -294,12 +296,10 @@ export default function PostMatchResultClient({
                       {team.members.map((member) => (
                         <div key={member.id} className={styles.memberRow}>
                           <div className={styles.memberInfo}>
-                            <CompatibleImage
-                              src={member.avatar}
-                              alt={member.handle}
-                              className={styles.memberAvatar}
-                              width={32}
-                              height={32}
+                            <UserAvatar
+                              name={member.handle}
+                              image={member.avatar}
+                              size={32}
                             />
                             <span className={styles.memberName}>
                               {member.handle}
@@ -411,14 +411,16 @@ export default function PostMatchResultClient({
                                     prob.solver.pizza_count,
                                   )}
                                 </span>
-                                <CompatibleImage
-                                  alt={prob.solver.userName}
-                                  className={`${styles.solverAvatar} ${
+                                <UserAvatar
+                                  name={prob.solver.userName}
+                                  image={prob.solver.userAvatar}
+                                  size={20}
+                                  imageClassName={
                                     isUserTeam ? "" : styles.solverAvatarOther
-                                  }`}
-                                  src={prob.solver.userAvatar}
-                                  width={20}
-                                  height={20}
+                                  }
+                                  fallbackClassName={
+                                    isUserTeam ? "" : styles.solverAvatarOther
+                                  }
                                 />
                               </div>
                             ) : (

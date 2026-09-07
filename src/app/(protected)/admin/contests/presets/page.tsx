@@ -2,8 +2,7 @@ import dbConnect from "@/lib/mongodb";
 import ContestPreset from "@/models/ContestPreset";
 import { toContestPresetDto } from "@/lib/contests/dtos";
 import PresetManager from "@/components/admin/contests/PresetManager";
-import BackLink from "@/components/shared/BackLink";
-import styles from "./presets.module.scss";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 
 export const metadata = {
   title: "CCW Admin - Contest Presets",
@@ -20,12 +19,10 @@ export default async function PresetsPage() {
 
   return (
     <div>
-      <BackLink href="/admin" label="Back to Administration" />
-
-      <header className={styles.header}>
-        <h1>Contest Presets</h1>
-        <p>Manage reusable match settings and problem selections.</p>
-      </header>
+      <AdminPageHeader
+        title="Contest Presets"
+        lead="Manage reusable match settings and problem selections."
+      />
 
       <PresetManager initialPresets={presets} />
     </div>

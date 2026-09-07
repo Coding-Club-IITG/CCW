@@ -1,0 +1,5 @@
+@use "@/styles/mixins" as *;
+
+.header {
+  @include standard-page-header($split: true);
+}

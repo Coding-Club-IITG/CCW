@@ -26,6 +26,7 @@ import { getDisplayName } from "@/lib/utils";
 
 import {
   getContestRoomResultsPath,
+  getCodeforcesProblemUrl,
   getDisplayTeamName,
 } from "@/components/contests/roomPresentation";
 import RoomActivityFeed from "@/components/contests/RoomActivityFeed";
@@ -33,8 +34,10 @@ import { useSyncCooldown } from "@/components/contests/useSyncCooldown";
 import { sendBrowserNotification } from "@/components/contests/roomNotification";
 import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
+import ContestCodeRunner from "@/components/contests/ContestCodeRunner";
+import ContestProblemContent from "@/components/contests/ContestProblemContent";
 
 import styles from "./ArenaRoomClient.module.scss";
 
@@ -110,6 +113,8 @@ export default function ArenaRoomClient({
     initialTimeLimit,
   );
   const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
+  const runnerProblem =
+    problems.find((problem) => !locks[problem.problemId]) || problems[0];
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
   const displayTeamName = (team?: ContestRoomTeamDto) =>
@@ -364,7 +369,6 @@ export default function ArenaRoomClient({
       body: JSON.stringify({
         roomId,
         teamId,
-        cfHandle: cfHandle || "dummy0", // Use real handle if available, otherwise fallback
         problemId: problemId,
       }),
     });
@@ -477,17 +481,16 @@ export default function ArenaRoomClient({
                         key={member.id}
                         className={`${styles.memberRow} ${borderClass}`}
                       >
-                        <CompatibleImage
-                          src={
-                            member.avatar ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "U")}&background=random`
-                          }
-                          alt={member.name}
-                          className={`${styles.memberAvatar} ${
+                        <UserAvatar
+                          name={member.name}
+                          image={member.avatar}
+                          size={24}
+                          imageClassName={
                             memberIsOnline ? "" : styles.memberAvatarOffline
-                          }`}
-                          width={40}
-                          height={40}
+                          }
+                          fallbackClassName={
+                            memberIsOnline ? "" : styles.memberAvatarOffline
+                          }
                         />
                         <span className={styles.memberName}>
                           {getDisplayName(member.name, member.pizza_count)}{" "}
@@ -640,7 +643,7 @@ export default function ArenaRoomClient({
 
                             <div className={styles.gridCardActions}>
                               <a
-                                href={`https://codeforces.com/contest/${prob.problemId.replace(/[^0-9]/g, "")}/problem/${prob.problemId.replace(/[0-9]/g, "")}`}
+                                href={getCodeforcesProblemUrl(prob.problemId) || "#"}
                                 target="_blank"
                                 rel="noreferrer"
                                 className={styles.cfIconBtn}
@@ -693,6 +696,11 @@ export default function ArenaRoomClient({
                       );
                     })}
                   </div>
+                  <ContestProblemContent problem={runnerProblem} />
+                  <ContestCodeRunner
+                    problemId={runnerProblem?.problemId}
+                    samples={runnerProblem?.samples}
+                  />
                 </>
               )}
             </div>

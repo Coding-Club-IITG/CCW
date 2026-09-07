@@ -11,7 +11,7 @@ import type {
   EventRecurrenceType,
 } from "@/lib/constants";
 
-import BackLink from "@/components/shared/BackLink";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 
@@ -99,17 +99,15 @@ export default function AdminEventsPage() {
 
   return (
     <div>
-      <BackLink href="/admin" label="Back to Administration" />
-
-      <div className={styles.header}>
-        <div>
-          <h1>Public Events</h1>
-          <p>Manage club events linked to the calendar.</p>
-        </div>
-        <Link href="/internal/calendar/new" className={styles.addBtn}>
-          Add Calendar Event
-        </Link>
-      </div>
+      <AdminPageHeader
+        title="Public Events"
+        lead="Manage club events linked to the calendar."
+        action={
+          <Link href="/internal/calendar/new" className={styles.addBtn}>
+            Add Calendar Event
+          </Link>
+        }
+      />
 
       <div
         className={styles.publicationFilters}

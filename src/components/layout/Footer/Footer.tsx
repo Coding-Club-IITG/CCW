@@ -14,6 +14,7 @@ const EXPLORE = [
   { href: "/events", label: "Events" },
   { href: "/projects", label: "Projects" },
   { href: "/team", label: "Team" },
+  { href: "/recruitment", label: "Recruitment" },
 ];
 
 const [GITHUB_URL, INSTAGRAM_URL, LINKEDIN_URL] = SOCIAL_PROFILES;

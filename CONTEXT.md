@@ -21,7 +21,7 @@ programming systems, content, administration, and background integrations.
 - **Browser notifications:** Opt-in Web Push on supported desktop and mobile
   browsers.
 - **Administration:** Management surfaces for users, content, events, projects,
-  notifications, hackathons, and contests.
+  notifications, hackathons, contests, and recruitment.
 
 ## Stack
 
@@ -37,8 +37,8 @@ programming systems, content, administration, and background integrations.
 
 ## Repository Map
 
-- `src/app/(public)`: public pages such as blogs, events, projects, and team
-  information
+- `src/app/(public)`: public pages such as blogs, events, projects, team
+  information and recruitment
 - `src/app/(protected)`: authenticated internal and administrative pages
 - `src/app/api`: API route handlers
 - `src/components`: feature and shared React components

@@ -206,3 +206,26 @@
   color: var(--muted);
   font-size: 0.875rem;
 }
+
+.contestRunner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  margin-top: 1rem;
+
+  summary {
+    cursor: pointer;
+    color: var(--primary);
+    font-weight: 600;
+  }
+}
+
+.runnerNotice {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.contestEditor {
+  height: 22rem;
+}

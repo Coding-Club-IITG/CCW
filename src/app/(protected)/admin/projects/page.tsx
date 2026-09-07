@@ -5,21 +5,22 @@ import { useEffect, useState } from "react";
 
 import { deleteProject } from "@/lib/actions/admin/projects";
 import { expectAppData } from "@/lib/api/result";
+import type { ProjectStatus } from "@/lib/constants";
 import { formatMonthYear } from "@/lib/utils";
 
-import BackLink from "@/components/shared/BackLink";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 import { useConfirm } from "@/components/shared/useConfirm";
 
-import styles from "../events/AdminEvents.module.scss";
+import styles from "./AdminProjects.module.scss";
 
 interface ProjectItem {
   _id: string;
   title: string;
   module: string;
   date: string;
-  status: "Upcoming" | "Completed";
+  status: ProjectStatus;
 }
 
 export default function AdminProjectsPage() {
@@ -77,17 +78,15 @@ export default function AdminProjectsPage() {
 
   return (
     <div>
-      <BackLink href="/admin" label="Back to Administration" />
-
-      <div className={styles.header}>
-        <div>
-          <h1>Project Management</h1>
-          <p>Manage showcase projects for the public website.</p>
-        </div>
-        <Link href="/admin/projects/new" className={styles.addBtn}>
-          Add Project
-        </Link>
-      </div>
+      <AdminPageHeader
+        title="Project Management"
+        lead="Manage showcase projects for the public website."
+        action={
+          <Link href="/admin/projects/new" className={styles.addBtn}>
+            Add Project
+          </Link>
+        }
+      />
 
       {error && <div className={styles.error}>{error}</div>}
 

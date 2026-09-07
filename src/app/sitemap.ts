@@ -4,6 +4,7 @@ import { SITE_URL } from "@/lib/seo";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
 import Event from "@/models/Event";
+import Recruitment from "@/models/Recruitment";
 
 export const revalidate = 3600;
 
@@ -13,16 +14,18 @@ const staticPages: MetadataRoute.Sitemap = [
   { url: `${SITE_URL}/blog`, changeFrequency: "weekly", priority: 0.9 },
   { url: `${SITE_URL}/events`, changeFrequency: "weekly", priority: 0.8 },
   { url: `${SITE_URL}/projects`, changeFrequency: "monthly", priority: 0.8 },
+  { url: `${SITE_URL}/recruitment`, changeFrequency: "weekly", priority: 0.8 },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     await dbConnect();
-    const [posts, events] = await Promise.all([
+    const [posts, events, recruitments] = await Promise.all([
       BlogPost.find({ status: "published" }).select("slug updatedAt").lean(),
       Event.find({ status: "published", slug: { $type: "string", $ne: "" } })
         .select("slug updatedAt")
         .lean(),
+      Recruitment.find({ status: "published" }).select("slug updatedAt").lean(),
     ]);
     return [
       ...staticPages,
@@ -36,6 +39,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         url: `${SITE_URL}/events/${event.slug}`,
         lastModified: event.updatedAt,
         changeFrequency: "monthly" as const,
+        priority: 0.7,
+      })),
+      ...recruitments.map((edition) => ({
+        url: `${SITE_URL}/recruitment?edition=${edition.slug}`,
+        lastModified: edition.updatedAt,
+        changeFrequency: "weekly" as const,
         priority: 0.7,
       })),
     ];

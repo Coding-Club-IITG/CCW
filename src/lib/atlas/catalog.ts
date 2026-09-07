@@ -27,6 +27,7 @@ const PUBLIC_ROUTES: AtlasCatalogItem[] = [
   ["events", "Events", "/events", CalendarDays],
   ["projects", "Projects", "/projects", Code2],
   ["team", "Team", "/team", UsersRound],
+  ["recruitment", "Coding Week Recruitment", "/recruitment", UsersRound],
 ].map(([id, title, href, icon]) => ({
   id: String(id),
   kind: "route",
@@ -67,6 +68,7 @@ const ADMIN_ROUTES: AtlasCatalogItem[] = [
   ["admin-blog", "Manage blog posts", "/admin/blog"],
   ["admin-events", "Manage public events", "/admin/events"],
   ["admin-projects", "Manage projects", "/admin/projects"],
+  ["admin-recruitment", "Manage Coding Week recruitment", "/admin/recruitment"],
   ["admin-hackathons", "Manage hackathons", "/admin/hackathons"],
   ["admin-notifications", "Send notifications", "/admin/notifications"],
   ["new-calendar", "Create calendar event", "/internal/calendar/new"],

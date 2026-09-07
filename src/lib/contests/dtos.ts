@@ -34,6 +34,14 @@ export type ContestRoomProblemDto = {
   rating?: number;
   points?: number;
   revealedAt?: number | null;
+  statementHtml?: string;
+  inputSpecificationHtml?: string;
+  outputSpecificationHtml?: string;
+  constraintsHtml?: string;
+  notesHtml?: string;
+  samples?: Array<{ input: string; output: string }>;
+  timeLimitMs?: number;
+  memoryLimitMb?: number;
   [key: string]: unknown;
 };
 
@@ -42,7 +50,7 @@ export type ContestRoomMemberDto = {
   name: string;
   pizza_count: number;
   handle: string;
-  avatar: string;
+  avatar: string | null;
 };
 
 export type ContestRoomTeamDto = {

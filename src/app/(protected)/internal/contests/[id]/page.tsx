@@ -10,6 +10,7 @@ import {
   parseContestRoomProblems,
 } from "@/lib/contests/runtime";
 import type { ContestRoomProblemDto } from "@/lib/contests/dtos";
+import { normalizeAvatar } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import dbConnect from "@/lib/mongodb";
@@ -191,9 +192,7 @@ export default async function ContestRoomPage({
           name: u?.name || "Unknown Player",
           pizza_count: u?.pizza_count || 0,
           handle: cp?.cfHandle || u?.name || "Unknown",
-          avatar:
-            u?.image ||
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(u?.name || "U")}&background=random`,
+          avatar: normalizeAvatar(u?.image),
         };
       }),
     }));

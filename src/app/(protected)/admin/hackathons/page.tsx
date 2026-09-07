@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { formatDate } from "@/lib/utils";
 
-import BackLink from "@/components/shared/BackLink";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 import { useConfirm } from "@/components/shared/useConfirm";
@@ -163,28 +163,21 @@ export default function AdminHackathonsPage() {
 
   return (
     <div>
-      <BackLink href="/admin" label="Back to Administration" />
-      <header className={styles.header}>
-        <h1>Hackathon Management</h1>
-        <p>Create and monitor hackathons for club members.</p>
-      </header>
-
-      <div className={styles.actions}>
-        <button
-          className={styles.btnPrimary}
-          onClick={() => {
-            if (showForm) {
+      <AdminPageHeader
+        title="Hackathon Management"
+        lead="Create and monitor hackathons for club members."
+        action={
+          <button
+            className={styles.btnPrimary}
+            onClick={() => {
               resetForm();
-              setShowForm(false);
-            } else {
-              resetForm();
-              setShowForm(true);
-            }
-          }}
-        >
-          {showForm ? "Cancel" : "+ New Hackathon"}
-        </button>
-      </div>
+              setShowForm((open) => !open);
+            }}
+          >
+            {showForm ? "Cancel" : "+ New Hackathon"}
+          </button>
+        }
+      />
 
       {error && <p className={styles.error}>{error}</p>}
 

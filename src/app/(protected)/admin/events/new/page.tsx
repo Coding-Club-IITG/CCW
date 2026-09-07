@@ -7,7 +7,7 @@ import dbConnect from "@/lib/mongodb";
 import CalendarEvent from "@/models/CalendarEvent";
 import BackLink from "@/components/shared/BackLink";
 import PublicEventForm from "@/components/calendar/PublicEventForm";
-import styles from "./EventForm.module.scss";
+import styles from "../EventForm.module.scss";
 
 export default async function NewPublicEventPage({
   searchParams,

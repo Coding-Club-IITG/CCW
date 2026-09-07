@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Flame } from "lucide-react";
 import { type LeaderboardEntry } from "@/lib/actions/potd";
 
 import MemberCell from "@/components/leaderboard/MemberCell";
@@ -124,7 +125,8 @@ export default function LeaderboardClient({
                       <td className={styles.separatorCol}>
                         {user.currentStreak > 0 ? (
                           <span className={styles.streak}>
-                            🔥 {user.currentStreak}
+                            <Flame size={14} aria-hidden="true" />
+                            {user.currentStreak}
                           </span>
                         ) : (
                           "-"

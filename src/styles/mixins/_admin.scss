@@ -1,0 +1,244 @@
+@use "shared" as *;
+@use "badges" as *;
+@use "buttons" as *;
+@use "feedback" as *;
+@use "pages" as *;
+
+/* Row-list layout shared by admin pages */
+@mixin admin-list-page {
+  .addBtn {
+    @include btn-primary;
+    text-decoration: none;
+  }
+
+  .loading,
+  .empty {
+    padding: 2rem 0;
+    color: var(--muted);
+    font-size: 0.9375rem;
+  }
+
+  .error {
+    @include error-banner;
+    margin-bottom: 1rem;
+  }
+
+  .list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    background: var(--card-bg);
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background: var(--surface-hover);
+    }
+
+    @media (max-width: 720px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+
+  .itemInfo {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  .itemTop {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .itemTitle {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--foreground-strong);
+  }
+
+  .itemMeta {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+
+  .statusBadge {
+    @include badge-chip;
+  }
+
+  .upcoming {
+    @include badge-warning;
+  }
+
+  .ongoing {
+    @include badge-success;
+  }
+
+  .completed {
+    @include badge-neutral;
+  }
+
+  .itemActions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+
+    @media (max-width: 720px) {
+      justify-content: flex-end;
+    }
+  }
+
+  .editBtn {
+    @include btn-secondary;
+    font-size: 0.8125rem;
+    text-decoration: none;
+  }
+
+  .deleteBtn {
+    @include btn-danger(0.375rem 0.75rem);
+  }
+}
+
+/* Form layout shared by admin pages */
+@mixin admin-form-page {
+  .container {
+    max-width: 72rem;
+    margin: 0 auto;
+  }
+
+  .pageTitle {
+    @include standard-page-title($margin: 1rem 0 1.25rem);
+  }
+
+  .error {
+    @include error-banner;
+    margin-bottom: 1rem;
+  }
+
+  .notice {
+    margin-bottom: 0.25rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    background: var(--surface-secondary);
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+
+    @media (max-width: 720px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .field {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--foreground-strong);
+  }
+
+  .input,
+  .textarea,
+  .select {
+    border: 1px solid var(--border-input);
+    background: var(--blog-editor-bg);
+    color: var(--foreground);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-family: inherit;
+    transition: border-color 0.15s ease;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+  }
+
+  .textarea {
+    resize: vertical;
+    min-height: 5rem;
+  }
+
+  .select {
+    cursor: pointer;
+  }
+
+  .posterPreview {
+    width: 12rem;
+    height: 6.75rem;
+    border: 1px solid var(--border-input);
+    object-fit: cover;
+    background: var(--surface-secondary);
+  }
+
+  .btnSecondary,
+  .uploadBtn {
+    @include btn-secondary;
+    font-size: 0.8125rem;
+    cursor: pointer;
+  }
+
+  .btnDanger,
+  .removeBtn {
+    @include btn-danger;
+  }
+
+  .actions {
+    display: flex;
+    gap: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .btnPrimary,
+  .submitBtn {
+    @include btn-primary($btn-lg);
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .hint {
+    margin: 0.35rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+}

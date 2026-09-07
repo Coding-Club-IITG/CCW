@@ -8,6 +8,14 @@ export interface ISelectedProblem {
   url?: string;
   points: number;
   timeLimitMinutes?: number;
+  statementHtml?: string;
+  inputSpecificationHtml?: string;
+  outputSpecificationHtml?: string;
+  constraintsHtml?: string;
+  notesHtml?: string;
+  samples?: Array<{ input: string; output: string }>;
+  timeLimitMs?: number;
+  memoryLimitMb?: number;
 }
 
 export interface IContestProblemSet extends Document {
@@ -26,6 +34,19 @@ const SelectedProblemSchema = new Schema<ISelectedProblem>({
   url: { type: String },
   points: { type: Number, required: true, default: 100 },
   timeLimitMinutes: { type: Number },
+  statementHtml: { type: String },
+  inputSpecificationHtml: { type: String },
+  outputSpecificationHtml: { type: String },
+  constraintsHtml: { type: String },
+  notesHtml: { type: String },
+  samples: [
+    {
+      input: { type: String, required: true },
+      output: { type: String, required: true },
+    },
+  ],
+  timeLimitMs: { type: Number },
+  memoryLimitMb: { type: Number },
 });
 
 const ContestProblemSetSchema = new Schema<IContestProblemSet>(

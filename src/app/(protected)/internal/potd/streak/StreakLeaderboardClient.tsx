@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Flame, Zap } from "lucide-react";
 
 import { type StreakEntry } from "@/lib/actions/potd";
 
@@ -142,7 +143,8 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
                       <td>
                         {user.currentStreak > 0 ? (
                           <span className={styles.streak}>
-                            🔥 {user.currentStreak}
+                            <Flame size={14} aria-hidden="true" />
+                            {user.currentStreak}
                           </span>
                         ) : (
                           <span className={styles.subText}>-</span>
@@ -150,7 +152,11 @@ export default function StreakLeaderboardClient({ initialData }: Props) {
                       </td>
                       <td>
                         <span className={styles.maxStreakWrapper}>
-                          <span className={styles.maxStreakIcon}>⚡</span>{" "}
+                          <Zap
+                            className={styles.maxStreakIcon}
+                            size={16}
+                            aria-hidden="true"
+                          />
                           {user.longestStreak}
                         </span>
                       </td>

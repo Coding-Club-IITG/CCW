@@ -64,8 +64,20 @@ export type CfSyncQueueData = CfSyncJobData | NightlyProblemSyncJobData;
 export const contestRoomProblemSchema = z
   .object({
     problemId: z.string().min(1),
+    name: z.string().optional(),
+    rating: z.number().optional(),
     points: z.number().optional(),
     revealedAt: z.number().nullable().optional(),
+    statementHtml: z.string().optional(),
+    inputSpecificationHtml: z.string().optional(),
+    outputSpecificationHtml: z.string().optional(),
+    constraintsHtml: z.string().optional(),
+    notesHtml: z.string().optional(),
+    samples: z
+      .array(z.object({ input: z.string(), output: z.string() }))
+      .optional(),
+    timeLimitMs: z.number().optional(),
+    memoryLimitMb: z.number().optional(),
   })
   .passthrough();
 
