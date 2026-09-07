@@ -60,12 +60,16 @@ export default async function ContestRoomPage({
 
   const userId = session.user.id;
   await dbConnect();
+  const cpUser = await CPUser.findOne({ userId }).select("_id").lean();
+  const cpUserId = cpUser?._id?.toString();
 
   function canSpectate() {
     const restriction = (contest as any).spectatorRestriction || "none";
     if (restriction === "none") return false;
     if (restriction === "all") return true;
-    const isCreator = contest.creatorId.toString() === userId;
+    const isCreator =
+      contest.creatorId.toString() === userId ||
+      (Boolean(cpUserId) && contest.creatorId.toString() === cpUserId);
     if (restriction === "admin_creator") return admin || isCreator;
     if (restriction === "club_members") {
       if (admin || isCreator) return true;

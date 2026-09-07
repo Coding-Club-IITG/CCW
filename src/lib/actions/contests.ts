@@ -162,7 +162,9 @@ async function getContestListingAction() {
     if (restriction === "all") {
       canSpectate = true;
     } else if (userId && restriction !== "none") {
-      const isCreator = contest.creatorId?.toString() === userId;
+      const isCreator =
+        contest.creatorId?.toString() === userId ||
+        (Boolean(cpUserId) && contest.creatorId?.toString() === cpUserId);
       const isAdmin = isHead(session?.user?.access);
       if (restriction === "admin_creator") {
         canSpectate = isAdmin || isCreator;
@@ -950,7 +952,7 @@ async function createBracketContestAction(input: unknown) {
   }
   const _deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
   const _startMs = new Date(data.startTime).getTime();
-  const _minStart = Date.now() + (_deadlineMinutes + 1) * 60000;
+  const _minStart = Date.now() + (_deadlineMinutes + 1) * 60000 - 5000;
   if (_startMs < _minStart) {
     return appError(
       "VALIDATION_ERROR",
