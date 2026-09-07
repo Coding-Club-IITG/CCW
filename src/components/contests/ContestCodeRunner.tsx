@@ -18,10 +18,15 @@ import styles from "@/components/shared/code-runner/CodeRunner.module.scss";
 type Props = {
   problemId?: string;
   samples?: Array<{ input: string; output: string }>;
+  plain?: boolean;
 };
 
 /** A local runner: code never leaves the participant's browser. */
-export default function ContestCodeRunner({ problemId, samples }: Props) {
+export default function ContestCodeRunner({
+  problemId,
+  samples,
+  plain,
+}: Props) {
   const [language, setLanguage] = useState<CodeRunnerLanguage>("cpp");
   const [codeByLanguage, setCodeByLanguage] = useState<
     Record<CodeRunnerLanguage, string>
@@ -51,9 +56,8 @@ export default function ContestCodeRunner({ problemId, samples }: Props) {
     setActiveTestCaseId(nextTestCases[0].id);
   }, [problemId, samples]);
 
-  return (
-    <details className={styles.contestRunner}>
-      <summary>Open local code runner</summary>
+  const body = (
+    <>
       <p className={styles.runnerNotice}>
         Runs locally in your browser for testing only. Submit solutions on
         Codeforces for scoring.
@@ -79,6 +83,17 @@ export default function ContestCodeRunner({ problemId, samples }: Props) {
         code={codeByLanguage[language]}
         language={language}
       />
+    </>
+  );
+
+  if (plain) {
+    return <div className={styles.contestRunnerPlain}>{body}</div>;
+  }
+
+  return (
+    <details className={styles.contestRunner}>
+      <summary>Open local code runner</summary>
+      {body}
     </details>
   );
 }

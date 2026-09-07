@@ -220,6 +220,13 @@
   }
 }
 
+.contestRunnerPlain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 0.5rem 0;
+}
+
 .runnerNotice {
   margin: 0;
   color: var(--muted);

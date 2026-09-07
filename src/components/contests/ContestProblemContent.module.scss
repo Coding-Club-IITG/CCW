@@ -5,6 +5,11 @@
   color: var(--text-primary, #1f2933);
 }
 
+.contentPlain {
+  color: var(--text-primary, #1f2933);
+  padding: 0.5rem 0;
+}
+
 .content summary {
   cursor: pointer;
   font-weight: 700;

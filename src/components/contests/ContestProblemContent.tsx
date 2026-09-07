@@ -4,14 +4,14 @@ import styles from "./ContestProblemContent.module.scss";
 
 type Props = {
   problem?: ContestRoomProblemDto;
+  plain?: boolean;
 };
 
-export default function ContestProblemContent({ problem }: Props) {
+export default function ContestProblemContent({ problem, plain }: Props) {
   if (!problem?.statementHtml) return null;
 
-  return (
-    <details className={styles.content} open>
-      <summary>Problem statement</summary>
+  const sections = (
+    <>
       <div
         className={styles.section}
         dangerouslySetInnerHTML={{ __html: problem.statementHtml }}
@@ -48,6 +48,17 @@ export default function ContestProblemContent({ problem }: Props) {
           <div dangerouslySetInnerHTML={{ __html: problem.notesHtml }} />
         </section>
       )}
+    </>
+  );
+
+  if (plain) {
+    return <div className={styles.contentPlain}>{sections}</div>;
+  }
+
+  return (
+    <details className={styles.content} open>
+      <summary>Problem statement</summary>
+      {sections}
     </details>
   );
 }

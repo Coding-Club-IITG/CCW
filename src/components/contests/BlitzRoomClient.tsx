@@ -39,8 +39,7 @@ import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
 import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
-import ContestCodeRunner from "@/components/contests/ContestCodeRunner";
-import ContestProblemContent from "@/components/contests/ContestProblemContent";
+import ContestProblemWorkspace from "@/components/contests/ContestProblemWorkspace";
 
 import styles from "./BlitzRoomClient.module.scss";
 
@@ -685,10 +684,9 @@ export default function BlitzRoomClient({
                       )}
                     </div>
                   </div>
-                  <ContestProblemContent problem={activeProblem} />
-                  <ContestCodeRunner
-                    problemId={activeProblem.problemId}
-                    samples={activeProblem.samples}
+                  <ContestProblemWorkspace
+                    problem={activeProblem}
+                    isSpectator={isSpectator}
                   />
                 </>
               )}

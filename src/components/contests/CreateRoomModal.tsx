@@ -1426,8 +1426,8 @@ export default function CreateRoomModal({
                   formData.format === "1v1" &&
                   formData.registrationType === "closed";
                 const quickAddMins = isCasual1v1
-                  ? [1, 2, 5, 10]
-                  : [deadlineMinutes + 1, deadlineMinutes + 2, 10, 15];
+                  ? [2, 3, 5, 10]
+                  : [deadlineMinutes + 2, deadlineMinutes + 3, 10, 15];
                 return (
                   <div className={styles.timeAddRow}>
                     {quickAddMins.map((mins) => (
@@ -1447,7 +1447,7 @@ export default function CreateRoomModal({
             <span className={styles.hint}>
               {formData.format === "1v1" &&
               formData.registrationType === "closed"
-                ? "Casual 1v1 matches can start as soon as 1 minute from now."
+                ? "Casual 1v1 matches can start as soon as 2 minutes from now."
                 : `Scheduled tournaments start automatically. Registration deadline is ${deadlineMinutes} minute${deadlineMinutes > 1 ? "s" : ""} before the start time.`}
             </span>
           </div>

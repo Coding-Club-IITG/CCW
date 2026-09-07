@@ -36,8 +36,7 @@ import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
 import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
-import ContestCodeRunner from "@/components/contests/ContestCodeRunner";
-import ContestProblemContent from "@/components/contests/ContestProblemContent";
+import ContestProblemWorkspace from "@/components/contests/ContestProblemWorkspace";
 
 import styles from "./ArenaRoomClient.module.scss";
 
@@ -743,10 +742,9 @@ export default function ArenaRoomClient({
                       );
                     })}
                   </div>
-                  <ContestProblemContent problem={runnerProblem} />
-                  <ContestCodeRunner
-                    problemId={runnerProblem?.problemId}
-                    samples={runnerProblem?.samples}
+                  <ContestProblemWorkspace
+                    problem={runnerProblem}
+                    isSpectator={isSpectator}
                   />
                 </>
               )}
