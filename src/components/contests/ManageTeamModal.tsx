@@ -45,12 +45,12 @@ export default function ManageTeamModal({
       if (res.ok) {
         setRequests(res.data);
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      toast.error("Failed to load team requests");
     } finally {
       setLoading(false);
     }
-  }, [teamId]);
+  }, [teamId, toast]);
 
   useEffect(() => {
     if (isOpen && isLeader && teamId) {

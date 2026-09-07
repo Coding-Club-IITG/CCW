@@ -58,7 +58,7 @@ export async function recordRoomActivity(
 
   const listKey = `room:${roomId}:activity_logs`;
   await redis.rPush(listKey, JSON.stringify(activity));
-  await redis.lTrim(listKey, 0, 49); // Keep latest 50 entries
+  await redis.lTrim(listKey, -50, -1); // Keep latest 50 entries
 
   // Publish to connected SSE clients
   await publishRoom(roomId, {

@@ -332,22 +332,22 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                   });
 
                   // Log activity
-                  const teamDoc = await ContestTeam.findById(teamId)
-                    .populate<{ members: any[] }>("members")
-                    .lean();
+                  const teamDoc = await ContestTeam.findById(teamId).lean();
                   const pName =
                     problems.find((p) => p.problemId === problemId)?.name ||
                     problemId;
 
                   let tName = teamDoc?.name || "Unknown Team";
-                  if (
-                    ["1v1", "solo-tournament"].includes(contest?.format || "") &&
-                    teamDoc?.members?.[0]
-                  ) {
-                    tName = getDisplayName(
-                      teamDoc.members[0].name,
-                      teamDoc.members[0].pizza_count
-                    );
+                  if (["1v1", "solo-tournament"].includes(contest?.format || "")) {
+                    const memberUser = await User.findById(userId)
+                      .select("name pizza_count")
+                      .lean();
+                    if (memberUser) {
+                      tName = getDisplayName(
+                        memberUser.name || "Unknown",
+                        memberUser.pizza_count,
+                      );
+                    }
                   }
 
                   if (claimResult.startsWith("reclaimed|")) {
@@ -516,9 +516,11 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                       });
 
                       const userDoc = await User.findById(userId)
-                        .select("name")
+                        .select("name pizza_count")
                         .lean();
-                      const uName = userDoc?.name || "Someone";
+                      const uName = userDoc
+                        ? getDisplayName(userDoc.name || "Someone", userDoc.pizza_count)
+                        : "Someone";
                       await recordRoomActivity(roomId, {
                         icon: "check_circle",
                         text: `${uName} solved the final problem!`,
@@ -557,9 +559,11 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                       });
 
                       const userDoc = await User.findById(userId)
-                        .select("name")
+                        .select("name pizza_count")
                         .lean();
-                      const uName = userDoc?.name || "Someone";
+                      const uName = userDoc
+                        ? getDisplayName(userDoc.name || "Someone", userDoc.pizza_count)
+                        : "Someone";
                       await recordRoomActivity(roomId, {
                         icon: "check_circle",
                         text: `Valid AC by ${uName}! Advanced to next problem (+${points} pts)`,

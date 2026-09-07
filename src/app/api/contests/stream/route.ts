@@ -126,7 +126,15 @@ export async function GET(request: NextRequest) {
             0,
             -1,
           );
-          const activityLogs = activityLogsRaw.map((l) => JSON.parse(l));
+          const activityLogs = activityLogsRaw
+            .map((l) => {
+              try {
+                return JSON.parse(l);
+              } catch {
+                return null;
+              }
+            })
+            .filter((l): l is NonNullable<typeof l> => Boolean(l));
 
           const forfeitTimeouts: Record<string, number> = {};
           if (currentStatus === "active") {

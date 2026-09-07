@@ -521,7 +521,7 @@ async function createRoomContestAction(input: unknown) {
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
     const parsed = contestCreationPayloadSchema.safeParse(input);
-    if (!parsed.success) { console.error('Zod Error:', parsed.error); return validationError(parsed.error); }
+    if (!parsed.success) return validationError(parsed.error);
     const data = parsed.data;
 
     await dbConnect();
@@ -899,7 +899,7 @@ async function createBracketContestAction(input: unknown) {
   if (!isHead(session.user.access)) return appError("FORBIDDEN", "Forbidden");
 
   const parsed = contestCreationPayloadSchema.safeParse(input);
-  if (!parsed.success) { console.error('Zod Error:', parsed.error); return validationError(parsed.error); }
+  if (!parsed.success) return validationError(parsed.error);
   const data = parsed.data;
 
   await dbConnect();
