@@ -3,7 +3,6 @@
 import { err as appError, ok, validationError } from "@/lib/api/result";
 
 import { defineAction } from "@/lib/actions/defineAction";
-import { isHead } from "@/lib/access/roles";
 import { parseRoles } from "@/lib/roles";
 
 export const getContestListing = defineAction(
