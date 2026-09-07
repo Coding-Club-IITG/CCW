@@ -8,18 +8,11 @@ import {
   summarizeBlogRevision,
   summarizePublicContent,
 } from "@/lib/audit/summary";
-import {
-  err as appError,
-  ok,
-  parseJson,
-  parseRouteParams,
-  type AppErrorCode,
-} from "@/lib/api/result";
+import { AppResultError, parseJson, parseRouteParams } from "@/lib/api/result";
+import { requireBlogEditor } from "@/lib/blog/access";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
 import { invalidateCache } from "@/lib/cache";
-import dbConnect from "@/lib/mongodb";
 import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/tagUtils";
 import { errorToLogMetadata, logger } from "@/lib/utils";
 import BlogPost from "@/models/BlogPost";
@@ -86,31 +79,6 @@ const memberBlogPatchSchema = z
     }
   });
 
-class BlogRouteError extends Error {
-  constructor(
-    readonly code: AppErrorCode,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-async function getAuthorizedDraft(request: NextRequest, slug: string) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
-
-  await dbConnect();
-  const post = await BlogPost.findOne({ slug });
-  if (!post) return appError("NOT_FOUND", "Post not found.");
-
-  const user = session.user;
-  if (!canEditBlogDraft(user, post)) {
-    return appError("FORBIDDEN", "Forbidden");
-  }
-
-  return ok({ post, user });
-}
-
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const validatedParams = parseRouteParams(
@@ -119,7 +87,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
-    const result = await getAuthorizedDraft(request, slug);
+    const result = await requireBlogEditor(request, slug);
     if (!result.ok) return jsonResult(result);
 
     return jsonOk({ post: result.data.post.toObject() });
@@ -141,7 +109,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
-    const result = await getAuthorizedDraft(request, slug);
+    const result = await requireBlogEditor(request, slug);
     if (!result.ok) return jsonResult(result);
 
     const parsedBody = await parseJson(request, memberBlogPatchSchema);
@@ -158,9 +126,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     try {
       saved = await auditedTransaction(dbSession, async (transaction) => {
         const current = await BlogPost.findOne({ slug }).session(transaction);
-        if (!current) throw new BlogRouteError("NOT_FOUND", "Post not found.");
+        if (!current) {
+          throw new AppResultError({
+            code: "NOT_FOUND",
+            message: "Post not found.",
+          });
+        }
         if (!canEditBlogDraft(user, current)) {
-          throw new BlogRouteError("FORBIDDEN", "Forbidden");
+          throw new AppResultError({ code: "FORBIDDEN", message: "Forbidden" });
         }
         const before = current.toObject();
 
@@ -170,16 +143,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           const currentBase = existingRev || current;
 
           if (cancelApproval && !existingRev?.submittedAt) {
-            throw new BlogRouteError(
-              "CONFLICT",
-              "There is no submitted revision to withdraw.",
-            );
+            throw new AppResultError({
+              code: "CONFLICT",
+              message: "There is no submitted revision to withdraw.",
+            });
           }
           if (existingRev?.submittedAt && !cancelApproval) {
-            throw new BlogRouteError(
-              "CONFLICT",
-              "Withdraw the review request before editing the revision.",
-            );
+            throw new AppResultError({
+              code: "CONFLICT",
+              message:
+                "Withdraw the review request before editing the revision.",
+            });
           }
 
           const now = new Date();
@@ -232,10 +206,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           };
         } else {
           if (requestApproval || cancelApproval) {
-            throw new BlogRouteError(
-              "CONFLICT",
-              "Approval actions are only available for published posts.",
-            );
+            throw new AppResultError({
+              code: "CONFLICT",
+              message:
+                "Approval actions are only available for published posts.",
+            });
           }
           current.set({
             title: body.title ?? current.title,
@@ -286,8 +261,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return jsonOk({ post: saved.toObject() });
   } catch (err) {
-    if (err instanceof BlogRouteError) {
-      return jsonError(err.code, err.message);
+    if (err instanceof AppResultError) {
+      return jsonError(err.detail.code, err.detail.message);
     }
     logger.error("Internal blog update failed", {
       route: "PATCH /api/internal/blog/[slug]",
@@ -306,7 +281,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
-    const result = await getAuthorizedDraft(request, slug);
+    const result = await requireBlogEditor(request, slug);
     if (!result.ok) return jsonResult(result);
 
     const dbSession = await mongoose.startSession();
@@ -314,15 +289,20 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     try {
       saved = await auditedTransaction(dbSession, async (transaction) => {
         const current = await BlogPost.findOne({ slug }).session(transaction);
-        if (!current) throw new BlogRouteError("NOT_FOUND", "Post not found.");
+        if (!current) {
+          throw new AppResultError({
+            code: "NOT_FOUND",
+            message: "Post not found.",
+          });
+        }
         if (!canEditBlogDraft(result.data.user, current)) {
-          throw new BlogRouteError("FORBIDDEN", "Forbidden");
+          throw new AppResultError({ code: "FORBIDDEN", message: "Forbidden" });
         }
         if (current.status !== "published" || !current.pendingRevision) {
-          throw new BlogRouteError(
-            "CONFLICT",
-            "There is no pending revision to discard.",
-          );
+          throw new AppResultError({
+            code: "CONFLICT",
+            message: "There is no pending revision to discard.",
+          });
         }
         const revision =
           current.pendingRevision.toObject?.() || current.pendingRevision;
@@ -355,8 +335,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     await invalidateCache("admin:blog");
     return jsonOk({ post: saved.toObject() });
   } catch (err) {
-    if (err instanceof BlogRouteError) {
-      return jsonError(err.code, err.message);
+    if (err instanceof AppResultError) {
+      return jsonError(err.detail.code, err.detail.message);
     }
     logger.error("Internal blog revision discard failed", {
       route: "DELETE /api/internal/blog/[slug]",

@@ -41,6 +41,26 @@ import ContestProblemContent from "@/components/contests/ContestProblemContent";
 
 import styles from "./ArenaRoomClient.module.scss";
 
+const ForfeitTimer = ({ targetTime }: { targetTime: number }) => {
+  const [left, setLeft] = useState(() =>
+    Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)),
+  );
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setLeft(Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [targetTime]);
+
+  if (left <= 0) return null;
+  return (
+    <span className={styles.forfeitTimer}>
+      (Forfeit in {left}s)
+    </span>
+  );
+};
+
 export default function ArenaRoomClient({
   contest,
   roomId,
@@ -60,6 +80,7 @@ export default function ArenaRoomClient({
   from,
   syncCooldownSeconds = 60,
   isSpectator = false,
+  initialActivityFeed = [],
 }: {
   contest: ContestListingItem;
   roomId: string;
@@ -79,6 +100,7 @@ export default function ArenaRoomClient({
   from?: string;
   syncCooldownSeconds?: number;
   isSpectator?: boolean;
+  initialActivityFeed?: RoomActivityDto[];
 }) {
   const router = useRouter();
 
@@ -107,7 +129,8 @@ export default function ArenaRoomClient({
     hold: holdSync,
     begin: beginSync,
   } = useSyncCooldown(roomId, userId, syncCooldownSeconds);
-  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
+  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>(initialActivityFeed);
+  const [forfeitTimeouts, setForfeitTimeouts] = useState<Record<string, number>>({});
   const [startTime, setStartTime] = useState<number | undefined>(
     initialStartTime,
   );
@@ -175,9 +198,8 @@ export default function ArenaRoomClient({
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
         if (payload.locks) setLocks(payload.locks);
-        if (nextStatus === "active") {
-          addActivity("info", "Arena match started! Good luck.");
-        }
+        if (payload.forfeitTimeouts) setForfeitTimeouts(payload.forfeitTimeouts);
+        if (payload.activityLogs) setActivityFeed([...payload.activityLogs].reverse());
         break;
       case "room.locked": {
         const existingLock = stateRef.current.locks[payload.problemId];
@@ -195,20 +217,6 @@ export default function ArenaRoomClient({
           stateRef.current.problems.find(
             (p) => p.problemId === payload.problemId,
           )?.name || payload.problemId;
-
-        if (existingLock && existingLock.split("|")[0] !== payload.claimedBy) {
-          addActivity(
-            "gavel",
-            `CRITICAL: ${tName} RECLAIMED ${payload.problemId} - ${pName}!`,
-            "text-error",
-          );
-        } else {
-          addActivity(
-            "lock",
-            `${tName} solved ${payload.problemId} - ${pName}`,
-            "text-primary",
-          );
-        }
 
         setLocks((prev) => ({
           ...prev,
@@ -240,13 +248,7 @@ export default function ArenaRoomClient({
           const problemId = payload.problemId;
           setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
         }
-        if (payload.verdict === "OK") {
-          addActivity(
-            "check_circle",
-            `Valid AC detected! +${payload.pointsAwarded || 100} pts`,
-            "text-primary",
-          );
-        } else {
+        if (payload.verdict !== "OK") {
           addActivity(
             "error",
             `Submission failed: ${payload.verdict}`,
@@ -282,21 +284,12 @@ export default function ArenaRoomClient({
         if (wasOffline) {
           onlineUserIdsRef.current.add(payload.userId);
           setOnlineUserIds(new Set(onlineUserIdsRef.current));
-
-          if (payload.cancelledForfeit) {
-            addActivity(
-              "person",
-              `${uName} reconnected. Forfeiture cancelled.`,
-              "text-secondary",
-            );
-          } else {
-            addActivity(
-              "person",
-              `${uName} connected${matchStateRef.current === "waiting" ? " (Not Ready)" : ""}.`,
-              "text-secondary",
-            );
-          }
         }
+        setForfeitTimeouts((prev) => {
+          const next = { ...prev };
+          delete next[payload.userId];
+          return next;
+        });
         break;
       }
       case "presence.offline": {
@@ -309,12 +302,21 @@ export default function ArenaRoomClient({
           newSet.delete(payload.userId);
           return newSet;
         });
-        const text = payload.forfeitTimeout
-          ? `${uName} disconnected. Match will be forfeited in ${payload.forfeitTimeout}s.`
-          : `${uName} disconnected.`;
-        addActivity("person_off", text, "text-error");
+        if (payload.forfeitTimeout) {
+          const timeout = payload.forfeitTimeout;
+          setForfeitTimeouts((prev) => ({
+            ...prev,
+            [payload.userId]: Date.now() + timeout * 1000,
+          }));
+        }
         break;
       }
+      case "room.activity":
+        setActivityFeed((prev) =>
+          [payload.activity, ...prev].slice(0, 50)
+        );
+        sendBrowserNotification(payload.activity.icon, payload.activity.text);
+        break;
     }
   };
 
@@ -345,7 +347,7 @@ export default function ArenaRoomClient({
           id: Date.now() + Math.random(),
         },
         ...prev,
-      ].slice(0, 15),
+      ].slice(0, 50),
     );
     // Fire a matching desktop notification
     sendBrowserNotification(icon, text);
@@ -371,6 +373,7 @@ export default function ArenaRoomClient({
       body: JSON.stringify({
         roomId,
         teamId,
+        cfHandle: cfHandle || "", // Use real handle if available
         problemId: problemId,
       }),
     });
@@ -499,10 +502,15 @@ export default function ArenaRoomClient({
                             memberIsOnline ? "" : styles.memberAvatarOffline
                           }
                         />
-                        <span className={styles.memberName}>
-                          {getDisplayName(member.name, member.pizza_count)}{" "}
-                          {member.id === userId && "(You)"}
-                        </span>
+                        <div className={styles.memberDetails}>
+                          <span className={styles.memberName}>
+                            {getDisplayName(member.name, member.pizza_count)}{" "}
+                            {member.id === userId && "(You)"}
+                          </span>
+                          {!memberIsOnline && forfeitTimeouts[member.id] && (
+                            <ForfeitTimer targetTime={forfeitTimeouts[member.id]} />
+                          )}
+                        </div>
                         <div
                           className={`${styles.statusDotSm} ${dotClass}`}
                         ></div>
@@ -550,7 +558,7 @@ export default function ArenaRoomClient({
                   </div>
 
                   <div className={styles.problemGrid}>
-                    {problems.map((prob) => {
+                    {problems.map((prob, idx) => {
                       const lockVal = locks[prob.problemId];
                       const isClaimed = !!lockVal;
                       let claimedByMe = false;
@@ -582,7 +590,7 @@ export default function ArenaRoomClient({
 
                       return (
                         <div
-                          key={prob.problemId}
+                          key={`${prob.problemId}-${idx}`}
                           className={`${styles.gridCard} ${cardStateClass}`}
                         >
                           {isClaimed && (
@@ -667,12 +675,14 @@ export default function ArenaRoomClient({
                                 <button
                                   onClick={() => handleSync(prob.problemId)}
                                   disabled={
+                                    !cfHandle ||
                                     isClaimed ||
                                     isSyncing ||
                                     matchState !== "active" ||
                                     syncCooldown > 0
                                   }
                                   className={styles.syncMini}
+                                  title={!cfHandle ? "Please link your Codeforces account to sync" : ""}
                                 >
                                   {isClaimed ? (
                                     <Lock className={styles.icon14} size={14} />

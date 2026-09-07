@@ -1,7 +1,7 @@
 import { type Job, Worker } from "bullmq";
 import mongoose from "mongoose";
 
-import { publishRoom, publishUser } from "@/lib/contests/events";
+import { publishRoom, publishUser, recordRoomActivity } from "@/lib/contests/events";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   cfSyncJobDataSchema,
@@ -20,10 +20,11 @@ import {
   type CFSubmission,
 } from "@/lib/platforms/codeforces";
 import { claimProblem, getRedis } from "@/lib/redis";
-import { logger } from "@/lib/utils";
+import { getDisplayName, logger } from "@/lib/utils";
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
+import User from "@/models/User";
 
 // Circuit breaker removed, relying on BullMQ job-level retries
 
@@ -151,8 +152,13 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
           const targetProblem = problems.find(
             (problem) => problem.problemId === problemId,
           );
-          if (targetProblem && targetProblem.revealedAt) {
-            lowerTimestamp = targetProblem.revealedAt;
+          if (targetProblem) {
+            if (targetProblem.revealedAt) {
+              lowerTimestamp = targetProblem.revealedAt;
+            } else {
+              // Problem hasn't been revealed yet! Don't fallback to match start time.
+              lowerTimestamp = Infinity;
+            }
           }
         }
 
@@ -183,11 +189,6 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
 
           // Check if it's the right problem
           if (subProblemId.toUpperCase() === problemId.toUpperCase()) {
-            hasSubmissionForProblem = true;
-            if (subVerdict !== "OK") {
-              bestVerdict = subVerdict;
-            }
-
             // Check handle match
             const authorHandle =
               sub.author?.members.some(
@@ -200,6 +201,11 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
               subTimestamp >= lowerTimestamp &&
               subTimestamp <= upperTimestamp
             ) {
+              hasSubmissionForProblem = true;
+              if (subVerdict !== "OK") {
+                bestVerdict = subVerdict;
+              }
+
               if (subVerdict === "OK") {
                 isValid = true;
                 matchedSubmission = sub;
@@ -325,6 +331,39 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                     timestamp: cfTimestamp,
                   });
 
+                  // Log activity
+                  const teamDoc = await ContestTeam.findById(teamId)
+                    .populate<{ members: any[] }>("members")
+                    .lean();
+                  const pName =
+                    problems.find((p) => p.problemId === problemId)?.name ||
+                    problemId;
+
+                  let tName = teamDoc?.name || "Unknown Team";
+                  if (
+                    ["1v1", "solo-tournament"].includes(contest?.format || "") &&
+                    teamDoc?.members?.[0]
+                  ) {
+                    tName = getDisplayName(
+                      teamDoc.members[0].name,
+                      teamDoc.members[0].pizza_count
+                    );
+                  }
+
+                  if (claimResult.startsWith("reclaimed|")) {
+                    await recordRoomActivity(roomId, {
+                      icon: "gavel",
+                      text: `CRITICAL: ${tName} RECLAIMED ${problemId} - ${pName}! (+${points} pts)`,
+                      color: "text-error",
+                    });
+                  } else {
+                    await recordRoomActivity(roomId, {
+                      icon: "check_circle",
+                      text: `Valid AC by ${tName}! Solved ${problemId} - ${pName} (+${points} pts)`,
+                      color: "text-primary",
+                    });
+                  }
+
                   const scores: Record<string, number> = {};
                   const teams = await redis.sMembers(`room:${roomId}:teams`);
                   for (const tId of teams) {
@@ -345,6 +384,11 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                       type: "room.end",
                       finalScores: scores,
                       duration: Date.now() - startTime,
+                    });
+                    await recordRoomActivity(roomId, {
+                      icon: "info",
+                      text: "All problems solved! Match has ended.",
+                      color: "text-primary",
                     });
 
                     // Remove the timeout job since the room ended naturally
@@ -464,12 +508,21 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                       await redis.hSet(`room:${roomId}:state`, {
                         status: "completed",
                       });
-
                       await publishRoom(roomId, {
                         type: "room.end",
                         finalScores: scores,
                         duration: Date.now() - startTime,
                         lastSolvedBy: { userId, teamId },
+                      });
+
+                      const userDoc = await User.findById(userId)
+                        .select("name")
+                        .lean();
+                      const uName = userDoc?.name || "Someone";
+                      await recordRoomActivity(roomId, {
+                        icon: "check_circle",
+                        text: `${uName} solved the final problem!`,
+                        color: "text-primary",
                       });
 
                       // Remove the timeout job since the room ended naturally
@@ -501,6 +554,16 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                         solvedBy: { userId, teamId },
                         problemIndex: newProblemIndex,
                         nextProblem,
+                      });
+
+                      const userDoc = await User.findById(userId)
+                        .select("name")
+                        .lean();
+                      const uName = userDoc?.name || "Someone";
+                      await recordRoomActivity(roomId, {
+                        icon: "check_circle",
+                        text: `Valid AC by ${uName}! Advanced to next problem (+${points} pts)`,
+                        color: "text-primary",
                       });
 
                       await publishRoom(roomId, { type: "room.score", scores });

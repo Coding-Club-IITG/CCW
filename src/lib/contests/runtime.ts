@@ -118,6 +118,14 @@ const roomParticipantSchema = z.object({
 });
 const synchronizedRoomStateSchema = contestRoomStateSchema;
 
+export const roomActivitySchema = z.object({
+  id: z.number(),
+  icon: z.string(),
+  text: z.string(),
+  timestamp: z.number(),
+  color: z.string(),
+});
+
 const roomStateSyncEventSchema = z
   .object({
     type: z.literal("room.state_sync"),
@@ -125,6 +133,8 @@ const roomStateSyncEventSchema = z
     problems: z.array(contestRoomProblemSchema).optional(),
     scores: scoreMapSchema.optional(),
     locks: z.record(z.string(), z.string()).optional(),
+    activityLogs: z.array(roomActivitySchema).optional(),
+    forfeitTimeouts: z.record(z.string(), z.number()).optional(),
   })
   .passthrough();
 
@@ -190,6 +200,12 @@ export const roomEventSchema = z.discriminatedUnion("type", [
       type: z.literal("presence.offline"),
       userId: z.string().min(1),
       forfeitTimeout: z.number().optional(),
+    })
+    .passthrough(),
+  z
+    .object({
+      type: z.literal("room.activity"),
+      activity: roomActivitySchema,
     })
     .passthrough(),
 ]);

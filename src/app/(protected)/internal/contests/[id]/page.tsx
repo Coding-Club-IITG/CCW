@@ -9,7 +9,10 @@ import {
   contestRoomStateSchema,
   parseContestRoomProblems,
 } from "@/lib/contests/runtime";
-import type { ContestRoomProblemDto } from "@/lib/contests/dtos";
+import type {
+  ContestRoomProblemDto,
+  RoomActivityDto,
+} from "@/lib/contests/dtos";
 import { normalizeAvatar } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -263,6 +266,7 @@ export default async function ContestRoomPage({
     let initialProblems: ContestRoomProblemDto[] = [];
     let initialScores: Record<string, number> = {};
     let initialLocks: Record<string, string> = {};
+    let initialActivityFeed: RoomActivityDto[] = [];
 
     if (status === "active" || status === "completed") {
       const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
@@ -276,11 +280,18 @@ export default async function ContestRoomPage({
       if (contest.mode === "arena") {
         initialLocks = await redis.hGetAll(`room:${roomId}:locks`);
       }
+
+      const activityLogsRaw = await redis.lRange(
+        `room:${roomId}:activity_logs`,
+        0,
+        -1,
+      );
+      initialActivityFeed = activityLogsRaw.map((l) => JSON.parse(l));
     }
 
     const cpUser = cpUserMap.get(userId);
     const userDoc = userMap.get(userId);
-    const cfHandle = cpUser?.cfHandle || userDoc?.codeforcesId || "dummy0";
+    const cfHandle = cpUser?.cfHandle || userDoc?.codeforcesId || "";
 
     const syncCooldown = userRateLimitsEnabled ? webEnv.SYNC_COOLDOWN : 0;
 
@@ -310,6 +321,7 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
+          initialActivityFeed={initialActivityFeed}
           from={from}
           syncCooldownSeconds={syncCooldown}
           isSpectator={isSpectator}
@@ -337,6 +349,7 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
+          initialActivityFeed={initialActivityFeed}
           from={from}
           syncCooldownSeconds={syncCooldown}
           isSpectator={isSpectator}

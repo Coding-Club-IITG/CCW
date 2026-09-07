@@ -3,6 +3,7 @@ import type { SortOrder } from "mongoose";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
+import { excerptPreview } from "@/lib/blog/excerptPreview";
 import { readingTimeLabel } from "@/lib/blog/readingTime";
 import { tagAccent } from "@/lib/constants";
 import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
@@ -55,8 +56,9 @@ function updatedLabel(post: ListedPost) {
   return delta > 60_000 ? `Updated ${formatShortDate(post.updatedAt)}` : null;
 }
 
-function authorNames(post: ListedPost) {
-  return post.authors.map((author) => author.name).join(", ") || "Coding Club";
+function authorCountLabel(post: ListedPost) {
+  const count = post.authors.length;
+  return `${count} ${count === 1 ? "author" : "authors"}`;
 }
 
 export async function generateMetadata({
@@ -230,9 +232,13 @@ export default async function BlogPage({ searchParams }: Props) {
               )}
             </p>
             <h2 className={styles.featuredTitle}>{featured.title}</h2>
-            <p className={styles.featuredExcerpt}>{featured.excerpt}</p>
+            <p className={styles.featuredExcerpt}>
+              {excerptPreview(featured.excerpt)}
+            </p>
             <p className={styles.featuredMeta}>
-              <span className={styles.authors}>{authorNames(featured)}</span>
+              <span className={styles.authors}>
+                {authorCountLabel(featured)}
+              </span>
               <span>{formatShortDate(featured.publishedAt)}</span>
               {featured.readingTime && <span>{featured.readingTime}</span>}
               {updatedLabel(featured) && (
@@ -265,7 +271,7 @@ export default async function BlogPage({ searchParams }: Props) {
                   alt=""
                   width={320}
                   height={200}
-                  sizes="110px"
+                  sizes="(max-width: 760px) 80px, (max-width: 1100px) 128px, 160px"
                   loading="lazy"
                   className={styles.rowImage}
                 />
@@ -277,9 +283,9 @@ export default async function BlogPage({ searchParams }: Props) {
                 <p className={styles.rowTag}>{post.tags.join(" / ")}</p>
               )}
             </div>
-            <p className={styles.rowExcerpt}>{post.excerpt}</p>
+            <p className={styles.rowExcerpt}>{excerptPreview(post.excerpt)}</p>
             <div className={styles.rowMeta}>
-              <span className={styles.authors}>{authorNames(post)}</span>
+              <span className={styles.authors}>{authorCountLabel(post)}</span>
               <span>{formatShortDate(post.publishedAt)}</span>
               {updatedLabel(post) && (
                 <span className={styles.updatedLine}>{updatedLabel(post)}</span>

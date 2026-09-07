@@ -472,10 +472,7 @@ export default function ContestListingClient({
                         <Users className={styles.icon16} size={16} />{" "}
                         {contest.participantsCount || 0} Registered
                       </div>
-                      <div className={styles.cardMetaItem}>
-                        <Medal className={styles.icon16} size={16} /> 5000 Pts
-                        Pool
-                      </div>
+
                     </div>
                     <div className={styles.cardFooter}>
                       {contest.isRegistered ? (
