@@ -59,24 +59,26 @@ export default function ArenaRoomClient({
   initialTimeLimit,
   from,
   syncCooldownSeconds = 60,
+  isSpectator = false,
 }: {
   contest: ContestListingItem;
   roomId: string;
   roomName: string;
-  teamId: string;
+  teamId: string | null;
   userId: string;
   cfHandle?: string;
   teams?: ContestRoomTeamDto[];
+  initialReadyUserIds?: string[];
+  initialOnlineUserIds?: string[];
   initialMatchState?: "waiting" | "active" | "completed";
   initialProblems?: ContestRoomProblemDto[];
   initialScores?: Record<string, number>;
   initialLocks?: Record<string, string>;
-  initialReadyUserIds?: string[];
-  initialOnlineUserIds?: string[];
   initialStartTime?: number;
   initialTimeLimit?: number;
   from?: string;
   syncCooldownSeconds?: number;
+  isSpectator?: boolean;
 }) {
   const router = useRouter();
 
@@ -417,6 +419,11 @@ export default function ArenaRoomClient({
                   ? "MATCH OVER"
                   : "WAITING FOR PLAYERS"}
             </div>
+            {isSpectator && (
+              <div className={styles.statusBadge} style={{ background: 'var(--border)', color: 'var(--foreground)' }}>
+                👁 Spectator Mode
+              </div>
+            )}
           </div>
           <div className={styles.scoreRow}>
             {teams?.map((t, idx) => (
@@ -520,19 +527,21 @@ export default function ArenaRoomClient({
                     The arena is being prepared. Review your strategy-the match
                     begins when all teams are ready.
                   </p>
-                  <button
-                    onClick={handleReady}
-                    disabled={isReady}
-                    className={styles.readyBtn}
-                  >
-                    {isReady ? (
-                      <span className={styles.animatedDots}>
-                        Ready! Waiting on others
-                      </span>
-                    ) : (
-                      "I am Ready"
-                    )}
-                  </button>
+                  {!isSpectator && (
+                    <button
+                      onClick={handleReady}
+                      disabled={isReady}
+                      className={styles.readyBtn}
+                    >
+                      {isReady ? (
+                        <span className={styles.animatedDots}>
+                          Ready! Waiting on others
+                        </span>
+                      ) : (
+                        "I am Ready"
+                      )}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -654,42 +663,44 @@ export default function ArenaRoomClient({
                                   size={16}
                                 />
                               </a>
-                              <button
-                                onClick={() => handleSync(prob.problemId)}
-                                disabled={
-                                  isClaimed ||
-                                  isSyncing ||
-                                  matchState !== "active" ||
-                                  syncCooldown > 0
-                                }
-                                className={styles.syncMini}
-                              >
-                                {isClaimed ? (
-                                  <Lock className={styles.icon14} size={14} />
-                                ) : isSyncing ? (
-                                  <RefreshCw
-                                    className={`${styles.icon14} ${styles.spin}`}
-                                    size={14}
-                                  />
-                                ) : syncCooldown > 0 ? (
-                                  <Hourglass
-                                    className={styles.icon14}
-                                    size={14}
-                                  />
-                                ) : (
-                                  <RefreshCw
-                                    className={styles.icon14}
-                                    size={14}
-                                  />
-                                )}
-                                {isClaimed
-                                  ? "Locked"
-                                  : isSyncing
-                                    ? "Syncing"
-                                    : syncCooldown > 0
-                                      ? `${syncCooldown}s`
-                                      : "Sync"}
-                              </button>
+                              {!isSpectator && (
+                                <button
+                                  onClick={() => handleSync(prob.problemId)}
+                                  disabled={
+                                    isClaimed ||
+                                    isSyncing ||
+                                    matchState !== "active" ||
+                                    syncCooldown > 0
+                                  }
+                                  className={styles.syncMini}
+                                >
+                                  {isClaimed ? (
+                                    <Lock className={styles.icon14} size={14} />
+                                  ) : isSyncing ? (
+                                    <RefreshCw
+                                      className={`${styles.icon14} ${styles.spin}`}
+                                      size={14}
+                                    />
+                                  ) : syncCooldown > 0 ? (
+                                    <Hourglass
+                                      className={styles.icon14}
+                                      size={14}
+                                    />
+                                  ) : (
+                                    <RefreshCw
+                                      className={styles.icon14}
+                                      size={14}
+                                    />
+                                  )}
+                                  {isClaimed
+                                    ? "Locked"
+                                    : isSyncing
+                                      ? "Syncing"
+                                      : syncCooldown > 0
+                                        ? `${syncCooldown}s`
+                                        : "Sync"}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>

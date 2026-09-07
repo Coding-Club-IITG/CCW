@@ -24,6 +24,7 @@ export interface ContestCreationForm {
   registrationType: string;
   overallDurationMinutes?: number;
   perProblemDurationMinutes?: number;
+  spectatorRestriction: string;
 }
 
 export type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
@@ -53,6 +54,7 @@ export interface AdminContestWizardForm {
   seedingMethod: "cf_rating" | "manual";
   overallDurationMinutes?: number;
   perProblemDurationMinutes?: number;
+  spectatorRestriction: string;
 }
 
 export interface ContestParticipant {
@@ -92,6 +94,7 @@ export function createInitialContestForm(isHead = true): ContestCreationForm {
     registrationType: isHead ? "open" : "closed",
     overallDurationMinutes: 60,
     perProblemDurationMinutes: 15,
+    spectatorRestriction: "none",
   };
 }
 

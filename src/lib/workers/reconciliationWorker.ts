@@ -1086,8 +1086,16 @@ export const reconciliationWorker = new Worker<
         await redis.del(`team:${tId}:meta`);
         await redis.del(`team:${tId}:users`);
       }
+      
       if (contestId) {
-        await redis.del(`contest:${contestId}:rooms`);
+        const totalRooms = await ContestRoom.countDocuments({ contestId });
+        const endedRooms = await ContestRoom.countDocuments({
+          contestId,
+          status: { $in: ["ended", "completed"] },
+        });
+        if (totalRooms > 0 && totalRooms === endedRooms) {
+          await redis.del(`contest:${contestId}:rooms`);
+        }
       }
 
       logger.info(
@@ -1184,7 +1192,12 @@ export const reconciliationWorker = new Worker<
       // but if we do, we could set it. The prompt says: "Write final ContestRoom (scores, winner, endTime, trigger)."
       // Let's assume we update the team scores.
       for (const tId of teams) {
-        await ContestTeam.findByIdAndUpdate(tId, { score: teamScores[tId] });
+        let finalScore = teamScores[tId] || 0;
+        if (trigger === "forfeit" && winnerId) {
+           if (tId === winnerId && finalScore <= 0) finalScore = 1;
+           if (tId !== winnerId) finalScore = -1;
+        }
+        await ContestTeam.findByIdAndUpdate(tId, { score: finalScore });
       }
     }
 

@@ -310,6 +310,7 @@ export default function CreateRoomModal({
         registrationStartTime: regStartIso,
         registeredUsers: finalRegisteredUsers,
         problemSlots: fineTunedSlots,
+        fineTunedProblems: formData.fineTunedProblems.filter((p) => p.trim() !== ""),
       });
       if (!res.ok) {
         toast.error(res.error.message);
@@ -825,25 +826,44 @@ export default function CreateRoomModal({
                 </select>
               </div>
 
-              {formData.registrationType !== "closed" && (
-                <div className={styles.field}>
-                  <label className={styles.label}>Registration Starts</label>
-                  <select
-                    value={formData.registrationStartMode}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        registrationStartMode: e.target.value,
-                      })
-                    }
-                    className={`${styles.formInput} ${styles.formSelect}`}
-                  >
-                    <option value="immediate">Immediately</option>
-                    <option value="schedule">Schedule Start</option>
-                  </select>
-                </div>
-              )}
+              <div className={styles.field}>
+                <label className={styles.label}>Spectator Access</label>
+                <select
+                  value={formData.spectatorRestriction}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      spectatorRestriction: e.target.value,
+                    })
+                  }
+                  className={`${styles.formInput} ${styles.formSelect}`}
+                >
+                  <option value="none">No Spectators</option>
+                  <option value="all">Any Authenticated User</option>
+                  <option value="club_members">Club / Module Members</option>
+                  <option value="admin_creator">Admins & Creator Only</option>
+                </select>
+              </div>
             </div>
+
+            {formData.registrationType !== "closed" && (
+              <div className={styles.field}>
+                <label className={styles.label}>Registration Starts</label>
+                <select
+                  value={formData.registrationStartMode}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      registrationStartMode: e.target.value,
+                    })
+                  }
+                  className={`${styles.formInput} ${styles.formSelect}`}
+                >
+                  <option value="immediate">Immediately</option>
+                  <option value="schedule">Schedule Start</option>
+                </select>
+              </div>
+            )}
 
             {formData.registrationType !== "closed" &&
               formData.registrationStartMode === "schedule" && (

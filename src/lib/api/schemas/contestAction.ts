@@ -10,7 +10,7 @@ export const contestFormatSchema = z.enum([
   "bracket",
 ]);
 export const contestRegistrationTypeSchema = z.enum(["open", "closed"]);
-export const contestProblemSelectionModeSchema = z.enum(["bulk", "fine-tuned"]);
+export const contestProblemSelectionModeSchema = z.enum(["test", "bulk", "fine-tuned"]);
 export const contestSeedingMethodSchema = z.enum(["cf_rating", "manual"]);
 
 const dateStringSchema = z
@@ -64,6 +64,9 @@ const contestCreationFields = {
   thirdPlacePlayoff: z.boolean().default(false),
   seedingMethod: contestSeedingMethodSchema.default("cf_rating"),
   registeredUsers: z.array(contestRegisteredUserSchema).max(256).default([]),
+  spectatorRestriction: z
+    .enum(["none", "all", "admin_creator", "club_members"])
+    .default("none"),
 };
 
 export const contestCreationPayloadSchema = z.object(contestCreationFields);

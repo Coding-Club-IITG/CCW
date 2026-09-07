@@ -21,6 +21,7 @@ import CPUser from "@/models/CPUser";
 import { getRedis } from "@/lib/redis";
 import { getBracketSnapshot } from "@/lib/contests/bracket";
 import { isHead } from "@/lib/access/roles";
+import { parseRoles } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
 import styles from "./page.module.scss";
@@ -57,12 +58,23 @@ export default async function ContestRoomPage({
   const userId = session.user.id;
   await dbConnect();
 
-  // If matchRoomId is specified (bracket "Enter Room"), load that specific room
-  const roomQuery = matchRoomId
-    ? { _id: matchRoomId, contestId: contest._id }
-    : { contestId: contest._id, participants: userId };
+  function canSpectate() {
+    const restriction = (contest as any).spectatorRestriction || "none";
+    if (restriction === "none") return false;
+    if (restriction === "all") return true;
+    const isCreator = contest.creatorId.toString() === userId;
+    if (restriction === "admin_creator") return admin || isCreator;
+    if (restriction === "club_members") {
+      if (admin || isCreator) return true;
+      // @ts-expect-error - session.user.roles might not be typed
+      const roles = parseRoles(session.user?.roles);
+      return roles.length > 0;
+    }
+    return false;
+  }
 
-  // Find the active/waiting room for this user in this contest
+  let isSpectator = false;
+
   // Bracket format: show bracket viewer (unless entering a specific match room)
   if (
     (contest.format === "bracket" || contest.mode === "knockout") &&
@@ -79,11 +91,25 @@ export default async function ContestRoomPage({
         initialSnapshot={bracketSnapshot}
         userId={userId}
         currentUserTeamId={userTeam ? userTeam._id.toString() : null}
+        isSpectator={!userTeam && canSpectate()}
       />
     );
   }
 
-  const room = await ContestRoom.findOne(roomQuery).lean();
+  const roomQuery = matchRoomId
+    ? { _id: matchRoomId, contestId: contest._id }
+    : { contestId: contest._id, participants: userId };
+
+  let room = await ContestRoom.findOne(roomQuery).lean();
+
+  if (!room && canSpectate()) {
+    isSpectator = true;
+    if (matchRoomId) {
+      room = await ContestRoom.findOne({ _id: matchRoomId, contestId: contest._id }).lean();
+    } else {
+      room = await ContestRoom.findOne({ contestId: contest._id }).lean();
+    }
+  }
 
   let teamId = null;
   let roomId = null;
@@ -116,7 +142,7 @@ export default async function ContestRoomPage({
   }
 
   if (contest.mode === "blitz" || contest.mode === "arena") {
-    if (!room || !teamId) {
+    if (!room || (!teamId && !isSpectator)) {
       if (contest.status === "completed") {
         // Non-participant or unassigned user: try to redirect to any room
         const anyRoom = await ContestRoom.findOne({
@@ -286,6 +312,7 @@ export default async function ContestRoomPage({
           }
           from={from}
           syncCooldownSeconds={syncCooldown}
+          isSpectator={isSpectator}
         />
       );
     } else if (contest.mode === "arena") {
@@ -312,6 +339,7 @@ export default async function ContestRoomPage({
           }
           from={from}
           syncCooldownSeconds={syncCooldown}
+          isSpectator={isSpectator}
         />
       );
     }
