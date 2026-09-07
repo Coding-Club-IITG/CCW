@@ -524,6 +524,16 @@ async function createRoomContestAction(input: unknown) {
     if (!parsed.success) return validationError(parsed.error);
     const data = parsed.data;
 
+    if (
+      process.env.NODE_ENV === "production" &&
+      data.problemSelectionMode === "test"
+    ) {
+      return appError(
+        "VALIDATION_ERROR",
+        "Problem selection mode must be 'bulk' or 'fine-tuned'.",
+      );
+    }
+
     await dbConnect();
     const cpUser = await CPUser.findOne({ userId });
     if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
@@ -531,15 +541,12 @@ async function createRoomContestAction(input: unknown) {
     const userRole = session.user.access;
     const isHeadUser = isHead(userRole);
     if (!isHeadUser) {
-      if (data.format !== "1v1" || data.registrationType === "open") {
+      if (data.format === "bracket" && data.maxParticipants > 8) {
         return appError(
           "FORBIDDEN",
-          "Only heads and admins can create tournaments or open contests.",
+          "Non-admin users cannot create a knockout tournament with more than 8 participants.",
         );
       }
-      data.teamSize = 1;
-      data.maxParticipants = 2;
-      data.registrationType = "closed";
     }
 
     const start = new Date(data.startTime);
@@ -896,11 +903,29 @@ async function createBracketContestAction(input: unknown) {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
   if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
-  if (!isHead(session.user.access)) return appError("FORBIDDEN", "Forbidden");
+
+  const isHeadUser = isHead(session.user.access);
 
   const parsed = contestCreationPayloadSchema.safeParse(input);
   if (!parsed.success) return validationError(parsed.error);
   const data = parsed.data;
+
+  if (
+    process.env.NODE_ENV === "production" &&
+    data.problemSelectionMode === "test"
+  ) {
+    return appError(
+      "VALIDATION_ERROR",
+      "Problem selection mode must be 'bulk' or 'fine-tuned'.",
+    );
+  }
+
+  if (!isHeadUser && data.maxParticipants > 8) {
+    return appError(
+      "FORBIDDEN",
+      "Non-admin users cannot create a knockout tournament with more than 8 participants.",
+    );
+  }
 
   await dbConnect();
 

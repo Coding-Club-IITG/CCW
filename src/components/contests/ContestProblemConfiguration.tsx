@@ -93,11 +93,18 @@ export default function ContestProblemConfiguration({
             type="number"
             min={5}
             max={300}
-            value={form.overallDurationMinutes ?? 60}
+            value={
+              form.overallDurationMinutes === undefined ||
+              Number.isNaN(form.overallDurationMinutes)
+                ? ""
+                : form.overallDurationMinutes
+            }
             onChange={(event) =>
               updateForm({
                 overallDurationMinutes:
-                  parseInt(event.target.value, 10) || 60,
+                  event.target.value === ""
+                    ? ("" as unknown as number)
+                    : parseInt(event.target.value, 10),
               })
             }
             disabled={presetLocked}
@@ -110,18 +117,25 @@ export default function ContestProblemConfiguration({
       ) : (
         <div className={styles.field}>
           <label className={styles.label} htmlFor="problem-duration">
-            Question Time Limit (Minutes)
+            Default Time Limit (Minutes)
           </label>
           <input
             id="problem-duration"
             type="number"
             min={1}
             max={60}
-            value={form.perProblemDurationMinutes ?? 15}
+            value={
+              form.perProblemDurationMinutes === undefined ||
+              Number.isNaN(form.perProblemDurationMinutes)
+                ? ""
+                : form.perProblemDurationMinutes
+            }
             onChange={(event) =>
               updateForm({
                 perProblemDurationMinutes:
-                  parseInt(event.target.value, 10) || 15,
+                  event.target.value === ""
+                    ? ("" as unknown as number)
+                    : parseInt(event.target.value, 10),
               })
             }
             disabled={presetLocked}
@@ -146,16 +160,9 @@ export default function ContestProblemConfiguration({
           disabled={presetLocked}
           className={`${styles.formInput} ${styles.formSelect}`}
         >
-          <option value="test">Test</option>
           <option value="bulk">Bulk</option>
           <option value="fine-tuned">Fine-Tuned</option>
         </select>
-        {form.problemSelectionMode === "test" && (
-          <span className={styles.hint}>
-            A pre-selected test problem will be assigned to verify the room
-            mechanics.
-          </span>
-        )}
         {form.problemSelectionMode === "bulk" && (
           <span className={styles.hint}>
             Automatically fetch problems unsolved by all registered players,
@@ -330,13 +337,20 @@ export default function ContestProblemConfiguration({
                       id={`points-${index}`}
                       type="number"
                       min={1}
-                      value={form.fineTunedProblemPoints?.[index] ?? 100}
+                      value={
+                        form.fineTunedProblemPoints?.[index] === undefined ||
+                        Number.isNaN(form.fineTunedProblemPoints[index])
+                          ? ""
+                          : form.fineTunedProblemPoints[index]
+                      }
                       onChange={(event) => {
                         const fineTunedProblemPoints = [
                           ...(form.fineTunedProblemPoints || []),
                         ];
                         fineTunedProblemPoints[index] =
-                          parseInt(event.target.value, 10) || 100;
+                          event.target.value === ""
+                            ? ("" as unknown as number)
+                            : parseInt(event.target.value, 10);
                         updateForm({ fineTunedProblemPoints });
                       }}
                       disabled={presetLocked}

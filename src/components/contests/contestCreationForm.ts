@@ -111,7 +111,7 @@ export function applyContestFormatDefaults(
     return { ...form, teamSize: 3, maxParticipants: 15 };
   }
   if (form.format === "bracket" && form.maxParticipants < 2) {
-    return { ...form, maxParticipants: 16 };
+    return { ...form, maxParticipants: 8 };
   }
   return form;
 }
@@ -157,6 +157,7 @@ export function applyContestPreset(
 export function getMaxParticipantsError(
   form: ContestCreationForm,
   manualTeamCount: number,
+  isHead = true,
 ): string {
   if (Number.isNaN(form.maxParticipants)) return "Must be a valid number.";
   if (form.format === "solo-tournament" && form.maxParticipants < 2) {
@@ -165,8 +166,13 @@ export function getMaxParticipantsError(
   if (form.format === "team-tournament" && form.maxParticipants < 6) {
     return "At least 6 participants required (2 teams).";
   }
-  if (form.format === "bracket" && form.maxParticipants < 2) {
-    return "At least 2 participants required.";
+  if (form.format === "bracket") {
+    if (form.maxParticipants < 2) {
+      return "At least 2 participants required.";
+    }
+    if (!isHead && form.maxParticipants > 8) {
+      return "Knockout tournaments are limited to at most 8 participants for regular members.";
+    }
   }
 
   const maxTeamsAllowed = Math.floor(form.maxParticipants / form.teamSize);

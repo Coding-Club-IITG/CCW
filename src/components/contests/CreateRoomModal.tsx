@@ -141,8 +141,10 @@ export default function CreateRoomModal({
   const [maxPartError, setMaxPartError] = useState("");
   const [fineTunedCountError, setFineTunedCountError] = useState("");
   useEffect(() => {
-    setMaxPartError(getMaxParticipantsError(formData, manualTeams.length));
-  }, [formData, manualTeams.length]);
+    setMaxPartError(
+      getMaxParticipantsError(formData, manualTeams.length, isHead),
+    );
+  }, [formData, manualTeams.length, isHead]);
 
   if (!isOpen) return null;
 
@@ -175,12 +177,29 @@ export default function CreateRoomModal({
       return;
     }
 
+    if (!isHead && formData.format === "bracket" && Number(formData.maxParticipants) > 8) {
+      toast.error("Non-admin users cannot create a knockout tournament with more than 8 members.");
+      return;
+    }
+
     if (
       maxPartError ||
       (formData.problemSelectionMode === "fine-tuned" && fineTunedCountError)
     ) {
       return;
     }
+
+    const overallDurationMinutes =
+      typeof formData.overallDurationMinutes === "number" &&
+      !Number.isNaN(formData.overallDurationMinutes)
+        ? formData.overallDurationMinutes
+        : 60;
+
+    const perProblemDurationMinutes =
+      typeof formData.perProblemDurationMinutes === "number" &&
+      !Number.isNaN(formData.perProblemDurationMinutes)
+        ? formData.perProblemDurationMinutes
+        : 15;
 
     if (
       formData.format !== "bracket" &&
@@ -270,6 +289,8 @@ export default function CreateRoomModal({
       try {
         const res = await createBracketContest({
           ...formData,
+          overallDurationMinutes,
+          perProblemDurationMinutes,
           deadline: start.toISOString(),
           registrationStartTime: regStartIso,
           registeredUsers: finalRegisteredUsers,
@@ -297,18 +318,27 @@ export default function CreateRoomModal({
     const fineTunedSlots =
       formData.problemSelectionMode === "fine-tuned" &&
       formData.fineTunedProblems.length > 0
-        ? formData.fineTunedProblems.map((pid, idx) => ({
-            platform: "codeforces",
-            problemId: pid.trim(),
-            points: formData.fineTunedProblemPoints?.[idx] ?? 100,
-            timeLimitMinutes: formData.fineTunedProblemTimeLimits?.[idx],
-          }))
+        ? formData.fineTunedProblems.map((pid, idx) => {
+            const rawPoints = formData.fineTunedProblemPoints?.[idx];
+            const points =
+              typeof rawPoints === "number" && !Number.isNaN(rawPoints)
+                ? rawPoints
+                : 100;
+            return {
+              platform: "codeforces",
+              problemId: pid.trim(),
+              points,
+              timeLimitMinutes: formData.fineTunedProblemTimeLimits?.[idx],
+            };
+          })
         : undefined;
 
     setLoading(true);
     try {
       const res = await createRoomContest({
         ...formData,
+        overallDurationMinutes,
+        perProblemDurationMinutes,
         startTime: start.toISOString(),
         registrationStartTime: regStartIso,
         registeredUsers: finalRegisteredUsers,
@@ -491,7 +521,7 @@ export default function CreateRoomModal({
           className={styles.form}
           spellCheck={false}
         >
-          {isHead && (
+          {presets.length > 0 && (
             <div className={styles.templateBox}>
               <label className={styles.templateLabel} htmlFor="top-preset-id">
                 Load from Template (Optional)
@@ -576,22 +606,19 @@ export default function CreateRoomModal({
               <select
                 id="room-format"
                 value={formData.format}
-                onChange={(e) =>
-                  setFormData({ ...formData, format: e.target.value })
-                }
-                disabled={!!topPresetId || !isHead}
+                onChange={(e) => {
+                  const nextFormat = e.target.value;
+                  setFormData((prev) =>
+                    applyContestFormatDefaults({ ...prev, format: nextFormat }),
+                  );
+                }}
+                disabled={!!topPresetId}
                 className={`${styles.formInput} ${styles.formSelect}`}
               >
                 <option value="1v1">1v1</option>
-                <option value="solo-tournament" disabled={!isHead}>
-                  Solo Tournament {!isHead ? "(Admin Only)" : ""}
-                </option>
-                <option value="team-tournament" disabled={!isHead}>
-                  Team Battle {!isHead ? "(Admin Only)" : ""}
-                </option>
-                <option value="bracket" disabled={!isHead}>
-                  Bracket (Knockout) {!isHead ? "(Admin Only)" : ""}
-                </option>
+                <option value="solo-tournament">Solo Tournament</option>
+                <option value="team-tournament">Team Battle</option>
+                <option value="bracket">Bracket (Knockout)</option>
               </select>
             </div>
           </div>

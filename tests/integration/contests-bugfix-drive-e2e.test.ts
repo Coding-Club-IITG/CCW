@@ -19,9 +19,11 @@ import {
 } from "../utils/mongodb";
 import {
   createRoomContest,
+  createBracketContest,
   getContestListing,
   registerForContest,
 } from "@/lib/actions/contests";
+import { createBracketContest as createAdminBracketContest } from "@/lib/actions/admin/contests";
 import {
   getCodeforcesProblemUrl,
   formatRemainingTime,
@@ -102,21 +104,20 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
   });
 
   describe("2. Security & Role Hardening (#43)", () => {
-    it("rejects non-head users trying to create open tournaments with FORBIDDEN", async () => {
+    it("allows regular members to create solo tournaments and 3v3 team battles", async () => {
       const regularUser = await CPUser.create({
         userId: new mongoose.Types.ObjectId(),
-        cfHandle: "casual_user",
+        cfHandle: "casual_tourney_user",
         cfRating: 1200,
       });
 
-      // Regular member without "Head" access
       getSession.mockResolvedValue({
         user: { id: regularUser.userId.toString(), access: "Member" },
       });
 
-      const res = await createRoomContest({
-        name: "Unauthorized Tournament",
-        description: "Should fail",
+      const soloRes = await createRoomContest({
+        name: "Casual Solo Tourney",
+        description: "Regular member open tournament",
         mode: "blitz",
         format: "solo-tournament",
         teamSize: 1,
@@ -129,9 +130,110 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         maxParticipants: 16,
       });
 
-      expect(res.ok).toBe(false);
-      if (!res.ok) {
-        expect(res.error.code).toBe("FORBIDDEN");
+      expect(soloRes.ok).toBe(true);
+
+      const teamRes = await createRoomContest({
+        name: "Casual 3v3 Battle",
+        description: "Regular member 3v3 battle",
+        mode: "arena",
+        format: "team-tournament",
+        teamSize: 3,
+        registrationType: "open",
+        problemSelectionMode: "bulk",
+        bulkProblemCount: 3,
+        bulkRatingMin: 800,
+        bulkRatingMax: 1200,
+        startTime: new Date(Date.now() + 86400000).toISOString(),
+        maxParticipants: 6,
+      });
+
+      expect(teamRes.ok).toBe(true);
+    });
+
+    it("allows regular members to create knockout tournaments with up to 8 participants", async () => {
+      const regularUser = await CPUser.create({
+        userId: new mongoose.Types.ObjectId(),
+        cfHandle: "casual_bracket_user",
+        cfRating: 1300,
+      });
+
+      getSession.mockResolvedValue({
+        user: { id: regularUser.userId.toString(), access: "Member" },
+      });
+
+      const p2 = await CPUser.create({
+        userId: new mongoose.Types.ObjectId(),
+        cfHandle: "casual_p2",
+        cfRating: 1350,
+      });
+
+      const res = await createBracketContest({
+        name: "Casual 8-player Bracket",
+        mode: "blitz",
+        teamSize: 1,
+        maxParticipants: 8,
+        registrationType: "closed",
+        problemSelectionMode: "bulk",
+        bulkRatingMin: 800,
+        bulkRatingMax: 1200,
+        bulkProblemCount: 3,
+        seedingMethod: "cf_rating",
+        startTime: new Date(Date.now() + 86400000).toISOString(),
+        registeredUsers: [
+          { id: regularUser.userId.toString(), cfHandle: "casual_bracket_user" },
+          { id: p2.userId.toString(), cfHandle: "casual_p2" },
+        ],
+      });
+
+      expect(res.ok).toBe(true);
+    });
+
+    it("rejects non-head users trying to create knockout tournaments with >8 members with FORBIDDEN", async () => {
+      const regularUser = await CPUser.create({
+        userId: new mongoose.Types.ObjectId(),
+        cfHandle: "casual_big_bracket_user",
+        cfRating: 1200,
+      });
+
+      getSession.mockResolvedValue({
+        user: { id: regularUser.userId.toString(), access: "Member" },
+      });
+
+      // Via createBracketContest
+      const bracketRes = await createBracketContest({
+        name: "Unauthorized 16-player Bracket",
+        mode: "blitz",
+        teamSize: 1,
+        maxParticipants: 16,
+        registrationType: "open",
+        problemSelectionMode: "bulk",
+        seedingMethod: "cf_rating",
+        startTime: new Date(Date.now() + 86400000).toISOString(),
+        registeredUsers: [],
+      });
+
+      expect(bracketRes.ok).toBe(false);
+      if (!bracketRes.ok) {
+        expect(bracketRes.error.code).toBe("FORBIDDEN");
+        expect(bracketRes.error.message).toContain("8 participants");
+      }
+
+      // Via createRoomContest with format: "bracket"
+      const roomRes = await createRoomContest({
+        name: "Unauthorized 16-player Room Bracket",
+        mode: "blitz",
+        format: "bracket",
+        teamSize: 1,
+        maxParticipants: 16,
+        registrationType: "open",
+        problemSelectionMode: "bulk",
+        startTime: new Date(Date.now() + 86400000).toISOString(),
+      });
+
+      expect(roomRes.ok).toBe(false);
+      if (!roomRes.ok) {
+        expect(roomRes.error.code).toBe("FORBIDDEN");
+        expect(roomRes.error.message).toContain("8 participants");
       }
     });
 
@@ -438,6 +540,92 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         expect(created?.teamSize).toBe(1);
         expect(created?.registrationSettings?.maxParticipants).toBe(2);
         expect(created?.registrationSettings?.type).toBe("closed");
+      }
+    });
+
+    it("rejects 'test' problem selection mode in production environment across room and bracket endpoints", async () => {
+      const originalEnv = process.env.NODE_ENV;
+      (process.env as Record<string, string | undefined>).NODE_ENV =
+        "production";
+      try {
+        const user = await CPUser.create({
+          userId: new mongoose.Types.ObjectId(),
+          cfHandle: "prod_creator",
+          cfRating: 1500,
+        });
+
+        getSession.mockResolvedValue({
+          user: { id: user.userId.toString(), access: "Member" },
+        });
+
+        const res = await createRoomContest({
+          name: "Prod Test Mode Match",
+          description: "Should fail in production",
+          mode: "blitz",
+          format: "1v1",
+          teamSize: 1,
+          maxParticipants: 2,
+          registrationType: "closed",
+          problemSelectionMode: "test",
+          startTime: new Date(Date.now() + 120 * 1000).toISOString(),
+        });
+
+        expect(res.ok).toBe(false);
+        if (!res.ok) {
+          expect(res.error.code).toBe("VALIDATION_ERROR");
+          expect(res.error.message).toContain(
+            "Problem selection mode must be 'bulk' or 'fine-tuned'.",
+          );
+        }
+
+        const bracketRes = await createBracketContest({
+          name: "Prod Bracket Test Mode",
+          mode: "blitz",
+          teamSize: 1,
+          startTime: new Date(Date.now() + 600000).toISOString(),
+          registrationType: "closed",
+          maxParticipants: 4,
+          presetId: "custom",
+          problemSelectionMode: "test",
+          seedingMethod: "cf_rating",
+          registeredUsers: [],
+        });
+
+        expect(bracketRes.ok).toBe(false);
+        if (!bracketRes.ok) {
+          expect(bracketRes.error.code).toBe("VALIDATION_ERROR");
+          expect(bracketRes.error.message).toContain(
+            "Problem selection mode must be 'bulk' or 'fine-tuned'.",
+          );
+        }
+
+        getSession.mockResolvedValue({
+          user: { id: user.userId.toString(), access: "Head" },
+        });
+
+        const adminBracketRes = await createAdminBracketContest({
+          name: "Prod Admin Bracket Test Mode",
+          mode: "blitz",
+          teamSize: 1,
+          startTime: new Date(Date.now() + 600000).toISOString(),
+          registrationType: "closed",
+          maxParticipants: 4,
+          presetId: "custom",
+          problemSelectionMode: "test",
+          seedingMethod: "cf_rating",
+          registeredUsers: [],
+        });
+
+        expect(adminBracketRes.ok).toBe(false);
+        if (!adminBracketRes.ok) {
+          expect(adminBracketRes.error.code).toBe("VALIDATION_ERROR");
+          expect(adminBracketRes.error.message).toContain(
+            "Problem selection mode must be 'bulk' or 'fine-tuned'.",
+          );
+        }
+      } finally {
+        (process.env as Record<string, string | undefined>).NODE_ENV =
+          originalEnv;
       }
     });
   });

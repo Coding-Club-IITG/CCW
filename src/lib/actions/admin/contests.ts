@@ -107,6 +107,16 @@ async function createBracketContestAction(input: unknown) {
   if (!parsed.success) return validationError(parsed.error);
   const data = parsed.data;
 
+  if (
+    process.env.NODE_ENV === "production" &&
+    data.problemSelectionMode === "test"
+  ) {
+    return appError(
+      "VALIDATION_ERROR",
+      "Problem selection mode must be 'bulk' or 'fine-tuned'.",
+    );
+  }
+
   // Re-run validation server-side for safety
   const step1 = await validateStepAction(1, data);
   const step2 = await validateStepAction(2, data);
