@@ -137,8 +137,13 @@ export default function ArenaRoomClient({
     initialTimeLimit,
   );
   const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
+  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
+    null,
+  );
   const runnerProblem =
-    problems.find((problem) => !locks[problem.problemId]) || problems[0];
+    problems.find((problem) => problem.problemId === selectedProblemId) ||
+    problems.find((problem) => !locks[problem.problemId]) ||
+    problems[0];
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
   const displayTeamName = (team?: ContestRoomTeamDto) =>
@@ -612,11 +617,23 @@ export default function ArenaRoomClient({
                           : styles.topIconOther
                         : styles.topIconOpen;
                       const isSyncing = syncingMap[prob.problemId];
+                      const isSelected =
+                        runnerProblem?.problemId === prob.problemId;
 
                       return (
                         <div
                           key={`${prob.problemId}-${idx}`}
-                          className={`${styles.gridCard} ${cardStateClass}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setSelectedProblemId(prob.problemId)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              setSelectedProblemId(prob.problemId);
+                            }
+                          }}
+                          className={`${styles.gridCard} ${cardStateClass} ${
+                            isSelected ? styles.gridCardSelected : ""
+                          }`}
                         >
                           {isClaimed && (
                             <div
@@ -690,6 +707,7 @@ export default function ArenaRoomClient({
                                 rel="noreferrer"
                                 className={styles.cfIconBtn}
                                 title="Open in Codeforces"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <ExternalLink
                                   className={styles.icon16}
@@ -698,7 +716,10 @@ export default function ArenaRoomClient({
                               </a>
                               {!isSpectator && (
                                 <button
-                                  onClick={() => handleSync(prob.problemId)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSync(prob.problemId);
+                                  }}
                                   disabled={
                                     !cfHandle ||
                                     isClaimed ||

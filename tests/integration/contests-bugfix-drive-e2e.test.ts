@@ -22,7 +22,13 @@ import {
   getContestListing,
   registerForContest,
 } from "@/lib/actions/contests";
-import { getCodeforcesProblemUrl } from "@/components/contests/roomPresentation";
+import {
+  getCodeforcesProblemUrl,
+  formatRemainingTime,
+  formatRoomActivityTime,
+  getDisplayTeamName,
+  getContestRoomResultsPath,
+} from "@/components/contests/roomPresentation";
 import {
   parseBracketPosition,
   getRoundName,
@@ -362,6 +368,201 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       const parsedLogs = logs.map((l) => JSON.parse(l));
       expect(parsedLogs[0].text).toBe("Event 1");
       expect(parsedLogs[4].text).toBe("Event 5");
+    });
+  });
+
+  describe("7. Dynamic Start Time Buffer & Validation Rules (#33)", () => {
+    it("rejects casual 1v1 creation when start time is less than 55s in the future", async () => {
+      const user = await CPUser.create({
+        userId: new mongoose.Types.ObjectId(),
+        cfHandle: "fast_creator",
+        cfRating: 1500,
+      });
+
+      getSession.mockResolvedValue({
+        user: { id: user.userId.toString(), access: "Member" },
+      });
+
+      // Start time only 20 seconds in the future
+      const invalidStart = new Date(Date.now() + 20 * 1000).toISOString();
+
+      const res = await createRoomContest({
+        name: "Too Fast 1v1",
+        description: "Should fail buffer check",
+        mode: "blitz",
+        format: "1v1",
+        teamSize: 1,
+        maxParticipants: 2,
+        registrationType: "closed",
+        problemSelectionMode: "test",
+        startTime: invalidStart,
+      });
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.error.code).toBe("VALIDATION_ERROR");
+        expect(res.error.message).toContain("1 minute");
+      }
+    });
+
+    it("accepts casual 1v1 creation with +2 min buffer and sets closed registration", async () => {
+      const user = await CPUser.create({
+        userId: new mongoose.Types.ObjectId(),
+        cfHandle: "valid_creator",
+        cfRating: 1500,
+      });
+
+      getSession.mockResolvedValue({
+        user: { id: user.userId.toString(), access: "Member" },
+      });
+
+      // 2 minutes in the future (safely > 55s)
+      const validStart = new Date(Date.now() + 120 * 1000).toISOString();
+
+      const res = await createRoomContest({
+        name: "Valid 1v1 Match",
+        description: "Testing buffer pass",
+        mode: "blitz",
+        format: "1v1",
+        teamSize: 1,
+        maxParticipants: 2,
+        registrationType: "closed",
+        problemSelectionMode: "test",
+        startTime: validStart,
+      });
+
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        const created = await ContestMatch.findOne({ name: "Valid 1v1 Match" });
+        expect(created).not.toBeNull();
+        expect(created?.teamSize).toBe(1);
+        expect(created?.registrationSettings?.maxParticipants).toBe(2);
+        expect(created?.registrationSettings?.type).toBe("closed");
+      }
+    });
+  });
+
+  describe("8. Room Presentation & Time Formatting Utilities (#33, #42, #44)", () => {
+    it("formats remaining seconds into MM:SS correctly", () => {
+      expect(formatRemainingTime(0)).toBe("00:00");
+      expect(formatRemainingTime(-10)).toBe("00:00");
+      expect(formatRemainingTime(9)).toBe("00:09");
+      expect(formatRemainingTime(59)).toBe("00:59");
+      expect(formatRemainingTime(65)).toBe("01:05");
+      expect(formatRemainingTime(725)).toBe("12:05");
+      expect(formatRemainingTime(3600)).toBe("60:00");
+    });
+
+    it("formats room activity relative timestamps accurately", () => {
+      const now = 1700000000000;
+      expect(formatRoomActivityTime(now - 2000, now)).toBe("just now");
+      expect(formatRoomActivityTime(now - 30000, now)).toBe("30s ago");
+      expect(formatRoomActivityTime(now - 120000, now)).toBe("2m ago");
+      expect(formatRoomActivityTime(now - 3600000, now)).toBe("1h ago");
+      expect(formatRoomActivityTime(now - 7200000, now)).toBe("2h ago");
+    });
+
+    it("resolves solo and team display names with pizza counts appropriately", () => {
+      const soloTeam = {
+        _id: "team_1",
+        name: "Solo Alpha",
+        score: 0,
+        isLeader: true,
+        members: [
+          {
+            id: "u1",
+            name: "Alice",
+            pizza_count: 5,
+            handle: "alice_cf",
+            avatar: null,
+          },
+        ],
+      };
+
+      const groupTeam = {
+        _id: "team_2",
+        name: "Byte Bandits",
+        score: 0,
+        isLeader: true,
+        members: [
+          {
+            id: "u2",
+            name: "Bob",
+            pizza_count: 0,
+            handle: "bob_cf",
+            avatar: null,
+          },
+          {
+            id: "u3",
+            name: "Charlie",
+            pizza_count: 2,
+            handle: "charlie_cf",
+            avatar: null,
+          },
+        ],
+      };
+
+      // In 1v1 or solo-tournament, solo team uses user's display name
+      expect(getDisplayTeamName(soloTeam, "1v1")).toContain("Alice");
+      expect(getDisplayTeamName(soloTeam, "solo-tournament")).toContain("Alice");
+
+      // In team tournaments, team name is used
+      expect(getDisplayTeamName(groupTeam, "team-tournament")).toBe("Byte Bandits");
+
+      // Undefined team returns "Unknown"
+      expect(getDisplayTeamName(undefined)).toBe("Unknown");
+    });
+
+    it("generates correct contest room results paths with bracket flag support", () => {
+      expect(getContestRoomResultsPath("room_abc")).toBe(
+        "/internal/contests/rooms/room_abc/result",
+      );
+      expect(getContestRoomResultsPath("room_abc", "bracket")).toBe(
+        "/internal/contests/rooms/room_abc/result?from=bracket",
+      );
+      expect(getContestRoomResultsPath("room_abc", "1v1", "knockout")).toBe(
+        "/internal/contests/rooms/room_abc/result?from=bracket",
+      );
+    });
+  });
+
+  describe("9. Double Elimination Bracket Math & Seeding Invariants (#43)", () => {
+    it("computes next power of 2 correctly for various bracket participant counts", () => {
+      expect(nextPowerOf2(0)).toBe(2);
+      expect(nextPowerOf2(1)).toBe(2);
+      expect(nextPowerOf2(2)).toBe(2);
+      expect(nextPowerOf2(3)).toBe(4);
+      expect(nextPowerOf2(4)).toBe(4);
+      expect(nextPowerOf2(7)).toBe(8);
+      expect(nextPowerOf2(8)).toBe(8);
+      expect(nextPowerOf2(9)).toBe(16);
+      expect(nextPowerOf2(16)).toBe(16);
+      expect(nextPowerOf2(17)).toBe(32);
+    });
+
+    it("generates deterministic snake seeding with balanced pairings", () => {
+      const teams = [
+        { teamId: "team_1", seed: 1 },
+        { teamId: "team_2", seed: 2 },
+        { teamId: "team_3", seed: 3 },
+        { teamId: "team_4", seed: 4 },
+      ];
+      const seeded = snakeSeed(teams);
+      expect(seeded).toHaveLength(4);
+      expect(seeded.map((t) => t.seed)).toEqual([1, 4, 2, 3]);
+    });
+
+    it("returns correct human-readable round names across upper, lower, and grand final rounds", () => {
+      expect(getRoundName(1, 4, "upper")).toBe("Round of 16");
+      expect(getRoundName(2, 4, "upper")).toBe("Quarter-Finals");
+      expect(getRoundName(3, 4, "upper")).toBe("Semi-Finals");
+      expect(getRoundName(4, 4, "upper")).toBe("Final");
+
+      expect(getRoundName(1, 6, "lower")).toBe("Lower Round 1");
+      expect(getRoundName(5, 6, "lower")).toBe("Lower Semi-Finals");
+      expect(getRoundName(6, 6, "lower")).toBe("Lower Final");
+
+      expect(getRoundName(1, 1, "grand_final")).toBe("Grand Final");
     });
   });
 });
