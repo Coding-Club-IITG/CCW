@@ -235,10 +235,16 @@ export default function BlitzRoomClient({
         break;
       case "sync.detected":
         setSyncing(false);
-        if (payload.verdict !== "OK") {
+        if (payload.verdict === "OK") {
+          addActivity(
+            "check_circle",
+            `Verdict: Accepted (OK) on ${payload.problemId || "problem"}!`,
+            "text-primary",
+          );
+        } else {
           addActivity(
             "error",
-            `Submission failed: ${payload.verdict}`,
+            `Submission verdict: ${payload.verdict}`,
             "text-error",
           );
         }
@@ -255,10 +261,16 @@ export default function BlitzRoomClient({
         break;
       case "sync.failed":
         setSyncing(false);
-        if (payload.verdict) {
+        if (payload.verdict === "not_found") {
           addActivity(
             "error",
-            `Sync succeeded, but verdict is ${payload.verdict}`,
+            `No recent submission found on Codeforces for ${payload.problemId || "problem"}.`,
+            "text-error",
+          );
+        } else if (payload.verdict) {
+          addActivity(
+            "error",
+            `Submission verdict: ${payload.verdict}`,
             "text-error",
           );
         } else {
@@ -371,9 +383,15 @@ export default function BlitzRoomClient({
 
     beginSync();
 
-    if (!(await readAppResult(res)).ok) {
+    const syncRes = await readAppResult(res);
+    if (!syncRes.ok) {
       // If it failed immediately (Eg. 429), turn off syncing spinner since SSE won't fire
       setSyncing(false);
+      addActivity(
+        "error",
+        `Sync failed: ${syncRes.error.message || "Failed to initiate sync"}`,
+        "text-error",
+      );
     }
   };
 

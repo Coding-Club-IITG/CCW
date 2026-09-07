@@ -248,10 +248,16 @@ export default function ArenaRoomClient({
           const problemId = payload.problemId;
           setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
         }
-        if (payload.verdict !== "OK") {
+        if (payload.verdict === "OK") {
+          addActivity(
+            "check_circle",
+            `Verdict: Accepted (OK) on ${payload.problemId || "problem"}!`,
+            "text-primary",
+          );
+        } else {
           addActivity(
             "error",
-            `Submission failed: ${payload.verdict}`,
+            `Submission verdict: ${payload.verdict}`,
             "text-error",
           );
         }
@@ -261,11 +267,25 @@ export default function ArenaRoomClient({
           const problemId = payload.problemId;
           setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
         }
-        addActivity(
-          "error",
-          `Sync failed: ${payload.reason || payload.verdict || "Unknown error"}`,
-          "text-error",
-        );
+        if (payload.verdict === "not_found") {
+          addActivity(
+            "error",
+            `No recent submission found on Codeforces for ${payload.problemId || "problem"}.`,
+            "text-error",
+          );
+        } else if (payload.verdict) {
+          addActivity(
+            "error",
+            `Submission verdict: ${payload.verdict}`,
+            "text-error",
+          );
+        } else {
+          addActivity(
+            "error",
+            `Sync failed: ${payload.reason || "Unknown error"}`,
+            "text-error",
+          );
+        }
         break;
       case "room.user_ready":
         setReadyUserIds((prev) => {
@@ -380,8 +400,14 @@ export default function ArenaRoomClient({
 
     beginSync();
 
-    if (!(await readAppResult(res)).ok) {
+    const syncRes = await readAppResult(res);
+    if (!syncRes.ok) {
       setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
+      addActivity(
+        "error",
+        `Sync failed: ${syncRes.error.message || "Failed to initiate sync"}`,
+        "text-error",
+      );
     }
   };
 

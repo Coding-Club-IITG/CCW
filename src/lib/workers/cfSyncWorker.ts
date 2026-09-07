@@ -52,8 +52,10 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
         if (!mongoose.Types.ObjectId.isValid(roomId)) {
           logger.warn(`[cfSyncWorker] Invalid roomId format: ${roomId}`);
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "invalid_room_id",
+            problemId,
           });
           return;
         }
@@ -63,8 +65,10 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
         if (!room) {
           logger.warn(`[cfSyncWorker] Room ${roomId} not found for sync.`);
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "room_not_found",
+            problemId,
           });
           return;
         }
@@ -77,8 +81,10 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             `[cfSyncWorker] Invalid or missing contestId in room ${roomId}.`,
           );
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "invalid_contest_id",
+            problemId,
           });
           return;
         }
@@ -87,8 +93,10 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
         if (!contest) {
           logger.warn(`[cfSyncWorker] Contest not found for room ${roomId}.`);
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "contest_not_found",
+            problemId,
           });
           return;
         }
@@ -105,8 +113,10 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             `[cfSyncWorker] User ${userId} is not a member of team ${teamId} in room ${roomId}.`,
           );
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "not_team_member",
+            problemId,
           });
           return;
         }
@@ -120,8 +130,10 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             `[cfSyncWorker] User ${userId} is not a member of team ${teamId} in room ${roomId}.`,
           );
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "not_team_member",
+            problemId,
           });
           return;
         }

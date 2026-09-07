@@ -162,12 +162,15 @@ export default function CreateRoomModal({
     e.preventDefault();
 
     const start = new Date(formData.startTime);
-    // Dynamic check based on variable passed down from server
-    // Eg. if deadlineMinutes is 1, minimum wait is (1 + 1) = 2 mins
-    const requiredBufferMinutes = deadlineMinutes + 1;
+    const isCasual1v1 =
+      formData.format === "1v1" &&
+      formData.registrationType === "closed";
+    const requiredBufferMinutes = isCasual1v1 ? 1 : deadlineMinutes + 1;
     if (start.getTime() < Date.now() + requiredBufferMinutes * 60000 - 5000) {
       toast.error(
-        `Start time (Deadline) must be at least ${requiredBufferMinutes} minutes ahead of the current time (to allow for the ${deadlineMinutes}-minute registration deadline plus a 1-minute buffer).`,
+        isCasual1v1
+          ? "Start time must be at least 1 minute ahead of the current time."
+          : `Start time (Deadline) must be at least ${requiredBufferMinutes} minutes ahead of the current time (to allow for the ${deadlineMinutes}-minute registration deadline plus a 1-minute buffer).`,
       );
       return;
     }
