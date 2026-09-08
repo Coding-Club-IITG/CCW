@@ -255,8 +255,8 @@ export default function ContestListingClient({
   const upcoming = localUpcoming.filter(filterByFormat);
   const completed = initialCompleted.filter(filterByFormat);
 
-  const getFormatDisplay = (format?: string) => {
-    switch (format) {
+  const getFormatDisplay = (contest: ContestListingItem) => {
+    switch (contest.format) {
       case "1v1":
         return "1v1 Match";
       case "solo-tournament":
@@ -264,9 +264,11 @@ export default function ContestListingClient({
       case "team-tournament":
         return "Team Tournament";
       case "bracket":
-        return "Knockout Bracket";
+        return contest.bracketSettings?.type === "double_elimination"
+          ? "Double Elim Bracket"
+          : "Knockout Bracket";
       default:
-        return format ? format.replace("-", " ") : "Standard";
+        return contest.format ? contest.format.replace("-", " ") : "Standard";
     }
   };
 
@@ -435,7 +437,7 @@ export default function ContestListingClient({
                       <div className={styles.cardTopInfo}>
                         <span className={styles.cardBadge}>
                           {contest.mode} Mode •{" "}
-                          {getFormatDisplay(contest.format)}
+                          {getFormatDisplay(contest)}
                         </span>
                         <h3 className={styles.cardTitle}>{contest.name}</h3>
                         <p className={styles.cardDesc}>
@@ -533,7 +535,7 @@ export default function ContestListingClient({
                   >
                     <div className={styles.cardTagRow}>
                       <span className={styles.cardBadgeNeutral}>
-                        {contest.mode} Mode • {getFormatDisplay(contest.format)}
+                        {contest.mode} Mode • {getFormatDisplay(contest)}
                       </span>
                       <span className={styles.cardDateBadge}>
                         {contest.startTime
@@ -771,7 +773,7 @@ export default function ContestListingClient({
                           </td>
                           <td>
                             <span className={styles.tableBadge}>
-                              {getFormatDisplay(contest.format)}
+                              {getFormatDisplay(contest)}
                             </span>
                           </td>
                           <td>{contest.participantsCount || 0}</td>

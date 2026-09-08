@@ -128,6 +128,9 @@ export type ContestListingItem = {
   canSpectate?: boolean;
   creatorId?: string;
   spectatorRestriction?: string;
+  bracketSettings?: {
+    type?: "single_elimination" | "double_elimination";
+  };
 };
 
 async function getContestListingAction() {
@@ -201,6 +204,9 @@ async function getContestListingAction() {
       creatorId: contest.creatorId?.toString(),
       spectatorRestriction: (contest as any).spectatorRestriction || "none",
       canSpectate,
+      bracketSettings: contest.bracketSettings ? {
+        type: contest.bracketSettings.type
+      } : undefined,
     };
 
     if (isRegistered && contest.teamSize && contest.teamSize > 1) {
