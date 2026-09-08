@@ -87,7 +87,7 @@ export default function RoomActivityFeed({
         {entries.length === 0 ? (
           <p className={styles.empty}>No activity yet.</p>
         ) : (
-          entries.map((entry) => (
+          [...entries].sort((a, b) => b.timestamp - a.timestamp).map((entry) => (
             <div key={entry.id} className={styles.item}>
               <div className={styles.iconWrap}>
                 {createElement(ACTIVITY_ICONS[entry.icon] ?? Info, {

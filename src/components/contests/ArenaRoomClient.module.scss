@@ -55,12 +55,12 @@
 }
 
 .gridCardOpen:hover {
-  border-color: var(--primary);
+  border-color: var(--foreground-strong);
 }
 
-.gridCardSelected {
-  border-color: var(--primary) !important;
-  box-shadow: 0 0 0 2px var(--primary-alpha);
+.gridCardOpen.gridCardSelected {
+  border-color: var(--foreground-strong);
+  box-shadow: 0 0 0 2px var(--border-input);
 }
 
 .gridCardMine {
@@ -68,9 +68,17 @@
   @include contest-glow;
 }
 
+.gridCardMine.gridCardSelected {
+  box-shadow: 0 0 0 2px var(--primary-alpha);
+}
+
 .gridCardOther {
   border-color: var(--error);
   opacity: 0.75;
+}
+
+.gridCardOther.gridCardSelected {
+  box-shadow: 0 0 0 2px var(--error-bg);
 }
 
 .lockOverlay {
@@ -237,4 +245,20 @@
 .gridCardTitle {
   font-family: var(--font-hanken-grotesk), sans-serif;
   font-size: 1rem;
+}
+
+.workspaceWrapper {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  inset: 1.5rem;
+  overflow: hidden;
+}
+
+.workspaceScroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  @include scroll-hide;
 }

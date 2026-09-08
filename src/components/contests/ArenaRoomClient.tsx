@@ -555,7 +555,9 @@ export default function ArenaRoomClient({
           {/* Center Stage - Problem Grid */}
           <div className={styles.centerCol}>
             <div className={`${styles.panel} ${styles.panelStage}`}>
-              {matchState === "waiting" ? (
+              <div className={styles.workspaceWrapper}>
+                <div className={styles.workspaceScroll}>
+                  {matchState === "waiting" ? (
                 <div className={styles.waiting}>
                   <div className={styles.waitingIcon}>
                     <Users size={48} />
@@ -769,6 +771,8 @@ export default function ArenaRoomClient({
                   />
                 </>
               )}
+                </div>
+              </div>
             </div>
           </div>
 
