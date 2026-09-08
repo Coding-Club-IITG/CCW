@@ -454,7 +454,7 @@ export const reconciliationWorker = new Worker<
 
       // Provision room
       const problemCount = contest.bulkProblemCount || 3;
-      const minRating = contest.bulkRatingMin || 800;
+      const minRating = Math.max(contest.bulkRatingMin || 800, 1);
       const maxRating = contest.bulkRatingMax || 1200;
       const minContestId = contest.bulkMinContestId || 0;
 
@@ -591,7 +591,13 @@ export const reconciliationWorker = new Worker<
         }>([
           {
             $match: {
-              rating: { $gte: minRating, $lte: maxRating },
+              rating: {
+                $exists: true,
+                $ne: null,
+                $gt: 0,
+                $gte: minRating,
+                $lte: maxRating,
+              },
               ...(minContestId > 0
                 ? { contestId: { $gte: minContestId } }
                 : {}),

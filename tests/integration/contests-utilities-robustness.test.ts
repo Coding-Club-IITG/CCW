@@ -10,7 +10,9 @@ import {
 } from "vitest";
 
 import ContestMatch from "@/models/ContestMatch";
+import ContestQuestion from "@/models/ContestQuestion";
 import CPUser from "@/models/CPUser";
+import { renderProblemMath } from "@/lib/math";
 import {
   clearTestMongo,
   startTestMongo,
@@ -492,6 +494,153 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
         "events:room:room_test_123",
         expect.stringContaining("room.activity"),
       );
+    });
+  });
+
+  describe("7. Fine-Tuned Mode Points & Bulk Mode Valid Rating Selection", () => {
+    it("rejects fine-tuned contest creation when problem points are omitted or < 80", async () => {
+      const user = await CPUser.create({
+        userId: new mongoose.Types.ObjectId(),
+        cfHandle: "points_tester",
+      });
+
+      getSession.mockResolvedValue({
+        user: { id: user.userId.toString(), access: "User" },
+      });
+
+      // 1. Missing points
+      const resMissing = await createRoomContest({
+        name: "Fine-tuned No Points",
+        mode: "blitz",
+        format: "1v1",
+        teamSize: 1,
+        maxParticipants: 2,
+        registrationType: "closed",
+        problemSelectionMode: "fine-tuned",
+        startTime: new Date(Date.now() + 86400000).toISOString(),
+        registeredUsers: [{ id: user.userId.toString(), cfHandle: "points_tester" }],
+        problemSlots: [
+          { platform: "codeforces", problemId: "4A" },
+        ],
+      });
+
+      expect(resMissing.ok).toBe(false);
+      if (!resMissing.ok) {
+        expect(resMissing.error.code).toBe("VALIDATION_ERROR");
+        const pointsIssue =
+          resMissing.error.fields?.["problemSlots.0.points"]?.[0] ||
+          resMissing.error.message;
+        expect(pointsIssue).toMatch(/points/i);
+      }
+
+      // 2. Points < 80
+      const resBelow80 = await createRoomContest({
+        name: "Fine-tuned Low Points",
+        mode: "blitz",
+        format: "1v1",
+        teamSize: 1,
+        maxParticipants: 2,
+        registrationType: "closed",
+        problemSelectionMode: "fine-tuned",
+        startTime: new Date(Date.now() + 86400000).toISOString(),
+        registeredUsers: [{ id: user.userId.toString(), cfHandle: "points_tester" }],
+        problemSlots: [
+          { platform: "codeforces", problemId: "4A", points: 50 },
+        ],
+      });
+
+      expect(resBelow80.ok).toBe(false);
+      if (!resBelow80.ok) {
+        expect(resBelow80.error.code).toBe("VALIDATION_ERROR");
+        const pointsIssue =
+          resBelow80.error.fields?.["problemSlots.0.points"]?.[0] ||
+          resBelow80.error.message;
+        expect(pointsIssue).toMatch(/at least 80/i);
+      }
+    });
+
+    it("accepts fine-tuned contest creation when all problem points are >= 80", async () => {
+      const user = await CPUser.create({
+        userId: new mongoose.Types.ObjectId(),
+        cfHandle: "valid_points_tester",
+      });
+
+      getSession.mockResolvedValue({
+        user: { id: user.userId.toString(), access: "User" },
+      });
+
+      const res = await createRoomContest({
+        name: "Fine-tuned Valid Points",
+        mode: "blitz",
+        format: "1v1",
+        teamSize: 1,
+        maxParticipants: 2,
+        registrationType: "closed",
+        problemSelectionMode: "fine-tuned",
+        startTime: new Date(Date.now() + 86400000).toISOString(),
+        registeredUsers: [{ id: user.userId.toString(), cfHandle: "valid_points_tester" }],
+        problemSlots: [
+          { platform: "codeforces", problemId: "4A", points: 80, timeLimitMinutes: 15 },
+          { platform: "codeforces", problemId: "1A", points: 150, timeLimitMinutes: 25 },
+        ],
+      });
+
+      expect(res.ok).toBe(true);
+      const match = await ContestMatch.findOne({ name: "Fine-tuned Valid Points" });
+      expect(match).not.toBeNull();
+      expect(match?.problemSlots).toHaveLength(2);
+      expect(match?.problemSlots?.[0].points).toBe(80);
+      expect(match?.problemSlots?.[1].points).toBe(150);
+    });
+
+    it("strictly filters only problems with valid ratings in bulk aggregation", async () => {
+      await ContestQuestion.collection.insertMany([
+        { problemId: "100A", contestId: 100, index: "A", name: "Problem 100A", rating: 800 },
+        { problemId: "100B", contestId: 100, index: "B", name: "Problem 100B", rating: 1100 },
+        { problemId: "100C", contestId: 100, index: "C", name: "Problem 100C", rating: null },
+        { problemId: "100D", contestId: 100, index: "D", name: "Problem 100D", rating: 0 },
+        { problemId: "100E", contestId: 100, index: "E", name: "Problem 100E" }, // no rating field
+        { problemId: "100F", contestId: 100, index: "F", name: "Problem 100F", rating: 1600 }, // out of range
+      ]);
+
+      const minRating = Math.max(800, 1);
+      const maxRating = 1200;
+
+      const availableProblems = await ContestQuestion.aggregate<{
+        problemId: string;
+        rating?: number;
+      }>([
+        {
+          $match: {
+            rating: {
+              $exists: true,
+              $ne: null,
+              $gt: 0,
+              $gte: minRating,
+              $lte: maxRating,
+            },
+            problemId: { $nin: [] },
+          },
+        },
+        { $sort: { rating: 1 } },
+      ]);
+
+      const matchedIds = availableProblems.map((p) => p.problemId);
+      expect(matchedIds).toEqual(["100A", "100B"]);
+      expect(matchedIds).not.toContain("100C");
+      expect(matchedIds).not.toContain("100D");
+      expect(matchedIds).not.toContain("100E");
+      expect(matchedIds).not.toContain("100F");
+    });
+
+    it("renders LaTeX / Math correctly without broken delimiters", () => {
+      const statement =
+        "You are given two numbers $$$x, y$$$. You need to determine if there exists an integer $$$n$$$ such that $$$S(n) = x$$$, $$$S(n + 1) = y$$$.";
+      const rendered = renderProblemMath(statement);
+
+      expect(rendered).toContain('class="katex"');
+      expect(rendered).not.toContain("$$$");
+      expect(rendered).toContain("S(n)");
     });
   });
 });

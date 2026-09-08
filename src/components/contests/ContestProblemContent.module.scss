@@ -40,6 +40,12 @@
   height: auto;
 }
 
+.section :global(.katex-display) {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
 .noStatementNotice {
   padding: 1.5rem 1rem;
   text-align: center;

@@ -4,6 +4,8 @@ import {
   type ProblemContentSnapshot,
 } from "@/lib/platforms/problemContent";
 
+import { renderProblemMath } from "@/lib/math";
+
 export type ContestProblemContent = Pick<
   ProblemContentSnapshot,
   | "title"
@@ -42,11 +44,27 @@ export async function fetchContestProblemContent(
   if (!parts) return null;
 
   try {
-    return await fetchProblemContentForScheduling(
+    const raw = await fetchProblemContentForScheduling(
       platform,
       parts.contestId,
       parts.problemIndex,
     );
+    if (!raw) return null;
+
+    return {
+      title: raw.title,
+      statementHtml: renderProblemMath(raw.statementHtml),
+      inputSpecificationHtml: renderProblemMath(raw.inputSpecificationHtml),
+      outputSpecificationHtml: renderProblemMath(raw.outputSpecificationHtml),
+      constraintsHtml: raw.constraintsHtml
+        ? renderProblemMath(raw.constraintsHtml)
+        : undefined,
+      notesHtml: raw.notesHtml ? renderProblemMath(raw.notesHtml) : undefined,
+      samples: raw.samples,
+      timeLimitMs: raw.timeLimitMs,
+      memoryLimitMb: raw.memoryLimitMb,
+      sourceUrl: raw.sourceUrl,
+    };
   } catch {
     return null;
   }

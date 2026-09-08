@@ -331,12 +331,14 @@ export default function ContestProblemConfiguration({
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label} htmlFor={`points-${index}`}>
-                      Points
+                      Points <span className={styles.requiredAsterisk}>*</span>
                     </label>
                     <input
+                      required
                       id={`points-${index}`}
                       type="number"
-                      min={1}
+                      min={80}
+                      placeholder="Min 80"
                       value={
                         form.fineTunedProblemPoints?.[index] === undefined ||
                         Number.isNaN(form.fineTunedProblemPoints[index])
@@ -354,8 +356,23 @@ export default function ContestProblemConfiguration({
                         updateForm({ fineTunedProblemPoints });
                       }}
                       disabled={presetLocked}
-                      className={styles.formInput}
+                      className={`${styles.formInput} ${
+                        form.fineTunedProblemPoints?.[index] !== undefined &&
+                        form.fineTunedProblemPoints?.[index] !== ("" as unknown) &&
+                        !Number.isNaN(form.fineTunedProblemPoints[index]) &&
+                        form.fineTunedProblemPoints[index] < 80
+                          ? styles.inputError
+                          : ""
+                      }`}
                     />
+                    {form.fineTunedProblemPoints?.[index] !== undefined &&
+                      form.fineTunedProblemPoints?.[index] !== ("" as unknown) &&
+                      !Number.isNaN(form.fineTunedProblemPoints[index]) &&
+                      form.fineTunedProblemPoints[index] < 80 && (
+                        <span className={styles.errorText}>
+                          Points must be at least 80.
+                        </span>
+                      )}
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label} htmlFor={`timelimit-${index}`}>

@@ -195,7 +195,7 @@ export async function generateBracket(
   let roundIndex = 0;
 
   const problemCount = contest.bulkProblemCount || 3;
-  const minRating = contest.bulkRatingMin || 800;
+  const minRating = Math.max(contest.bulkRatingMin || 800, 1);
   const maxRating = contest.bulkRatingMax || 1200;
   const minContestId = contest.bulkMinContestId || 0;
 
@@ -207,7 +207,13 @@ export async function generateBracket(
     bulkProblemPool = await ContestQuestion.aggregate<BracketProblem>([
       {
         $match: {
-          rating: { $gte: minRating, $lte: maxRating },
+          rating: {
+            $exists: true,
+            $ne: null,
+            $gt: 0,
+            $gte: minRating,
+            $lte: maxRating,
+          },
           ...(minContestId > 0 ? { contestId: { $gte: minContestId } } : {}),
           ...(excludeIds.length > 0 ? { problemId: { $nin: excludeIds } } : {}),
         },
@@ -1116,7 +1122,7 @@ async function generateDoubleBracket(
 
   const allRoomIds: string[] = [];
   const problemCount = contest.bulkProblemCount || 3;
-  const minRating = contest.bulkRatingMin || 800;
+  const minRating = Math.max(contest.bulkRatingMin || 800, 1);
   const maxRating = contest.bulkRatingMax || 1200;
   const minContestId = contest.bulkMinContestId || 0;
 
@@ -1128,7 +1134,13 @@ async function generateDoubleBracket(
     bulkProblemPool = await ContestQuestion.aggregate<BracketProblem>([
       {
         $match: {
-          rating: { $gte: minRating, $lte: maxRating },
+          rating: {
+            $exists: true,
+            $ne: null,
+            $gt: 0,
+            $gte: minRating,
+            $lte: maxRating,
+          },
           ...(minContestId > 0 ? { contestId: { $gte: minContestId } } : {}),
           ...(excludeIds.length > 0 ? { problemId: { $nin: excludeIds } } : {}),
         },

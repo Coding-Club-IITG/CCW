@@ -131,4 +131,56 @@ describe("bracket contest invariants", () => {
       expect(parsed.data.problemSlots[0].timeLimitMinutes).toBe(20);
     }
   });
+
+  it("enforces mandatory points with minimum 80 in fine-tuned mode", () => {
+    // Missing problemSlots
+    expect(
+      contestCreationPayloadSchema.safeParse(
+        validPayload({
+          format: "1v1",
+          problemSelectionMode: "fine-tuned",
+          problemSlots: [],
+        }),
+      ).success,
+    ).toBe(false);
+
+    // Missing points in slot
+    expect(
+      contestCreationPayloadSchema.safeParse(
+        validPayload({
+          format: "1v1",
+          problemSelectionMode: "fine-tuned",
+          problemSlots: [
+            { platform: "codeforces", problemId: "4A" },
+          ],
+        }),
+      ).success,
+    ).toBe(false);
+
+    // Points below 80
+    expect(
+      contestCreationPayloadSchema.safeParse(
+        validPayload({
+          format: "1v1",
+          problemSelectionMode: "fine-tuned",
+          problemSlots: [
+            { platform: "codeforces", problemId: "4A", points: 50 },
+          ],
+        }),
+      ).success,
+    ).toBe(false);
+
+    // Valid points >= 80
+    const validResult = contestCreationPayloadSchema.safeParse(
+      validPayload({
+        format: "1v1",
+        problemSelectionMode: "fine-tuned",
+        problemSlots: [
+          { platform: "codeforces", problemId: "4A", points: 80 },
+          { platform: "codeforces", problemId: "1A", points: 120 },
+        ],
+      }),
+    );
+    expect(validResult.success).toBe(true);
+  });
 });

@@ -770,3 +770,19 @@
 .searchUserName {
   font-family: var(--font-hanken-grotesk), sans-serif;
 }
+
+.inputError {
+  border-color: var(--destructive) !important;
+}
+
+.errorText {
+  color: var(--destructive);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.requiredAsterisk {
+  color: var(--destructive);
+  margin-left: 0.15rem;
+}

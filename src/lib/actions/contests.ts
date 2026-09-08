@@ -606,12 +606,32 @@ async function createRoomContestAction(input: unknown) {
     if (data.problemSelectionMode === "fine-tuned") {
       if (Array.isArray(data.problemSlots) && data.problemSlots.length > 0) {
         problemSlots = data.problemSlots;
-      } else if (Array.isArray(data.fineTunedProblems)) {
-        problemSlots = data.fineTunedProblems.map((id: string) => ({
-          platform: "codeforces",
-          problemId: id.trim(),
-          points: 100,
-        }));
+      } else {
+        return appError(
+          "VALIDATION_ERROR",
+          "Problem slots are required for fine-tuned mode.",
+        );
+      }
+
+      for (let i = 0; i < problemSlots.length; i++) {
+        const slot = problemSlots[i];
+        if (
+          slot.points === undefined ||
+          slot.points === null ||
+          typeof slot.points !== "number" ||
+          Number.isNaN(slot.points)
+        ) {
+          return appError(
+            "VALIDATION_ERROR",
+            `Problem ${i + 1} (${slot.problemId}): points are mandatory in fine-tuned mode.`,
+          );
+        }
+        if (slot.points < 80) {
+          return appError(
+            "VALIDATION_ERROR",
+            `Problem ${i + 1} (${slot.problemId}): points must be at least 80.`,
+          );
+        }
       }
     }
 
@@ -1074,6 +1094,19 @@ async function createBracketContestAction(input: unknown) {
       );
       if (problemSlots.length === 0) {
         return appError("INTERNAL_ERROR", "An unexpected error occurred.");
+      }
+      for (let i = 0; i < problemSlots.length; i++) {
+        const slot = problemSlots[i];
+        if (
+          slot.points !== undefined &&
+          slot.points !== null &&
+          slot.points < 80
+        ) {
+          return appError(
+            "VALIDATION_ERROR",
+            `Problem ${i + 1} (${slot.problemId}): points must be at least 80.`,
+          );
+        }
       }
     }
   }

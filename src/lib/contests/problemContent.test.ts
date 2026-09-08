@@ -9,19 +9,23 @@ vi.mock("@/lib/platforms/problemContent", () => ({
 import { fetchContestProblemContent } from "@/lib/contests/problemContent";
 
 describe("fetchContestProblemContent", () => {
-  it("loads Codeforces content from a compound problem id", async () => {
+  it("loads Codeforces content from a compound problem id and renders math", async () => {
     fetchProblemContentForScheduling.mockResolvedValueOnce({
       title: "Next Round",
-      statementHtml: "<p>Statement</p>",
-      inputSpecificationHtml: "<p>Input</p>",
+      statementHtml: "<p>You are given two numbers $$$x, y$$$.</p>",
+      inputSpecificationHtml: "<p>Input $$$1 \\le t \\le 500$$$</p>",
       outputSpecificationHtml: "<p>Output</p>",
+      notesHtml: "<p>Notes $$$10^{111}-1$$$</p>",
       samples: [{ input: "1", output: "2" }],
       sourceUrl: "https://codeforces.com/contest/158/problem/A",
     });
 
-    await expect(
-      fetchContestProblemContent({ problemId: "158A" }),
-    ).resolves.toMatchObject({ title: "Next Round" });
+    const result = await fetchContestProblemContent({ problemId: "158A" });
+    expect(result).not.toBeNull();
+    expect(result?.statementHtml).toContain('class="katex"');
+    expect(result?.statementHtml).not.toContain("$$$");
+    expect(result?.inputSpecificationHtml).toContain('class="katex"');
+    expect(result?.notesHtml).toContain('class="katex"');
     expect(fetchProblemContentForScheduling).toHaveBeenCalledWith(
       "codeforces",
       "158",

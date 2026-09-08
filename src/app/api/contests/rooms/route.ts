@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     const problemCount = contest.bulkProblemCount || 3;
-    const minRating = contest.bulkRatingMin || 800;
+    const minRating = Math.max(contest.bulkRatingMin || 800, 1);
     const maxRating = contest.bulkRatingMax || 1200;
     const minContestId = contest.bulkMinContestId || 0;
 
@@ -69,7 +69,13 @@ export async function POST(req: NextRequest) {
     const availableProblems = await ContestQuestion.aggregate([
       {
         $match: {
-          rating: { $gte: minRating, $lte: maxRating },
+          rating: {
+            $exists: true,
+            $ne: null,
+            $gt: 0,
+            $gte: minRating,
+            $lte: maxRating,
+          },
           ...(minContestId > 0 ? { contestId: { $gte: minContestId } } : {}),
           problemId: { $nin: Array.from(solvedProblemIds) },
         },

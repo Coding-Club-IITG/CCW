@@ -1,5 +1,11 @@
+"use client";
+
+import { useMemo } from "react";
+import "katex/dist/katex.min.css";
+
 import type { ContestRoomProblemDto } from "@/lib/contests/dtos";
 import { getCodeforcesProblemUrl } from "@/components/contests/roomPresentation";
+import { renderProblemMath } from "@/lib/math";
 
 import styles from "./ContestProblemContent.module.scss";
 
@@ -9,9 +15,39 @@ type Props = {
 };
 
 export default function ContestProblemContent({ problem, plain }: Props) {
+  const renderedStatementHtml = useMemo(
+    () => (problem?.statementHtml ? renderProblemMath(problem.statementHtml) : ""),
+    [problem?.statementHtml],
+  );
+  const renderedInputHtml = useMemo(
+    () =>
+      problem?.inputSpecificationHtml
+        ? renderProblemMath(problem.inputSpecificationHtml)
+        : "",
+    [problem?.inputSpecificationHtml],
+  );
+  const renderedOutputHtml = useMemo(
+    () =>
+      problem?.outputSpecificationHtml
+        ? renderProblemMath(problem.outputSpecificationHtml)
+        : "",
+    [problem?.outputSpecificationHtml],
+  );
+  const renderedConstraintsHtml = useMemo(
+    () =>
+      problem?.constraintsHtml
+        ? renderProblemMath(problem.constraintsHtml)
+        : "",
+    [problem?.constraintsHtml],
+  );
+  const renderedNotesHtml = useMemo(
+    () => (problem?.notesHtml ? renderProblemMath(problem.notesHtml) : ""),
+    [problem?.notesHtml],
+  );
+
   if (!problem) return null;
 
-  if (!problem.statementHtml) {
+  if (!renderedStatementHtml) {
     const cfUrl = problem.problemId
       ? getCodeforcesProblemUrl(problem.problemId) ||
         `https://codeforces.com/problemset/problem/${problem.problemId}`
@@ -48,38 +84,38 @@ export default function ContestProblemContent({ problem, plain }: Props) {
     <>
       <div
         className={styles.section}
-        dangerouslySetInnerHTML={{ __html: problem.statementHtml }}
+        dangerouslySetInnerHTML={{ __html: renderedStatementHtml }}
       />
-      {problem.inputSpecificationHtml && (
+      {renderedInputHtml && (
         <section className={styles.section}>
           <h3>Input</h3>
           <div
             dangerouslySetInnerHTML={{
-              __html: problem.inputSpecificationHtml,
+              __html: renderedInputHtml,
             }}
           />
         </section>
       )}
-      {problem.outputSpecificationHtml && (
+      {renderedOutputHtml && (
         <section className={styles.section}>
           <h3>Output</h3>
           <div
             dangerouslySetInnerHTML={{
-              __html: problem.outputSpecificationHtml,
+              __html: renderedOutputHtml,
             }}
           />
         </section>
       )}
-      {problem.constraintsHtml && (
+      {renderedConstraintsHtml && (
         <section className={styles.section}>
           <h3>Constraints</h3>
-          <div dangerouslySetInnerHTML={{ __html: problem.constraintsHtml }} />
+          <div dangerouslySetInnerHTML={{ __html: renderedConstraintsHtml }} />
         </section>
       )}
-      {problem.notesHtml && (
+      {renderedNotesHtml && (
         <section className={styles.section}>
           <h3>Notes</h3>
-          <div dangerouslySetInnerHTML={{ __html: problem.notesHtml }} />
+          <div dangerouslySetInnerHTML={{ __html: renderedNotesHtml }} />
         </section>
       )}
     </>

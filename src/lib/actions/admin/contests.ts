@@ -167,6 +167,19 @@ async function createBracketContestAction(input: unknown) {
       if (problemSlots.length === 0) {
         return appError("INTERNAL_ERROR", "An unexpected error occurred.");
       }
+      for (let i = 0; i < problemSlots.length; i++) {
+        const slot = problemSlots[i];
+        if (
+          slot.points !== undefined &&
+          slot.points !== null &&
+          slot.points < 80
+        ) {
+          return appError(
+            "VALIDATION_ERROR",
+            `Problem ${i + 1} (${slot.problemId}): points must be at least 80.`,
+          );
+        }
+      }
     }
   } else {
     const preset = await ContestPreset.findById(data.presetId);

@@ -315,19 +315,45 @@ export default function CreateRoomModal({
       return;
     }
 
+    if (formData.problemSelectionMode === "fine-tuned") {
+      const pids = formData.fineTunedProblems;
+      if (!pids || pids.length === 0) {
+        toast.error("Please specify at least one problem.");
+        return;
+      }
+
+      for (let i = 0; i < pids.length; i++) {
+        const pid = pids[i]?.trim();
+        if (!pid) {
+          toast.error(`Problem ${i + 1} ID is required.`);
+          return;
+        }
+        const pts = formData.fineTunedProblemPoints?.[i];
+        if (
+          pts === undefined ||
+          pts === null ||
+          Number.isNaN(pts) ||
+          typeof pts !== "number"
+        ) {
+          toast.error(`Problem ${i + 1} points are mandatory.`);
+          return;
+        }
+        if (pts < 80) {
+          toast.error(`Problem ${i + 1} points must be at least 80.`);
+          return;
+        }
+      }
+    }
+
     const fineTunedSlots =
       formData.problemSelectionMode === "fine-tuned" &&
       formData.fineTunedProblems.length > 0
         ? formData.fineTunedProblems.map((pid, idx) => {
             const rawPoints = formData.fineTunedProblemPoints?.[idx];
-            const points =
-              typeof rawPoints === "number" && !Number.isNaN(rawPoints)
-                ? rawPoints
-                : 100;
             return {
               platform: "codeforces",
               problemId: pid.trim(),
-              points,
+              points: rawPoints as number,
               timeLimitMinutes: formData.fineTunedProblemTimeLimits?.[idx],
             };
           })
