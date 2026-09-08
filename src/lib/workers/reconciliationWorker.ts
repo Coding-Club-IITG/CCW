@@ -1,4 +1,5 @@
 import { type Job, Worker } from "bullmq";
+import mongoose from "mongoose";
 
 import { publishRoom } from "@/lib/contests/events";
 import {
@@ -17,6 +18,7 @@ import { notify } from "@/lib/notify";
 import { bullMqConnection } from "@/lib/bullmq";
 import { getRedis } from "@/lib/redis";
 import { logger } from "@/lib/utils";
+import { fetchContestProblemContent } from "@/lib/contests/problemContent";
 import CPUser from "@/models/CPUser";
 import ContestMatch from "@/models/ContestMatch";
 import ContestProblemSet from "@/models/ContestProblemSet";
@@ -453,7 +455,7 @@ export const reconciliationWorker = new Worker<
 
       // Provision room
       const problemCount = contest.bulkProblemCount || 3;
-      const minRating = contest.bulkRatingMin || 800;
+      const minRating = Math.max(contest.bulkRatingMin || 800, 1);
       const maxRating = contest.bulkRatingMax || 1200;
       const minContestId = contest.bulkMinContestId || 0;
 
@@ -541,6 +543,8 @@ export const reconciliationWorker = new Worker<
         problemId: string;
         name: string;
         rating?: number;
+        points?: number;
+        timeLimitMinutes?: number;
       }> = [];
       if (contest.problemSelectionMode === "test") {
         availableProblems = [
@@ -565,12 +569,16 @@ export const reconciliationWorker = new Worker<
               problemId: q.problemId,
               name: q.name,
               rating: q.rating,
+              points: slot.points,
+              timeLimitMinutes: slot.timeLimitMinutes,
             });
           } else {
             availableProblems.push({
               problemId: slot.problemId,
               name: `Problem ${slot.problemId}`,
               rating: 0,
+              points: slot.points,
+              timeLimitMinutes: slot.timeLimitMinutes,
             });
           }
         }
@@ -579,10 +587,18 @@ export const reconciliationWorker = new Worker<
           problemId: string;
           name: string;
           rating?: number;
+          points?: number;
+          timeLimitMinutes?: number;
         }>([
           {
             $match: {
-              rating: { $gte: minRating, $lte: maxRating },
+              rating: {
+                $exists: true,
+                $ne: null,
+                $gt: 0,
+                $gte: minRating,
+                $lte: maxRating,
+              },
               ...(minContestId > 0
                 ? { contestId: { $gte: minContestId } }
                 : {}),
@@ -618,6 +634,13 @@ export const reconciliationWorker = new Worker<
         );
       }
 
+      const problemsWithContent = await Promise.all(
+        availableProblems.map(async (problem) => ({
+          problem,
+          content: await fetchContestProblemContent(problem),
+        })),
+      );
+
       const room = new ContestRoom({
         contestId: contest._id,
         name: `Room for ${contest.name}`,
@@ -630,12 +653,16 @@ export const reconciliationWorker = new Worker<
       const problemSet = new ContestProblemSet({
         contestId: contest._id,
         roomId: room._id,
-        problems: availableProblems.map((problem) => ({
+        problems: problemsWithContent.map(({ problem, content }) => ({
           platform: "codeforces",
           problemId: problem.problemId,
-          name: problem.name,
+          name: content?.title || problem.name,
           rating: problem.rating,
-          points: Math.floor((problem.rating || 1000) / 10),
+          points:
+            problem.points ??
+            (problem.rating ? Math.floor(problem.rating / 10) : 100),
+          timeLimitMinutes: problem.timeLimitMinutes,
+          ...content,
         })),
       });
 
@@ -659,13 +686,17 @@ export const reconciliationWorker = new Worker<
 
       const newRoomId = room._id.toString();
 
-      const redisProblems = availableProblems.map((problem) =>
+      const redisProblems = problemsWithContent.map(({ problem, content }) =>
         JSON.stringify({
           problemId: problem.problemId,
-          name: problem.name,
+          name: content?.title || problem.name,
           rating: problem.rating,
-          points: Math.floor((problem.rating || 1000) / 10),
+          points:
+            problem.points ??
+            (problem.rating ? Math.floor(problem.rating / 10) : 100),
+          timeLimitMinutes: problem.timeLimitMinutes,
           revealedAt: null,
+          ...content,
         }),
       );
       await redis.del(`room:${newRoomId}:problems`);
@@ -673,14 +704,23 @@ export const reconciliationWorker = new Worker<
         await redis.rPush(`room:${newRoomId}:problems`, redisProblems);
       }
 
+      const durationSec = contest.overallDurationMinutes
+        ? contest.overallDurationMinutes * 60
+        : contest.durationSeconds || 3600;
+
       const stateObj: Record<string, string | number> = {
         status: "pending",
         type: contest.mode || "blitz",
         startTime: "", // Empty for now, set when all ready
-        timeLimit: (contest.durationSeconds || 3600).toString(),
+        timeLimit: durationSec.toString(),
         contestId: contestId.toString(),
         readyCount: 0,
       };
+      if (contest.perProblemDurationMinutes) {
+        stateObj.problemTimeLimit = (
+          contest.perProblemDurationMinutes * 60
+        ).toString();
+      }
       if (contest.mode !== "arena") {
         stateObj.currentProblem = 0;
       }
@@ -938,9 +978,26 @@ export const reconciliationWorker = new Worker<
       // Write final scores to MongoDB
       const completedRoom = await ContestRoom.findById(roomId);
       if (completedRoom) {
+        let maxScore = -1;
+        let bestTeamId: string | null = null;
+        let isTie = false;
+
         for (const tId of completedTeams) {
           const score = await redis.zScore(`room:${roomId}:scores`, tId);
-          await ContestTeam.findByIdAndUpdate(tId, { score: score || 0 });
+          const finalScore = Math.max(score || 0, 0);
+          if (finalScore > maxScore) {
+            maxScore = finalScore;
+            bestTeamId = tId;
+            isTie = false;
+          } else if (finalScore === maxScore) {
+            isTie = true;
+          }
+          await ContestTeam.findByIdAndUpdate(tId, { score: finalScore });
+        }
+
+        if (bestTeamId && !isTie && mongoose.isValidObjectId(bestTeamId)) {
+          completedRoom.winnerTeamId = new mongoose.Types.ObjectId(bestTeamId);
+          await completedRoom.save();
         }
       }
 
@@ -952,20 +1009,24 @@ export const reconciliationWorker = new Worker<
       );
       for (const sub of completedSubs) {
         const data = JSON.parse(sub.message.data);
-        const submission = new ContestSubmission({
-          roomId,
-          contestId,
-          userId: data.userId,
-          teamId: data.teamId,
-          problemId: data.problemId,
-          platform: "codeforces",
-          submissionId: data.cfSubmissionId,
-          verdict: data.verdict,
-          points: data.points,
-          solveMs: data.solveMs,
-          submittedAt: new Date(data.cfTimestamp || Date.now()),
-        });
-        await submission.save();
+        await ContestSubmission.updateOne(
+          { roomId, submissionId: String(data.cfSubmissionId) },
+          {
+            $setOnInsert: {
+              contestId,
+              submissionId: String(data.cfSubmissionId),
+              userId: data.userId,
+              teamId: data.teamId,
+              problemId: data.problemId,
+              platform: "codeforces",
+              verdict: data.verdict,
+              points: data.points,
+              solveMs: data.solveMs,
+              submittedAt: new Date(data.cfTimestamp || Date.now()),
+            },
+          },
+          { upsert: true },
+        );
       }
 
       // Finally, update the room status to "ended"
@@ -1049,8 +1110,16 @@ export const reconciliationWorker = new Worker<
         await redis.del(`team:${tId}:meta`);
         await redis.del(`team:${tId}:users`);
       }
+      
       if (contestId) {
-        await redis.del(`contest:${contestId}:rooms`);
+        const totalRooms = await ContestRoom.countDocuments({ contestId });
+        const endedRooms = await ContestRoom.countDocuments({
+          contestId,
+          status: { $in: ["ended", "completed"] },
+        });
+        if (totalRooms > 0 && totalRooms === endedRooms) {
+          await redis.del(`contest:${contestId}:rooms`);
+        }
       }
 
       logger.info(
@@ -1143,11 +1212,14 @@ export const reconciliationWorker = new Worker<
       if (trigger === "forfeit") room.terminationReason = "disconnect";
       else if (trigger === "timeout") room.terminationReason = "timeout";
 
-      // We don't have an explicit winner field in IContestRoom schema according to Stage 1,
-      // but if we do, we could set it. The prompt says: "Write final ContestRoom (scores, winner, endTime, trigger)."
-      // Let's assume we update the team scores.
+      if (winnerId && mongoose.isValidObjectId(winnerId)) {
+        room.winnerTeamId = new mongoose.Types.ObjectId(winnerId);
+      }
+      await room.save();
+
       for (const tId of teams) {
-        await ContestTeam.findByIdAndUpdate(tId, { score: teamScores[tId] });
+        const finalScore = Math.max(teamScores[tId] || 0, 0);
+        await ContestTeam.findByIdAndUpdate(tId, { score: finalScore });
       }
     }
 
@@ -1187,21 +1259,24 @@ export const reconciliationWorker = new Worker<
       const data = contestSubmissionEventSchema.parse(
         JSON.parse(sub.message.data),
       );
-      // Construct and save ContestSubmission
-      const submission = new ContestSubmission({
-        roomId,
-        contestId,
-        userId: data.userId,
-        teamId: data.teamId,
-        problemId: data.problemId,
-        platform: "codeforces",
-        submissionId: data.cfSubmissionId,
-        verdict: data.verdict,
-        points: data.points,
-        solveMs: data.solveMs,
-        submittedAt: new Date(data.cfTimestamp || Date.now()),
-      });
-      await submission.save();
+      await ContestSubmission.updateOne(
+        { roomId, submissionId: String(data.cfSubmissionId) },
+        {
+          $setOnInsert: {
+            contestId,
+            submissionId: String(data.cfSubmissionId),
+            userId: data.userId,
+            teamId: data.teamId,
+            problemId: data.problemId,
+            platform: "codeforces",
+            verdict: data.verdict,
+            points: data.points,
+            solveMs: data.solveMs,
+            submittedAt: new Date(data.cfTimestamp || Date.now()),
+          },
+        },
+        { upsert: true },
+      );
     }
 
     // 4. Finalise ContestProblemSet
@@ -1258,6 +1333,15 @@ export const reconciliationWorker = new Worker<
         reason: trigger === "forfeit" ? "disconnect" : "timeout",
       });
       await redis.hSet(`room:${roomId}:state`, { status: "completed" });
+      
+      // Notify clients that the bracket advanced so they draw green lines and update node states
+      if (contestId) {
+        const { publishContest } = await import("@/lib/contests/events");
+        await publishContest(contestId, {
+          type: "contest.bracket_update",
+          contestId: contestId,
+        });
+      }
     }
 
     // 5. Clean up Redis

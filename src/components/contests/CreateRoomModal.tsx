@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
@@ -65,7 +66,9 @@ export default function CreateRoomModal({
     return styles.ratingRed;
   };
 
-  const [formData, setFormData] = useState(createInitialContestForm);
+  const [formData, setFormData] = useState(() =>
+    createInitialContestForm(isHead),
+  );
 
   const [registeredUsers, setRegisteredUsers] = useState<ContestParticipant[]>(
     [],
@@ -139,8 +142,10 @@ export default function CreateRoomModal({
   const [maxPartError, setMaxPartError] = useState("");
   const [fineTunedCountError, setFineTunedCountError] = useState("");
   useEffect(() => {
-    setMaxPartError(getMaxParticipantsError(formData, manualTeams.length));
-  }, [formData, manualTeams.length]);
+    setMaxPartError(
+      getMaxParticipantsError(formData, manualTeams.length, isHead),
+    );
+  }, [formData, manualTeams.length, isHead]);
 
   if (!isOpen) return null;
 
@@ -160,12 +165,25 @@ export default function CreateRoomModal({
     e.preventDefault();
 
     const start = new Date(formData.startTime);
-    // Dynamic check based on variable passed down from server
-    // Eg. if deadlineMinutes is 1, minimum wait is (1 + 1) = 2 mins
-    const requiredBufferMinutes = deadlineMinutes + 1;
+    const isCasual1v1 =
+      formData.format === "1v1" && formData.registrationType === "closed";
+    const requiredBufferMinutes = isCasual1v1 ? 1 : deadlineMinutes + 1;
     if (start.getTime() < Date.now() + requiredBufferMinutes * 60000 - 5000) {
       toast.error(
-        `Start time (Deadline) must be at least ${requiredBufferMinutes} minutes ahead of the current time (to allow for the ${deadlineMinutes}-minute registration deadline plus a 1-minute buffer).`,
+        isCasual1v1
+          ? "Start time must be at least 1 minute ahead of the current time."
+          : `Start time (Deadline) must be at least ${requiredBufferMinutes} minutes ahead of the current time (to allow for the ${deadlineMinutes}-minute registration deadline plus a 1-minute buffer).`,
+      );
+      return;
+    }
+
+    if (
+      !isHead &&
+      formData.format === "bracket" &&
+      Number(formData.maxParticipants) > 8
+    ) {
+      toast.error(
+        "Non-admin users cannot create a knockout tournament with more than 8 members.",
       );
       return;
     }
@@ -176,6 +194,18 @@ export default function CreateRoomModal({
     ) {
       return;
     }
+
+    const overallDurationMinutes =
+      typeof formData.overallDurationMinutes === "number" &&
+      !Number.isNaN(formData.overallDurationMinutes)
+        ? formData.overallDurationMinutes
+        : 60;
+
+    const perProblemDurationMinutes =
+      typeof formData.perProblemDurationMinutes === "number" &&
+      !Number.isNaN(formData.perProblemDurationMinutes)
+        ? formData.perProblemDurationMinutes
+        : 15;
 
     if (
       formData.format !== "bracket" &&
@@ -232,7 +262,10 @@ export default function CreateRoomModal({
     }
 
     if (formData.format === "bracket") {
-      if (!formData.presetId) {
+      // If we are creating manually (no topPresetId), it's a custom bracket configuration
+      const effectivePresetId = topPresetId ? formData.presetId : "custom";
+
+      if (!effectivePresetId) {
         toast.error("Please select a match preset for the bracket.");
         return;
       }
@@ -265,12 +298,18 @@ export default function CreateRoomModal({
       try {
         const res = await createBracketContest({
           ...formData,
+          presetId: effectivePresetId,
+          overallDurationMinutes,
+          perProblemDurationMinutes,
           deadline: start.toISOString(),
           registrationStartTime: regStartIso,
           registeredUsers: finalRegisteredUsers,
+          fineTunedProblems:
+            formData.problemSelectionMode === "fine-tuned"
+              ? bracketProblemSlots.map((s) => s.problemId)
+              : formData.fineTunedProblems.filter((p) => p.trim() !== ""),
           ...(formData.problemSelectionMode === "fine-tuned"
             ? {
-                fineTunedProblems: bracketProblemSlots.map((s) => s.problemId),
                 problemSlots: bracketProblemSlots,
               }
             : {}),
@@ -289,13 +328,63 @@ export default function CreateRoomModal({
       return;
     }
 
+    if (formData.problemSelectionMode === "fine-tuned") {
+      const pids = formData.fineTunedProblems;
+      if (!pids || pids.length === 0) {
+        toast.error("Please specify at least one problem.");
+        return;
+      }
+
+      for (let i = 0; i < pids.length; i++) {
+        const pid = pids[i]?.trim();
+        if (!pid) {
+          toast.error(`Problem ${i + 1} ID is required.`);
+          return;
+        }
+        const pts = formData.fineTunedProblemPoints?.[i];
+        if (
+          pts === undefined ||
+          pts === null ||
+          Number.isNaN(pts) ||
+          typeof pts !== "number"
+        ) {
+          toast.error(`Problem ${i + 1} points are mandatory.`);
+          return;
+        }
+        if (pts < 80) {
+          toast.error(`Problem ${i + 1} points must be at least 80.`);
+          return;
+        }
+      }
+    }
+
+    const fineTunedSlots =
+      formData.problemSelectionMode === "fine-tuned" &&
+      formData.fineTunedProblems.length > 0
+        ? formData.fineTunedProblems.map((pid, idx) => {
+            const rawPoints = formData.fineTunedProblemPoints?.[idx];
+            return {
+              platform: "codeforces",
+              problemId: pid.trim(),
+              points: rawPoints as number,
+              timeLimitMinutes: formData.fineTunedProblemTimeLimits?.[idx],
+            };
+          })
+        : undefined;
+
     setLoading(true);
     try {
       const res = await createRoomContest({
         ...formData,
+        overallDurationMinutes,
+        perProblemDurationMinutes,
         startTime: start.toISOString(),
         registrationStartTime: regStartIso,
         registeredUsers: finalRegisteredUsers,
+        problemSlots: fineTunedSlots,
+        fineTunedProblems: formData.fineTunedProblems.filter(
+          (p) => p.trim() !== "",
+        ),
       });
       if (!res.ok) {
         toast.error(res.error.message);
@@ -473,30 +562,50 @@ export default function CreateRoomModal({
           className={styles.form}
           spellCheck={false}
         >
-          {isHead && (
-            <div className={styles.templateBox}>
+          <div className={styles.templateBox}>
+            <div className={styles.templateHeader}>
               <label className={styles.templateLabel} htmlFor="top-preset-id">
                 Load from Template (Optional)
               </label>
-              <select
-                id="top-preset-id"
-                value={topPresetId}
-                onChange={handleTopPresetChange}
-                className={`${styles.formInput} ${styles.formSelect}`}
+              <Link
+                href="/internal/contests/presets"
+                target="_blank"
+                className={styles.managePresetsLink}
               >
-                <option value="">No template (Manual setup)</option>
-                {presets.map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <span className={styles.hintMuted}>
-                Selecting a template will auto-fill and lock the configuration
-                below.
-              </span>
+                Manage Presets
+              </Link>
             </div>
-          )}
+            {presets.length > 0 ? (
+              <>
+                <select
+                  id="top-preset-id"
+                  value={topPresetId}
+                  onChange={handleTopPresetChange}
+                  className={`${styles.formInput} ${styles.formSelect}`}
+                >
+                  <option value="">No template (Manual setup)</option>
+                  {presets.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <span className={styles.hintMuted}>
+                  Selecting a template will auto-fill and lock the configuration
+                  below.
+                </span>
+              </>
+            ) : (
+              <>
+                <select className={`${styles.formInput} ${styles.formSelect}`} disabled>
+                  <option>No templates available</option>
+                </select>
+                <span className={styles.emptyPresetsHint}>
+                  You don&apos;t have any templates yet. Create one to quickly load settings.
+                </span>
+              </>
+            )}
+          </div>
 
           <div className={styles.field}>
             <label className={styles.label} htmlFor="room-name">
@@ -558,16 +667,19 @@ export default function CreateRoomModal({
               <select
                 id="room-format"
                 value={formData.format}
-                onChange={(e) =>
-                  setFormData({ ...formData, format: e.target.value })
-                }
+                onChange={(e) => {
+                  const nextFormat = e.target.value;
+                  setFormData((prev) =>
+                    applyContestFormatDefaults({ ...prev, format: nextFormat }),
+                  );
+                }}
                 disabled={!!topPresetId}
                 className={`${styles.formInput} ${styles.formSelect}`}
               >
                 <option value="1v1">1v1</option>
                 <option value="solo-tournament">Solo Tournament</option>
                 <option value="team-tournament">Team Battle</option>
-                <option value="bracket">Bracket (Knockout)</option>
+                <option value="bracket">Bracket</option>
               </select>
             </div>
           </div>
@@ -639,70 +751,36 @@ export default function CreateRoomModal({
                 )}
               </div>
 
-              <div
-                className={`${styles.field} ${
-                  topPresetId ? styles.locked : ""
-                }`}
-              >
-                <label className={styles.label} htmlFor="preset-id">
-                  Match Preset
-                </label>
-                <select
-                  id="preset-id"
-                  value={formData.presetId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, presetId: e.target.value })
-                  }
-                  disabled={!!topPresetId}
-                  className={`${styles.formInput} ${styles.formSelect}`}
-                >
-                  <option value="" disabled>
-                    Select a preset...
-                  </option>
-                  <option value="custom">Custom (Manual Configuration)</option>
-                  {presets.map((p) => (
-                    <option key={p._id} value={p._id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <span className={styles.hint}>
-                  Bracket tournaments use presets to define the problem criteria
-                  for all rounds.
-                </span>
-                {(() => {
-                  const selectedMatchPreset = presets.find(
-                    (p) => p._id === formData.presetId,
-                  );
-                  return selectedMatchPreset ? (
-                    <div className={styles.presetInfo}>
-                      <span className={styles.presetInfoName}>
-                        {selectedMatchPreset.name}
-                      </span>
-                      {selectedMatchPreset.description && (
-                        <span>{selectedMatchPreset.description}</span>
+              {!!topPresetId && (() => {
+                const selectedMatchPreset = presets.find(
+                  (p) => p._id === formData.presetId,
+                );
+                return selectedMatchPreset ? (
+                  <div className={styles.presetInfo}>
+                    <span className={styles.presetInfoName}>
+                      Preset: {selectedMatchPreset.name}
+                    </span>
+                    {selectedMatchPreset.description && (
+                      <span>{selectedMatchPreset.description}</span>
+                    )}
+                    <div className={styles.presetInfoMeta}>
+                      <span>• {selectedMatchPreset.mode}</span>
+                      {selectedMatchPreset.problemSelectionMode === "bulk" ? (
+                        <span>
+                          • {selectedMatchPreset.bulkProblemCount} problems (
+                          {selectedMatchPreset.bulkRatingMin}-
+                          {selectedMatchPreset.bulkRatingMax})
+                        </span>
+                      ) : (
+                        <span>
+                          • {selectedMatchPreset.fineTunedProblemCount}{" "}
+                          specific problems
+                        </span>
                       )}
-                      <div className={styles.presetInfoMeta}>
-                        <span>• {selectedMatchPreset.mode}</span>
-                        {selectedMatchPreset.problemSelectionMode === "bulk" ? (
-                          <span>
-                            • {selectedMatchPreset.bulkProblemCount} problems (
-                            {selectedMatchPreset.bulkRatingMin}-
-                            {selectedMatchPreset.bulkRatingMax})
-                          </span>
-                        ) : (
-                          <span>
-                            • {selectedMatchPreset.fineTunedProblemCount}{" "}
-                            specific problems
-                          </span>
-                        )}
-                      </div>
                     </div>
-                  ) : null;
-                })()}
-              </div>
-
-              {formData.presetId === "custom" && renderProblemConfiguration()}
+                  </div>
+                ) : null;
+              })()}
 
               <div className={styles.grid2}>
                 <div className={styles.field}>
@@ -712,6 +790,7 @@ export default function CreateRoomModal({
                   <select
                     id="seeding-method"
                     value={formData.seedingMethod}
+                    disabled={!!topPresetId}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (val === "manual") {
@@ -734,10 +813,38 @@ export default function CreateRoomModal({
                 </div>
 
                 <div className={styles.field}>
+                  <label className={styles.label} htmlFor="bracket-type">
+                    Elimination Type
+                  </label>
+                  <select
+                    id="bracket-type"
+                    value={formData.bracketType || "single_elimination"}
+                    disabled={!!topPresetId}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bracketType: e.target.value as
+                          | "single_elimination"
+                          | "double_elimination",
+                      })
+                    }
+                    className={`${styles.formInput} ${styles.formSelect}`}
+                  >
+                    <option value="single_elimination">
+                      Single Elimination
+                    </option>
+                    <option value="double_elimination">
+                      Double Elimination
+                    </option>
+                  </select>
+                </div>
+
+                <div className={styles.field}>
                   <label className={styles.checkboxLabel}>
                     <input
                       type="checkbox"
                       checked={formData.thirdPlacePlayoff}
+                      disabled={!!topPresetId}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
@@ -750,6 +857,9 @@ export default function CreateRoomModal({
                   </label>
                 </div>
               </div>
+
+              {!topPresetId && renderProblemConfiguration()}
+
             </div>
           )}
 
@@ -779,25 +889,44 @@ export default function CreateRoomModal({
                 </select>
               </div>
 
-              {formData.registrationType !== "closed" && (
-                <div className={styles.field}>
-                  <label className={styles.label}>Registration Starts</label>
-                  <select
-                    value={formData.registrationStartMode}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        registrationStartMode: e.target.value,
-                      })
-                    }
-                    className={`${styles.formInput} ${styles.formSelect}`}
-                  >
-                    <option value="immediate">Immediately</option>
-                    <option value="schedule">Schedule Start</option>
-                  </select>
-                </div>
-              )}
+              <div className={styles.field}>
+                <label className={styles.label}>Spectator Access</label>
+                <select
+                  value={formData.spectatorRestriction}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      spectatorRestriction: e.target.value,
+                    })
+                  }
+                  className={`${styles.formInput} ${styles.formSelect}`}
+                >
+                  <option value="none">No Spectators</option>
+                  <option value="all">Any Authenticated User</option>
+                  <option value="club_members">Club / Module Members</option>
+                  <option value="admin_creator">Admins & Creator Only</option>
+                </select>
+              </div>
             </div>
+
+            {formData.registrationType !== "closed" && (
+              <div className={styles.field}>
+                <label className={styles.label}>Registration Starts</label>
+                <select
+                  value={formData.registrationStartMode}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      registrationStartMode: e.target.value,
+                    })
+                  }
+                  className={`${styles.formInput} ${styles.formSelect}`}
+                >
+                  <option value="immediate">Immediately</option>
+                  <option value="schedule">Schedule Start</option>
+                </select>
+              </div>
+            )}
 
             {formData.registrationType !== "closed" &&
               formData.registrationStartMode === "schedule" && (
@@ -1352,22 +1481,34 @@ export default function CreateRoomModal({
                 }
                 className={`${styles.formInput} ${styles.dateInput}`}
               />
-              <div className={styles.timeAddRow}>
-                {[3, 5, 10, 15].map((mins) => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => handleTimeAdd(mins)}
-                    className={styles.timeAddBtn}
-                  >
-                    +{mins} min{mins > 1 ? "s" : ""}
-                  </button>
-                ))}
-              </div>
+              {(() => {
+                const isCasual1v1 =
+                  formData.format === "1v1" &&
+                  formData.registrationType === "closed";
+                const quickAddMins = isCasual1v1
+                  ? [2, 3, 5, 10]
+                  : [deadlineMinutes + 2, deadlineMinutes + 3, 10, 15];
+                return (
+                  <div className={styles.timeAddRow}>
+                    {quickAddMins.map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => handleTimeAdd(mins)}
+                        className={styles.timeAddBtn}
+                      >
+                        +{mins} min{mins > 1 ? "s" : ""}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <span className={styles.hint}>
-              Scheduled rooms start automatically. Registration deadline will be
-              exactly 1 minute before the start time for all users.
+              {formData.format === "1v1" &&
+              formData.registrationType === "closed"
+                ? "Casual 1v1 matches can start as soon as 2 minutes from now."
+                : `Scheduled tournaments start automatically. Registration deadline is ${deadlineMinutes} minute${deadlineMinutes > 1 ? "s" : ""} before the start time.`}
             </span>
           </div>
         </form>

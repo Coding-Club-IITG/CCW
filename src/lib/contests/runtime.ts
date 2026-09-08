@@ -64,8 +64,20 @@ export type CfSyncQueueData = CfSyncJobData | NightlyProblemSyncJobData;
 export const contestRoomProblemSchema = z
   .object({
     problemId: z.string().min(1),
+    name: z.string().optional(),
+    rating: z.number().optional(),
     points: z.number().optional(),
     revealedAt: z.number().nullable().optional(),
+    statementHtml: z.string().optional(),
+    inputSpecificationHtml: z.string().optional(),
+    outputSpecificationHtml: z.string().optional(),
+    constraintsHtml: z.string().optional(),
+    notesHtml: z.string().optional(),
+    samples: z
+      .array(z.object({ input: z.string(), output: z.string() }))
+      .optional(),
+    timeLimitMs: z.number().optional(),
+    memoryLimitMb: z.number().optional(),
   })
   .passthrough();
 
@@ -75,6 +87,8 @@ export const contestRoomStateSchema = z
     type: z.string().optional(),
     startTime: z.string().optional(),
     timeLimit: z.string().optional(),
+    problemTimeLimit: z.string().optional(),
+    currentProblemStartTime: z.string().optional(),
     currentProblem: z.string().optional(),
     contestId: z.string().optional(),
   })
@@ -104,6 +118,14 @@ const roomParticipantSchema = z.object({
 });
 const synchronizedRoomStateSchema = contestRoomStateSchema;
 
+export const roomActivitySchema = z.object({
+  id: z.number(),
+  icon: z.string(),
+  text: z.string(),
+  timestamp: z.number(),
+  color: z.string(),
+});
+
 const roomStateSyncEventSchema = z
   .object({
     type: z.literal("room.state_sync"),
@@ -111,6 +133,8 @@ const roomStateSyncEventSchema = z
     problems: z.array(contestRoomProblemSchema).optional(),
     scores: scoreMapSchema.optional(),
     locks: z.record(z.string(), z.string()).optional(),
+    activityLogs: z.array(roomActivitySchema).optional(),
+    forfeitTimeouts: z.record(z.string(), z.number()).optional(),
   })
   .passthrough();
 
@@ -176,6 +200,12 @@ export const roomEventSchema = z.discriminatedUnion("type", [
       type: z.literal("presence.offline"),
       userId: z.string().min(1),
       forfeitTimeout: z.number().optional(),
+    })
+    .passthrough(),
+  z
+    .object({
+      type: z.literal("room.activity"),
+      activity: roomActivitySchema,
     })
     .passthrough(),
 ]);

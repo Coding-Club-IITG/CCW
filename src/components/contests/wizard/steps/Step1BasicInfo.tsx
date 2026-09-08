@@ -60,7 +60,7 @@ export default function Step1BasicInfo({
           </label>
           <input
             type="text"
-            value="Bracket (Knockout)"
+            value="Bracket"
             disabled
             className={styles.input}
           />

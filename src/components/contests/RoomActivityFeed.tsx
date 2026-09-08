@@ -1,6 +1,6 @@
 "use client";
 
-import { createElement, useEffect, useState } from "react";
+import { createElement, useEffect, useState, useRef } from "react";
 import {
   Bell,
   CircleAlert,
@@ -44,10 +44,15 @@ export default function RoomActivityFeed({
   entries: RoomActivityDto[];
   subtitle?: string;
 }) {
-  const [notifGranted, setNotifGranted] = useState(
-    typeof Notification !== "undefined" &&
-      Notification.permission === "granted",
-  );
+  const [isMounted, setIsMounted] = useState(false);
+  const [notifGranted, setNotifGranted] = useState(true);
+
+  useEffect(() => {
+    setIsMounted(true);
+    if (typeof Notification !== "undefined") {
+      setNotifGranted(Notification.permission === "granted");
+    }
+  }, []);
 
   // Relative timestamps need a repaint every second
   const [, setTick] = useState(0);
@@ -64,7 +69,7 @@ export default function RoomActivityFeed({
           Activity Feed
         </h2>
         {subtitle && <p className={styles.sub}>{subtitle}</p>}
-        {typeof Notification !== "undefined" && !notifGranted && (
+        {isMounted && typeof Notification !== "undefined" && !notifGranted && (
           <button
             className={styles.notifBtn}
             onClick={() =>
@@ -82,7 +87,7 @@ export default function RoomActivityFeed({
         {entries.length === 0 ? (
           <p className={styles.empty}>No activity yet.</p>
         ) : (
-          entries.map((entry) => (
+          [...entries].sort((a, b) => b.timestamp - a.timestamp).map((entry) => (
             <div key={entry.id} className={styles.item}>
               <div className={styles.iconWrap}>
                 {createElement(ACTIVITY_ICONS[entry.icon] ?? Info, {
@@ -98,7 +103,7 @@ export default function RoomActivityFeed({
                 >
                   {entry.text}
                 </p>
-                <span className={styles.time}>
+                <span className={styles.time} suppressHydrationWarning>
                   {formatRoomActivityTime(entry.timestamp)}
                 </span>
               </div>

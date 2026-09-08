@@ -2,16 +2,40 @@ import { z } from "zod";
 
 const problemSlotSchema = z.object({
   platform: z.string().trim().min(1).max(50),
-  rating: z.number().int().min(0).max(5000),
+  rating: z.number().int().min(0).max(5000).optional(),
+  problemId: z.string().trim().max(100).optional(),
+  roundNumber: z.number().int().min(1).optional(),
+  points: z.number().int().min(0).optional(),
+  timeLimitMinutes: z.number().int().min(1).optional(),
+});
+
+const registrationSettingsSchema = z.object({
+  type: z.enum(["open", "closed"]),
+  maxParticipants: z.number().int().min(2),
+});
+
+const bracketSettingsSchema = z.object({
+  type: z.enum(["single_elimination", "double_elimination"]).optional(),
+  thirdPlacePlayoff: z.boolean(),
+  seedingMethod: z.enum(["cf_rating", "manual"]),
 });
 
 const presetFields = {
   description: z.string().trim().max(2_000).optional(),
+  isGlobal: z.boolean().optional(),
   format: z
     .enum(["1v1", "solo-tournament", "team-tournament", "bracket"])
     .optional(),
   mode: z.enum(["blitz", "arena"]).optional(),
   durationSeconds: z.number().int().min(1).max(86_400).optional(),
+  overallDurationMinutes: z.number().int().min(1).optional(),
+  perProblemDurationMinutes: z.number().int().min(1).optional(),
+  teamSize: z.number().int().min(1).max(3).optional(),
+  spectatorRestriction: z
+    .enum(["none", "all", "admin_creator", "club_members"])
+    .optional(),
+  registrationSettings: registrationSettingsSchema.optional(),
+  bracketSettings: bracketSettingsSchema.optional(),
   problemSelectionMode: z.enum(["bulk", "fine-tuned"]).optional(),
   bulkPlatform: z.string().trim().min(1).max(50).optional(),
   bulkRatingMin: z.number().int().min(0).max(5000).optional(),

@@ -83,6 +83,70 @@ export default function ContestProblemConfiguration({
         )}
       </div>
 
+      {form.mode === "arena" ? (
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="match-duration">
+            Match Duration (Minutes)
+          </label>
+          <input
+            id="match-duration"
+            type="number"
+            min={5}
+            max={300}
+            value={
+              form.overallDurationMinutes === undefined ||
+              Number.isNaN(form.overallDurationMinutes)
+                ? ""
+                : form.overallDurationMinutes
+            }
+            onChange={(event) =>
+              updateForm({
+                overallDurationMinutes:
+                  event.target.value === ""
+                    ? ("" as unknown as number)
+                    : parseInt(event.target.value, 10),
+              })
+            }
+            disabled={presetLocked}
+            className={styles.formInput}
+          />
+          <span className={styles.hintMuted}>
+            Overall countdown for the arena match (5 - 300 minutes).
+          </span>
+        </div>
+      ) : (
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="problem-duration">
+            Default Time Limit (Minutes)
+          </label>
+          <input
+            id="problem-duration"
+            type="number"
+            min={1}
+            max={60}
+            value={
+              form.perProblemDurationMinutes === undefined ||
+              Number.isNaN(form.perProblemDurationMinutes)
+                ? ""
+                : form.perProblemDurationMinutes
+            }
+            onChange={(event) =>
+              updateForm({
+                perProblemDurationMinutes:
+                  event.target.value === ""
+                    ? ("" as unknown as number)
+                    : parseInt(event.target.value, 10),
+              })
+            }
+            disabled={presetLocked}
+            className={styles.formInput}
+          />
+          <span className={styles.hintMuted}>
+            Countdown per problem in blitz mode (1 - 60 minutes).
+          </span>
+        </div>
+      )}
+
       <div className={styles.field}>
         <label className={styles.label} htmlFor="problem-selection-mode">
           Selection Mode
@@ -96,16 +160,9 @@ export default function ContestProblemConfiguration({
           disabled={presetLocked}
           className={`${styles.formInput} ${styles.formSelect}`}
         >
-          <option value="test">Test</option>
           <option value="bulk">Bulk</option>
           <option value="fine-tuned">Fine-Tuned</option>
         </select>
-        {form.problemSelectionMode === "test" && (
-          <span className={styles.hint}>
-            A pre-selected test problem will be assigned to verify the room
-            mechanics.
-          </span>
-        )}
         {form.problemSelectionMode === "bulk" && (
           <span className={styles.hint}>
             Automatically fetch problems unsolved by all registered players,
@@ -250,26 +307,97 @@ export default function ContestProblemConfiguration({
               )}
             </div>
 
-            <div className={styles.grid23}>
+            <div className={styles.fineTunedList}>
               {form.fineTunedProblems.map((problem, index) => (
-                <div key={index} className={styles.field}>
-                  <label className={styles.label} htmlFor={`problem-${index}`}>
-                    Problem {index + 1}
-                  </label>
-                  <input
-                    required
-                    id={`problem-${index}`}
-                    type="text"
-                    placeholder="Eg. 4A"
-                    value={problem}
-                    onChange={(event) => {
-                      const fineTunedProblems = [...form.fineTunedProblems];
-                      fineTunedProblems[index] = event.target.value;
-                      updateForm({ fineTunedProblems });
-                    }}
-                    disabled={presetLocked}
-                    className={styles.formInput}
-                  />
+                <div key={index} className={styles.grid3}>
+                  <div className={styles.field}>
+                    <label className={styles.label} htmlFor={`problem-${index}`}>
+                      Problem {index + 1} ID
+                    </label>
+                    <input
+                      required
+                      id={`problem-${index}`}
+                      type="text"
+                      placeholder="Eg. 4A"
+                      value={problem}
+                      onChange={(event) => {
+                        const fineTunedProblems = [...form.fineTunedProblems];
+                        fineTunedProblems[index] = event.target.value;
+                        updateForm({ fineTunedProblems });
+                      }}
+                      disabled={presetLocked}
+                      className={styles.formInput}
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.label} htmlFor={`points-${index}`}>
+                      Points <span className={styles.requiredAsterisk}>*</span>
+                    </label>
+                    <input
+                      required
+                      id={`points-${index}`}
+                      type="number"
+                      min={80}
+                      placeholder="Min 80"
+                      value={
+                        form.fineTunedProblemPoints?.[index] === undefined ||
+                        Number.isNaN(form.fineTunedProblemPoints[index])
+                          ? ""
+                          : form.fineTunedProblemPoints[index]
+                      }
+                      onChange={(event) => {
+                        const fineTunedProblemPoints = [
+                          ...(form.fineTunedProblemPoints || []),
+                        ];
+                        fineTunedProblemPoints[index] =
+                          event.target.value === ""
+                            ? ("" as unknown as number)
+                            : parseInt(event.target.value, 10);
+                        updateForm({ fineTunedProblemPoints });
+                      }}
+                      disabled={presetLocked}
+                      className={`${styles.formInput} ${
+                        form.fineTunedProblemPoints?.[index] !== undefined &&
+                        form.fineTunedProblemPoints?.[index] !== ("" as unknown) &&
+                        !Number.isNaN(form.fineTunedProblemPoints[index]) &&
+                        form.fineTunedProblemPoints[index] < 80
+                          ? styles.inputError
+                          : ""
+                      }`}
+                    />
+                    {form.fineTunedProblemPoints?.[index] !== undefined &&
+                      form.fineTunedProblemPoints?.[index] !== ("" as unknown) &&
+                      !Number.isNaN(form.fineTunedProblemPoints[index]) &&
+                      form.fineTunedProblemPoints[index] < 80 && (
+                        <span className={styles.errorText}>
+                          Points must be at least 80.
+                        </span>
+                      )}
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.label} htmlFor={`timelimit-${index}`}>
+                      Time Limit (Mins)
+                    </label>
+                    <input
+                      id={`timelimit-${index}`}
+                      type="number"
+                      min={1}
+                      placeholder="Optional"
+                      value={form.fineTunedProblemTimeLimits?.[index] ?? ""}
+                      onChange={(event) => {
+                        const fineTunedProblemTimeLimits = [
+                          ...(form.fineTunedProblemTimeLimits || []),
+                        ];
+                        const val = parseInt(event.target.value, 10);
+                        fineTunedProblemTimeLimits[index] = isNaN(val)
+                          ? (undefined as unknown as number)
+                          : val;
+                        updateForm({ fineTunedProblemTimeLimits });
+                      }}
+                      disabled={presetLocked}
+                      className={styles.formInput}
+                    />
+                  </div>
                 </div>
               ))}
             </div>

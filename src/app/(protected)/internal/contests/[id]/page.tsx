@@ -9,7 +9,10 @@ import {
   contestRoomStateSchema,
   parseContestRoomProblems,
 } from "@/lib/contests/runtime";
-import type { ContestRoomProblemDto } from "@/lib/contests/dtos";
+import type {
+  ContestRoomProblemDto,
+  RoomActivityDto,
+} from "@/lib/contests/dtos";
 import { normalizeAvatar } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -21,6 +24,7 @@ import CPUser from "@/models/CPUser";
 import { getRedis } from "@/lib/redis";
 import { getBracketSnapshot } from "@/lib/contests/bracket";
 import { isHead } from "@/lib/access/roles";
+import { parseRoles } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
 import styles from "./page.module.scss";
@@ -56,34 +60,64 @@ export default async function ContestRoomPage({
 
   const userId = session.user.id;
   await dbConnect();
+  const cpUser = await CPUser.findOne({ userId }).select("_id").lean();
+  const cpUserId = cpUser?._id?.toString();
 
-  // If matchRoomId is specified (bracket "Enter Room"), load that specific room
-  const roomQuery = matchRoomId
-    ? { _id: matchRoomId, contestId: contest._id }
-    : { contestId: contest._id, participants: userId };
+  function canSpectate() {
+    const restriction = (contest as any).spectatorRestriction || "none";
+    if (restriction === "none") return false;
+    if (restriction === "all") return true;
+    const isCreator =
+      contest.creatorId.toString() === userId ||
+      (Boolean(cpUserId) && contest.creatorId.toString() === cpUserId);
+    if (restriction === "admin_creator") return admin || isCreator;
+    if (restriction === "club_members") {
+      if (admin || isCreator) return true;
+      // @ts-expect-error - session.user.roles might not be typed
+      const roles = parseRoles(session.user?.roles);
+      return roles.length > 0;
+    }
+    return false;
+  }
 
-  // Find the active/waiting room for this user in this contest
+  let isSpectator = false;
+
   // Bracket format: show bracket viewer (unless entering a specific match room)
   if (
     (contest.format === "bracket" || contest.mode === "knockout") &&
     !matchRoomId
   ) {
     const bracketSnapshot = await getBracketSnapshot(contest._id.toString());
-    const userTeam = await ContestTeam.findOne({
+    const userTeams = await ContestTeam.find({
       contestId: contest._id,
       members: userId,
     }).lean();
+    const userTeamIds = userTeams.map((t) => t._id.toString());
     return (
       <BracketRoomClient
         contest={contest}
         initialSnapshot={bracketSnapshot}
         userId={userId}
-        currentUserTeamId={userTeam ? userTeam._id.toString() : null}
+        currentUserTeamIds={userTeamIds}
+        isSpectator={userTeams.length === 0 && canSpectate()}
       />
     );
   }
 
-  const room = await ContestRoom.findOne(roomQuery).lean();
+  const roomQuery = matchRoomId
+    ? { _id: matchRoomId, contestId: contest._id }
+    : { contestId: contest._id, participants: userId };
+
+  let room = await ContestRoom.findOne(roomQuery).lean();
+
+  if (!room && canSpectate()) {
+    isSpectator = true;
+    if (matchRoomId) {
+      room = await ContestRoom.findOne({ _id: matchRoomId, contestId: contest._id }).lean();
+    } else {
+      room = await ContestRoom.findOne({ contestId: contest._id }).lean();
+    }
+  }
 
   let teamId = null;
   let roomId = null;
@@ -116,7 +150,7 @@ export default async function ContestRoomPage({
   }
 
   if (contest.mode === "blitz" || contest.mode === "arena") {
-    if (!room || !teamId) {
+    if (!room || (!teamId && !isSpectator)) {
       if (contest.status === "completed") {
         // Non-participant or unassigned user: try to redirect to any room
         const anyRoom = await ContestRoom.findOne({
@@ -183,7 +217,7 @@ export default async function ContestRoomPage({
     const populatedTeams = teams.map((t) => ({
       _id: t._id.toString(),
       name: t.name,
-      score: t.score || 0,
+      score: Math.max(t.score || 0, 0),
       members: t.members.map((memberId) => {
         const u = userMap.get(memberId.toString());
         const cp = cpUserMap.get(memberId.toString());
@@ -237,6 +271,7 @@ export default async function ContestRoomPage({
     let initialProblems: ContestRoomProblemDto[] = [];
     let initialScores: Record<string, number> = {};
     let initialLocks: Record<string, string> = {};
+    let initialActivityFeed: RoomActivityDto[] = [];
 
     if (status === "active" || status === "completed") {
       const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
@@ -250,11 +285,18 @@ export default async function ContestRoomPage({
       if (contest.mode === "arena") {
         initialLocks = await redis.hGetAll(`room:${roomId}:locks`);
       }
+
+      const activityLogsRaw = await redis.lRange(
+        `room:${roomId}:activity_logs`,
+        0,
+        -1,
+      );
+      initialActivityFeed = activityLogsRaw.map((l) => JSON.parse(l));
     }
 
     const cpUser = cpUserMap.get(userId);
     const userDoc = userMap.get(userId);
-    const cfHandle = cpUser?.cfHandle || userDoc?.codeforcesId || "dummy0";
+    const cfHandle = cpUser?.cfHandle || userDoc?.codeforcesId || "";
 
     const syncCooldown = userRateLimitsEnabled ? webEnv.SYNC_COOLDOWN : 0;
 
@@ -284,8 +326,10 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
+          initialActivityFeed={initialActivityFeed}
           from={from}
           syncCooldownSeconds={syncCooldown}
+          isSpectator={isSpectator}
         />
       );
     } else if (contest.mode === "arena") {
@@ -310,8 +354,10 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
+          initialActivityFeed={initialActivityFeed}
           from={from}
           syncCooldownSeconds={syncCooldown}
+          isSpectator={isSpectator}
         />
       );
     }

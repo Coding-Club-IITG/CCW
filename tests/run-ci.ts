@@ -9,8 +9,11 @@ const testEnvironment = {
   AZURE_CLIENT_ID: "test-client-id",
   AZURE_CLIENT_SECRET: "test-client-secret",
   AZURE_TENANT_ID: "test-tenant-id",
-  MONGODB_URI: "mongodb://127.0.0.1:27017/ccw-ci",
-  MONGODB_TEST_URI: process.env.MONGODB_TEST_URI ?? "mongodb://127.0.0.1:27017",
+  MONGODB_URI:
+    "mongodb://localhost:27017/ccw-ci?replicaSet=rs0&retryWrites=false",
+  MONGODB_TEST_URI:
+    process.env.MONGODB_TEST_URI ??
+    "mongodb://localhost:27017/?replicaSet=rs0&retryWrites=false",
   REDIS_URL: "redis://127.0.0.1:6379/15",
 };
 

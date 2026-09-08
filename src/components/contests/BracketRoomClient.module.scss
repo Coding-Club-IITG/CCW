@@ -762,3 +762,34 @@
 .vsLabel {
   font-family: var(--font-jetbrains-mono), monospace;
 }
+
+.viewSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.25rem;
+}
+
+.viewTab {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--foreground);
+  }
+}
+
+.viewTabActive {
+  background: var(--surface-secondary, var(--surface));
+  color: var(--primary);
+  font-weight: 600;
+}
+

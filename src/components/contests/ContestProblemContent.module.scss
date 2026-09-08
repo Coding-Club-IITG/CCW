@@ -1,0 +1,63 @@
+.content {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
+  color: var(--foreground-strong);
+}
+
+.contentPlain {
+  color: var(--foreground-strong);
+  padding: 0.5rem 0;
+}
+
+.content summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.section {
+  margin-top: 0.9rem;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.section h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  color: var(--foreground-strong);
+}
+
+.section :global(pre) {
+  overflow-x: auto;
+  padding: 0.75rem;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.section :global(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+.section :global(.katex-display) {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+.noStatementNotice {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+
+  a {
+    color: var(--primary);
+    text-decoration: underline;
+
+    &:hover {
+      text-decoration: none;
+    }
+  }
+}
