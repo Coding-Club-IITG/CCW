@@ -23,6 +23,20 @@ export type ContestPresetDto = {
     timeLimitMinutes?: number;
   }>;
   fineTunedProblemCount?: number;
+  isGlobal?: boolean;
+  overallDurationMinutes?: number;
+  perProblemDurationMinutes?: number;
+  teamSize?: number;
+  spectatorRestriction?: "none" | "all" | "admin_creator" | "club_members";
+  registrationSettings?: {
+    type: "open" | "closed";
+    maxParticipants: number;
+  };
+  bracketSettings?: {
+    type?: "single_elimination" | "double_elimination";
+    seedingMethod?: "cf_rating" | "manual";
+    thirdPlacePlayoff?: boolean;
+  };
   archived?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -105,6 +119,24 @@ export function toContestPresetDto(
       roundNumber: slot.roundNumber,
     })),
     fineTunedProblemCount: preset.problemSlots?.length,
+    isGlobal: preset.isGlobal ?? false,
+    overallDurationMinutes: preset.overallDurationMinutes,
+    perProblemDurationMinutes: preset.perProblemDurationMinutes,
+    teamSize: preset.teamSize,
+    spectatorRestriction: preset.spectatorRestriction,
+    registrationSettings: preset.registrationSettings
+      ? {
+          type: preset.registrationSettings.type,
+          maxParticipants: preset.registrationSettings.maxParticipants,
+        }
+      : undefined,
+    bracketSettings: preset.bracketSettings
+      ? {
+          type: preset.bracketSettings.type,
+          seedingMethod: preset.bracketSettings.seedingMethod,
+          thirdPlacePlayoff: preset.bracketSettings.thirdPlacePlayoff,
+        }
+      : undefined,
     archived: preset.archived ?? false,
     createdAt: preset.createdAt?.toISOString(),
     updatedAt: preset.updatedAt?.toISOString(),

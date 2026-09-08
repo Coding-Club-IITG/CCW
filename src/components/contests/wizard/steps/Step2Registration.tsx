@@ -53,8 +53,16 @@ export default function Step2Registration({
       </div>
 
       <div className={styles.field}>
-        <label className={`${styles.label} ${styles.labelBlock}`}>Spectator Access</label>
-        <select className={styles.input} value={spectatorRestriction} onChange={(e) => updateFields({ spectatorRestriction: e.target.value })}>
+        <label className={`${styles.label} ${styles.labelBlock}`}>
+          Spectator Access
+        </label>
+        <select
+          className={styles.input}
+          value={spectatorRestriction}
+          onChange={(e) =>
+            updateFields({ spectatorRestriction: e.target.value })
+          }
+        >
           <option value="none">No Spectators</option>
           <option value="all">Any Authenticated User</option>
           <option value="club_members">Club / Module Members</option>

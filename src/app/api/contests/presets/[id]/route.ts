@@ -3,7 +3,8 @@ import { NextRequest } from "next/server";
 
 import { auditActor, auditedTransaction } from "@/lib/audit";
 import { summarizeContest } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireSession } from "@/lib/api/auth";
+import { isHead } from "@/lib/access/roles";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import {
   boundaryErrorResponse,
@@ -26,6 +27,11 @@ async function validatedId(context: Context) {
 }
 
 export async function GET(request: NextRequest, context: Context) {
+  const authorization = await requireSession(request);
+  if (!authorization.ok) {
+    return jsonError(authorization.error.code, authorization.error.message);
+  }
+
   const params = await validatedId(context);
   if (!params.ok) {
     return jsonError(params.error.code, params.error.message, {
@@ -35,16 +41,25 @@ export async function GET(request: NextRequest, context: Context) {
   try {
     await dbConnect();
     const preset = await ContestPreset.findById(params.data.id).lean();
-    return preset
-      ? jsonOk(toContestPresetDto(preset))
-      : jsonError("NOT_FOUND", "Preset not found");
+    if (!preset) return jsonError("NOT_FOUND", "Preset not found");
+
+    const isAdmin = isHead(authorization.data.user.access);
+    const isOwner = preset.creatorId?.toString() === authorization.data.user.id;
+    if (!preset.isGlobal && !isAdmin && !isOwner) {
+      return jsonError(
+        "FORBIDDEN",
+        "You do not have permission to view this preset",
+      );
+    }
+
+    return jsonOk(toContestPresetDto(preset));
   } catch (error) {
     return boundaryErrorResponse("get_contest_preset", error, request);
   }
 }
 
 export async function PUT(request: NextRequest, context: Context) {
-  const authorization = await requireHead(request);
+  const authorization = await requireSession(request);
   if (!authorization.ok) {
     return jsonError(authorization.error.code, authorization.error.message);
   }
@@ -63,8 +78,27 @@ export async function PUT(request: NextRequest, context: Context) {
 
   try {
     await dbConnect();
-    if (!(await ContestPreset.exists({ _id: params.data.id })))
-      return jsonError("NOT_FOUND", "Preset not found");
+    const existingPreset = await ContestPreset.findById(params.data.id).lean();
+    if (!existingPreset) return jsonError("NOT_FOUND", "Preset not found");
+
+    const isAdmin = isHead(authorization.data.user.access);
+    const isOwner =
+      existingPreset.creatorId?.toString() === authorization.data.user.id;
+
+    if (!isAdmin && !isOwner) {
+      return jsonError(
+        "FORBIDDEN",
+        "You do not have permission to modify this preset",
+      );
+    }
+
+    if (!isAdmin) {
+      // Non-admins cannot modify global state
+      if (body.data.isGlobal !== undefined) {
+        delete body.data.isGlobal;
+      }
+    }
+
     if (body.data.name) {
       const duplicate = await ContestPreset.exists({
         _id: { $ne: params.data.id },
@@ -125,7 +159,7 @@ export async function PUT(request: NextRequest, context: Context) {
 }
 
 export async function PATCH(request: NextRequest, context: Context) {
-  const authorization = await requireHead(request);
+  const authorization = await requireSession(request);
   if (!authorization.ok) {
     return jsonError(authorization.error.code, authorization.error.message);
   }
@@ -144,8 +178,20 @@ export async function PATCH(request: NextRequest, context: Context) {
 
   try {
     await dbConnect();
-    if (!(await ContestPreset.exists({ _id: params.data.id })))
-      return jsonError("NOT_FOUND", "Preset not found");
+    const existingPreset = await ContestPreset.findById(params.data.id).lean();
+    if (!existingPreset) return jsonError("NOT_FOUND", "Preset not found");
+
+    const isAdmin = isHead(authorization.data.user.access);
+    const isOwner =
+      existingPreset.creatorId?.toString() === authorization.data.user.id;
+
+    if (!isAdmin && !isOwner) {
+      return jsonError(
+        "FORBIDDEN",
+        "You do not have permission to archive this preset",
+      );
+    }
+
     const dbSession = await mongoose.startSession();
     let preset;
     try {
@@ -195,5 +241,68 @@ export async function PATCH(request: NextRequest, context: Context) {
       : jsonError("NOT_FOUND", "Preset not found");
   } catch (error) {
     return boundaryErrorResponse("archive_contest_preset", error, request);
+  }
+}
+
+export async function DELETE(request: NextRequest, context: Context) {
+  const authorization = await requireSession(request);
+  if (!authorization.ok) {
+    return jsonError(authorization.error.code, authorization.error.message);
+  }
+  const params = await validatedId(context);
+  if (!params.ok) {
+    return jsonError(params.error.code, params.error.message, {
+      fields: params.error.fields,
+    });
+  }
+
+  try {
+    await dbConnect();
+    const existingPreset = await ContestPreset.findById(params.data.id).lean();
+    if (!existingPreset) return jsonError("NOT_FOUND", "Preset not found");
+
+    const isAdmin = isHead(authorization.data.user.access);
+    const isOwner =
+      existingPreset.creatorId?.toString() === authorization.data.user.id;
+
+    if (!isAdmin && !isOwner) {
+      return jsonError(
+        "FORBIDDEN",
+        "You do not have permission to delete this preset",
+      );
+    }
+
+    const dbSession = await mongoose.startSession();
+    try {
+      await auditedTransaction(dbSession, async (transaction) => {
+        const deleted = await ContestPreset.findByIdAndDelete(params.data.id)
+          .session(transaction)
+          .lean();
+        if (!deleted)
+          throw new Error("Contest preset disappeared during delete.");
+        return {
+          result: deleted,
+          audit: {
+            actor: auditActor(authorization.data.user),
+            category: "contests" as const,
+            action: "delete" as const,
+            operation: "contests.preset.delete",
+            target: {
+              type: "contest-preset",
+              id: params.data.id,
+              label: deleted.name,
+            },
+            before: summarizeContest(
+              deleted as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
+    return jsonOk({ success: true });
+  } catch (error) {
+    return boundaryErrorResponse("delete_contest_preset", error, request);
   }
 }

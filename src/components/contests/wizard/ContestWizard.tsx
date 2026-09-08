@@ -3,12 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import {
-  validateStep,
-  createBracketContest,
-} from "@/lib/actions/admin/contests";
+import { validateStep, createBracketContest } from "@/lib/actions/contests";
 import type {
-  AdminContestWizardForm,
+  ContestWizardForm,
   ContestCreationPreset,
 } from "@/components/contests/contestCreationForm";
 import BackLink from "@/components/shared/BackLink";
@@ -33,7 +30,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState<AdminContestWizardForm>({
+  const [formData, setFormData] = useState<ContestWizardForm>({
     name: "",
     description: "",
     mode: "blitz",
@@ -51,7 +48,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     }[],
     thirdPlacePlayoff: false,
     seedingMethod: "cf_rating",
-      spectatorRestriction: "none",
+    spectatorRestriction: "none",
   });
 
   const selectedPreset = presets.find((p) => p._id === formData.presetId);
@@ -123,7 +120,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
         toast.error(result.error.message);
       } else {
         toast.success("Contest created successfully!");
-        router.push(`/admin`);
+        router.push(`/internal/contests`);
       }
     } catch {
       toast.error("Failed to create contest");
@@ -134,7 +131,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
 
   return (
     <div className={styles.wizardContainer}>
-      <BackLink href="/admin" label="Back to Administration" />
+      <BackLink href="/internal/contests" label="Back to Contests" />
       <h1 className={styles.wizardTitle}>Create Bracket Tournament</h1>
 
       {/* Progress Tracker */}
@@ -169,7 +166,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
         {steps[currentStep - 1]?.id === "reg" && (
           <Step2Registration
             registrationType={formData.registrationType}
-              spectatorRestriction={formData.spectatorRestriction}
+            spectatorRestriction={formData.spectatorRestriction}
             maxParticipants={formData.maxParticipants}
             startTime={formData.startTime}
             updateFields={updateFields}
@@ -195,6 +192,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
         )}
         {steps[currentStep - 1]?.id === "settings" && (
           <Step4BracketSettings
+            bracketType={formData.bracketType}
             thirdPlacePlayoff={formData.thirdPlacePlayoff}
             seedingMethod={formData.seedingMethod}
             updateFields={updateFields}
@@ -239,4 +237,3 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     </div>
   );
 }
-

@@ -66,6 +66,7 @@ export const createBracketContest = defineAction(
   "createBracketContest",
   createBracketContestAction,
 );
+export const validateStep = defineAction("validateStep", validateStepAction);
 
 import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
@@ -77,6 +78,7 @@ import { auth } from "@/lib/auth";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   contestCreationPayloadSchema,
+  contestCreationDraftSchema,
   validateBracketContestInput,
   type ContestProblemSlot,
 } from "@/lib/api/schemas/contestAction";
@@ -87,6 +89,7 @@ import { auditActor } from "@/lib/audit";
 import { summarizeContest } from "@/lib/audit/summary";
 import AuditLog, { auditExpiry } from "@/models/AuditLog";
 import ContestMatch from "@/models/ContestMatch";
+import ContestPreset from "@/models/ContestPreset";
 import CPUser from "@/models/CPUser";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
@@ -201,15 +204,20 @@ async function getContestListingAction() {
     };
 
     if (isRegistered && contest.teamSize && contest.teamSize > 1) {
-        const userReg = (contest.registrations || []).find(r => r.userId.toString() === userId);
-        if (userReg) {
-           item.registeredTeamName = userReg.teamName;
-           const regTeam = await ContestRegistrationTeam.findOne({ contestId: contest._id, name: userReg.teamName }).lean();
-           if (regTeam) {
-               item.registeredTeamId = regTeam._id.toString();
-               item.isTeamLeader = regTeam.leaderId === userId;
-           }
+      const userReg = (contest.registrations || []).find(
+        (r) => r.userId.toString() === userId,
+      );
+      if (userReg) {
+        item.registeredTeamName = userReg.teamName;
+        const regTeam = await ContestRegistrationTeam.findOne({
+          contestId: contest._id,
+          name: userReg.teamName,
+        }).lean();
+        if (regTeam) {
+          item.registeredTeamId = regTeam._id.toString();
+          item.isTeamLeader = regTeam.leaderId === userId;
         }
+      }
     }
 
     const status = contest.status;
@@ -357,7 +365,7 @@ async function registerForContestAction(
   contestId: string,
   teamName?: string,
   isPublic?: boolean,
-  joinCode?: string
+  joinCode?: string,
 ) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
@@ -387,8 +395,15 @@ async function registerForContestAction(
 
     if (!contest.registrations) contest.registrations = [];
 
-    if (contest.registrations.some(r => r.userId.toString() === cpUser.userId.toString())) {
-      return appError("CONFLICT", "You are already registered for this contest. Please unregister first to change teams.");
+    if (
+      contest.registrations.some(
+        (r) => r.userId.toString() === cpUser.userId.toString(),
+      )
+    ) {
+      return appError(
+        "CONFLICT",
+        "You are already registered for this contest. Please unregister first to change teams.",
+      );
     }
 
     const tName = teamName || cpUser.cfHandle || "unknown";
@@ -398,9 +413,9 @@ async function registerForContestAction(
     if (teamSize > 1) {
       const ContestRegistrationTeam = mongoose.models.ContestRegistrationTeam;
       // Case-insensitive lookup for the team name
-      let regTeam = await ContestRegistrationTeam.findOne({ 
-          contestId: contest._id, 
-          name: { $regex: new RegExp(`^${tName}$`, 'i') } 
+      let regTeam = await ContestRegistrationTeam.findOne({
+        contestId: contest._id,
+        name: { $regex: new RegExp(`^${tName}$`, "i") },
       });
 
       // isPublic is passed only when creating a new team
@@ -408,24 +423,30 @@ async function registerForContestAction(
 
       if (isCreatingNewTeam) {
         if (regTeam) {
-          return appError("CONFLICT", "A team with this name already exists. Please choose a different name.");
+          return appError(
+            "CONFLICT",
+            "A team with this name already exists. Please choose a different name.",
+          );
         }
         // Create new team with the exact casing provided
         regTeam = await ContestRegistrationTeam.create({
-            contestId: contest._id,
-            name: tName,
-            leaderId: userId,
-            isPublic: isPublic,
-            joinCode: joinCode || undefined
+          contestId: contest._id,
+          name: tName,
+          leaderId: userId,
+          isPublic: isPublic,
+          joinCode: joinCode || undefined,
         });
       } else {
         if (!regTeam) {
           return appError("NOT_FOUND", "Team not found.");
         }
         if (!regTeam.isPublic) {
-            if (!regTeam.joinCode || regTeam.joinCode !== joinCode) {
-                return appError("FORBIDDEN", "Invalid join code for this private team. You may need to request to join instead.");
-            }
+          if (!regTeam.joinCode || regTeam.joinCode !== joinCode) {
+            return appError(
+              "FORBIDDEN",
+              "Invalid join code for this private team. You may need to request to join instead.",
+            );
+          }
         }
         // If joining, we should use the exact team name as registered in the database
         // to avoid casing mismatches when counting team members later
@@ -443,7 +464,8 @@ async function registerForContestAction(
     } else {
       // For solo, ensure no duplicate team name
       const teamExists = contest.registrations.some(
-        (registration) => registration.teamName?.toLowerCase() === tName.toLowerCase(),
+        (registration) =>
+          registration.teamName?.toLowerCase() === tName.toLowerCase(),
       );
       if (teamExists) {
         return appError("CONFLICT", "Display name already taken.");
@@ -487,9 +509,13 @@ async function getAvailableTeamsForContestAction(contestId: string) {
       }
     }
 
-    const ContestRegistrationTeam = (await import("@/models/ContestRegistrationTeam")).default;
-    const regTeams = await ContestRegistrationTeam.find({ contestId: contest._id }).lean();
-    const regTeamMap = new Map(regTeams.map(t => [t.name, t]));
+    const ContestRegistrationTeam = (
+      await import("@/models/ContestRegistrationTeam")
+    ).default;
+    const regTeams = await ContestRegistrationTeam.find({
+      contestId: contest._id,
+    }).lean();
+    const regTeamMap = new Map(regTeams.map((t) => [t.name, t]));
 
     const availableTeams = Object.entries(teamCounts)
       .filter(([_, count]) => count < teamSize)
@@ -501,7 +527,7 @@ async function getAvailableTeamsForContestAction(contestId: string) {
           maxCapacity: teamSize,
           isPublic: teamInfo ? teamInfo.isPublic : true,
           leaderId: teamInfo ? teamInfo.leaderId : "",
-          requiresJoinCode: teamInfo ? (!teamInfo.isPublic) : false,
+          requiresJoinCode: teamInfo ? !teamInfo.isPublic : false,
           teamId: teamInfo ? teamInfo._id.toString() : "",
         };
       });
@@ -757,10 +783,7 @@ async function createRoomContestAction(input: unknown) {
   }
 }
 
-
-export async function getContestRegistrationsAction(
-  contestId: string,
-) {
+export async function getContestRegistrationsAction(contestId: string) {
   try {
     const contest = await ContestMatch.findById(contestId);
     if (!contest) return appError("NOT_FOUND", "Contest not found");
@@ -834,20 +857,27 @@ export async function unregisterFromContestAction(contestId: string) {
     );
 
     if (contest.teamSize && contest.teamSize > 1 && userRegistration.teamName) {
-        const ContestRegistrationTeam = (await import("@/models/ContestRegistrationTeam")).default;
-        const team = await ContestRegistrationTeam.findOne({ contestId: contest._id, name: userRegistration.teamName });
-        if (team) {
-            // Check if there are other members left in the team
-            const remainingMembers = (contest.registrations || []).filter(r => r.teamName === team.name);
-            if (remainingMembers.length === 0) {
-                // Delete team since no members are left
-                await ContestRegistrationTeam.findByIdAndDelete(team._id);
-            } else if (team.leaderId === userId) {
-                // Assign new leader
-                team.leaderId = remainingMembers[0].userId.toString();
-                await team.save();
-            }
+      const ContestRegistrationTeam = (
+        await import("@/models/ContestRegistrationTeam")
+      ).default;
+      const team = await ContestRegistrationTeam.findOne({
+        contestId: contest._id,
+        name: userRegistration.teamName,
+      });
+      if (team) {
+        // Check if there are other members left in the team
+        const remainingMembers = (contest.registrations || []).filter(
+          (r) => r.teamName === team.name,
+        );
+        if (remainingMembers.length === 0) {
+          // Delete team since no members are left
+          await ContestRegistrationTeam.findByIdAndDelete(team._id);
+        } else if (team.leaderId === userId) {
+          // Assign new leader
+          team.leaderId = remainingMembers[0].userId.toString();
+          await team.save();
         }
+      }
     }
 
     await contest.save();
@@ -920,6 +950,73 @@ async function searchVerifiedUsersAction(query: string) {
 }
 
 // ─── Bracket / Knockout creation for all authenticated users ──────────────────
+
+async function validateStepAction(step: number, input: unknown) {
+  const parsed = contestCreationDraftSchema.safeParse(input);
+  if (!parsed.success) return validationError(parsed.error);
+  const data = parsed.data;
+  const errors: Record<string, string> = {};
+
+  if (step === 1) {
+    if (data.mode !== "blitz" && data.mode !== "arena") {
+      errors.mode = "Mode must be blitz or arena";
+    }
+    if (data.teamSize !== 1 && data.teamSize !== 3) {
+      errors.teamSize = "Team size must be 1 or 3";
+    }
+  }
+
+  if (step === 2) {
+    if (
+      !data.startTime ||
+      !Number.isFinite(new Date(data.startTime).getTime())
+    ) {
+      errors.startTime = "A valid tournament start time is required";
+    }
+    if (
+      data.registrationType !== "open" &&
+      data.registrationType !== "closed"
+    ) {
+      errors.registrationType = "Registration type must be open or closed";
+    }
+    if (!data.maxParticipants || isNaN(Number(data.maxParticipants))) {
+      errors.maxParticipants =
+        "Max participants is required and must be a number";
+    } else if (Number(data.maxParticipants) < 2) {
+      errors.maxParticipants = "Minimum 2 participants required";
+    }
+  }
+
+  if (step === 3) {
+    if (!data.presetId) {
+      errors.presetId = "Please select a match preset";
+    } else if (data.presetId !== "custom") {
+      if (!mongoose.Types.ObjectId.isValid(data.presetId)) {
+        errors.presetId = "Invalid preset ID format";
+      } else {
+        await dbConnect();
+        const preset = await ContestPreset.findById(data.presetId);
+        if (!preset) {
+          errors.presetId = "Selected preset does not exist";
+        } else if (preset.archived) {
+          errors.presetId = "Selected preset is archived";
+        }
+      }
+    }
+  }
+
+  if (step === 4 || step === 5) {
+    if (
+      data.seedingMethod &&
+      data.seedingMethod !== "cf_rating" &&
+      data.seedingMethod !== "manual"
+    ) {
+      errors.seedingMethod = "Seeding method must be cf_rating or manual";
+    }
+  }
+
+  return ok({ valid: Object.keys(errors).length === 0, errors });
+}
 
 async function createBracketContestAction(input: unknown) {
   const reqHeaders = await headers();
@@ -1264,7 +1361,10 @@ async function getContestTeamRequestsAction(teamId: string) {
       return appError("FORBIDDEN", "Only team leader can view requests");
     }
 
-    const requests = await ContestTeamRequest.find({ teamId, status: "pending" }).lean();
+    const requests = await ContestTeamRequest.find({
+      teamId,
+      status: "pending",
+    }).lean();
 
     // Collect all userIds we need to resolve
     const userIds = new Set<string>();
@@ -1273,27 +1373,38 @@ async function getContestTeamRequestsAction(teamId: string) {
       if (req.toUserId) userIds.add(req.toUserId);
     }
 
-    const cpUsers = await CPUser.find({ userId: { $in: Array.from(userIds) } }, "userId cfHandle").lean();
+    const cpUsers = await CPUser.find(
+      { userId: { $in: Array.from(userIds) } },
+      "userId cfHandle",
+    ).lean();
     const handleMap = new Map<string, string>();
     for (const cp of cpUsers) {
       handleMap.set(cp.userId.toString(), cp.cfHandle || cp.userId.toString());
     }
 
-    const enriched = requests.map(req => ({
+    const enriched = requests.map((req) => ({
       ...req,
       _id: req._id.toString(),
       fromUserHandle: handleMap.get(req.fromUserId) || req.fromUserId,
-      toUserHandle: req.toUserId ? (handleMap.get(req.toUserId) || req.toUserId) : undefined,
+      toUserHandle: req.toUserId
+        ? handleMap.get(req.toUserId) || req.toUserId
+        : undefined,
     }));
 
     return ok(enriched);
   } catch (error) {
-    logger.error("Failed to get team requests", { action: "getContestTeamRequests", ...errorToLogMetadata(error) });
+    logger.error("Failed to get team requests", {
+      action: "getContestTeamRequests",
+      ...errorToLogMetadata(error),
+    });
     return appError("INTERNAL_ERROR", "An unexpected error occurred");
   }
 }
 
-async function requestToJoinContestTeamAction(contestId: string, teamId: string) {
+async function requestToJoinContestTeamAction(
+  contestId: string,
+  teamId: string,
+) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
@@ -1301,7 +1412,8 @@ async function requestToJoinContestTeamAction(contestId: string, teamId: string)
 
     await dbConnect();
     const contest = await ContestMatch.findById(contestId);
-    if (!contest || contest.status !== "registration") return appError("VALIDATION_ERROR", "Contest not open");
+    if (!contest || contest.status !== "registration")
+      return appError("VALIDATION_ERROR", "Contest not open");
 
     const team = await ContestRegistrationTeam.findById(teamId);
     if (!team) return appError("NOT_FOUND", "Team not found");
@@ -1309,43 +1421,61 @@ async function requestToJoinContestTeamAction(contestId: string, teamId: string)
     const cpUser = await CPUser.findOne({ userId });
     if (!cpUser) return appError("NOT_FOUND", "CP user not found");
 
-    if (contest.registrations?.some(r => r.userId.toString() === userId)) {
-        return appError("CONFLICT", "You are already registered for this contest.");
+    if (contest.registrations?.some((r) => r.userId.toString() === userId)) {
+      return appError(
+        "CONFLICT",
+        "You are already registered for this contest.",
+      );
     }
 
     const teamSize = contest.teamSize || 1;
-    const teamMembers = (contest.registrations || []).filter(r => r.teamName === team.name);
+    const teamMembers = (contest.registrations || []).filter(
+      (r) => r.teamName === team.name,
+    );
     if (teamMembers.length >= teamSize) {
-        return appError("CONFLICT", "Team is already full.");
+      return appError("CONFLICT", "Team is already full.");
     }
 
-    const existingRequest = await ContestTeamRequest.findOne({ teamId, fromUserId: userId, status: "pending", type: "join_request" });
-    if (existingRequest) return appError("CONFLICT", "Join request already pending");
+    const existingRequest = await ContestTeamRequest.findOne({
+      teamId,
+      fromUserId: userId,
+      status: "pending",
+      type: "join_request",
+    });
+    if (existingRequest)
+      return appError("CONFLICT", "Join request already pending");
 
     await ContestTeamRequest.create({
       contestId,
       teamId,
       type: "join_request",
       fromUserId: userId,
-      status: "pending"
+      status: "pending",
     });
-    
+
     // Notify leader
     await NotificationModel.create({
-        userId: team.leaderId,
-        type: "join_request",
-        title: "New Team Join Request",
-        message: `${cpUser.cfHandle} has requested to join your team ${team.name}.`,
+      userId: team.leaderId,
+      type: "join_request",
+      title: "New Team Join Request",
+      message: `${cpUser.cfHandle} has requested to join your team ${team.name}.`,
     });
 
     return ok({ message: "Join request sent successfully" });
   } catch (error) {
-    logger.error("Failed to send join request", { action: "requestToJoinContestTeam", ...errorToLogMetadata(error) });
+    logger.error("Failed to send join request", {
+      action: "requestToJoinContestTeam",
+      ...errorToLogMetadata(error),
+    });
     return appError("INTERNAL_ERROR", "An unexpected error occurred");
   }
 }
 
-async function inviteToContestTeamAction(contestId: string, teamId: string, cfHandle: string) {
+async function inviteToContestTeamAction(
+  contestId: string,
+  teamId: string,
+  cfHandle: string,
+) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
@@ -1353,25 +1483,44 @@ async function inviteToContestTeamAction(contestId: string, teamId: string, cfHa
 
     await dbConnect();
     const team = await ContestRegistrationTeam.findById(teamId);
-    if (!team || team.leaderId !== userId) return appError("FORBIDDEN", "Not team leader");
+    if (!team || team.leaderId !== userId)
+      return appError("FORBIDDEN", "Not team leader");
 
-    const targetUser = await CPUser.findOne({ cfHandle: new RegExp(`^${cfHandle}$`, 'i') });
-    if (!targetUser) return appError("NOT_FOUND", "Codeforces user not found in system");
+    const targetUser = await CPUser.findOne({
+      cfHandle: new RegExp(`^${cfHandle}$`, "i"),
+    });
+    if (!targetUser)
+      return appError("NOT_FOUND", "Codeforces user not found in system");
 
     const contest = await ContestMatch.findById(contestId);
-    if (!contest || contest.status !== "registration") return appError("VALIDATION_ERROR", "Contest not open");
+    if (!contest || contest.status !== "registration")
+      return appError("VALIDATION_ERROR", "Contest not open");
 
-    if (contest.registrations?.some(r => r.userId.toString() === targetUser.userId.toString())) {
-        return appError("CONFLICT", "User is already registered for this contest.");
+    if (
+      contest.registrations?.some(
+        (r) => r.userId.toString() === targetUser.userId.toString(),
+      )
+    ) {
+      return appError(
+        "CONFLICT",
+        "User is already registered for this contest.",
+      );
     }
 
     const teamSize = contest.teamSize || 1;
-    const teamMembers = (contest.registrations || []).filter(r => r.teamName === team.name);
+    const teamMembers = (contest.registrations || []).filter(
+      (r) => r.teamName === team.name,
+    );
     if (teamMembers.length >= teamSize) {
-        return appError("CONFLICT", "Team is already full.");
+      return appError("CONFLICT", "Team is already full.");
     }
 
-    const existingInvite = await ContestTeamRequest.findOne({ teamId, toUserId: targetUser.userId, status: "pending", type: "invite" });
+    const existingInvite = await ContestTeamRequest.findOne({
+      teamId,
+      toUserId: targetUser.userId,
+      status: "pending",
+      type: "invite",
+    });
     if (existingInvite) return appError("CONFLICT", "Invite already pending");
 
     await ContestTeamRequest.create({
@@ -1380,25 +1529,31 @@ async function inviteToContestTeamAction(contestId: string, teamId: string, cfHa
       type: "invite",
       fromUserId: userId,
       toUserId: targetUser.userId,
-      status: "pending"
+      status: "pending",
     });
 
     // Notify user
     await NotificationModel.create({
-        userId: targetUser.userId,
-        type: "team_invite",
-        title: "Contest Team Invite",
-        message: `You have been invited to join team ${team.name}.`,
+      userId: targetUser.userId,
+      type: "team_invite",
+      title: "Contest Team Invite",
+      message: `You have been invited to join team ${team.name}.`,
     });
 
     return ok({ message: "Invite sent successfully" });
   } catch (error) {
-    logger.error("Failed to send invite", { action: "inviteToContestTeam", ...errorToLogMetadata(error) });
+    logger.error("Failed to send invite", {
+      action: "inviteToContestTeam",
+      ...errorToLogMetadata(error),
+    });
     return appError("INTERNAL_ERROR", "An unexpected error occurred");
   }
 }
 
-async function respondToContestTeamRequestAction(requestId: string, action: "accept" | "reject") {
+async function respondToContestTeamRequestAction(
+  requestId: string,
+  action: "accept" | "reject",
+) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
@@ -1406,57 +1561,78 @@ async function respondToContestTeamRequestAction(requestId: string, action: "acc
 
     await dbConnect();
     const request = await ContestTeamRequest.findById(requestId);
-    if (!request || request.status !== "pending") return appError("NOT_FOUND", "Request not found or already processed");
+    if (!request || request.status !== "pending")
+      return appError("NOT_FOUND", "Request not found or already processed");
 
     const team = await ContestRegistrationTeam.findById(request.teamId);
     if (!team) return appError("NOT_FOUND", "Team not found");
-    
+
     // For join requests, only leader can accept/reject. For invites, only the invited user can accept/reject.
     if (request.type === "join_request" && team.leaderId !== userId) {
-        return appError("FORBIDDEN", "Only team leader can respond to join requests");
+      return appError(
+        "FORBIDDEN",
+        "Only team leader can respond to join requests",
+      );
     }
     if (request.type === "invite" && request.toUserId !== userId) {
-        return appError("FORBIDDEN", "Only invited user can respond to this invite");
+      return appError(
+        "FORBIDDEN",
+        "Only invited user can respond to this invite",
+      );
     }
 
     request.status = action === "accept" ? "accepted" : "rejected";
     await request.save();
 
     if (action === "accept") {
-        const contest = await ContestMatch.findById(request.contestId);
-        if (contest) {
-           const teamSize = contest.teamSize || 1;
-           const teamMembers = (contest.registrations || []).filter(r => r.teamName === team.name);
-           if (teamMembers.length >= teamSize) {
-               return appError("CONFLICT", "Team is already full.");
-           }
-
-           const targetUserId = request.type === "join_request" ? request.fromUserId : request.toUserId;
-           
-           if (contest.registrations?.some(r => r.userId.toString() === targetUserId)) {
-               return appError("CONFLICT", "User is already registered for this contest.");
-           }
-
-           const targetCPUser = await CPUser.findOne({ userId: targetUserId });
-           
-           if (targetCPUser) {
-               contest.registrations = contest.registrations || [];
-               contest.registrations.push({
-                   userId: targetCPUser.userId,
-                   cfHandle: targetCPUser.cfHandle || "unknown",
-                   teamName: team.name,
-                   registeredAt: new Date()
-               });
-               await contest.save();
-           }
+      const contest = await ContestMatch.findById(request.contestId);
+      if (contest) {
+        const teamSize = contest.teamSize || 1;
+        const teamMembers = (contest.registrations || []).filter(
+          (r) => r.teamName === team.name,
+        );
+        if (teamMembers.length >= teamSize) {
+          return appError("CONFLICT", "Team is already full.");
         }
+
+        const targetUserId =
+          request.type === "join_request"
+            ? request.fromUserId
+            : request.toUserId;
+
+        if (
+          contest.registrations?.some(
+            (r) => r.userId.toString() === targetUserId,
+          )
+        ) {
+          return appError(
+            "CONFLICT",
+            "User is already registered for this contest.",
+          );
+        }
+
+        const targetCPUser = await CPUser.findOne({ userId: targetUserId });
+
+        if (targetCPUser) {
+          contest.registrations = contest.registrations || [];
+          contest.registrations.push({
+            userId: targetCPUser.userId,
+            cfHandle: targetCPUser.cfHandle || "unknown",
+            teamName: team.name,
+            registeredAt: new Date(),
+          });
+          await contest.save();
+        }
+      }
     }
 
-    
     revalidatePath("/internal/contests");
     return ok({ message: `Request ${action}ed successfully` });
   } catch (error) {
-    logger.error("Failed to respond to request", { action: "respondToContestTeamRequest", ...errorToLogMetadata(error) });
+    logger.error("Failed to respond to request", {
+      action: "respondToContestTeamRequest",
+      ...errorToLogMetadata(error),
+    });
     return appError("INTERNAL_ERROR", "An unexpected error occurred");
   }
 }
@@ -1480,9 +1656,16 @@ async function getMyContestInvitesAction() {
     // Enrich with team + contest info
     const enriched = await Promise.all(
       invites.map(async (invite) => {
-        const team = await ContestRegistrationTeam.findById(invite.teamId, "name contestId leaderId").lean();
-        const contest = team ? await ContestMatch.findById(team.contestId, "name status").lean() : null;
-        const leaderCp = team ? await CPUser.findOne({ userId: team.leaderId }, "cfHandle").lean() : null;
+        const team = await ContestRegistrationTeam.findById(
+          invite.teamId,
+          "name contestId leaderId",
+        ).lean();
+        const contest = team
+          ? await ContestMatch.findById(team.contestId, "name status").lean()
+          : null;
+        const leaderCp = team
+          ? await CPUser.findOne({ userId: team.leaderId }, "cfHandle").lean()
+          : null;
         return {
           _id: invite._id.toString(),
           teamId: invite.teamId.toString(),
@@ -1492,12 +1675,15 @@ async function getMyContestInvitesAction() {
           contestStatus: (contest as any)?.status || "",
           invitedByHandle: leaderCp?.cfHandle || team?.leaderId || "Unknown",
         };
-      })
+      }),
     );
 
     return ok(enriched);
   } catch (error) {
-    logger.error("Failed to get invites", { action: "getMyContestInvites", ...errorToLogMetadata(error) });
+    logger.error("Failed to get invites", {
+      action: "getMyContestInvites",
+      ...errorToLogMetadata(error),
+    });
     return appError("INTERNAL_ERROR", "An unexpected error occurred");
   }
 }
@@ -1511,10 +1697,13 @@ async function getMyTeamJoinRequestsAction() {
     await dbConnect();
 
     // First find all teams where this user is the leader
-    const myTeams = await ContestRegistrationTeam.find({ leaderId: userId }, "_id name contestId").lean();
+    const myTeams = await ContestRegistrationTeam.find(
+      { leaderId: userId },
+      "_id name contestId",
+    ).lean();
     if (myTeams.length === 0) return ok([]);
 
-    const myTeamIds = myTeams.map(t => t._id);
+    const myTeamIds = myTeams.map((t) => t._id);
 
     // Now find pending join requests for these teams
     const requests = await ContestTeamRequest.find({
@@ -1526,19 +1715,32 @@ async function getMyTeamJoinRequestsAction() {
     if (requests.length === 0) return ok([]);
 
     // Collect userIds to resolve CF handles
-    const fromUserIds = requests.map(r => r.fromUserId);
-    const cpUsers = await CPUser.find({ userId: { $in: fromUserIds } }, "userId cfHandle").lean();
-    const handleMap = new Map(cpUsers.map(cp => [cp.userId.toString(), cp.cfHandle || cp.userId.toString()]));
+    const fromUserIds = requests.map((r) => r.fromUserId);
+    const cpUsers = await CPUser.find(
+      { userId: { $in: fromUserIds } },
+      "userId cfHandle",
+    ).lean();
+    const handleMap = new Map(
+      cpUsers.map((cp) => [
+        cp.userId.toString(),
+        cp.cfHandle || cp.userId.toString(),
+      ]),
+    );
 
     // Map team info
-    const teamMap = new Map(myTeams.map(t => [t._id.toString(), t]));
+    const teamMap = new Map(myTeams.map((t) => [t._id.toString(), t]));
 
     // Get contest info
-    const contestIds = Array.from(new Set(myTeams.map(t => t.contestId.toString())));
-    const contests = await ContestMatch.find({ _id: { $in: contestIds } }, "name status").lean();
-    const contestMap = new Map(contests.map(c => [c._id.toString(), c]));
+    const contestIds = Array.from(
+      new Set(myTeams.map((t) => t.contestId.toString())),
+    );
+    const contests = await ContestMatch.find(
+      { _id: { $in: contestIds } },
+      "name status",
+    ).lean();
+    const contestMap = new Map(contests.map((c) => [c._id.toString(), c]));
 
-    const enriched = requests.map(req => {
+    const enriched = requests.map((req) => {
       const team = teamMap.get(req.teamId.toString());
       const contest = team ? contestMap.get(team.contestId.toString()) : null;
       return {
@@ -1554,8 +1756,10 @@ async function getMyTeamJoinRequestsAction() {
 
     return ok(enriched);
   } catch (error) {
-    logger.error("Failed to get team join requests", { action: "getMyTeamJoinRequests", ...errorToLogMetadata(error) });
+    logger.error("Failed to get team join requests", {
+      action: "getMyTeamJoinRequests",
+      ...errorToLogMetadata(error),
+    });
     return appError("INTERNAL_ERROR", "An unexpected error occurred");
   }
 }
-

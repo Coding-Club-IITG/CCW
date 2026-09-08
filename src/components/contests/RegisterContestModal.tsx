@@ -291,7 +291,7 @@ export default function RegisterContestModal({
               )}
 
               {/* Team Name Input */}
-              {!["1v1", "solo-tournament"].includes(format) && (
+              {teamSize > 1 && (
                 <div className={styles.field}>
                   <label className={styles.fieldLabel} htmlFor="team_name">
                     {mode === "existing" ? "Team Name to Join" : teamSize === 1 ? "Your Display Name" : "New Team Name"}
@@ -343,7 +343,7 @@ export default function RegisterContestModal({
               )}
 
               {/* Privacy / Join Code Inputs for New Teams */}
-              {mode === "new" && teamSize > 1 && !["1v1", "solo-tournament"].includes(format) && (
+              {mode === "new" && teamSize > 1 && (
                 <div className={styles.field}>
                   <label className={styles.fieldLabel}>Team Privacy</label>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>

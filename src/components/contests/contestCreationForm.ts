@@ -30,7 +30,7 @@ export interface ContestCreationForm {
 export type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
 import type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
 
-export interface AdminContestWizardForm {
+export interface ContestWizardForm {
   name: string;
   description: string;
   mode: "blitz" | "arena";
@@ -128,10 +128,26 @@ export function applyContestPreset(
 
   return {
     ...form,
-    name: preset.name || form.name,
-    description: preset.description || form.description,
+    // Do not overwrite user's custom name or description
+    name: form.name,
+    description: form.description,
     mode: preset.mode || form.mode,
     format: preset.format || form.format,
+    teamSize: preset.teamSize || form.teamSize,
+    overallDurationMinutes:
+      preset.overallDurationMinutes ?? form.overallDurationMinutes,
+    perProblemDurationMinutes:
+      preset.perProblemDurationMinutes ?? form.perProblemDurationMinutes,
+    spectatorRestriction:
+      preset.spectatorRestriction || form.spectatorRestriction,
+    registrationType:
+      preset.registrationSettings?.type || form.registrationType,
+    maxParticipants:
+      preset.registrationSettings?.maxParticipants || form.maxParticipants,
+    bracketType: preset.bracketSettings?.type || form.bracketType,
+    thirdPlacePlayoff:
+      preset.bracketSettings?.thirdPlacePlayoff ?? form.thirdPlacePlayoff,
+    seedingMethod: preset.bracketSettings?.seedingMethod || form.seedingMethod,
     problemSelectionMode:
       preset.problemSelectionMode || form.problemSelectionMode,
     bulkRatingMin: preset.bulkRatingMin || form.bulkRatingMin,

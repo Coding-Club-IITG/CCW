@@ -172,6 +172,28 @@
   @include micro-label($text-xs, 0.09em, var(--primary));
 }
 
+.templateHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.managePresetsLink {
+  font-size: 0.85rem;
+  color: #60a5fa;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.emptyPresetsHint {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  margin-top: 0.5rem;
+}
+
 /* Preset info */
 .presetInfo {
   display: flex;
@@ -503,7 +525,7 @@
   margin-top: 0.25rem;
   max-height: 12rem;
   overflow-y: auto;
-  background: var(--surface-hover);
+  background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: 0 8px 24px var(--shadow-md);
 }

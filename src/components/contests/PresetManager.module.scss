@@ -1,4 +1,4 @@
-@use "../../../styles/mixins" as *;
+@use "../../styles/mixins" as *;
 
 @include kf-spin;
 
@@ -77,12 +77,13 @@
   color: var(--foreground);
 }
 
-.archiveBtn:hover {
+.actionButton.archiveBtn:hover:not(:disabled),
+.actionButton.deleteBtn:hover:not(:disabled) {
   border-color: var(--danger);
   color: var(--danger);
 }
 
-.unarchiveBtn:hover {
+.actionButton.unarchiveBtn:hover:not(:disabled) {
   border-color: var(--success);
   color: var(--success);
 }

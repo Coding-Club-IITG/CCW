@@ -22,7 +22,11 @@ export default async function ContestsPage() {
     : { active: [], upcoming: [], completed: [] };
 
   await dbConnect();
-  const presetsJson = await ContestPreset.find({ archived: { $ne: true } })
+  const presetFilter: any = { archived: { $ne: true } };
+  if (!admin) {
+    presetFilter.$or = [{ isGlobal: true }, { creatorId: session.user.id }];
+  }
+  const presetsJson = await ContestPreset.find(presetFilter)
     .sort({ name: 1 })
     .lean();
   const presets: ContestPresetDto[] = presetsJson.map(toContestPresetDto);
