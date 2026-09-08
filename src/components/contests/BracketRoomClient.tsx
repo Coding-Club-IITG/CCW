@@ -239,7 +239,7 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
         if (openMatchDetails) openMatchDetails(e, node);
       }}
     >
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} id="target-left" style={{ top: 55 }} />
       <div className={styles.nodeHeader}>
         <span className={styles.nodeHeaderTitle}>
           <Trophy className={styles.trophyIcon} size={16} />
@@ -280,7 +280,7 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
           isWinner={isCompleted && node.winner === t2}
         />
       </div>
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} id="source-right" />
     </div>
   );
 }
@@ -299,12 +299,13 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
   const isWaiting = node.status === "waiting";
   const isPending = !isCompleted && !isActive && !isWaiting && !isBye;
 
+  const pos = parseBracketPosition(node.bracketPosition || "");
   const roundName = getRoundName(
-    node.roundNumber,
+    pos.roundIndex + 1,
     totalRounds,
     node.bracketType,
   );
-  const matchLabel = `${roundName === "Final" || roundName.startsWith("Semi") ? roundName.replace("s", "") : roundName} ${node.matchIndex + 1}`;
+  const matchLabel = `${roundName === "Final" || roundName.includes("Semi") ? roundName.replace("s", "") : roundName} ${node.matchIndex + 1}`;
 
   const winnerId = node.winner;
   const t1Win = Boolean(isCompleted && t1 && t1 === winnerId);
@@ -338,7 +339,8 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
         if (openMatchDetails) openMatchDetails(e, node);
       }}
     >
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} id="target-left" style={{ top: 55 }} />
+      <Handle type="target" position={Position.Top} id="target-top" style={{ opacity: 0 }} />
       <div className={styles.nodeHeader}>
         <span className={styles.nodeHeaderLabel}>{matchLabel}</span>
         {badge}
@@ -363,7 +365,8 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
           isActive={isActive}
         />
       </div>
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} id="source-right" style={{ top: 55 }} />
+      <Handle type="source" position={Position.Bottom} id="source-bottom" style={{ opacity: 0 }} />
     </div>
   );
 }
@@ -710,10 +713,7 @@ export default function BracketRoomClient({
           channel === `events:contest:${contest._id}` &&
           payload?.type &&
           [
-            "bracket.update",
-            "match.update",
-            "score.update",
-            "match.completed",
+            "contest.bracket_update",
           ].includes(payload.type)
         ) {
           const res = await fetch(
@@ -802,6 +802,8 @@ export default function BracketRoomClient({
                 id: `e-${nd.roomId}-${parent.roomId}`,
                 source: nd.roomId,
                 target: parent.roomId,
+                sourceHandle: "source-right",
+                targetHandle: "target-left",
                 type: "smoothstep",
                 animated: active,
                 style: {
@@ -877,11 +879,11 @@ export default function BracketRoomClient({
       ),
     );
 
-    const X_GAP = 380;
-    const Y_GAP = 180;
+    const X_GAP = 420;
+    const Y_GAP = 200;
     const maxUpperMatches = upperRounds[0]?.length || 2;
     const upperHeight = maxUpperMatches * Y_GAP;
-    const lowerYOffset = filter === "all" ? upperHeight + 140 : 0;
+    const lowerYOffset = filter === "all" ? upperHeight + 200 : 0;
 
     const showUpper = filter === "all" || filter === "upper";
     const showLower = filter === "all" || filter === "lower";
@@ -920,6 +922,8 @@ export default function BracketRoomClient({
                 id: `e-${nd.roomId}-${parent.roomId}`,
                 source: nd.roomId,
                 target: parent.roomId,
+                sourceHandle: "source-right",
+                targetHandle: "target-left",
                 type: "smoothstep",
                 animated: active,
                 style: {
@@ -937,7 +941,7 @@ export default function BracketRoomClient({
     if (showLower) {
       for (let l = 0; l < L; l++) {
         lowerRounds[l].forEach((nd, i) => {
-          const x = l * (X_GAP * 0.88);
+          const x = l * X_GAP;
           const y = lowerYOffset + i * Y_GAP * 1.15;
 
           flowNodes.push({
@@ -961,6 +965,8 @@ export default function BracketRoomClient({
                 id: `e-${nd.roomId}-${parent.roomId}`,
                 source: nd.roomId,
                 target: parent.roomId,
+                sourceHandle: "source-right",
+                targetHandle: "target-left",
                 type: "smoothstep",
                 animated: active,
                 style: {
@@ -993,6 +999,8 @@ export default function BracketRoomClient({
               id: `e-drop-${uNode.roomId}-${targetLowerNode.roomId}`,
               source: uNode.roomId,
               target: targetLowerNode.roomId,
+              sourceHandle: "source-bottom",
+              targetHandle: "target-top",
               type: "smoothstep",
               style: {
                 stroke: "var(--warning, #f59e0b)",
@@ -1010,13 +1018,25 @@ export default function BracketRoomClient({
       const gfX =
         filter === "grand_final"
           ? 0
-          : Math.max(U * X_GAP, L * (X_GAP * 0.88)) + 40;
-      const gfY =
-        filter === "grand_final"
-          ? 0
-          : filter === "all"
-            ? (upperHeight + lowerYOffset) / 2 - 50
-            : 100;
+          : Math.max(U * X_GAP, L * X_GAP) + 60;
+      let gfY = 100;
+      if (filter === "grand_final") {
+        gfY = 0;
+      } else if (filter === "upper" && upperRounds[U - 1]?.[0]) {
+        const ufNode = flowNodes.find((n) => n.id === upperRounds[U - 1][0].roomId);
+        gfY = ufNode ? ufNode.position.y : 100;
+      } else if (filter === "lower" && lowerRounds[L - 1]?.[0]) {
+        const lfNode = flowNodes.find((n) => n.id === lowerRounds[L - 1][0].roomId);
+        gfY = lfNode ? lfNode.position.y : 100;
+      } else if (filter === "all") {
+        const ufNode = flowNodes.find((n) => n.id === upperRounds[U - 1]?.[0]?.roomId);
+        const lfNode = flowNodes.find((n) => n.id === lowerRounds[L - 1]?.[0]?.roomId);
+        if (ufNode && lfNode) {
+          gfY = (ufNode.position.y + lfNode.position.y) / 2;
+        } else {
+          gfY = (upperHeight + lowerYOffset) / 2 - 50;
+        }
+      }
 
       flowNodes.push({
         id: gfNode.roomId,
@@ -1038,6 +1058,8 @@ export default function BracketRoomClient({
           id: `e-${upperFinal.roomId}-${gfNode.roomId}`,
           source: upperFinal.roomId,
           target: gfNode.roomId,
+          sourceHandle: "source-right",
+          targetHandle: "target-left",
           type: "smoothstep",
           animated: active,
           style: {
@@ -1056,6 +1078,8 @@ export default function BracketRoomClient({
           id: `e-${lowerFinal.roomId}-${gfNode.roomId}`,
           source: lowerFinal.roomId,
           target: gfNode.roomId,
+          sourceHandle: "source-right",
+          targetHandle: "target-left",
           type: "smoothstep",
           animated: active,
           style: {

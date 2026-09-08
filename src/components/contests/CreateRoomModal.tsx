@@ -601,7 +601,7 @@ export default function CreateRoomModal({
                   <option>No templates available</option>
                 </select>
                 <span className={styles.emptyPresetsHint}>
-                  You don't have any templates yet. Create one to quickly load settings.
+                  You don&apos;t have any templates yet. Create one to quickly load settings.
                 </span>
               </>
             )}

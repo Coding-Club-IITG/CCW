@@ -1,7 +1,7 @@
 import { type Job, Worker } from "bullmq";
 import mongoose from "mongoose";
 
-import { publishRoom, publishUser, recordRoomActivity } from "@/lib/contests/events";
+import { publishRoom, publishUser, publishContest, recordRoomActivity } from "@/lib/contests/events";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   cfSyncJobDataSchema,
@@ -23,6 +23,14 @@ import { claimProblem, getRedis } from "@/lib/redis";
 import { getDisplayName, logger } from "@/lib/utils";
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
+
+async function notifyBracketContest(contest: any) {
+  if (contest?.format === "bracket") {
+    await publishContest(contest._id.toString(), {
+      type: "contest.bracket_update",
+    });
+  }
+}
 import ContestTeam from "@/models/ContestTeam";
 import User from "@/models/User";
 
@@ -386,6 +394,7 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                     scores[tId] = score || 0;
                   }
                   await publishRoom(roomId, { type: "room.score", scores });
+                  await notifyBracketContest(contest);
 
                   const lockCount = await redis.hLen(`room:${roomId}:locks`);
                   if (lockCount === problems.length) {
@@ -583,10 +592,12 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                       });
 
                       await publishRoom(roomId, { type: "room.score", scores });
+                      await notifyBracketContest(contest);
                     }
                   } else {
                     // Just emit updated scores for reclaimed points
                     await publishRoom(roomId, { type: "room.score", scores });
+                    await notifyBracketContest(contest);
                     if (claimResult.startsWith("reclaimed|")) {
                       await publishRoom(roomId, {
                         type: "room.reclaimed",

@@ -1333,6 +1333,15 @@ export const reconciliationWorker = new Worker<
         reason: trigger === "forfeit" ? "disconnect" : "timeout",
       });
       await redis.hSet(`room:${roomId}:state`, { status: "completed" });
+      
+      // Notify clients that the bracket advanced so they draw green lines and update node states
+      if (contestId) {
+        const { publishContest } = await import("@/lib/contests/events");
+        await publishContest(contestId, {
+          type: "contest.bracket_update",
+          contestId: contestId,
+        });
+      }
     }
 
     // 5. Clean up Redis

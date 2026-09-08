@@ -23,7 +23,6 @@ import {
   getContestListing,
   registerForContest,
 } from "@/lib/actions/contests";
-import { createBracketContest as createAdminBracketContest } from "@/lib/actions/admin/contests";
 import {
   getCodeforcesProblemUrl,
   formatRemainingTime,
@@ -603,7 +602,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
           user: { id: user.userId.toString(), access: "Head" },
         });
 
-        const adminBracketRes = await createAdminBracketContest({
+        const adminBracketRes = await createBracketContest({
           name: "Prod Admin Bracket Test Mode",
           mode: "blitz",
           teamSize: 1,

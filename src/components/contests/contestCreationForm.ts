@@ -129,8 +129,8 @@ export function applyContestPreset(
   return {
     ...form,
     // Do not overwrite user's custom name or description
-    name: form.name,
-    description: form.description,
+    name: form.name || preset.name || "",
+    description: form.description || preset.description || "",
     mode: preset.mode || form.mode,
     format: preset.format || form.format,
     teamSize: preset.teamSize || form.teamSize,
