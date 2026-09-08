@@ -64,6 +64,7 @@ export type MatchData = {
   isKnockout: boolean;
   contestId?: string;
   terminationReason?: string;
+  winnerTeamId?: string | null;
   format?: string;
   isProcessing?: boolean;
 };
@@ -143,11 +144,12 @@ export default function PostMatchResultClient({
         <section className={styles.hero}>
           <div className={styles.heroTeams}>
             {matchData.teams.slice(0, 3).map((team, index) => {
-              const isWinner =
-                index === 0 &&
-                matchData.teams.length > 0 &&
-                (matchData.teams.length === 1 ||
-                  team.score > matchData.teams[1].score);
+              const isWinner = matchData.winnerTeamId
+                ? team.id === matchData.winnerTeamId
+                : index === 0 &&
+                  matchData.teams.length > 0 &&
+                  (matchData.teams.length === 1 ||
+                    team.score > matchData.teams[1].score);
               return (
                 <div key={team.id} className={styles.teamBlock}>
                   {index > 0 && <span className={styles.vsDash}>-</span>}

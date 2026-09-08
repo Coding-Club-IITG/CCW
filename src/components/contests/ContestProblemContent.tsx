@@ -15,35 +15,31 @@ type Props = {
 };
 
 export default function ContestProblemContent({ problem, plain }: Props) {
-  const renderedStatementHtml = useMemo(
-    () => (problem?.statementHtml ? renderProblemMath(problem.statementHtml) : ""),
-    [problem?.statementHtml],
-  );
-  const renderedInputHtml = useMemo(
-    () =>
-      problem?.inputSpecificationHtml
+  const {
+    renderedStatementHtml,
+    renderedInputHtml,
+    renderedOutputHtml,
+    renderedConstraintsHtml,
+    renderedNotesHtml,
+  } = useMemo(() => {
+    return {
+      renderedStatementHtml: problem?.statementHtml
+        ? renderProblemMath(problem.statementHtml)
+        : "",
+      renderedInputHtml: problem?.inputSpecificationHtml
         ? renderProblemMath(problem.inputSpecificationHtml)
         : "",
-    [problem?.inputSpecificationHtml],
-  );
-  const renderedOutputHtml = useMemo(
-    () =>
-      problem?.outputSpecificationHtml
+      renderedOutputHtml: problem?.outputSpecificationHtml
         ? renderProblemMath(problem.outputSpecificationHtml)
         : "",
-    [problem?.outputSpecificationHtml],
-  );
-  const renderedConstraintsHtml = useMemo(
-    () =>
-      problem?.constraintsHtml
+      renderedConstraintsHtml: problem?.constraintsHtml
         ? renderProblemMath(problem.constraintsHtml)
         : "",
-    [problem?.constraintsHtml],
-  );
-  const renderedNotesHtml = useMemo(
-    () => (problem?.notesHtml ? renderProblemMath(problem.notesHtml) : ""),
-    [problem?.notesHtml],
-  );
+      renderedNotesHtml: problem?.notesHtml
+        ? renderProblemMath(problem.notesHtml)
+        : "",
+    };
+  }, [problem]);
 
   if (!problem) return null;
 

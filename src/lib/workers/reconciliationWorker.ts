@@ -1,4 +1,5 @@
 import { type Job, Worker } from "bullmq";
+import mongoose from "mongoose";
 
 import { publishRoom } from "@/lib/contests/events";
 import {
@@ -977,9 +978,26 @@ export const reconciliationWorker = new Worker<
       // Write final scores to MongoDB
       const completedRoom = await ContestRoom.findById(roomId);
       if (completedRoom) {
+        let maxScore = -1;
+        let bestTeamId: string | null = null;
+        let isTie = false;
+
         for (const tId of completedTeams) {
           const score = await redis.zScore(`room:${roomId}:scores`, tId);
-          await ContestTeam.findByIdAndUpdate(tId, { score: score || 0 });
+          const finalScore = Math.max(score || 0, 0);
+          if (finalScore > maxScore) {
+            maxScore = finalScore;
+            bestTeamId = tId;
+            isTie = false;
+          } else if (finalScore === maxScore) {
+            isTie = true;
+          }
+          await ContestTeam.findByIdAndUpdate(tId, { score: finalScore });
+        }
+
+        if (bestTeamId && !isTie && mongoose.isValidObjectId(bestTeamId)) {
+          completedRoom.winnerTeamId = new mongoose.Types.ObjectId(bestTeamId);
+          await completedRoom.save();
         }
       }
 
@@ -1194,15 +1212,13 @@ export const reconciliationWorker = new Worker<
       if (trigger === "forfeit") room.terminationReason = "disconnect";
       else if (trigger === "timeout") room.terminationReason = "timeout";
 
-      // We don't have an explicit winner field in IContestRoom schema according to Stage 1,
-      // but if we do, we could set it. The prompt says: "Write final ContestRoom (scores, winner, endTime, trigger)."
-      // Let's assume we update the team scores.
+      if (winnerId && mongoose.isValidObjectId(winnerId)) {
+        room.winnerTeamId = new mongoose.Types.ObjectId(winnerId);
+      }
+      await room.save();
+
       for (const tId of teams) {
-        let finalScore = teamScores[tId] || 0;
-        if (trigger === "forfeit" && winnerId) {
-           if (tId === winnerId && finalScore <= 0) finalScore = 1;
-           if (tId !== winnerId) finalScore = -1;
-        }
+        const finalScore = Math.max(teamScores[tId] || 0, 0);
         await ContestTeam.findByIdAndUpdate(tId, { score: finalScore });
       }
     }

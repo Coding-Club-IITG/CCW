@@ -17,6 +17,7 @@ export interface IContestRoom extends Document {
   firstSolvers: IFirstSolver[];
   bracketPosition?: string | null;
   terminationReason?: string;
+  winnerTeamId?: mongoose.Types.ObjectId;
   actualStartTime?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -49,6 +50,7 @@ const ContestRoomSchema = new Schema<IContestRoom>(
     firstSolvers: { type: [FirstSolverSchema], default: [] },
     bracketPosition: { type: String, default: null },
     terminationReason: { type: String },
+    winnerTeamId: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     actualStartTime: { type: Date },
   },
   { timestamps: true },

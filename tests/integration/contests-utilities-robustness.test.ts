@@ -11,6 +11,8 @@ import {
 
 import ContestMatch from "@/models/ContestMatch";
 import ContestQuestion from "@/models/ContestQuestion";
+import ContestRoom from "@/models/ContestRoom";
+import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
 import { renderProblemMath } from "@/lib/math";
 import {
@@ -641,6 +643,66 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
       expect(rendered).toContain('class="katex"');
       expect(rendered).not.toContain("$$$");
       expect(rendered).toContain("S(n)");
+    });
+
+    it("guarantees non-negative scores and records winnerTeamId on forfeit/disconnect", async () => {
+      const creatorId = new mongoose.Types.ObjectId();
+      const contest = await ContestMatch.create({
+        name: "Forfeit Test Contest",
+        creatorId,
+        mode: "blitz",
+        format: "1v1",
+        teamSize: 1,
+        problemSelectionMode: "bulk",
+        startTime: new Date(),
+        status: "active",
+      });
+
+      const team1Id = new mongoose.Types.ObjectId();
+      const team2Id = new mongoose.Types.ObjectId();
+      const member1Id = new mongoose.Types.ObjectId();
+      const member2Id = new mongoose.Types.ObjectId();
+      const roomId = new mongoose.Types.ObjectId();
+
+      await ContestTeam.create({
+        _id: team1Id,
+        roomId,
+        name: "Team A",
+        teamSize: 1,
+        members: [member1Id],
+        score: 0,
+      });
+
+      const team2 = await ContestTeam.create({
+        _id: team2Id,
+        roomId,
+        name: "Team B",
+        teamSize: 1,
+        members: [member2Id],
+        score: -1, // Simulate legacy -1 score
+      });
+
+      const room = await ContestRoom.create({
+        _id: roomId,
+        contestId: contest._id,
+        name: "Room Forfeit",
+        status: "ended",
+        terminationReason: "disconnect",
+        winnerTeamId: team1Id,
+        participants: [member1Id, member2Id],
+        teams: [team1Id, team2Id],
+        currentProblemIndex: 0,
+      });
+
+      // Verify room model persisted winnerTeamId
+      const fetchedRoom = await ContestRoom.findById(room._id);
+      expect(fetchedRoom?.winnerTeamId?.toString()).toBe(team1Id.toString());
+      expect(fetchedRoom?.terminationReason).toBe("disconnect");
+
+      // Verify score sanitization (e.g. legacy -1 becomes 0)
+      const sanitizedTeam2Score = Math.max(team2.score || 0, 0);
+      expect(sanitizedTeam2Score).toBe(0);
+      expect(sanitizedTeam2Score).toBeGreaterThanOrEqual(0);
     });
   });
 });

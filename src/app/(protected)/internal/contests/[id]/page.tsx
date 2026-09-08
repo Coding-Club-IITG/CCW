@@ -216,7 +216,7 @@ export default async function ContestRoomPage({
     const populatedTeams = teams.map((t) => ({
       _id: t._id.toString(),
       name: t.name,
-      score: t.score || 0,
+      score: Math.max(t.score || 0, 0),
       members: t.members.map((memberId) => {
         const u = userMap.get(memberId.toString());
         const cp = cpUserMap.get(memberId.toString());
