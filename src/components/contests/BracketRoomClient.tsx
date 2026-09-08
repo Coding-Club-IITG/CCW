@@ -82,6 +82,11 @@ function TeamSlot({
               className={styles.teamAvatar}
               width={24}
               height={24}
+              fallback={
+                <div className={`${styles.teamAvatarFallback} ${styles.teamAvatarFallbackHi}`}>
+                  {getInitials(tname)}
+                </div>
+              }
             />
           ) : (
             <div
@@ -145,6 +150,11 @@ function TeamRow({
           className={styles.teamAvatar}
           width={24}
           height={24}
+          fallback={
+            <div className={`${styles.teamAvatarFallback} ${hi ? styles.teamAvatarFallbackHi : ""}`}>
+              {ini}
+            </div>
+          }
         />
       );
     }
@@ -385,16 +395,17 @@ function MatchSidePanel({
   totalRounds: number;
   onClose: () => void;
   contestId: string;
-  data?: { currentUserTeamId?: string | null; isSpectator?: boolean };
+  data?: { currentUserTeamIds?: string[]; isSpectator?: boolean };
 }) {
   const router = useRouter();
   const [prevNode, setPrevNode] = useState<BracketNode | null>(node);
   const [displayNode, setDisplayNode] = useState<BracketNode | null>(node);
 
-  // Accept currentUserTeamId to determine if the user is a participant
-  const { currentUserTeamId, isSpectator } = data || {};
-  const isParticipant =
-    currentUserTeamId && displayNode?.teams.includes(currentUserTeamId);
+  // Accept currentUserTeamIds to determine if the user is a participant
+  const { currentUserTeamIds = [], isSpectator } = data || {};
+  const isParticipant = currentUserTeamIds.some((id) =>
+    displayNode?.teams.includes(id),
+  );
 
   if (node !== prevNode) {
     setPrevNode(node);
@@ -661,13 +672,13 @@ export default function BracketRoomClient({
   contest,
   initialSnapshot,
   userId,
-  currentUserTeamId,
+  currentUserTeamIds = [],
   isSpectator = false,
 }: {
   contest: ContestListingItem;
   initialSnapshot: BracketSnapshot;
   userId?: string;
-  currentUserTeamId?: string | null;
+  currentUserTeamIds?: string[];
   isSpectator?: boolean;
 }) {
   const [selectedNode, setSelectedNode] = useState<BracketNode | null>(null);
@@ -1146,7 +1157,7 @@ export default function BracketRoomClient({
         totalRounds={snapshot.totalRounds}
         onClose={closeSidebar}
         contestId={contest._id.toString()}
-        data={{ currentUserTeamId, isSpectator }}
+        data={{ currentUserTeamIds, isSpectator }}
       />
     </div>
   );

@@ -88,17 +88,18 @@ export default async function ContestRoomPage({
     !matchRoomId
   ) {
     const bracketSnapshot = await getBracketSnapshot(contest._id.toString());
-    const userTeam = await ContestTeam.findOne({
+    const userTeams = await ContestTeam.find({
       contestId: contest._id,
       members: userId,
     }).lean();
+    const userTeamIds = userTeams.map((t) => t._id.toString());
     return (
       <BracketRoomClient
         contest={contest}
         initialSnapshot={bracketSnapshot}
         userId={userId}
-        currentUserTeamId={userTeam ? userTeam._id.toString() : null}
-        isSpectator={!userTeam && canSpectate()}
+        currentUserTeamIds={userTeamIds}
+        isSpectator={userTeams.length === 0 && canSpectate()}
       />
     );
   }

@@ -1597,7 +1597,9 @@ export async function getBracketSnapshot(
       }
 
       let winner: string | null = null;
-      if (room.status === "ended") {
+      if (room.winnerTeamId) {
+        winner = toStr(room.winnerTeamId);
+      } else if (room.status === "ended") {
         if (scores[0] > scores[1]) winner = teamIds[0];
         else if (scores[1] > scores[0]) winner = teamIds[1];
         else if (teamIds[0] && !teamIds[1]) winner = teamIds[0];
