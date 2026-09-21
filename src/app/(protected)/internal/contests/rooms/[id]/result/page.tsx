@@ -119,7 +119,7 @@ export default async function PostMatchResultPage({
     return {
       id: t._id.toString(),
       name: t.name || "Unknown Team",
-      score: t.score || 0,
+      score: Math.max(t.score || 0, 0),
       members: users
         .filter((u) =>
           t.members?.some((m: any) => m.toString() === u._id.toString()),
@@ -142,7 +142,33 @@ export default async function PostMatchResultPage({
     };
   });
 
-  processedTeams.sort((a, b) => b.score - a.score);
+  // Determine winner team
+  let winnerTeamId: string | null = room.winnerTeamId
+    ? room.winnerTeamId.toString()
+    : null;
+
+  if (!winnerTeamId && processedTeams.length > 0) {
+    if (
+      processedTeams.length === 1 ||
+      processedTeams[0].score > (processedTeams[1]?.score ?? 0)
+    ) {
+      winnerTeamId = processedTeams[0].id;
+    } else if (room.terminationReason === "disconnect") {
+      // For legacy disconnect/forfeit rooms where scores were set to 1 vs -1:
+      const positiveTeam = teams.find((t) => (t.score ?? 0) > 0);
+      if (positiveTeam) {
+        winnerTeamId = positiveTeam._id.toString();
+      }
+    }
+  }
+
+  processedTeams.sort((a, b) => {
+    if (winnerTeamId) {
+      if (a.id === winnerTeamId) return -1;
+      if (b.id === winnerTeamId) return 1;
+    }
+    return b.score - a.score;
+  });
 
   // 6. Unique MVP
   let mvp = null;
@@ -201,6 +227,7 @@ export default async function PostMatchResultPage({
     roomType: contest.mode === "arena" ? "Arena Format" : "Blitz Format",
     duration: durationStr,
     teams: processedTeams,
+    winnerTeamId,
     problems: processedProblems,
     mvp: mvpDetails,
     isKnockout: contest.format === "bracket",

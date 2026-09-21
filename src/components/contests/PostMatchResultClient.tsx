@@ -64,6 +64,7 @@ export type MatchData = {
   isKnockout: boolean;
   contestId?: string;
   terminationReason?: string;
+  winnerTeamId?: string | null;
   format?: string;
   isProcessing?: boolean;
 };
@@ -143,11 +144,12 @@ export default function PostMatchResultClient({
         <section className={styles.hero}>
           <div className={styles.heroTeams}>
             {matchData.teams.slice(0, 3).map((team, index) => {
-              const isWinner =
-                index === 0 &&
-                matchData.teams.length > 0 &&
-                (matchData.teams.length === 1 ||
-                  team.score > matchData.teams[1].score);
+              const isWinner = matchData.winnerTeamId
+                ? team.id === matchData.winnerTeamId
+                : index === 0 &&
+                  matchData.teams.length > 0 &&
+                  (matchData.teams.length === 1 ||
+                    team.score > matchData.teams[1].score);
               return (
                 <div key={team.id} className={styles.teamBlock}>
                   {index > 0 && <span className={styles.vsDash}>-</span>}
@@ -322,7 +324,7 @@ export default function PostMatchResultClient({
             <h4 className={styles.sectionHeading}>Problem Matrix</h4>
             <div className={styles.problemGrid}>
               {matchData.problems.length > 0 ? (
-                matchData.problems.map((prob) => {
+                matchData.problems.map((prob, idx) => {
                   let isUserTeam = false;
                   if (prob.solved && currentUserTeam) {
                     isUserTeam = prob.solver?.teamId === currentUserTeam.id;
@@ -330,7 +332,7 @@ export default function PostMatchResultClient({
 
                   return (
                     <a
-                      key={prob.id}
+                      key={`${prob.id}-${idx}`}
                       href={getProblemUrl(prob.id)}
                       target="_blank"
                       rel="noopener noreferrer"

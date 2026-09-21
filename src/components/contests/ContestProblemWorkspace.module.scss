@@ -1,0 +1,51 @@
+@use "../../styles/mixins" as *;
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.workspaceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.viewTabs {
+  @include segmented-control;
+  background: var(--surface-secondary);
+}
+
+.viewTab {
+  @include segment;
+
+  &:not(:last-child) {
+    border-right: 1px solid var(--border-input);
+  }
+}
+
+.activeTab {
+  @include segment-active;
+}
+
+.workspaceBody {
+  width: 100%;
+}
+
+.statementPane {
+  min-height: 0;
+  max-height: 72vh;
+  overflow-y: auto;
+  @include scroll-hide;
+}
+
+.runnerPane {
+  min-height: 0;
+  max-height: 72vh;
+  overflow-y: auto;
+  @include scroll-hide;
+}

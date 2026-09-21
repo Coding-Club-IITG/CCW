@@ -6,7 +6,7 @@ import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import dbConnect from "@/lib/mongodb";
 import ContestMatch from "@/models/ContestMatch";
-import { publishRoom } from "@/lib/contests/events";
+import { publishRoom, recordRoomActivity } from "@/lib/contests/events";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   contestRoomProblemSchema,
@@ -147,6 +147,12 @@ export async function POST(
         room.status = "active";
         room.actualStartTime = new Date(now);
         await room.save();
+
+        await recordRoomActivity(roomId, {
+          icon: "info",
+          text: "Match started! Good luck.",
+          color: "text-primary",
+        });
 
         if (state.contestId) {
           const contest = await ContestMatch.findById(state.contestId);

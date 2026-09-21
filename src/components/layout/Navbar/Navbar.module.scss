@@ -192,6 +192,13 @@
   position: relative;
 }
 
+.avatarSkeleton {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: var(--surface-container-high);
+}
+
 .avatarButton {
   display: flex;
   align-items: center;

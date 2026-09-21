@@ -289,8 +289,21 @@
     filter: grayscale(1);
   }
 
-  .memberName {
+  .memberDetails {
+    display: flex;
+    flex-direction: column;
     flex: 1;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .forfeitTimer {
+    font-size: 0.85em;
+    color: var(--error);
+    font-weight: 600;
+  }
+
+  .memberName {
     @include metadata($text-sm, var(--foreground-strong));
     overflow: hidden;
     text-overflow: ellipsis;
@@ -385,7 +398,7 @@
     overflow: hidden;
     width: 20rem;
     padding: 1.5rem;
-    background: var(--surface-hover);
+    background: var(--background);
     border: 1px solid var(--primary);
     box-shadow: 0 8px 24px var(--shadow-lg);
     @include contest-glow;

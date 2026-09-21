@@ -3,7 +3,8 @@ import { NextRequest } from "next/server";
 
 import { auditActor, auditedTransaction } from "@/lib/audit";
 import { summarizeContest } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireSession } from "@/lib/api/auth";
+import { isHead } from "@/lib/access/roles";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
 import {
   boundaryErrorResponse,
@@ -19,6 +20,11 @@ import dbConnect from "@/lib/mongodb";
 import ContestPreset from "@/models/ContestPreset";
 
 export async function GET(request: NextRequest) {
+  const authorization = await requireSession(request);
+  if (!authorization.ok) {
+    return jsonError(authorization.error.code, authorization.error.message);
+  }
+
   const query = parseSearchParams(
     request.nextUrl.searchParams,
     contestPresetQuerySchema,
@@ -31,9 +37,15 @@ export async function GET(request: NextRequest) {
 
   try {
     await dbConnect();
-    const filter = query.data.includeArchived
+    const filter: any = query.data.includeArchived
       ? {}
       : { archived: { $ne: true } };
+
+    filter.$or = [
+      { isGlobal: true },
+      { creatorId: new mongoose.Types.ObjectId(authorization.data.user.id) },
+    ];
+
     const presets = await ContestPreset.find(filter).sort({ name: 1 }).lean();
     return jsonOk(presets.map(toContestPresetDto));
   } catch (error) {
@@ -42,7 +54,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authorization = await requireHead(request);
+  const authorization = await requireSession(request);
   if (!authorization.ok) {
     return jsonError(authorization.error.code, authorization.error.message);
   }
@@ -59,12 +71,26 @@ export async function POST(request: NextRequest) {
     if (existing) {
       return jsonError("CONFLICT", "Preset name already exists");
     }
+
+    const isGlobal = isHead(authorization.data.user.access)
+      ? (body.data.isGlobal ?? false)
+      : false;
+
     const dbSession = await mongoose.startSession();
     let preset;
     try {
       preset = await auditedTransaction(dbSession, async (transaction) => {
         const [created] = await ContestPreset.create(
-          [{ ...body.data, archived: false }],
+          [
+            {
+              ...body.data,
+              archived: false,
+              creatorId: new mongoose.Types.ObjectId(
+                authorization.data.user.id,
+              ),
+              isGlobal,
+            },
+          ],
           { session: transaction },
         );
         return {

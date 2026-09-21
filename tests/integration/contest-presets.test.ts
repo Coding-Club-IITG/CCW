@@ -23,10 +23,13 @@ vi.mock("@/lib/auth", () => ({
   auth: { api: { getSession } },
 }));
 
-const session = (access: "Member" | "Head") => ({
-  user: { id: `${access.toLowerCase()}-1`, access },
-  session: { id: "session-1", userId: `${access.toLowerCase()}-1` },
-});
+const session = (access: "Member" | "Head") => {
+  const hexId = access === "Member" ? "507f191e810c19729de860ea" : "507f1f77bcf86cd799439011";
+  return {
+    user: { id: hexId, access },
+    session: { id: "session-1", userId: hexId },
+  };
+};
 
 describe("contest preset routes", () => {
   beforeAll(async () => {
@@ -44,9 +47,10 @@ describe("contest preset routes", () => {
   it("lists public presets while filtering archived entries by default", async () => {
     const ContestPreset = (await import("@/models/ContestPreset")).default;
     const { GET } = await import("@/app/api/contests/presets/route");
+    const mongoose = (await import("mongoose")).default;
     await ContestPreset.create([
-      { name: "Visible preset", archived: false },
-      { name: "Archived preset", archived: true },
+      { name: "Visible preset", archived: false, creatorId: new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"), isGlobal: true },
+      { name: "Archived preset", archived: true, creatorId: new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"), isGlobal: true },
     ]);
 
     const response = await GET(
@@ -68,10 +72,11 @@ describe("contest preset routes", () => {
     });
 
     getSession.mockResolvedValueOnce(session("Member"));
-    const forbidden = await POST(createRequest({ name: "New preset" }));
-    expect(forbidden.status).toBe(403);
-    expect(await responseError(forbidden)).toMatchObject({ code: "FORBIDDEN" });
-    expect(await AuditLog.countDocuments()).toBe(0);
+    const allowed = await POST(createRequest({ name: "Member preset", isGlobal: true }));
+    expect(allowed.status).toBe(201);
+    const memberPreset = await responseData<any>(allowed);
+    // Members can create presets, but they are forced to be non-global
+    expect(memberPreset.isGlobal).toBe(false);
   });
 
   it("returns a JSON AppResult error before opening an unauthenticated SSE stream", async () => {
@@ -106,7 +111,7 @@ describe("contest preset routes", () => {
       new NextRequest("http://localhost/api/contests/sync", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ roomId: "bad", cfHandle: "", problemId: "" }),
+        body: JSON.stringify({ roomId: "bad", problemId: "" }),
       }),
     );
     const error = await responseError(response);
@@ -115,7 +120,6 @@ describe("contest preset routes", () => {
     expect(error.code).toBe("VALIDATION_ERROR");
     expect(error.fields).toMatchObject({
       roomId: [expect.any(String)],
-      cfHandle: [expect.any(String)],
       problemId: [expect.any(String)],
     });
   });
@@ -159,7 +163,8 @@ describe("contest preset routes", () => {
     );
     expect(invalid.status).toBe(400);
 
-    const preset = await ContestPreset.create({ name: "Archive me" });
+    const mongoose = (await import("mongoose")).default;
+    const preset = await ContestPreset.create({ name: "Archive me", creatorId: new mongoose.Types.ObjectId() });
     const response = await PATCH(
       new NextRequest(
         `http://localhost/api/contests/presets/${preset._id.toString()}`,

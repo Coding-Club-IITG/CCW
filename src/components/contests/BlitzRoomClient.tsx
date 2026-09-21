@@ -29,6 +29,7 @@ import { getDisplayName } from "@/lib/utils";
 
 import {
   getContestRoomResultsPath,
+  getCodeforcesProblemUrl,
   getDisplayTeamName,
 } from "@/components/contests/roomPresentation";
 import RoomActivityFeed from "@/components/contests/RoomActivityFeed";
@@ -38,8 +39,29 @@ import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
 import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
+import ContestProblemWorkspace from "@/components/contests/ContestProblemWorkspace";
 
 import styles from "./BlitzRoomClient.module.scss";
+
+const ForfeitTimer = ({ targetTime }: { targetTime: number }) => {
+  const [left, setLeft] = useState(() =>
+    Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)),
+  );
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setLeft(Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [targetTime]);
+
+  if (left <= 0) return null;
+  return (
+    <span className={styles.forfeitTimer}>
+      (Forfeit in {left}s)
+    </span>
+  );
+};
 
 export default function BlitzRoomClient({
   contest,
@@ -59,11 +81,13 @@ export default function BlitzRoomClient({
   initialTimeLimit,
   from,
   syncCooldownSeconds = 60,
+  isSpectator = false,
+  initialActivityFeed = [],
 }: {
   contest: ContestListingItem;
   roomId: string;
   roomName: string;
-  teamId: string;
+  teamId: string | null;
   userId: string;
   cfHandle?: string;
   teams?: ContestRoomTeamDto[];
@@ -77,6 +101,8 @@ export default function BlitzRoomClient({
   initialTimeLimit?: number;
   from?: string;
   syncCooldownSeconds?: number;
+  isSpectator?: boolean;
+  initialActivityFeed?: RoomActivityDto[];
 }) {
   const router = useRouter();
 
@@ -120,7 +146,8 @@ export default function BlitzRoomClient({
   const displayTeamName = (team?: ContestRoomTeamDto) =>
     getDisplayTeamName(team, contest?.format);
 
-  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
+  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>(initialActivityFeed);
+  const [forfeitTimeouts, setForfeitTimeouts] = useState<Record<string, number>>({});
   const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
 
   // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
@@ -175,9 +202,8 @@ export default function BlitzRoomClient({
           setTimeLimit(parseInt(payload.state.timeLimit));
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
-        if (nextStatus === "active") {
-          addActivity("info", "Match started! Good luck.");
-        }
+        if (payload.forfeitTimeouts) setForfeitTimeouts(payload.forfeitTimeouts);
+        if (payload.activityLogs) setActivityFeed([...payload.activityLogs].reverse());
         break;
       case "room.advance":
         setCurrentProblemIndex(payload.problemIndex);
@@ -187,38 +213,16 @@ export default function BlitzRoomClient({
           return arr;
         });
         setAnimationKey((k) => k + 1);
-        const solverName = getMemberName(payload.solvedBy.userId);
-        addActivity(
-          "check_circle",
-          `${solverName} solved a problem!`,
-          "text-primary",
-        );
         break;
       case "room.score":
         setScores(payload.scores);
         break;
-      case "room.reclaimed": {
-        const team = teams?.find((item) => item._id === payload.teamId);
-        const tName = displayTeamName(team);
-        addActivity(
-          "gavel",
-          `CRITICAL: ${tName} RECLAIMED points for an earlier solve!`,
-          "text-error",
-        );
+      case "room.reclaimed":
         break;
-      }
       case "room.end":
         matchStateRef.current = "completed";
         setMatchState("completed");
         if (payload.finalScores) setScores(payload.finalScores);
-        if (payload.lastSolvedBy) {
-          const solverName = getMemberName(payload.lastSolvedBy.userId);
-          addActivity(
-            "check_circle",
-            `${solverName} solved the final problem!`,
-            "text-primary",
-          );
-        }
         break;
       case "sync.queued":
         setSyncing(true);
@@ -233,13 +237,13 @@ export default function BlitzRoomClient({
         if (payload.verdict === "OK") {
           addActivity(
             "check_circle",
-            `Valid AC detected! +${payload.pointsAwarded || 100} pts`,
+            `Verdict: Accepted (OK) on ${payload.problemId || "problem"}!`,
             "text-primary",
           );
         } else {
           addActivity(
             "error",
-            `Submission failed: ${payload.verdict}`,
+            `Submission verdict: ${payload.verdict}`,
             "text-error",
           );
         }
@@ -256,10 +260,16 @@ export default function BlitzRoomClient({
         break;
       case "sync.failed":
         setSyncing(false);
-        if (payload.verdict) {
+        if (payload.verdict === "not_found") {
           addActivity(
             "error",
-            `Sync succeeded, but verdict is ${payload.verdict}`,
+            `No recent submission found on Codeforces for ${payload.problemId || "problem"}.`,
+            "text-error",
+          );
+        } else if (payload.verdict) {
+          addActivity(
+            "error",
+            `Submission verdict: ${payload.verdict}`,
             "text-error",
           );
         } else {
@@ -271,45 +281,44 @@ export default function BlitzRoomClient({
         }
         break;
       case "presence.online": {
-        const uName = getMemberName(payload.userId);
         const wasOffline = !onlineUserIdsRef.current.has(payload.userId);
 
         if (wasOffline) {
           onlineUserIdsRef.current.add(payload.userId);
           setOnlineUserIds(new Set(onlineUserIdsRef.current));
-
-          if (payload.cancelledForfeit) {
-            addActivity(
-              "person",
-              `${uName} reconnected. Forfeiture cancelled.`,
-              "text-secondary",
-            );
-          } else {
-            addActivity(
-              "person",
-              `${uName} connected${matchStateRef.current === "waiting" ? " (Not Ready)" : ""}.`,
-              "text-secondary",
-            );
-          }
         }
+        setForfeitTimeouts((prev) => {
+          const next = { ...prev };
+          delete next[payload.userId];
+          return next;
+        });
         break;
       }
       case "presence.offline": {
-        const uName = getMemberName(payload.userId);
         onlineUserIdsRef.current.delete(payload.userId);
         setOnlineUserIds(new Set(onlineUserIdsRef.current));
+
+        if (payload.forfeitTimeout) {
+          const timeout = payload.forfeitTimeout;
+          setForfeitTimeouts((prev) => ({
+            ...prev,
+            [payload.userId]: Date.now() + timeout * 1000,
+          }));
+        }
 
         setReadyUserIds((prev) => {
           const newSet = new Set(prev);
           newSet.delete(payload.userId);
           return newSet;
         });
-        const text = payload.forfeitTimeout
-          ? `${uName} disconnected. Match will be forfeited in ${payload.forfeitTimeout}s.`
-          : `${uName} disconnected.`;
-        addActivity("person_off", text, "text-error");
         break;
       }
+      case "room.activity":
+        setActivityFeed((prev) =>
+          [payload.activity, ...prev].slice(0, 50)
+        );
+        sendBrowserNotification(payload.activity.icon, payload.activity.text);
+        break;
     }
   };
 
@@ -340,7 +349,7 @@ export default function BlitzRoomClient({
           id: Date.now() + Math.random(),
         },
         ...prev,
-      ].slice(0, 10),
+      ].slice(0, 50),
     );
     // Fire a matching desktop notification
     sendBrowserNotification(icon, text);
@@ -366,16 +375,22 @@ export default function BlitzRoomClient({
       body: JSON.stringify({
         roomId,
         teamId,
-        cfHandle: cfHandle || "dummy0", // Use real handle if available, otherwise fallback
+        cfHandle: cfHandle || "", // Use real handle if available
         problemId: activeProblem.problemId,
       }),
     });
 
     beginSync();
 
-    if (!(await readAppResult(res)).ok) {
+    const syncRes = await readAppResult(res);
+    if (!syncRes.ok) {
       // If it failed immediately (Eg. 429), turn off syncing spinner since SSE won't fire
       setSyncing(false);
+      addActivity(
+        "error",
+        `Sync failed: ${syncRes.error.message || "Failed to initiate sync"}`,
+        "text-error",
+      );
     }
   };
 
@@ -421,6 +436,11 @@ export default function BlitzRoomClient({
                   ? "MATCH OVER"
                   : "WAITING FOR PLAYERS"}
             </div>
+            {isSpectator && (
+              <div className={styles.statusBadge} style={{ background: 'var(--border)', color: 'var(--foreground)' }}>
+                👁 Spectator Mode
+              </div>
+            )}
           </div>
           <div className={styles.scoreRow}>
             {teams && teams.length >= 2 ? (
@@ -529,10 +549,15 @@ export default function BlitzRoomClient({
                             memberIsOnline ? "" : styles.memberAvatarOffline
                           }
                         />
-                        <span className={styles.memberName}>
-                          {getDisplayName(member.name, member.pizza_count)}{" "}
-                          {member.id === userId && "(You)"}
-                        </span>
+                        <div className={styles.memberDetails}>
+                          <span className={styles.memberName}>
+                            {getDisplayName(member.name, member.pizza_count)}{" "}
+                            {member.id === userId && "(You)"}
+                          </span>
+                          {!memberIsOnline && forfeitTimeouts[member.id] && (
+                            <ForfeitTimer targetTime={forfeitTimeouts[member.id]} />
+                          )}
+                        </div>
                         <div
                           className={`${styles.statusDotSm} ${dotClass}`}
                         ></div>
@@ -625,7 +650,7 @@ export default function BlitzRoomClient({
 
                     <div className={styles.problemActions}>
                       <a
-                        href={`https://codeforces.com/contest/${activeProblem.problemId?.replace(/[^0-9]/g, "")}/problem/${activeProblem.problemId?.replace(/[0-9]/g, "")}`}
+                        href={getCodeforcesProblemUrl(activeProblem.problemId || "") || "#"}
                         target="_blank"
                         rel="noreferrer"
                         className={styles.cfLink}
@@ -633,29 +658,36 @@ export default function BlitzRoomClient({
                         <ExternalLink size={16} />
                         Open in Codeforces
                       </a>
-                      <button
-                        onClick={handleSync}
-                        disabled={
-                          syncing || matchState !== "active" || syncCooldown > 0
-                        }
-                        className={styles.syncBtn}
-                      >
-                        {syncCooldown > 0 && !syncing ? (
-                          <Hourglass size={16} />
-                        ) : (
-                          <RefreshCw
-                            className={syncing ? styles.spin : ""}
-                            size={16}
-                          />
-                        )}
-                        {syncing
-                          ? "Syncing..."
-                          : syncCooldown > 0
-                            ? `Wait ${syncCooldown}s`
-                            : "Sync Submission"}
-                      </button>
+                      {!isSpectator && (
+                        <button
+                          onClick={handleSync}
+                          disabled={
+                            !cfHandle || syncing || matchState !== "active" || syncCooldown > 0
+                          }
+                          className={styles.syncBtn}
+                          title={!cfHandle ? "Please link your Codeforces account to sync" : ""}
+                        >
+                          {syncCooldown > 0 && !syncing ? (
+                            <Hourglass size={16} />
+                          ) : (
+                            <RefreshCw
+                              className={syncing ? styles.spin : ""}
+                              size={16}
+                            />
+                          )}
+                          {syncing
+                            ? "Syncing..."
+                            : syncCooldown > 0
+                              ? `Wait ${syncCooldown}s`
+                              : "Sync Submission"}
+                        </button>
+                      )}
                     </div>
                   </div>
+                  <ContestProblemWorkspace
+                    problem={activeProblem}
+                    isSpectator={isSpectator}
+                  />
                 </>
               )}
             </div>
@@ -752,3 +784,4 @@ export default function BlitzRoomClient({
     </div>
   );
 }
+

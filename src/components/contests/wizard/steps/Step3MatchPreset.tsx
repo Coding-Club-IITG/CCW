@@ -26,29 +26,44 @@ export default function Step3MatchPreset({
         </div>
       )}
 
-      <div className={styles.presetList}>
-        {presets.map((preset) => (
-          <label
-            key={preset._id}
-            className={`${styles.presetCard} ${
-              selectedPresetId === preset._id ? styles.presetCardActive : ""
-            }`}
+      {presets.length === 0 ? (
+        <div className={styles.emptyPresets}>
+          <p className={styles.emptyPresetsText}>
+            No templates available.
+          </p>
+          <a
+            href="/internal/contests/presets"
+            target="_blank"
+            className={styles.emptyPresetsLink}
           >
-            <input
-              type="radio"
-              name="presetId"
-              checked={selectedPresetId === preset._id}
-              onChange={() => updateFields({ presetId: preset._id })}
-            />
-            <div className={styles.presetInfo}>
-              <span className={styles.presetName}>{preset.name}</span>
-              {preset.description && (
-                <span className={styles.presetDesc}>{preset.description}</span>
-              )}
-            </div>
-          </label>
-        ))}
-      </div>
+            Manage Presets
+          </a>
+        </div>
+      ) : (
+        <div className={styles.presetList}>
+          {presets.map((preset) => (
+            <label
+              key={preset._id}
+              className={`${styles.presetCard} ${
+                selectedPresetId === preset._id ? styles.presetCardActive : ""
+              }`}
+            >
+              <input
+                type="radio"
+                name="presetId"
+                checked={selectedPresetId === preset._id}
+                onChange={() => updateFields({ presetId: preset._id })}
+              />
+              <div className={styles.presetInfo}>
+                <span className={styles.presetName}>{preset.name}</span>
+                {preset.description && (
+                  <span className={styles.presetDesc}>{preset.description}</span>
+                )}
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
 
       {selectedPreset && (
         <div className={styles.presetDetails}>

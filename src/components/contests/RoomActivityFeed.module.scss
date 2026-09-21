@@ -5,7 +5,8 @@
 .feed {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  position: absolute;
+  inset: 1.5rem;
   overflow: hidden;
 }
 
@@ -61,7 +62,8 @@
   flex-direction: column;
   gap: 1rem;
   overflow-y: auto;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   font-size: 0.75rem;
   @include scroll-hide;
 }

@@ -10,7 +10,7 @@ export const contestFormatSchema = z.enum([
   "bracket",
 ]);
 export const contestRegistrationTypeSchema = z.enum(["open", "closed"]);
-export const contestProblemSelectionModeSchema = z.enum(["bulk", "fine-tuned"]);
+export const contestProblemSelectionModeSchema = z.enum(["test", "bulk", "fine-tuned"]);
 export const contestSeedingMethodSchema = z.enum(["cf_rating", "manual"]);
 
 const dateStringSchema = z
@@ -30,6 +30,13 @@ export const contestProblemSlotSchema = z.object({
   platform: z.string().trim().min(1).max(50),
   problemId: z.string().trim().min(1).max(100),
   roundNumber: z.number().int().min(1).optional(),
+  points: z
+    .number()
+    .int()
+    .min(80, "Points must be at least 80")
+    .max(10000)
+    .optional(),
+  timeLimitMinutes: z.number().int().min(1).max(300).optional(),
 });
 
 const contestCreationFields = {
@@ -54,12 +61,51 @@ const contestCreationFields = {
     (value) => (value === "" ? undefined : value),
     z.union([objectIdStringSchema, z.literal("custom")]).optional(),
   ),
+  bracketType: z
+    .enum(["single_elimination", "double_elimination"])
+    .default("single_elimination"),
+  overallDurationMinutes: z.number().int().min(1).max(600).optional(),
+  perProblemDurationMinutes: z.number().int().min(1).max(120).optional(),
   thirdPlacePlayoff: z.boolean().default(false),
   seedingMethod: contestSeedingMethodSchema.default("cf_rating"),
   registeredUsers: z.array(contestRegisteredUserSchema).max(256).default([]),
+  spectatorRestriction: z
+    .enum(["none", "all", "admin_creator", "club_members"])
+    .default("none"),
 };
 
-export const contestCreationPayloadSchema = z.object(contestCreationFields);
+export const contestCreationPayloadSchema = z
+  .object(contestCreationFields)
+  .superRefine((data, ctx) => {
+    if (
+      data.problemSelectionMode === "fine-tuned" &&
+      data.format !== "bracket"
+    ) {
+      if (!data.problemSlots || data.problemSlots.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Problem slots are required for fine-tuned mode.",
+          path: ["problemSlots"],
+        });
+      } else {
+        data.problemSlots.forEach((slot, idx) => {
+          if (slot.points === undefined || slot.points === null) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Problem ${idx + 1} (${slot.problemId}): points are mandatory in fine-tuned mode.`,
+              path: ["problemSlots", idx, "points"],
+            });
+          } else if (slot.points < 80) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Problem ${idx + 1} (${slot.problemId}): points must be at least 80.`,
+              path: ["problemSlots", idx, "points"],
+            });
+          }
+        });
+      }
+    }
+  });
 export const contestCreationDraftSchema = z
   .object({
     ...contestCreationFields,

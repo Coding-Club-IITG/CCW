@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 type CompatibleImageProps = Omit<ImageProps, "height" | "width"> & {
   height?: number;
   width?: number;
+  fallback?: React.ReactNode;
 };
 
 export default function CompatibleImage({
@@ -14,6 +15,7 @@ export default function CompatibleImage({
   onError,
   src,
   width = 800,
+  fallback,
   ...props
 }: CompatibleImageProps) {
   const [failed, setFailed] = useState(false);
@@ -23,7 +25,7 @@ export default function CompatibleImage({
     typeof src === "string" &&
     /^(?:blob:|data:|https?:\/\/|\/api\/)/i.test(src);
 
-  if (failed) return null;
+  if (failed) return fallback ? <>{fallback}</> : null;
 
   return (
     <Image

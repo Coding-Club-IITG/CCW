@@ -37,7 +37,10 @@ export function formatRoomActivityTime(
   const elapsedMinutes = Math.floor(elapsedSeconds / 60);
   if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
 
-  return `${Math.floor(elapsedMinutes / 60)}h ago`;
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+
+  return `${Math.floor(elapsedHours / 24)}d ago`;
 }
 
 export function getContestRoomResultsPath(
@@ -50,4 +53,14 @@ export function getContestRoomResultsPath(
   return `/internal/contests/rooms/${roomId}/result${
     fromBracket ? "?from=bracket" : ""
   }`;
+}
+
+/** Preserve numeric suffixes in Codeforces indexes (for example, B1). */
+export function getCodeforcesProblemUrl(
+  problemId?: string | null,
+): string | null {
+  if (!problemId || typeof problemId !== "string") return null;
+  const match = problemId.trim().match(/^(\d+)([A-Za-z][A-Za-z0-9]*)$/);
+  if (!match) return null;
+  return `https://codeforces.com/contest/${match[1]}/problem/${match[2]}`;
 }

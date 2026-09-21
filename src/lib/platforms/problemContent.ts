@@ -1,8 +1,9 @@
 import { cp } from "@ronits2407/cp-api";
-import katex from "katex";
-
+import { renderProblemMath, decodeMathEntities } from "@/lib/math";
 import type { Platform } from "@/lib/constants";
 import { getIntegrationEnv } from "@/lib/env/integrations";
+
+export { renderProblemMath, decodeMathEntities };
 
 export type ProblemContentSnapshot = {
   title: string;
@@ -24,42 +25,6 @@ type ProblemContentOptions = {
 };
 
 const READER_URL = "https://r.jina.ai/";
-
-type MathDelimiter = {
-  pattern: RegExp;
-  displayMode: boolean;
-};
-
-const MATH_DELIMITERS: MathDelimiter[] = [
-  { pattern: /\$\$\$([\s\S]*?)\$\$\$/g, displayMode: false },
-  { pattern: /\\\[([\s\S]*?)\\\]/g, displayMode: true },
-  { pattern: /\\\(([\s\S]*?)\\\)/g, displayMode: false },
-  { pattern: /\$\$([\s\S]*?)\$\$/g, displayMode: true },
-];
-
-function decodeMathEntities(value: string): string {
-  return value
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&amp;", "&")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'")
-    .replaceAll("&nbsp;", " ");
-}
-
-export function renderProblemMath(html: string): string {
-  return MATH_DELIMITERS.reduce(
-    (rendered, delimiter) =>
-      rendered.replace(delimiter.pattern, (_, math: string) =>
-        katex.renderToString(decodeMathEntities(math), {
-          displayMode: delimiter.displayMode,
-          throwOnError: false,
-          output: "htmlAndMathml",
-        }),
-      ),
-    html,
-  );
-}
 
 type ProblemContentClient = {
   getProblemContent: (

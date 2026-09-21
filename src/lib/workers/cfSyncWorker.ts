@@ -1,7 +1,7 @@
 import { type Job, Worker } from "bullmq";
 import mongoose from "mongoose";
 
-import { publishRoom, publishUser } from "@/lib/contests/events";
+import { publishRoom, publishUser, publishContest, recordRoomActivity } from "@/lib/contests/events";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   cfSyncJobDataSchema,
@@ -20,9 +20,19 @@ import {
   type CFSubmission,
 } from "@/lib/platforms/codeforces";
 import { claimProblem, getRedis } from "@/lib/redis";
-import { logger } from "@/lib/utils";
+import { getDisplayName, logger } from "@/lib/utils";
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
+
+async function notifyBracketContest(contest: any) {
+  if (contest?.format === "bracket") {
+    await publishContest(contest._id.toString(), {
+      type: "contest.bracket_update",
+    });
+  }
+}
+import ContestTeam from "@/models/ContestTeam";
+import User from "@/models/User";
 
 // Circuit breaker removed, relying on BullMQ job-level retries
 
@@ -50,8 +60,10 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
         if (!mongoose.Types.ObjectId.isValid(roomId)) {
           logger.warn(`[cfSyncWorker] Invalid roomId format: ${roomId}`);
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "invalid_room_id",
+            problemId,
           });
           return;
         }
@@ -61,8 +73,10 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
         if (!room) {
           logger.warn(`[cfSyncWorker] Room ${roomId} not found for sync.`);
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "room_not_found",
+            problemId,
           });
           return;
         }
@@ -75,8 +89,10 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             `[cfSyncWorker] Invalid or missing contestId in room ${roomId}.`,
           );
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "invalid_contest_id",
+            problemId,
           });
           return;
         }
@@ -85,14 +101,34 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
         if (!contest) {
           logger.warn(`[cfSyncWorker] Contest not found for room ${roomId}.`);
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "contest_not_found",
+            problemId,
           });
           return;
         }
 
         // Verify userId is part of the team
         const redis = await getRedis();
+        const team = await ContestTeam.findOne({
+          _id: teamId,
+          roomId: room._id,
+          members: userId,
+        }).lean();
+        if (!team) {
+          logger.warn(
+            `[cfSyncWorker] User ${userId} is not a member of team ${teamId} in room ${roomId}.`,
+          );
+          await publishUser(userId, {
+            type: "sync.failed",
+            verdict: "invalid",
+            reason: "not_team_member",
+            problemId,
+          });
+          return;
+        }
+
         const isTeamMember = await redis.sIsMember(
           `team:${teamId}:users`,
           userId,
@@ -102,8 +138,10 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
             `[cfSyncWorker] User ${userId} is not a member of team ${teamId} in room ${roomId}.`,
           );
           await publishUser(userId, {
+            type: "sync.failed",
             verdict: "invalid",
             reason: "not_team_member",
+            problemId,
           });
           return;
         }
@@ -111,6 +149,14 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
         const state = contestRoomStateSchema.parse(
           await redis.hGetAll(`room:${roomId}:state`),
         );
+        if (state.status !== "active") {
+          await publishUser(userId, {
+            type: "sync.failed",
+            reason: "room_not_active",
+            problemId,
+          });
+          return;
+        }
         const problemsRaw = await redis.lRange(
           `room:${roomId}:problems`,
           0,
@@ -126,8 +172,13 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
           const targetProblem = problems.find(
             (problem) => problem.problemId === problemId,
           );
-          if (targetProblem && targetProblem.revealedAt) {
-            lowerTimestamp = targetProblem.revealedAt;
+          if (targetProblem) {
+            if (targetProblem.revealedAt) {
+              lowerTimestamp = targetProblem.revealedAt;
+            } else {
+              // Problem hasn't been revealed yet! Don't fallback to match start time.
+              lowerTimestamp = Infinity;
+            }
           }
         }
 
@@ -158,11 +209,6 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
 
           // Check if it's the right problem
           if (subProblemId.toUpperCase() === problemId.toUpperCase()) {
-            hasSubmissionForProblem = true;
-            if (subVerdict !== "OK") {
-              bestVerdict = subVerdict;
-            }
-
             // Check handle match
             const authorHandle =
               sub.author?.members.some(
@@ -175,6 +221,11 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
               subTimestamp >= lowerTimestamp &&
               subTimestamp <= upperTimestamp
             ) {
+              hasSubmissionForProblem = true;
+              if (subVerdict !== "OK") {
+                bestVerdict = subVerdict;
+              }
+
               if (subVerdict === "OK") {
                 isValid = true;
                 matchedSubmission = sub;
@@ -300,6 +351,39 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                     timestamp: cfTimestamp,
                   });
 
+                  // Log activity
+                  const teamDoc = await ContestTeam.findById(teamId).lean();
+                  const pName =
+                    problems.find((p) => p.problemId === problemId)?.name ||
+                    problemId;
+
+                  let tName = teamDoc?.name || "Unknown Team";
+                  if (["1v1", "solo-tournament"].includes(contest?.format || "")) {
+                    const memberUser = await User.findById(userId)
+                      .select("name pizza_count")
+                      .lean();
+                    if (memberUser) {
+                      tName = getDisplayName(
+                        memberUser.name || "Unknown",
+                        memberUser.pizza_count,
+                      );
+                    }
+                  }
+
+                  if (claimResult.startsWith("reclaimed|")) {
+                    await recordRoomActivity(roomId, {
+                      icon: "gavel",
+                      text: `CRITICAL: ${tName} RECLAIMED ${problemId} - ${pName}! (+${points} pts)`,
+                      color: "text-error",
+                    });
+                  } else {
+                    await recordRoomActivity(roomId, {
+                      icon: "check_circle",
+                      text: `Valid AC by ${tName}! Solved ${problemId} - ${pName} (+${points} pts)`,
+                      color: "text-primary",
+                    });
+                  }
+
                   const scores: Record<string, number> = {};
                   const teams = await redis.sMembers(`room:${roomId}:teams`);
                   for (const tId of teams) {
@@ -310,6 +394,7 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                     scores[tId] = score || 0;
                   }
                   await publishRoom(roomId, { type: "room.score", scores });
+                  await notifyBracketContest(contest);
 
                   const lockCount = await redis.hLen(`room:${roomId}:locks`);
                   if (lockCount === problems.length) {
@@ -320,6 +405,11 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                       type: "room.end",
                       finalScores: scores,
                       duration: Date.now() - startTime,
+                    });
+                    await recordRoomActivity(roomId, {
+                      icon: "info",
+                      text: "All problems solved! Match has ended.",
+                      color: "text-primary",
                     });
 
                     // Remove the timeout job since the room ended naturally
@@ -439,12 +529,23 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                       await redis.hSet(`room:${roomId}:state`, {
                         status: "completed",
                       });
-
                       await publishRoom(roomId, {
                         type: "room.end",
                         finalScores: scores,
                         duration: Date.now() - startTime,
                         lastSolvedBy: { userId, teamId },
+                      });
+
+                      const userDoc = await User.findById(userId)
+                        .select("name pizza_count")
+                        .lean();
+                      const uName = userDoc
+                        ? getDisplayName(userDoc.name || "Someone", userDoc.pizza_count)
+                        : "Someone";
+                      await recordRoomActivity(roomId, {
+                        icon: "check_circle",
+                        text: `${uName} solved the final problem!`,
+                        color: "text-primary",
                       });
 
                       // Remove the timeout job since the room ended naturally
@@ -467,6 +568,9 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                         newProblemIndex,
                         JSON.stringify(nextProblem),
                       );
+                      await redis.hSet(`room:${roomId}:state`, {
+                        currentProblemStartTime: Date.now().toString(),
+                      });
 
                       await publishRoom(roomId, {
                         type: "room.advance",
@@ -475,11 +579,25 @@ export const cfSyncWorker = new Worker<CfSyncQueueData, void, CfSyncJobName>(
                         nextProblem,
                       });
 
+                      const userDoc = await User.findById(userId)
+                        .select("name pizza_count")
+                        .lean();
+                      const uName = userDoc
+                        ? getDisplayName(userDoc.name || "Someone", userDoc.pizza_count)
+                        : "Someone";
+                      await recordRoomActivity(roomId, {
+                        icon: "check_circle",
+                        text: `Valid AC by ${uName}! Advanced to next problem (+${points} pts)`,
+                        color: "text-primary",
+                      });
+
                       await publishRoom(roomId, { type: "room.score", scores });
+                      await notifyBracketContest(contest);
                     }
                   } else {
                     // Just emit updated scores for reclaimed points
                     await publishRoom(roomId, { type: "room.score", scores });
+                    await notifyBracketContest(contest);
                     if (claimResult.startsWith("reclaimed|")) {
                       await publishRoom(roomId, {
                         type: "room.reclaimed",

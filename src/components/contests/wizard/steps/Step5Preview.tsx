@@ -1,11 +1,11 @@
 import styles from "../ContestWizard.module.scss";
 import type {
-  AdminContestWizardForm,
+  ContestWizardForm,
   ContestCreationPreset,
 } from "@/components/contests/contestCreationForm";
 
 interface Step5Props {
-  formData: AdminContestWizardForm;
+  formData: ContestWizardForm;
   presets: ContestCreationPreset[];
 }
 
@@ -33,7 +33,7 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
           )}
 
           <span className={styles.previewLabel}>Format:</span>
-          <strong className={styles.previewValue}>Bracket (Knockout)</strong>
+          <strong className={styles.previewValue}>Bracket</strong>
 
           <span className={styles.previewLabel}>Match Mode:</span>
           <strong

@@ -190,7 +190,7 @@ export default function MatchHistoryClient({
                     {contest.format === "bracket" && (
                       <div className={styles.tournamentTag}>
                         <Trophy className={styles.iconXs} size={14} />
-                        Knockout
+                        {contest.bracketSettings?.type === "double_elimination" ? "Double Elim" : "Knockout"}
                       </div>
                     )}
                   </div>

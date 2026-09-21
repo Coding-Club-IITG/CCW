@@ -147,42 +147,11 @@ async function seed() {
       console.log(`✅ Seeded test user:`, testUser.email);
     }
 
-    // Create a sample custom contest with all required fields
-    const now = new Date();
-    const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours later
-
-    const sampleContest = {
-      name: "Test Contest 1",
-      creatorId: createdDevUser._id,
-      startTime: now,
-      endTime: endTime,
-      durationSeconds: 2 * 60 * 60, // 2 hours
-      format: "1v1",
-      mode: "blitz",
-      status: "draft",
-      problemSelectionMode: "bulk",
-      bulkPlatform: "codeforces",
-      bulkRatingMin: 800,
-      bulkRatingMax: 1200,
-      bulkProblemCount: 3,
-    };
-
-    const createdContest = await ContestMatch.findOneAndUpdate(
-      { name: sampleContest.name },
-      sampleContest,
-      { upsert: true, returnDocument: "after" },
-    );
-    console.log(
-      "✅ Seeded sample custom contest:",
-      createdContest._id.toString(),
-    );
-
     console.log("\n✨ Seed completed successfully!");
     console.log("\nTest User IDs (use these in your tests):");
     createdTestUsers.forEach((user, i) => {
       console.log(`  User ${i + 1} (${user.email}): ${user._id.toString()}`);
     });
-    console.log(`\nSample Contest ID: ${createdContest._id.toString()}`);
 
     await mongoose.disconnect();
   } catch (error) {

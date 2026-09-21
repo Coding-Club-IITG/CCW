@@ -2,10 +2,12 @@ import styles from "../ContestWizard.module.scss";
 
 interface Step2Props {
   registrationType: string;
+  spectatorRestriction?: string;
   maxParticipants: number;
   startTime: string;
   updateFields: (fields: {
     registrationType?: "open" | "closed";
+    spectatorRestriction?: string;
     maxParticipants?: number;
     startTime?: string;
   }) => void;
@@ -14,6 +16,7 @@ interface Step2Props {
 
 export default function Step2Registration({
   registrationType,
+  spectatorRestriction,
   maxParticipants,
   startTime,
   updateFields,
@@ -47,6 +50,24 @@ export default function Step2Registration({
             Closed (Invite-only / Manual registration)
           </label>
         </div>
+      </div>
+
+      <div className={styles.field}>
+        <label className={`${styles.label} ${styles.labelBlock}`}>
+          Spectator Access
+        </label>
+        <select
+          className={styles.input}
+          value={spectatorRestriction}
+          onChange={(e) =>
+            updateFields({ spectatorRestriction: e.target.value })
+          }
+        >
+          <option value="none">No Spectators</option>
+          <option value="all">Any Authenticated User</option>
+          <option value="club_members">Club / Module Members</option>
+          <option value="admin_creator">Admins & Creator Only</option>
+        </select>
       </div>
 
       <div className={`${styles.field} ${styles.fieldFlush}`}>

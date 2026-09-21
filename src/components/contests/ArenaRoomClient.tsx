@@ -26,6 +26,7 @@ import { getDisplayName } from "@/lib/utils";
 
 import {
   getContestRoomResultsPath,
+  getCodeforcesProblemUrl,
   getDisplayTeamName,
 } from "@/components/contests/roomPresentation";
 import RoomActivityFeed from "@/components/contests/RoomActivityFeed";
@@ -35,8 +36,29 @@ import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
 import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
+import ContestProblemWorkspace from "@/components/contests/ContestProblemWorkspace";
 
 import styles from "./ArenaRoomClient.module.scss";
+
+const ForfeitTimer = ({ targetTime }: { targetTime: number }) => {
+  const [left, setLeft] = useState(() =>
+    Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)),
+  );
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setLeft(Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [targetTime]);
+
+  if (left <= 0) return null;
+  return (
+    <span className={styles.forfeitTimer}>
+      (Forfeit in {left}s)
+    </span>
+  );
+};
 
 export default function ArenaRoomClient({
   contest,
@@ -56,24 +78,28 @@ export default function ArenaRoomClient({
   initialTimeLimit,
   from,
   syncCooldownSeconds = 60,
+  isSpectator = false,
+  initialActivityFeed = [],
 }: {
   contest: ContestListingItem;
   roomId: string;
   roomName: string;
-  teamId: string;
+  teamId: string | null;
   userId: string;
   cfHandle?: string;
   teams?: ContestRoomTeamDto[];
+  initialReadyUserIds?: string[];
+  initialOnlineUserIds?: string[];
   initialMatchState?: "waiting" | "active" | "completed";
   initialProblems?: ContestRoomProblemDto[];
   initialScores?: Record<string, number>;
   initialLocks?: Record<string, string>;
-  initialReadyUserIds?: string[];
-  initialOnlineUserIds?: string[];
   initialStartTime?: number;
   initialTimeLimit?: number;
   from?: string;
   syncCooldownSeconds?: number;
+  isSpectator?: boolean;
+  initialActivityFeed?: RoomActivityDto[];
 }) {
   const router = useRouter();
 
@@ -102,7 +128,8 @@ export default function ArenaRoomClient({
     hold: holdSync,
     begin: beginSync,
   } = useSyncCooldown(roomId, userId, syncCooldownSeconds);
-  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
+  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>(initialActivityFeed);
+  const [forfeitTimeouts, setForfeitTimeouts] = useState<Record<string, number>>({});
   const [startTime, setStartTime] = useState<number | undefined>(
     initialStartTime,
   );
@@ -110,6 +137,13 @@ export default function ArenaRoomClient({
     initialTimeLimit,
   );
   const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
+  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
+    null,
+  );
+  const runnerProblem =
+    problems.find((problem) => problem.problemId === selectedProblemId) ||
+    problems.find((problem) => !locks[problem.problemId]) ||
+    problems[0];
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
   const displayTeamName = (team?: ContestRoomTeamDto) =>
@@ -168,9 +202,8 @@ export default function ArenaRoomClient({
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
         if (payload.locks) setLocks(payload.locks);
-        if (nextStatus === "active") {
-          addActivity("info", "Arena match started! Good luck.");
-        }
+        if (payload.forfeitTimeouts) setForfeitTimeouts(payload.forfeitTimeouts);
+        if (payload.activityLogs) setActivityFeed([...payload.activityLogs].reverse());
         break;
       case "room.locked": {
         const existingLock = stateRef.current.locks[payload.problemId];
@@ -188,20 +221,6 @@ export default function ArenaRoomClient({
           stateRef.current.problems.find(
             (p) => p.problemId === payload.problemId,
           )?.name || payload.problemId;
-
-        if (existingLock && existingLock.split("|")[0] !== payload.claimedBy) {
-          addActivity(
-            "gavel",
-            `CRITICAL: ${tName} RECLAIMED ${payload.problemId} - ${pName}!`,
-            "text-error",
-          );
-        } else {
-          addActivity(
-            "lock",
-            `${tName} solved ${payload.problemId} - ${pName}`,
-            "text-primary",
-          );
-        }
 
         setLocks((prev) => ({
           ...prev,
@@ -236,13 +255,13 @@ export default function ArenaRoomClient({
         if (payload.verdict === "OK") {
           addActivity(
             "check_circle",
-            `Valid AC detected! +${payload.pointsAwarded || 100} pts`,
+            `Verdict: Accepted (OK) on ${payload.problemId || "problem"}!`,
             "text-primary",
           );
         } else {
           addActivity(
             "error",
-            `Submission failed: ${payload.verdict}`,
+            `Submission verdict: ${payload.verdict}`,
             "text-error",
           );
         }
@@ -252,11 +271,25 @@ export default function ArenaRoomClient({
           const problemId = payload.problemId;
           setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
         }
-        addActivity(
-          "error",
-          `Sync failed: ${payload.reason || payload.verdict || "Unknown error"}`,
-          "text-error",
-        );
+        if (payload.verdict === "not_found") {
+          addActivity(
+            "error",
+            `No recent submission found on Codeforces for ${payload.problemId || "problem"}.`,
+            "text-error",
+          );
+        } else if (payload.verdict) {
+          addActivity(
+            "error",
+            `Submission verdict: ${payload.verdict}`,
+            "text-error",
+          );
+        } else {
+          addActivity(
+            "error",
+            `Sync failed: ${payload.reason || "Unknown error"}`,
+            "text-error",
+          );
+        }
         break;
       case "room.user_ready":
         setReadyUserIds((prev) => {
@@ -275,21 +308,12 @@ export default function ArenaRoomClient({
         if (wasOffline) {
           onlineUserIdsRef.current.add(payload.userId);
           setOnlineUserIds(new Set(onlineUserIdsRef.current));
-
-          if (payload.cancelledForfeit) {
-            addActivity(
-              "person",
-              `${uName} reconnected. Forfeiture cancelled.`,
-              "text-secondary",
-            );
-          } else {
-            addActivity(
-              "person",
-              `${uName} connected${matchStateRef.current === "waiting" ? " (Not Ready)" : ""}.`,
-              "text-secondary",
-            );
-          }
         }
+        setForfeitTimeouts((prev) => {
+          const next = { ...prev };
+          delete next[payload.userId];
+          return next;
+        });
         break;
       }
       case "presence.offline": {
@@ -302,12 +326,21 @@ export default function ArenaRoomClient({
           newSet.delete(payload.userId);
           return newSet;
         });
-        const text = payload.forfeitTimeout
-          ? `${uName} disconnected. Match will be forfeited in ${payload.forfeitTimeout}s.`
-          : `${uName} disconnected.`;
-        addActivity("person_off", text, "text-error");
+        if (payload.forfeitTimeout) {
+          const timeout = payload.forfeitTimeout;
+          setForfeitTimeouts((prev) => ({
+            ...prev,
+            [payload.userId]: Date.now() + timeout * 1000,
+          }));
+        }
         break;
       }
+      case "room.activity":
+        setActivityFeed((prev) =>
+          [payload.activity, ...prev].slice(0, 50)
+        );
+        sendBrowserNotification(payload.activity.icon, payload.activity.text);
+        break;
     }
   };
 
@@ -338,7 +371,7 @@ export default function ArenaRoomClient({
           id: Date.now() + Math.random(),
         },
         ...prev,
-      ].slice(0, 15),
+      ].slice(0, 50),
     );
     // Fire a matching desktop notification
     sendBrowserNotification(icon, text);
@@ -364,15 +397,21 @@ export default function ArenaRoomClient({
       body: JSON.stringify({
         roomId,
         teamId,
-        cfHandle: cfHandle || "dummy0", // Use real handle if available, otherwise fallback
+        cfHandle: cfHandle || "", // Use real handle if available
         problemId: problemId,
       }),
     });
 
     beginSync();
 
-    if (!(await readAppResult(res)).ok) {
+    const syncRes = await readAppResult(res);
+    if (!syncRes.ok) {
       setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
+      addActivity(
+        "error",
+        `Sync failed: ${syncRes.error.message || "Failed to initiate sync"}`,
+        "text-error",
+      );
     }
   };
 
@@ -413,6 +452,11 @@ export default function ArenaRoomClient({
                   ? "MATCH OVER"
                   : "WAITING FOR PLAYERS"}
             </div>
+            {isSpectator && (
+              <div className={styles.statusBadge} style={{ background: 'var(--border)', color: 'var(--foreground)' }}>
+                👁 Spectator Mode
+              </div>
+            )}
           </div>
           <div className={styles.scoreRow}>
             {teams?.map((t, idx) => (
@@ -488,10 +532,15 @@ export default function ArenaRoomClient({
                             memberIsOnline ? "" : styles.memberAvatarOffline
                           }
                         />
-                        <span className={styles.memberName}>
-                          {getDisplayName(member.name, member.pizza_count)}{" "}
-                          {member.id === userId && "(You)"}
-                        </span>
+                        <div className={styles.memberDetails}>
+                          <span className={styles.memberName}>
+                            {getDisplayName(member.name, member.pizza_count)}{" "}
+                            {member.id === userId && "(You)"}
+                          </span>
+                          {!memberIsOnline && forfeitTimeouts[member.id] && (
+                            <ForfeitTimer targetTime={forfeitTimeouts[member.id]} />
+                          )}
+                        </div>
                         <div
                           className={`${styles.statusDotSm} ${dotClass}`}
                         ></div>
@@ -506,7 +555,9 @@ export default function ArenaRoomClient({
           {/* Center Stage - Problem Grid */}
           <div className={styles.centerCol}>
             <div className={`${styles.panel} ${styles.panelStage}`}>
-              {matchState === "waiting" ? (
+              <div className={styles.workspaceWrapper}>
+                <div className={styles.workspaceScroll}>
+                  {matchState === "waiting" ? (
                 <div className={styles.waiting}>
                   <div className={styles.waitingIcon}>
                     <Users size={48} />
@@ -516,19 +567,21 @@ export default function ArenaRoomClient({
                     The arena is being prepared. Review your strategy-the match
                     begins when all teams are ready.
                   </p>
-                  <button
-                    onClick={handleReady}
-                    disabled={isReady}
-                    className={styles.readyBtn}
-                  >
-                    {isReady ? (
-                      <span className={styles.animatedDots}>
-                        Ready! Waiting on others
-                      </span>
-                    ) : (
-                      "I am Ready"
-                    )}
-                  </button>
+                  {!isSpectator && (
+                    <button
+                      onClick={handleReady}
+                      disabled={isReady}
+                      className={styles.readyBtn}
+                    >
+                      {isReady ? (
+                        <span className={styles.animatedDots}>
+                          Ready! Waiting on others
+                        </span>
+                      ) : (
+                        "I am Ready"
+                      )}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -537,7 +590,7 @@ export default function ArenaRoomClient({
                   </div>
 
                   <div className={styles.problemGrid}>
-                    {problems.map((prob) => {
+                    {problems.map((prob, idx) => {
                       const lockVal = locks[prob.problemId];
                       const isClaimed = !!lockVal;
                       let claimedByMe = false;
@@ -566,11 +619,23 @@ export default function ArenaRoomClient({
                           : styles.topIconOther
                         : styles.topIconOpen;
                       const isSyncing = syncingMap[prob.problemId];
+                      const isSelected =
+                        runnerProblem?.problemId === prob.problemId;
 
                       return (
                         <div
-                          key={prob.problemId}
-                          className={`${styles.gridCard} ${cardStateClass}`}
+                          key={`${prob.problemId}-${idx}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setSelectedProblemId(prob.problemId)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              setSelectedProblemId(prob.problemId);
+                            }
+                          }}
+                          className={`${styles.gridCard} ${cardStateClass} ${
+                            isSelected ? styles.gridCardSelected : ""
+                          }`}
                         >
                           {isClaimed && (
                             <div
@@ -639,61 +704,75 @@ export default function ArenaRoomClient({
 
                             <div className={styles.gridCardActions}>
                               <a
-                                href={`https://codeforces.com/contest/${prob.problemId.replace(/[^0-9]/g, "")}/problem/${prob.problemId.replace(/[0-9]/g, "")}`}
+                                href={getCodeforcesProblemUrl(prob.problemId) || "#"}
                                 target="_blank"
                                 rel="noreferrer"
                                 className={styles.cfIconBtn}
                                 title="Open in Codeforces"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <ExternalLink
                                   className={styles.icon16}
                                   size={16}
                                 />
                               </a>
-                              <button
-                                onClick={() => handleSync(prob.problemId)}
-                                disabled={
-                                  isClaimed ||
-                                  isSyncing ||
-                                  matchState !== "active" ||
-                                  syncCooldown > 0
-                                }
-                                className={styles.syncMini}
-                              >
-                                {isClaimed ? (
-                                  <Lock className={styles.icon14} size={14} />
-                                ) : isSyncing ? (
-                                  <RefreshCw
-                                    className={`${styles.icon14} ${styles.spin}`}
-                                    size={14}
-                                  />
-                                ) : syncCooldown > 0 ? (
-                                  <Hourglass
-                                    className={styles.icon14}
-                                    size={14}
-                                  />
-                                ) : (
-                                  <RefreshCw
-                                    className={styles.icon14}
-                                    size={14}
-                                  />
-                                )}
-                                {isClaimed
-                                  ? "Locked"
-                                  : isSyncing
-                                    ? "Syncing"
-                                    : syncCooldown > 0
-                                      ? `${syncCooldown}s`
-                                      : "Sync"}
-                              </button>
+                              {!isSpectator && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSync(prob.problemId);
+                                  }}
+                                  disabled={
+                                    !cfHandle ||
+                                    isClaimed ||
+                                    isSyncing ||
+                                    matchState !== "active" ||
+                                    syncCooldown > 0
+                                  }
+                                  className={styles.syncMini}
+                                  title={!cfHandle ? "Please link your Codeforces account to sync" : ""}
+                                >
+                                  {isClaimed ? (
+                                    <Lock className={styles.icon14} size={14} />
+                                  ) : isSyncing ? (
+                                    <RefreshCw
+                                      className={`${styles.icon14} ${styles.spin}`}
+                                      size={14}
+                                    />
+                                  ) : syncCooldown > 0 ? (
+                                    <Hourglass
+                                      className={styles.icon14}
+                                      size={14}
+                                    />
+                                  ) : (
+                                    <RefreshCw
+                                      className={styles.icon14}
+                                      size={14}
+                                    />
+                                  )}
+                                  {isClaimed
+                                    ? "Locked"
+                                    : isSyncing
+                                      ? "Syncing"
+                                      : syncCooldown > 0
+                                        ? `${syncCooldown}s`
+                                        : "Sync"}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
+                  <ContestProblemWorkspace
+                    problem={runnerProblem}
+                    isSpectator={isSpectator}
+                  />
                 </>
               )}
+                </div>
+              </div>
             </div>
           </div>
 

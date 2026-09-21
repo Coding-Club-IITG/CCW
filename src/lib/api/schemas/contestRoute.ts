@@ -30,7 +30,6 @@ export const teamRegistrationSchema = z.object({
 export const contestSyncSchema = z.object({
   roomId: objectIdStringSchema,
   teamId: objectIdStringSchema.optional(),
-  cfHandle: z.string().trim().min(1).max(100),
   problemId: z.string().trim().min(1).max(100),
 });
 

@@ -4,6 +4,8 @@
 
 # Dependencies
 node_modules/
+.pnpm-store/
+.pnpm-install*.log
 
 # Debug
 .log*
@@ -14,6 +16,8 @@ backup
 out/
 build/
 coverage/
+test-results/
+playwright-report/
 
 # Typescript
 *.tsbuildinfo

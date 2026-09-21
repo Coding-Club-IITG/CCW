@@ -13,22 +13,29 @@ export interface ContestCreationForm {
   bulkMinContestId: number;
   fineTunedProblemCount: string | number;
   fineTunedProblems: string[];
+  fineTunedProblemPoints?: number[];
+  fineTunedProblemTimeLimits?: number[];
   presetId: string;
   thirdPlacePlayoff: boolean;
   seedingMethod: string;
+  bracketType?: "single_elimination" | "double_elimination";
   registrationStartMode: string;
   registrationStartTime: string;
   registrationType: string;
+  overallDurationMinutes?: number;
+  perProblemDurationMinutes?: number;
+  spectatorRestriction: string;
 }
 
 export type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
 import type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
 
-export interface AdminContestWizardForm {
+export interface ContestWizardForm {
   name: string;
   description: string;
   mode: "blitz" | "arena";
   format: "bracket";
+  bracketType?: "single_elimination" | "double_elimination";
   teamSize: 1 | 3;
   maxParticipants: number;
   startTime: string;
@@ -39,10 +46,15 @@ export interface AdminContestWizardForm {
     platform: string;
     problemId: string;
     roundNumber: number;
+    points?: number;
+    timeLimitMinutes?: number;
   }>;
   bulkProblemCount?: number;
   thirdPlacePlayoff: boolean;
   seedingMethod: "cf_rating" | "manual";
+  overallDurationMinutes?: number;
+  perProblemDurationMinutes?: number;
+  spectatorRestriction: string;
 }
 
 export interface ContestParticipant {
@@ -55,14 +67,14 @@ export interface ContestParticipant {
   teamName?: string;
 }
 
-export function createInitialContestForm(): ContestCreationForm {
+export function createInitialContestForm(isHead = true): ContestCreationForm {
   return {
     name: "",
     description: "",
     mode: "blitz",
-    format: "solo-tournament",
+    format: isHead ? "solo-tournament" : "1v1",
     teamSize: 1,
-    maxParticipants: 16,
+    maxParticipants: isHead ? 16 : 2,
     startTime: "",
     problemSelectionMode: "bulk",
     bulkRatingMin: 800,
@@ -71,12 +83,18 @@ export function createInitialContestForm(): ContestCreationForm {
     bulkMinContestId: 0,
     fineTunedProblemCount: 1,
     fineTunedProblems: [""],
+    fineTunedProblemPoints: [100],
+    fineTunedProblemTimeLimits: [],
     presetId: "",
     thirdPlacePlayoff: false,
     seedingMethod: "cf_rating",
+    bracketType: "single_elimination",
     registrationStartMode: "immediate",
     registrationStartTime: "",
-    registrationType: "open",
+    registrationType: isHead ? "open" : "closed",
+    overallDurationMinutes: 60,
+    perProblemDurationMinutes: 15,
+    spectatorRestriction: "none",
   };
 }
 
@@ -93,7 +111,7 @@ export function applyContestFormatDefaults(
     return { ...form, teamSize: 3, maxParticipants: 15 };
   }
   if (form.format === "bracket" && form.maxParticipants < 2) {
-    return { ...form, maxParticipants: 16 };
+    return { ...form, maxParticipants: 8 };
   }
   return form;
 }
@@ -103,13 +121,33 @@ export function applyContestPreset(
   preset: ContestCreationPreset,
 ): ContestCreationForm {
   const problemIds = preset.problemSlots?.map((slot) => slot.problemId || "");
+  const points = preset.problemSlots?.map((slot) => slot.points ?? 100);
+  const timeLimits = preset.problemSlots?.map(
+    (slot) => slot.timeLimitMinutes ?? 15,
+  );
 
   return {
     ...form,
-    name: preset.name || form.name,
-    description: preset.description || form.description,
+    // Do not overwrite user's custom name or description
+    name: form.name || preset.name || "",
+    description: form.description || preset.description || "",
     mode: preset.mode || form.mode,
     format: preset.format || form.format,
+    teamSize: preset.teamSize || form.teamSize,
+    overallDurationMinutes:
+      preset.overallDurationMinutes ?? form.overallDurationMinutes,
+    perProblemDurationMinutes:
+      preset.perProblemDurationMinutes ?? form.perProblemDurationMinutes,
+    spectatorRestriction:
+      preset.spectatorRestriction || form.spectatorRestriction,
+    registrationType:
+      preset.registrationSettings?.type || form.registrationType,
+    maxParticipants:
+      preset.registrationSettings?.maxParticipants || form.maxParticipants,
+    bracketType: preset.bracketSettings?.type || form.bracketType,
+    thirdPlacePlayoff:
+      preset.bracketSettings?.thirdPlacePlayoff ?? form.thirdPlacePlayoff,
+    seedingMethod: preset.bracketSettings?.seedingMethod || form.seedingMethod,
     problemSelectionMode:
       preset.problemSelectionMode || form.problemSelectionMode,
     bulkRatingMin: preset.bulkRatingMin || form.bulkRatingMin,
@@ -118,6 +156,12 @@ export function applyContestPreset(
     bulkMinContestId: preset.bulkMinContestId ?? form.bulkMinContestId,
     fineTunedProblems:
       problemIds && problemIds.length > 0 ? problemIds : form.fineTunedProblems,
+    fineTunedProblemPoints:
+      points && points.length > 0 ? points : form.fineTunedProblemPoints,
+    fineTunedProblemTimeLimits:
+      timeLimits && timeLimits.length > 0
+        ? timeLimits
+        : form.fineTunedProblemTimeLimits,
     fineTunedProblemCount:
       problemIds && problemIds.length > 0
         ? problemIds.length
@@ -129,6 +173,7 @@ export function applyContestPreset(
 export function getMaxParticipantsError(
   form: ContestCreationForm,
   manualTeamCount: number,
+  isHead = true,
 ): string {
   if (Number.isNaN(form.maxParticipants)) return "Must be a valid number.";
   if (form.format === "solo-tournament" && form.maxParticipants < 2) {
@@ -137,8 +182,13 @@ export function getMaxParticipantsError(
   if (form.format === "team-tournament" && form.maxParticipants < 6) {
     return "At least 6 participants required (2 teams).";
   }
-  if (form.format === "bracket" && form.maxParticipants < 2) {
-    return "At least 2 participants required.";
+  if (form.format === "bracket") {
+    if (form.maxParticipants < 2) {
+      return "At least 2 participants required.";
+    }
+    if (!isHead && form.maxParticipants > 8) {
+      return "Knockout tournaments are limited to at most 8 participants for regular members.";
+    }
   }
 
   const maxTeamsAllowed = Math.floor(form.maxParticipants / form.teamSize);
