@@ -59,6 +59,9 @@ importers:
       github-slugger:
         specifier: ^2.0.0
         version: 2.0.0
+      highlight.js:
+        specifier: ^11.12.0
+        version: 11.12.0
       katex:
         specifier: ^0.18.4
         version: 0.18.4
@@ -2537,6 +2540,10 @@ packages:
 
   highlight.js@11.11.2:
     resolution: {integrity: sha512-oaXMACAU0kzOMXBjWpNcX+vlwSBCIAiZ9BHa7gA15NOTtT2L/l8OSZDuqS2XppOhZBPJ7hm4o8ep2kyuip2uEQ==}
+    engines: {node: '>=12.0.0'}
+
+  highlight.js@11.12.0:
+    resolution: {integrity: sha512-nbfWpyRMcMrPMmDwJB+dhX/eiaPKtc2RB+0QZskqJ3WjRA/FDS0e9hZrx8EC/lbEv8gXy98FcDbNa/dspAaJMg==}
     engines: {node: '>=12.0.0'}
 
   html-encoding-sniffer@6.0.0:
@@ -6505,6 +6512,8 @@ snapshots:
       hermes-estree: 0.25.1
 
   highlight.js@11.11.2: {}
+
+  highlight.js@11.12.0: {}
 
   html-encoding-sniffer@6.0.0(@noble/hashes@2.3.0):
     dependencies:
