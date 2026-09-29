@@ -17,6 +17,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkGithubBlockquoteAlert from "remark-github-blockquote-alert";
 import remarkMath from "remark-math";
+import "highlight.js/styles/github-dark.css";
 
 import { writeClipboardText } from "@/lib/blog/articleReader";
 import { remarkHeadingAnchors } from "@/lib/blog/markdownHeadings";
