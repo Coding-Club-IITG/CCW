@@ -102,7 +102,7 @@ export default function RegisterContestModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isSoloFormat = ["1v1", "solo-tournament"].includes(format);
+    const isSoloFormat = ["1v1", "solo-tournament"].includes(format) || teamSize === 1;
     if (!isSoloFormat && !teamName.trim()) {
       toast.error("Please provide a team name.");
       return;
