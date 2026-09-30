@@ -76,6 +76,17 @@ export async function POST(request: NextRequest) {
       ? (body.data.isGlobal ?? false)
       : false;
 
+    if (
+      !isHead(authorization.data.user.access) &&
+      body.data.format === "bracket" &&
+      (body.data.registrationSettings?.maxParticipants ?? 0) > 8
+    ) {
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Non-admin users cannot create a knockout tournament preset with more than 8 members.",
+      );
+    }
+
     const dbSession = await mongoose.startSession();
     let preset;
     try {

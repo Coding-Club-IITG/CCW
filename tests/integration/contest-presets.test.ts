@@ -187,6 +187,50 @@ describe("contest preset routes", () => {
       after: { name: "Archive me", archived: true },
     });
   });
+  it("prevents non-admins from creating or updating bracket presets with more than 8 participants", async () => {
+    const { POST } = await import("@/app/api/contests/presets/route");
+    const { PUT } = await import("@/app/api/contests/presets/[id]/route");
+
+    getSession.mockResolvedValue(session("Member"));
+    const payload = {
+      name: "Big Bracket Preset",
+      format: "bracket",
+      mode: "blitz",
+      durationSeconds: 300,
+      registrationSettings: { type: "open", maxParticipants: 16 },
+    };
+
+    const createRes = await POST(createRequest(payload));
+    expect(createRes.status).toBe(400);
+    expect(await responseError(createRes)).toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: "Non-admin users cannot create a knockout tournament preset with more than 8 members.",
+    });
+
+    const validPayload = { ...payload, name: "Small Bracket Preset", registrationSettings: { type: "open", maxParticipants: 8 } };
+    const validRes = await POST(createRequest(validPayload));
+    expect(validRes.status).toBe(201);
+    const created = await responseData<any>(validRes);
+
+    const updateRes = await PUT(
+      new NextRequest(`http://localhost/api/contests/presets/${created._id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ registrationSettings: { type: "open", maxParticipants: 16 } }),
+      }),
+      { params: Promise.resolve({ id: created._id }) }
+    );
+
+    expect(updateRes.status).toBe(400);
+    expect(await responseError(updateRes)).toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: "Non-admin users cannot create a knockout tournament preset with more than 8 members.",
+    });
+
+    getSession.mockResolvedValue(session("Head"));
+    const adminRes = await POST(createRequest({ ...payload, name: "Admin Big Bracket Preset" }));
+    expect(adminRes.status).toBe(201);
+  });
 });
 
 function createRequest(body: unknown) {

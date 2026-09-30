@@ -154,6 +154,14 @@ export default function PresetManager({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!isAdmin && format === "bracket" && maxParticipants > 8) {
+      toast.error(
+        "Non-admin users cannot create a knockout tournament with more than 8 members.",
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const payload: any = {
