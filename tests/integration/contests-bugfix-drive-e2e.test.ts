@@ -752,4 +752,37 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       expect(getRoundName(1, 1, "grand_final")).toBe("Grand Final");
     });
   });
+  describe("10. Contest Registration Missing Team Name Fix", () => {
+    it("allows users to register for a solo bracket tournament without providing a team name", async () => {
+      const user = await CPUser.create({
+        userId: new mongoose.Types.ObjectId(),
+        cfHandle: "solo_bracket_player",
+        cfRating: 1500,
+      });
+
+      getSession.mockResolvedValue({
+        user: { id: user.userId.toString(), access: "Member" },
+      });
+
+      const contest = await ContestMatch.create({
+        name: "Solo Bracket Registration Test",
+        creatorId: user.userId,
+        format: "bracket",
+        mode: "blitz",
+        teamSize: 1,
+        status: "registration",
+        problemSelectionMode: "bulk",
+        startTime: new Date(Date.now() + 86400000),
+      });
+
+      const res = await registerForContest(contest._id.toString(), undefined);
+
+      expect(res.ok).toBe(true);
+
+      const updated = await ContestMatch.findById(contest._id);
+      expect(updated?.registrations).toHaveLength(1);
+      expect(updated?.registrations?.[0].teamName).toBe("solo_bracket_player");
+      expect(updated?.registrations?.[0].cfHandle).toBe("solo_bracket_player");
+    });
+  });
 });
