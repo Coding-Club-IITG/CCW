@@ -4,19 +4,21 @@
  */
 
 import { NextRequest } from "next/server";
+import mongoose from "mongoose";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import {
   jsonObjectSchema,
   objectIdParamsSchema,
 } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { auth } from "@/lib/auth/server";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import Hackathon from "@/models/Hackathon";
 import HackathonTeam from "@/models/HackathonTeam";
 import User from "@/models/User";
-import mongoose from "mongoose";
 
 export async function GET(
   request: NextRequest,
@@ -34,7 +36,7 @@ export async function GET(
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id } = validatedParams.data;
-    await dbConnect();
+    await connectMongoDB();
 
     const hackathon = await Hackathon.findById(id).lean();
     if (!hackathon) {
@@ -103,7 +105,7 @@ export async function POST(
       return jsonError("VALIDATION_ERROR", "Team name is required.");
     }
 
-    await dbConnect();
+    await connectMongoDB();
 
     const hackathon = (await Hackathon.findById(id).lean()) as any;
     if (!hackathon || hackathon.status !== "active") {
@@ -142,6 +144,12 @@ export async function POST(
 
     return jsonOk({ team }, { status: 201 });
   } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === 11000) {
+      return jsonError(
+        "CONFLICT",
+        "You are already in a team for this hackathon.",
+      );
+    }
     logger.error("Hackathon team creation failed", {
       route: "POST /api/hackathons/[id]/teams",
       operation: "create_team",

@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import path from "path";
 
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseFormData, parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { objectIdParamsSchema } from "@/lib/api/schemas/boundary";
@@ -12,7 +12,7 @@ import {
   recruitmentDocumentSlotSchema,
   recruitmentUploadSchema,
 } from "@/lib/api/schemas/recruitment";
-import { serializeRecruitment } from "@/lib/recruitment";
+import { serializeRecruitment } from "@/lib/recruitment/public";
 import {
   invalidateRecruitment,
   mutateRecruitment,
@@ -21,7 +21,8 @@ import {
   recruitmentUploadDirectory,
   removeRecruitmentFiles,
   summarizeRecruitment,
-} from "@/lib/recruitment.server";
+} from "@/lib/recruitment/service.server";
+
 import Recruitment from "@/models/Recruitment";
 
 export const runtime = "nodejs";

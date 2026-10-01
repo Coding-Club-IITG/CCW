@@ -3,18 +3,19 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { canEditBlogDraft } from "@/lib/access/blog";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import {
   summarizeBlogRevision,
   summarizePublicContent,
 } from "@/lib/audit/summary";
 import { AppResultError, parseJson, parseRouteParams } from "@/lib/api/result";
-import { requireBlogEditor } from "@/lib/blog/access";
+import { requireBlogEditor } from "@/lib/blog/editorAccess";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
-import { invalidateCache } from "@/lib/cache";
-import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/tagUtils";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { invalidateCache } from "@/lib/cache/redis";
+import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/shared/tags";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import BlogPost from "@/models/BlogPost";
 
 type RouteContext = { params: Promise<{ slug: string }> };

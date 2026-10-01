@@ -10,7 +10,8 @@ import {
   BLOG_REVISION_SOURCE_LABELS,
   type BlogEditorMode,
 } from "@/lib/constants";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/shared/dates";
+
 import Button from "@/components/shared/Button";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import EmptyState from "@/components/shared/EmptyState";

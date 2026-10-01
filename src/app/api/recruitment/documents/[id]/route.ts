@@ -9,12 +9,13 @@ import { jsonError, jsonResult } from "@/lib/api/result.server";
 import { objectIdParamsSchema } from "@/lib/api/schemas/boundary";
 import { recruitmentDocumentQuerySchema } from "@/lib/api/schemas/recruitment";
 import { RECRUITMENT_DOCUMENT_KINDS } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { isDocumentReleased } from "@/lib/recruitment";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { isDocumentReleased } from "@/lib/recruitment/public";
 import {
   recruitmentError,
   recruitmentUploadDirectory,
-} from "@/lib/recruitment.server";
+} from "@/lib/recruitment/service.server";
+
 import Recruitment from "@/models/Recruitment";
 
 export const runtime = "nodejs";
@@ -32,7 +33,7 @@ export async function GET(
     );
     if (!query.ok) return jsonResult(query);
     const id = params.data.id.toLowerCase();
-    await dbConnect();
+    await connectMongoDB();
     const edition = await Recruitment.findOne({
       status: "published",
       $or: RECRUITMENT_DOCUMENT_KINDS.map((kind) => ({

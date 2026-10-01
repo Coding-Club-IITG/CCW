@@ -1,12 +1,8 @@
 "use client";
 
-import { useSession } from "@/lib/auth-client";
-import { canSetPOTD } from "@/lib/access/potd";
-import { parseRoles } from "@/lib/roles";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
-import styles from "./PotdLayout.module.scss";
 import {
   Clock as IconClock,
   Star as IconStar,
@@ -14,6 +10,12 @@ import {
   Archive as IconArchive,
   PencilLine as IconEdit,
 } from "lucide-react";
+
+import { useSession } from "@/lib/auth/client";
+import { canSetPOTD } from "@/lib/access/potd";
+import { parseRoles } from "@/lib/users/roles";
+
+import styles from "./PotdLayout.module.scss";
 
 // Icons for navigation items
 const Icons = {

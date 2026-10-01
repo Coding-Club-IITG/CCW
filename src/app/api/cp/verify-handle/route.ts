@@ -1,16 +1,18 @@
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { parseSearchParams } from "@/lib/api/result";
 import { z } from "zod";
 import { cp } from "@ronits2407/cp-api";
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import User from "@/models/User";
-import CPUser from "@/models/CPUser";
-import { dbConnect } from "@/lib/mongodb";
-import { consumeUserRateLimit } from "@/lib/userRateLimit";
+
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { parseSearchParams } from "@/lib/api/result";
+import { auth } from "@/lib/auth/server";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { consumeUserRateLimit } from "@/lib/users/rateLimit";
 import { getUserAffiliation } from "@/lib/platforms/atcoder";
 import { acquireDistributedCodeforcesSlot } from "@/lib/platforms/codeforces";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
+import User from "@/models/User";
+import CPUser from "@/models/CPUser";
 
 export async function POST(req: Request) {
   try {
@@ -33,7 +35,7 @@ export async function POST(req: Request) {
     if (!query.ok) return jsonResult(query);
     const platform = query.data.platform;
 
-    await dbConnect();
+    await connectMongoDB();
 
     const cpUserDoc = await CPUser.findOne({ userId: session.user.id });
 

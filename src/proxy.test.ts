@@ -5,7 +5,7 @@ import { proxy } from "@/proxy";
 
 const getSession = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: {
     api: {
       getSession,

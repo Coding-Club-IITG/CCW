@@ -14,7 +14,7 @@ import {
   DIFFICULTIES,
   CF_CONTEST_YEAR_OPTIONS,
 } from "@/lib/constants";
-import { formatDate, getTodayISTDateStr } from "@/lib/potd/utils";
+import { formatDate, getTodayISTDateStr } from "@/lib/potd/schedule";
 
 import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
 import Modal from "@/components/shared/Modal";

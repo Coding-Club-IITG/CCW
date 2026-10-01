@@ -1,7 +1,10 @@
 import { ArrowUpRight, Maximize2 } from "lucide-react";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
+
 import FocalImage from "@/components/shared/FocalImage";
 import { IconGithub } from "@/components/shared/Icons";
+
 import ProjectSheet, { type ProjectSheetData } from "./ProjectSheet";
 import styles from "./Projects.module.scss";
 

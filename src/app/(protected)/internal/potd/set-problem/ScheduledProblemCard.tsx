@@ -1,9 +1,12 @@
-import styles from "./SetProblem.module.scss";
-import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
 import { Trash2 as IconTrash } from "lucide-react";
+
 import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROBLEM_URLS } from "@/lib/constants";
-import { formatDate } from "@/lib/potd/utils";
+import { formatDate } from "@/lib/potd/schedule";
 import type { ScheduledChallenge } from "@/lib/actions/admin/potd";
+
+import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
+
+import styles from "./SetProblem.module.scss";
 
 interface ScheduledProblemCardProps {
   prob: ScheduledChallenge;

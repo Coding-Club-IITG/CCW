@@ -9,7 +9,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { expectAppData } from "@/lib/api/result";
-import { formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/shared/dates";
 
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import SearchInput from "@/components/shared/SearchInput";

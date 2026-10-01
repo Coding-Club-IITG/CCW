@@ -5,9 +5,10 @@ import Link from "next/link";
 import { ArrowRight, Calendar, ChevronDown, Timer, Trophy } from "lucide-react";
 
 import { ContestListingItem } from "@/lib/actions/contests";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/shared/dates";
 
 import BackLink from "@/components/shared/BackLink";
+
 import styles from "./MatchHistoryClient.module.scss";
 
 export default function MatchHistoryClient({

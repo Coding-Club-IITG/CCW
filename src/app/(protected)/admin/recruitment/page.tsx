@@ -1,4 +1,4 @@
-import { getAdminRecruitments } from "@/lib/recruitment.server";
+import { getAdminRecruitments } from "@/lib/recruitment/service.server";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 

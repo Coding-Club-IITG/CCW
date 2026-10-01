@@ -1,7 +1,8 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+
 import { BLOG_STATUSES } from "@/lib/constants";
 import type { BlogStatus } from "@/lib/constants";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
 
 export interface IBlogAuthor {
   userId: Types.ObjectId;

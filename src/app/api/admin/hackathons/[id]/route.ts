@@ -6,19 +6,20 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeHackathon } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   jsonObjectSchema,
   objectIdParamsSchema,
 } from "@/lib/api/schemas/boundary";
-import { invalidateCache } from "@/lib/cache";
+import { invalidateCache } from "@/lib/cache/redis";
 import { HACKATHON_STATUSES, type HackathonStatus } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { logger } from "@/lib/telemetry/logger";
+
 import Hackathon from "@/models/Hackathon";
 
 type HackathonUpdate = {
@@ -128,7 +129,7 @@ export async function PATCH(
       return jsonError("VALIDATION_ERROR", parsed.error);
     }
 
-    await dbConnect();
+    await connectMongoDB();
     const existing = await Hackathon.findById(id)
       .select("minMembers maxMembers")
       .lean<{ minMembers: number; maxMembers: number }>();
@@ -204,7 +205,7 @@ export async function DELETE(
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id } = validatedParams.data;
-    await dbConnect();
+    await connectMongoDB();
     if (!(await Hackathon.exists({ _id: id })))
       return jsonError("NOT_FOUND", "Not found.");
 

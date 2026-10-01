@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
+
 import { jsonError, jsonResult } from "@/lib/api/result.server";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/server";
 import { webEnv } from "@/lib/env/web";
-import { getRedis } from "@/lib/redis";
-import { logger } from "@/lib/utils";
-import dbConnect from "@/lib/mongodb";
-import ContestRoom from "@/models/ContestRoom";
-import { publishRoom, publishUser, recordRoomActivity } from "@/lib/contests/events";
+import { getRedis } from "@/lib/db/redis";
+import { logger } from "@/lib/telemetry/logger";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { publishRoom, publishUser } from "@/lib/contests/events";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   contestRoomStateSchema,
@@ -15,6 +15,8 @@ import {
 import { parseSearchParams } from "@/lib/api/result";
 import { contestStreamQuerySchema } from "@/lib/api/schemas/contestRoute";
 import User from "@/models/User";
+
+import ContestRoom from "@/models/ContestRoom";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
   );
   if (!query.ok) return jsonResult(query);
 
-  await dbConnect();
+  await connectMongoDB();
 
   const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
   const activeRooms = isValidObjectId

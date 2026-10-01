@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import Link from "next/link";
 import {
@@ -13,11 +12,16 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
-import dbConnect from "@/lib/mongodb";
+
+import { auth } from "@/lib/auth/server";
+import { connectMongoDB } from "@/lib/db/mongodb";
 import { isHead } from "@/lib/access/roles";
-import LinkCard from "@/components/shared/LinkCard";
-import { getDisplayName } from "@/lib/utils";
+import { getDisplayName } from "@/lib/users/identity";
+
 import BlogPost from "@/models/BlogPost";
+
+import LinkCard from "@/components/shared/LinkCard";
+
 import styles from "./Dashboard.module.scss";
 
 export default async function DashboardPage() {
@@ -29,7 +33,7 @@ export default async function DashboardPage() {
   const user = session!.user;
   const userIsAdmin = isHead(user.access);
 
-  await dbConnect();
+  await connectMongoDB();
   const authorQuery = mongoose.Types.ObjectId.isValid(user.id)
     ? [
         { "authors.userId": new mongoose.Types.ObjectId(String(user.id)) },

@@ -19,6 +19,49 @@ export const APP_TIME_ZONE = "Asia/Kolkata";
 export const ACCESS_LEVELS = ["Member", "Head", "Admin"] as const;
 export type AccessLevel = (typeof ACCESS_LEVELS)[number];
 
+export const AUTH_PROVIDERS = ["microsoft", "google"] as const;
+export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
+export const AUTH_PROVIDER_LABELS: Record<AuthProvider, string> = {
+  microsoft: "IITG SSO",
+  google: "Google",
+};
+export const LOGIN_SWITCH_STATUSES = [
+  "draft",
+  "pending",
+  "approved",
+  "rejected",
+  "cancelled",
+  "expired",
+] as const;
+export type LoginSwitchStatus = (typeof LOGIN_SWITCH_STATUSES)[number];
+export const LOGIN_SWITCH_RECENT_MS = 10 * 60 * 1000;
+export const LOGIN_SWITCH_VALID_MS = 7 * 24 * 60 * 60 * 1000;
+export const USER_SORT_FIELDS = [
+  "createdAt",
+  "name",
+  "email",
+  "access",
+  "roles",
+  "managedModules",
+  "tenure",
+  "pizza_count",
+  "provider",
+] as const;
+export const USER_SORT_LABELS: Record<
+  (typeof USER_SORT_FIELDS)[number],
+  string
+> = {
+  createdAt: "Date added",
+  name: "Name",
+  email: "Email",
+  access: "Access",
+  roles: "Roles",
+  managedModules: "Managed modules",
+  tenure: "Tenure",
+  pizza_count: "Pizza count",
+  provider: "Sign-in method",
+};
+
 export const AUDIT_CATEGORIES = [
   "users",
   "blog",
@@ -356,46 +399,9 @@ export const CODE_RUNNER_TIMEOUT_MS: Record<CodeRunnerLanguage, number> = {
   python: 15000,
 };
 
-export type TestCase = {
-  id: string;
-  input: string;
-  expectedOutput: string;
-  isCustom?: boolean;
-};
-
 export type TestResultStatus = "pass" | "fail" | "error" | "tle";
 
-export type TestResult = {
-  testCaseId: string;
-  status: TestResultStatus;
-  actualOutput: string;
-  error?: string;
-  executionTimeMs?: number;
-};
-
-export type ExecutionResult = {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTimeMs: number;
-  timedOut?: boolean;
-};
-
-export type ProblemData = {
-  title: string;
-  platform: Platform;
-  contestId: string;
-  problemIndex: string;
-  url: string;
-};
-
 export type WasmLoadState = "idle" | "downloading" | "ready" | "error";
-
-export type WasmLoadStatus = {
-  state: WasmLoadState;
-  progress: number;
-  message: string;
-};
 
 export const CF_CONTEST_YEAR_OPTIONS = [
   { label: "Any Time (All Problems)", minContestId: 0 },
@@ -406,3 +412,23 @@ export const CF_CONTEST_YEAR_OPTIONS = [
   { label: "2024 Onwards (ID ≥ 1915)", minContestId: 1915 },
   { label: "2025 Onwards (ID ≥ 2050)", minContestId: 2050 },
 ] as const;
+
+/* Atlas */
+
+export const ATLAS_RESULT_KINDS = [
+  "route",
+  "command",
+  "module",
+  "post",
+  "event",
+  "project",
+  "team",
+  "calendar",
+  "file",
+  "notification",
+  "hackathon",
+  "potd",
+  "contest",
+] as const;
+
+export type AtlasResultKind = (typeof ATLAS_RESULT_KINDS)[number];

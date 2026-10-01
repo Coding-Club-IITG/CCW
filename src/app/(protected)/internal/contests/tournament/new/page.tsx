@@ -1,8 +1,8 @@
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
 import ContestPreset from "@/models/ContestPreset";
 import { toContestPresetDto } from "@/lib/contests/dtos";
 import ContestWizard from "@/components/contests/wizard/ContestWizard";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/server";
 import { isHead } from "@/lib/access/roles";
 import { headers } from "next/headers";
 
@@ -12,7 +12,7 @@ export const metadata = {
 };
 
 export default async function NewContestPage() {
-  await dbConnect();
+  await connectMongoDB();
   const session = await auth.api.getSession({ headers: await headers() });
   const userRole = session?.user?.access as string | undefined;
   const admin = isHead(userRole);

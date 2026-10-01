@@ -8,11 +8,13 @@ import {
   it,
   vi,
 } from "vitest";
+import mongoose from "mongoose";
+
+import { auditedTransaction } from "@/lib/audit/index";
 
 import AuditLog, { auditExpiry } from "@/models/AuditLog";
 import Project from "@/models/Project";
-import mongoose from "mongoose";
-import { auditedTransaction } from "@/lib/audit";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -21,7 +23,7 @@ import {
 import { responseData, responseError } from "../utils/result";
 
 const getSession = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
 
 async function event(index: number, category: "users" | "potd" = "users") {
   const createdAt = new Date(Date.UTC(2026, 7, 1, 0, index));

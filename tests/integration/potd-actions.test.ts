@@ -9,12 +9,14 @@ import {
   vi,
 } from "vitest";
 
-import { computeWindowTimes } from "@/lib/potd/utils";
+import { computeWindowTimes } from "@/lib/potd/schedule";
+
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import Problem from "@/models/POTDProblem";
 import POTDSubmission from "@/models/POTDSubmission";
 import User from "@/models/User";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -54,7 +56,7 @@ const redis = {
   }),
 };
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession: mocks.getSession } },
 }));
 vi.mock("next/headers", () => ({
@@ -63,10 +65,10 @@ vi.mock("next/headers", () => ({
 vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));
-vi.mock("@/lib/redis", () => ({
+vi.mock("@/lib/db/redis", () => ({
   getRedis: vi.fn(async () => redis),
 }));
-vi.mock("@/lib/cache", () => ({
+vi.mock("@/lib/cache/redis", () => ({
   CACHE_TTLS: { LEADERBOARDS: 60 },
   buildCacheKey: vi.fn((prefix: string) => prefix),
   cachedFetch: vi.fn(
@@ -229,9 +231,31 @@ describe("POTD member actions", () => {
     });
   });
 
+  it("rejects stale verification after the profile handle changes", async () => {
+    const { markChallengeOpened, syncMySubmission } =
+      await import("@/lib/actions/potd");
+    const challenge = await verifiedChallenge(userId);
+    await CPUser.updateOne(
+      { userId },
+      { cfHandle: "previous_handle", cfVerified: true },
+    );
+    const id = String(challenge._id);
+    expect(await markChallengeOpened(id)).toMatchObject({
+      ok: false,
+      error: { code: "VALIDATION_ERROR" },
+    });
+    expect(await syncMySubmission(id)).toMatchObject({
+      ok: false,
+      error: { code: "VALIDATION_ERROR" },
+    });
+    expect(await POTDSubmission.countDocuments()).toBe(0);
+    expect(mocks.getUserSubmissionsSince).not.toHaveBeenCalled();
+    expect(mocks.syncUserChallenge).not.toHaveBeenCalled();
+  });
+
   it("registers an opened challenge once even when called repeatedly", async () => {
     const { markChallengeOpened } = await import("@/lib/actions/potd");
-    await CPUser.create({ userId, cfVerified: true });
+    await CPUser.create({ userId, cfHandle: "tourist", cfVerified: true });
     const challenge = await createActiveChallenge(
       "Easy",
       800,
@@ -512,7 +536,7 @@ async function createActiveChallenge(
 }
 
 async function verifiedChallenge(userId: mongoose.Types.ObjectId) {
-  await CPUser.create({ userId, cfVerified: true });
+  await CPUser.create({ userId, cfHandle: "tourist", cfVerified: true });
   return createActiveChallenge(
     "Easy",
     1000,

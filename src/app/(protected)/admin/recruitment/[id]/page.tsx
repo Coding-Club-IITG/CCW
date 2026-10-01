@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { objectIdParamsSchema } from "@/lib/api/schemas/boundary";
-import { getAdminRecruitment } from "@/lib/recruitment.server";
+import { getAdminRecruitment } from "@/lib/recruitment/service.server";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import BackLink from "@/components/shared/BackLink";

@@ -1,9 +1,8 @@
 "use server";
 
 import { err as appError, ok, validationError } from "@/lib/api/result";
-
 import { defineAction } from "@/lib/actions/defineAction";
-import { parseRoles } from "@/lib/roles";
+import { parseRoles } from "@/lib/users/roles";
 
 export const getContestListing = defineAction(
   "getContestListing",
@@ -72,9 +71,9 @@ import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { isHead } from "@/lib/access/roles";
-import { webEnv } from "@/lib/env/web";
 
-import { auth } from "@/lib/auth";
+import { webEnv } from "@/lib/env/web";
+import { auth } from "@/lib/auth/server";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   contestCreationPayloadSchema,
@@ -82,10 +81,10 @@ import {
   validateBracketContestInput,
   type ContestProblemSlot,
 } from "@/lib/api/schemas/contestAction";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, logger } from "@/lib/utils";
-import { prepareSearchQuery } from "@/lib/search";
-import { auditActor } from "@/lib/audit";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+import { prepareSearchQuery } from "@/lib/shared/search";
+import { auditActor } from "@/lib/audit/index";
 import { summarizeContest } from "@/lib/audit/summary";
 import AuditLog, { auditExpiry } from "@/models/AuditLog";
 import ContestMatch from "@/models/ContestMatch";
@@ -137,7 +136,7 @@ async function getContestListingAction() {
   const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user?.id;
 
-  await dbConnect();
+  await connectMongoDB();
 
   let cpUserId = null;
   if (userId) {
@@ -302,7 +301,7 @@ async function getContestByIdAction(id: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user?.id;
 
-  await dbConnect();
+  await connectMongoDB();
 
   let cpUserId = null;
   if (userId) {
@@ -378,7 +377,7 @@ async function registerForContestAction(
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
     const cpUser = await CPUser.findOne({ userId });
     if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
@@ -501,7 +500,7 @@ async function registerForContestAction(
 
 async function getAvailableTeamsForContestAction(contestId: string) {
   try {
-    await dbConnect();
+    await connectMongoDB();
     const contest = await ContestMatch.findById(contestId).lean();
     const teamSize = contest?.teamSize ?? 1;
     if (!contest || teamSize <= 1) return ok([]);
@@ -568,7 +567,7 @@ async function createRoomContestAction(input: unknown) {
       );
     }
 
-    await dbConnect();
+    await connectMongoDB();
     const cpUser = await CPUser.findOne({ userId });
     if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
@@ -791,7 +790,8 @@ async function createRoomContestAction(input: unknown) {
 
 export async function getContestRegistrationsAction(contestId: string) {
   try {
-    const contest = await ContestMatch.findById(contestId);
+    await connectMongoDB();
+    const contest = await ContestMatch.findById(contestId).lean();
     if (!contest) return appError("NOT_FOUND", "Contest not found");
 
     const User = (await import("@/models/User")).default;
@@ -842,7 +842,7 @@ export async function unregisterFromContestAction(contestId: string) {
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
 
     const contest = await ContestMatch.findById(contestId);
     if (!contest) return appError("NOT_FOUND", "Contest not found");
@@ -906,7 +906,7 @@ async function searchVerifiedUsersAction(query: string) {
 
   if (!query || query.length < 2) return ok({ users: [] });
 
-  await dbConnect();
+  await connectMongoDB();
 
   const search = prepareSearchQuery(query);
   if (!search) return ok({ users: [] });
@@ -1000,7 +1000,7 @@ async function validateStepAction(step: number, input: unknown) {
       if (!mongoose.Types.ObjectId.isValid(data.presetId)) {
         errors.presetId = "Invalid preset ID format";
       } else {
-        await dbConnect();
+        await connectMongoDB();
         const preset = await ContestPreset.findById(data.presetId);
         if (!preset) {
           errors.presetId = "Selected preset does not exist";
@@ -1052,7 +1052,7 @@ async function createBracketContestAction(input: unknown) {
     );
   }
 
-  await dbConnect();
+  await connectMongoDB();
 
   // ── Server-side validation ──────────────────────────────────────────────────
   if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
@@ -1359,7 +1359,7 @@ async function getContestTeamRequestsAction(teamId: string) {
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
     const team = await ContestRegistrationTeam.findById(teamId);
     if (!team) return appError("NOT_FOUND", "Team not found");
 
@@ -1416,7 +1416,7 @@ async function requestToJoinContestTeamAction(
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
     const contest = await ContestMatch.findById(contestId);
     if (!contest || contest.status !== "registration")
       return appError("VALIDATION_ERROR", "Contest not open");
@@ -1487,7 +1487,7 @@ async function inviteToContestTeamAction(
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
     const team = await ContestRegistrationTeam.findById(teamId);
     if (!team || team.leaderId !== userId)
       return appError("FORBIDDEN", "Not team leader");
@@ -1565,7 +1565,7 @@ async function respondToContestTeamRequestAction(
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
     const request = await ContestTeamRequest.findById(requestId);
     if (!request || request.status !== "pending")
       return appError("NOT_FOUND", "Request not found or already processed");
@@ -1649,7 +1649,7 @@ async function getMyContestInvitesAction() {
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
 
     const invites = await ContestTeamRequest.find({
       toUserId: userId,
@@ -1700,7 +1700,7 @@ async function getMyTeamJoinRequestsAction() {
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
 
     // First find all teams where this user is the leader
     const myTeams = await ContestRegistrationTeam.find(

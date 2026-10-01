@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   parseSearchParams,
@@ -6,19 +7,20 @@ import {
   type JsonValue,
 } from "@/lib/api/result";
 import { paginationQuerySchema } from "@/lib/api/schemas/boundary";
-import { requireHead } from "@/lib/api/auth";
-import dbConnect from "@/lib/mongodb";
-import { logger } from "@/lib/utils";
+import { requireHead } from "@/lib/auth/session";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { logger } from "@/lib/telemetry/logger";
+import { parsePagination, paginatedResponse } from "@/lib/shared/pagination";
+import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache/redis";
+
 import Project from "@/models/Project";
-import { parsePagination, paginatedResponse } from "@/lib/pagination";
-import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
   try {
     const authorization = await requireHead(request);
     if (!authorization.ok) return jsonResult(authorization);
 
-    await dbConnect();
+    await connectMongoDB();
 
     const { searchParams } = new URL(request.url);
     const query = parseSearchParams(searchParams, paginationQuerySchema);

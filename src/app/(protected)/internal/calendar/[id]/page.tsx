@@ -1,18 +1,22 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+
+import { auth } from "@/lib/auth/server";
 import {
   canManageCalendarEvent,
   canPublishCalendarEvent,
 } from "@/lib/access/calendar";
 import { APP_TIME_ZONE } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { parseManagedModules } from "@/lib/roles";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { parseManagedModules } from "@/lib/users/roles";
+
 import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
+
 import BackLink from "@/components/shared/BackLink";
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
 import CalendarEventActions from "@/components/calendar/CalendarEventActions";
+
 import styles from "../Calendar.module.scss";
 
 const DATE_TIME = new Intl.DateTimeFormat("en-IN", {
@@ -32,7 +36,7 @@ export default async function CalendarEventPage({
 }) {
   const { id } = await params;
   const session = await auth.api.getSession({ headers: await headers() });
-  await dbConnect();
+  await connectMongoDB();
   void Event;
   const event = await CalendarEvent.findById(id)
     .populate("publicEventId")

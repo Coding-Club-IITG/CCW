@@ -1,6 +1,6 @@
 import type { BlogRevisionSource, BlogStatus } from "@/lib/constants";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
-import type { PaginationMeta } from "@/lib/pagination";
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
+import type { PaginationMeta } from "@/lib/shared/pagination";
 
 export interface BlogPerson<Id = string> {
   userId: Id;

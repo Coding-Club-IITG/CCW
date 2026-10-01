@@ -11,6 +11,7 @@ import {
 } from "vitest";
 
 import User from "@/models/User";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -23,13 +24,13 @@ const mocks = vi.hoisted(() => ({
   invalidateCache: vi.fn(),
 }));
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession: mocks.getSession } },
 }));
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
-vi.mock("@/lib/cache", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/cache")>()),
+vi.mock("@/lib/cache/redis", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/cache/redis")>()),
   invalidateCache: mocks.invalidateCache,
 }));
 
@@ -55,7 +56,7 @@ describe("member profile social links", () => {
 
   it("stores a normalized LinkedIn URL", async () => {
     const user = await seedMember();
-    const { updateProfile } = await import("@/lib/actions/user");
+    const { updateProfile } = await import("@/lib/actions/users");
 
     const result = await updateProfile({
       name: "Member One",
@@ -75,7 +76,7 @@ describe("member profile social links", () => {
     await User.findByIdAndUpdate(user._id, {
       linkedinUrl: "https://linkedin.com/in/member-one",
     });
-    const { updateProfile } = await import("@/lib/actions/user");
+    const { updateProfile } = await import("@/lib/actions/users");
 
     const result = await updateProfile({ name: "Member One", linkedinUrl: "" });
     expect(result.ok).toBe(true);
@@ -88,7 +89,7 @@ describe("member profile social links", () => {
     ["a lookalike domain", "https://linkedin.com.evil.tld/in/member-one"],
   ])("rejects %s", async (_label, linkedinUrl) => {
     const user = await seedMember();
-    const { updateProfile } = await import("@/lib/actions/user");
+    const { updateProfile } = await import("@/lib/actions/users");
 
     const result = await updateProfile({ name: "Member One", linkedinUrl });
     expect(result).toMatchObject({
@@ -101,7 +102,7 @@ describe("member profile social links", () => {
   it("requires a session", async () => {
     await seedMember();
     mocks.getSession.mockResolvedValue(null);
-    const { updateProfile } = await import("@/lib/actions/user");
+    const { updateProfile } = await import("@/lib/actions/users");
 
     await expect(
       updateProfile({

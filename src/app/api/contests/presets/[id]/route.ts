@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeContest } from "@/lib/audit/summary";
-import { requireSession } from "@/lib/api/auth";
+import { requireSession } from "@/lib/auth/session";
 import { isHead } from "@/lib/access/roles";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import {
@@ -17,7 +17,8 @@ import {
   updateContestPresetSchema,
 } from "@/lib/api/schemas/contestPreset";
 import { toContestPresetDto } from "@/lib/contests/dtos";
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
+
 import ContestPreset from "@/models/ContestPreset";
 
 type Context = { params: Promise<{ id: string }> };
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest, context: Context) {
     });
   }
   try {
-    await dbConnect();
+    await connectMongoDB();
     const preset = await ContestPreset.findById(params.data.id).lean();
     if (!preset) return jsonError("NOT_FOUND", "Preset not found");
 
@@ -77,7 +78,7 @@ export async function PUT(request: NextRequest, context: Context) {
   }
 
   try {
-    await dbConnect();
+    await connectMongoDB();
     const existingPreset = await ContestPreset.findById(params.data.id).lean();
     if (!existingPreset) return jsonError("NOT_FOUND", "Preset not found");
 
@@ -109,7 +110,6 @@ export async function PUT(request: NextRequest, context: Context) {
         );
       }
     }
-
     if (body.data.name) {
       const duplicate = await ContestPreset.exists({
         _id: { $ne: params.data.id },
@@ -188,7 +188,7 @@ export async function PATCH(request: NextRequest, context: Context) {
   }
 
   try {
-    await dbConnect();
+    await connectMongoDB();
     const existingPreset = await ContestPreset.findById(params.data.id).lean();
     if (!existingPreset) return jsonError("NOT_FOUND", "Preset not found");
 
@@ -202,7 +202,6 @@ export async function PATCH(request: NextRequest, context: Context) {
         "You do not have permission to archive this preset",
       );
     }
-
     const dbSession = await mongoose.startSession();
     let preset;
     try {
@@ -268,7 +267,7 @@ export async function DELETE(request: NextRequest, context: Context) {
   }
 
   try {
-    await dbConnect();
+    await connectMongoDB();
     const existingPreset = await ContestPreset.findById(params.data.id).lean();
     if (!existingPreset) return jsonError("NOT_FOUND", "Preset not found");
 

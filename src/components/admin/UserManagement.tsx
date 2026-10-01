@@ -9,9 +9,17 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
+  userQueryFromParams,
+  userQueryParams,
+  type UserQuery,
+} from "@/lib/users/query";
+import { getDisplayName } from "@/lib/users/identity";
+import {
+  type AdminUserDto as AdminUser,
   addUser,
   deleteUser,
   getUsers,
@@ -19,7 +27,7 @@ import {
   updateUserPizzaCount,
   updateUserRoles,
   updateUserTenure,
-} from "@/lib/actions/user";
+} from "@/lib/actions/users";
 import type { AppResult } from "@/lib/api/result";
 import {
   ACCESS_LEVELS,
@@ -32,6 +40,7 @@ import {
   type UserRole,
 } from "@/lib/constants";
 
+import SegmentedControl from "@/components/shared/SegmentedControl";
 import Modal from "@/components/shared/Modal";
 import { useToast } from "@/components/shared/Toast";
 import { useConfirm } from "@/components/shared/useConfirm";
@@ -39,30 +48,69 @@ import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 
+import UserFilters from "./UserFilters";
+import LoginRequests from "./LoginRequests";
 import styles from "./UserManagement.module.scss";
 
-interface AdminUser {
-  _id: string;
-  name?: string;
-  email: string;
-  access?: AccessLevel;
-  tenure?: string;
-  managedModules?: ModuleName[];
-  roles?: UserRole[];
-  pizza_count?: number;
+export default function UserManagement() {
+  const params = useSearchParams();
+  const requests = params.get("view") === "requests";
+  function viewHref(view: string) {
+    const next = new URLSearchParams(params);
+    if (view === "members") next.delete("view");
+    else next.set("view", view);
+    return "/admin/users" + (next.size ? "?" + next : "");
+  }
+  return (
+    <div className={styles.container}>
+      <div className={styles.viewSwitch}>
+        <SegmentedControl
+          label="User management view"
+          segments={[
+            { label: "Members", active: !requests, href: viewHref("members") },
+            {
+              label: "Login requests",
+              active: requests,
+              href: viewHref("requests"),
+            },
+          ]}
+        />
+      </div>
+      {requests ? <LoginRequests /> : <Members />}
+    </div>
+  );
 }
 
-export default function UserManagement() {
+function Members() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const query = useMemo(() => userQueryFromParams(params), [params]);
+  function applyQuery(next: UserQuery) {
+    const url = userQueryParams(next, new URLSearchParams(params));
+    router.push("/admin/users" + (url.size ? "?" + url : ""), {
+      scroll: false,
+    });
+  }
+  const page = query.page;
+  const setPage = (page: number) => applyQuery({ ...query, page });
   const toast = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
-  const [page, setPage] = useState(1);
+  const [newTenure, setNewTenure] = useState(CURRENT_TENURE);
+  const [adding, setAdding] = useState(false);
+  const [total, setTotal] = useState(0);
+  const generation = useRef(0);
+  const cancelPending = useCallback(() => {
+    generation.current++;
+  }, []);
   const [totalPages, setTotalPages] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState(query.q);
+  useEffect(() => {
+    setSearchInput(query.q);
+  }, [query.q]);
   const [roleUser, setRoleUser] = useState<AdminUser | null>(null);
   const [tempRoles, setTempRoles] = useState<UserRole[]>([]);
   const [accessUser, setAccessUser] = useState<AdminUser | null>(null);
@@ -74,18 +122,27 @@ export default function UserManagement() {
   const [tempTenure, setTempTenure] = useState(CURRENT_TENURE);
 
   const fetchUsers = useCallback(async () => {
+    const current = ++generation.current;
     setLoading(true);
-    const result = await getUsers(page, 50, search);
+    const { page, limit, q, ...filters } = query;
+    const result = await getUsers(page, limit, q, filters);
+    if (generation.current !== current) return;
     if (result.ok) {
       setUsers(result.data.users);
-      setTotalPages(Math.max(1, Math.ceil(result.data.total / 50)));
+      setTotal(result.data.total);
+      setTotalPages(Math.max(1, Math.ceil(result.data.total / query.limit)));
+    } else {
+      setUsers([]);
+      setTotal(0);
+      toast.error(result.error.message);
     }
     setLoading(false);
-  }, [page, search]);
+  }, [query, toast]);
 
   useEffect(() => {
     void fetchUsers();
-  }, [fetchUsers]);
+    return cancelPending;
+  }, [fetchUsers, cancelPending]);
 
   async function run(result: Promise<AppResult<unknown>>) {
     const value = await result;
@@ -189,16 +246,20 @@ export default function UserManagement() {
         <div className={styles.sectionHeading}>
           <div>
             <h3>Add a member</h3>
-            <p>New members start with Member access and the current tenure.</p>
+            <p>New members start with Member access.</p>
           </div>
         </div>
         <form
           onSubmit={async (event) => {
             event.preventDefault();
-            if (await run(addUser(newEmail, newName))) {
+            if (adding) return;
+            setAdding(true);
+            if (await run(addUser(newEmail, newName, newTenure))) {
               setNewEmail("");
               setNewName("");
+              setNewTenure(CURRENT_TENURE);
             }
+            setAdding(false);
           }}
         >
           <div className={styles.field}>
@@ -208,7 +269,7 @@ export default function UserManagement() {
               type="email"
               value={newEmail}
               onChange={(event) => setNewEmail(event.target.value)}
-              placeholder="member@iitg.ac.in"
+              placeholder="@iitg.ac.in / @gmail.com"
               required
             />
           </div>
@@ -221,7 +282,20 @@ export default function UserManagement() {
               placeholder="Optional"
             />
           </div>
-          <button type="submit">Add member</button>
+          <div className={styles.field}>
+            <label htmlFor="new-user-tenure">Tenure</label>
+            <input
+              id="new-user-tenure"
+              value={newTenure}
+              onChange={(event) => setNewTenure(event.target.value)}
+              placeholder="YYYY-YY"
+              pattern="\d{4}-\d{2}"
+              required
+            />
+          </div>
+          <button type="submit" disabled={adding}>
+            {adding ? "Adding…" : "Add member"}
+          </button>
         </form>
       </div>
 
@@ -231,16 +305,24 @@ export default function UserManagement() {
           value={searchInput}
           onChange={setSearchInput}
           onSearch={(value) => {
-            setPage(1);
-            setSearch(value);
+            applyQuery({ ...query, q: value.trim().slice(0, 100), page: 1 });
           }}
           className={styles.searchInput}
         />
-        <span className={styles.resultCount}>{users.length} shown</span>
+        <span className={styles.resultCount}>
+          {total} {total === 1 ? "member" : "members"}
+        </span>
       </div>
+
+      <UserFilters query={query} onApply={applyQuery} />
 
       {loading ? (
         <TableSkeletonContent label="users" columns={6} />
+      ) : users.length === 0 ? (
+        <p className={styles.emptyState}>
+          No members match these filters. Clear the filters or try another
+          search.
+        </p>
       ) : (
         <>
           <div className={styles.tableContainer}>
@@ -264,7 +346,12 @@ export default function UserManagement() {
                     <tr key={user._id}>
                       <td>
                         <div className={styles.memberCell}>
-                          <strong>{user.name || "Unnamed member"}</strong>
+                          <strong>
+                            {getDisplayName(
+                              user.name || "Unnamed member",
+                              user.pizza_count,
+                            )}
+                          </strong>
                           <span>{user.email}</span>
                         </div>
                       </td>

@@ -1,19 +1,20 @@
 import { NextRequest } from "next/server";
+import mongoose from "mongoose";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { getRedis } from "@/lib/db/redis";
+import { auth } from "@/lib/auth/server";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+import { parseJson } from "@/lib/api/result";
+import { createContestRoomSchema } from "@/lib/api/schemas/contestRoute";
+
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
 import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
 import ContestQuestion from "@/models/ContestQuestion";
-import { getRedis } from "@/lib/redis";
-import mongoose from "mongoose";
-
-import { auth } from "@/lib/auth";
-import { errorToLogMetadata, logger } from "@/lib/utils";
-import { parseJson } from "@/lib/api/result";
-import { createContestRoomSchema } from "@/lib/api/schemas/contestRoute";
 import { fetchContestProblemContent } from "@/lib/contests/problemContent";
 
 export async function POST(req: NextRequest) {
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
       return jsonError("VALIDATION_ERROR", "Invalid team sizes");
     }
 
-    await dbConnect();
+    await connectMongoDB();
     const contest = await ContestMatch.findById(contestId);
     if (!contest) {
       return jsonError("NOT_FOUND", "Contest not found");

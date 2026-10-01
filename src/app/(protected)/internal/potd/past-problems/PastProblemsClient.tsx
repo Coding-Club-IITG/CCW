@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { getPastProblems, type PastProblemEntry } from "@/lib/actions/potd";
 import { PLATFORM_DISPLAY_NAMES, PLATFORM_PROBLEM_URLS } from "@/lib/constants";
-import { windowStartToISTDateStr } from "@/lib/potd/utils";
-import { formatShortDate } from "@/lib/utils";
+import { windowStartToISTDateStr } from "@/lib/potd/schedule";
+import { formatShortDate } from "@/lib/shared/dates";
 
 import EmptyState from "@/components/shared/EmptyState";
 import Pagination from "@/components/shared/Pagination";

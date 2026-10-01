@@ -7,8 +7,8 @@ import { useState } from "react";
 import {
   recruitmentDocumentUrl,
   type RecruitmentSlotDto,
-} from "@/lib/recruitment";
-import { formatDateTime } from "@/lib/utils";
+} from "@/lib/recruitment/public";
+import { formatDateTime } from "@/lib/shared/dates";
 
 import styles from "./Recruitment.module.scss";
 

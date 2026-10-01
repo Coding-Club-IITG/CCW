@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+
 import {
   APP_TIME_ZONE,
   MODULE_ACCENTS,
@@ -13,22 +14,25 @@ import {
   istLongDate,
   recurrenceLabel,
 } from "@/lib/events/listing";
-import { getEventStatus } from "@/lib/eventStatus";
-import dbConnect from "@/lib/mongodb";
-import { logger } from "@/lib/utils";
+import { getEventStatus } from "@/lib/events/status";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { logger } from "@/lib/telemetry/logger";
 import {
   CLUB_EMAIL,
   ogImage,
   pageMetadata,
   plainText,
   SITE_URL,
-} from "@/lib/seo";
+} from "@/lib/seo/metadata";
+
 import Event, { type IEvent } from "@/models/Event";
 import CalendarEvent from "@/models/CalendarEvent";
+
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import JsonLd from "@/components/shared/JsonLd";
+
 import EventActions from "./EventActions";
 import styles from "./EventDetail.module.scss";
 
@@ -41,7 +45,7 @@ type PublicEvent = Omit<IEvent, "calendarEventId"> & {
 };
 
 async function findEvent(slug: string): Promise<PublicEvent | null> {
-  await dbConnect();
+  await connectMongoDB();
   void CalendarEvent;
   return (await Event.findOne({ slug, status: "published" })
     .populate({ path: "calendarEventId", select: "location" })

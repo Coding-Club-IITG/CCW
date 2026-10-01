@@ -4,6 +4,7 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
 import {
@@ -11,15 +12,16 @@ import {
   paginationQueryFields,
 } from "@/lib/api/schemas/boundary";
 import { objectIdStringSchema } from "@/lib/api/schemas/contestRoute";
-import { auth } from "@/lib/auth";
-import dbConnect from "@/lib/mongodb";
+import { auth } from "@/lib/auth/server";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import type { HackathonRequestType } from "@/lib/constants";
+import { notify } from "@/lib/notifications/service";
+import { paginatedResponse, parsePagination } from "@/lib/shared/pagination";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import Hackathon from "@/models/Hackathon";
 import HackathonTeam from "@/models/HackathonTeam";
 import HackathonRequest from "@/models/HackathonRequest";
-import type { HackathonRequestType } from "@/lib/constants";
-import { notify } from "@/lib/notify";
-import { paginatedResponse, parsePagination } from "@/lib/pagination";
-import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
       return jsonError("VALIDATION_ERROR", "Invalid request type.");
     }
 
-    await dbConnect();
+    await connectMongoDB();
 
     const team = (await HackathonTeam.findById(teamId).lean()) as any;
     if (!team) {
@@ -204,7 +206,7 @@ export async function GET(request: NextRequest) {
     }
 
     const user = session.user;
-    await dbConnect();
+    await connectMongoDB();
 
     const { searchParams } = new URL(request.url);
     const query = parseSearchParams(

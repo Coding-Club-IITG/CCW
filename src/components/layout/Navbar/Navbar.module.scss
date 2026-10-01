@@ -482,3 +482,41 @@
     gap: 8px;
   }
 }
+
+.loginPicker {
+  display: flex;
+  align-items: stretch;
+  transition: gap 0.14s ease;
+  gap: 0;
+  .authButton {
+    padding-inline: 10px;
+    flex: none;
+  }
+}
+.loginPickerOpen {
+  gap: 4px;
+}
+.loginChoices:not([hidden]) {
+  display: flex;
+  animation: menuFadeIn 0.14s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loginPicker {
+    transition: none;
+  }
+  .loginChoices:not([hidden]) {
+    animation: none;
+  }
+}
+@media (max-width: 380px) {
+  .loginPicker .authButton {
+    padding-inline: 6px;
+    font-size: 10px;
+  }
+  .actionsSection {
+    gap: 4px;
+  }
+  .navbar {
+    gap: 8px;
+  }
+}

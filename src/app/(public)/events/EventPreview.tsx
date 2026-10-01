@@ -3,9 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Maximize2 } from "lucide-react";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
+
 import FocalImage from "@/components/shared/FocalImage";
 import Sheet from "@/components/shared/Sheet";
+
 import styles from "./Events.module.scss";
 
 export type PreviewEvent = {

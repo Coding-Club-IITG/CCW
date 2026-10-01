@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { RecruitmentDto } from "@/lib/recruitment";
+import type { RecruitmentDto } from "@/lib/recruitment/public";
 
 import styles from "./Recruitment.module.scss";
 

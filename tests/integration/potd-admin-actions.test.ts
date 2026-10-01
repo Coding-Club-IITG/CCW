@@ -9,7 +9,8 @@ import {
   vi,
 } from "vitest";
 
-import { computeWindowTimes } from "@/lib/potd/utils";
+import { computeWindowTimes } from "@/lib/potd/schedule";
+
 import AuditLog from "@/models/AuditLog";
 import CPUser from "@/models/CPUser";
 import ContestQuestion from "@/models/ContestQuestion";
@@ -17,6 +18,7 @@ import DailyChallenge from "@/models/POTDDailyChallenge";
 import Problem from "@/models/POTDProblem";
 import POTDSubmission from "@/models/POTDSubmission";
 import User from "@/models/User";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -41,7 +43,7 @@ const redis = {
   set: vi.fn(async () => "OK"),
 };
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession: mocks.getSession } },
 }));
 vi.mock("next/headers", () => ({
@@ -50,7 +52,7 @@ vi.mock("next/headers", () => ({
 vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));
-vi.mock("@/lib/redis", () => ({
+vi.mock("@/lib/db/redis", () => ({
   getRedis: vi.fn(async () => redis),
 }));
 vi.mock("@ronits2407/cp-api", () => ({

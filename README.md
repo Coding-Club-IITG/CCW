@@ -6,7 +6,7 @@ The official web platform for Coding Club IITG.
 
 - **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
 - **Language:** [TypeScript](https://www.typescriptlang.org/)
-- **Authentication:** [Auth.js v5](https://authjs.dev/) (Microsoft Entra ID)
+- **Authentication:** [Better Auth](https://better-auth.com/) (Microsoft Entra ID and Google)
 - **Database:** [MongoDB](https://www.mongodb.com/) with [Mongoose](https://mongoosejs.com/)
 - **Caching:** [Redis](https://redis.io/)
 - **Styling:** SCSS Modules
@@ -35,7 +35,7 @@ and browser processes. Keep browser values under `NEXT_PUBLIC_*`.
 You can use Docker Compose to start the required services (MongoDB and Redis):
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 ```
 
 Tests use `MONGODB_TEST_URI` to create isolated `ccw-test-*` databases.

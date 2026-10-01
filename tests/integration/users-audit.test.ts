@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import {
   afterAll,
   afterEach,
@@ -10,6 +11,7 @@ import {
 
 import AuditLog from "@/models/AuditLog";
 import User from "@/models/User";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -20,15 +22,15 @@ const getSession = vi.hoisted(() => vi.fn());
 const invalidateCache = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession } },
 }));
 vi.mock("next/headers", () => ({
   headers: vi.fn(async () => new Headers()),
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
-vi.mock("@/lib/cache", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/cache")>()),
+vi.mock("@/lib/cache/redis", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/cache/redis")>()),
   invalidateCache,
 }));
 
@@ -52,9 +54,9 @@ describe("administrative user audit", () => {
       updateUserPizzaCount,
       updateUserRoles,
       updateUserTenure,
-    } = await import("@/lib/actions/user");
+    } = await import("@/lib/actions/users");
 
-    const created = await addUser("private@example.test", "Audited Member");
+    const created = await addUser("private@iitg.ac.in", "Audited Member");
     expect(created.ok).toBe(true);
     const user = await User.findOne({ name: "Audited Member" });
     expect(user).not.toBeNull();
@@ -72,7 +74,22 @@ describe("administrative user audit", () => {
     await expect(
       updateUserAccess(userId, "Head", ["Design"]),
     ).resolves.toMatchObject({ ok: true });
+    const db = mongoose.connection.db!;
+    await db
+      .collection("session")
+      .insertOne({ userId: user!._id, token: "deleted-session" });
+    await db.collection("account").insertOne({
+      userId: user!._id,
+      providerId: "microsoft",
+      accountId: "deleted-identity",
+    });
     await expect(deleteUser(userId)).resolves.toMatchObject({ ok: true });
+    expect(
+      await db.collection("session").countDocuments({ userId: user!._id }),
+    ).toBe(0);
+    expect(
+      await db.collection("account").countDocuments({ userId: user!._id }),
+    ).toBe(0);
 
     const audits = await AuditLog.find().sort({ _id: 1 }).lean();
     expect(audits.map((event) => event.operation)).toEqual([
@@ -92,7 +109,7 @@ describe("administrative user audit", () => {
       after: { access: "Head", managedModules: ["Design"] },
     });
     const serialized = JSON.stringify(audits);
-    expect(serialized).not.toContain("private@example.test");
+    expect(serialized).not.toContain("private@iitg.ac.in");
     expect(serialized).not.toContain("phoneNumber");
     expect(serialized).not.toContain("codeforcesId");
   });
@@ -102,7 +119,7 @@ describe("administrative user audit", () => {
       user: { id: "member-1", name: "Member", access: "Member" },
       session: { id: "session-2", userId: "member-1" },
     });
-    const { addUser } = await import("@/lib/actions/user");
+    const { addUser } = await import("@/lib/actions/users");
 
     await expect(addUser("blocked@example.test")).resolves.toMatchObject({
       ok: false,

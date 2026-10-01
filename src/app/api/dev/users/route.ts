@@ -1,8 +1,10 @@
 import { z } from "zod";
+
 import { parseSearchParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { webEnv } from "@/lib/env/web";
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
+
 import User from "@/models/User";
 
 const querySchema = z.object({ query: z.string().trim().max(80).default("") });
@@ -14,7 +16,7 @@ export async function GET(request: Request) {
     querySchema,
   );
   if (!parsed.ok) return jsonResult(parsed);
-  await dbConnect();
+  await connectMongoDB();
   const escaped = parsed.data.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const filter = escaped
     ? {

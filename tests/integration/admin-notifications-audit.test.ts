@@ -12,6 +12,7 @@ import {
 import AuditLog from "@/models/AuditLog";
 import Notification from "@/models/Notification";
 import User from "@/models/User";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -21,11 +22,11 @@ import {
 const getSession = vi.hoisted(() => vi.fn());
 const enqueuePushNotifications = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession } },
 }));
-vi.mock("@/lib/notify", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/notify")>()),
+vi.mock("@/lib/notifications/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/notifications/service")>()),
   enqueuePushNotifications,
 }));
 

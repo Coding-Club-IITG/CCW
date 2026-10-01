@@ -7,9 +7,10 @@
 import type { Types } from "mongoose";
 
 import type { Difficulty } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { notifyMany } from "@/lib/notify";
-import { logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { notifyMany } from "@/lib/notifications/service";
+import { logger } from "@/lib/telemetry/logger";
+
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDSubmission from "@/models/POTDSubmission";
 import User from "@/models/User";
@@ -23,7 +24,7 @@ type ReminderSubmission = { userId: Types.ObjectId };
 type ReminderUser = { _id: Types.ObjectId };
 
 export async function sendPOTDReminders() {
-  await dbConnect();
+  await connectMongoDB();
 
   const now = new Date();
 

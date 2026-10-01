@@ -5,6 +5,6 @@ export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   const { registerOpsRequestTelemetry } =
-    await import("./lib/telemetry/instrumentation-node");
+    await import("@/lib/telemetry/instrumentationNode");
   registerOpsRequestTelemetry();
 }

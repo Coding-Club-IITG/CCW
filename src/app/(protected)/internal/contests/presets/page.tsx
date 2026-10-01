@@ -1,8 +1,8 @@
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
 import ContestPreset from "@/models/ContestPreset";
 import { toContestPresetDto } from "@/lib/contests/dtos";
 import PresetManager from "@/components/contests/PresetManager";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/server";
 import { headers } from "next/headers";
 import { isHead } from "@/lib/access/roles";
 import { redirect } from "next/navigation";
@@ -21,7 +21,7 @@ export default async function PresetsPage() {
 
   const isAdmin = isHead(session.user.access);
 
-  await dbConnect();
+  await connectMongoDB();
 
   const filter: any = {};
   filter.$or = [

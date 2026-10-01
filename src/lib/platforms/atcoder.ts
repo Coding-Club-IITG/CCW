@@ -10,8 +10,9 @@ import {
   type ACSubmission,
   type ACUserInfo,
 } from "@ronits2407/cp-api";
-import { cachedFetch } from "@/lib/cache";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+
+import { cachedFetch } from "@/lib/cache/redis";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
 const ATCODER_METADATA_TTL_SECONDS = 86_400;
 

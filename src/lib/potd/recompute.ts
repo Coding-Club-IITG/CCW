@@ -2,17 +2,19 @@
  * POTD recompute / backfill
  */
 
+import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
+import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
+import { getUserSubmissions as getAtcoderSubmissions } from "@/lib/platforms/atcoder";
+import { computeWindowTimes } from "@/lib/potd/schedule";
+import type { Platform } from "@/lib/constants";
+import { getVerifiedPlatformHandle } from "@/lib/users/platformIdentity";
+
 import POTDSubmission from "@/models/POTDSubmission";
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import Problem from "@/models/POTDProblem";
 import POTDOutage from "@/models/POTDOutage";
 import User from "@/models/User";
-import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
-import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
-import { getUserSubmissions as getAtcoderSubmissions } from "@/lib/platforms/atcoder";
-import { computeWindowTimes } from "@/lib/potd/utils";
-import type { Platform } from "@/lib/constants";
 
 void Problem;
 
@@ -218,7 +220,7 @@ interface VerifiedTargets {
 async function buildVerifiedTargets(): Promise<VerifiedTargets> {
   const cpUsers = (await CPUser.find(
     {},
-    "userId cfVerified acVerified",
+    "userId cfHandle cfVerified acHandle acVerified",
   ).lean()) as any[];
   const userDocs = (await User.find(
     {},
@@ -227,9 +229,16 @@ async function buildVerifiedTargets(): Promise<VerifiedTargets> {
 
   const cfHandle = new Map<string, string>();
   const acHandle = new Map<string, string>();
-  for (const u of userDocs) {
-    if (u.codeforcesId) cfHandle.set(u._id.toString(), u.codeforcesId);
-    if (u.atcoderId) acHandle.set(u._id.toString(), u.atcoderId);
+  const cpByUserId = new Map(
+    cpUsers.map((cpUser) => [String(cpUser.userId), cpUser]),
+  );
+  for (const user of userDocs) {
+    const userId = String(user._id);
+    const cpUser = cpByUserId.get(userId) ?? null;
+    const cf = getVerifiedPlatformHandle(user, cpUser, "codeforces");
+    const ac = getVerifiedPlatformHandle(user, cpUser, "atcoder");
+    if (cf) cfHandle.set(userId, cf);
+    if (ac) acHandle.set(userId, ac);
   }
 
   const cfTargets = cpUsers.filter(

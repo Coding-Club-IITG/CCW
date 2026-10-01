@@ -28,7 +28,7 @@ import {
   parseBracketPosition,
   type BracketNode,
   type BracketSnapshot,
-} from "@/types/bracket";
+} from "@/lib/contests/bracketLayout";
 
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";

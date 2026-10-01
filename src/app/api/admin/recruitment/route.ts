@@ -1,16 +1,17 @@
 import { NextRequest } from "next/server";
 
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson } from "@/lib/api/result";
 import { jsonOk, jsonResult } from "@/lib/api/result.server";
 import { createRecruitmentSchema } from "@/lib/api/schemas/recruitment";
-import { serializeRecruitment } from "@/lib/recruitment";
+import { serializeRecruitment } from "@/lib/recruitment/public";
 import {
   getAdminRecruitments,
   invalidateRecruitment,
   mutateRecruitment,
   recruitmentError,
-} from "@/lib/recruitment.server";
+} from "@/lib/recruitment/service.server";
+
 import Recruitment from "@/models/Recruitment";
 
 export async function GET(request: NextRequest) {

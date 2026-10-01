@@ -10,19 +10,19 @@ import { NextRequest } from "next/server";
 import path from "path";
 
 import { isHead } from "@/lib/access/roles";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeFile } from "@/lib/audit/summary";
 import { parseFormData } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { formDataObjectSchema } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/server";
 import {
   ALLOWED_IMAGE_EXTENSIONS,
   ALLOWED_IMAGE_MIME_TYPES,
   type AuditCategory,
 } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
 interface UploadOptions {
   /** Directory to store uploaded files */
@@ -125,7 +125,7 @@ export function createImageUploadHandler(options: UploadOptions) {
       );
 
       if (audit) {
-        await dbConnect();
+        await connectMongoDB();
         const dbSession = await mongoose.startSession();
         try {
           await auditedTransaction(dbSession, async () => ({

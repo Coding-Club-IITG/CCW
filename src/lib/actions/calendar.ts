@@ -9,16 +9,17 @@ import {
   type CalendarScopeTarget,
 } from "@/lib/access/calendar";
 import { defineAction } from "@/lib/actions/defineAction";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeCalendar } from "@/lib/audit/summary";
 import { err as appError, ok, toBsonSafe } from "@/lib/api/result";
 import { parseCalendarEventInput } from "@/lib/api/schemas/calendar";
-import { auth } from "@/lib/auth";
-import { invalidateCache } from "@/lib/cache";
-import { expandCalendarOccurrences } from "@/lib/calendar";
-import dbConnect from "@/lib/mongodb";
-import { parseManagedModules } from "@/lib/roles";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { auth } from "@/lib/auth/server";
+import { invalidateCache } from "@/lib/cache/redis";
+import { expandCalendarOccurrences } from "@/lib/calendar/schedule";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { parseManagedModules } from "@/lib/users/roles";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import CalendarEvent from "@/models/CalendarEvent";
 import CalendarReminderDelivery from "@/models/CalendarReminderDelivery";
 import Event from "@/models/Event";
@@ -103,7 +104,7 @@ async function listCalendarEventsAction(rangeStart: string, rangeEnd: string) {
       return appError("VALIDATION_ERROR", "Invalid calendar range.");
     }
 
-    await dbConnect();
+    await connectMongoDB();
     const records = await CalendarEvent.find({ startAt: { $lt: end } })
       .sort({ startAt: 1 })
       .lean();
@@ -140,7 +141,7 @@ async function getCalendarEventAction(id: string) {
     if (!mongoose.isValidObjectId(id)) {
       return appError("NOT_FOUND", "Event not found.");
     }
-    await dbConnect();
+    await connectMongoDB();
     const event = await CalendarEvent.findById(id).lean();
     return event
       ? ok(serialize(event))
@@ -168,7 +169,7 @@ async function createCalendarEventAction(raw: unknown) {
       );
     }
 
-    await dbConnect();
+    await connectMongoDB();
     const dbSession = await mongoose.startSession();
     let event;
     try {
@@ -218,7 +219,7 @@ async function updateCalendarEventAction(id: string, raw: unknown) {
     }
     const parsed = parseCalendarEventInput(raw);
     if (!parsed.success) return appError("VALIDATION_ERROR", parsed.error);
-    await dbConnect();
+    await connectMongoDB();
     const existing = await CalendarEvent.findById(id).lean();
     if (!existing) return appError("NOT_FOUND", "Event not found.");
     if (
@@ -285,7 +286,7 @@ async function deleteCalendarEventAction(id: string) {
     if (!mongoose.isValidObjectId(id)) {
       return appError("NOT_FOUND", "Event not found.");
     }
-    await dbConnect();
+    await connectMongoDB();
     const existing = await CalendarEvent.findById(id).lean();
     if (!existing) return appError("NOT_FOUND", "Event not found.");
     if (!canManage(user, targetOf(existing))) {

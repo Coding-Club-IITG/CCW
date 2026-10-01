@@ -9,17 +9,18 @@
  */
 
 import {
+  buildTimeline,
+  recomputeUsers,
+  markPastDaysFinalized,
+} from "@/lib/potd/finalize";
+
+import {
   connect,
   disconnect,
   backupPotd,
   verifyConsistency,
   CPUser,
 } from "./_potd-shared";
-import {
-  buildTimeline,
-  recomputeUsers,
-  markPastDaysFinalized,
-} from "../src/lib/potd/finalize";
 
 const EXECUTE = process.argv.includes("--execute");
 

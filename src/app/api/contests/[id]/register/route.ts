@@ -1,16 +1,18 @@
 import { NextRequest } from "next/server";
-import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { auth } from "@/lib/auth";
-import dbConnect from "@/lib/mongodb";
-import ContestMatch from "@/models/ContestMatch";
-import CPUser from "@/models/CPUser";
 import mongoose from "mongoose";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+
+import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
+import { auth } from "@/lib/auth/server";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import {
   contestIdParamsSchema,
   teamRegistrationSchema,
 } from "@/lib/api/schemas/contestRoute";
+
+import ContestMatch from "@/models/ContestMatch";
+import CPUser from "@/models/CPUser";
 
 export async function POST(
   request: NextRequest,
@@ -30,7 +32,7 @@ export async function POST(
     }
     const userId = session.user.id;
 
-    await dbConnect();
+    await connectMongoDB();
     const contest = await ContestMatch.findById(id);
     if (!contest) {
       return jsonError("NOT_FOUND", "Contest not found");

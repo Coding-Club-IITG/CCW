@@ -6,8 +6,9 @@ import { use, useEffect, useState } from "react";
 
 import { expectAppData } from "@/lib/api/result";
 import type { EditableBlogPost } from "@/lib/blog/types";
-import { DEFAULT_IMAGE_FOCAL_POINT } from "@/lib/imageFocalPoint";
-import { formatDateTime } from "@/lib/utils";
+import { DEFAULT_IMAGE_FOCAL_POINT } from "@/lib/media/focalPoint";
+import { formatDateTime } from "@/lib/shared/dates";
+
 import BlogEditor, { BlogEditorData } from "@/components/blog/BlogEditor";
 import BlogEditorHeading from "@/components/blog/BlogEditorHeading";
 import BlogEditorToolbar from "@/components/blog/BlogEditorToolbar";

@@ -9,15 +9,15 @@ import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
 import {
   DEFAULT_IMAGE_FOCAL_POINT,
   type ImageFocalPoint,
-} from "@/lib/imageFocalPoint";
+} from "@/lib/media/focalPoint";
 
 import BackLink from "@/components/shared/BackLink";
 import ImageUpload from "@/components/shared/ImageUpload";
 import MemberPicker from "@/components/shared/MemberPicker";
 import TagEditor from "@/components/shared/TagEditor";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 import styles from "../AdminProjectForm.module.scss";
-import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 interface ProjectData {
   _id: string;

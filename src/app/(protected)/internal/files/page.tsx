@@ -1,10 +1,12 @@
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import FilesClient from "@/components/files/FilesClient";
+
+import { auth } from "@/lib/auth/server";
 import { canUploadFiles } from "@/lib/access/files";
 import { getHeadModules, isAdmin, isHead } from "@/lib/access/roles";
-import { parseManagedModules, parseRoles } from "@/lib/roles";
-import { getDisplayName } from "@/lib/utils";
+import { parseManagedModules, parseRoles } from "@/lib/users/roles";
+import { getDisplayName } from "@/lib/users/identity";
+
+import FilesClient from "@/components/files/FilesClient";
 import type { CurrentUser } from "@/components/files/types";
 
 export default async function FilesPage() {

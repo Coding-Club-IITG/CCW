@@ -15,31 +15,26 @@ import { formatBytes } from "./utils";
 // PDF.js loader
 // Loaded once on demand from cdnjs, promise is cached so re-opens are instant
 
-const PDFJS_VERSION = "3.11.174";
+const PDFJS_VERSION = "6.2.108";
 const PDFJS_CDN = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}`;
 
 let pdfJsPromise: Promise<any> | null = null;
 
 function loadPdfJs(): Promise<any> {
-  if (pdfJsPromise) return pdfJsPromise;
-  pdfJsPromise = new Promise<any>((resolve, reject) => {
-    if ((window as any).pdfjsLib) {
-      resolve((window as any).pdfjsLib);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = `${PDFJS_CDN}/pdf.min.js`;
-    script.onload = () => {
-      const lib = (window as any).pdfjsLib;
-      lib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`;
-      resolve(lib);
-    };
-    script.onerror = () => {
-      pdfJsPromise = null;
-      reject(new Error("Failed to load PDF.js from CDN."));
-    };
-    document.head.appendChild(script);
-  });
+  if (!pdfJsPromise) {
+    const url = PDFJS_CDN + "/pdf.min.mjs";
+    pdfJsPromise = import(
+      /* webpackIgnore: true */ /* turbopackIgnore: true */ url
+    )
+      .then((lib) => {
+        lib.GlobalWorkerOptions.workerSrc = PDFJS_CDN + "/pdf.worker.min.mjs";
+        return lib;
+      })
+      .catch(() => {
+        pdfJsPromise = null;
+        throw new Error("Failed to load PDF.js from CDN.");
+      });
+  }
   return pdfJsPromise;
 }
 
@@ -61,7 +56,11 @@ function PdfCanvasViewer({ blob }: { blob: Blob }) {
         const arrayBuffer = await blob.arrayBuffer();
         if (cancelled) return;
 
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pdf = await pdfjsLib.getDocument({
+          data: arrayBuffer,
+          isEvalSupported: false,
+          enableScripting: false,
+        }).promise;
         if (cancelled) return;
 
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {

@@ -1,19 +1,21 @@
 import "server-only";
 
 import type { Types } from "mongoose";
+
 import { buildAccessFilter } from "@/lib/access/files";
 import { isHead } from "@/lib/access/roles";
 import { atlasDateRange, atlasMatchScore } from "@/lib/atlas/query";
+import { type AtlasResultKind } from "@/lib/constants";
 import type {
   AtlasResult,
-  AtlasResultKind,
   AtlasSearchResponse,
   ParsedAtlasQuery,
 } from "@/lib/atlas/types";
 import { PLATFORM_PROBLEM_URLS, type UserRole } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { parseManagedModules, parseRoles } from "@/lib/roles";
-import { prepareSearchQuery } from "@/lib/search";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { parseManagedModules, parseRoles } from "@/lib/users/roles";
+import { prepareSearchQuery } from "@/lib/shared/search";
+
 import BlogPost from "@/models/BlogPost";
 import CalendarEvent from "@/models/CalendarEvent";
 import Contest from "@/models/Contest";
@@ -555,7 +557,7 @@ export async function searchAtlas(
   query: ParsedAtlasQuery,
   user: AtlasSessionUser | null,
 ): Promise<AtlasSearchResponse> {
-  await dbConnect();
+  await connectMongoDB();
   const providers: Array<[AtlasResultKind, Provider]> = [];
   if (includeKind(query, "post"))
     providers.push(["post", () => posts(query, user)]);

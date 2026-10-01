@@ -6,18 +6,20 @@ import { headers } from "next/headers";
 
 import { isHead } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeCredits } from "@/lib/audit/summary";
 import { err as appError, ok } from "@/lib/api/result";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/server";
 import {
   CREDIT_LIMITS,
   CreditSection,
   CreditSectionInput,
   shuffleCreditEntries,
-} from "@/lib/credits";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, getDisplayName, logger } from "@/lib/utils";
+} from "@/lib/credits/entries";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+import { getDisplayName } from "@/lib/users/identity";
+
 import Credits from "@/models/Credits";
 import User from "@/models/User";
 
@@ -35,7 +37,7 @@ async function getCreditsAction() {
     if (!(await getSessionUser()))
       return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
     const credits = await Credits.findOne({ key: "main" }).lean();
     if (!credits) return ok([] as CreditSection[]);
 
@@ -139,7 +141,7 @@ async function saveCreditsAction(input: unknown) {
     if ("error" in validated)
       return appError("INTERNAL_ERROR", "An unexpected error occurred.");
 
-    await dbConnect();
+    await connectMongoDB();
     const userIds = [
       ...new Set(
         validated.sections.flatMap((section) =>

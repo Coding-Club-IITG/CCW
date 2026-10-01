@@ -11,6 +11,7 @@ const UserSchema = new mongoose.Schema(
   {
     name: String,
     email: { type: String, unique: true, sparse: true },
+    instituteEmail: { type: String },
     emailVerified: { type: Boolean, default: false },
     image: String,
     access: {

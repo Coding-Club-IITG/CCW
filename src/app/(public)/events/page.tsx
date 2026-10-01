@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
+
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
 import { MODULE_ACCENTS, PROJECT_MODULES } from "@/lib/constants";
 import type { ProjectModuleName } from "@/lib/constants";
-import { formatEventDate } from "@/lib/eventDate";
-import { getEventStatus } from "@/lib/eventStatus";
+import { formatEventDate } from "@/lib/events/date";
+import { getEventStatus } from "@/lib/events/status";
 import {
   ARCHIVE_STEP,
   archiveShown,
@@ -17,15 +18,18 @@ import {
   recurrenceLabel,
   type EventQuery,
 } from "@/lib/events/listing";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
-import dbConnect from "@/lib/mongodb";
-import { pageMetadata } from "@/lib/seo";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { pageMetadata } from "@/lib/seo/metadata";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
+
 import FocalImage from "@/components/shared/FocalImage";
 import EmptyState from "@/components/shared/EmptyState";
 import PageHeader from "@/components/public/PageHeader";
+
 import EventFilters from "./EventFilters";
 import EventPreview, { type PreviewEvent } from "./EventPreview";
 import styles from "./Events.module.scss";
@@ -106,7 +110,7 @@ function toPreview(event: ListedEvent): PreviewEvent {
 }
 
 async function getEvents(): Promise<ListedEvent[]> {
-  await dbConnect();
+  await connectMongoDB();
   void CalendarEvent;
 
   return cachedFetch(

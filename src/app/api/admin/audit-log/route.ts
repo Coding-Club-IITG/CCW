@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseSearchParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { AUDIT_ACTIONS, AUDIT_CATEGORIES } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { paginatedResponse, parsePagination } from "@/lib/pagination";
-import { prepareSearchQuery } from "@/lib/search";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { paginatedResponse, parsePagination } from "@/lib/shared/pagination";
+import { prepareSearchQuery } from "@/lib/shared/search";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import AuditLog from "@/models/AuditLog";
 
 const querySchema = z
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    await dbConnect();
+    await connectMongoDB();
     const [events, total] = await Promise.all([
       AuditLog.find(filter)
         .sort({ createdAt: -1, _id: -1 })

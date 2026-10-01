@@ -18,7 +18,7 @@ import {
   searchVerifiedUsers,
   createBracketContest,
 } from "@/lib/actions/contests";
-import { getDisplayName } from "@/lib/utils";
+import { getDisplayName } from "@/lib/users/identity";
 
 import ContestProblemConfiguration from "@/components/contests/ContestProblemConfiguration";
 import {

@@ -1,17 +1,21 @@
 "use client";
 
 import { createContext, useContext, useEffect } from "react";
-import { useThemeStore } from "@/lib/store/theme";
+
+import { useThemeStore } from "@/lib/stores/theme";
+
 import { CommandConsoleProvider } from "@/components/atlas/CommandConsole";
 import { ToastProvider } from "@/components/shared/Toast";
 
 export interface RuntimeConfig {
   developmentAuthEnabled: boolean;
+  googleAuthEnabled: boolean;
   userRateLimitsEnabled: boolean;
 }
 
 const RuntimeConfigContext = createContext<RuntimeConfig>({
   developmentAuthEnabled: false,
+  googleAuthEnabled: false,
   userRateLimitsEnabled: true,
 });
 

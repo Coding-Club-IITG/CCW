@@ -1,9 +1,11 @@
-import { getContestListing } from "@/lib/actions/contests";
-import MatchHistoryClient from "@/components/contests/MatchHistoryClient";
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+
+import { getContestListing } from "@/lib/actions/contests";
+import { auth } from "@/lib/auth/server";
 import { isHead } from "@/lib/access/roles";
+
+import MatchHistoryClient from "@/components/contests/MatchHistoryClient";
 
 export default async function MatchHistoryPage() {
   const session = await auth.api.getSession({ headers: await headers() });

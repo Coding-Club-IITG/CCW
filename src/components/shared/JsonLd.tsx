@@ -1,4 +1,4 @@
-import { safeJsonLd } from "@/lib/seo";
+import { safeJsonLd } from "@/lib/seo/metadata";
 
 export default function JsonLd({ data }: { data: unknown }) {
   return (

@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeContest } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
@@ -11,8 +11,9 @@ import {
   contestStatusSchema,
 } from "@/lib/api/schemas/contestRoute";
 import { publishContest } from "@/lib/contests/events";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import ContestMatch from "@/models/ContestMatch";
 
 export async function PATCH(
@@ -33,7 +34,7 @@ export async function PATCH(
     if (!body.ok) return jsonResult(body);
     const { action } = body.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const contest = await ContestMatch.findById(id);
     if (!contest) {
       return jsonError("NOT_FOUND", "Contest not found");

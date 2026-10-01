@@ -8,9 +8,11 @@ import {
   it,
   vi,
 } from "vitest";
+
 import CalendarEvent from "@/models/CalendarEvent";
 import AuditLog from "@/models/AuditLog";
 import Event from "@/models/Event";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -22,13 +24,13 @@ const mocks = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
   invalidateCache: vi.fn(),
 }));
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession: mocks.getSession } },
 }));
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
-vi.mock("@/lib/cache", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/cache")>()),
+vi.mock("@/lib/cache/redis", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/cache/redis")>()),
   invalidateCache: mocks.invalidateCache,
 }));
 

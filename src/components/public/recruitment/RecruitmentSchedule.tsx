@@ -5,8 +5,8 @@ import {
   buildRecruitmentSchedule,
   recruitmentDateLabel,
   type RecruitmentModuleDto,
-} from "@/lib/recruitment";
-import { formatDateTime } from "@/lib/utils";
+} from "@/lib/recruitment/public";
+import { formatDateTime } from "@/lib/shared/dates";
 
 import styles from "./Recruitment.module.scss";
 

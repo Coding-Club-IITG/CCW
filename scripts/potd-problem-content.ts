@@ -6,13 +6,14 @@
  *   pnpm tsx scripts/potd-problem-content.ts --fetcher
  */
 
-import "../src/lib/env";
+import "@/lib/env/load";
 
 import {
   fetchCodeforcesProblemHtml,
   fetchProblemContent,
-} from "../src/lib/platforms/problemContent";
-import { computeWindowTimes, getTodayISTDateStr } from "../src/lib/potd/utils";
+} from "@/lib/platforms/problemContent";
+import { computeWindowTimes, getTodayISTDateStr } from "@/lib/potd/schedule";
+
 import { connect, DailyChallenge, disconnect, Problem } from "./_potd-shared";
 
 const args = process.argv.slice(2);

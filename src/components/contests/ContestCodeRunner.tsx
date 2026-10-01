@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import {
   CODE_RUNNER_DEFAULT_CODE,
   type CodeRunnerLanguage,
-  type TestCase,
 } from "@/lib/constants";
+import type { TestCase } from "@/lib/codeRunner/types";
 import {
   CodeEditor,
   LanguageSelector,

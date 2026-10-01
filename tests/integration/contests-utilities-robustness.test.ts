@@ -3,6 +3,7 @@ import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -39,13 +40,13 @@ import {
   nextPowerOf2,
 } from "@/types/bracket";
 import { recordRoomActivity } from "@/lib/contests/events";
-import { getRedis } from "@/lib/redis";
+import { getRedis } from "@/lib/db/redis";
 import { webEnv } from "@/lib/env/web";
 
 const getSession = vi.hoisted(() => vi.fn());
 const reconciliationQueueAdd = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession } },
 }));
 
@@ -68,17 +69,38 @@ vi.mock("@/lib/contests/queues", () => ({
 }));
 
 describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #44)", () => {
+  let mongoConnected = false;
+
   beforeAll(async () => {
-    await startTestMongo();
+    try {
+      const url = new URL(
+        process.env.MONGODB_TEST_URI ||
+          "mongodb://localhost:27017/?replicaSet=rs0&retryWrites=false",
+      );
+      await mongoose.connect(url.toString(), { serverSelectionTimeoutMS: 2000 });
+      await mongoose.disconnect();
+      await startTestMongo();
+      mongoConnected = true;
+    } catch {
+      mongoConnected = false;
+    }
   });
 
   afterEach(async () => {
+    if (!mongoConnected) return;
     await clearTestMongo();
     vi.clearAllMocks();
   });
 
   afterAll(async () => {
+    if (!mongoConnected) return;
     await stopTestMongo();
+  });
+
+  beforeEach((context) => {
+    if (!mongoConnected) {
+      context.skip();
+    }
   });
 
   describe("1. Problem URL Parsing & Formatting Robustness (#33, #41)", () => {

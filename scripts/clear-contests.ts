@@ -1,8 +1,9 @@
-import "../src/lib/env";
-import { cliEnv } from "../src/lib/env/cli";
+import "@/lib/env/load";
 
 import mongoose from "mongoose";
 import { createClient } from "redis";
+
+import { cliEnv } from "@/lib/env/cli";
 
 const MONGODB_URI = cliEnv.MONGODB_URI;
 const REDIS_URL = cliEnv.REDIS_URL;

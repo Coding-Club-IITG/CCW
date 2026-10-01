@@ -22,6 +22,9 @@
   `route.ts` lowercase.
 - Use TypeScript domain types for inputs, outputs, and shared data. Avoid `any`
   except at unavoidable external-library boundaries.
+- Colocate types with the module that owns them. Use a feature's `types.ts` or
+  `dtos.ts` when several modules share a contract, and use `import type` for
+  type-only dependencies.
 - Put shared enums, literal unions, display maps, and URL patterns in
   `src/lib/constants.ts`. Do not create parallel definitions.
 - Use existing repository helpers for roles, logging, caching, pagination,
@@ -91,7 +94,7 @@
   unless a feature explicitly requires another timezone.
 - Use `pnpm` only. Do not generate npm or Yarn lockfiles.
 - Update `.env.example` when configuration changes.
-- Import `src/lib/env` before other application modules in standalone entry
+- Import `@/lib/env/load` before other application modules in standalone entry
   points so environment variables are loaded before dependent modules execute.
 - Never commit credentials, production secrets, local `.env*` files, or
   sensitive user data.
@@ -121,7 +124,7 @@
 - Database integration tests use `MONGODB_TEST_URI` only. The shared helper
   creates a uniquely named `ccw-test-*` database and refuses to drop anything
   outside that namespace. Start the repository's local MongoDB and Redis
-  containers with `docker compose up -d mongodb redis`; tests must never point
+  containers with `docker compose up -d --wait mongodb redis`; tests must never point
   at production services.
 - Mock only credentials, sessions, network APIs, clocks, or other true external
   boundaries. No test may require Microsoft credentials, production data,

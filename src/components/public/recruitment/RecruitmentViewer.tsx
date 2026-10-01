@@ -5,7 +5,7 @@ import { ArrowUpRight, Download } from "lucide-react";
 import {
   recruitmentDocumentUrl,
   type RecruitmentDocumentDto,
-} from "@/lib/recruitment";
+} from "@/lib/recruitment/public";
 
 import Modal from "@/components/shared/Modal";
 

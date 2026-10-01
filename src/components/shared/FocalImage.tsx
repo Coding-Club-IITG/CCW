@@ -1,6 +1,8 @@
 import type { ComponentProps } from "react";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
-import { focalPointObjectPosition } from "@/lib/imageFocalPoint";
+
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
+import { focalPointObjectPosition } from "@/lib/media/focalPoint";
+
 import CompatibleImage from "./CompatibleImage";
 
 type FocalImageProps = ComponentProps<typeof CompatibleImage> & {

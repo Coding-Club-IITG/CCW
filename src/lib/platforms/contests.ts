@@ -4,7 +4,8 @@
  */
 
 import { cp } from "@ronits2407/cp-api";
-import { logger } from "@/lib/utils";
+
+import { logger } from "@/lib/telemetry/logger";
 import type { ContestPlatform } from "@/lib/constants";
 
 export type RawContest = {

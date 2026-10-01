@@ -6,9 +6,10 @@ import { expectAppData } from "@/lib/api/result";
 import {
   deriveUploadedImageAltText,
   replaceSelectionWithMarkdown,
-} from "@/lib/markdownEditor";
+} from "@/lib/markdown/editor";
 
 import MarkdownRenderer from "@/components/blog/MarkdownRenderer";
+
 import styles from "./MarkdownEditor.module.scss";
 
 interface MarkdownEditorProps {

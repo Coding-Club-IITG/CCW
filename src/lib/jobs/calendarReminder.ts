@@ -1,8 +1,16 @@
 import mongoose from "mongoose";
-import { expandCalendarOccurrences, getReminderAt } from "@/lib/calendar";
-import dbConnect from "@/lib/mongodb";
-import { enqueuePushNotifications, notifyBatch } from "@/lib/notify";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+
+import {
+  expandCalendarOccurrences,
+  getReminderAt,
+} from "@/lib/calendar/schedule";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import {
+  enqueuePushNotifications,
+  notifyBatch,
+} from "@/lib/notifications/service";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import CalendarEvent from "@/models/CalendarEvent";
 import CalendarReminderDelivery from "@/models/CalendarReminderDelivery";
 import User from "@/models/User";
@@ -10,7 +18,7 @@ import User from "@/models/User";
 const FUTURE_WINDOW_MS = 2 * 366 * 24 * 60 * 60 * 1000;
 
 export async function sendCalendarReminders(now = new Date()) {
-  await dbConnect();
+  await connectMongoDB();
   const events = await CalendarEvent.find({
     remindOneDayBefore: true,
     startAt: { $lt: new Date(now.getTime() + FUTURE_WINDOW_MS) },

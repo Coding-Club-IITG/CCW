@@ -1,10 +1,6 @@
 import { MODULES, PROJECT_MODULES } from "@/lib/constants";
-import {
-  ATLAS_RESULT_KINDS,
-  type AtlasResult,
-  type AtlasResultKind,
-  type ParsedAtlasQuery,
-} from "@/lib/atlas/types";
+import { ATLAS_RESULT_KINDS, type AtlasResultKind } from "@/lib/constants";
+import type { AtlasResult, ParsedAtlasQuery } from "@/lib/atlas/types";
 
 const FILTERS = new Set([
   "type",

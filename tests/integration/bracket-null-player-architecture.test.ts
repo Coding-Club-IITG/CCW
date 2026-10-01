@@ -24,7 +24,6 @@ import {
 } from "../utils/mongodb";
 import {
   generateBracket,
-  generateDoubleBracket,
   advanceWinner,
   advanceNullPlayer,
   processWalkover,
@@ -125,7 +124,6 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
     adminUser = await User.create({
       name: "Admin User",
       email: "admin@test.com",
-      role: "admin",
       access: "Admin",
     });
 
@@ -139,7 +137,7 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       await CPUser.create({
         userId: u._id,
         cfHandle: `cf_${i}`,
-        rating: 1200 + i * 50,
+        cfRating: 1200 + i * 50,
       });
       testUsers.push(u);
     }
@@ -149,20 +147,37 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
     eliminationType: "single" | "double" = "single",
     teamCount: number = 4,
   ) => {
+    const registrations = [];
+    for (let i = 0; i < teamCount; i++) {
+      registrations.push({
+        userId: testUsers[i]._id,
+        cfHandle: `user_${i}`,
+        teamName: `Team ${String.fromCharCode(65 + i)}`,
+        registeredAt: new Date(),
+      });
+    }
+
     const contest = await ContestMatch.create({
       name: "Championship Tournament",
       format: "bracket",
       mode: "blitz",
-      status: "active",
+      status: "provisioning",
       teamSize: 1,
       creatorId: adminUser._id,
-      duration: 30,
+      overallDurationMinutes: 30,
       startTime: new Date(Date.now() - 5000),
       endTime: new Date(Date.now() + 3600000),
-      eliminationType:
-        eliminationType === "double"
-          ? "double_elimination"
-          : "single_elimination",
+      bracketSettings: {
+        type:
+          eliminationType === "double"
+            ? "double_elimination"
+            : "single_elimination",
+        thirdPlacePlayoff: false,
+        seedingMethod: "cf_rating",
+      },
+      problemSelectionMode: "test",
+      spectatorRestriction: "none",
+      registrations,
       grandFinalState: eliminationType === "double" ? "pending" : undefined,
     });
 
@@ -175,20 +190,7 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       ],
     });
 
-    // Seed registrations
-    const assignments = [];
-    for (let i = 0; i < teamCount; i++) {
-      assignments.push({
-        teamName: `Team ${String.fromCharCode(65 + i)}`,
-        memberIds: [testUsers[i]._id.toString()],
-      });
-    }
-
-    if (eliminationType === "single") {
-      await generateBracket(contest._id.toString(), assignments);
-    } else {
-      await generateDoubleBracket(contest._id.toString(), assignments);
-    }
+    await generateBracket(contest._id.toString());
 
     return contest;
   };

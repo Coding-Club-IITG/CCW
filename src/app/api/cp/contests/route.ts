@@ -1,14 +1,16 @@
 import { NextRequest } from "next/server";
+
 import { jsonOk, jsonResult } from "@/lib/api/result.server";
 import { parseSearchParams } from "@/lib/api/result";
 import { paginationQuerySchema } from "@/lib/api/schemas/boundary";
-import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
-import dbConnect from "@/lib/mongodb";
-import { paginatedResponse, parsePagination } from "@/lib/pagination";
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { paginatedResponse, parsePagination } from "@/lib/shared/pagination";
+
 import Contest from "@/models/Contest";
 
 export async function GET(request: NextRequest) {
-  await dbConnect();
+  await connectMongoDB();
 
   const { searchParams } = new URL(request.url);
   const query = parseSearchParams(searchParams, paginationQuerySchema);

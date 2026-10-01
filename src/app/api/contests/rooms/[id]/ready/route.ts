@@ -1,11 +1,9 @@
 import { NextRequest } from "next/server";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { auth } from "@/lib/auth";
-import { getRedis } from "@/lib/redis";
-import ContestRoom from "@/models/ContestRoom";
-import ContestTeam from "@/models/ContestTeam";
-import dbConnect from "@/lib/mongodb";
-import ContestMatch from "@/models/ContestMatch";
+import { auth } from "@/lib/auth/server";
+import { getRedis } from "@/lib/db/redis";
+import { connectMongoDB } from "@/lib/db/mongodb";
 import { publishRoom, recordRoomActivity } from "@/lib/contests/events";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
@@ -13,9 +11,13 @@ import {
   contestRoomStateSchema,
   parseContestRoomProblems,
 } from "@/lib/contests/runtime";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 import { parseRouteParams } from "@/lib/api/result";
 import { contestIdParamsSchema } from "@/lib/api/schemas/contestRoute";
+
+import ContestRoom from "@/models/ContestRoom";
+import ContestTeam from "@/models/ContestTeam";
+import ContestMatch from "@/models/ContestMatch";
 
 export async function POST(
   req: NextRequest,
@@ -35,7 +37,7 @@ export async function POST(
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id: roomId } = validatedParams.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const room = await ContestRoom.findById(roomId);
     if (!room) {
       return jsonError("NOT_FOUND", "Room not found");

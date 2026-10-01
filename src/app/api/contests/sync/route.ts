@@ -1,22 +1,23 @@
 import { NextRequest } from "next/server";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { auth } from "@/lib/auth";
-import { getRedis } from "@/lib/redis";
+import { auth } from "@/lib/auth/server";
+import { getRedis } from "@/lib/db/redis";
 import { publishUser } from "@/lib/contests/events";
 import { cfSyncQueue } from "@/lib/contests/queues";
-import { logger } from "@/lib/utils";
+import { logger } from "@/lib/telemetry/logger";
 import { parseJson } from "@/lib/api/result";
 import { contestSyncSchema } from "@/lib/api/schemas/contestRoute";
 import {
   consumeUserRateLimit,
   releaseUserRateLimit,
-} from "@/lib/userRateLimit";
+} from "@/lib/users/rateLimit";
 import { webEnv } from "@/lib/env/web";
 import {
   contestRoomStateSchema,
   parseContestRoomProblems,
 } from "@/lib/contests/runtime";
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
 import CPUser from "@/models/CPUser";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     if (!body.ok) return jsonResult(body);
     const { roomId, teamId, problemId } = body.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const cpUser = await CPUser.findOne({ userId }).lean();
     if (!cpUser?.cfHandle || !cpUser.cfVerified) {
       return jsonError("FORBIDDEN", "A verified Codeforces handle is required");

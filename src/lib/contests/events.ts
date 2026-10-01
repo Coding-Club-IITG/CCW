@@ -1,4 +1,4 @@
-import { getRedis } from "@/lib/redis";
+import { getRedis } from "@/lib/db/redis";
 import {
   contestEventSchema,
   roomEventSchema,

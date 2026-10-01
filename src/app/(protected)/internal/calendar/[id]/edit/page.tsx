@@ -1,15 +1,19 @@
 import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+
+import { auth } from "@/lib/auth/server";
 import {
   canManageCalendarEvent,
   getCreatableCalendarScopes,
 } from "@/lib/access/calendar";
-import dbConnect from "@/lib/mongodb";
-import { parseManagedModules } from "@/lib/roles";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { parseManagedModules } from "@/lib/users/roles";
+
 import CalendarEvent from "@/models/CalendarEvent";
+
 import BackLink from "@/components/shared/BackLink";
 import CalendarEventForm from "@/components/calendar/CalendarEventForm";
+
 import styles from "../../Calendar.module.scss";
 
 export default async function EditCalendarEventPage({
@@ -19,7 +23,7 @@ export default async function EditCalendarEventPage({
 }) {
   const { id } = await params;
   const session = await auth.api.getSession({ headers: await headers() });
-  await dbConnect();
+  await connectMongoDB();
   const event = await CalendarEvent.findById(id).lean();
   if (!event) notFound();
   const user = session!.user as { access?: string; managedModules?: unknown };

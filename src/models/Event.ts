@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+
 import {
   EVENT_PUBLICATION_STATUSES,
   EVENT_RECURRENCE_TYPES,
@@ -7,7 +8,7 @@ import {
   type EventRecurrenceType,
   type ProjectModuleName,
 } from "@/lib/constants";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
 
 export interface IEvent extends Document {
   title: string;

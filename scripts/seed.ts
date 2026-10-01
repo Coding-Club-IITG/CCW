@@ -1,8 +1,9 @@
-import "../src/lib/env";
-import { cliEnv } from "../src/lib/env/cli";
+import "@/lib/env/load";
 
 import mongoose from "mongoose";
-import { CURRENT_TENURE } from "../src/lib/constants";
+
+import { cliEnv } from "@/lib/env/cli";
+import { CURRENT_TENURE } from "@/lib/constants";
 
 const MONGODB_URI = cliEnv.MONGODB_URI;
 

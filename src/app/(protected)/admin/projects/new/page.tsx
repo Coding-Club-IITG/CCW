@@ -2,17 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
+import { createProject } from "@/lib/actions/admin/projects";
+import {
+  DEFAULT_IMAGE_FOCAL_POINT,
+  type ImageFocalPoint,
+} from "@/lib/media/focalPoint";
+
 import BackLink from "@/components/shared/BackLink";
 import ImageUpload from "@/components/shared/ImageUpload";
 import TagEditor from "@/components/shared/TagEditor";
 import MemberPicker from "@/components/shared/MemberPicker";
-import { PROJECT_MODULES, PROJECT_STATUSES } from "@/lib/constants";
-import { createProject } from "@/lib/actions/admin/projects";
+
 import styles from "../AdminProjectForm.module.scss";
-import {
-  DEFAULT_IMAGE_FOCAL_POINT,
-  type ImageFocalPoint,
-} from "@/lib/imageFocalPoint";
 
 export default function NewProjectPage() {
   const router = useRouter();

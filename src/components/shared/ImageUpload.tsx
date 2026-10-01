@@ -1,11 +1,12 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
-
 import { useState, useRef } from "react";
+
+import { expectAppData } from "@/lib/api/result";
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
+
 import CompatibleImage from "./CompatibleImage";
 import FocalPointPicker from "./FocalPointPicker";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
 import styles from "./ImageUpload.module.scss";
 
 interface ImageUploadProps {

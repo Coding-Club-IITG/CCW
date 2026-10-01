@@ -15,6 +15,8 @@
  * Stop ccw-worker before running so the cron does not race this script.
  */
 
+import { registerStreakFreeze } from "@/lib/potd/recompute";
+
 import {
   connect,
   disconnect,
@@ -23,7 +25,6 @@ import {
   parseArgs,
   isValidDateStr,
 } from "./_potd-shared";
-import { registerStreakFreeze } from "../src/lib/potd/recompute";
 
 async function main() {
   const { flags } = parseArgs(process.argv.slice(2));

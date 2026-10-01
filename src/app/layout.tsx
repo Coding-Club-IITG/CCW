@@ -3,7 +3,12 @@ import { Handjet, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 
 import { webEnv } from "@/lib/env/web";
-import { ogImage, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
+import {
+  ogImage,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/seo/metadata";
 
 import Providers from "@/components/layout/Providers";
 
@@ -74,6 +79,7 @@ export default async function RootLayout({
         <Providers
           runtimeConfig={{
             developmentAuthEnabled: webEnv.DEV_AUTH_ENABLED,
+            googleAuthEnabled: !!webEnv.GOOGLE_CLIENT_ID,
             userRateLimitsEnabled: !webEnv.DEV_DISABLE_USER_RATE_LIMITS,
           }}
         >

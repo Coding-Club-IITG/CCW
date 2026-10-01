@@ -7,12 +7,14 @@ import {
   recomputeUser,
   syncUserChallenge,
 } from "@/lib/potd/finalize";
-import { computeWindowTimes } from "@/lib/potd/utils";
+import { computeWindowTimes } from "@/lib/potd/schedule";
+
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDOutage from "@/models/POTDOutage";
 import Problem from "@/models/POTDProblem";
 import POTDSubmission from "@/models/POTDSubmission";
+
 import {
   clearTestMongo,
   startTestMongo,

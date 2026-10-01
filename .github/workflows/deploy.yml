@@ -28,10 +28,4 @@ jobs:
 
       - name: Deploy
         run: |
-          ssh cc@ssh.codingclub.in << 'EOF'
-            cd ~/Projects/CCW
-            git pull
-            pnpm install --frozen-lockfile
-            pnpm build
-            pm2 reload ecosystem.config.js
-          EOF
+          ssh cc@ssh.codingclub.in '/home/cc/Projects/infra/deploy/ccw.sh --apply'

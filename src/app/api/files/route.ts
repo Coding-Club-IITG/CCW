@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { buildAccessFilter, canUploadFiles } from "@/lib/access/files";
 import { getHeadModules, isAdmin } from "@/lib/access/roles";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeFile } from "@/lib/audit/summary";
 import { parseFormData, parseSearchParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
@@ -22,14 +22,15 @@ import {
   optionalSearchQuerySchema,
   paginationQueryFields,
 } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/server";
 import { webEnv } from "@/lib/env/web";
-import dbConnect from "@/lib/mongodb";
-import { parsePagination, paginatedResponse } from "@/lib/pagination";
-import { parseManagedModules, parseRoles } from "@/lib/roles";
-import { prepareSearchQuery } from "@/lib/search";
-import { validateTags } from "@/lib/tagUtils";
-import { logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { parsePagination, paginatedResponse } from "@/lib/shared/pagination";
+import { parseManagedModules, parseRoles } from "@/lib/users/roles";
+import { prepareSearchQuery } from "@/lib/shared/search";
+import { validateTags } from "@/lib/shared/tags";
+import { logger } from "@/lib/telemetry/logger";
+
 import FileEntry from "@/models/FileEntry";
 
 export const runtime = "nodejs";
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
     const managedModules = parseManagedModules(user.managedModules);
     const roles = parseRoles(user.roles);
 
-    await dbConnect();
+    await connectMongoDB();
 
     const { searchParams } = new URL(request.url);
     const query = parseSearchParams(searchParams, fileListQuerySchema);
@@ -276,7 +277,7 @@ export async function POST(request: NextRequest) {
     // Persist metadata
 
     try {
-      await dbConnect();
+      await connectMongoDB();
       const dbSession = await mongoose.startSession();
       let newFile;
       try {

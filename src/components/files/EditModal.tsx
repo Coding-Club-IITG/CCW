@@ -4,7 +4,7 @@ import { Shield, AlertCircle } from "lucide-react";
 import { useState } from "react";
 
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
-import { validateTags } from "@/lib/tagUtils";
+import { validateTags } from "@/lib/shared/tags";
 
 import Modal from "@/components/shared/Modal";
 import TagEditor from "@/components/shared/TagEditor";

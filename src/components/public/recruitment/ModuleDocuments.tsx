@@ -4,8 +4,8 @@ import { MODULE_ACCENTS, MODULE_BARS } from "@/lib/constants";
 import {
   recruitmentStatus,
   type RecruitmentModuleDto,
-} from "@/lib/recruitment";
-import { formatDateTime } from "@/lib/utils";
+} from "@/lib/recruitment/public";
+import { formatDateTime } from "@/lib/shared/dates";
 
 import DocumentCard from "./DocumentCard";
 import styles from "./Recruitment.module.scss";

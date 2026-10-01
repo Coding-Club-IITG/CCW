@@ -1,7 +1,8 @@
-import Contest from "@/models/Contest";
 import { fetchAllContests } from "@/lib/platforms/contests";
-import { logger } from "@/lib/utils";
-import dbConnect from "@/lib/mongodb";
+import { logger } from "@/lib/telemetry/logger";
+import { connectMongoDB } from "@/lib/db/mongodb";
+
+import Contest from "@/models/Contest";
 
 const MAX_PAST_CONTESTS = 100;
 
@@ -12,7 +13,7 @@ const MAX_PAST_CONTESTS = 100;
  */
 export async function syncContests() {
   logger.info("[ContestSync] Starting contest sync...");
-  await dbConnect();
+  await connectMongoDB();
 
   try {
     const contests = await fetchAllContests();

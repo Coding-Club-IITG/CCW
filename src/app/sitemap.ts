@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
-import dbConnect from "@/lib/mongodb";
-import { SITE_URL } from "@/lib/seo";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { SITE_URL } from "@/lib/seo/metadata";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import BlogPost from "@/models/BlogPost";
 import Event from "@/models/Event";
 import Recruitment from "@/models/Recruitment";
@@ -15,11 +17,12 @@ const staticPages: MetadataRoute.Sitemap = [
   { url: `${SITE_URL}/events`, changeFrequency: "weekly", priority: 0.8 },
   { url: `${SITE_URL}/projects`, changeFrequency: "monthly", priority: 0.8 },
   { url: `${SITE_URL}/recruitment`, changeFrequency: "weekly", priority: 0.8 },
+  { url: `${SITE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
-    await dbConnect();
+    await connectMongoDB();
     const [posts, events, recruitments] = await Promise.all([
       BlogPost.find({ status: "published" }).select("slug updatedAt").lean(),
       Event.find({ status: "published", slug: { $type: "string", $ne: "" } })

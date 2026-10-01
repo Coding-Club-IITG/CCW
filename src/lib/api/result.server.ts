@@ -1,7 +1,8 @@
 import { MongoServerError, ObjectId } from "mongodb";
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
-import { errorToLogMetadata, logger } from "@/lib/logger";
+
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 import {
   HTTP_STATUS_BY_ERROR_CODE,
   type AppErrorCode,

@@ -10,6 +10,19 @@
  */
 
 import {
+  fetchUserSubmissions,
+  getFinalizedChallenges,
+  backfillSolvedAt,
+  platformOf,
+} from "@/lib/potd/recompute";
+import { buildTimeline, recomputeUser } from "@/lib/potd/finalize";
+import {
+  computeWindowTimes,
+  windowStartToISTDateStr,
+} from "@/lib/potd/schedule";
+import type { Platform } from "@/lib/constants";
+
+import {
   connect,
   disconnect,
   backupPotd,
@@ -21,18 +34,6 @@ import {
   CPUser,
   POTDSubmission,
 } from "./_potd-shared";
-import {
-  fetchUserSubmissions,
-  getFinalizedChallenges,
-  backfillSolvedAt,
-  platformOf,
-} from "../src/lib/potd/recompute";
-import { buildTimeline, recomputeUser } from "../src/lib/potd/finalize";
-import {
-  computeWindowTimes,
-  windowStartToISTDateStr,
-} from "../src/lib/potd/utils";
-import type { Platform } from "../src/lib/constants";
 
 async function resolveUser(userArg: string): Promise<any | null> {
   if (mongoose.isValidObjectId(userArg)) {

@@ -1,13 +1,16 @@
-import { getContestListing } from "@/lib/actions/contests";
-import { toContestPresetDto, type ContestPresetDto } from "@/lib/contests/dtos";
-import ContestListingClient from "@/components/contests/ContestListingClient";
-import { auth } from "@/lib/auth";
-import { isHead } from "@/lib/access/roles";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import dbConnect from "@/lib/mongodb";
-import ContestPreset from "@/models/ContestPreset";
+
+import { getContestListing } from "@/lib/actions/contests";
+import { toContestPresetDto, type ContestPresetDto } from "@/lib/contests/dtos";
+import { auth } from "@/lib/auth/server";
+import { isHead } from "@/lib/access/roles";
+import { connectMongoDB } from "@/lib/db/mongodb";
 import { webEnv } from "@/lib/env/web";
+
+import ContestPreset from "@/models/ContestPreset";
+
+import ContestListingClient from "@/components/contests/ContestListingClient";
 
 export default async function ContestsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -21,7 +24,7 @@ export default async function ContestsPage() {
     ? contestsResult.data
     : { active: [], upcoming: [], completed: [] };
 
-  await dbConnect();
+  await connectMongoDB();
   const presetFilter: any = { archived: { $ne: true } };
   if (!admin) {
     presetFilter.$or = [{ isGlobal: true }, { creatorId: session.user.id }];

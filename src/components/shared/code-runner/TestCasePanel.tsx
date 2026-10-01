@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import type { TestCase, TestResult, CodeRunnerLanguage } from "@/lib/constants";
-import { executeCode } from "@/lib/code-runner/executor";
 import {
   Play as IconPlay,
   Check as IconCheck,
   X as IconX,
   Plus as IconPlus,
 } from "lucide-react";
+
+import type { TestCase, TestResult } from "@/lib/codeRunner/types";
+import type { CodeRunnerLanguage } from "@/lib/constants";
+import { executeCode } from "@/lib/codeRunner/executor";
+
 import styles from "./CodeRunner.module.scss";
 
 type RunPhase = "downloading" | "running" | null;

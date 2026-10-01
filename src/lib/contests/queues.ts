@@ -6,7 +6,7 @@ import type {
   ReconciliationJobInput,
   ReconciliationJobName,
 } from "@/lib/contests/runtime";
-import { bullMqConnection } from "@/lib/bullmq";
+import { bullMqConnection } from "@/lib/queues/bullMq";
 
 // Note: limiter is configured on the worker
 export const cfSyncQueue = new Queue<CfSyncQueueData, void, CfSyncJobName>(

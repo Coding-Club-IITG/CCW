@@ -6,21 +6,23 @@ import { PencilLine as IconEdit } from "lucide-react";
 
 import { isBlogAuthor } from "@/lib/access/blog";
 import { isHead } from "@/lib/access/roles";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/server";
 import { extractMarkdownHeadings } from "@/lib/blog/markdownHeadings";
 import { readingTimeLabel } from "@/lib/blog/readingTime";
 import { rankRelatedPosts } from "@/lib/blog/relatedPosts";
 import { tagAccent } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
 import {
   ogImage,
   pageMetadata,
   plainText,
   SITE_NAME,
   SITE_URL,
-} from "@/lib/seo";
-import { formatDate, formatShortDate } from "@/lib/utils";
+} from "@/lib/seo/metadata";
+import { formatDate, formatShortDate } from "@/lib/shared/dates";
+
 import BlogPost from "@/models/BlogPost";
+
 import ArticleReader from "@/components/blog/ArticleReader";
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";
@@ -34,7 +36,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  await dbConnect();
+  await connectMongoDB();
   const post = await BlogPost.findOne({ slug, status: "published" })
     .select("title slug excerpt content coverImage")
     .lean();
@@ -54,7 +56,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
 
-  await dbConnect();
+  await connectMongoDB();
   const post = await BlogPost.findOne({ slug, status: "published" }).lean();
 
   if (!post) {

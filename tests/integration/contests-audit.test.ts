@@ -13,6 +13,7 @@ import {
 
 import AuditLog from "@/models/AuditLog";
 import ContestMatch, { type IContestMatch } from "@/models/ContestMatch";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -25,7 +26,7 @@ const mocks = vi.hoisted(() => ({
   publishContest: vi.fn(async () => undefined),
 }));
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession: mocks.getSession } },
 }));
 vi.mock("@/lib/contests/events", () => ({

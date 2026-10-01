@@ -1,8 +1,10 @@
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { canSetPOTD } from "@/lib/access/potd";
-import { parseRoles } from "@/lib/roles";
 import { redirect } from "next/navigation";
+
+import { auth } from "@/lib/auth/server";
+import { canSetPOTD } from "@/lib/access/potd";
+import { parseRoles } from "@/lib/users/roles";
+
 import SetProblemClient from "./SetProblemClient";
 
 export default async function SetProblemPage() {

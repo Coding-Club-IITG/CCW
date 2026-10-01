@@ -6,19 +6,20 @@ import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
 
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { AppResultError, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizePublicContent } from "@/lib/audit/summary";
 import {
   getPostRevisionByVersion,
   recordRevisionSnapshot,
 } from "@/lib/blog/revisions";
 import { blogRevisionParamsSchema } from "@/lib/blog/schemas";
-import { invalidateCache } from "@/lib/cache";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { invalidateCache } from "@/lib/cache/redis";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import BlogPost from "@/models/BlogPost";
 
 type RouteContext = { params: Promise<{ slug: string; version: string }> };
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug, version: targetVersion } = validatedParams.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const dbSession = await mongoose.startSession();
     let saved;
 
