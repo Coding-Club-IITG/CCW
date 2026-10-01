@@ -22,6 +22,9 @@ programming systems, content, administration, and background integrations.
   browsers.
 - **Administration:** Management surfaces for users, content, events, projects,
   notifications, hackathons, contests, and recruitment.
+- **Pulse:** Live, host-run quizzes joined by room code. Durable quiz data
+  lives in MongoDB (`PulseQuiz`, `PulseAuditEvent`); live session state is
+  planned for Redis.
 
 ## Stack
 
@@ -53,6 +56,8 @@ programming systems, content, administration, and background integrations.
 - `src/lib/env`: pure Zod runtime schemas and process-specific validated exports
 - `src/lib/jobs`: Agenda setup, scheduled job implementations, and their shared
   schedule configuration
+- `src/lib/pulse`: Pulse live-quiz constants, room-code generation, and audit
+  helpers
 - `src/lib/platforms`: Competitive Programming platform integration adapters
   and shared coordination
 - `src/models`: Mongoose models
