@@ -39,6 +39,7 @@ export const reconciliationJobDataSchema = z.object({
 
 export const reconciliationJobNames = [
   "team_ready_timeout",
+  "bracket_ready_timeout",
   "start_registration",
   "check_start",
   "activate_bracket",
@@ -91,6 +92,8 @@ export const contestRoomStateSchema = z
     currentProblemStartTime: z.string().optional(),
     currentProblem: z.string().optional(),
     contestId: z.string().optional(),
+    waitingStartTime: z.string().optional(),
+    readyDeadline: z.string().optional(),
   })
   .passthrough();
 

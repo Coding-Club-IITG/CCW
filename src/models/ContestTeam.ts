@@ -6,6 +6,7 @@ export interface IContestTeam extends Document {
   members: mongoose.Types.ObjectId[];
   teamSize: number; // 1 or 3
   score: number;
+  isNull?: boolean;
   roundId?: mongoose.Types.ObjectId; // For tournament context
   contestId?: mongoose.Types.ObjectId; // For tournament context
   createdAt: Date;
@@ -31,6 +32,7 @@ const ContestTeamSchema = new Schema<IContestTeam>(
     ],
     teamSize: { type: Number, required: true, enum: [1, 3] },
     score: { type: Number, required: true, default: 0 },
+    isNull: { type: Boolean, default: false },
     roundId: { type: Schema.Types.ObjectId, ref: "ContestRound" },
     contestId: {
       type: Schema.Types.ObjectId,

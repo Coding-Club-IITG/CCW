@@ -421,6 +421,11 @@
   opacity: 0.5;
 }
 
+.rowInnerNull {
+  opacity: 0.4;
+  font-style: italic;
+}
+
 .rowName {
   @include entity-name;
 }
@@ -428,6 +433,12 @@
 .rowNameMuted {
   font-size: 13.5px;
   color: var(--muted);
+}
+
+.rowNameNull {
+  font-size: 13.5px;
+  color: var(--muted-light, var(--muted));
+  font-style: italic;
 }
 
 .rowTbd {
@@ -792,4 +803,43 @@
   color: var(--primary);
   font-weight: 600;
 }
+
+.adminControls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  margin-top: 0.5rem;
+}
+
+.adminHeading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.adminBtn {
+  @include btn-secondary(0.5rem);
+  font-size: 0.8rem;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.adminBtnDanger {
+  border-color: var(--error);
+  color: var(--error);
+
+  &:hover {
+    background: var(--error-bg);
+  }
+}
+
 

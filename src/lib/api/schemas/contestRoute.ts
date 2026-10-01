@@ -34,7 +34,8 @@ export const contestSyncSchema = z.object({
 });
 
 export const contestWalkoverSchema = z.object({
-  winnerTeamId: objectIdStringSchema,
+  winnerTeamId: objectIdStringSchema.optional().nullable(),
+  action: z.enum(["walkover", "nullify"]).optional().default("walkover"),
   note: z.string().trim().min(1).max(2_000),
 });
 

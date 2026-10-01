@@ -62,14 +62,28 @@ function TeamSlot({
   timage,
   fallback,
   isWinner,
+  isNull,
 }: {
   tid: string | null;
   tname: string | null;
   timage?: string | null;
   fallback: string;
   isWinner?: boolean;
+  isNull?: boolean;
 }) {
   if (tid && tname) {
+    const isNullPlayer = Boolean(
+      isNull || tname === "[No Show]" || tname === "[Eliminated]",
+    );
+    if (isNullPlayer) {
+      return (
+        <div className={`${styles.teamSlot} ${styles.teamSlotTbd}`}>
+          <div className={`${styles.teamSlotInner} ${styles.rowInnerNull}`}>
+            <span className={styles.rowNameNull}>{tname}</span>
+          </div>
+        </div>
+      );
+    }
     return (
       <div
         className={`${styles.teamSlot} ${isWinner ? styles.teamSlotWinner : ""}`}
@@ -120,6 +134,7 @@ function TeamRow({
   isWinner,
   isLoser,
   isActive,
+  isNull,
 }: {
   tid: string | null;
   tname: string | null;
@@ -128,6 +143,7 @@ function TeamRow({
   isWinner: boolean;
   isLoser: boolean;
   isActive: boolean;
+  isNull?: boolean;
 }) {
   if (!tid || !tname) {
     return (
@@ -139,6 +155,23 @@ function TeamRow({
       </div>
     );
   }
+
+  const isNullPlayer = Boolean(
+    isNull || tname === "[No Show]" || tname === "[Eliminated]",
+  );
+
+  if (isNullPlayer) {
+    return (
+      <div className={styles.teamRow}>
+        <div className={`${styles.rowInner} ${styles.rowInnerNull}`}>
+          <div className={styles.teamAvatarFallback}>-</div>
+          <span className={styles.rowNameNull}>{tname}</span>
+        </div>
+        <span className={styles.rowScoreMuted}>-</span>
+      </div>
+    );
+  }
+
   const ini = getInitials(tname);
 
   const renderAvatar = (hi?: boolean) => {
@@ -229,6 +262,9 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
   const isCompleted = node.status === "completed";
   const isActive = node.status === "active";
   const isWaiting = node.status === "waiting";
+  const isWalkover = Boolean(
+    node.walkover || node.terminationReason === "walkover",
+  );
   return (
     <div
       className={`${styles.matchNode} ${
@@ -243,12 +279,20 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
       <div className={styles.nodeHeader}>
         <span className={styles.nodeHeaderTitle}>
           <Trophy className={styles.trophyIcon} size={16} />
-          Grand Final
+          {node.bracketType === "grand_final_reset"
+            ? "Grand Final (Reset)"
+            : "Grand Final"}
         </span>
         {isCompleted ? (
-          <span className={`${styles.badge} ${styles.badgePrimary}`}>
-            Completed
-          </span>
+          isWalkover ? (
+            <span className={`${styles.badge} ${styles.badgeWarning}`}>
+              Walkover
+            </span>
+          ) : (
+            <span className={`${styles.badge} ${styles.badgePrimary}`}>
+              Completed
+            </span>
+          )
         ) : isActive ? (
           <span className={`${styles.badge} ${styles.badgePrimary}`}>
             <span className={styles.dotLive} /> Live
@@ -270,6 +314,7 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
           timage={node.teamImages?.[0]}
           fallback="Winner SF 1"
           isWinner={isCompleted && node.winner === t1}
+          isNull={node.teamIsNull?.[0]}
         />
         <div className={styles.vsLabel}>VS</div>
         <TeamSlot
@@ -278,6 +323,7 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
           timage={node.teamImages?.[1]}
           fallback="Winner SF 2"
           isWinner={isCompleted && node.winner === t2}
+          isNull={node.teamIsNull?.[1]}
         />
       </div>
       <Handle type="source" position={Position.Right} id="source-right" />
@@ -312,9 +358,19 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
   const t2Win = Boolean(isCompleted && t2 && t2 === winnerId);
   const t1Lose = Boolean(isCompleted && t1 && t1 !== winnerId);
   const t2Lose = Boolean(isCompleted && t2 && t2 !== winnerId);
+  const isWalkover = Boolean(
+    node.walkover || node.terminationReason === "walkover",
+  );
 
   const badge = isCompleted ? (
-    <span className={`${styles.badge} ${styles.badgePrimary}`}>Final</span>
+    isWalkover ? (
+      <span className={`${styles.badge} ${styles.badgeWarning}`}>Walkover</span>
+    ) : node.terminationReason === "both_no_show" ||
+      node.terminationReason === "both_zero_solve" ? (
+      <span className={`${styles.badge} ${styles.badgeWarning}`}>Eliminated</span>
+    ) : (
+      <span className={`${styles.badge} ${styles.badgePrimary}`}>Final</span>
+    )
   ) : isActive ? (
     <span className={`${styles.badge} ${styles.badgePrimary}`}>
       <span className={styles.dotLive} /> Live
@@ -354,6 +410,7 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
           isWinner={t1Win}
           isLoser={t1Lose}
           isActive={isActive}
+          isNull={node.teamIsNull?.[0]}
         />
         <TeamRow
           tid={t2}
@@ -363,6 +420,7 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
           isWinner={t2Win}
           isLoser={t2Lose}
           isActive={isActive}
+          isNull={node.teamIsNull?.[1]}
         />
       </div>
       <Handle type="source" position={Position.Right} id="source-right" style={{ top: 55 }} />
@@ -393,16 +451,22 @@ function MatchSidePanel({
   onClose,
   contestId,
   data,
+  isAdmin = false,
+  onSnapshotUpdate,
 }: {
   node: BracketNode | null;
   totalRounds: number;
   onClose: () => void;
   contestId: string;
   data?: { currentUserTeamIds?: string[]; isSpectator?: boolean };
+  isAdmin?: boolean;
+  onSnapshotUpdate?: (s: BracketSnapshot) => void;
 }) {
   const router = useRouter();
   const [prevNode, setPrevNode] = useState<BracketNode | null>(node);
   const [displayNode, setDisplayNode] = useState<BracketNode | null>(node);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState<string | null>(null);
 
   // Accept currentUserTeamIds to determine if the user is a participant
   const { currentUserTeamIds = [], isSpectator } = data || {};
@@ -414,8 +478,67 @@ function MatchSidePanel({
     setPrevNode(node);
     if (node !== null) {
       setDisplayNode(node);
+      setAdminError(null);
     }
   }
+
+  const handleAdminAction = async (
+    action: "walkover" | "nullify",
+    winnerTeamId?: string,
+  ) => {
+    if (!displayNode?.roomId) return;
+    setAdminLoading(true);
+    setAdminError(null);
+    try {
+      const res = await fetch(
+        `/api/contests/rooms/${displayNode.roomId}/walkover`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            winnerTeamId: action === "walkover" ? winnerTeamId : null,
+            note:
+              action === "nullify"
+                ? "Admin match nullification"
+                : "Admin forced walkover",
+          }),
+        },
+      );
+      const resData = await res.json();
+      if (!res.ok || !resData.success) {
+        setAdminError(
+          resData.error?.message || "Failed to process admin action",
+        );
+      } else {
+        if (resData.bracket && onSnapshotUpdate) {
+          onSnapshotUpdate(resData.bracket);
+          const updated = resData.bracket.nodes.find(
+            (n: BracketNode) => n.roomId === displayNode.roomId,
+          );
+          if (updated) setDisplayNode(updated);
+        } else {
+          const sRes = await fetch(
+            `/api/contests/${contestId}/bracket/snapshot`,
+          );
+          if (sRes.ok) {
+            const sData = await expectAppData<BracketSnapshot>(sRes);
+            onSnapshotUpdate?.(sData);
+            const updated = sData.nodes.find(
+              (n: BracketNode) => n.roomId === displayNode.roomId,
+            );
+            if (updated) setDisplayNode(updated);
+          }
+        }
+      }
+    } catch (err: unknown) {
+      setAdminError(
+        err instanceof Error ? err.message : "An error occurred",
+      );
+    } finally {
+      setAdminLoading(false);
+    }
+  };
 
   const handleEnterRoom = () => {
     if (!displayNode?.roomId) return;
@@ -654,6 +777,49 @@ function MatchSidePanel({
             </div>
           )}
 
+          {/* ADMIN OVERRIDE CONTROLS */}
+          {isAdmin && !isCompleted && displayNode?.roomId && (
+            <div className={styles.adminControls}>
+              <span className={styles.adminHeading}>Admin Match Override</span>
+              {adminError && (
+                <div
+                  className={styles.footerNote}
+                  style={{ color: "var(--error)" }}
+                >
+                  {adminError}
+                </div>
+              )}
+              {t1 && !displayNode.teamIsNull?.[0] && (
+                <button
+                  type="button"
+                  disabled={adminLoading}
+                  onClick={() => handleAdminAction("walkover", t1)}
+                  className={styles.adminBtn}
+                >
+                  Force Walkover: {n1 || "Team 1"}
+                </button>
+              )}
+              {t2 && !displayNode.teamIsNull?.[1] && (
+                <button
+                  type="button"
+                  disabled={adminLoading}
+                  onClick={() => handleAdminAction("walkover", t2)}
+                  className={styles.adminBtn}
+                >
+                  Force Walkover: {n2 || "Team 2"}
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={adminLoading}
+                onClick={() => handleAdminAction("nullify")}
+                className={`${styles.adminBtn} ${styles.adminBtnDanger}`}
+              >
+                Nullify Match (Eliminate Both)
+              </button>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={(e) => {
@@ -677,12 +843,14 @@ export default function BracketRoomClient({
   userId,
   currentUserTeamIds = [],
   isSpectator = false,
+  isAdmin = false,
 }: {
   contest: ContestListingItem;
   initialSnapshot: BracketSnapshot;
   userId?: string;
   currentUserTeamIds?: string[];
   isSpectator?: boolean;
+  isAdmin?: boolean;
 }) {
   const [selectedNode, setSelectedNode] = useState<BracketNode | null>(null);
   const [snapshot, setSnapshot] = useState<BracketSnapshot>(initialSnapshot);
@@ -830,6 +998,12 @@ export default function BracketRoomClient({
     const gfNode = snapshot.nodes.find((n) => {
       const stage = parseBracketPosition(n.bracketPosition || "").stage;
       return stage === "grand_final";
+    });
+    const gfResetNode = snapshot.nodes.find((n) => {
+      const stage = parseBracketPosition(n.bracketPosition || "").stage;
+      return (
+        stage === "grand_final_reset" || n.bracketType === "grand_final_reset"
+      );
     });
 
     const U =
@@ -1088,6 +1262,37 @@ export default function BracketRoomClient({
           },
         });
       }
+
+      // 5. Position Grand Final Reset Node if present
+      if (gfResetNode && showGf && gfNode) {
+        const gfResetX = gfX + X_GAP;
+        const gfResetY = gfY;
+        flowNodes.push({
+          id: gfResetNode.roomId,
+          type: "grandFinalNode",
+          position: { x: gfResetX, y: gfResetY },
+          data: {
+            node: gfResetNode,
+            totalRounds: snapshot.totalRounds,
+            openMatchDetails,
+          },
+        });
+
+        const active = gfNode.status === "completed" && gfNode.winner !== null;
+        flowEdges.push({
+          id: `e-${gfNode.roomId}-${gfResetNode.roomId}`,
+          source: gfNode.roomId,
+          target: gfResetNode.roomId,
+          sourceHandle: "source-right",
+          targetHandle: "target-left",
+          type: "smoothstep",
+          animated: active,
+          style: {
+            stroke: active ? "var(--warning, #f59e0b)" : "var(--border)",
+            strokeWidth: 2,
+          },
+        });
+      }
     }
 
     return { nodes: flowNodes, edges: flowEdges };
@@ -1182,6 +1387,8 @@ export default function BracketRoomClient({
         onClose={closeSidebar}
         contestId={contest._id.toString()}
         data={{ currentUserTeamIds, isSpectator }}
+        isAdmin={isAdmin}
+        onSnapshotUpdate={setSnapshot}
       />
     </div>
   );

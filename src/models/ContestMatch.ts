@@ -57,6 +57,7 @@ export interface IContestMatch extends Document {
   registrationSettings?: IRegistrationSettings;
   bracketSettings?: IBracketSettings;
   spectatorRestriction: "none" | "all" | "admin_creator" | "club_members";
+  grandFinalState?: "pending" | "awaiting_reset" | "reset_in_progress" | "complete";
   winner?: mongoose.Types.ObjectId;
   winnerName?: string;
   createdAt: Date;
@@ -158,6 +159,11 @@ const ContestMatchSchema = new Schema<IContestMatch>(
       type: String,
       enum: ["none", "all", "admin_creator", "club_members"],
       default: "none",
+    },
+    grandFinalState: {
+      type: String,
+      enum: ["pending", "awaiting_reset", "reset_in_progress", "complete"],
+      default: "pending",
     },
     winner: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     winnerName: { type: String },

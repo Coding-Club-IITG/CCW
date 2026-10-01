@@ -1,7 +1,7 @@
 import { type Job, Worker } from "bullmq";
 import mongoose from "mongoose";
 
-import { publishRoom } from "@/lib/contests/events";
+import { publishRoom, recordRoomActivity } from "@/lib/contests/events";
 import {
   contestRoomProblemSchema,
   contestRoomStateSchema,
@@ -103,8 +103,6 @@ async function determineWinner(
         if (a.wrongSubs !== b.wrongSubs) return a.wrongSubs - b.wrongSubs;
       }
 
-      if (a.avgRating !== b.avgRating) return a.avgRating - b.avgRating;
-
       return a.id.localeCompare(b.id);
     });
 
@@ -195,6 +193,249 @@ export const reconciliationWorker = new Worker<
               reason: "team_withdrawal",
             });
           }
+        }
+      }
+      return;
+    }
+
+    // Handle bracket 2-minute ready timeout
+    if (job.name === "bracket_ready_timeout") {
+      const state = contestRoomStateSchema.parse(
+        await redis.hGetAll(`room:${roomId}:state`),
+      );
+
+      if (state && state.status === "waiting") {
+        logger.info(
+          `[reconciliationWorker] bracket_ready_timeout fired for room ${roomId}`,
+        );
+
+        const room = await ContestRoom.findById(roomId);
+        if (!room) return;
+
+        const teams = await redis.sMembers(`room:${roomId}:teams`);
+        const readyTeams: string[] = [];
+        const unreadyTeams: string[] = [];
+
+        for (const tId of teams) {
+          const teamMembers = await redis.sMembers(`team:${tId}:users`);
+          const readyMembers: string[] = [];
+
+          for (const memberId of teamMembers) {
+            const isReady = await redis.sIsMember(
+              `room:${roomId}:ready_users`,
+              memberId,
+            );
+            if (isReady) {
+              readyMembers.push(memberId);
+            }
+          }
+
+          // Partial readiness threshold (Scenario S4):
+          // At least 1 ready member means team is present
+          if (readyMembers.length > 0) {
+            readyTeams.push(tId);
+
+            // Prune unready members if any
+            if (readyMembers.length < teamMembers.length) {
+              const unreadyMembers = teamMembers.filter(
+                (m) => !readyMembers.includes(m),
+              );
+              for (const unreadyId of unreadyMembers) {
+                await redis.sRem(`team:${tId}:users`, unreadyId);
+                await redis.sRem(`room:${roomId}:ready_users`, unreadyId);
+              }
+              await ContestTeam.findByIdAndUpdate(tId, {
+                $pull: {
+                  members: {
+                    $in: unreadyMembers.map(
+                      (id) => new mongoose.Types.ObjectId(id),
+                    ),
+                  },
+                },
+              });
+            }
+            await redis.sAdd(`room:${roomId}:teams_ready`, tId);
+          } else {
+            unreadyTeams.push(tId);
+          }
+        }
+
+        // Case 1: Both teams ready -> Start the match!
+        if (readyTeams.length === teams.length && teams.length >= 2) {
+          const now = Date.now();
+          await redis.hSet(`room:${roomId}:state`, {
+            status: "active",
+            startTime: now.toString(),
+          });
+
+          const problemsRaw = await redis.lRange(
+            `room:${roomId}:problems`,
+            0,
+            -1,
+          );
+          if (state.type === "arena") {
+            for (let i = 0; i < problemsRaw.length; i++) {
+              const p = contestRoomProblemSchema.parse(
+                JSON.parse(problemsRaw[i]),
+              );
+              p.revealedAt = now;
+              await redis.lSet(`room:${roomId}:problems`, i, JSON.stringify(p));
+            }
+          } else if (problemsRaw.length > 0) {
+            const firstProblem = contestRoomProblemSchema.parse(
+              JSON.parse(problemsRaw[0]),
+            );
+            firstProblem.revealedAt = now;
+            await redis.lSet(
+              `room:${roomId}:problems`,
+              0,
+              JSON.stringify(firstProblem),
+            );
+          }
+
+          room.status = "active";
+          room.actualStartTime = new Date(now);
+          await room.save();
+
+          await recordRoomActivity(roomId, {
+            icon: "info",
+            text: "Match started after ready phase countdown! Good luck.",
+            color: "text-primary",
+          });
+
+          const updatedState = await redis.hGetAll(`room:${roomId}:state`);
+          const updatedProblems = await redis.lRange(
+            `room:${roomId}:problems`,
+            0,
+            -1,
+          );
+          const scores: Record<string, number> = {};
+          for (const tId of teams) {
+            const score = await redis.zScore(`room:${roomId}:scores`, tId);
+            scores[tId] = score || 0;
+          }
+
+          await publishRoom(roomId, {
+            type: "room.state_sync",
+            roomId,
+            state: updatedState,
+            problems: parseContestRoomProblems(updatedProblems),
+            scores,
+          });
+
+          const timeLimitSecs = parseInt(state.timeLimit || "3600", 10);
+          const { reconciliationQueue } = await import("@/lib/contests/queues");
+          await reconciliationQueue.add(
+            "room_timeout",
+            { roomId, contestId: state.contestId, trigger: "timeout" },
+            { delay: timeLimitSecs * 1000, jobId: `timeout-${roomId}` },
+          );
+          return;
+        }
+
+        // Case 2: Exactly one team ready -> Walkover! (Scenario S2)
+        if (readyTeams.length === 1 && unreadyTeams.length >= 1) {
+          const readyTeamId = readyTeams[0];
+          const unreadyTeamId = unreadyTeams[0];
+
+          logger.info(
+            `[reconciliationWorker] Walkover in room ${roomId}: Ready team ${readyTeamId} wins over unready team ${unreadyTeamId}`,
+          );
+
+          await ContestTeam.findByIdAndUpdate(unreadyTeamId, {
+            isNull: true,
+            name: "[No Show]",
+          });
+
+          room.status = "ended";
+          room.terminationReason = "walkover";
+          room.winnerTeamId = new mongoose.Types.ObjectId(readyTeamId);
+          await room.save();
+
+          const readyTeamDoc = await ContestTeam.findById(readyTeamId);
+          if (readyTeamDoc) {
+            readyTeamDoc.score = Math.max(readyTeamDoc.score || 0, 1);
+            await readyTeamDoc.save();
+          }
+
+          const teamScores: Record<string, number> = {
+            [readyTeamId]: readyTeamDoc?.score || 1,
+            [unreadyTeamId]: 0,
+          };
+
+          await publishRoom(roomId, {
+            type: "room.end",
+            finalScores: teamScores,
+            reason: "walkover",
+          });
+
+          const { advanceWinner, checkRoundCompletion } = await import(
+            "@/lib/contests/bracket"
+          );
+          await advanceWinner(roomId, contestId, readyTeamId);
+
+          if (room.currentRoundId) {
+            const roundDoc = await ContestRound.findById(
+              room.currentRoundId,
+            ).lean();
+            if (roundDoc) {
+              await checkRoundCompletion(contestId, roundDoc.roundNumber);
+            }
+          }
+
+          const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
+          if (completedRoomKeys.length > 0) await redis.del(completedRoomKeys);
+          for (const tId of teams) {
+            await redis.del(`team:${tId}:meta`);
+            await redis.del(`team:${tId}:users`);
+          }
+          return;
+        }
+
+        // Case 3: Neither team ready -> Both eliminated! (Scenario S1)
+        if (readyTeams.length === 0) {
+          logger.info(
+            `[reconciliationWorker] Both teams failed to ready up in room ${roomId}. Both eliminated, advancing null player.`,
+          );
+
+          for (const tId of teams) {
+            await ContestTeam.findByIdAndUpdate(tId, {
+              isNull: true,
+              name: "[No Show]",
+            });
+          }
+
+          room.status = "ended";
+          room.terminationReason = "no_show";
+          await room.save();
+
+          await publishRoom(roomId, {
+            type: "room.end",
+            finalScores: {},
+            reason: "no_show",
+          });
+
+          const { advanceNullPlayer, checkRoundCompletion } = await import(
+            "@/lib/contests/bracket"
+          );
+          await advanceNullPlayer(contestId, roomId);
+
+          if (room.currentRoundId) {
+            const roundDoc = await ContestRound.findById(
+              room.currentRoundId,
+            ).lean();
+            if (roundDoc) {
+              await checkRoundCompletion(contestId, roundDoc.roundNumber);
+            }
+          }
+
+          const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
+          if (completedRoomKeys.length > 0) await redis.del(completedRoomKeys);
+          for (const tId of teams) {
+            await redis.del(`team:${tId}:meta`);
+            await redis.del(`team:${tId}:users`);
+          }
+          return;
         }
       }
       return;
@@ -780,8 +1021,27 @@ export const reconciliationWorker = new Worker<
         await contest.save();
         await redis.hSet(`contest:${contestId}:meta`, { status: "active" });
 
+        const waitingRooms = await ContestRoom.find({
+          contestId,
+          status: "waiting",
+        });
+        const now = Date.now();
+        for (const wr of waitingRooms) {
+          const wrId = wr._id.toString();
+          await redis.hSet(`room:${wrId}:state`, {
+            waitingStartTime: now.toString(),
+            readyDeadline: (now + 120000).toString(),
+          });
+          const { reconciliationQueue } = await import("@/lib/contests/queues");
+          await reconciliationQueue.add(
+            "bracket_ready_timeout",
+            { roomId: wrId, contestId: contestId.toString() },
+            { delay: 120000, jobId: `ready-timeout-${wrId}` },
+          );
+        }
+
         logger.info(
-          `[reconciliationWorker] activate_bracket: contest ${contestId} is now active.`,
+          `[reconciliationWorker] activate_bracket: contest ${contestId} is now active with ${waitingRooms.length} waiting rooms scheduled for ready timeout.`,
         );
       }
       return;
@@ -1040,29 +1300,63 @@ export const reconciliationWorker = new Worker<
             await ContestMatch.findById(contestId).lean();
           if (completedContest?.format === "bracket") {
             const stateObj = await redis.hGetAll(`room:${roomId}:state`);
-            const { winnerId: bracketWinnerId } = await determineWinner(
-              redis,
-              roomId,
-              completedTeams,
-              stateObj,
-            );
+            const { winnerId: bracketWinnerId, teamScores } =
+              await determineWinner(redis, roomId, completedTeams, stateObj);
 
-            try {
-              const { advanceWinner, checkRoundCompletion } =
-                await import("@/lib/contests/bracket");
-              await advanceWinner(roomId, contestId, bracketWinnerId);
-              if (completedRoom.currentRoundId) {
-                const roundDoc = await ContestRound.findById(
-                  completedRoom.currentRoundId,
-                ).lean();
-                if (roundDoc)
-                  await checkRoundCompletion(contestId, roundDoc.roundNumber);
-              }
-            } catch (bracketErr) {
-              logger.error(
-                `[reconciliationWorker] room_completed: bracket advancement failed for room ${roomId}:`,
-                bracketErr,
+            // Scenario S3: If both teams scored 0 points (no solves), both are eliminated and null advances!
+            const allZero =
+              completedTeams.length >= 2 &&
+              Object.values(teamScores).every((s) => s === 0);
+
+            if (allZero) {
+              logger.info(
+                `[reconciliationWorker] room_completed: No problems solved by either team in room ${roomId}. Both eliminated, advancing null player.`,
               );
+              completedRoom.terminationReason = "no_solve";
+              await completedRoom.save();
+
+              for (const tId of completedTeams) {
+                await ContestTeam.findByIdAndUpdate(tId, {
+                  isNull: true,
+                  name: "[Eliminated]",
+                });
+              }
+
+              try {
+                const { advanceNullPlayer, checkRoundCompletion } =
+                  await import("@/lib/contests/bracket");
+                await advanceNullPlayer(contestId, roomId);
+                if (completedRoom.currentRoundId) {
+                  const roundDoc = await ContestRound.findById(
+                    completedRoom.currentRoundId,
+                  ).lean();
+                  if (roundDoc)
+                    await checkRoundCompletion(contestId, roundDoc.roundNumber);
+                }
+              } catch (bracketErr) {
+                logger.error(
+                  `[reconciliationWorker] room_completed: null advancement failed for room ${roomId}:`,
+                  bracketErr,
+                );
+              }
+            } else {
+              try {
+                const { advanceWinner, checkRoundCompletion } =
+                  await import("@/lib/contests/bracket");
+                await advanceWinner(roomId, contestId, bracketWinnerId);
+                if (completedRoom.currentRoundId) {
+                  const roundDoc = await ContestRound.findById(
+                    completedRoom.currentRoundId,
+                  ).lean();
+                  if (roundDoc)
+                    await checkRoundCompletion(contestId, roundDoc.roundNumber);
+                }
+              } catch (bracketErr) {
+                logger.error(
+                  `[reconciliationWorker] room_completed: bracket advancement failed for room ${roomId}:`,
+                  bracketErr,
+                );
+              }
             }
 
             // Bracket: clean up ONLY room-scoped and team-scoped keys
@@ -1228,17 +1522,34 @@ export const reconciliationWorker = new Worker<
     if (contestId) {
       try {
         const bracketContest = await ContestMatch.findById(contestId).lean();
-        if (bracketContest?.format === "bracket" && winnerId) {
-          const { advanceWinner, checkRoundCompletion } =
-            await import("@/lib/contests/bracket");
-          await advanceWinner(roomId, contestId, winnerId);
-          const bracketRoom = await ContestRoom.findById(roomId).lean();
-          if (bracketRoom?.currentRoundId) {
-            const roundDoc = await ContestRound.findById(
-              bracketRoom.currentRoundId,
-            ).lean();
-            if (roundDoc)
-              await checkRoundCompletion(contestId, roundDoc.roundNumber);
+        if (bracketContest?.format === "bracket") {
+          const allZero =
+            teams.length >= 2 &&
+            teams.every((tId) => (teamScores[tId] || 0) === 0);
+          if (allZero && trigger === "timeout") {
+            const { advanceNullPlayer, checkRoundCompletion } =
+              await import("@/lib/contests/bracket");
+            await advanceNullPlayer(contestId, roomId);
+            const bracketRoom = await ContestRoom.findById(roomId).lean();
+            if (bracketRoom?.currentRoundId) {
+              const roundDoc = await ContestRound.findById(
+                bracketRoom.currentRoundId,
+              ).lean();
+              if (roundDoc)
+                await checkRoundCompletion(contestId, roundDoc.roundNumber);
+            }
+          } else if (winnerId) {
+            const { advanceWinner, checkRoundCompletion } =
+              await import("@/lib/contests/bracket");
+            await advanceWinner(roomId, contestId, winnerId);
+            const bracketRoom = await ContestRoom.findById(roomId).lean();
+            if (bracketRoom?.currentRoundId) {
+              const roundDoc = await ContestRound.findById(
+                bracketRoom.currentRoundId,
+              ).lean();
+              if (roundDoc)
+                await checkRoundCompletion(contestId, roundDoc.roundNumber);
+            }
           }
         }
       } catch (err) {

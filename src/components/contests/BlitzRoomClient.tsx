@@ -83,6 +83,7 @@ export default function BlitzRoomClient({
   syncCooldownSeconds = 60,
   isSpectator = false,
   initialActivityFeed = [],
+  initialReadyDeadline,
 }: {
   contest: ContestListingItem;
   roomId: string;
@@ -99,6 +100,7 @@ export default function BlitzRoomClient({
   initialProblemIndex?: number;
   initialStartTime?: number;
   initialTimeLimit?: number;
+  initialReadyDeadline?: number;
   from?: string;
   syncCooldownSeconds?: number;
   isSpectator?: boolean;
@@ -123,6 +125,24 @@ export default function BlitzRoomClient({
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(
     new Set(initialOnlineUserIds || [userId]),
   );
+
+  const [readySecondsLeft, setReadySecondsLeft] = useState<number | null>(() => {
+    if (!initialReadyDeadline) return null;
+    return Math.max(0, Math.ceil((initialReadyDeadline - Date.now()) / 1000));
+  });
+
+  useEffect(() => {
+    if (!initialReadyDeadline || matchState !== "waiting") return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((initialReadyDeadline - Date.now()) / 1000),
+      );
+      setReadySecondsLeft(remaining);
+      if (remaining <= 0) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [initialReadyDeadline, matchState]);
   const onlineUserIdsRef = useRef<Set<string>>(
     new Set(initialOnlineUserIds || [userId]),
   );
@@ -583,6 +603,12 @@ export default function BlitzRoomClient({
                     The arena is being prepared. Review your strategy-the match
                     begins when all teams are ready.
                   </p>
+                  {readySecondsLeft !== null && readySecondsLeft > 0 && (
+                    <div className={styles.readyCountdown}>
+                      <Hourglass size={16} />
+                      <span>Ready Phase: {readySecondsLeft}s remaining</span>
+                    </div>
+                  )}
                   <button
                     onClick={handleReady}
                     disabled={isReady}

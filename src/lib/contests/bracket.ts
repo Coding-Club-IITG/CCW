@@ -60,10 +60,12 @@ async function initBracketRoomRedis(
     name: string;
     members: mongoose.Types.ObjectId[];
     score: number;
+    isNull?: boolean;
   }[],
   durationSeconds = 3600,
   contestId: string,
 ) {
+  const now = Date.now();
   await redis.hSet(`room:${roomId}:state`, {
     status: "waiting",
     type: mode,
@@ -71,6 +73,8 @@ async function initBracketRoomRedis(
     timeLimit: durationSeconds.toString(),
     readyCount: "0",
     contestId: contestId,
+    waitingStartTime: now.toString(),
+    readyDeadline: (now + 120000).toString(),
   });
   const teamIds = teamDocs.map((t) => toStr(t._id));
   if (teamIds.length > 0) {
@@ -375,6 +379,14 @@ export async function generateBracket(
             bracketContestId,
           );
         });
+        await runOrDeferEffect(deferredEffects, async () => {
+          const { reconciliationQueue } = await import("@/lib/contests/queues");
+          await reconciliationQueue.add(
+            "bracket_ready_timeout",
+            { roomId, contestId: bracketContestId },
+            { delay: 120000, jobId: `ready-timeout-${roomId}` },
+          );
+        });
       }
 
       roundRooms.push(room._id);
@@ -485,12 +497,170 @@ function getTeamByMatchIndex(
   return assignments[index];
 }
 
+async function resolveTargetRoomMatches(
+  targetRoom: typeof ContestRoom.prototype,
+  allTeamDocs: {
+    _id: mongoose.Types.ObjectId;
+    name: string;
+    members: mongoose.Types.ObjectId[];
+    score: number;
+    isNull?: boolean;
+  }[],
+  contestId: mongoose.Types.ObjectId,
+  roundId: mongoose.Types.ObjectId,
+  deferredEffects?: DeferredBracketEffect[],
+) {
+  const nullTeams = allTeamDocs.filter((t) => t.isNull);
+  const realTeams = allTeamDocs.filter((t) => !t.isNull);
+
+  // Case 1: Both slots are null! (Scenario S6: Null vs Null)
+  if (nullTeams.length >= 2) {
+    const updated = await ContestRoom.findOneAndUpdate(
+      { _id: targetRoom._id, status: { $in: ["pending", "waiting"] } },
+      {
+        $set: {
+          status: "ended",
+          terminationReason: "both_null",
+          winnerTeamId: nullTeams[0]._id,
+        },
+      },
+      { new: true },
+    );
+    if (updated) {
+      await advanceNullPlayer(toStr(contestId), toStr(targetRoom._id), deferredEffects);
+      const round = await ContestRound.findById(roundId);
+      if (round) {
+        await checkRoundCompletion(toStr(contestId), round.roundNumber, deferredEffects);
+      }
+    }
+    return;
+  }
+
+  // Case 2: One null, one real! (Scenario S5: Null vs Real instant walkover)
+  if (nullTeams.length === 1 && realTeams.length >= 1) {
+    const realTeam = realTeams[0];
+    const updated = await ContestRoom.findOneAndUpdate(
+      { _id: targetRoom._id, status: { $in: ["pending", "waiting"] } },
+      {
+        $set: {
+          status: "ended",
+          terminationReason: "walkover",
+          winnerTeamId: realTeam._id,
+        },
+      },
+      { new: true },
+    );
+    if (updated) {
+      await ContestTeam.findByIdAndUpdate(realTeam._id, {
+        score: Math.max(realTeam.score || 0, 1),
+      });
+      await advanceWinner(
+        toStr(targetRoom._id),
+        toStr(contestId),
+        toStr(realTeam._id),
+        deferredEffects,
+      );
+      const round = await ContestRound.findById(roundId);
+      if (round) {
+        await checkRoundCompletion(toStr(contestId), round.roundNumber, deferredEffects);
+      }
+    }
+    return;
+  }
+
+  // Case 3: Both are real teams! Normal waiting flow
+  const allMemberIds = allTeamDocs.flatMap((t) => t.members);
+  const updatedRoom = await ContestRoom.findOneAndUpdate(
+    {
+      _id: targetRoom._id,
+      status: "pending",
+    },
+    {
+      $set: {
+        status: "waiting",
+        participants: allMemberIds,
+      },
+    },
+    { new: true },
+  );
+
+  if (updatedRoom) {
+    const contest = await ContestMatch.findById(contestId).lean();
+    const targetRoomId = toStr(targetRoom._id);
+    const contestMode = contest?.mode || "blitz";
+    const durationSeconds = contest?.overallDurationMinutes
+      ? contest.overallDurationMinutes * 60
+      : contest?.durationSeconds || 3600;
+    const bracketContestId = toStr(contestId);
+
+    await runOrDeferEffect(deferredEffects, async () => {
+      await initBracketRoomRedis(
+        await getRedis(),
+        targetRoomId,
+        contestMode,
+        allTeamDocs,
+        durationSeconds,
+        bracketContestId,
+      );
+    });
+
+    await runOrDeferEffect(deferredEffects, async () => {
+      const { reconciliationQueue } = await import("@/lib/contests/queues");
+      await reconciliationQueue.add(
+        "bracket_ready_timeout",
+        { roomId: targetRoomId, contestId: bracketContestId },
+        { delay: 120000, jobId: `ready-timeout-${targetRoomId}` },
+      );
+    });
+
+    logger.info(
+      `[Bracket] Room ${targetRoom._id} (${targetRoom.bracketPosition}) is now waiting with 2 teams (ready timeout scheduled)`,
+    );
+  }
+}
+
+async function promoteNullToRoom(
+  targetRoom: typeof ContestRoom.prototype,
+  contestId: mongoose.Types.ObjectId,
+  roundId: mongoose.Types.ObjectId,
+  deferredEffects?: DeferredBracketEffect[],
+) {
+  const nullTeam = await ContestTeam.create({
+    roomId: targetRoom._id,
+    name: "[No Show]",
+    members: [],
+    teamSize: 1,
+    score: 0,
+    isNull: true,
+    contestId,
+    roundId,
+  });
+  await ContestRoom.findByIdAndUpdate(targetRoom._id, {
+    $addToSet: { teams: nullTeam._id },
+  });
+
+  const allTeamDocs = await ContestTeam.find({
+    roomId: targetRoom._id,
+  }).lean();
+
+  if (allTeamDocs.length >= 2) {
+    await resolveTargetRoomMatches(
+      targetRoom,
+      allTeamDocs,
+      contestId,
+      roundId,
+      deferredEffects,
+    );
+  }
+}
+
 async function promoteTeamToRoom(
   targetRoom: typeof ContestRoom.prototype,
   sourceTeamDoc: {
     name: string;
     members: mongoose.Types.ObjectId[];
     teamSize?: number;
+    isNull?: boolean;
   },
   contestId: mongoose.Types.ObjectId,
   roundId: mongoose.Types.ObjectId,
@@ -509,6 +679,7 @@ async function promoteTeamToRoom(
       members: sourceTeamDoc.members,
       teamSize: sourceTeamDoc.teamSize || 1,
       score: 0,
+      isNull: Boolean(sourceTeamDoc.isNull),
       contestId,
       roundId,
     });
@@ -523,46 +694,13 @@ async function promoteTeamToRoom(
   }).lean();
 
   if (allTeamDocs.length >= 2) {
-    const allMemberIds = allTeamDocs.flatMap((t) => t.members);
-    // Atomic update: only transition from "pending" to "waiting" once!
-    const updatedRoom = await ContestRoom.findOneAndUpdate(
-      {
-        _id: targetRoom._id,
-        status: "pending",
-      },
-      {
-        $set: {
-          status: "waiting",
-          participants: allMemberIds,
-        },
-      },
-      { new: true },
+    await resolveTargetRoomMatches(
+      targetRoom,
+      allTeamDocs,
+      contestId,
+      roundId,
+      deferredEffects,
     );
-
-    if (updatedRoom) {
-      const contest = await ContestMatch.findById(contestId).lean();
-      const targetRoomId = toStr(targetRoom._id);
-      const contestMode = contest?.mode || "blitz";
-      const durationSeconds = contest?.overallDurationMinutes
-        ? contest.overallDurationMinutes * 60
-        : contest?.durationSeconds || 3600;
-      const bracketContestId = toStr(contestId);
-
-      await runOrDeferEffect(deferredEffects, async () => {
-        await initBracketRoomRedis(
-          await getRedis(),
-          targetRoomId,
-          contestMode,
-          allTeamDocs,
-          durationSeconds,
-          bracketContestId,
-        );
-      });
-
-      logger.info(
-        `[Bracket] Room ${targetRoom._id} (${targetRoom.bracketPosition}) is now waiting with 2 teams`,
-      );
-    }
   }
 }
 
@@ -643,13 +781,18 @@ export async function advanceWinner(
     roundNumber: currentRound.roundNumber + 1,
   });
   if (!nextRound) {
-    contest.winner = new mongoose.Types.ObjectId(winnerTeamId);
-    contest.status = "completed";
     const winnerTeamDoc = await ContestTeam.findById(winnerTeamId);
-    contest.winnerName = winnerTeamDoc?.name || "";
+    if (winnerTeamDoc?.isNull) {
+      contest.winner = undefined;
+      contest.winnerName = "No Winner";
+    } else {
+      contest.winner = new mongoose.Types.ObjectId(winnerTeamId);
+      contest.winnerName = winnerTeamDoc?.name || "";
+    }
+    contest.status = "completed";
     await contest.save();
     logger.info(
-      `[Bracket] Contest ${contestId} completed. Winner: ${winnerTeamId}`,
+      `[Bracket] Contest ${contestId} completed. Winner: ${contest.winnerName}`,
     );
 
     await runOrDeferEffect(deferredEffects, async () => {
@@ -664,7 +807,7 @@ export async function advanceWinner(
       await publishContest(contestId, {
         type: "contest.round_complete",
         roundNumber: completedRoundNumber,
-        advancingTeams: [winnerTeamId],
+        advancingTeams: winnerTeamDoc?.isNull ? [] : [winnerTeamId],
       });
     });
 
@@ -720,6 +863,78 @@ export async function advanceWinner(
   logger.info(
     `[Bracket] Advanced team ${winnerTeamId} to room ${nextRoom._id}`,
   );
+}
+
+export async function advanceNullPlayer(
+  contestId: string,
+  roomId: string,
+  deferredEffects?: DeferredBracketEffect[],
+) {
+  await dbConnect();
+  const room = await ContestRoom.findById(roomId).populate<{
+    currentRoundId: IContestRound;
+  }>("currentRoundId");
+  if (!room) return;
+
+  const contest = await ContestMatch.findById(contestId);
+  if (!contest || contest.format !== "bracket") return;
+
+  const isDoubleElim = contest.bracketSettings?.type === "double_elimination";
+  if (isDoubleElim) {
+    return advanceNullPlayerDoubleBracket(roomId, contestId, deferredEffects);
+  }
+
+  const currentRound = room.currentRoundId;
+  if (!currentRound) return;
+
+  const bracketPos = room.bracketPosition;
+  if (!bracketPos) return;
+
+  const posInfo = parseBracketPosition(bracketPos);
+  const matchIndex = posInfo.matchIndex;
+
+  const nextRound = await ContestRound.findOne({
+    contestId,
+    roundNumber: currentRound.roundNumber + 1,
+  });
+
+  if (!nextRound) {
+    contest.winner = undefined;
+    contest.winnerName = "No Winner";
+    contest.status = "completed";
+    await contest.save();
+
+    await runOrDeferEffect(deferredEffects, async () => {
+      const finalSnapshot = await getBracketSnapshot(contestId);
+      await publishContest(contestId, {
+        type: "contest.bracket_update",
+        ...finalSnapshot,
+      });
+    });
+
+    await runOrDeferEffect(deferredEffects, async () => {
+      const redis = await getRedis();
+      await cleanupContestRedisKeys(redis, contestId);
+    });
+    return;
+  }
+
+  const nextMatchIndex = Math.floor(matchIndex / 2);
+  const nextRooms = await ContestRoom.find({
+    _id: { $in: nextRound.rooms },
+  }).sort({ createdAt: 1 });
+  const nextRoom = nextRooms[nextMatchIndex];
+  if (nextRoom) {
+    await promoteNullToRoom(nextRoom, contest._id, nextRound._id, deferredEffects);
+  }
+
+  await runOrDeferEffect(deferredEffects, async () => {
+    const snapshot = await getBracketSnapshot(contestId);
+    await publishContest(contestId, {
+      type: "contest.bracket_update",
+      ...snapshot,
+    });
+  });
 }
 
 async function advanceWinnerDoubleBracket(
@@ -958,12 +1173,153 @@ async function advanceWinnerDoubleBracket(
       }
     }
   } else if (stage === "grand_final") {
-    contest.winner = new mongoose.Types.ObjectId(winnerTeamId);
+    if (winnerTeamDoc.isNull) {
+      contest.winner = undefined;
+      contest.winnerName = "No Winner";
+      contest.grandFinalState = "complete";
+      contest.status = "completed";
+      await contest.save();
+    } else {
+      const upperFinalRound = upperRounds[totalUpperRounds - 1];
+      const upperFinalRoom = upperFinalRound
+        ? await ContestRoom.findOne({ _id: { $in: upperFinalRound.rooms } })
+        : null;
+      const upperFinalWinnerTeam = upperFinalRoom?.winnerTeamId
+        ? await ContestTeam.findById(upperFinalRoom.winnerTeamId)
+        : null;
+
+      const isUpperFinalist = Boolean(
+        upperFinalWinnerTeam &&
+          (upperFinalWinnerTeam.name === winnerTeamDoc.name ||
+            upperFinalWinnerTeam.members.some((m) =>
+              winnerTeamDoc.members.some(
+                (wm) => wm.toString() === m.toString(),
+              ),
+            )),
+      );
+
+      if (isUpperFinalist) {
+        contest.winner = new mongoose.Types.ObjectId(winnerTeamId);
+        contest.status = "completed";
+        contest.winnerName = winnerTeamDoc.name || "";
+        contest.grandFinalState = "complete";
+        await contest.save();
+        logger.info(
+          `[Bracket] Double elimination contest ${contestId} completed. Champion: ${winnerTeamId} (Upper Finalist)`,
+        );
+      } else {
+        logger.info(
+          `[Bracket] Lower Finalist ${winnerTeamId} won Grand Final in contest ${contestId}. Triggering Bracket Reset!`,
+        );
+        contest.grandFinalState = "reset_in_progress";
+        await contest.save();
+
+        let resetRoom = await ContestRoom.findOne({
+          contestId,
+          bracketPosition: "grand_final_reset-0-0",
+        });
+
+        if (!resetRoom && grandFinalRound) {
+          resetRoom = await ContestRoom.create({
+            contestId: contest._id,
+            name: "Grand Final (Reset)",
+            bracketPosition: "grand_final_reset-0-0",
+            currentRoundId: grandFinalRound._id,
+            status: "pending",
+            teams: [],
+            participants: [],
+            currentProblemIndex: 0,
+          });
+
+          await ContestRound.findByIdAndUpdate(grandFinalRound._id, {
+            $addToSet: { rooms: resetRoom._id },
+          });
+
+          const gfProblemSet = await ContestProblemSet.findOne({ roomId: room._id });
+          if (gfProblemSet) {
+            await ContestProblemSet.create({
+              contestId: contest._id,
+              roomId: resetRoom._id,
+              problems: gfProblemSet.problems,
+            });
+            const redis = await getRedis();
+            const rawProblems = gfProblemSet.problems.map((p) =>
+              JSON.stringify({
+                problemId: p.problemId,
+                name: p.name,
+                rating: p.rating,
+                points: p.points,
+                revealedAt: null,
+              }),
+            );
+            if (rawProblems.length > 0) {
+              await redis.rPush(`room:${resetRoom._id}:problems`, rawProblems);
+            }
+          }
+        }
+
+        if (resetRoom && loserTeamDoc) {
+          await promoteTeamToRoom(
+            resetRoom,
+            winnerTeamDoc,
+            contest._id,
+            grandFinalRound!._id,
+            deferredEffects,
+          );
+          await promoteTeamToRoom(
+            resetRoom,
+            loserTeamDoc,
+            contest._id,
+            grandFinalRound!._id,
+            deferredEffects,
+          );
+        }
+
+        await runOrDeferEffect(deferredEffects, async () => {
+          const resetSnapshot = await getBracketSnapshot(contestId);
+          await publishContest(contestId, {
+            type: "contest.bracket_update",
+            ...resetSnapshot,
+          });
+        });
+        return;
+      }
+    }
+
+    await runOrDeferEffect(deferredEffects, async () => {
+      const finalSnapshot = await getBracketSnapshot(contestId);
+      await publishContest(contestId, {
+        type: "contest.bracket_update",
+        ...finalSnapshot,
+      });
+    });
+
+    await runOrDeferEffect(deferredEffects, async () => {
+      await publishContest(contestId, {
+        type: "contest.round_complete",
+        roundNumber: currentRound.roundNumber,
+        advancingTeams: winnerTeamDoc.isNull ? [] : [winnerTeamId],
+      });
+    });
+
+    await runOrDeferEffect(deferredEffects, async () => {
+      const redis = await getRedis();
+      await cleanupContestRedisKeys(redis, contestId);
+    });
+    return;
+  } else if (stage === "grand_final_reset") {
+    if (winnerTeamDoc.isNull) {
+      contest.winner = undefined;
+      contest.winnerName = "No Winner";
+    } else {
+      contest.winner = new mongoose.Types.ObjectId(winnerTeamId);
+      contest.winnerName = winnerTeamDoc.name || "";
+    }
+    contest.grandFinalState = "complete";
     contest.status = "completed";
-    contest.winnerName = winnerTeamDoc.name || "";
     await contest.save();
     logger.info(
-      `[Bracket] Double elimination contest ${contestId} completed. Champion: ${winnerTeamId}`,
+      `[Bracket] Grand Final Reset completed for contest ${contestId}. Champion: ${winnerTeamId}`,
     );
 
     await runOrDeferEffect(deferredEffects, async () => {
@@ -978,7 +1334,7 @@ async function advanceWinnerDoubleBracket(
       await publishContest(contestId, {
         type: "contest.round_complete",
         roundNumber: currentRound.roundNumber,
-        advancingTeams: [winnerTeamId],
+        advancingTeams: winnerTeamDoc.isNull ? [] : [winnerTeamId],
       });
     });
 
@@ -1008,6 +1364,164 @@ async function advanceWinnerDoubleBracket(
   logger.info(
     `[Bracket] Double elimination advancement processed for room ${roomId} (winner: ${winnerTeamId})`,
   );
+}
+
+async function advanceNullPlayerDoubleBracket(
+  roomId: string,
+  contestId: string,
+  deferredEffects?: DeferredBracketEffect[],
+) {
+  await dbConnect();
+  const room = await ContestRoom.findById(roomId).populate<{
+    currentRoundId: IContestRound;
+  }>("currentRoundId");
+  if (!room) return;
+
+  const contest = await ContestMatch.findById(contestId);
+  if (!contest || contest.format !== "bracket") return;
+
+  const currentRound = room.currentRoundId;
+  if (!currentRound) return;
+
+  const bracketPos = room.bracketPosition;
+  if (!bracketPos) return;
+
+  const { stage, roundIndex, matchIndex } = parseBracketPosition(bracketPos);
+
+  const upperRounds = await ContestRound.find({
+    contestId,
+    bracketType: "upper",
+  }).sort({ roundNumber: 1 });
+  const lowerRounds = await ContestRound.find({
+    contestId,
+    bracketType: "lower",
+  }).sort({ roundNumber: 1 });
+  const grandFinalRound = await ContestRound.findOne({
+    contestId,
+    bracketType: "grand_final",
+  });
+
+  const totalUpperRounds = upperRounds.length;
+  const totalLowerRounds = lowerRounds.length;
+
+  if (stage === "upper") {
+    const u = roundIndex;
+    const m = matchIndex;
+
+    // 1. Advance Null in Upper
+    if (u < totalUpperRounds - 1) {
+      const nextMatchIndex = Math.floor(m / 2);
+      const nextUpperRound = upperRounds[u + 1];
+      const nextRooms = await ContestRoom.find({
+        _id: { $in: nextUpperRound.rooms },
+      }).sort({ createdAt: 1 });
+      const nextRoom = nextRooms[nextMatchIndex];
+      if (nextRoom) {
+        await promoteNullToRoom(nextRoom, contest._id, nextUpperRound._id, deferredEffects);
+      }
+    } else {
+      // Upper Final Null advances to Grand Final
+      if (grandFinalRound) {
+        const gfRoom = await ContestRoom.findOne({
+          _id: { $in: grandFinalRound.rooms },
+        });
+        if (gfRoom) {
+          await promoteNullToRoom(gfRoom, contest._id, grandFinalRound._id, deferredEffects);
+        }
+      }
+    }
+
+    // 2. Drop Null into Lower
+    if (u === 0) {
+      const lowerMatchIndex = Math.floor(m / 2);
+      if (lowerRounds.length > 0) {
+        const l0Rooms = await ContestRoom.find({
+          _id: { $in: lowerRounds[0].rooms },
+        }).sort({ createdAt: 1 });
+        const targetLowerRoom = l0Rooms[lowerMatchIndex];
+        if (targetLowerRoom) {
+          await promoteNullToRoom(targetLowerRoom, contest._id, lowerRounds[0]._id, deferredEffects);
+        }
+      }
+    } else if (u < totalUpperRounds - 1) {
+      const targetLowerRoundIndex = 2 * u - 1;
+      if (targetLowerRoundIndex < totalLowerRounds) {
+        const targetRound = lowerRounds[targetLowerRoundIndex];
+        const targetRooms = await ContestRoom.find({
+          _id: { $in: targetRound.rooms },
+        }).sort({ createdAt: 1 });
+        const targetRoom = targetRooms[m];
+        if (targetRoom) {
+          await promoteNullToRoom(targetRoom, contest._id, targetRound._id, deferredEffects);
+        }
+      }
+    } else {
+      const targetRound = lowerRounds[totalLowerRounds - 1];
+      if (targetRound) {
+        const targetRooms = await ContestRoom.find({
+          _id: { $in: targetRound.rooms },
+        }).sort({ createdAt: 1 });
+        const targetRoom = targetRooms[0];
+        if (targetRoom) {
+          await promoteNullToRoom(targetRoom, contest._id, targetRound._id, deferredEffects);
+        }
+      }
+    }
+  } else if (stage === "lower") {
+    const l = roundIndex;
+    const m = matchIndex;
+
+    // Advance Null in Lower
+    if (l < totalLowerRounds - 1) {
+      const nextLowerRound = lowerRounds[l + 1];
+      const nextRooms = await ContestRoom.find({
+        _id: { $in: nextLowerRound.rooms },
+      }).sort({ createdAt: 1 });
+      const nextMatchIndex = l % 2 === 0 ? m : Math.floor(m / 2);
+      const nextRoom = nextRooms[nextMatchIndex];
+      if (nextRoom) {
+        await promoteNullToRoom(nextRoom, contest._id, nextLowerRound._id, deferredEffects);
+      }
+    } else {
+      // Lower Final Null advances to Grand Final
+      if (grandFinalRound) {
+        const gfRoom = await ContestRoom.findOne({
+          _id: { $in: grandFinalRound.rooms },
+        });
+        if (gfRoom) {
+          await promoteNullToRoom(gfRoom, contest._id, grandFinalRound._id, deferredEffects);
+        }
+      }
+    }
+  } else if (stage === "grand_final" || stage === "grand_final_reset") {
+    contest.winner = undefined;
+    contest.winnerName = "No Winner";
+    contest.grandFinalState = "complete";
+    contest.status = "completed";
+    await contest.save();
+
+    await runOrDeferEffect(deferredEffects, async () => {
+      const finalSnapshot = await getBracketSnapshot(contestId);
+      await publishContest(contestId, {
+        type: "contest.bracket_update",
+        ...finalSnapshot,
+      });
+    });
+
+    await runOrDeferEffect(deferredEffects, async () => {
+      const redis = await getRedis();
+      await cleanupContestRedisKeys(redis, contestId);
+    });
+    return;
+  }
+
+  await runOrDeferEffect(deferredEffects, async () => {
+    const snapshot = await getBracketSnapshot(contestId);
+    await publishContest(contestId, {
+      type: "contest.bracket_update",
+      ...snapshot,
+    });
+  });
 }
 
 async function generateDoubleBracket(
@@ -1304,6 +1818,14 @@ async function generateDoubleBracket(
             bracketContestId,
           );
         });
+        await runOrDeferEffect(deferredEffects, async () => {
+          const { reconciliationQueue } = await import("@/lib/contests/queues");
+          await reconciliationQueue.add(
+            "bracket_ready_timeout",
+            { roomId, contestId: bracketContestId },
+            { delay: 120000, jobId: `ready-timeout-${roomId}` },
+          );
+        });
       }
 
       roundRooms.push(room._id);
@@ -1583,6 +2105,7 @@ export async function getBracketSnapshot(
       const teamIds: [string | null, string | null] = [null, null];
       const teamNames: [string | null, string | null] = [null, null];
       const teamImages: [string | null, string | null] = [null, null];
+      const teamIsNull: [boolean, boolean] = [false, false];
       const scores: [number, number] = [0, 0];
 
       for (let i = 0; i < Math.min(teams.length, 2); i++) {
@@ -1590,6 +2113,11 @@ export async function getBracketSnapshot(
           teamIds[i] = toStr(teams[i]!._id);
           teamNames[i] = teams[i]!.name || null;
           scores[i] = teams[i]!.score;
+          teamIsNull[i] = Boolean(
+            teams[i]!.isNull ||
+              teams[i]!.name === "[No Show]" ||
+              teams[i]!.name === "[Eliminated]",
+          );
 
           const firstMember = teams[i]!.members[0];
           teamImages[i] = firstMember?.image || null;
@@ -1626,6 +2154,8 @@ export async function getBracketSnapshot(
         (round.bracketType as BracketType) ||
         parseBracketPosition(room.bracketPosition || "").stage;
 
+      const isWalkover = room.terminationReason === "walkover";
+
       nodes.push({
         roomId: toStr(room._id),
         roundNumber: round.roundNumber,
@@ -1634,6 +2164,9 @@ export async function getBracketSnapshot(
         teams: teamIds,
         teamNames,
         teamImages,
+        teamIsNull,
+        walkover: isWalkover,
+        terminationReason: room.terminationReason,
         scores,
         status,
         winner,
@@ -1645,6 +2178,7 @@ export async function getBracketSnapshot(
   return {
     contestId,
     bracketType: isDoubleElim ? "double_elimination" : "single_elimination",
+    grandFinalState: contest.grandFinalState,
     currentRound,
     totalRounds,
     upperRounds: upperRoundsCount,
@@ -1669,24 +2203,89 @@ export async function processWalkover(
     throw new Error("Room is not part of a bracket contest");
 
   room.status = "ended";
+  room.terminationReason = "walkover";
+  room.winnerTeamId = new mongoose.Types.ObjectId(winnerTeamId);
   await room.save();
 
   const winnerTeam = await ContestTeam.findById(winnerTeamId);
   if (winnerTeam) {
-    winnerTeam.score = (winnerTeam.score || 0) + 1;
+    winnerTeam.score = Math.max(winnerTeam.score || 0, 1);
     await winnerTeam.save();
+  }
+
+  const loserTeamId = room.teams.find((t) => toStr(t) !== winnerTeamId);
+  if (loserTeamId) {
+    await ContestTeam.findByIdAndUpdate(loserTeamId, {
+      isNull: true,
+      name: "[Eliminated]",
+    });
   }
 
   logger.info("Bracket walkover recorded", {
     operation: "process_walkover",
     roomId,
     winnerTeamId,
+    adminUserId,
+    note,
   });
 
   await advanceWinner(
     roomId,
     toStr(contest._id),
     winnerTeamId,
+    deferredEffects,
+  );
+
+  if (room.currentRoundId) {
+    const round = await ContestRound.findById(room.currentRoundId);
+    if (round) {
+      await checkRoundCompletion(
+        toStr(contest._id),
+        round.roundNumber,
+        deferredEffects,
+      );
+    }
+  }
+
+  const snapshot = await getBracketSnapshot(toStr(contest._id));
+  return snapshot;
+}
+
+export async function processNullifyMatch(
+  roomId: string,
+  note: string,
+  adminUserId: string,
+  deferredEffects?: DeferredBracketEffect[],
+) {
+  await dbConnect();
+  const room = await ContestRoom.findById(roomId);
+  if (!room) throw new Error("Room not found");
+
+  const contest = await ContestMatch.findById(room.contestId);
+  if (!contest || contest.format !== "bracket")
+    throw new Error("Room is not part of a bracket contest");
+
+  room.status = "ended";
+  room.terminationReason = "admin_nullify";
+  await room.save();
+
+  for (const tId of room.teams) {
+    await ContestTeam.findByIdAndUpdate(tId, {
+      isNull: true,
+      name: "[Eliminated]",
+    });
+  }
+
+  logger.info("Bracket match nullified by admin", {
+    operation: "process_nullify_match",
+    roomId,
+    adminUserId,
+    note,
+  });
+
+  await advanceNullPlayer(
+    toStr(contest._id),
+    roomId,
     deferredEffects,
   );
 

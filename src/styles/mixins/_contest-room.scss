@@ -373,6 +373,19 @@
     color: var(--muted);
   }
 
+  .readyCountdown {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 0.875rem;
+    color: var(--warning-text, var(--warning));
+    font-weight: 600;
+  }
+
   .readyBtn {
     @include btn-primary;
     width: 100%;

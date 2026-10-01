@@ -100,6 +100,7 @@ export default async function ContestRoomPage({
         userId={userId}
         currentUserTeamIds={userTeamIds}
         isSpectator={userTeams.length === 0 && canSpectate()}
+        isAdmin={admin}
       />
     );
   }
@@ -326,6 +327,11 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
+          initialReadyDeadline={
+            stateObj?.readyDeadline
+              ? parseInt(stateObj.readyDeadline)
+              : undefined
+          }
           initialActivityFeed={initialActivityFeed}
           from={from}
           syncCooldownSeconds={syncCooldown}
@@ -353,6 +359,11 @@ export default async function ContestRoomPage({
           }
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
+          }
+          initialReadyDeadline={
+            stateObj?.readyDeadline
+              ? parseInt(stateObj.readyDeadline)
+              : undefined
           }
           initialActivityFeed={initialActivityFeed}
           from={from}

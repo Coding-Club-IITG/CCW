@@ -44,6 +44,24 @@ describe("bracket helpers & double elimination structures", () => {
         matchIndex: 0,
       });
     });
+
+    it("parses grand_final_reset stage positions correctly", () => {
+      const pos = parseBracketPosition("grand_final_reset-0-0");
+      expect(pos).toEqual({
+        stage: "grand_final_reset",
+        roundIndex: 0,
+        matchIndex: 0,
+      });
+    });
+
+    it("parses short gf reset prefix (gf-1-0) correctly as grand_final_reset", () => {
+      const pos = parseBracketPosition("gf-1-0");
+      expect(pos).toEqual({
+        stage: "grand_final_reset",
+        roundIndex: 1,
+        matchIndex: 0,
+      });
+    });
   });
 
   describe("getRoundName", () => {
@@ -63,6 +81,15 @@ describe("bracket helpers & double elimination structures", () => {
 
     it("returns Grand Final name", () => {
       expect(getRoundName(1, 1, "grand_final")).toBe("Grand Final");
+    });
+
+    it("returns Grand Final (Reset) name for grand_final_reset stage", () => {
+      expect(getRoundName(1, 1, "grand_final_reset")).toBe(
+        "Grand Final (Reset)",
+      );
+      expect(getRoundName(2, 2, "grand_final_reset")).toBe(
+        "Grand Final (Reset)",
+      );
     });
   });
 

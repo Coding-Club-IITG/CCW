@@ -99,8 +99,10 @@ export async function PUT(request: NextRequest, context: Context) {
       }
       
       const format = body.data.format || existingPreset.format;
-      const maxParticipants = body.data.registrationSettings?.maxParticipants || existingPreset.registrationSettings?.maxParticipants;
-      if (format === "bracket" && maxParticipants > 8) {
+      const maxParticipants =
+        body.data.registrationSettings?.maxParticipants ||
+        existingPreset.registrationSettings?.maxParticipants;
+      if (format === "bracket" && maxParticipants && maxParticipants > 8) {
         return jsonError(
           "VALIDATION_ERROR",
           "Non-admin users cannot create a knockout tournament preset with more than 8 members.",

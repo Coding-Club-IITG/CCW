@@ -1,5 +1,5 @@
 export type BracketPosition = string;
-export type BracketType = "upper" | "lower" | "grand_final";
+export type BracketType = "upper" | "lower" | "grand_final" | "grand_final_reset";
 
 export type BracketNode = {
   roomId: string;
@@ -9,6 +9,9 @@ export type BracketNode = {
   teams: [string | null, string | null];
   teamNames: [string | null, string | null];
   teamImages?: [string | null, string | null];
+  teamIsNull?: [boolean, boolean];
+  walkover?: boolean;
+  terminationReason?: string;
   scores: [number, number];
   status: "pending" | "waiting" | "active" | "completed" | "bye";
   winner: string | null;
@@ -18,6 +21,7 @@ export type BracketNode = {
 export type BracketSnapshot = {
   contestId: string;
   bracketType?: "single_elimination" | "double_elimination";
+  grandFinalState?: "pending" | "awaiting_reset" | "reset_in_progress" | "complete";
   currentRound: number;
   totalRounds: number;
   upperRounds?: number;
@@ -42,8 +46,13 @@ export function parseBracketPosition(pos: string): {
 } {
   const parts = pos.split("-");
   if (parts.length === 3) {
+    let stage = parts[0] as BracketType;
+    if ((stage as string) === "gf") {
+      stage =
+        parseInt(parts[1], 10) === 1 ? "grand_final_reset" : "grand_final";
+    }
     return {
-      stage: parts[0] as BracketType,
+      stage,
       roundIndex: parseInt(parts[1], 10),
       matchIndex: parseInt(parts[2], 10),
     };
@@ -60,6 +69,7 @@ export function getRoundName(
   totalRounds: number,
   bracketType?: BracketType,
 ): string {
+  if (bracketType === "grand_final_reset") return "Grand Final (Reset)";
   if (bracketType === "grand_final") return "Grand Final";
   if (bracketType === "lower") {
     if (roundNumber === totalRounds) return "Lower Final";
