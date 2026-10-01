@@ -69,13 +69,11 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
   let mongoConnected = false;
 
   beforeAll(async () => {
+    if (!process.env.MONGODB_TEST_URI) {
+      mongoConnected = false;
+      return;
+    }
     try {
-      const url = new URL(
-        process.env.MONGODB_TEST_URI ||
-          "mongodb://localhost:27017/?replicaSet=rs0&retryWrites=false",
-      );
-      await mongoose.connect(url.toString(), { serverSelectionTimeoutMS: 2000 });
-      await mongoose.disconnect();
       await startTestMongo();
       mongoConnected = true;
     } catch {

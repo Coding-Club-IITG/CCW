@@ -461,7 +461,7 @@ function groupRegistrationsIntoTeams(
 ): { teamName: string; memberIds: string[] }[] {
   if (teamSize === 1) {
     return registrations.map((r) => ({
-      teamName: r.cfHandle || toStr(r.userId).slice(-6),
+      teamName: r.teamName || r.cfHandle || toStr(r.userId).slice(-6),
       memberIds: [toStr(r.userId)],
     }));
   }
@@ -757,6 +757,14 @@ export async function advanceWinner(
     return;
   }
 
+  if (!room.winnerTeamId) {
+    room.winnerTeamId = new mongoose.Types.ObjectId(winnerTeamId);
+    if (room.status !== "ended") {
+      room.status = "ended";
+    }
+    await room.save();
+  }
+
   const contest = await ContestMatch.findById(contestId);
   if (!contest || contest.format !== "bracket") return;
 
@@ -955,6 +963,14 @@ async function advanceWinnerDoubleBracket(
       `[Bracket] Room ${roomId} not found for double bracket advancement`,
     );
     return;
+  }
+
+  if (!room.winnerTeamId) {
+    room.winnerTeamId = new mongoose.Types.ObjectId(winnerTeamId);
+    if (room.status !== "ended") {
+      room.status = "ended";
+    }
+    await room.save();
   }
 
   const contest = await ContestMatch.findById(contestId);
@@ -1215,6 +1231,7 @@ async function advanceWinnerDoubleBracket(
           `[Bracket] Lower Finalist ${winnerTeamId} won Grand Final in contest ${contestId}. Triggering Bracket Reset!`,
         );
         contest.grandFinalState = "reset_in_progress";
+        contest.status = "active";
         await contest.save();
 
         let resetRoom = await ContestRoom.findOne({

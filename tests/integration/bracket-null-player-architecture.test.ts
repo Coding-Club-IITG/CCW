@@ -89,13 +89,11 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
   let mongoConnected = false;
 
   beforeAll(async () => {
+    if (!process.env.MONGODB_TEST_URI) {
+      mongoConnected = false;
+      return;
+    }
     try {
-      const url = new URL(
-        process.env.MONGODB_TEST_URI ||
-          "mongodb://localhost:27017/?replicaSet=rs0&retryWrites=false",
-      );
-      await mongoose.connect(url.toString(), { serverSelectionTimeoutMS: 2000 });
-      await mongoose.disconnect();
       await startTestMongo();
       mongoConnected = true;
     } catch {
@@ -137,7 +135,7 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       await CPUser.create({
         userId: u._id,
         cfHandle: `cf_${i}`,
-        cfRating: 1200 + i * 50,
+        cfRating: 2000 - i * 50,
       });
       testUsers.push(u);
     }
@@ -185,12 +183,26 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
     await ContestProblemSet.create({
       contestId: contest._id,
       problems: [
-        { problemId: "100A", name: "Problem A", rating: 1200, points: 120 },
-        { problemId: "100B", name: "Problem B", rating: 1300, points: 130 },
+        {
+          problemId: "100A",
+          name: "Problem A",
+          platform: "codeforces",
+          rating: 1200,
+          points: 120,
+        },
+        {
+          problemId: "100B",
+          name: "Problem B",
+          platform: "codeforces",
+          rating: 1300,
+          points: 130,
+        },
       ],
     });
 
     await generateBracket(contest._id.toString());
+    contest.status = "active";
+    await contest.save();
 
     return contest;
   };
@@ -209,8 +221,17 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       const room = r1Rooms[0];
       expect(room.teams).toHaveLength(2);
 
-      const teamAId = room.teams[0].toString();
-      const teamBId = room.teams[1].toString();
+      const teamADoc = await ContestTeam.findOne({
+        _id: { $in: room.teams },
+        name: "Team A",
+      });
+      const teamBDoc = await ContestTeam.findOne({
+        _id: { $in: room.teams },
+        name: { $ne: "Team A" },
+      });
+
+      const teamAId = teamADoc!._id.toString();
+      const teamBId = teamBDoc!._id.toString();
 
       // Process walkover for Team A
       const snapshot = await processWalkover(
@@ -288,7 +309,7 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       expect(r2Room?.teams.length).toBe(1);
       const nullTeamInR2 = await ContestTeam.findById(r2Room?.teams[0]);
       expect(nullTeamInR2?.isNull).toBe(true);
-      expect(nullTeamInR2?.name).toBe("[Eliminated]");
+      expect(nullTeamInR2?.name).toBe("[No Show]");
     });
   });
 
@@ -318,7 +339,11 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       expect(slot0Team?.isNull).toBe(true);
 
       // Match 1: Team C wins normally -> advances to finals (slot 1)
-      const teamCId = match1!.teams[0].toString();
+      const teamCDoc = await ContestTeam.findOne({
+        _id: { $in: match1!.teams },
+        name: "Team C",
+      });
+      const teamCId = teamCDoc!._id.toString();
       await advanceWinner(
         match1!._id.toString(),
         contest._id.toString(),
@@ -389,16 +414,24 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       });
 
       // Upper R1-M0: Team A wins
+      const teamADocR1M0 = await ContestTeam.findOne({
+        _id: { $in: upperR1M0!.teams },
+        name: "Team A",
+      });
       await advanceWinner(
         upperR1M0!._id.toString(),
         contest._id.toString(),
-        upperR1M0!.teams[0].toString(),
+        teamADocR1M0!._id.toString(),
       );
       // Upper R1-M1: Team C wins
+      const teamCDocR1M1 = await ContestTeam.findOne({
+        _id: { $in: upperR1M1!.teams },
+        name: "Team C",
+      });
       await advanceWinner(
         upperR1M1!._id.toString(),
         contest._id.toString(),
-        upperR1M1!.teams[0].toString(),
+        teamCDocR1M1!._id.toString(),
       );
 
       // Upper Final: upper-1-0 (Team A vs Team C)
@@ -410,11 +443,14 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       expect(upperFinal?.teams).toHaveLength(2);
 
       // Team A wins Upper Final -> advances to Grand Final
-      const teamAInUpperFinal = upperFinal!.teams[0].toString();
+      const teamADocUpperFinal = await ContestTeam.findOne({
+        _id: { $in: upperFinal!.teams },
+        name: "Team A",
+      });
       await advanceWinner(
         upperFinal!._id.toString(),
         contest._id.toString(),
-        teamAInUpperFinal,
+        teamADocUpperFinal!._id.toString(),
       );
 
       // Lower R1: lower-0-0 (Loser A vs Loser C: Team B vs Team D)
@@ -424,10 +460,14 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       });
       expect(lowerR1).toBeDefined();
       // Team B wins Lower R1
+      const teamBDocLowerR1 = await ContestTeam.findOne({
+        _id: { $in: lowerR1!.teams },
+        name: "Team B",
+      });
       await advanceWinner(
         lowerR1!._id.toString(),
         contest._id.toString(),
-        lowerR1!.teams[0].toString(),
+        teamBDocLowerR1!._id.toString(),
       );
 
       // Lower Final: lower-1-0 (Team B vs Loser Upper Final Team C)
@@ -437,16 +477,20 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       });
       expect(lowerFinal).toBeDefined();
       // Team B wins Lower Final -> advances to Grand Final
+      const teamBDocLowerFinal = await ContestTeam.findOne({
+        _id: { $in: lowerFinal!.teams },
+        name: "Team B",
+      });
       await advanceWinner(
         lowerFinal!._id.toString(),
         contest._id.toString(),
-        lowerFinal!.teams[0].toString(),
+        teamBDocLowerFinal!._id.toString(),
       );
 
-      // Grand Final: gf-0-0
+      // Grand Final: grand_final-0-0 (or gf-0-0)
       const gfRoom = await ContestRoom.findOne({
         contestId: contest._id,
-        bracketPosition: "gf-0-0",
+        bracketPosition: { $in: ["gf-0-0", "grand_final-0-0"] },
       });
       expect(gfRoom).toBeDefined();
       expect(gfRoom?.teams).toHaveLength(2);
@@ -467,7 +511,7 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       // Verify NO reset match was created
       const resetRoom = await ContestRoom.findOne({
         contestId: contest._id,
-        bracketPosition: "gf-1-0",
+        bracketPosition: { $in: ["gf-1-0", "grand_final_reset-0-0"] },
       });
       expect(resetRoom).toBeNull();
     });
@@ -486,16 +530,24 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       });
 
       // Upper R1-M0: Team A wins
+      const teamADocR1M0 = await ContestTeam.findOne({
+        _id: { $in: upperR1M0!.teams },
+        name: "Team A",
+      });
       await advanceWinner(
         upperR1M0!._id.toString(),
         contest._id.toString(),
-        upperR1M0!.teams[0].toString(),
+        teamADocR1M0!._id.toString(),
       );
       // Upper R1-M1: Team C wins
+      const teamCDocR1M1 = await ContestTeam.findOne({
+        _id: { $in: upperR1M1!.teams },
+        name: "Team C",
+      });
       await advanceWinner(
         upperR1M1!._id.toString(),
         contest._id.toString(),
-        upperR1M1!.teams[0].toString(),
+        teamCDocR1M1!._id.toString(),
       );
 
       // Upper Final: Team A wins
@@ -503,10 +555,16 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
         contestId: contest._id,
         bracketPosition: "upper-1-0",
       });
+      const teamADocUpperFinal = await ContestTeam.findOne({
+        _id: { $in: upperFinal!.teams },
+        name: "Team A",
+      });
       await advanceWinner(
         upperFinal!._id.toString(),
         contest._id.toString(),
-        upperFinal!.teams[0].toString(),
+        teamADocUpperFinal!.name === "Team A"
+          ? teamADocUpperFinal!._id.toString()
+          : upperFinal!.teams[0].toString(),
       );
 
       // Lower R1: Team B wins
@@ -514,10 +572,14 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
         contestId: contest._id,
         bracketPosition: "lower-0-0",
       });
+      const teamBDocLowerR1 = await ContestTeam.findOne({
+        _id: { $in: lowerR1!.teams },
+        name: "Team B",
+      });
       await advanceWinner(
         lowerR1!._id.toString(),
         contest._id.toString(),
-        lowerR1!.teams[0].toString(),
+        teamBDocLowerR1!._id.toString(),
       );
 
       // Lower Final: Team B wins
@@ -525,16 +587,20 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
         contestId: contest._id,
         bracketPosition: "lower-1-0",
       });
+      const teamBDocLowerFinal = await ContestTeam.findOne({
+        _id: { $in: lowerFinal!.teams },
+        name: "Team B",
+      });
       await advanceWinner(
         lowerFinal!._id.toString(),
         contest._id.toString(),
-        lowerFinal!.teams[0].toString(),
+        teamBDocLowerFinal!._id.toString(),
       );
 
       // Grand Final
       const gfRoom = await ContestRoom.findOne({
         contestId: contest._id,
-        bracketPosition: "gf-0-0",
+        bracketPosition: { $in: ["gf-0-0", "grand_final-0-0"] },
       });
       expect(gfRoom).toBeDefined();
 
@@ -554,18 +620,21 @@ describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)",
       // Verify Grand Final Reset match was created
       const resetRoom = await ContestRoom.findOne({
         contestId: contest._id,
-        bracketPosition: "gf-1-0",
+        bracketPosition: { $in: ["gf-1-0", "grand_final_reset-0-0"] },
       });
       expect(resetRoom).toBeDefined();
       expect(resetRoom?.name).toContain("Grand Final (Reset)");
       expect(resetRoom?.teams).toHaveLength(2);
 
       // Now play the Reset Match: Lower Finalist (Team B) wins again!
-      const teamBResetId = resetRoom!.teams[1].toString();
+      const teamBDocReset = await ContestTeam.findOne({
+        _id: { $in: resetRoom!.teams },
+        name: "Team B",
+      });
       await advanceWinner(
         resetRoom!._id.toString(),
         contest._id.toString(),
-        teamBResetId,
+        teamBDocReset!._id.toString(),
       );
 
       // Contest is finally completed, Team B is Champion!

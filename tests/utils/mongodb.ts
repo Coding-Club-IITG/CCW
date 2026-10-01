@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 
 export async function startTestMongo() {
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+  }
   const url = new URL(process.env.MONGODB_TEST_URI!);
   const testDatabaseName = `ccw-test-${process.pid}-${Date.now()}`;
   url.pathname = `/${testDatabaseName}`;
@@ -44,4 +47,8 @@ export async function stopTestMongo() {
 
   await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
+  if ((global as any).mongoose) {
+    (global as any).mongoose.conn = null;
+    (global as any).mongoose.promise = null;
+  }
 }

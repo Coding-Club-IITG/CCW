@@ -18,6 +18,11 @@ if (!cached) {
 }
 
 export async function connectMongoDB() {
+  if (mongoose.connection.readyState === 1) {
+    cached.conn = mongoose;
+    return mongoose;
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
@@ -27,8 +32,9 @@ export async function connectMongoDB() {
       bufferCommands: false,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
+    const uri = process.env.MONGODB_URI || MONGODB_URI;
+    cached.promise = mongoose.connect(uri, opts).then((m) => {
+      return m;
     });
   }
 
