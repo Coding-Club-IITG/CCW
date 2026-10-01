@@ -172,3 +172,30 @@
     border: 1px solid var(--error-border);
   }
 }
+
+.emailRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  input {
+    flex: 1 1 14rem;
+    min-width: 0;
+  }
+  button {
+    flex: none;
+  }
+}
+.signInDetails {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.signInActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

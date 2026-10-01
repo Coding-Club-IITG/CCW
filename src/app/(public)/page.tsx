@@ -58,10 +58,6 @@ export const metadata: Metadata = {
   title: { absolute: SITE_NAME },
 };
 
-interface Props {
-  searchParams: Promise<{ error?: string }>;
-}
-
 const MARQUEE = [
   "design",
   "competitive programming",
@@ -283,10 +279,7 @@ async function getHomeData(): Promise<HomeData> {
   });
 }
 
-export default async function Home({ searchParams }: Props) {
-  const { error } = await searchParams;
-  const isUnauthorized = error === "unauthorized";
-
+export default async function Home() {
   let data = EMPTY;
   try {
     data = await getHomeData();
@@ -341,13 +334,6 @@ export default async function Home({ searchParams }: Props) {
           },
         ]}
       />
-
-      {isUnauthorized && (
-        <div className={styles.errorBanner} role="alert">
-          <strong>Access denied</strong>
-          <span>Your account is not authorised to use this application.</span>
-        </div>
-      )}
 
       <section id="top" className={styles.hero}>
         <PrismHero />

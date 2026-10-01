@@ -17,6 +17,13 @@ export default defineConfig({
       reportsDirectory: "./coverage",
       include: [
         "src/lib/search.ts",
+        "src/lib/authPolicy.ts",
+        "src/lib/authSecurity.ts",
+        "src/lib/authStore.ts",
+        "src/lib/loginSwitch.ts",
+        "src/lib/loginSwitchPlugin.ts",
+        "src/lib/actions/loginSwitch.ts",
+        "src/lib/userQuery.ts",
         "src/lib/roles.ts",
         "src/lib/pagination.ts",
         "src/proxy.ts",

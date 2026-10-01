@@ -19,6 +19,49 @@ export const APP_TIME_ZONE = "Asia/Kolkata";
 export const ACCESS_LEVELS = ["Member", "Head", "Admin"] as const;
 export type AccessLevel = (typeof ACCESS_LEVELS)[number];
 
+export const AUTH_PROVIDERS = ["microsoft", "google"] as const;
+export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
+export const AUTH_PROVIDER_LABELS: Record<AuthProvider, string> = {
+  microsoft: "IITG SSO",
+  google: "Google",
+};
+export const LOGIN_SWITCH_STATUSES = [
+  "draft",
+  "pending",
+  "approved",
+  "rejected",
+  "cancelled",
+  "expired",
+] as const;
+export type LoginSwitchStatus = (typeof LOGIN_SWITCH_STATUSES)[number];
+export const LOGIN_SWITCH_RECENT_MS = 10 * 60 * 1000;
+export const LOGIN_SWITCH_VALID_MS = 7 * 24 * 60 * 60 * 1000;
+export const USER_SORT_FIELDS = [
+  "createdAt",
+  "name",
+  "email",
+  "access",
+  "roles",
+  "managedModules",
+  "tenure",
+  "pizza_count",
+  "provider",
+] as const;
+export const USER_SORT_LABELS: Record<
+  (typeof USER_SORT_FIELDS)[number],
+  string
+> = {
+  createdAt: "Date added",
+  name: "Name",
+  email: "Email",
+  access: "Access",
+  roles: "Roles",
+  managedModules: "Managed modules",
+  tenure: "Tenure",
+  pizza_count: "Pizza count",
+  provider: "Sign-in method",
+};
+
 export const AUDIT_CATEGORIES = [
   "users",
   "blog",

@@ -32,7 +32,7 @@ programming systems, content, administration, and background integrations.
 - MongoDB with Mongoose and the better-auth MongoDB adapter
 - Redis for shared runtime state, caching, and queue support
 - Agenda and BullMQ background processing
-- Microsoft authentication through better-auth
+- Microsoft institute and Google authentication through better-auth
 - pnpm for package management and PM2 in production
 
 ## Repository Map
@@ -72,10 +72,9 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
   error code. Better Auth, successful SSE streams, binary asset responses,
   redirects, and metadata retain their framework/library transport formats.
 - Runtime configuration has separate web, worker, CLI, test, and browser
-  profiles. Web requires MongoDB, Redis, authentication, trusted origins, and
-  Microsoft credentials. Worker requires MongoDB and Redis, but not web-only
-  credentials or upload settings. Standalone entry points load dotenv before
-  importing their validated profile.
+  profiles. Worker requires MongoDB and Redis, but not web-only
+  credentials or upload settings. Standalone entry points load dotenv
+  before importing their validated profile.
 - MongoDB is the persistent application store.
 - Redis supports runtime coordination, caching, and queued contest work,
   including best-effort Web Push delivery through BullMQ.
@@ -114,10 +113,12 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
 
 ## Authentication and Access
 
-Authentication uses better-auth with Microsoft accounts. Public pages are
-available without a session; internal and administrative pages are protected by
-`src/proxy.ts`. Authorization policies live in `src/lib/access`; parsing and
-display formatting for role data live in `src/lib/roles.ts`.
+Authentication uses better-auth with one approved identity per user: Microsoft
+for `@iitg.ac.in` within the institute tenant, or verified Google `@gmail.com`.
+Institute users can verify Google in their profile and submit a switch request.
+Public pages are available without a session, while internal and administrative
+pages are protected by `src/proxy.ts`. Authorization policies live in `src/lib/access`.
+Parsing and display formatting for role data live in `src/lib/roles.ts`.
 
 Each user has one permission level in `access` (`Member`, `Head`, or `Admin`),
 one `YYYY-YY` academic year in `tenure`, Head-only scope in `managedModules`,

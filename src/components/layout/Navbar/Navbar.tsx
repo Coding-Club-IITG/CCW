@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Menu,
   Moon,
@@ -14,7 +14,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useSession, signIn, signOut } from "@/lib/auth-client";
+import { useSession, signOut } from "@/lib/auth-client";
 import { isHead } from "@/lib/access/roles";
 import { getUserRoleLabels } from "@/lib/roles";
 import { useThemeStore } from "@/lib/store/theme";
@@ -24,6 +24,8 @@ import { cleanupPushBeforeLogout } from "@/lib/push/client";
 import UserAvatar from "@/components/shared/UserAvatar";
 import { IconCCLogo } from "@/components/shared/Icons";
 import { useCommandConsole } from "@/components/atlas/CommandConsole";
+import LoginPicker from "./LoginPicker";
+import SignInError from "./SignInError";
 import CreditsModal from "./CreditsModal";
 import NotificationBell from "./NotificationBell";
 import styles from "./Navbar.module.scss";
@@ -67,6 +69,8 @@ function isActiveLink(pathname: string, href: string) {
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
+  const params = useSearchParams();
+  const [signInError, setSignInError] = useState<string | null>(null);
   const { data: session, isPending, refetch: refetchSession } = useSession();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -120,6 +124,7 @@ export default function Navbar() {
       <Link
         href={showInternal ? "/internal/dashboard" : "/"}
         className={styles.lockup}
+        aria-label="Coding Club"
         onClick={closeAll}
       >
         <IconCCLogo width={19} height={25} aria-hidden="true" />
@@ -300,24 +305,13 @@ export default function Navbar() {
               )}
             </div>
           ) : (
-            <button
+            <LoginPicker
+              key={pathname}
+              navigationKey={params.toString()}
               disabled={isLoggingIn || isPending}
-              onClick={async () => {
-                if (developmentAuthEnabled) {
-                  setIdentityPickerOpen(true);
-                  return;
-                }
-                setIsLoggingIn(true);
-                await signIn.social({
-                  provider: "microsoft",
-                  callbackURL: "/internal/dashboard",
-                  errorCallbackURL: "/?error=unauthorized",
-                });
-              }}
-              className={styles.authButton}
-            >
-              {isLoggingIn ? "Redirecting…" : "Login"}
-            </button>
+              onDevelopmentLogin={() => setIdentityPickerOpen(true)}
+              onError={setSignInError}
+            />
           )}
 
           <button
@@ -332,6 +326,17 @@ export default function Navbar() {
         </div>
       </div>
 
+      <SignInError
+        immediateError={signInError}
+        onDismiss={() => {
+          setSignInError(null);
+          requestAnimationFrame(() =>
+            navbarRef.current
+              ?.querySelector<HTMLButtonElement>("[data-login-trigger]")
+              ?.focus(),
+          );
+        }}
+      />
       {creditsOpen && (
         <CreditsModal
           canEdit={isHead(user?.access)}

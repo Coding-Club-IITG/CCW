@@ -20,6 +20,25 @@ const required = {
 };
 
 describe("runtime environment schemas", () => {
+  it("requires paired Google credentials only for the web process", () => {
+    expect(() =>
+      parseWebEnv({ ...required, GOOGLE_CLIENT_ID: "google-client" }),
+    ).toThrow(/Configure both/);
+    expect(() =>
+      parseWebEnv({ ...required, GOOGLE_CLIENT_SECRET: "google-secret" }),
+    ).toThrow(/Configure both/);
+    expect(
+      parseWebEnv({
+        ...required,
+        GOOGLE_CLIENT_ID: "google-client",
+        GOOGLE_CLIENT_SECRET: "google-secret",
+      }).GOOGLE_CLIENT_ID,
+    ).toBe("google-client");
+    expect(parseWebEnv(required).GOOGLE_CLIENT_ID).toBeUndefined();
+    expect(
+      parseWorkerEnv({ ...required, GOOGLE_CLIENT_ID: "ignored" }),
+    ).not.toHaveProperty("GOOGLE_CLIENT_ID");
+  });
   it("parses web defaults and origins", () => {
     expect(parseWebEnv(required)).toMatchObject({
       TRUSTED_ORIGINS: ["http://localhost:3000", "https://ccw.example.com"],

@@ -7,11 +7,13 @@ import { ToastProvider } from "@/components/shared/Toast";
 
 export interface RuntimeConfig {
   developmentAuthEnabled: boolean;
+  googleAuthEnabled: boolean;
   userRateLimitsEnabled: boolean;
 }
 
 const RuntimeConfigContext = createContext<RuntimeConfig>({
   developmentAuthEnabled: false,
+  googleAuthEnabled: false,
   userRateLimitsEnabled: true,
 });
 

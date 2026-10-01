@@ -74,6 +74,7 @@ export default async function RootLayout({
         <Providers
           runtimeConfig={{
             developmentAuthEnabled: webEnv.DEV_AUTH_ENABLED,
+            googleAuthEnabled: !!webEnv.GOOGLE_CLIENT_ID,
             userRateLimitsEnabled: !webEnv.DEV_DISABLE_USER_RATE_LIMITS,
           }}
         >

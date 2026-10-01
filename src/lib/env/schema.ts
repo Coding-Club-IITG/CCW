@@ -270,11 +270,21 @@ export const webEnvSchema = sharedServerSchema
     AZURE_CLIENT_ID: nonempty("AZURE_CLIENT_ID"),
     AZURE_CLIENT_SECRET: secret("AZURE_CLIENT_SECRET"),
     AZURE_TENANT_ID: nonempty("AZURE_TENANT_ID"),
+    GOOGLE_CLIENT_ID: nonempty("GOOGLE_CLIENT_ID").optional(),
+    GOOGLE_CLIENT_SECRET: secret("GOOGLE_CLIENT_SECRET").optional(),
   })
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
   .superRefine((value, ctx) => {
     validateSharedConfiguration(value, ctx);
+    if (!!value.GOOGLE_CLIENT_ID !== !!value.GOOGLE_CLIENT_SECRET) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["GOOGLE_CLIENT_ID"],
+        message:
+          "Configure both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or neither.",
+      });
+    }
     if (value.NODE_ENV !== "production") return;
     for (const name of [
       "AUTH_SECRET",

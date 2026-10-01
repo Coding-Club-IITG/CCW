@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import {
   afterAll,
   afterEach,
@@ -54,7 +55,7 @@ describe("administrative user audit", () => {
       updateUserTenure,
     } = await import("@/lib/actions/user");
 
-    const created = await addUser("private@example.test", "Audited Member");
+    const created = await addUser("private@iitg.ac.in", "Audited Member");
     expect(created.ok).toBe(true);
     const user = await User.findOne({ name: "Audited Member" });
     expect(user).not.toBeNull();
@@ -72,7 +73,22 @@ describe("administrative user audit", () => {
     await expect(
       updateUserAccess(userId, "Head", ["Design"]),
     ).resolves.toMatchObject({ ok: true });
+    const db = mongoose.connection.db!;
+    await db
+      .collection("session")
+      .insertOne({ userId: user!._id, token: "deleted-session" });
+    await db.collection("account").insertOne({
+      userId: user!._id,
+      providerId: "microsoft",
+      accountId: "deleted-identity",
+    });
     await expect(deleteUser(userId)).resolves.toMatchObject({ ok: true });
+    expect(
+      await db.collection("session").countDocuments({ userId: user!._id }),
+    ).toBe(0);
+    expect(
+      await db.collection("account").countDocuments({ userId: user!._id }),
+    ).toBe(0);
 
     const audits = await AuditLog.find().sort({ _id: 1 }).lean();
     expect(audits.map((event) => event.operation)).toEqual([
@@ -92,7 +108,7 @@ describe("administrative user audit", () => {
       after: { access: "Head", managedModules: ["Design"] },
     });
     const serialized = JSON.stringify(audits);
-    expect(serialized).not.toContain("private@example.test");
+    expect(serialized).not.toContain("private@iitg.ac.in");
     expect(serialized).not.toContain("phoneNumber");
     expect(serialized).not.toContain("codeforcesId");
   });

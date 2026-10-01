@@ -1,9 +1,9 @@
 "use server";
 
 import mongoose from "mongoose";
-import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { z } from "zod";
 
 import { isHead } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
@@ -11,6 +11,8 @@ import { auditActor, auditedTransaction } from "@/lib/audit";
 import { summarizeUser } from "@/lib/audit/summary";
 import { err as appError, ok, toBsonSafe } from "@/lib/api/result";
 import { auth } from "@/lib/auth";
+import { approvedEmailSchema } from "@/lib/authPolicy";
+import { removeAuthRecords } from "@/lib/authStore";
 import {
   CACHE_TTLS,
   buildCacheKey,
@@ -25,7 +27,7 @@ import {
   type UserRole,
 } from "@/lib/constants";
 import { webEnv } from "@/lib/env/web";
-import dbConnect, { getClient } from "@/lib/mongodb";
+import dbConnect from "@/lib/mongodb";
 import {
   normalizeTenure,
   parseManagedModules,
@@ -33,8 +35,13 @@ import {
   validateRoles,
 } from "@/lib/roles";
 import { normalizeLinkedInUrl } from "@/lib/socialLinks";
-import { prepareSearchQuery } from "@/lib/search";
+import {
+  userQuerySchema,
+  userQueryPipeline,
+  type UserFilterInput,
+} from "@/lib/userQuery";
 import { logger } from "@/lib/utils";
+import LoginSwitchRequest from "@/models/LoginSwitchRequest";
 import CPUser from "@/models/CPUser";
 import POTDSubmission from "@/models/POTDSubmission";
 import User from "@/models/User";
@@ -107,38 +114,41 @@ async function checkAdmin() {
   }
 }
 
-async function getUsersAction(page = 1, limit = 50, search = "") {
+async function getUsersAction(
+  page = 1,
+  limit = 50,
+  search = "",
+  filters: UserFilterInput = {},
+) {
   try {
     const session = await checkAdmin();
     if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
     await dbConnect();
 
-    const preparedSearch = prepareSearchQuery(search);
-    const filter = preparedSearch
-      ? {
-          $or: [
-            { name: { $regex: preparedSearch.pattern, $options: "i" } },
-            { email: { $regex: preparedSearch.pattern, $options: "i" } },
-          ],
-        }
-      : {};
-    const cacheKey = buildCacheKey("users:admin", {
+    const parsed = userQuerySchema.safeParse({
+      ...filters,
       page,
       limit,
-      search: preparedSearch?.query,
+      q: search,
     });
-    const skip = (page - 1) * limit;
-
+    if (!parsed.success)
+      return appError(
+        "VALIDATION_ERROR",
+        "Invalid member filters or pagination.",
+      );
+    const query = parsed.data;
+    const cacheKey = buildCacheKey("users:admin:v2", {
+      query: JSON.stringify(query),
+    });
     const result = await cachedFetch(cacheKey, CACHE_TTLS.USERS, async () => {
-      const [users, total] = await Promise.all([
-        User.find(filter)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-        User.countDocuments(filter),
-      ]);
-      return { users: users.map(adminUserDto), total };
+      const [result] = await User.aggregate<{
+        users: unknown[];
+        count: { total: number }[];
+      }>(userQueryPipeline(query));
+      return {
+        users: result.users.map(adminUserDto),
+        total: result.count[0]?.total ?? 0,
+      };
     });
 
     return ok({ users: result.users, total: result.total });
@@ -148,12 +158,30 @@ async function getUsersAction(page = 1, limit = 50, search = "") {
   }
 }
 
-async function addUserAction(email: string, name?: string) {
+async function addUserAction(
+  email: string,
+  name?: string,
+  tenure = CURRENT_TENURE,
+) {
   try {
     const adminSession = await checkAdmin();
     if (!adminSession) return appError("UNAUTHENTICATED", "Unauthorized");
     await dbConnect();
 
+    const input = z
+      .object({
+        email: approvedEmailSchema,
+        name: z.string().trim().max(160).optional(),
+        tenure: z.string().refine((value) => normalizeTenure(value) !== null),
+      })
+      .safeParse({ email, name, tenure });
+    if (!input.success)
+      return appError(
+        "VALIDATION_ERROR",
+        "Use an institute or Gmail address and a consecutive tenure in YYYY-YY format.",
+      );
+    ({ email, name, tenure } = input.data);
+    tenure = normalizeTenure(tenure)!;
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return appError("CONFLICT", "User already exists");
@@ -169,7 +197,7 @@ async function addUserAction(email: string, name?: string) {
               email,
               name: name || email.split("@")[0],
               access: "Member",
-              tenure: CURRENT_TENURE,
+              tenure,
               managedModules: [],
               roles: [],
               emailVerified: true,
@@ -464,27 +492,16 @@ async function deleteUserAction(userId: string) {
           { userId },
           { session: transaction },
         );
-        const mongoClient = await getClient();
-        const db = mongoClient.db();
-        let userIdQuery: ObjectId | string = userId;
-        try {
-          userIdQuery = new ObjectId(userId);
-        } catch {
-          userIdQuery = userId;
-        }
-        const driverSession =
-          transaction as unknown as import("mongodb").ClientSession;
-        const sessionsResult = await db
-          .collection("sessions")
-          .deleteMany({ userId: userIdQuery }, { session: driverSession });
-        const accountsResult = await db
-          .collection("accounts")
-          .deleteMany({ userId: userIdQuery }, { session: driverSession });
+        const authDeleted = await removeAuthRecords(userId, transaction);
+        await LoginSwitchRequest.deleteMany(
+          { userId },
+          { session: transaction },
+        );
         const result = {
           cp: cpResult.deletedCount,
           potd: potdResult.deletedCount,
-          sessions: sessionsResult.deletedCount,
-          accounts: accountsResult.deletedCount,
+          sessions: authDeleted.sessions,
+          accounts: authDeleted.accounts,
         };
         return {
           result,

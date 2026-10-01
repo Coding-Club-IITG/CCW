@@ -12,10 +12,12 @@ import { useSession } from "@/lib/auth-client";
 import ImageUpload from "@/components/shared/ImageUpload";
 import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
+import SignInMethod from "./SignInMethod";
 import styles from "./ProfileForm.module.scss";
 
 export default function ProfileForm() {
   const { data: session, isPending } = useSession();
+  const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState<"" | "cf" | "ac">("");
   const [message, setMessage] = useState<{
@@ -43,6 +45,10 @@ export default function ProfileForm() {
   const [acVerified, setAcVerified] = useState(false);
   const [savedAtcoderId, setSavedAtcoderId] = useState("");
   const [tokenHandleAC, setTokenHandleAC] = useState("");
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -171,11 +177,11 @@ export default function ProfileForm() {
     </>
   );
 
-  if (isPending) {
+  if (!hydrated || isPending) {
     return (
       <div className={styles.container}>
         {header}
-        <FormSkeletonContent label="your profile" fields={5} />
+        <FormSkeletonContent label="your profile" fields={6} />
       </div>
     );
   }
@@ -198,14 +204,7 @@ export default function ProfileForm() {
 
         <div className={styles.field}>
           <label htmlFor="email">Email</label>
-          <input
-            type="email"
-            id="email"
-            value={session?.user?.email || ""}
-            disabled
-            className={styles.disabledInput}
-          />
-          <span className={styles.hint}>Email cannot be changed.</span>
+          <SignInMethod email={session?.user?.email || ""} />
         </div>
 
         <div className={styles.field}>

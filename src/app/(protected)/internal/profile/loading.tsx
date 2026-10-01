@@ -5,7 +5,7 @@ export default function Loading() {
     <FormSkeleton
       title="Your Profile"
       lead="Update your personal details and platform IDs."
-      fields={5}
+      fields={6}
     />
   );
 }
