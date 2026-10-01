@@ -1,0 +1,48 @@
+@use "../../../styles/mixins" as *;
+
+.page {
+  @include page-container;
+  padding-block: 40px 80px;
+}
+
+.policy {
+  max-width: 76ch;
+  margin-inline: auto;
+  color: var(--foreground);
+  font-size: 16px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+
+  p {
+    margin: 0 0 1rem;
+  }
+
+  section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  h2 {
+    margin: 0 0 1rem;
+    color: var(--foreground-strong);
+    font-size: 21px;
+    line-height: 1.35;
+    scroll-margin-top: 80px;
+  }
+
+  a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    @include focus-ring;
+
+    &:hover {
+      color: var(--foreground-strong);
+    }
+  }
+}
+
+.updated {
+  @include metadata($text-md);
+}

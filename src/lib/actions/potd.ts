@@ -50,6 +50,7 @@ import {
 } from "@/lib/users/rateLimit";
 import { prepareSearchQuery } from "@/lib/shared/search";
 import { renderProblemMath } from "@/lib/platforms/problemContent";
+import { getVerifiedPlatformHandle } from "@/lib/users/platformIdentity";
 
 import User, { type UserRecord } from "@/models/User";
 import CPUser from "@/models/CPUser";
@@ -298,10 +299,10 @@ async function markChallengeOpenedAction(challengeId: string) {
 
   const cpUser = await CPUser.findOne({ userId });
   if (platform === "codeforces") {
-    if (!user.codeforcesId || !cpUser?.cfVerified)
+    if (!getVerifiedPlatformHandle(user, cpUser, "codeforces"))
       return appError("VALIDATION_ERROR", "Codeforces handle not verified");
   } else {
-    if (!user.atcoderId || !cpUser?.acVerified)
+    if (!getVerifiedPlatformHandle(user, cpUser, "atcoder"))
       return appError("VALIDATION_ERROR", "AtCoder handle not verified");
   }
 
@@ -355,18 +356,19 @@ async function syncMySubmissionAction(challengeId: string) {
     if (!user.codeforcesId) {
       return appError("VALIDATION_ERROR", "Codeforces handle not set");
     }
-    if (!cpUser?.cfVerified) {
+    if (!getVerifiedPlatformHandle(user, cpUser, "codeforces")) {
       return appError("VALIDATION_ERROR", "Codeforces handle not verified");
     }
   } else {
     if (!user.atcoderId) {
       return appError("VALIDATION_ERROR", "AtCoder handle not set");
     }
-    if (!cpUser?.acVerified) {
+    if (!getVerifiedPlatformHandle(user, cpUser, "atcoder")) {
       return appError("VALIDATION_ERROR", "AtCoder handle not verified");
     }
   }
 
+  const handle = getVerifiedPlatformHandle(user, cpUser, platform)!;
   const redis = await getRedis();
 
   // L1: Rate-limit - one manual sync per 60s per user
@@ -421,7 +423,7 @@ async function syncMySubmissionAction(challengeId: string) {
 
       try {
         platformSubs = await getUserSubmissionsSince(
-          user.codeforcesId,
+          handle,
           challenge.windowStart.getTime(),
           `${problem.contestId}${problem.problemIndex}`,
         );
@@ -439,10 +441,7 @@ async function syncMySubmissionAction(challengeId: string) {
         challenge.windowStart.getTime() / 1000,
       );
       try {
-        platformSubs = await getUserSubmissions(
-          user.atcoderId,
-          windowStartEpoch,
-        );
+        platformSubs = await getUserSubmissions(handle, windowStartEpoch);
       } catch (err) {
         await releaseUserRateLimit("potd-sync", userId);
         logger.warn("[syncMySubmission] AtCoder API error", { err });

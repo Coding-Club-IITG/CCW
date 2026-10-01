@@ -35,7 +35,7 @@ and browser processes. Keep browser values under `NEXT_PUBLIC_*`.
 You can use Docker Compose to start the required services (MongoDB and Redis):
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 ```
 
 Tests use `MONGODB_TEST_URI` to create isolated `ccw-test-*` databases.

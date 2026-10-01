@@ -31,7 +31,7 @@ const ELSEWHERE = [
 
 export default function Footer() {
   return (
-    <footer className={styles.footer}>
+    <footer id="contact" className={styles.footer}>
       <div className={styles.top}>
         <div className={styles.identity}>
           <div className={styles.lockup}>
@@ -80,6 +80,9 @@ export default function Footer() {
 
       <div className={styles.bottom}>
         <span>© 2026 Coding Club IITG. All rights reserved.</span>
+        <Link href="/privacy" className={styles.privacyLink}>
+          Privacy Policy
+        </Link>
       </div>
     </footer>
   );

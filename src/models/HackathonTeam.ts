@@ -22,7 +22,10 @@ const HackathonTeamSchema = new mongoose.Schema(
 );
 
 HackathonTeamSchema.index({ hackathonId: 1 });
-HackathonTeamSchema.index({ hackathonId: 1, members: 1 });
+HackathonTeamSchema.index(
+  { hackathonId: 1, members: 1 },
+  { unique: true, name: "unique_hackathon_member" },
+);
 
 export default mongoose.models.HackathonTeam ||
   mongoose.model("HackathonTeam", HackathonTeamSchema);

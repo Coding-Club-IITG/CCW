@@ -26,7 +26,6 @@ import {
   type ModuleName,
   type UserRole,
 } from "@/lib/constants";
-import { webEnv } from "@/lib/env/web";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import {
   normalizeTenure,
@@ -707,87 +706,73 @@ async function updateProfileAction(data: {
 
     await connectMongoDB();
 
-    // Check if CF or AC handles changed
-    const currentUser = await User.findById(session.user.id)
-      .select("codeforcesId atcoderId image")
-      .lean();
-    const oldCfHandle = currentUser?.codeforcesId?.trim() || "";
-    const oldAcHandle = currentUser?.atcoderId?.trim() || "";
-    const oldImage = currentUser?.image || "";
-    const handleChanged = codeforcesId !== oldCfHandle;
-    const acHandleChanged = atcoderId !== oldAcHandle;
-
-    const updatedUser = await User.findByIdAndUpdate(
-      session.user.id,
-      {
-        name,
-        image,
-        codeforcesId,
-        atcoderId,
-        githubId,
-        linkedinUrl,
-        bio,
-        phoneNumber,
-      },
-      { new: true },
-    );
-
-    // Delete old avatar file if image changed
-    if (
-      oldImage &&
-      oldImage !== image &&
-      oldImage.startsWith("/api/profile/assets/")
-    ) {
-      try {
-        const oldFilename = oldImage.split("/").pop();
-        if (oldFilename) {
-          const { unlink } = await import("fs/promises");
-          const pathMod = await import("path");
-          const avatarDir = pathMod.default.resolve(webEnv.AVATAR_UPLOAD_DIR);
-          const filePath = pathMod.default.join(avatarDir, oldFilename);
-          await unlink(filePath).catch(() => {});
-        }
-      } catch {
-        // Best-effort deletion
-      }
-    }
-
-    // If the CF handle changed, revoke old verification
-    if (handleChanged) {
-      await CPUser.findOneAndUpdate(
-        { userId: session.user.id },
-        {
-          $set: {
+    const dbSession = await mongoose.startSession();
+    let updatedProfile;
+    try {
+      updatedProfile = await dbSession.withTransaction(async () => {
+        // Check handle changes
+        const currentUser = await User.findById(session.user.id)
+          .select("codeforcesId atcoderId")
+          .session(dbSession)
+          .lean();
+        if (!currentUser) return null;
+        const handleChanged =
+          codeforcesId !== (currentUser.codeforcesId?.trim() || "");
+        const acHandleChanged =
+          atcoderId !== (currentUser.atcoderId?.trim() || "");
+        const updatedUser = await User.findByIdAndUpdate(
+          session.user.id,
+          {
+            name,
+            image,
+            codeforcesId,
+            atcoderId,
+            githubId,
+            linkedinUrl,
+            bio,
+            phoneNumber,
+          },
+          { returnDocument: "after", session: dbSession },
+        );
+        if (!updatedUser) return null;
+        const verificationUpdate: Record<string, unknown> = {};
+        // If the CF handle changed, revoke old verification
+        if (handleChanged) {
+          Object.assign(verificationUpdate, {
+            cfHandle: codeforcesId,
             cfVerified: false,
             cfVerificationToken: "",
-            cfHandle: codeforcesId,
-          },
-        },
-      );
-      logger.info("Codeforces handle change reset verification", {
-        action: "updateProfile",
-        resourceId: session.user.id,
-      });
-    }
-
-    // If the AC handle changed, revoke old verification
-    if (acHandleChanged) {
-      await CPUser.findOneAndUpdate(
-        { userId: session.user.id },
-        {
-          $set: {
+            cfVerificationRequestedAt: null,
+          });
+        }
+        // If the AC handle changed, revoke old verification
+        if (acHandleChanged) {
+          Object.assign(verificationUpdate, {
+            acHandle: atcoderId,
             acVerified: false,
             acVerificationToken: "",
-            acHandle: atcoderId,
-          },
-        },
-      );
-      logger.info("AtCoder handle change reset verification", {
-        action: "updateProfile",
-        resourceId: session.user.id,
+            acVerificationRequestedAt: null,
+          });
+        }
+        if (Object.keys(verificationUpdate).length) {
+          await CPUser.updateOne(
+            { userId: session.user.id },
+            { $set: verificationUpdate },
+            { session: dbSession },
+          );
+        }
+        return {
+          user: toBsonSafe(updatedUser),
+          handleChanged,
+          acHandleChanged,
+        };
       });
+    } finally {
+      await dbSession.endSession();
     }
+    if (!updatedProfile) return appError("NOT_FOUND", "User not found.");
 
+    // Retain replaced avatars because URLs do not establish file ownership
     logger.info("User profile updated", {
       action: "updateProfile",
       resourceId: session.user.id,
@@ -799,8 +784,14 @@ async function updateProfileAction(data: {
     revalidatePath("/internal/dashboard");
     revalidatePath("/");
     revalidatePath("/team");
-    return ok({ user: toBsonSafe(updatedUser), handleChanged });
+    return ok(updatedProfile);
   } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === 11000) {
+      return appError(
+        "CONFLICT",
+        "That platform handle is already linked to another member.",
+      );
+    }
     logger.error("updateProfile error:", err);
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }

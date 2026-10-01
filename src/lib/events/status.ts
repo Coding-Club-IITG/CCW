@@ -18,16 +18,16 @@ export function computeEffectiveEndDate(
 
   switch (recurrenceType) {
     case "daily":
-      start.setDate(start.getDate() + count - 1);
+      start.setUTCDate(start.getUTCDate() + count - 1);
       break;
     case "weekly":
-      start.setDate(start.getDate() + (count - 1) * 7);
+      start.setUTCDate(start.getUTCDate() + (count - 1) * 7);
       break;
     case "biweekly":
-      start.setDate(start.getDate() + (count - 1) * 14);
+      start.setUTCDate(start.getUTCDate() + (count - 1) * 14);
       break;
     case "monthly":
-      start.setMonth(start.getMonth() + count - 1);
+      start.setUTCMonth(start.getUTCMonth() + count - 1);
       break;
     default:
       break;
@@ -59,13 +59,9 @@ export function getEventStatus(
     end = start;
   }
 
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const eventStart = new Date(
-    start.getFullYear(),
-    start.getMonth(),
-    start.getDate(),
-  );
-  const eventEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  const todayStart = now.toISOString().slice(0, 10);
+  const eventStart = start.toISOString().slice(0, 10);
+  const eventEnd = end.toISOString().slice(0, 10);
 
   if (todayStart < eventStart) return "Upcoming";
   if (todayStart > eventEnd) return "Completed";

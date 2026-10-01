@@ -144,6 +144,12 @@ export async function POST(
 
     return jsonOk({ team }, { status: 201 });
   } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === 11000) {
+      return jsonError(
+        "CONFLICT",
+        "You are already in a team for this hackathon.",
+      );
+    }
     logger.error("Hackathon team creation failed", {
       route: "POST /api/hackathons/[id]/teams",
       operation: "create_team",

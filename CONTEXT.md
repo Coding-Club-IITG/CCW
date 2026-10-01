@@ -11,7 +11,7 @@ programming systems, content, administration, and background integrations.
 
 ## Major Features
 
-- **Public content:** Blogs, events, projects, and club team information.
+- **Public content:** Blogs, events, projects, club team information and privacy policy.
 - **Member workspace:** A dashboard, member profiles, shared files, and
   notifications, plus an internal calendar for general and module events.
 - **Competitive programming:** Platform profiles, contest rooms and

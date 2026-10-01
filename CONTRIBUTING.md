@@ -124,7 +124,7 @@
 - Database integration tests use `MONGODB_TEST_URI` only. The shared helper
   creates a uniquely named `ccw-test-*` database and refuses to drop anything
   outside that namespace. Start the repository's local MongoDB and Redis
-  containers with `docker compose up -d mongodb redis`; tests must never point
+  containers with `docker compose up -d --wait mongodb redis`; tests must never point
   at production services.
 - Mock only credentials, sessions, network APIs, clocks, or other true external
   boundaries. No test may require Microsoft credentials, production data,

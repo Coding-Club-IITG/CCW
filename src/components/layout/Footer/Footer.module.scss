@@ -84,6 +84,7 @@
 
 .bottom {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
@@ -92,6 +93,18 @@
   border-top: 1px solid var(--border-light);
   @include metadata($text-sm);
   color: var(--muted-lighter);
+}
+
+.privacyLink {
+  color: var(--foreground-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+
+  &:hover {
+    color: var(--primary);
+  }
+
+  @include focus-ring;
 }
 
 @media (max-width: 720px) {

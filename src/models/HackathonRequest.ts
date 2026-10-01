@@ -35,13 +35,22 @@ const HackathonRequestSchema = new mongoose.Schema(
 // Prevent duplicate pending requests
 HackathonRequestSchema.index(
   { teamId: 1, fromUserId: 1, type: 1 },
-  { unique: true, partialFilterExpression: { status: "pending" } },
+  {
+    name: "unique_pending_join_request",
+    unique: true,
+    partialFilterExpression: { status: "pending", type: "join_request" },
+  },
 );
 HackathonRequestSchema.index(
   { teamId: 1, toUserId: 1, type: 1 },
   {
     unique: true,
-    partialFilterExpression: { status: "pending", toUserId: { $ne: null } },
+    name: "unique_pending_invite",
+    partialFilterExpression: {
+      status: "pending",
+      type: "invite",
+      toUserId: { $type: "string" },
+    },
   },
 );
 HackathonRequestSchema.index({ toUserId: 1, status: 1 });

@@ -18,6 +18,7 @@ import { windowStartToISTDateStr } from "@/lib/potd/schedule";
 import { isAtCoderAPIReachable } from "@/lib/platforms/atcoder";
 import { isCodeforcesAPIReachable } from "@/lib/platforms/codeforces";
 import { logger } from "@/lib/telemetry/logger";
+import { getVerifiedPlatformHandle } from "@/lib/users/platformIdentity";
 
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
@@ -253,17 +254,10 @@ async function pollChallenge(challenge: any): Promise<void> {
   const now = new Date();
   for (const sub of pendingSubs as any[]) {
     const user = sub.userId as any;
-    const handle = user
-      ? platform === "codeforces"
-        ? user.codeforcesId
-        : user.atcoderId
-      : null;
-    if (!handle) continue;
-
+    if (!user) continue;
     const cpUser = await CPUser.findOne({ userId: user._id });
-    const isVerified =
-      platform === "codeforces" ? cpUser?.cfVerified : cpUser?.acVerified;
-    if (!isVerified) continue;
+    const handle = getVerifiedPlatformHandle(user, cpUser, platform);
+    if (!handle) continue;
 
     try {
       const subs = await fetchUserSubmissions(

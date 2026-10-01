@@ -33,6 +33,7 @@ vi.mock("@/lib/notifications/service", () => ({ notify, notifyMany }));
 describe("hackathon team routes", () => {
   beforeAll(async () => {
     await startTestMongo();
+    await (await import("@/models/HackathonTeam")).default.createIndexes();
     getSession.mockResolvedValue(hackathonSession());
   });
   afterEach(async () => {
@@ -125,6 +126,28 @@ describe("hackathon team routes", () => {
       context(event._id.toString()),
     );
     expect(duplicate.status).toBe(409);
+  });
+
+  it("creates only one team when the same member submits concurrently", async () => {
+    const Hackathon = (await import("@/models/Hackathon")).default;
+    const Team = (await import("@/models/HackathonTeam")).default;
+    const { POST } = await import("@/app/api/hackathons/[id]/teams/route");
+    const event = await Hackathon.create(hackathon());
+    const path = "/api/hackathons/" + event._id + "/teams";
+    const responses = await Promise.all(
+      ["First", "Second"].map((name) =>
+        POST(jsonRequest(path, "POST", { name }), context(String(event._id))),
+      ),
+    );
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      201, 409,
+    ]);
+    expect(
+      await Team.countDocuments({
+        hackathonId: event._id,
+        members: HACKATHON_MEMBER_ID,
+      }),
+    ).toBe(1);
   });
 
   it("allows only the owner to edit a team", async () => {

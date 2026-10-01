@@ -11,17 +11,19 @@ const REDIS_CONNECT_TIMEOUT_MS = 1000;
 
 async function getRedisWithTimeout() {
   let timedOut = false;
+  let timeout: ReturnType<typeof setTimeout>;
   const redisPromise = getRedis().catch((err) => {
     logger.warn("[cache] Redis unavailable, falling through to fetch:", err);
     return null;
   });
   const timeoutPromise = new Promise<null>((resolve) => {
-    setTimeout(() => {
+    timeout = setTimeout(() => {
       timedOut = true;
       resolve(null);
     }, REDIS_CONNECT_TIMEOUT_MS);
   });
   const redis = await Promise.race([redisPromise, timeoutPromise]);
+  clearTimeout(timeout!);
   if (timedOut) {
     logger.warn("[cache] Redis connection timed out, falling through to fetch");
   }
@@ -54,27 +56,29 @@ export async function cachedFetch<T>(
   ttlSeconds: number,
   fetchFn: () => Promise<T>,
 ): Promise<T> {
+  let redis: Awaited<ReturnType<typeof getRedisWithTimeout>> = null;
   try {
-    const redis = await getRedisWithTimeout();
-    if (!redis) {
-      return fetchFn();
-    }
-
-    const cached = await redis.get(key);
+    redis = await getRedisWithTimeout();
+    const cached = await redis?.get(key);
     if (cached) {
       return JSON.parse(cached) as T;
     }
-
-    const data = await fetchFn();
-    // Store in background - don't block response on Redis write
-    redis
-      .set(key, JSON.stringify(data), { EX: ttlSeconds })
-      .catch((err) => logger.warn("[cache] Redis SET failed:", err));
-    return data;
   } catch (err) {
     logger.warn("[cache] Redis unavailable, falling through to fetch:", err);
-    return fetchFn();
   }
+
+  const data = await fetchFn();
+  if (redis) {
+    try {
+      // Store in background - don't block response on Redis write
+      void redis
+        .set(key, JSON.stringify(data), { EX: ttlSeconds })
+        .catch((err) => logger.warn("[cache] Redis SET failed:", err));
+    } catch (err) {
+      logger.warn("[cache] Redis SET failed:", err);
+    }
+  }
+  return data;
 }
 
 /**

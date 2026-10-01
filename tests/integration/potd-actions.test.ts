@@ -231,9 +231,31 @@ describe("POTD member actions", () => {
     });
   });
 
+  it("rejects stale verification after the profile handle changes", async () => {
+    const { markChallengeOpened, syncMySubmission } =
+      await import("@/lib/actions/potd");
+    const challenge = await verifiedChallenge(userId);
+    await CPUser.updateOne(
+      { userId },
+      { cfHandle: "previous_handle", cfVerified: true },
+    );
+    const id = String(challenge._id);
+    expect(await markChallengeOpened(id)).toMatchObject({
+      ok: false,
+      error: { code: "VALIDATION_ERROR" },
+    });
+    expect(await syncMySubmission(id)).toMatchObject({
+      ok: false,
+      error: { code: "VALIDATION_ERROR" },
+    });
+    expect(await POTDSubmission.countDocuments()).toBe(0);
+    expect(mocks.getUserSubmissionsSince).not.toHaveBeenCalled();
+    expect(mocks.syncUserChallenge).not.toHaveBeenCalled();
+  });
+
   it("registers an opened challenge once even when called repeatedly", async () => {
     const { markChallengeOpened } = await import("@/lib/actions/potd");
-    await CPUser.create({ userId, cfVerified: true });
+    await CPUser.create({ userId, cfHandle: "tourist", cfVerified: true });
     const challenge = await createActiveChallenge(
       "Easy",
       800,
@@ -514,7 +536,7 @@ async function createActiveChallenge(
 }
 
 async function verifiedChallenge(userId: mongoose.Types.ObjectId) {
-  await CPUser.create({ userId, cfVerified: true });
+  await CPUser.create({ userId, cfHandle: "tourist", cfVerified: true });
   return createActiveChallenge(
     "Easy",
     1000,

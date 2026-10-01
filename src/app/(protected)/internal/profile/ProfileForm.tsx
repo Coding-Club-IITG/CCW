@@ -159,6 +159,10 @@ export default function ProfileForm() {
         setCfVerified(false);
         setCfVerificationToken("");
       }
+      if (result.data.acHandleChanged) {
+        setAcVerified(false);
+        setAcVerificationToken("");
+      }
       setSavedCodeforcesId(formData.codeforcesId);
       setSavedAtcoderId(formData.atcoderId);
       setMessage({
