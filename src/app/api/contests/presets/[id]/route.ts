@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeContest } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import {
   boundaryErrorResponse,
@@ -16,7 +16,8 @@ import {
   updateContestPresetSchema,
 } from "@/lib/api/schemas/contestPreset";
 import { toContestPresetDto } from "@/lib/contests/dtos";
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
+
 import ContestPreset from "@/models/ContestPreset";
 
 type Context = { params: Promise<{ id: string }> };
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest, context: Context) {
     });
   }
   try {
-    await dbConnect();
+    await connectMongoDB();
     const preset = await ContestPreset.findById(params.data.id).lean();
     return preset
       ? jsonOk(toContestPresetDto(preset))
@@ -62,7 +63,7 @@ export async function PUT(request: NextRequest, context: Context) {
   }
 
   try {
-    await dbConnect();
+    await connectMongoDB();
     if (!(await ContestPreset.exists({ _id: params.data.id })))
       return jsonError("NOT_FOUND", "Preset not found");
     if (body.data.name) {
@@ -143,7 +144,7 @@ export async function PATCH(request: NextRequest, context: Context) {
   }
 
   try {
-    await dbConnect();
+    await connectMongoDB();
     if (!(await ContestPreset.exists({ _id: params.data.id })))
       return jsonError("NOT_FOUND", "Preset not found");
     const dbSession = await mongoose.startSession();

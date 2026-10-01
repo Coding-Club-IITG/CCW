@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeContest } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
 import {
   boundaryErrorResponse,
@@ -15,7 +15,8 @@ import {
   createContestPresetSchema,
 } from "@/lib/api/schemas/contestPreset";
 import { toContestPresetDto } from "@/lib/contests/dtos";
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
+
 import ContestPreset from "@/models/ContestPreset";
 
 export async function GET(request: NextRequest) {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await dbConnect();
+    await connectMongoDB();
     const filter = query.data.includeArchived
       ? {}
       : { archived: { $ne: true } };
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await dbConnect();
+    await connectMongoDB();
     const existing = await ContestPreset.exists({ name: body.data.name });
     if (existing) {
       return jsonError("CONFLICT", "Preset name already exists");

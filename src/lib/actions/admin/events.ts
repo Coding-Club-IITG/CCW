@@ -7,7 +7,7 @@ import { headers } from "next/headers";
 import { canPublishCalendarEvent } from "@/lib/access/calendar";
 import { isHead } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizePublicContent } from "@/lib/audit/summary";
 import {
   err as appError,
@@ -15,9 +15,9 @@ import {
   toBsonSafe,
   type JsonValue,
 } from "@/lib/api/result";
-import { auth } from "@/lib/auth";
-import { invalidateCache } from "@/lib/cache";
-import { buildScheduleFingerprint } from "@/lib/calendar";
+import { auth } from "@/lib/auth/server";
+import { invalidateCache } from "@/lib/cache/redis";
+import { buildScheduleFingerprint } from "@/lib/calendar/schedule";
 import {
   EVENT_PUBLICATION_STATUSES,
   type EventPublicationStatus,
@@ -26,12 +26,13 @@ import {
 import {
   parseImageFocalPoint,
   type ImageFocalPoint,
-} from "@/lib/imageFocalPoint";
-import dbConnect from "@/lib/mongodb";
-import { parseManagedModules } from "@/lib/roles";
-import { normalizeTags, parseTagList } from "@/lib/tagUtils";
-import { findUniqueSlug, titleToSlug } from "@/lib/slug";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+} from "@/lib/media/focalPoint";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { parseManagedModules } from "@/lib/users/roles";
+import { normalizeTags, parseTagList } from "@/lib/shared/tags";
+import { findUniqueSlug, titleToSlug } from "@/lib/shared/slug";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
 
@@ -209,7 +210,7 @@ async function getEventsAction() {
   try {
     if (!(await currentAdmin()))
       return appError("UNAUTHENTICATED", "Unauthorized");
-    await dbConnect();
+    await connectMongoDB();
     const events = await Event.find({}).sort({ updatedAt: -1 }).lean();
     return ok({ events: events.map(publicEventDto) });
   } catch (error) {
@@ -225,7 +226,7 @@ async function getEventAction(id: string) {
   try {
     if (!(await currentAdmin()))
       return appError("UNAUTHENTICATED", "Unauthorized");
-    await dbConnect();
+    await connectMongoDB();
     const event = mongoose.isValidObjectId(id)
       ? await Event.findById(id).lean()
       : null;
@@ -262,7 +263,7 @@ async function createPublicEventAction(
     }
     const parsed = parsePublicInput(input);
     if (!parsed.ok) return parsed;
-    await dbConnect();
+    await connectMongoDB();
     const calendar = await CalendarEvent.findById(calendarEventId);
     if (!calendar) return appError("NOT_FOUND", "Calendar event not found.");
     if (!mayPublish(user, calendar)) return appError("FORBIDDEN", "Forbidden");
@@ -341,7 +342,7 @@ async function updateEventAction(
     if (!user) return appError("UNAUTHENTICATED", "Unauthorized");
     const parsed = parsePublicInput(input);
     if (!parsed.ok) return parsed;
-    await dbConnect();
+    await connectMongoDB();
     const event = mongoose.isValidObjectId(id)
       ? await Event.findById(id)
       : null;
@@ -407,7 +408,7 @@ async function setPublicEventStatusAction(
     if (!user) return appError("UNAUTHENTICATED", "Unauthorized");
     if (!EVENT_PUBLICATION_STATUSES.includes(status))
       return appError("VALIDATION_ERROR", "Invalid publication status.");
-    await dbConnect();
+    await connectMongoDB();
     const event = mongoose.isValidObjectId(id)
       ? await Event.findById(id)
       : null;
@@ -466,7 +467,7 @@ async function syncPublicEventScheduleAction(id: string) {
   try {
     const user = await currentAdmin();
     if (!user) return appError("UNAUTHENTICATED", "Unauthorized");
-    await dbConnect();
+    await connectMongoDB();
     const event = mongoose.isValidObjectId(id)
       ? await Event.findById(id)
       : null;

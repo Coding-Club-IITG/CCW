@@ -8,9 +8,9 @@ import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
 
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizePublicContent } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
@@ -20,13 +20,14 @@ import {
   recordRevisionSnapshot,
 } from "@/lib/blog/revisions";
 import { blogAdminPatchSchema } from "@/lib/blog/schemas";
-import { invalidateCache } from "@/lib/cache";
+import { invalidateCache } from "@/lib/cache/redis";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
-import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
-import dbConnect from "@/lib/mongodb";
-import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/tagUtils";
-import { findUniqueSlug, titleToSlug } from "@/lib/slug";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { parseImageFocalPoint } from "@/lib/media/focalPoint";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/shared/tags";
+import { findUniqueSlug, titleToSlug } from "@/lib/shared/slug";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import BlogPost from "@/models/BlogPost";
 import BlogPostRevision from "@/models/BlogPostRevision";
 
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
-    await dbConnect();
+    await connectMongoDB();
 
     const post = await BlogPost.findOne({ slug }).lean();
     if (!post) {
@@ -82,7 +83,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
-    await dbConnect();
+    await connectMongoDB();
 
     const post = await BlogPost.findOne({ slug });
     if (!post) {
@@ -288,7 +289,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
-    await dbConnect();
+    await connectMongoDB();
     if (!(await BlogPost.exists({ slug })))
       return jsonError("NOT_FOUND", "Post not found.");
 

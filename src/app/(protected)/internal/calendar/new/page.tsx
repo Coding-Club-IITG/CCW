@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+
+import { auth } from "@/lib/auth/server";
 import { getCreatableCalendarScopes } from "@/lib/access/calendar";
-import { parseManagedModules } from "@/lib/roles";
+import { parseManagedModules } from "@/lib/users/roles";
+
 import BackLink from "@/components/shared/BackLink";
 import CalendarEventForm from "@/components/calendar/CalendarEventForm";
+
 import styles from "../Calendar.module.scss";
 
 export default async function NewCalendarEventPage() {

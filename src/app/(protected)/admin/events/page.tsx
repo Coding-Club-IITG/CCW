@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { expectAppData } from "@/lib/api/result";
-import { getEventStatus } from "@/lib/eventStatus";
+import { getEventStatus } from "@/lib/events/status";
 import { APP_TIME_ZONE } from "@/lib/constants";
 import type {
   EventPublicationStatus,

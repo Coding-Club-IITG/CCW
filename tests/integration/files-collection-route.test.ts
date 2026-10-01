@@ -12,6 +12,7 @@ import {
 } from "vitest";
 
 import AuditLog from "@/models/AuditLog";
+
 import {
   FILE_MEMBER_ID,
   FILE_OTHER_MEMBER_ID,
@@ -33,7 +34,7 @@ import { responseData, responseError } from "../utils/result";
 
 const getSession = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession } },
 }));
 

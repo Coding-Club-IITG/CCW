@@ -11,7 +11,7 @@ import {
   requiresIosInstallation,
   supportsPushNotifications,
   syncPushSubscription,
-} from "@/lib/push/client";
+} from "@/lib/notifications/push/client";
 
 import styles from "./Notifications.module.scss";
 

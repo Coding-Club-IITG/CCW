@@ -6,7 +6,7 @@ import {
   type EventRecurrenceType,
   type ModuleName,
 } from "@/lib/constants";
-import { parseCalendarDateTime } from "@/lib/calendar";
+import { parseCalendarDateTime } from "@/lib/calendar/schedule";
 
 export interface CalendarEventInput {
   title: string;

@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { responseData, responseError } from "../utils/result";
 import { Types } from "mongoose";
 import {
   afterAll,
@@ -11,6 +10,7 @@ import {
   vi,
 } from "vitest";
 
+import { responseData, responseError } from "../utils/result";
 import {
   clearTestMongo,
   startTestMongo,
@@ -28,8 +28,8 @@ import {
 const getSession = vi.hoisted(() => vi.fn());
 const notify = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
-vi.mock("@/lib/notify", () => ({ notify }));
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/notifications/service", () => ({ notify }));
 
 describe("hackathon join requests and invites", () => {
   beforeAll(async () => {

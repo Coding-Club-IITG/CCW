@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+
 import {
   CLUB_POSITIONS,
   MODULES,
@@ -7,7 +8,7 @@ import {
   type ModuleName,
   type ModulePosition,
 } from "@/lib/constants";
-import { normalizeTags } from "@/lib/tagUtils";
+import { normalizeTags } from "@/lib/shared/tags";
 
 // Sub-document interfaces
 

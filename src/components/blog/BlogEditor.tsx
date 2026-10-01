@@ -2,17 +2,20 @@
 
 import { useState } from "react";
 import { X as IconX } from "lucide-react";
+
 import type { BlogPerson, BlogSnapshot } from "@/lib/blog/types";
 import { BLOG_TAGS, BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
 import {
   DEFAULT_IMAGE_FOCAL_POINT,
   type ImageFocalPoint,
-} from "@/lib/imageFocalPoint";
+} from "@/lib/media/focalPoint";
+
 import ImageUpload from "@/components/shared/ImageUpload";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import Button from "@/components/shared/Button";
 import TagEditor from "@/components/shared/TagEditor";
 import UserSearch, { UserSearchItem } from "@/components/shared/UserSearch";
+
 import styles from "./BlogEditor.module.scss";
 
 export interface BlogEditorData extends BlogSnapshot {

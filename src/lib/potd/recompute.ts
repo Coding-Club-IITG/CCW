@@ -2,17 +2,18 @@
  * POTD recompute / backfill
  */
 
+import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
+import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
+import { getUserSubmissions as getAtcoderSubmissions } from "@/lib/platforms/atcoder";
+import { computeWindowTimes } from "@/lib/potd/schedule";
+import type { Platform } from "@/lib/constants";
+
 import POTDSubmission from "@/models/POTDSubmission";
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import Problem from "@/models/POTDProblem";
 import POTDOutage from "@/models/POTDOutage";
 import User from "@/models/User";
-import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
-import { getUserSubmissionsSince } from "@/lib/platforms/codeforces";
-import { getUserSubmissions as getAtcoderSubmissions } from "@/lib/platforms/atcoder";
-import { computeWindowTimes } from "@/lib/potd/utils";
-import type { Platform } from "@/lib/constants";
 
 void Problem;
 

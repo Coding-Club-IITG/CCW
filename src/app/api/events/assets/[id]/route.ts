@@ -4,17 +4,18 @@
 
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { jsonError, jsonResult } from "@/lib/api/result.server";
 import { createReadStream, existsSync } from "fs";
 import { Readable } from "stream";
 import path from "path";
+
+import { jsonError, jsonResult } from "@/lib/api/result.server";
 import { webEnv } from "@/lib/env/web";
 import {
   IMAGE_EXTENSIONS_REGEX_FRAGMENT,
   IMAGE_EXTENSION_TO_MIME,
   type ImageExtension,
 } from "@/lib/constants";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 import { parseRouteParams } from "@/lib/api/result";
 import { imageAssetParamsSchema } from "@/lib/api/schemas/boundary";
 

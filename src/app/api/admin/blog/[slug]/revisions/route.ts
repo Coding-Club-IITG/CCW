@@ -4,13 +4,14 @@
 
 import { NextRequest } from "next/server";
 
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
 import { readPostRevisions } from "@/lib/blog/revisions";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import BlogPost from "@/models/BlogPost";
 
 type RouteContext = { params: Promise<{ slug: string }> };
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const post = await BlogPost.findOne({ slug });
     if (!post) {
       return jsonError("NOT_FOUND", "Blog post not found.");

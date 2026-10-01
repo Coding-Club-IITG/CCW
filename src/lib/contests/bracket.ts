@@ -1,9 +1,16 @@
 import mongoose from "mongoose";
 
 import { publishContest } from "@/lib/contests/events";
-import dbConnect from "@/lib/mongodb";
-import { getRedis } from "@/lib/redis";
-import { logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { getRedis } from "@/lib/db/redis";
+import { logger } from "@/lib/telemetry/logger";
+import type { BracketNode, BracketSnapshot } from "@/lib/contests/types";
+import {
+  getRoundName,
+  snakeSeed,
+  nextPowerOf2,
+} from "@/lib/contests/bracketLayout";
+
 import ContestMatch, { type IProblemSlot } from "@/models/ContestMatch";
 import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestQuestion from "@/models/ContestQuestion";
@@ -12,13 +19,6 @@ import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
 import User, { type UserRecord } from "@/models/User";
-import {
-  type BracketNode,
-  type BracketSnapshot,
-  getRoundName,
-  snakeSeed,
-  nextPowerOf2,
-} from "@/types/bracket";
 
 type BracketProblem = {
   problemId: string;
@@ -89,7 +89,7 @@ export async function generateBracket(
   solvedProblemIds?: Set<string>,
   deferredEffects?: DeferredBracketEffect[],
 ) {
-  await dbConnect();
+  await connectMongoDB();
   const contest = await ContestMatch.findById(contestId);
   if (!contest) throw new Error("Contest not found");
   if (contest.format !== "bracket")
@@ -526,7 +526,7 @@ export async function advanceWinner(
     return;
   }
 
-  await dbConnect();
+  await connectMongoDB();
   const room = await ContestRoom.findById(roomId).populate<{
     currentRoundId: IContestRound;
   }>("currentRoundId");
@@ -674,7 +674,7 @@ export async function checkRoundCompletion(
   roundNumber: number,
   deferredEffects?: DeferredBracketEffect[],
 ) {
-  await dbConnect();
+  await connectMongoDB();
   const lockKey = `contest:${contestId}:round:${roundNumber}:check_lock`;
   let redis: Awaited<ReturnType<typeof getRedis>> | undefined;
   let lockAcquired = false;
@@ -771,7 +771,7 @@ export async function checkRoundCompletion(
 export async function getBracketSnapshot(
   contestId: string,
 ): Promise<BracketSnapshot> {
-  await dbConnect();
+  await connectMongoDB();
   const contest = await ContestMatch.findById(contestId);
   if (!contest) throw new Error("Contest not found");
 
@@ -870,7 +870,7 @@ export async function processWalkover(
   adminUserId: string,
   deferredEffects?: DeferredBracketEffect[],
 ) {
-  await dbConnect();
+  await connectMongoDB();
   const room = await ContestRoom.findById(roomId);
   if (!room) throw new Error("Room not found");
 

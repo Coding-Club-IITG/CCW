@@ -3,14 +3,16 @@
  */
 
 import { NextRequest } from "next/server";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { parseSearchParams } from "@/lib/api/result";
 import { paginationQuerySchema } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
-import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
-import dbConnect from "@/lib/mongodb";
-import { paginatedResponse, parsePagination } from "@/lib/pagination";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { auth } from "@/lib/auth/server";
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { paginatedResponse, parsePagination } from "@/lib/shared/pagination";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import Hackathon from "@/models/Hackathon";
 
 export async function GET(request: NextRequest) {
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
       return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    await dbConnect();
+    await connectMongoDB();
 
     const { searchParams } = new URL(request.url);
     const query = parseSearchParams(searchParams, paginationQuerySchema);

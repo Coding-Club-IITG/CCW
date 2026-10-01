@@ -4,8 +4,9 @@ import path from "path";
 
 import { ALLOWED_IMAGE_EXTENSIONS } from "@/lib/constants";
 import { workerEnv } from "@/lib/env/worker";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import BlogPost from "@/models/BlogPost";
 import Event from "@/models/Event";
 import Project from "@/models/Project";
@@ -143,7 +144,7 @@ export async function cleanupDirectory(
 export async function cleanupOrphanedImages(now = new Date()) {
   logger.info("[ImageCleanup] Starting orphaned image cleanup...");
 
-  await dbConnect();
+  await connectMongoDB();
 
   // Blog images
   const posts = await BlogPost.find({}).select("content coverImage").lean();

@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { MODULES, type ModuleName } from "@/lib/constants";
-import { validateTags } from "@/lib/tagUtils";
+import { validateTags } from "@/lib/shared/tags";
 
 import Modal from "@/components/shared/Modal";
 import TagEditor from "@/components/shared/TagEditor";

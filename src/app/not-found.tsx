@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { CLUB_EMAIL } from "@/lib/seo";
+
+import { CLUB_EMAIL } from "@/lib/seo/metadata";
+
 import Navbar from "@/components/layout/Navbar/Navbar";
 import Footer from "@/components/layout/Footer/Footer";
+
 import PrismHero from "@/app/(public)/PrismHero";
+
 import styles from "./not-found.module.scss";
 
 const QUICK_LINKS = [

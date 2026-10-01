@@ -4,18 +4,20 @@
  */
 
 import { NextRequest } from "next/server";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import {
   jsonObjectSchema,
   objectIdParamsSchema,
 } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
-import dbConnect from "@/lib/mongodb";
+import { auth } from "@/lib/auth/server";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { notify, notifyMany } from "@/lib/notifications/service";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import HackathonTeam from "@/models/HackathonTeam";
 import HackathonRequest from "@/models/HackathonRequest";
-import { notify, notifyMany } from "@/lib/notify";
-import { errorToLogMetadata, logger } from "@/lib/utils";
 
 export async function PATCH(
   request: NextRequest,
@@ -39,7 +41,7 @@ export async function PATCH(
     if (!parsedBody.ok) return jsonResult(parsedBody);
     const body = parsedBody.data;
 
-    await dbConnect();
+    await connectMongoDB();
 
     const team = await HackathonTeam.findById(id);
     if (!team) {
@@ -152,7 +154,7 @@ export async function DELETE(
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id } = validatedParams.data;
 
-    await dbConnect();
+    await connectMongoDB();
 
     const team = await HackathonTeam.findById(id);
     if (!team) {

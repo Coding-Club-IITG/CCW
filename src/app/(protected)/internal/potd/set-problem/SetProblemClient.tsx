@@ -19,7 +19,7 @@ import {
   formatDate,
   getAvailableDates,
   getTodayISTDateStr,
-} from "@/lib/potd/utils";
+} from "@/lib/potd/schedule";
 
 import EmptyState from "@/components/shared/EmptyState";
 import { CardGridSkeletonContent } from "@/components/shared/skeletons/CardGridSkeleton";

@@ -10,6 +10,7 @@ import {
 } from "vitest";
 
 import AuditLog from "@/models/AuditLog";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -24,8 +25,8 @@ import {
 
 const getSession = vi.hoisted(() => vi.fn());
 const invalidateCache = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
-vi.mock("@/lib/cache", () => ({ invalidateCache }));
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/cache/redis", () => ({ invalidateCache }));
 
 describe("member-owned blog drafts", () => {
   beforeAll(async () => {

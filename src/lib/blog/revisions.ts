@@ -2,12 +2,13 @@ import { type ClientSession, Types } from "mongoose";
 
 import { err, ok, parseSearchParams, type AppResult } from "@/lib/api/result";
 import type { BlogRevisionSource } from "@/lib/constants";
-import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
+import { parseImageFocalPoint } from "@/lib/media/focalPoint";
 import {
   paginatedResponse,
   parsePagination,
   type PaginationParams,
-} from "@/lib/pagination";
+} from "@/lib/shared/pagination";
+
 import type { IBlogPost } from "@/models/BlogPost";
 import BlogPostRevision, {
   type IBlogPostRevision,

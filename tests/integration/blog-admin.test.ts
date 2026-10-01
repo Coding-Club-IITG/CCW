@@ -10,6 +10,7 @@ import {
 } from "vitest";
 
 import AuditLog from "@/models/AuditLog";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -21,11 +22,13 @@ import { responseData, responseError } from "../utils/result";
 const getSession = vi.hoisted(() => vi.fn());
 const invalidateCache = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
 vi.mock("next/cache", () => ({ revalidatePath }));
-vi.mock("@/lib/cache", async () => {
+vi.mock("@/lib/cache/redis", async () => {
   const actual =
-    await vi.importActual<typeof import("@/lib/cache")>("@/lib/cache");
+    await vi.importActual<typeof import("@/lib/cache/redis")>(
+      "@/lib/cache/redis",
+    );
   return {
     ...actual,
     cachedFetch: vi.fn(

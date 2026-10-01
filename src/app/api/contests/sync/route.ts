@@ -1,16 +1,17 @@
 import { NextRequest } from "next/server";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import { auth } from "@/lib/auth";
-import { getRedis } from "@/lib/redis";
+import { auth } from "@/lib/auth/server";
+import { getRedis } from "@/lib/db/redis";
 import { publishUser } from "@/lib/contests/events";
 import { cfSyncQueue } from "@/lib/contests/queues";
-import { logger } from "@/lib/utils";
+import { logger } from "@/lib/telemetry/logger";
 import { parseJson } from "@/lib/api/result";
 import { contestSyncSchema } from "@/lib/api/schemas/contestRoute";
 import {
   consumeUserRateLimit,
   releaseUserRateLimit,
-} from "@/lib/userRateLimit";
+} from "@/lib/users/rateLimit";
 import { webEnv } from "@/lib/env/web";
 
 export async function POST(request: NextRequest) {

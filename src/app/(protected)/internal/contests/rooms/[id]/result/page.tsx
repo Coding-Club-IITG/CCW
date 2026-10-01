@@ -1,17 +1,20 @@
-import PostMatchResultClient from "@/components/contests/PostMatchResultClient";
-import { getContestById } from "@/lib/actions/contests";
 import { notFound } from "next/navigation";
-import dbConnect from "@/lib/mongodb";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+
+import { getContestById } from "@/lib/actions/contests";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { auth } from "@/lib/auth/server";
+import { isHead } from "@/lib/access/roles";
+import { normalizeAvatar } from "@/lib/users/identity";
+
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestSubmission from "@/models/ContestSubmission";
 import CPUser from "@/models/CPUser";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { isHead } from "@/lib/access/roles";
-import { normalizeAvatar } from "@/lib/utils";
-import { redirect } from "next/navigation";
+
+import PostMatchResultClient from "@/components/contests/PostMatchResultClient";
 
 export default async function PostMatchResultPage({
   params,
@@ -30,7 +33,7 @@ export default async function PostMatchResultPage({
 
   const currentUserId = session?.user?.id || "";
 
-  await dbConnect();
+  await connectMongoDB();
   const roomId = unwrappedParams.id;
 
   let room = await ContestRoom.findById(roomId).lean();

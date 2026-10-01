@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import type { RecruitmentSeason } from "@/lib/constants";
-import type { RecruitmentDto } from "@/lib/recruitment";
+import type { RecruitmentDto } from "@/lib/recruitment/public";
 
 import EmptyState from "@/components/shared/EmptyState";
 import InlineNotice from "@/components/shared/InlineNotice";

@@ -10,6 +10,7 @@ import {
 } from "vitest";
 
 import AuditLog from "@/models/AuditLog";
+
 import { hackathon } from "../fixtures/hackathons";
 import {
   clearTestMongo,
@@ -24,10 +25,12 @@ const notifyMany = vi.hoisted(() => vi.fn());
 const enqueuePushNotifications = vi.hoisted(() => vi.fn());
 const fetchOgImage = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
-vi.mock("@/lib/cache", async () => {
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/cache/redis", async () => {
   const actual =
-    await vi.importActual<typeof import("@/lib/cache")>("@/lib/cache");
+    await vi.importActual<typeof import("@/lib/cache/redis")>(
+      "@/lib/cache/redis",
+    );
   return {
     ...actual,
     cachedFetch: vi.fn(
@@ -37,8 +40,11 @@ vi.mock("@/lib/cache", async () => {
     invalidateCache,
   };
 });
-vi.mock("@/lib/notify", () => ({ notifyMany, enqueuePushNotifications }));
-vi.mock("@/lib/ogImage", () => ({ fetchOgImage }));
+vi.mock("@/lib/notifications/service", () => ({
+  notifyMany,
+  enqueuePushNotifications,
+}));
+vi.mock("@/lib/media/openGraph", () => ({ fetchOgImage }));
 
 describe("admin hackathon routes", () => {
   beforeAll(async () => {

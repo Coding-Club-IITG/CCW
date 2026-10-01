@@ -1,7 +1,6 @@
 "use server";
 
 import { err as appError, ok } from "@/lib/api/result";
-
 import { defineAction } from "@/lib/actions/defineAction";
 
 export const getSolveChallenge = defineAction(
@@ -38,18 +37,20 @@ export const getStreakLeaderboard = defineAction(
 );
 
 import mongoose from "mongoose";
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import dbConnect from "@/lib/mongodb";
-import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache";
-import { getRedis } from "@/lib/redis";
+
+import { auth } from "@/lib/auth/server";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache/redis";
+import { getRedis } from "@/lib/db/redis";
 import {
   consumeUserRateLimit,
   releaseUserRateLimit,
-} from "@/lib/userRateLimit";
-import { prepareSearchQuery } from "@/lib/search";
+} from "@/lib/users/rateLimit";
+import { prepareSearchQuery } from "@/lib/shared/search";
 import { renderProblemMath } from "@/lib/platforms/problemContent";
+
 import User, { type UserRecord } from "@/models/User";
 import CPUser from "@/models/CPUser";
 import Problem, { type POTDProblemRecord } from "@/models/POTDProblem";
@@ -65,7 +66,8 @@ import POTDSubmission, {
   (m) => m && m.init && m.init(),
 );
 
-import { logger, getDisplayName } from "@/lib/utils";
+import { logger } from "@/lib/telemetry/logger";
+import { getDisplayName } from "@/lib/users/identity";
 import { DIFFICULTY_ORDER } from "@/lib/constants";
 import type { Platform } from "@/lib/constants";
 import { syncUserChallenge } from "@/lib/potd/finalize";
@@ -139,7 +141,7 @@ async function getSolveChallengeAction(challengeId: string) {
     return appError("VALIDATION_ERROR", "Invalid challenge");
   }
 
-  await dbConnect();
+  await connectMongoDB();
   const challenge = await DailyChallenge.findById(challengeId).populate<{
     problem: WithId<POTDProblemRecord>;
   }>("problem");
@@ -194,7 +196,7 @@ async function getTodayChallengeAction() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return appError("UNAUTHENTICATED", "Unauthorized");
 
-  await dbConnect();
+  await connectMongoDB();
 
   const now = new Date();
   const challenges = await DailyChallenge.find({
@@ -280,7 +282,7 @@ async function markChallengeOpenedAction(challengeId: string) {
   if (!challengeId || !mongoose.isValidObjectId(challengeId))
     return appError("VALIDATION_ERROR", "Invalid challenge");
 
-  await dbConnect();
+  await connectMongoDB();
 
   const challenge = await DailyChallenge.findById(challengeId).populate<{
     problem: WithId<POTDProblemRecord>;
@@ -335,7 +337,7 @@ async function syncMySubmissionAction(challengeId: string) {
   const userId = session.user.id;
   const user = session.user;
 
-  await dbConnect();
+  await connectMongoDB();
 
   const cpUser = await CPUser.findOne({ userId });
 
@@ -477,7 +479,7 @@ async function getMyPotdStatsAction() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return appError("UNAUTHENTICATED", "Unauthorized");
 
-  await dbConnect();
+  await connectMongoDB();
 
   const cpUserDoc = await CPUser.findOne({ userId: session.user.id });
 
@@ -539,7 +541,7 @@ async function getPastProblemsAction(page = 1, limit = 30, search?: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return appError("UNAUTHENTICATED", "Unauthorized");
 
-  await dbConnect();
+  await connectMongoDB();
 
   const preparedSearch = prepareSearchQuery(search);
   const cacheKey = buildCacheKey("potd:past", {
@@ -636,7 +638,7 @@ async function getPotdLeaderboardAction(view: "weekly" | "monthly") {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return appError("UNAUTHENTICATED", "Unauthorized");
 
-  await dbConnect();
+  await connectMongoDB();
 
   const cacheKey = buildCacheKey("potd:leaderboard", { view });
 
@@ -733,7 +735,7 @@ async function getStreakLeaderboardAction() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return appError("UNAUTHENTICATED", "Unauthorized");
 
-  await dbConnect();
+  await connectMongoDB();
 
   const cacheKey = "ccw:potd:streak-leaderboard";
 

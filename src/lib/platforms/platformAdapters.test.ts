@@ -25,18 +25,18 @@ vi.mock("@ronits2407/cp-api", () => ({
   },
 }));
 
-vi.mock("@/lib/redis", () => ({
+vi.mock("@/lib/db/redis", () => ({
   getRedis: vi.fn(async () => ({ set: mocks.redisSet })),
 }));
 
-vi.mock("@/lib/cache", () => ({
+vi.mock("@/lib/cache/redis", () => ({
   cachedFetch: vi.fn(
     async (_key: string, _ttl: number, fetcher: () => Promise<unknown>) =>
       fetcher(),
   ),
 }));
 
-vi.mock("@/lib/utils", () => ({
+vi.mock("@/lib/telemetry/logger", () => ({
   logger: { warn: vi.fn() },
   errorToLogMetadata: vi.fn(() => ({})),
 }));

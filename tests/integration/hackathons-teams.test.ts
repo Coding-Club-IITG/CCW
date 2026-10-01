@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { responseData, responseError } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -9,6 +8,8 @@ import {
   it,
   vi,
 } from "vitest";
+
+import { responseData, responseError } from "../utils/result";
 import {
   clearTestMongo,
   startTestMongo,
@@ -26,8 +27,8 @@ const getSession = vi.hoisted(() => vi.fn());
 const notify = vi.hoisted(() => vi.fn());
 const notifyMany = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
-vi.mock("@/lib/notify", () => ({ notify, notifyMany }));
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/notifications/service", () => ({ notify, notifyMany }));
 
 describe("hackathon team routes", () => {
   beforeAll(async () => {

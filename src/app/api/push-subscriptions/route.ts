@@ -3,11 +3,12 @@ import { z } from "zod";
 
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { parseJson } from "@/lib/api/result";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/server";
 import { webEnv } from "@/lib/env/web";
-import dbConnect from "@/lib/mongodb";
-import { getWebPushConfig } from "@/lib/push/config";
-import { logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { getWebPushConfig } from "@/lib/notifications/push/config";
+import { logger } from "@/lib/telemetry/logger";
+
 import PushSubscription from "@/models/PushSubscription";
 
 const endpointSchema = z
@@ -109,7 +110,7 @@ export async function PUT(request: NextRequest) {
     const parsed = await parseJson(request, subscriptionSchema);
     if (!parsed.ok) return jsonResult(parsed);
 
-    await dbConnect();
+    await connectMongoDB();
     await PushSubscription.findOneAndUpdate(
       { endpoint: parsed.data.endpoint },
       {
@@ -144,7 +145,7 @@ export async function DELETE(request: NextRequest) {
     const parsed = await parseJson(request, deleteSchema);
     if (!parsed.ok) return jsonResult(parsed);
 
-    await dbConnect();
+    await connectMongoDB();
     const result = await PushSubscription.deleteOne({
       userId,
       endpoint: parsed.data.endpoint,

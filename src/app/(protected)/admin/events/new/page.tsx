@@ -1,12 +1,16 @@
 import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+
+import { auth } from "@/lib/auth/server";
 import { canPublishCalendarEvent } from "@/lib/access/calendar";
-import { parseManagedModules } from "@/lib/roles";
-import dbConnect from "@/lib/mongodb";
+import { parseManagedModules } from "@/lib/users/roles";
+import { connectMongoDB } from "@/lib/db/mongodb";
+
 import CalendarEvent from "@/models/CalendarEvent";
+
 import BackLink from "@/components/shared/BackLink";
 import PublicEventForm from "@/components/calendar/PublicEventForm";
+
 import styles from "../EventForm.module.scss";
 
 export default async function NewPublicEventPage({
@@ -17,7 +21,7 @@ export default async function NewPublicEventPage({
   const { calendarEventId } = await searchParams;
   if (!calendarEventId) redirect("/internal/calendar/new");
   const session = await auth.api.getSession({ headers: await headers() });
-  await dbConnect();
+  await connectMongoDB();
   const calendar = await CalendarEvent.findById(calendarEventId).lean();
   if (!calendar) notFound();
   const user = session!.user as { access?: string; managedModules?: unknown };

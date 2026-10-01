@@ -1,11 +1,12 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+
 import {
   ProjectModuleName,
   PROJECT_MODULES,
   ProjectStatus,
   PROJECT_STATUSES,
 } from "@/lib/constants";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
 
 export interface IProject extends Document {
   title: string;

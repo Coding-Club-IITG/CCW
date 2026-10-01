@@ -47,14 +47,36 @@ programming systems, content, administration, and background integrations.
 - `src/lib/actions`: server actions and their strict exception boundary
 - `src/lib/access`: role and resource-specific authorization policies
 - `src/lib/api`: shared API/action contracts, HTTP response helpers,
-  session authorization, request schemas, and upload boundaries
+  request schemas, and upload boundaries
+- `src/lib/auth`: server and browser authentication clients, identity policies,
+  session authorization, identity storage, and login switching
+- `src/lib/users`: member queries, role parsing, identity display, social links,
+  and user cooldowns
+- `src/lib/db`, `src/lib/cache`, `src/lib/queues`: database connections,
+  Redis caching, and shared BullMQ connection configuration
+- `src/lib/calendar`, `src/lib/events`: calendar schedules and iCalendar feeds,
+  public event dates, status, and listings
 - `src/lib/contests`: contest runtime schemas, client DTOs, bracket domain
-  logic, queues, and realtime event publishers
-- `src/lib/env`: pure Zod runtime schemas and process-specific validated exports
+  logic, queues, workers, and realtime event publishers
+- `src/lib/codeRunner`: browser code execution, runtime workers, and their types
+- `src/lib/env`: standalone dotenv loading, pure Zod runtime schemas, and
+  process-specific validated exports
 - `src/lib/jobs`: Agenda setup, scheduled job implementations, and their shared
   schedule configuration
+- `src/lib/notifications`: notification creation and Web Push configuration,
+  browser subscriptions, queueing, delivery, and its worker
 - `src/lib/platforms`: Competitive Programming platform integration adapters
   and shared coordination
+- `src/lib/blog`, `src/lib/credits`, `src/lib/potd`, `src/lib/recruitment`:
+  feature-specific domain logic and data contracts
+- `src/lib/atlas`: command catalog and permission-aware search
+- `src/lib/audit`: audit transactions, types, and bounded summaries
+- `src/lib/media`, `src/lib/markdown`, `src/lib/seo`: image helpers,
+  Markdown editing, and page metadata
+- `src/lib/shared`: cross-feature dates, pagination, search, slugs, and tags
+- `src/lib/stores`: browser UI state stores
+- `src/lib/telemetry`: shared logging and web/worker telemetry
+- `src/lib/constants.ts`: shared constants, enums, display maps, and URL patterns
 - `src/models`: Mongoose models
 - `src/styles`: global theme variables and reusable SCSS mixins
 - `src/worker.ts`: standalone Agenda and BullMQ worker entry point
@@ -73,8 +95,8 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
   redirects, and metadata retain their framework/library transport formats.
 - Runtime configuration has separate web, worker, CLI, test, and browser
   profiles. Worker requires MongoDB and Redis, but not web-only
-  credentials or upload settings. Standalone entry points load dotenv
-  before importing their validated profile.
+  credentials or upload settings. Standalone entry points import
+  `src/lib/env/load.ts` to load dotenv before importing their validated profile.
 - MongoDB is the persistent application store.
 - Redis supports runtime coordination, caching, and queued contest work,
   including best-effort Web Push delivery through BullMQ.
@@ -118,7 +140,7 @@ for `@iitg.ac.in` within the institute tenant, or verified Google `@gmail.com`.
 Institute users can verify Google in their profile and submit a switch request.
 Public pages are available without a session, while internal and administrative
 pages are protected by `src/proxy.ts`. Authorization policies live in `src/lib/access`.
-Parsing and display formatting for role data live in `src/lib/roles.ts`.
+Parsing and display formatting for role data live in `src/lib/users/roles.ts`.
 
 Each user has one permission level in `access` (`Member`, `Head`, or `Admin`),
 one `YYYY-YY` academic year in `tenure`, Head-only scope in `managedModules`,

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
-import { formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/shared/dates";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Pagination from "@/components/shared/Pagination";

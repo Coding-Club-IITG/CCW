@@ -1,7 +1,6 @@
 "use server";
 
 import { err as appError, ok, validationError } from "@/lib/api/result";
-
 import { defineAction } from "@/lib/actions/defineAction";
 
 export const getContestListing = defineAction(
@@ -44,18 +43,19 @@ export const createBracketContest = defineAction(
 import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { webEnv } from "@/lib/env/web";
 
-import { auth } from "@/lib/auth";
+import { webEnv } from "@/lib/env/web";
+import { auth } from "@/lib/auth/server";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   contestCreationPayloadSchema,
   validateBracketContestInput,
   type ContestProblemSlot,
 } from "@/lib/api/schemas/contestAction";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, logger } from "@/lib/utils";
-import { prepareSearchQuery } from "@/lib/search";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+import { prepareSearchQuery } from "@/lib/shared/search";
+
 import ContestMatch from "@/models/ContestMatch";
 import CPUser from "@/models/CPUser";
 import ContestRoom from "@/models/ContestRoom";
@@ -92,7 +92,7 @@ async function getContestListingAction() {
   const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user?.id;
 
-  await dbConnect();
+  await connectMongoDB();
 
   let cpUserId = null;
   if (userId) {
@@ -212,7 +212,7 @@ async function getContestByIdAction(id: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user?.id;
 
-  await dbConnect();
+  await connectMongoDB();
 
   let cpUserId = null;
   if (userId) {
@@ -281,7 +281,7 @@ async function registerForContestAction(contestId: string, teamName?: string) {
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
     const cpUser = await CPUser.findOne({ userId });
     if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
@@ -347,7 +347,7 @@ async function registerForContestAction(contestId: string, teamName?: string) {
 
 async function getAvailableTeamsForContestAction(contestId: string) {
   try {
-    await dbConnect();
+    await connectMongoDB();
     const contest = await ContestMatch.findById(contestId).lean();
     const teamSize = contest?.teamSize ?? 1;
     if (!contest || teamSize <= 1) return ok([]);
@@ -389,7 +389,7 @@ async function createRoomContestAction(input: unknown) {
     if (!parsed.success) return validationError(parsed.error);
     const data = parsed.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const cpUser = await CPUser.findOne({ userId });
     if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
@@ -531,7 +531,7 @@ async function createRoomContestAction(input: unknown) {
 
 async function getContestRegistrationsAction(contestId: string) {
   try {
-    await dbConnect();
+    await connectMongoDB();
     const contest = await ContestMatch.findById(contestId).lean();
     if (!contest) return appError("NOT_FOUND", "Contest not found");
 
@@ -583,7 +583,7 @@ async function unregisterFromContestAction(contestId: string) {
     const userId = session?.user?.id;
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
-    await dbConnect();
+    await connectMongoDB();
 
     const contest = await ContestMatch.findById(contestId);
     if (!contest) return appError("NOT_FOUND", "Contest not found");
@@ -626,7 +626,7 @@ async function searchVerifiedUsersAction(query: string) {
 
   if (!query || query.length < 2) return ok({ users: [] });
 
-  await dbConnect();
+  await connectMongoDB();
 
   const search = prepareSearchQuery(query);
   if (!search) return ok({ users: [] });
@@ -686,7 +686,7 @@ async function createBracketContestAction(input: unknown) {
   if (!parsed.success) return validationError(parsed.error);
   const data = parsed.data;
 
-  await dbConnect();
+  await connectMongoDB();
 
   // ── Server-side validation ──────────────────────────────────────────────────
   if (!data.name || typeof data.name !== "string" || !data.name.trim()) {

@@ -8,10 +8,12 @@ import {
   it,
   vi,
 } from "vitest";
+
 import CalendarEvent from "@/models/CalendarEvent";
 import CalendarReminderDelivery from "@/models/CalendarReminderDelivery";
 import Notification from "@/models/Notification";
 import User from "@/models/User";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -19,8 +21,8 @@ import {
 } from "../../../tests/utils/mongodb";
 
 const addBulk = vi.hoisted(() => vi.fn().mockResolvedValue([]));
-vi.mock("@/lib/push/config", () => ({ webPushConfigured: true }));
-vi.mock("@/lib/push/queue", () => ({
+vi.mock("@/lib/notifications/push/config", () => ({ webPushConfigured: true }));
+vi.mock("@/lib/notifications/push/queue", () => ({
   PUSH_JOB_NAME: "deliver_notification",
   pushNotificationQueue: { addBulk },
 }));

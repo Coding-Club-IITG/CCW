@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import {
   ACCESS_LEVELS,
   AUTH_PROVIDERS,
@@ -15,8 +16,10 @@ import {
   DEFAULT_USER_QUERY,
   userQuerySchema,
   type UserQuery,
-} from "@/lib/userQuery";
+} from "@/lib/users/query";
+
 import Button from "@/components/shared/Button";
+
 import styles from "./UserManagement.module.scss";
 
 export default function UserFilters({

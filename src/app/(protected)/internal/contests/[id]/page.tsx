@@ -1,28 +1,32 @@
-import { getContestById } from "@/lib/actions/contests";
-import BlitzRoomClient from "@/components/contests/BlitzRoomClient";
-import ArenaRoomClient from "@/components/contests/ArenaRoomClient";
-import BracketRoomClient from "@/components/contests/BracketRoomClient";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
+
+import { getContestById } from "@/lib/actions/contests";
 import { webEnv } from "@/lib/env/web";
-import { userRateLimitsEnabled } from "@/lib/userRateLimit";
+import { userRateLimitsEnabled } from "@/lib/users/rateLimit";
 import {
   contestRoomStateSchema,
   parseContestRoomProblems,
 } from "@/lib/contests/runtime";
 import type { ContestRoomProblemDto } from "@/lib/contests/dtos";
-import { normalizeAvatar } from "@/lib/utils";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import dbConnect from "@/lib/mongodb";
+import { normalizeAvatar } from "@/lib/users/identity";
+import { auth } from "@/lib/auth/server";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { getRedis } from "@/lib/db/redis";
+import { getBracketSnapshot } from "@/lib/contests/bracket";
+import { isHead } from "@/lib/access/roles";
+
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import User from "@/models/User";
 import CPUser from "@/models/CPUser";
-import { getRedis } from "@/lib/redis";
-import { getBracketSnapshot } from "@/lib/contests/bracket";
-import { isHead } from "@/lib/access/roles";
-import { redirect } from "next/navigation";
-import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
+
+import BlitzRoomClient from "@/components/contests/BlitzRoomClient";
+import ArenaRoomClient from "@/components/contests/ArenaRoomClient";
+import BracketRoomClient from "@/components/contests/BracketRoomClient";
+
 import styles from "./page.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +59,7 @@ export default async function ContestRoomPage({
   const admin = isHead(userRole);
 
   const userId = session.user.id;
-  await dbConnect();
+  await connectMongoDB();
 
   // If matchRoomId is specified (bracket "Enter Room"), load that specific room
   const roomQuery = matchRoomId

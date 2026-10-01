@@ -4,17 +4,19 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { parseSearchParams } from "@/lib/api/result";
 import {
   optionalSearchQuerySchema,
   paginationQueryFields,
 } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
-import dbConnect from "@/lib/mongodb";
-import { paginatedResponse, parsePagination } from "@/lib/pagination";
-import { prepareSearchQuery } from "@/lib/search";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { auth } from "@/lib/auth/server";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { paginatedResponse, parsePagination } from "@/lib/shared/pagination";
+import { prepareSearchQuery } from "@/lib/shared/search";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import User from "@/models/User";
 
 export async function GET(request: NextRequest) {
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
       return jsonOk(paginatedResponse([], 0, 1, 20));
     }
 
-    await dbConnect();
+    await connectMongoDB();
 
     const { page, limit, skip } = parsePagination(searchParams, { limit: 20 });
     const filter = {

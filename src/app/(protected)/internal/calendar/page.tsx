@@ -1,12 +1,15 @@
 import Link from "next/link";
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+
+import { auth } from "@/lib/auth/server";
 import { listCalendarEvents } from "@/lib/actions/calendar";
 import { getCreatableCalendarScopes } from "@/lib/access/calendar";
 import { APP_TIME_ZONE } from "@/lib/constants";
-import { parseManagedModules } from "@/lib/roles";
+import { parseManagedModules } from "@/lib/users/roles";
+
 import CalendarView from "@/components/calendar/CalendarView";
 import type { CalendarEventView } from "@/components/calendar/types";
+
 import styles from "./Calendar.module.scss";
 
 function validMonth(value?: string) {

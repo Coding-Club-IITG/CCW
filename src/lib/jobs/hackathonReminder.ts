@@ -3,15 +3,16 @@
  * Sends notifications to unregistered users 2 days before hackathon deadline.
  */
 
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { notifyMany } from "@/lib/notifications/service";
+import { logger } from "@/lib/telemetry/logger";
+
 import Hackathon from "@/models/Hackathon";
 import HackathonTeam from "@/models/HackathonTeam";
 import User from "@/models/User";
-import { notifyMany } from "@/lib/notify";
-import { logger } from "@/lib/utils";
 
 export async function sendHackathonDeadlineReminders() {
-  await dbConnect();
+  await connectMongoDB();
 
   const now = new Date();
   const twoDaysFromNow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);

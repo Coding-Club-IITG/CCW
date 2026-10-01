@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronRight, Maximize2 } from "lucide-react";
+
 import {
   CLUB_POSITIONS,
   MODULE_ACCENTS,
@@ -11,12 +12,17 @@ import {
   type ModuleName,
   type UserRole,
 } from "@/lib/constants";
-import { githubProfileUrl, normalizeLinkedInUrl } from "@/lib/socialLinks";
-import { getDisplayName } from "@/lib/utils";
+import {
+  githubProfileUrl,
+  normalizeLinkedInUrl,
+} from "@/lib/users/socialLinks";
+import { getDisplayName } from "@/lib/users/identity";
+
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import Sheet from "@/components/shared/Sheet";
 import { IconGithub, IconLinkedIn } from "@/components/shared/Icons";
 import EmptyState from "@/components/shared/EmptyState";
+
 import styles from "./Team.module.scss";
 
 export interface PublicTeamMember {

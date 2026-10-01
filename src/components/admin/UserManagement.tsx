@@ -16,8 +16,8 @@ import {
   userQueryFromParams,
   userQueryParams,
   type UserQuery,
-} from "@/lib/userQuery";
-import { getDisplayName } from "@/lib/utils";
+} from "@/lib/users/query";
+import { getDisplayName } from "@/lib/users/identity";
 import {
   type AdminUserDto as AdminUser,
   addUser,
@@ -27,7 +27,7 @@ import {
   updateUserPizzaCount,
   updateUserRoles,
   updateUserTenure,
-} from "@/lib/actions/user";
+} from "@/lib/actions/users";
 import type { AppResult } from "@/lib/api/result";
 import {
   ACCESS_LEVELS,
@@ -269,7 +269,7 @@ function Members() {
               type="email"
               value={newEmail}
               onChange={(event) => setNewEmail(event.target.value)}
-              placeholder="member@iitg.ac.in"
+              placeholder="@iitg.ac.in / @gmail.com"
               required
             />
           </div>

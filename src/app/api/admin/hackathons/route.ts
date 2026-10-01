@@ -7,9 +7,9 @@ import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeHackathon } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
@@ -21,12 +21,16 @@ import {
   buildCacheKey,
   cachedFetch,
   invalidateCache,
-} from "@/lib/cache";
-import dbConnect from "@/lib/mongodb";
-import { enqueuePushNotifications, notifyMany } from "@/lib/notify";
-import { fetchOgImage } from "@/lib/ogImage";
-import { parsePagination, paginatedResponse } from "@/lib/pagination";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+} from "@/lib/cache/redis";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import {
+  enqueuePushNotifications,
+  notifyMany,
+} from "@/lib/notifications/service";
+import { fetchOgImage } from "@/lib/media/openGraph";
+import { parsePagination, paginatedResponse } from "@/lib/shared/pagination";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import Hackathon from "@/models/Hackathon";
 import User from "@/models/User";
 
@@ -36,7 +40,7 @@ export async function GET(request: NextRequest) {
     if (!authorization.ok) return jsonResult(authorization);
     const user = authorization.data.user;
 
-    await dbConnect();
+    await connectMongoDB();
 
     const { searchParams } = new URL(request.url);
     const query = parseSearchParams(
@@ -156,7 +160,7 @@ export async function POST(request: NextRequest) {
       return jsonError("VALIDATION_ERROR", "Invalid deadline date.");
     }
 
-    await dbConnect();
+    await connectMongoDB();
 
     const validSkills: string[] = [];
     if (Array.isArray(skills)) {

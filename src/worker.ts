@@ -1,27 +1,28 @@
-import "./lib/env";
+import "@/lib/env/load";
 
 import { cfSyncQueue } from "@/lib/contests/queues";
 import { workerEnv } from "@/lib/env/worker";
-import agenda from "@/lib/jobs/agenda";
-import { syncAtCoderRatings } from "@/lib/jobs/acSync";
+import { agenda } from "@/lib/jobs/agenda";
+import { syncAtCoderRatings } from "@/lib/jobs/atcoderRatings";
 import { sendCalendarReminders } from "@/lib/jobs/calendarReminder";
-import { syncCodeforcesRatings } from "@/lib/jobs/cfSync";
+import { syncCodeforcesRatings } from "@/lib/jobs/codeforcesRatings";
 import { syncContests } from "@/lib/jobs/contestSync";
 import { sendHackathonDeadlineReminders } from "@/lib/jobs/hackathonReminder";
 import { cleanupOrphanedImages } from "@/lib/jobs/imageCleanup";
 import { sendPOTDReminders } from "@/lib/jobs/potdReminder";
-import { syncPOTDSubmissions } from "@/lib/jobs/potdSync";
+import { syncPOTDSubmissions } from "@/lib/jobs/potdSubmissions";
 import {
   AGENDA_JOB_SCHEDULES,
   AGENDA_SCHEDULE_OPTIONS,
   NIGHTLY_CF_PROBLEM_SCHEDULE,
 } from "@/lib/jobs/schedules";
-import dbConnect from "@/lib/mongodb";
-import { workerOpsLogger } from "@/lib/telemetry/worker-logger";
-import { logger } from "@/lib/utils";
-import { cfSyncWorker } from "@/lib/workers/cfSyncWorker";
-import { reconciliationWorker } from "@/lib/workers/reconciliationWorker";
-import { pushNotificationWorker } from "@/lib/workers/pushNotificationWorker";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { workerOpsLogger } from "@/lib/telemetry/workerLogger";
+import { logger } from "@/lib/telemetry/logger";
+import { codeforcesSyncWorker } from "@/lib/contests/workers/codeforcesSync";
+import { reconciliationWorker } from "@/lib/contests/workers/reconciliation";
+import { pushNotificationWorker } from "@/lib/notifications/push/worker";
+
 import ContestQuestion from "@/models/ContestQuestion";
 
 function jobCorrelationId(job: {
@@ -47,7 +48,7 @@ async function run() {
   );
 
   // Ensure DB is connected
-  await dbConnect();
+  await connectMongoDB();
 
   // BullMq sync runs at 2
   await cfSyncQueue.upsertJobScheduler(
@@ -167,7 +168,7 @@ async function run() {
     try {
       await Promise.all([
         agenda.stop(),
-        cfSyncWorker.close(),
+        codeforcesSyncWorker.close(),
         reconciliationWorker.close(),
         pushNotificationWorker.close(),
       ]);

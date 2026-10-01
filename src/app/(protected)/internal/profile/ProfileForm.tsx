@@ -3,11 +3,11 @@
 import { Check as IconCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { requestHandleVerification } from "@/lib/actions/cp-verification";
-import { getCPStatus } from "@/lib/actions/cp-status";
-import { updateProfile } from "@/lib/actions/user";
+import { requestHandleVerification } from "@/lib/actions/cpVerification";
+import { getCPStatus } from "@/lib/actions/cpStatus";
+import { updateProfile } from "@/lib/actions/users";
 import { expectAppData } from "@/lib/api/result";
-import { useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth/client";
 
 import ImageUpload from "@/components/shared/ImageUpload";
 import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";

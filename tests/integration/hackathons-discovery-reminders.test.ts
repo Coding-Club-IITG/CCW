@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { responseData } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -10,6 +9,7 @@ import {
   vi,
 } from "vitest";
 
+import { responseData } from "../utils/result";
 import {
   clearTestMongo,
   startTestMongo,
@@ -24,11 +24,13 @@ import {
 const getSession = vi.hoisted(() => vi.fn());
 const notifyMany = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
-vi.mock("@/lib/notify", () => ({ notifyMany }));
-vi.mock("@/lib/cache", async () => {
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/notifications/service", () => ({ notifyMany }));
+vi.mock("@/lib/cache/redis", async () => {
   const actual =
-    await vi.importActual<typeof import("@/lib/cache")>("@/lib/cache");
+    await vi.importActual<typeof import("@/lib/cache/redis")>(
+      "@/lib/cache/redis",
+    );
   return {
     ...actual,
     cachedFetch: vi.fn(

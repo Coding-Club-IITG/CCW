@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Maximize2 } from "lucide-react";
+
 import { excerptPreview } from "@/lib/blog/excerptPreview";
-import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
 import {
   CLUB_POSITIONS,
   CURRENT_TENURE,
@@ -15,10 +16,10 @@ import {
   type ModuleName,
   type ProjectModuleName,
 } from "@/lib/constants";
-import { formatEventDate } from "@/lib/eventDate";
-import { getEventStatus } from "@/lib/eventStatus";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
-import dbConnect from "@/lib/mongodb";
+import { formatEventDate } from "@/lib/events/date";
+import { getEventStatus } from "@/lib/events/status";
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
+import { connectMongoDB } from "@/lib/db/mongodb";
 import {
   CLUB_EMAIL,
   IITG_ADDRESS,
@@ -27,24 +28,23 @@ import {
   SITE_NAME,
   SITE_URL,
   SOCIAL_PROFILES,
-} from "@/lib/seo";
-import {
-  errorToLogMetadata,
-  formatMonthYear,
-  formatShortDate,
-  getDisplayName,
-  logger,
-} from "@/lib/utils";
+} from "@/lib/seo/metadata";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+import { formatMonthYear, formatShortDate } from "@/lib/shared/dates";
+import { getDisplayName } from "@/lib/users/identity";
+
 import BlogPost from "@/models/BlogPost";
 import Event from "@/models/Event";
 import Project from "@/models/Project";
 import User from "@/models/User";
+
 import JsonLd from "@/components/shared/JsonLd";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import FocalImage from "@/components/shared/FocalImage";
 import Reveal from "@/components/public/Reveal";
 import CountUp from "@/components/public/CountUp";
 import ScrollProgress from "@/components/public/ScrollProgress";
+
 import PrismHero from "./PrismHero";
 import ProjectSheet from "./projects/ProjectSheet";
 import styles from "./Home.module.scss";
@@ -127,7 +127,7 @@ const EMPTY: HomeData = {
 };
 
 async function getHomeData(): Promise<HomeData> {
-  await dbConnect();
+  await connectMongoDB();
 
   return cachedFetch(buildCacheKey("home:v4"), CACHE_TTLS.EVENTS, async () => {
     const [

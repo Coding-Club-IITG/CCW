@@ -2,9 +2,9 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { cache, Suspense } from "react";
 
-import { getPublishedRecruitments } from "@/lib/recruitment.server";
-import { ogImage, pageMetadata } from "@/lib/seo";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { getPublishedRecruitments } from "@/lib/recruitment/service.server";
+import { ogImage, pageMetadata } from "@/lib/seo/metadata";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
 import EmptyState from "@/components/shared/EmptyState";
 import InlineNotice from "@/components/shared/InlineNotice";

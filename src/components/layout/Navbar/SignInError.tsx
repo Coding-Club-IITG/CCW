@@ -2,7 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { loginErrorMessage } from "@/lib/authPolicy";
+
+import { loginErrorMessage } from "@/lib/auth/policy";
+
 import Button from "@/components/shared/Button";
 
 const Modal = dynamic(() => import("@/components/shared/Modal"), {

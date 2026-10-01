@@ -28,25 +28,28 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+
 import { readAppResult } from "@/lib/api/result";
 import { canSetPOTD } from "@/lib/access/potd";
 import { isHead } from "@/lib/access/roles";
 import { atlasCatalog, type AtlasCatalogItem } from "@/lib/atlas/catalog";
 import { parseAtlasQuery } from "@/lib/atlas/query";
+import { type AtlasResultKind } from "@/lib/constants";
 import type {
   AtlasPreviewResponse,
   AtlasRelation,
   AtlasResult,
-  AtlasResultKind,
   AtlasSearchResponse,
 } from "@/lib/atlas/types";
-import { useSession } from "@/lib/auth-client";
-import { parseRoles } from "@/lib/roles";
-import { useThemeStore } from "@/lib/store/theme";
-import { useViewModeStore } from "@/lib/store/view-mode";
-import { formatShortDate } from "@/lib/utils";
+import { useSession } from "@/lib/auth/client";
+import { parseRoles } from "@/lib/users/roles";
+import { useThemeStore } from "@/lib/stores/theme";
+import { useViewModeStore } from "@/lib/stores/viewMode";
+import { formatShortDate } from "@/lib/shared/dates";
+
 import { useScrollLock } from "@/components/shared/useScrollLock";
 import { useEscapeLayer } from "@/components/shared/overlayStack";
+
 import styles from "./CommandConsole.module.scss";
 
 type ConsoleContextValue = { open: () => void };

@@ -2,7 +2,7 @@
  * Pure, deterministic scoring/streak engine
  */
 
-import { computePoints } from "@/lib/potd/utils";
+import { computePoints } from "@/lib/potd/scoring";
 
 /** Minimal challenge shape needed for scoring (one difficulty on one day) */
 export interface DeriveChallenge {

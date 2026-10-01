@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+
 import { isHead } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
 import {
@@ -12,8 +13,8 @@ import {
   type AppResult,
   validationError,
 } from "@/lib/api/result";
-import { auth } from "@/lib/auth";
-import { invalidateCache } from "@/lib/cache";
+import { auth } from "@/lib/auth/server";
+import { invalidateCache } from "@/lib/cache/redis";
 import { webEnv } from "@/lib/env/web";
 import { LOGIN_SWITCH_STATUSES } from "@/lib/constants";
 import {
@@ -21,8 +22,9 @@ import {
   mutateLoginSwitch,
   switchDto,
   type LoginRequestDto,
-} from "@/lib/loginSwitch";
-import { consumeUserRateLimit } from "@/lib/userRateLimit";
+} from "@/lib/auth/loginSwitch";
+import { consumeUserRateLimit } from "@/lib/users/rateLimit";
+
 import LoginSwitchRequest from "@/models/LoginSwitchRequest";
 import User from "@/models/User";
 

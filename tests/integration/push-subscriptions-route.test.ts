@@ -22,10 +22,10 @@ const mocks = vi.hoisted(() => ({
   getWebPushConfig: vi.fn(),
 }));
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession: mocks.getSession } },
 }));
-vi.mock("@/lib/push/config", () => ({
+vi.mock("@/lib/notifications/push/config", () => ({
   getWebPushConfig: mocks.getWebPushConfig,
 }));
 

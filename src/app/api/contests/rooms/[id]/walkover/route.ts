@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
-import { auditActor, insertAuditEvent } from "@/lib/audit";
+import { auditActor, insertAuditEvent } from "@/lib/audit/index";
 import { summarizeContest } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
@@ -14,8 +14,8 @@ import {
   processWalkover,
   type DeferredBracketEffect,
 } from "@/lib/contests/bracket";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
 export async function POST(
   request: NextRequest,
@@ -38,7 +38,7 @@ export async function POST(
     if (!body.ok) return jsonResult(body);
     const { winnerTeamId, note } = body.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const { snapshot, deferredEffects } = await mongoose.connection.transaction(
       async (transaction) => {
         const effects: DeferredBracketEffect[] = [];

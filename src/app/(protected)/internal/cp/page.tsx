@@ -1,14 +1,16 @@
-import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
+import { cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { getDisplayName } from "@/lib/users/identity";
+
 import CPUser from "@/models/CPUser";
 import Contest from "@/models/Contest";
-import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
+
 import { type RatingLeaderboardEntry } from "@/components/leaderboard/RatingLeaderboardClient";
 import CPPageClient from "@/components/cp/CPPageClient";
-import { getDisplayName } from "@/lib/utils";
 
 async function getCFLeaderboard(): Promise<RatingLeaderboardEntry[]> {
-  await dbConnect();
+  await connectMongoDB();
   return cachedFetch<RatingLeaderboardEntry[]>(
     "ccw:cp:cf-leaderboard",
     CACHE_TTLS.LEADERBOARDS,
@@ -40,7 +42,7 @@ async function getCFLeaderboard(): Promise<RatingLeaderboardEntry[]> {
 }
 
 async function getACLeaderboard(): Promise<RatingLeaderboardEntry[]> {
-  await dbConnect();
+  await connectMongoDB();
   return cachedFetch<RatingLeaderboardEntry[]>(
     "ccw:cp:ac-leaderboard",
     CACHE_TTLS.LEADERBOARDS,
@@ -72,7 +74,7 @@ async function getACLeaderboard(): Promise<RatingLeaderboardEntry[]> {
 }
 
 async function getContests() {
-  await dbConnect();
+  await connectMongoDB();
   return cachedFetch("ccw:cp:contests", CACHE_TTLS.CONTESTS, async () => {
     const MAX_DURATION = 24 * 60 * 60;
     const contests = await Contest.find({

@@ -2,18 +2,20 @@
  * Shared bootstrap + helpers for POTD maintenance scripts
  */
 
-import "../src/lib/env";
-import { cliEnv } from "../src/lib/env/cli";
+import "@/lib/env/load";
 
 import mongoose from "mongoose";
 import path from "path";
 import fs from "fs";
-import User from "../src/models/User";
-import CPUser from "../src/models/CPUser";
-import Problem from "../src/models/POTDProblem";
-import DailyChallenge from "../src/models/POTDDailyChallenge";
-import POTDSubmission from "../src/models/POTDSubmission";
-import POTDOutage from "../src/models/POTDOutage";
+
+import { cliEnv } from "@/lib/env/cli";
+
+import User from "@/models/User";
+import CPUser from "@/models/CPUser";
+import Problem from "@/models/POTDProblem";
+import DailyChallenge from "@/models/POTDDailyChallenge";
+import POTDSubmission from "@/models/POTDSubmission";
+import POTDOutage from "@/models/POTDOutage";
 
 export {
   mongoose,

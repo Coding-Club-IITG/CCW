@@ -10,6 +10,7 @@ import {
 } from "vitest";
 
 import AuditLog from "@/models/AuditLog";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -19,7 +20,7 @@ import { responseData, responseError } from "../utils/result";
 
 const getSession = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession } },
 }));
 

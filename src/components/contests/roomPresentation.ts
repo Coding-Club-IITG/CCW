@@ -1,5 +1,5 @@
 import type { ContestRoomTeamDto } from "@/lib/contests/dtos";
-import { getDisplayName } from "@/lib/utils";
+import { getDisplayName } from "@/lib/users/identity";
 
 export function getDisplayTeamName(
   team: ContestRoomTeamDto | undefined,

@@ -23,11 +23,8 @@ import "@xyflow/react/dist/style.css";
 
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { expectAppData } from "@/lib/api/result";
-import {
-  getRoundName,
-  type BracketNode,
-  type BracketSnapshot,
-} from "@/types/bracket";
+import { getRoundName } from "@/lib/contests/bracketLayout";
+import type { BracketNode, BracketSnapshot } from "@/lib/contests/types";
 
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";

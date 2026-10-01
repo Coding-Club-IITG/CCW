@@ -18,7 +18,7 @@ import {
 import { useEffect, useState } from "react";
 
 import { type ContestListingItem } from "@/lib/actions/contests";
-import { formatDayTime, formatShortDate } from "@/lib/utils";
+import { formatDayTime, formatShortDate } from "@/lib/shared/dates";
 
 import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
 import SegmentedControl from "@/components/shared/SegmentedControl";

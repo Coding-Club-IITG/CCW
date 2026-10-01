@@ -22,6 +22,9 @@
   `route.ts` lowercase.
 - Use TypeScript domain types for inputs, outputs, and shared data. Avoid `any`
   except at unavoidable external-library boundaries.
+- Colocate types with the module that owns them. Use a feature's `types.ts` or
+  `dtos.ts` when several modules share a contract, and use `import type` for
+  type-only dependencies.
 - Put shared enums, literal unions, display maps, and URL patterns in
   `src/lib/constants.ts`. Do not create parallel definitions.
 - Use existing repository helpers for roles, logging, caching, pagination,
@@ -91,7 +94,7 @@
   unless a feature explicitly requires another timezone.
 - Use `pnpm` only. Do not generate npm or Yarn lockfiles.
 - Update `.env.example` when configuration changes.
-- Import `src/lib/env` before other application modules in standalone entry
+- Import `@/lib/env/load` before other application modules in standalone entry
   points so environment variables are loaded before dependent modules execute.
 - Never commit credentials, production secrets, local `.env*` files, or
   sensitive user data.

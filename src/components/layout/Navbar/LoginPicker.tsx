@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { signIn } from "@/lib/auth-client";
+
+import { signIn } from "@/lib/auth/client";
 import { AUTH_PROVIDER_LABELS, type AuthProvider } from "@/lib/constants";
+
 import { useRuntimeConfig } from "@/components/layout/Providers";
 import { useEscapeLayer } from "@/components/shared/overlayStack";
+
 import styles from "./Navbar.module.scss";
 
 export default function LoginPicker({

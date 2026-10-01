@@ -1,18 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
+
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
 import { MODULE_ACCENTS, PROJECT_MODULES } from "@/lib/constants";
 import type { ProjectModuleName, ProjectStatus } from "@/lib/constants";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
-import dbConnect from "@/lib/mongodb";
-import { pageMetadata, SITE_URL } from "@/lib/seo";
-import { errorToLogMetadata, formatMonthYear, logger } from "@/lib/utils";
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { pageMetadata, SITE_URL } from "@/lib/seo/metadata";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+import { formatMonthYear } from "@/lib/shared/dates";
+
 import Project from "@/models/Project";
+
 import EmptyState from "@/components/shared/EmptyState";
 import FilterChips from "@/components/shared/FilterChips";
 import PageHeader from "@/components/public/PageHeader";
 import JsonLd from "@/components/shared/JsonLd";
+
 import ProjectRow, { type ProjectRowData } from "./ProjectRow";
 import styles from "./Projects.module.scss";
 
@@ -59,7 +64,7 @@ function liveLabel(url?: string) {
 }
 
 async function getProjects(): Promise<ListedProject[]> {
-  await dbConnect();
+  await connectMongoDB();
 
   return cachedFetch(
     buildCacheKey("projects:public:v2"),

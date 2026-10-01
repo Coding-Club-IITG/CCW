@@ -22,7 +22,7 @@ import type {
   RoomActivityDto,
   RoomEventPayloadDto,
 } from "@/lib/contests/dtos";
-import { getDisplayName } from "@/lib/utils";
+import { getDisplayName } from "@/lib/users/identity";
 
 import {
   getContestRoomResultsPath,

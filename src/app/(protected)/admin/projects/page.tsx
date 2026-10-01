@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { deleteProject } from "@/lib/actions/admin/projects";
 import { expectAppData } from "@/lib/api/result";
 import type { ProjectStatus } from "@/lib/constants";
-import { formatMonthYear } from "@/lib/utils";
+import { formatMonthYear } from "@/lib/shared/dates";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Pagination from "@/components/shared/Pagination";

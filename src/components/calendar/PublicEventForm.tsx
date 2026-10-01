@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+
 import {
   createPublicEvent,
   setPublicEventStatus,
@@ -12,10 +13,12 @@ import type { EventPublicationStatus } from "@/lib/constants";
 import {
   DEFAULT_IMAGE_FOCAL_POINT,
   type ImageFocalPoint,
-} from "@/lib/imageFocalPoint";
+} from "@/lib/media/focalPoint";
+
 import ImageUpload from "@/components/shared/ImageUpload";
 import MarkdownEditor from "@/components/shared/MarkdownEditor";
 import TagEditor from "@/components/shared/TagEditor";
+
 import styles from "./PublicEventForm.module.scss";
 
 interface ExistingPublicEvent {

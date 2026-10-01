@@ -6,7 +6,7 @@ import type { OnMount } from "@monaco-editor/react";
 
 import type { CodeRunnerLanguage } from "@/lib/constants";
 import { CODE_RUNNER_DEFAULT_CODE } from "@/lib/constants";
-import { useThemeStore } from "@/lib/store/theme";
+import { useThemeStore } from "@/lib/stores/theme";
 
 import styles from "./CodeRunner.module.scss";
 

@@ -3,7 +3,12 @@ import { Handjet, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 
 import { webEnv } from "@/lib/env/web";
-import { ogImage, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
+import {
+  ogImage,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/seo/metadata";
 
 import Providers from "@/components/layout/Providers";
 

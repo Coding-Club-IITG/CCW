@@ -5,7 +5,7 @@ import { ExternalLink as IconExternalLink } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { expectAppData } from "@/lib/api/result";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/shared/dates";
 
 import Pagination from "@/components/shared/Pagination";
 import SearchInput from "@/components/shared/SearchInput";

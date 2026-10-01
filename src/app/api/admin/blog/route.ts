@@ -8,9 +8,9 @@ import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizePublicContent } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
@@ -23,14 +23,15 @@ import {
   buildCacheKey,
   cachedFetch,
   invalidateCache,
-} from "@/lib/cache";
+} from "@/lib/cache/redis";
 import { BLOG_STATUSES, type BlogStatus } from "@/lib/constants";
-import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
-import dbConnect from "@/lib/mongodb";
-import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/tagUtils";
-import { parsePagination, paginatedResponse } from "@/lib/pagination";
-import { findUniqueSlug, titleToSlug } from "@/lib/slug";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { parseImageFocalPoint } from "@/lib/media/focalPoint";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { DEFAULT_TAG_MAX_LENGTH, normalizeTags } from "@/lib/shared/tags";
+import { parsePagination, paginatedResponse } from "@/lib/shared/pagination";
+import { findUniqueSlug, titleToSlug } from "@/lib/shared/slug";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import BlogPost from "@/models/BlogPost";
 
 async function uniqueSlug(base: string): Promise<string> {
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
     if (!authorization.ok) return jsonResult(authorization);
     const user = authorization.data.user;
 
-    await dbConnect();
+    await connectMongoDB();
 
     const { searchParams } = new URL(request.url);
     const query = parseSearchParams(
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
         ? (status as BlogStatus)
         : "draft";
 
-    await dbConnect();
+    await connectMongoDB();
 
     const slug = await uniqueSlug(titleToSlug(title.trim()));
 

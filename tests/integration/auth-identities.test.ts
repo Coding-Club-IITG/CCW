@@ -8,8 +8,10 @@ import {
   it,
   vi,
 } from "vitest";
+
 import User from "@/models/User";
 import LoginSwitchRequest from "@/models/LoginSwitchRequest";
+
 import {
   startTestMongo,
   createTestAuthIndexes,
@@ -53,15 +55,17 @@ vi.mock("better-auth/social-providers", async (importOriginal) => {
     verifyGoogleIdToken: async () => (providerBoundary.validToken ? {} : null),
   };
 });
-vi.mock("@/lib/userRateLimit", () => ({
+vi.mock("@/lib/users/rateLimit", () => ({
   consumeUserRateLimit: async () => ({ allowed: true }),
 }));
-vi.mock("@/lib/push/config", () => ({ webPushConfigured: false }));
-vi.mock("@/lib/push/queue", () => ({
+vi.mock("@/lib/notifications/push/config", () => ({
+  webPushConfigured: false,
+}));
+vi.mock("@/lib/notifications/push/queue", () => ({
   pushNotificationQueue: { addBulk: vi.fn() },
 }));
 
-let auth: typeof import("@/lib/auth").auth;
+let auth: typeof import("@/lib/auth/server").auth;
 const origin = "http://127.0.0.1:3000";
 function cookieHeader(response: Response) {
   return response.headers
@@ -147,7 +151,7 @@ describe("approved Better Auth identities and endpoints", () => {
         throw new Error("Unexpected OAuth network call");
       }),
     );
-    ({ auth } = await import("@/lib/auth"));
+    ({ auth } = await import("@/lib/auth/server"));
   });
   afterEach(async () => {
     await clearTestMongo();

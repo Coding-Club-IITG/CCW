@@ -1,6 +1,8 @@
-import dbConnect from "@/lib/mongodb";
-import ContestPreset from "@/models/ContestPreset";
+import { connectMongoDB } from "@/lib/db/mongodb";
 import { toContestPresetDto } from "@/lib/contests/dtos";
+
+import ContestPreset from "@/models/ContestPreset";
+
 import ContestWizard from "@/components/admin/contests/ContestWizard";
 
 export const metadata = {
@@ -9,7 +11,7 @@ export const metadata = {
 };
 
 export default async function NewContestPage() {
-  await dbConnect();
+  await connectMongoDB();
   // Fetch active (non-archived) presets
   const presetsJson = await ContestPreset.find({ archived: { $ne: true } })
     .sort({ name: 1 })

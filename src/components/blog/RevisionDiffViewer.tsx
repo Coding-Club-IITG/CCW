@@ -16,7 +16,8 @@ import type { BlogContent, BlogSnapshot } from "@/lib/blog/types";
 import {
   parseImageFocalPoint,
   type ImageFocalPoint,
-} from "@/lib/imageFocalPoint";
+} from "@/lib/media/focalPoint";
+
 import FocalImage from "@/components/shared/FocalImage";
 
 import styles from "./RevisionDiffViewer.module.scss";

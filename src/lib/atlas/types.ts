@@ -1,22 +1,4 @@
-import type { ModuleName } from "@/lib/constants";
-
-export const ATLAS_RESULT_KINDS = [
-  "route",
-  "command",
-  "module",
-  "post",
-  "event",
-  "project",
-  "team",
-  "calendar",
-  "file",
-  "notification",
-  "hackathon",
-  "potd",
-  "contest",
-] as const;
-
-export type AtlasResultKind = (typeof ATLAS_RESULT_KINDS)[number];
+import type { AtlasResultKind, ModuleName } from "@/lib/constants";
 
 export type AtlasAction = {
   label: string;

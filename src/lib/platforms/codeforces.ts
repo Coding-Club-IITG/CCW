@@ -4,8 +4,9 @@
  */
 
 import { cp, type CFSubmission } from "@ronits2407/cp-api";
-import { getRedis } from "@/lib/redis";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+
+import { getRedis } from "@/lib/db/redis";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 import { sharedServerEnv } from "@/lib/env/shared";
 
 const DISTRIBUTED_CODEFORCES_SLOT_KEY = "ccw:platform:codeforces:request-slot";

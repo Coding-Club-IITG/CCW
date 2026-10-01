@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+
+import { auth } from "@/lib/auth/server";
 import { parseSearchParams } from "@/lib/api/result";
 import {
   boundaryErrorResponse,
@@ -10,8 +11,10 @@ import {
 } from "@/lib/api/result.server";
 import { parseAtlasQuery } from "@/lib/atlas/query";
 import { searchAtlas, type AtlasSessionUser } from "@/lib/atlas/search.server";
-import { ATLAS_RESULT_KINDS, type AtlasRelation } from "@/lib/atlas/types";
-import dbConnect from "@/lib/mongodb";
+import { ATLAS_RESULT_KINDS } from "@/lib/constants";
+import type { AtlasRelation } from "@/lib/atlas/types";
+import { connectMongoDB } from "@/lib/db/mongodb";
+
 import CalendarEvent from "@/models/CalendarEvent";
 import Event from "@/models/Event";
 
@@ -78,7 +81,7 @@ export async function GET(request: NextRequest) {
     const seen = new Set([`${item.kind}:${item.id}`]);
     const relations: AtlasRelation[] = [];
     if (item.kind === "event" && user) {
-      await dbConnect();
+      await connectMongoDB();
       const event = await Event.findById(item.id)
         .select("calendarEventId")
         .lean();

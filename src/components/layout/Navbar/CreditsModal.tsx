@@ -13,11 +13,13 @@ import {
 } from "lucide-react";
 
 import { getCredits, saveCredits } from "@/lib/actions/credits";
-import { CreditSection } from "@/lib/credits";
+import { CreditSection } from "@/lib/credits/entries";
+
 import Button from "@/components/shared/Button";
 import Modal from "@/components/shared/Modal";
 import UserAvatar from "@/components/shared/UserAvatar";
 import UserSearch from "@/components/shared/UserSearch";
+
 import styles from "./CreditsModal.module.scss";
 
 interface CreditsModalProps {

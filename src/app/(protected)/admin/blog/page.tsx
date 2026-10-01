@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 
 import { expectAppData } from "@/lib/api/result";
 import type { BlogStatus } from "@/lib/constants";
-import { formatShortDate } from "@/lib/utils";
+import { formatShortDate } from "@/lib/shared/dates";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Pagination from "@/components/shared/Pagination";

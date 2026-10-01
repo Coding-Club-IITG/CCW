@@ -2,18 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+
 import {
   cancelLoginSwitch,
   getOwnLoginSwitch,
   submitLoginSwitch,
 } from "@/lib/actions/loginSwitch";
 import { expectAppData } from "@/lib/api/result";
-import { signIn } from "@/lib/auth-client";
-import { providerForEmail } from "@/lib/authPolicy";
+import { signIn } from "@/lib/auth/client";
+import { providerForEmail } from "@/lib/auth/policy";
 import { AUTH_PROVIDER_LABELS } from "@/lib/constants";
-import type { LoginSwitchDto } from "@/lib/loginSwitch";
+import type { LoginSwitchDto } from "@/lib/auth/loginSwitch";
+
 import { useRuntimeConfig } from "@/components/layout/Providers";
 import Button from "@/components/shared/Button";
+
 import styles from "./ProfileForm.module.scss";
 
 export default function SignInMethod({ email }: { email: string }) {

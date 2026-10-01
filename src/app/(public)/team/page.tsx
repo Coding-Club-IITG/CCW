@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
+
+import { cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
 import { toBsonSafe } from "@/lib/api/result";
 import { CURRENT_TENURE } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { logger } from "@/lib/utils";
-import { pageMetadata } from "@/lib/seo";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { logger } from "@/lib/telemetry/logger";
+import { pageMetadata } from "@/lib/seo/metadata";
+
 import User from "@/models/User";
+
 import PageHeader from "@/components/public/PageHeader";
+
 import TeamRosters, { type PublicTeamMember } from "./TeamRosters";
 import styles from "./Team.module.scss";
 
@@ -20,7 +24,7 @@ export default async function TeamPage() {
   let members: PublicTeamMember[] = [];
   let fetchError = false;
   try {
-    await dbConnect();
+    await connectMongoDB();
     members = await cachedFetch(
       "ccw:team:rosters:v3",
       CACHE_TTLS.TEAM,

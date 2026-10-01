@@ -8,30 +8,34 @@ import {
   it,
   vi,
 } from "vitest";
-import {
-  startTestMongo,
-  createTestAuthIndexes,
-  clearTestMongo,
-  stopTestMongo,
-} from "../utils/mongodb";
+
 import User from "@/models/User";
 import LoginSwitchRequest from "@/models/LoginSwitchRequest";
 import AuditLog from "@/models/AuditLog";
 import Notification from "@/models/Notification";
 import CPUser from "@/models/CPUser";
 
+import {
+  startTestMongo,
+  createTestAuthIndexes,
+  clearTestMongo,
+  stopTestMongo,
+} from "../utils/mongodb";
+
 const getSession = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/userRateLimit", () => ({
+vi.mock("@/lib/users/rateLimit", () => ({
   consumeUserRateLimit: async () => ({ allowed: true }),
 }));
-vi.mock("@/lib/push/config", () => ({ webPushConfigured: false }));
-vi.mock("@/lib/push/queue", () => ({
+vi.mock("@/lib/notifications/push/config", () => ({
+  webPushConfigured: false,
+}));
+vi.mock("@/lib/notifications/push/queue", () => ({
   pushNotificationQueue: { addBulk: vi.fn() },
 }));
-vi.mock("@/lib/cache", () => ({ invalidateCache: vi.fn() }));
+vi.mock("@/lib/cache/redis", () => ({ invalidateCache: vi.fn() }));
 
 async function member(name = "Member", access: "Member" | "Admin" = "Member") {
   const user = await User.create({
@@ -43,7 +47,7 @@ async function member(name = "Member", access: "Member" | "Admin" = "Member") {
     pizza_count: 3,
     bio: "History",
   });
-  const store = await import("@/lib/authStore");
+  const store = await import("@/lib/auth/identityStore");
   const { accounts, sessions } = await store.authCollections();
   await accounts.insertOne({
     userId: user._id,
@@ -77,7 +81,7 @@ async function draft(
   fixture: Awaited<ReturnType<typeof member>>,
   email = "alumni@gmail.com",
 ) {
-  const { verifySwitchDraft } = await import("@/lib/loginSwitch");
+  const { verifySwitchDraft } = await import("@/lib/auth/loginSwitch");
   return verifySwitchDraft(fixture.actor, fixture.sourceSession, {
     email,
     id: `google-${email}`,
@@ -87,7 +91,7 @@ async function draft(
 async function submitted() {
   const fixture = await member();
   const request = await draft(fixture);
-  const { mutateLoginSwitch } = await import("@/lib/loginSwitch");
+  const { mutateLoginSwitch } = await import("@/lib/auth/loginSwitch");
   await mutateLoginSwitch(
     fixture.actor,
     request.id,
@@ -125,7 +129,7 @@ describe("verified login switching", () => {
       saved!.expiresAt.getTime() - saved!.verifiedAt.getTime(),
     ).toBeLessThanOrEqual(600000);
     const { accounts, sessions } = await (
-      await import("@/lib/authStore")
+      await import("@/lib/auth/identityStore")
     ).authCollections();
     expect(await accounts.countDocuments({ providerId: "google" })).toBe(0);
     expect(await sessions.countDocuments()).toBe(1);
@@ -137,7 +141,7 @@ describe("verified login switching", () => {
 
   it("requires a recent institute session, verified Gmail and the initiating user", async () => {
     const fixture = await member();
-    const { verifySwitchDraft } = await import("@/lib/loginSwitch");
+    const { verifySwitchDraft } = await import("@/lib/auth/loginSwitch");
     const google = {
       email: "alumni@gmail.com",
       id: "google",
@@ -197,7 +201,7 @@ describe("verified login switching", () => {
     const reviewer = await member("Reviewer", "Admin");
     const fixture = await submitted();
     await CPUser.create({ userId: fixture.user.id, cfHandle: "preserved" });
-    const { mutateLoginSwitch } = await import("@/lib/loginSwitch");
+    const { mutateLoginSwitch } = await import("@/lib/auth/loginSwitch");
     const results = await Promise.allSettled([
       mutateLoginSwitch(reviewer.actor, fixture.request.id, "approve"),
       mutateLoginSwitch(reviewer.actor, fixture.request.id, "approve"),
@@ -217,7 +221,7 @@ describe("verified login switching", () => {
     });
     expect(await CPUser.countDocuments({ userId: fixture.user.id })).toBe(1);
     const { accounts, sessions } = await (
-      await import("@/lib/authStore")
+      await import("@/lib/auth/identityStore")
     ).authCollections();
     expect(await sessions.countDocuments({ userId: fixture.user._id })).toBe(0);
     expect(await accounts.findOne({ userId: fixture.user._id })).toMatchObject({
@@ -245,7 +249,7 @@ describe("verified login switching", () => {
 
   it("rejects unauthorized, self and repeated reviews", async () => {
     const fixture = await submitted();
-    const { mutateLoginSwitch } = await import("@/lib/loginSwitch");
+    const { mutateLoginSwitch } = await import("@/lib/auth/loginSwitch");
     await expect(
       mutateLoginSwitch(fixture.actor, fixture.request.id, "approve"),
     ).rejects.toThrow();
@@ -277,7 +281,7 @@ describe("verified login switching", () => {
   it("cancels and expires requests without changing institute access", async () => {
     const fixture = await submitted();
     const { mutateLoginSwitch, expireLoginSwitchRequests } =
-      await import("@/lib/loginSwitch");
+      await import("@/lib/auth/loginSwitch");
     await mutateLoginSwitch(fixture.actor, fixture.request.id, "cancel");
     const replacement = await draft(fixture, "replacement@gmail.com");
     await mutateLoginSwitch(
@@ -306,7 +310,7 @@ describe("verified login switching", () => {
   it("rechecks destination availability and rolls everything back when audit persistence fails", async () => {
     const fixture = await submitted();
     const reviewer = await member("Reviewer", "Admin");
-    const { mutateLoginSwitch } = await import("@/lib/loginSwitch");
+    const { mutateLoginSwitch } = await import("@/lib/auth/loginSwitch");
     const taken = await User.create({ email: "alumni@gmail.com" });
     await expect(
       mutateLoginSwitch(reviewer.actor, fixture.request.id, "approve"),
@@ -325,7 +329,7 @@ describe("verified login switching", () => {
       (await LoginSwitchRequest.findById(fixture.request.id))!.status,
     ).toBe("pending");
     const { sessions, accounts } = await (
-      await import("@/lib/authStore")
+      await import("@/lib/auth/identityStore")
     ).authCollections();
     expect(await sessions.countDocuments({ userId: fixture.user._id })).toBe(1);
     expect(
@@ -366,7 +370,7 @@ describe("verified login switching", () => {
     const second = await member("Second");
     const secondRequest = await draft(second);
     const reviewer = await member("Reviewer", "Admin");
-    const { mutateLoginSwitch } = await import("@/lib/loginSwitch");
+    const { mutateLoginSwitch } = await import("@/lib/auth/loginSwitch");
     await mutateLoginSwitch(
       second.actor,
       secondRequest.id,
@@ -396,7 +400,7 @@ describe("verified login switching", () => {
     const fixture = await member();
     const request = await draft(fixture);
     const reviewer = await member("Reviewer", "Admin");
-    const { mutateLoginSwitch } = await import("@/lib/loginSwitch");
+    const { mutateLoginSwitch } = await import("@/lib/auth/loginSwitch");
     await expect(
       mutateLoginSwitch(
         fixture.actor,
@@ -425,7 +429,7 @@ describe("verified login switching", () => {
       { $set: { expiresAt: new Date(Date.now() + 100000) } },
     );
     const { accounts } = await (
-      await import("@/lib/authStore")
+      await import("@/lib/auth/identityStore")
     ).authCollections();
     await accounts.updateOne(
       { userId: fixture.user._id },
@@ -442,7 +446,7 @@ describe("verified login switching", () => {
     await draft(second, "second@gmail.com");
     const cancelled = await member("Cancelled");
     const cancelledDraft = await draft(cancelled, "cancelled@gmail.com");
-    const { mutateLoginSwitch } = await import("@/lib/loginSwitch");
+    const { mutateLoginSwitch } = await import("@/lib/auth/loginSwitch");
     await mutateLoginSwitch(cancelled.actor, cancelledDraft.id, "cancel");
     const expired = await member("Expired");
     const expiredDraft = await draft(expired, "expired@gmail.com");

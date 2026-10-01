@@ -11,16 +11,20 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeNotification } from "@/lib/audit/summary";
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { jsonObjectSchema } from "@/lib/api/schemas/boundary";
 import { MODULES } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
-import { enqueuePushNotifications, notifyMany } from "@/lib/notify";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import {
+  enqueuePushNotifications,
+  notifyMany,
+} from "@/lib/notifications/service";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import User from "@/models/User";
 
 export async function POST(request: NextRequest) {
@@ -67,7 +71,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await dbConnect();
+    await connectMongoDB();
 
     let userFilter: Record<string, any> = {};
 

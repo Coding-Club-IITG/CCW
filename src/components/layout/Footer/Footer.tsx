@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { Mail as IconMail } from "lucide-react";
-import { CLUB_EMAIL, IITG_ADDRESS, SOCIAL_PROFILES } from "@/lib/seo";
+
+import { CLUB_EMAIL, IITG_ADDRESS, SOCIAL_PROFILES } from "@/lib/seo/metadata";
+
 import {
   IconCCLogo,
   IconGithub,
   IconInstagram,
   IconLinkedIn,
 } from "@/components/shared/Icons";
+
 import styles from "./Footer.module.scss";
 
 const EXPLORE = [

@@ -8,12 +8,12 @@ import { headers } from "next/headers";
 
 import { canSetPOTD } from "@/lib/access/potd";
 import { defineAction } from "@/lib/actions/defineAction";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizePOTD } from "@/lib/audit/summary";
 import { err as appError, ok } from "@/lib/api/result";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/server";
 import { IST_OFFSET_MS, type Platform } from "@/lib/constants";
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
 import { getProblemById } from "@/lib/platforms/atcoder";
 import {
   fetchProblemContentForScheduling,
@@ -25,10 +25,11 @@ import {
   computeWindowTimes,
   getTodayISTDateStr,
   windowStartToISTDateStr,
-} from "@/lib/potd/utils";
-import { getRedis } from "@/lib/redis";
-import { parseRoles } from "@/lib/roles";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+} from "@/lib/potd/schedule";
+import { getRedis } from "@/lib/db/redis";
+import { parseRoles } from "@/lib/users/roles";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import CPUser from "@/models/CPUser";
 import ContestQuestion from "@/models/ContestQuestion";
 import DailyChallenge from "@/models/POTDDailyChallenge";
@@ -151,7 +152,7 @@ async function setDailyProblemAction(
       "Cannot schedule more than 10 days in advance",
     );
 
-  await dbConnect();
+  await connectMongoDB();
 
   const { windowStart, windowEnd, graceEnd } = computeWindowTimes(dateStr);
 
@@ -416,7 +417,7 @@ async function getScheduledChallengesAction() {
   const session = await checkAdmin();
   if (!session) return appError("FORBIDDEN", "Forbidden");
 
-  await dbConnect();
+  await connectMongoDB();
 
   const todayIST = getTodayISTDateStr();
   const { windowStart: todayWindowStart } = computeWindowTimes(todayIST);
@@ -460,7 +461,7 @@ async function deleteScheduledChallengeAction(challengeId: string) {
   const session = await checkAdmin();
   if (!session) return appError("FORBIDDEN", "Forbidden");
 
-  await dbConnect();
+  await connectMongoDB();
 
   const challenge = await DailyChallenge.findById(challengeId);
   if (!challenge) return appError("NOT_FOUND", "Challenge not found");
@@ -529,7 +530,7 @@ async function getPendingSubmissionsAction(challengeId: string) {
   const session = await checkAdmin();
   if (!session) return appError("FORBIDDEN", "Forbidden");
 
-  await dbConnect();
+  await connectMongoDB();
 
   const subs = await POTDSubmission.find({
     challengeId,
@@ -569,7 +570,7 @@ async function forceSyncUserAction(targetUserId: string, challengeId: string) {
   const session = await checkAdmin();
   if (!session) return appError("FORBIDDEN", "Forbidden");
 
-  await dbConnect();
+  await connectMongoDB();
 
   const targetUser = await User.findById(targetUserId);
   if (!targetUser) return appError("NOT_FOUND", "User not found");
@@ -716,7 +717,7 @@ async function autoFetchPOTDCandidatesAction(
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 
-  await dbConnect();
+  await connectMongoDB();
 
   // Get all used POTD problem IDs to avoid repeating problems
   const usedProblems = await Problem.find({});
@@ -815,7 +816,7 @@ async function bulkSetDailyProblemsAction(
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 
-  await dbConnect();
+  await connectMongoDB();
   const dbSession = await mongoose.startSession();
   let outcome: { count: number; errors: string[] };
   try {

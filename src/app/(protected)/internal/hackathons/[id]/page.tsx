@@ -8,8 +8,9 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
-import { useSession } from "@/lib/auth-client";
-import { formatDate, getDisplayName } from "@/lib/utils";
+import { useSession } from "@/lib/auth/client";
+import { formatDate } from "@/lib/shared/dates";
+import { getDisplayName } from "@/lib/users/identity";
 
 import BackLink from "@/components/shared/BackLink";
 import CompatibleImage from "@/components/shared/CompatibleImage";

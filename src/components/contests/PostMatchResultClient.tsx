@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 
-import { getDisplayName } from "@/lib/utils";
+import { getDisplayName } from "@/lib/users/identity";
 
 import BackLink from "@/components/shared/BackLink";
 import UserAvatar from "@/components/shared/UserAvatar";

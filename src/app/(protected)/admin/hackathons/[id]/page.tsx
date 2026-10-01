@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 
 import { expectAppData } from "@/lib/api/result";
-import { formatDate, getDisplayName } from "@/lib/utils";
+import { formatDate } from "@/lib/shared/dates";
+import { getDisplayName } from "@/lib/users/identity";
 
 import BackLink from "@/components/shared/BackLink";
+import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 import styles from "../Hackathons.module.scss";
-import { FormSkeletonContent } from "@/components/shared/skeletons/FormSkeleton";
 
 interface Team {
   _id: string;

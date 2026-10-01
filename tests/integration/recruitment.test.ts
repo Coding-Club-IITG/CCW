@@ -14,9 +14,11 @@ import {
 
 import { expectAppData } from "@/lib/api/result";
 import { MODULES, type ModuleName } from "@/lib/constants";
-import type { RecruitmentDto } from "@/lib/recruitment";
+import type { RecruitmentDto } from "@/lib/recruitment/public";
+
 import AuditLog from "@/models/AuditLog";
 import Recruitment from "@/models/Recruitment";
+
 import { fileSession } from "../fixtures/files";
 import { recruitmentPdf } from "../fixtures/recruitment";
 import {
@@ -37,11 +39,11 @@ const { getSession, cache, invalidateCache, revalidatePath } = vi.hoisted(
     revalidatePath: vi.fn(),
   }),
 );
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath }));
-vi.mock("@/lib/cache", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@/lib/cache")>();
+vi.mock("@/lib/cache/redis", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/cache/redis")>();
   return {
     ...original,
     invalidateCache,
@@ -75,7 +77,7 @@ let collection: typeof import("@/app/api/admin/recruitment/route");
 let item: typeof import("@/app/api/admin/recruitment/[id]/route");
 let documents: typeof import("@/app/api/admin/recruitment/[id]/documents/route");
 let stream: typeof import("@/app/api/recruitment/documents/[id]/route");
-let server: typeof import("@/lib/recruitment.server");
+let server: typeof import("@/lib/recruitment/service.server");
 
 function uploadRequest(
   module: ModuleName = MODULES[0],
@@ -136,7 +138,7 @@ describe("recruitment editions and public PDF boundary", () => {
     documents =
       await import("@/app/api/admin/recruitment/[id]/documents/route");
     stream = await import("@/app/api/recruitment/documents/[id]/route");
-    server = await import("@/lib/recruitment.server");
+    server = await import("@/lib/recruitment/service.server");
     invalidateCache.mockImplementation(() => {
       cache.clear();
     });

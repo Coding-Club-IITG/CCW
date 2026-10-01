@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { responseData } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -9,6 +8,8 @@ import {
   it,
   vi,
 } from "vitest";
+
+import { responseData } from "../utils/result";
 import {
   clearTestMongo,
   startTestMongo,
@@ -16,9 +17,11 @@ import {
 } from "../utils/mongodb";
 import { blogPost } from "../fixtures/blogs";
 
-vi.mock("@/lib/cache", async () => {
+vi.mock("@/lib/cache/redis", async () => {
   const actual =
-    await vi.importActual<typeof import("@/lib/cache")>("@/lib/cache");
+    await vi.importActual<typeof import("@/lib/cache/redis")>(
+      "@/lib/cache/redis",
+    );
   return {
     ...actual,
     cachedFetch: vi.fn(

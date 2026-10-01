@@ -5,7 +5,8 @@ import { canEditBlogDraft } from "@/lib/access/blog";
 import { parseSearchParams } from "@/lib/api/result";
 import { createImageUploadHandler } from "@/lib/api/uploads/image";
 import { webEnv } from "@/lib/env/web";
-import dbConnect from "@/lib/mongodb";
+import { connectMongoDB } from "@/lib/db/mongodb";
+
 import BlogPost from "@/models/BlogPost";
 
 export const runtime = "nodejs";
@@ -31,7 +32,7 @@ export const POST = createImageUploadHandler({
     if (!query.ok) return false;
     const slug = query.data.slug;
 
-    await dbConnect();
+    await connectMongoDB();
     const post = await BlogPost.findOne({ slug }).select("status authors");
     return Boolean(post && canEditBlogDraft(user as any, post));
   },

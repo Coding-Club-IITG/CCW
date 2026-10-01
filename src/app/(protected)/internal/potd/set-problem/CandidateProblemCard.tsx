@@ -1,9 +1,12 @@
-import styles from "./AutoProblemModal.module.scss";
-import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
 import { RefreshCw, ExternalLink } from "lucide-react";
+
 import { PLATFORM_PROBLEM_URLS } from "@/lib/constants";
-import { formatDate } from "@/lib/potd/utils";
+import { formatDate } from "@/lib/potd/schedule";
 import type { POTDCandidateResult } from "@/lib/actions/admin/potd";
+
+import { DifficultyBadge } from "@/components/shared/DifficultyBadge";
+
+import styles from "./AutoProblemModal.module.scss";
 
 interface CandidateProblemCardProps {
   item: POTDCandidateResult;

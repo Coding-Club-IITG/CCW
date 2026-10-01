@@ -5,6 +5,7 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
 import {
@@ -12,11 +13,12 @@ import {
   optionalSearchQuerySchema,
   paginationQueryFields,
 } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
-import dbConnect from "@/lib/mongodb";
-import { paginatedResponse, parsePagination } from "@/lib/pagination";
-import { prepareSearchQuery } from "@/lib/search";
-import { logger } from "@/lib/utils";
+import { auth } from "@/lib/auth/server";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { paginatedResponse, parsePagination } from "@/lib/shared/pagination";
+import { prepareSearchQuery } from "@/lib/shared/search";
+import { logger } from "@/lib/telemetry/logger";
+
 import Notification from "@/models/Notification";
 
 export async function GET(request: NextRequest) {
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    await dbConnect();
+    await connectMongoDB();
 
     const { searchParams } = new URL(request.url);
     const query = parseSearchParams(
@@ -81,7 +83,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    await dbConnect();
+    await connectMongoDB();
 
     const result = await Notification.deleteMany({
       userId,
@@ -103,7 +105,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    await dbConnect();
+    await connectMongoDB();
 
     const parsedBody = await parseJson(request, jsonObjectSchema);
     if (!parsedBody.ok) return jsonResult(parsedBody);

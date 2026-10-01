@@ -399,46 +399,9 @@ export const CODE_RUNNER_TIMEOUT_MS: Record<CodeRunnerLanguage, number> = {
   python: 15000,
 };
 
-export type TestCase = {
-  id: string;
-  input: string;
-  expectedOutput: string;
-  isCustom?: boolean;
-};
-
 export type TestResultStatus = "pass" | "fail" | "error" | "tle";
 
-export type TestResult = {
-  testCaseId: string;
-  status: TestResultStatus;
-  actualOutput: string;
-  error?: string;
-  executionTimeMs?: number;
-};
-
-export type ExecutionResult = {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTimeMs: number;
-  timedOut?: boolean;
-};
-
-export type ProblemData = {
-  title: string;
-  platform: Platform;
-  contestId: string;
-  problemIndex: string;
-  url: string;
-};
-
 export type WasmLoadState = "idle" | "downloading" | "ready" | "error";
-
-export type WasmLoadStatus = {
-  state: WasmLoadState;
-  progress: number;
-  message: string;
-};
 
 export const CF_CONTEST_YEAR_OPTIONS = [
   { label: "Any Time (All Problems)", minContestId: 0 },
@@ -449,3 +412,23 @@ export const CF_CONTEST_YEAR_OPTIONS = [
   { label: "2024 Onwards (ID ≥ 1915)", minContestId: 1915 },
   { label: "2025 Onwards (ID ≥ 2050)", minContestId: 2050 },
 ] as const;
+
+/* Atlas */
+
+export const ATLAS_RESULT_KINDS = [
+  "route",
+  "command",
+  "module",
+  "post",
+  "event",
+  "project",
+  "team",
+  "calendar",
+  "file",
+  "notification",
+  "hackathon",
+  "potd",
+  "contest",
+] as const;
+
+export type AtlasResultKind = (typeof ATLAS_RESULT_KINDS)[number];

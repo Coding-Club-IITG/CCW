@@ -11,6 +11,7 @@ import {
 import AuditLog from "@/models/AuditLog";
 import Credits from "@/models/Credits";
 import User from "@/models/User";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -20,7 +21,7 @@ import {
 const getSession = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession } },
 }));
 vi.mock("next/headers", () => ({

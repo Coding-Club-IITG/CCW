@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { canManageFile } from "@/lib/access/files";
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
-import { formatShortDate } from "@/lib/utils";
+import { formatShortDate } from "@/lib/shared/dates";
 
 import EmptyState from "@/components/shared/EmptyState";
 import Pagination from "@/components/shared/Pagination";

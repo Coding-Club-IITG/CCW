@@ -12,6 +12,7 @@ import {
 } from "vitest";
 
 import AuditLog from "@/models/AuditLog";
+
 import {
   FILE_MEMBER_ID,
   FILE_OWNER_ID,
@@ -34,11 +35,11 @@ import { responseData, responseError } from "../utils/result";
 const getSession = vi.hoisted(() => vi.fn());
 const invalidateCache = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession } },
 }));
 
-vi.mock("@/lib/cache", () => ({
+vi.mock("@/lib/cache/redis", () => ({
   invalidateCache,
 }));
 

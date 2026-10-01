@@ -3,9 +3,11 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
+
 import { jsonResult } from "@/lib/api/result.server";
 import { parseSearchParams } from "@/lib/api/result";
-import { SITE_NAME } from "@/lib/seo";
+import { SITE_NAME } from "@/lib/seo/metadata";
+
 import { IconCCLogo } from "@/components/shared/Icons";
 
 export const revalidate = 86400;

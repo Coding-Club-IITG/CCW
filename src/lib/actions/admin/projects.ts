@@ -6,21 +6,22 @@ import { headers } from "next/headers";
 
 import { isHead } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizePublicContent } from "@/lib/audit/summary";
 import { err as appError, ok, toBsonSafe } from "@/lib/api/result";
-import { auth } from "@/lib/auth";
-import { invalidateCache } from "@/lib/cache";
+import { auth } from "@/lib/auth/server";
+import { invalidateCache } from "@/lib/cache/redis";
 import {
   PROJECT_MODULES,
   PROJECT_STATUSES,
   type ProjectModuleName,
   type ProjectStatus,
 } from "@/lib/constants";
-import { parseImageFocalPoint } from "@/lib/imageFocalPoint";
-import dbConnect from "@/lib/mongodb";
-import { parseTagList } from "@/lib/tagUtils";
-import { logger } from "@/lib/utils";
+import { parseImageFocalPoint } from "@/lib/media/focalPoint";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { parseTagList } from "@/lib/shared/tags";
+import { logger } from "@/lib/telemetry/logger";
+
 import Project from "@/models/Project";
 import User from "@/models/User";
 
@@ -142,7 +143,7 @@ async function getProjectsAction() {
       return appError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    await dbConnect();
+    await connectMongoDB();
     const projects = await Project.find({}).sort({ date: -1 }).lean();
 
     return ok({ projects: toBsonSafe(projects) });
@@ -159,7 +160,7 @@ async function getProjectAction(id: string) {
       return appError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    await dbConnect();
+    await connectMongoDB();
     const project = await Project.findById(id).lean();
     if (!project) {
       return appError("NOT_FOUND", "Project not found.");
@@ -248,7 +249,7 @@ async function createProjectAction(formData: FormData) {
       return appError("VALIDATION_ERROR", extrasError);
     }
 
-    await dbConnect();
+    await connectMongoDB();
     if (!(await contributorsExist(contributors))) {
       return appError("VALIDATION_ERROR", "Invalid contributor selected.");
     }
@@ -390,7 +391,7 @@ async function updateProjectAction(id: string, formData: FormData) {
       return appError("VALIDATION_ERROR", extrasError);
     }
 
-    await dbConnect();
+    await connectMongoDB();
     if (!(await Project.exists({ _id: id })))
       return appError("NOT_FOUND", "Project not found.");
     if (!(await contributorsExist(contributors))) {
@@ -478,7 +479,7 @@ async function deleteProjectAction(id: string) {
       return appError("UNAUTHENTICATED", "Unauthorized");
     }
 
-    await dbConnect();
+    await connectMongoDB();
     if (!(await Project.exists({ _id: id })))
       return appError("NOT_FOUND", "Project not found.");
     const dbSession = await mongoose.startSession();

@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
-import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
+
+import { auth } from "@/lib/auth/server";
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
 import { parseSearchParams } from "@/lib/api/result";
 import {
   boundaryErrorResponse,

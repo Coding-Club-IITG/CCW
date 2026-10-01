@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import mongoose from "mongoose";
+
 import User from "@/models/User";
+
 import { startTestMongo, stopTestMongo } from "../utils/mongodb";
 
 vi.mock("@/lib/env/web", async () => {
@@ -13,8 +15,10 @@ vi.mock("@/lib/env/web", async () => {
     }),
   };
 });
-vi.mock("@/lib/push/config", () => ({ webPushConfigured: false }));
-vi.mock("@/lib/push/queue", () => ({
+vi.mock("@/lib/notifications/push/config", () => ({
+  webPushConfigured: false,
+}));
+vi.mock("@/lib/notifications/push/queue", () => ({
   pushNotificationQueue: { addBulk: vi.fn() },
 }));
 
@@ -26,7 +30,7 @@ it("preserves the development picker's real sessions without granting production
     email: "development@gmail.com",
     emailVerified: true,
   });
-  const { auth } = await import("@/lib/auth");
+  const { auth } = await import("@/lib/auth/server");
   expect(
     await mongoose.connection
       .db!.listCollections({ name: "account" })
@@ -52,6 +56,6 @@ it("preserves the development picker's real sessions without granting production
   });
   expect(session?.user.id).toBe(user.id);
   expect(session?.session.authProvider).toBe("development");
-  const { recentInstituteSession } = await import("@/lib/loginSwitch");
+  const { recentInstituteSession } = await import("@/lib/auth/loginSwitch");
   expect(recentInstituteSession(session!.session)).toBe(false);
 });

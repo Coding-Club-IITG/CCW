@@ -3,13 +3,15 @@
  */
 
 import { NextRequest } from "next/server";
+
 import { jsonError, jsonResult } from "@/lib/api/result.server";
 import { parseRouteParams } from "@/lib/api/result";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
-import { buildEventIcs } from "@/lib/ics";
-import dbConnect from "@/lib/mongodb";
-import { absoluteUrl } from "@/lib/seo";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { buildEventIcs } from "@/lib/calendar/ics";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { absoluteUrl } from "@/lib/seo/metadata";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import Event from "@/models/Event";
 import CalendarEvent from "@/models/CalendarEvent";
 
@@ -24,7 +26,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { slug } = validatedParams.data;
 
-    await dbConnect();
+    await connectMongoDB();
     void CalendarEvent;
 
     const event = await Event.findOne({ slug, status: "published" })

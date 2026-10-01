@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   parseSearchParams,
@@ -7,18 +8,19 @@ import {
   type JsonValue,
 } from "@/lib/api/result";
 import { paginationQueryFields } from "@/lib/api/schemas/boundary";
-import { requireHead } from "@/lib/api/auth";
-import dbConnect from "@/lib/mongodb";
-import { logger } from "@/lib/utils";
-import Event from "@/models/Event";
-import { parsePagination, paginatedResponse } from "@/lib/pagination";
-import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache";
+import { requireHead } from "@/lib/auth/session";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { logger } from "@/lib/telemetry/logger";
+import { parsePagination, paginatedResponse } from "@/lib/shared/pagination";
+import { cachedFetch, buildCacheKey, CACHE_TTLS } from "@/lib/cache/redis";
 import {
   EVENT_PUBLICATION_STATUSES,
   type EventPublicationStatus,
 } from "@/lib/constants";
 import { getPublishableEventModules } from "@/lib/access/calendar";
-import { parseManagedModules } from "@/lib/roles";
+import { parseManagedModules } from "@/lib/users/roles";
+
+import Event from "@/models/Event";
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +28,7 @@ export async function GET(request: NextRequest) {
     if (!authorization.ok) return jsonResult(authorization);
     const user = authorization.data.user;
 
-    await dbConnect();
+    await connectMongoDB();
 
     const { searchParams } = new URL(request.url);
     const query = parseSearchParams(

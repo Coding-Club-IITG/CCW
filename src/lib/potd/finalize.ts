@@ -14,10 +14,11 @@ import {
 } from "@/lib/potd/derive";
 import { fetchUserSubmissions } from "@/lib/potd/recompute";
 import { findEarliestAcceptedSolveTime } from "@/lib/potd/submit";
-import { windowStartToISTDateStr } from "@/lib/potd/utils";
+import { windowStartToISTDateStr } from "@/lib/potd/schedule";
 import { isAtCoderAPIReachable } from "@/lib/platforms/atcoder";
 import { isCodeforcesAPIReachable } from "@/lib/platforms/codeforces";
-import { logger } from "@/lib/utils";
+import { logger } from "@/lib/telemetry/logger";
+
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import POTDOutage from "@/models/POTDOutage";

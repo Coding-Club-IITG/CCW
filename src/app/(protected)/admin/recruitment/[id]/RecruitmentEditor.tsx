@@ -26,7 +26,7 @@ import {
   recruitmentDocumentUrl,
   type RecruitmentDto,
   type RecruitmentSlotDto,
-} from "@/lib/recruitment";
+} from "@/lib/recruitment/public";
 
 import { useConfirm } from "@/components/shared/useConfirm";
 import InlineNotice from "@/components/shared/InlineNotice";

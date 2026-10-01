@@ -9,12 +9,14 @@ import {
   vi,
 } from "vitest";
 
-import { computeWindowTimes } from "@/lib/potd/utils";
+import { computeWindowTimes } from "@/lib/potd/schedule";
+
 import CPUser from "@/models/CPUser";
 import DailyChallenge from "@/models/POTDDailyChallenge";
 import Problem from "@/models/POTDProblem";
 import POTDSubmission from "@/models/POTDSubmission";
 import User from "@/models/User";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -54,7 +56,7 @@ const redis = {
   }),
 };
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession: mocks.getSession } },
 }));
 vi.mock("next/headers", () => ({
@@ -63,10 +65,10 @@ vi.mock("next/headers", () => ({
 vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));
-vi.mock("@/lib/redis", () => ({
+vi.mock("@/lib/db/redis", () => ({
   getRedis: vi.fn(async () => redis),
 }));
-vi.mock("@/lib/cache", () => ({
+vi.mock("@/lib/cache/redis", () => ({
   CACHE_TTLS: { LEADERBOARDS: 60 },
   buildCacheKey: vi.fn((prefix: string) => prefix),
   cachedFetch: vi.fn(

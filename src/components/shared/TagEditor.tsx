@@ -6,7 +6,7 @@ import {
   DEFAULT_TAG_MAX_LENGTH,
   normalizeTag,
   normalizeTags,
-} from "@/lib/tagUtils";
+} from "@/lib/shared/tags";
 
 import TagBadge from "./TagBadge";
 import styles from "./TagEditor.module.scss";

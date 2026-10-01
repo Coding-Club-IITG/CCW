@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { responseData, responseError } from "../utils/result";
 import {
   afterAll,
   afterEach,
@@ -10,6 +9,7 @@ import {
   vi,
 } from "vitest";
 
+import { responseData, responseError } from "../utils/result";
 import {
   clearTestMongo,
   startTestMongo,
@@ -30,7 +30,7 @@ const session = {
   },
 };
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/server", () => ({
   auth: {
     api: {
       getSession,

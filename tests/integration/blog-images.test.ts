@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { responseData, responseError } from "../utils/result";
 import path from "path";
 import { readFile, unlink } from "fs/promises";
 import {
@@ -11,6 +10,10 @@ import {
   it,
   vi,
 } from "vitest";
+
+import AuditLog from "@/models/AuditLog";
+
+import { responseData, responseError } from "../utils/result";
 import {
   clearTestMongo,
   startTestMongo,
@@ -27,10 +30,9 @@ import {
   blogPost,
   blogSession,
 } from "../fixtures/blogs";
-import AuditLog from "@/models/AuditLog";
 
 const getSession = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
 
 describe("blog image uploads and assets", () => {
   let uploadDirectory: string;

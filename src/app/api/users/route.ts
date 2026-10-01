@@ -11,19 +11,21 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { parseSearchParams } from "@/lib/api/result";
 import {
   optionalSearchQuerySchema,
   paginationQueryFields,
 } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
-import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
+import { auth } from "@/lib/auth/server";
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
 import { canUploadFiles } from "@/lib/access/files";
-import dbConnect from "@/lib/mongodb";
-import { paginatedResponse, parsePagination } from "@/lib/pagination";
-import { prepareSearchQuery } from "@/lib/search";
-import { getDisplayName } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { paginatedResponse, parsePagination } from "@/lib/shared/pagination";
+import { prepareSearchQuery } from "@/lib/shared/search";
+import { getDisplayName } from "@/lib/users/identity";
+
 import User from "@/models/User";
 
 type MinimalUser = {
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
     return jsonError("FORBIDDEN", "Forbidden.");
   }
 
-  await dbConnect();
+  await connectMongoDB();
 
   const { searchParams } = new URL(request.url);
   const query = parseSearchParams(

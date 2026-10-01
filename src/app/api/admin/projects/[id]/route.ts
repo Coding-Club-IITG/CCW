@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { parseRouteParams, toBsonSafe } from "@/lib/api/result";
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { objectIdParamsSchema } from "@/lib/api/schemas/boundary";
-import dbConnect from "@/lib/mongodb";
-import { logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { logger } from "@/lib/telemetry/logger";
+
 import Project from "@/models/Project";
 
 export async function GET(
@@ -21,7 +23,7 @@ export async function GET(
     );
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id } = validatedParams.data;
-    await dbConnect();
+    await connectMongoDB();
     const project = await Project.findById(id).lean();
     if (!project) {
       return jsonError("NOT_FOUND", "Project not found.");

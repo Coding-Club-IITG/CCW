@@ -1,12 +1,14 @@
 "use client";
 
 import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
+
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
 import {
   DEFAULT_IMAGE_FOCAL_POINT,
   focalPointObjectPosition,
   parseImageFocalPoint,
-} from "@/lib/imageFocalPoint";
+} from "@/lib/media/focalPoint";
+
 import CompatibleImage from "./CompatibleImage";
 import styles from "./FocalPointPicker.module.scss";
 

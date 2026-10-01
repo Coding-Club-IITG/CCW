@@ -2,8 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import "katex/dist/katex.min.css";
+import {
+  Copy as IconCopy,
+  ExternalLink as IconExternalLink,
+} from "lucide-react";
 
-import type { CodeRunnerLanguage, TestCase, Platform } from "@/lib/constants";
+import type { CodeRunnerLanguage, Platform } from "@/lib/constants";
+import type { TestCase } from "@/lib/codeRunner/types";
 import {
   CODE_RUNNER_DEFAULT_CODE,
   PLATFORM_DISPLAY_NAMES,
@@ -15,11 +20,7 @@ import {
   CodeEditor,
   LanguageSelector,
   TestCasePanel,
-} from "@/components/shared/code-runner";
-import {
-  Copy as IconCopy,
-  ExternalLink as IconExternalLink,
-} from "lucide-react";
+} from "@/components/shared/code-runner/index";
 import BackLink from "@/components/shared/BackLink";
 
 import styles from "./Solve.module.scss";

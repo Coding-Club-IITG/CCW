@@ -13,7 +13,7 @@ import path from "path";
 import { Readable } from "stream";
 
 import { canAccessFile, canManageFile } from "@/lib/access/files";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeFile } from "@/lib/audit/summary";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
@@ -21,13 +21,14 @@ import {
   jsonObjectSchema,
   objectIdParamsSchema,
 } from "@/lib/api/schemas/boundary";
-import { auth } from "@/lib/auth";
-import { invalidateCache } from "@/lib/cache";
+import { auth } from "@/lib/auth/server";
+import { invalidateCache } from "@/lib/cache/redis";
 import { webEnv } from "@/lib/env/web";
-import dbConnect from "@/lib/mongodb";
-import { parseManagedModules, parseRoles } from "@/lib/roles";
-import { validateTags } from "@/lib/tagUtils";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { parseManagedModules, parseRoles } from "@/lib/users/roles";
+import { validateTags } from "@/lib/shared/tags";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import FileEntry from "@/models/FileEntry";
 
 export const runtime = "nodejs";
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id } = validatedParams.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const file = await FileEntry.findById(id).lean();
     if (!file) {
       return jsonError("NOT_FOUND", "File not found.");
@@ -160,7 +161,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id } = validatedParams.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const file = await FileEntry.findById(id);
     if (!file) {
       return jsonError("NOT_FOUND", "File not found.");
@@ -306,7 +307,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     if (!validatedParams.ok) return jsonResult(validatedParams);
     const { id } = validatedParams.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const file = await FileEntry.findById(id);
     if (!file) {
       return jsonError("NOT_FOUND", "File not found.");

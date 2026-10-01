@@ -7,14 +7,17 @@ import {
   it,
   vi,
 } from "vitest";
+
 import {
   DEFAULT_USER_QUERY,
   userQueryFromParams,
   userQueryParams,
   userQueryPipeline,
   userQuerySchema,
-} from "@/lib/userQuery";
+} from "@/lib/users/query";
+
 import User from "@/models/User";
+
 import {
   startTestMongo,
   clearTestMongo,
@@ -22,7 +25,7 @@ import {
 } from "../utils/mongodb";
 
 const getSession = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/auth", () => ({ auth: { api: { getSession } } }));
+vi.mock("@/lib/auth/server", () => ({ auth: { api: { getSession } } }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -194,7 +197,7 @@ describe("server member filtering and sorting", () => {
   });
 
   it("validates query bounds, round-trips applied URLs and isolates complete cache keys", async () => {
-    const { buildCacheKey } = await import("@/lib/cache");
+    const { buildCacheKey } = await import("@/lib/cache/redis");
     for (const invalid of [
       { minPizza: -1 },
       { maxPizza: "abc" },
@@ -264,7 +267,7 @@ describe("server member filtering and sorting", () => {
     getSession.mockResolvedValue({
       user: { id: "admin", access: "Admin", name: "Admin" },
     });
-    const { addUser } = await import("@/lib/actions/user");
+    const { addUser } = await import("@/lib/actions/users");
     expect(
       await addUser(" ALUMNI@GMAIL.COM ", "Alumni", "2017-18"),
     ).toMatchObject({ ok: true });

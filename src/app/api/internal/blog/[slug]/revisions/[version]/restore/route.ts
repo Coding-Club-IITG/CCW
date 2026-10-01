@@ -6,18 +6,19 @@ import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
 import { canEditBlogDraft } from "@/lib/access/blog";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import {
   summarizeBlogRevision,
   summarizePublicContent,
 } from "@/lib/audit/summary";
 import { AppResultError, parseRouteParams } from "@/lib/api/result";
-import { requireBlogEditor } from "@/lib/blog/access";
+import { requireBlogEditor } from "@/lib/blog/editorAccess";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { blogRevisionParamsSchema } from "@/lib/blog/schemas";
-import { invalidateCache } from "@/lib/cache";
+import { invalidateCache } from "@/lib/cache/redis";
 import { getPostRevisionByVersion } from "@/lib/blog/revisions";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import BlogPost from "@/models/BlogPost";
 
 type RouteContext = { params: Promise<{ slug: string; version: string }> };

@@ -2,27 +2,32 @@ import type { Metadata } from "next";
 import type { SortOrder } from "mongoose";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache";
+
+import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
 import { excerptPreview } from "@/lib/blog/excerptPreview";
 import { readingTimeLabel } from "@/lib/blog/readingTime";
 import { tagAccent } from "@/lib/constants";
-import type { ImageFocalPoint } from "@/lib/imageFocalPoint";
-import dbConnect from "@/lib/mongodb";
-import { paginatedResponse } from "@/lib/pagination";
-import { prepareSearchQuery } from "@/lib/search";
-import { pageMetadata } from "@/lib/seo";
-import { errorToLogMetadata, formatShortDate, logger } from "@/lib/utils";
+import type { ImageFocalPoint } from "@/lib/media/focalPoint";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { paginatedResponse } from "@/lib/shared/pagination";
+import { prepareSearchQuery } from "@/lib/shared/search";
+import { pageMetadata } from "@/lib/seo/metadata";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+import { formatShortDate } from "@/lib/shared/dates";
 import {
   blogPageNumber as pageNumber,
   blogSort as sortValue,
   POSTS_PER_PAGE,
   type BlogQuery,
 } from "@/lib/blog/listing";
+
 import BlogPost from "@/models/BlogPost";
+
 import FocalImage from "@/components/shared/FocalImage";
 import Pagination from "@/components/shared/Pagination";
 import EmptyState from "@/components/shared/EmptyState";
 import PageHeader from "@/components/public/PageHeader";
+
 import BlogFilters from "./BlogFilters";
 import styles from "./Blog.module.scss";
 
@@ -83,7 +88,7 @@ async function getListing(query: SearchParams): Promise<Listing> {
   const tag = query.tag?.trim() || null;
   const searchQuery = prepareSearchQuery(query.search ?? null);
   const skip = (page - 1) * POSTS_PER_PAGE;
-  await dbConnect();
+  await connectMongoDB();
 
   return cachedFetch(
     buildCacheKey("blog:list:v3", {

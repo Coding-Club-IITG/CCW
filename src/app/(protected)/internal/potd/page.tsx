@@ -1,5 +1,6 @@
 import { getTodayChallenge } from "@/lib/actions/potd";
-import { getCPStatus } from "@/lib/actions/cp-status";
+import { getCPStatus } from "@/lib/actions/cpStatus";
+
 import DailyChallengeClient from "./DailyChallengeClient";
 import styles from "./Potd.module.scss";
 

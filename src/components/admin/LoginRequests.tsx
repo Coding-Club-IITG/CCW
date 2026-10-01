@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+
 import {
   listLoginSwitchRequests,
   reviewLoginSwitch,
 } from "@/lib/actions/loginSwitch";
-import { useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth/client";
 import { LOGIN_SWITCH_STATUSES } from "@/lib/constants";
-import type { LoginRequestDto } from "@/lib/loginSwitch";
-import { formatShortDate, getDisplayName } from "@/lib/utils";
+import type { LoginRequestDto } from "@/lib/auth/loginSwitch";
+import { formatShortDate } from "@/lib/shared/dates";
+import { getDisplayName } from "@/lib/users/identity";
+
 import { useRuntimeConfig } from "@/components/layout/Providers";
 import Button from "@/components/shared/Button";
 import Modal from "@/components/shared/Modal";
@@ -17,6 +20,7 @@ import Pagination from "@/components/shared/Pagination";
 import { TableSkeletonContent } from "@/components/shared/skeletons/TableSkeleton";
 import { useToast } from "@/components/shared/Toast";
 import { useConfirm } from "@/components/shared/useConfirm";
+
 import styles from "./UserManagement.module.scss";
 
 export default function LoginRequests() {

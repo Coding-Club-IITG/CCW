@@ -7,19 +7,20 @@ import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { AppResultError, parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
-import { auditActor, auditedTransaction } from "@/lib/audit";
+import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import {
   summarizeBlogRevision,
   summarizePublicContent,
 } from "@/lib/audit/summary";
 import { recordRevisionSnapshot } from "@/lib/blog/revisions";
-import { invalidateCache } from "@/lib/cache";
-import dbConnect from "@/lib/mongodb";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { invalidateCache } from "@/lib/cache/redis";
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import BlogPost from "@/models/BlogPost";
 
 const revisionActionSchema = z
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!parsedBody.ok) return jsonResult(parsedBody);
     const { action } = parsedBody.data;
 
-    await dbConnect();
+    await connectMongoDB();
     const dbSession = await mongoose.startSession();
     let saved;
     try {

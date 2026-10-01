@@ -3,7 +3,7 @@ import { MongoBackend } from "@agendajs/mongo-backend";
 import { RedisNotificationChannel } from "@agendajs/redis-backend";
 
 import { workerEnv } from "@/lib/env/worker";
-import { logger } from "@/lib/utils";
+import { logger } from "@/lib/telemetry/logger";
 
 const mongodbUri = workerEnv.MONGODB_URI;
 const redisUrl = workerEnv.REDIS_URL;
@@ -21,7 +21,7 @@ redisNotificationChannel.on("error", (err: Error) => {
   );
 });
 
-const agenda = new Agenda({
+export const agenda = new Agenda({
   backend: new MongoBackend({
     address: mongodbUri,
     collection: "agenda_jobs",
@@ -39,5 +39,3 @@ agenda.on("error", (err) => {
 agenda.on("ready", () => {
   logger.info("[Agenda] Connected and Ready");
 });
-
-export default agenda;

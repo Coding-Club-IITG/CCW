@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 
-import { requireHead } from "@/lib/api/auth";
+import { requireHead } from "@/lib/auth/session";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonOk, jsonResult } from "@/lib/api/result.server";
 import { objectIdParamsSchema } from "@/lib/api/schemas/boundary";
 import { patchRecruitmentSchema } from "@/lib/api/schemas/recruitment";
 import { RECRUITMENT_DOCUMENT_KINDS } from "@/lib/constants";
-import { serializeRecruitment } from "@/lib/recruitment";
+import { serializeRecruitment } from "@/lib/recruitment/public";
 import {
   invalidateRecruitment,
   mutateRecruitment,
@@ -14,7 +14,8 @@ import {
   recruitmentNotFound,
   removeRecruitmentFiles,
   summarizeRecruitment,
-} from "@/lib/recruitment.server";
+} from "@/lib/recruitment/service.server";
+
 import Recruitment from "@/models/Recruitment";
 
 type Context = { params: Promise<{ id: string }> };

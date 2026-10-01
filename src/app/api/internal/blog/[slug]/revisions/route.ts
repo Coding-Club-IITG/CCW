@@ -5,11 +5,11 @@
 import { NextRequest } from "next/server";
 
 import { parseRouteParams } from "@/lib/api/result";
-import { requireBlogEditor } from "@/lib/blog/access";
+import { requireBlogEditor } from "@/lib/blog/editorAccess";
 import { jsonError, jsonResult } from "@/lib/api/result.server";
 import { slugParamsSchema } from "@/lib/api/schemas/boundary";
 import { readPostRevisions } from "@/lib/blog/revisions";
-import { errorToLogMetadata, logger } from "@/lib/utils";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 

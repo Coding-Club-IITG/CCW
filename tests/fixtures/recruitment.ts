@@ -1,5 +1,5 @@
 import { MODULES } from "@/lib/constants";
-import type { RecruitmentModuleDto } from "@/lib/recruitment";
+import type { RecruitmentModuleDto } from "@/lib/recruitment/public";
 
 export function emptyRecruitmentModules(): RecruitmentModuleDto[] {
   return MODULES.map((module) => ({
