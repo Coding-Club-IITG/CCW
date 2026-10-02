@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useRuntimeConfig } from "@/components/layout/Providers";
+import { problemAllocationError } from "@/lib/contests/problemAllocation";
+
 import { validateStep, createBracketContest } from "@/lib/actions/contests";
 
 import type {
@@ -26,6 +29,8 @@ interface ContestWizardProps {
 
 export default function ContestWizard({ presets }: ContestWizardProps) {
   const router = useRouter();
+  const { contestDefaultMatchMinutes, contestDefaultBlitzProblemMinutes } =
+    useRuntimeConfig();
   const toast = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -49,6 +54,8 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
       roundNumber: number;
     }[],
 
+    overallDurationMinutes: contestDefaultMatchMinutes,
+    perProblemDurationMinutes: contestDefaultBlitzProblemMinutes,
     spectatorRestriction: "none",
   });
 
@@ -73,6 +80,16 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
 
       if (fields.presetId !== undefined && fields.presetId !== prev.presetId) {
         newProblemSlots = [];
+        const preset = presets.find((item) => item._id === fields.presetId);
+
+        fields.problemSelectionMode = preset?.problemSelectionMode ?? "bulk";
+        fields.bulkProblemCount = preset?.bulkProblemCount ?? 3;
+        fields.overallDurationMinutes =
+          preset?.overallDurationMinutes ??
+          (preset?.durationSeconds
+            ? preset.durationSeconds / 60
+            : contestDefaultMatchMinutes);
+        fields.perProblemDurationMinutes = preset?.perProblemDurationMinutes;
       }
 
       return {
@@ -95,6 +112,15 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
   }
 
   async function handleNext() {
+    if (steps[currentStep - 1]?.id === "problems") {
+      const error = problemAllocationError(formData);
+
+      if (error) {
+        toast.error(error);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -123,6 +149,13 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
   }
 
   async function handleCreate() {
+    const allocationError = problemAllocationError(formData);
+
+    if (allocationError) {
+      toast.error(allocationError);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {

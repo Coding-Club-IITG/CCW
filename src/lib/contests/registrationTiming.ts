@@ -1,21 +1,18 @@
+import { CONTEST_TIMING } from "@/lib/constants";
+
 export type ContestRegistrationTiming = {
   deadlineMinutes: number;
   startBufferSeconds: number;
   startToleranceSeconds: number;
 };
 
-const SECONDS_PER_MINUTE = 60;
-const MILLISECONDS_PER_SECOND = 1000;
-
 export function contestRegistrationTiming(env: {
   REGISTRATION_DEADLINE_MINUTES: number;
-  CONTEST_START_BUFFER_SECONDS: number;
-  CONTEST_START_TOLERANCE_SECONDS: number;
 }): ContestRegistrationTiming {
   return {
     deadlineMinutes: env.REGISTRATION_DEADLINE_MINUTES,
-    startBufferSeconds: env.CONTEST_START_BUFFER_SECONDS,
-    startToleranceSeconds: env.CONTEST_START_TOLERANCE_SECONDS,
+    startBufferSeconds: CONTEST_TIMING.startBufferSeconds,
+    startToleranceSeconds: CONTEST_TIMING.startToleranceSeconds,
   };
 }
 
@@ -32,14 +29,9 @@ export function contestStartTimeError(
   }
 
   const bufferSeconds =
-    timing.startBufferSeconds +
-    (isCasual1v1 ? 0 : timing.deadlineMinutes * SECONDS_PER_MINUTE);
+    timing.startBufferSeconds + (isCasual1v1 ? 0 : timing.deadlineMinutes * 60);
 
-  if (
-    startMs <
-    now +
-      (bufferSeconds - timing.startToleranceSeconds) * MILLISECONDS_PER_SECOND
-  ) {
+  if (startMs < now + (bufferSeconds - timing.startToleranceSeconds) * 1000) {
     return `Start time must be at least ${bufferSeconds} seconds in the future.`;
   }
 

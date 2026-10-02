@@ -10,8 +10,14 @@ import {
 
 describe("contest creation form domain", () => {
   it("creates a fresh form with the existing room defaults", () => {
-    const first = createInitialContestForm();
-    const second = createInitialContestForm();
+    const first = createInitialContestForm(true, {
+      overallMinutes: 60,
+      problemMinutes: 15,
+    });
+    const second = createInitialContestForm(true, {
+      overallMinutes: 60,
+      problemMinutes: 15,
+    });
 
     expect(first).toMatchObject({
       mode: "blitz",
@@ -33,7 +39,10 @@ describe("contest creation form domain", () => {
     "applies the existing %s participant defaults",
     (format, teamSize, maxParticipants) => {
       const result = applyContestFormatDefaults({
-        ...createInitialContestForm(),
+        ...createInitialContestForm(true, {
+          overallMinutes: 60,
+          problemMinutes: 15,
+        }),
         format,
         teamSize: 7,
         maxParticipants: 99,
@@ -46,7 +55,10 @@ describe("contest creation form domain", () => {
 
   it("keeps a valid bracket participant count", () => {
     const result = applyContestFormatDefaults({
-      ...createInitialContestForm(),
+      ...createInitialContestForm(true, {
+        overallMinutes: 60,
+        problemMinutes: 15,
+      }),
       format: "bracket",
       maxParticipants: 8,
     });
@@ -57,7 +69,10 @@ describe("contest creation form domain", () => {
   it("applies preset fields without replacing unrelated form state", () => {
     const result = applyContestPreset(
       {
-        ...createInitialContestForm(),
+        ...createInitialContestForm(true, {
+          overallMinutes: 60,
+          problemMinutes: 15,
+        }),
         registrationType: "closed",
       },
       {
@@ -82,7 +97,10 @@ describe("contest creation form domain", () => {
     expect(
       getMaxParticipantsError(
         {
-          ...createInitialContestForm(),
+          ...createInitialContestForm(true, {
+            overallMinutes: 60,
+            problemMinutes: 15,
+          }),
           format: "team-tournament",
           teamSize: 3,
           maxParticipants: 6,

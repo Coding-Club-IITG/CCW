@@ -5,6 +5,9 @@ import { connectMongoDB } from "@/lib/db/mongodb";
 import { synchronizeRoomRuntime } from "@/lib/contests/roomRuntime";
 
 import ContestMatch from "@/models/ContestMatch";
+import { initializeMatchProblems } from "@/lib/contests/matchScoring";
+import ContestProblemSet from "@/models/ContestProblemSet";
+
 import ContestParticipation from "@/models/ContestParticipation";
 import ContestRoom, { type IContestRoom } from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
@@ -28,23 +31,6 @@ function participationResult(room: IContestRoom): ParticipationResult {
 // Release only after a durable ending and never in response to browser presence
 export async function releaseRoomParticipation(roomId: string) {
   await ContestParticipation.deleteMany({ roomId });
-}
-
-export async function finishRoomParticipation(roomId: string) {
-  await mongoose.connection.transaction(async () => {
-    await ContestRoom.updateOne(
-      { _id: roomId, status: { $ne: "ended" } },
-      {
-        $set: {
-          status: "ended",
-          runtimeSyncPending: true,
-          actualEndTime: new Date(),
-        },
-        $inc: { participationRevision: 1 },
-      },
-    );
-    await releaseRoomParticipation(roomId);
-  });
 }
 
 export async function readyOrEnterRoom(
@@ -138,7 +124,11 @@ export async function readyOrEnterRoom(
             return { result: ok(participationResult(room)), effects };
           }
 
-          if (!room.matchDeadline || now >= room.matchDeadline.getTime()) {
+          if (
+            room.gameplayEndedAt ||
+            !room.matchDeadline ||
+            now >= room.matchDeadline.getTime()
+          ) {
             return {
               result: err("CONFLICT", "This match has reached its deadline."),
               effects,
@@ -254,6 +244,8 @@ export async function readyOrEnterRoom(
             if (availableTeams.length < 2) {
               room.status = "ended";
               room.actualEndTime = new Date(now);
+              room.finalizedAt = new Date(now);
+              room.resultMethod = "no_show";
               room.terminationReason =
                 availableTeams.length === 1 ? "opponent_absent" : "both_absent";
               room.winnerTeamId = availableTeams[0]?._id;
@@ -314,6 +306,23 @@ export async function readyOrEnterRoom(
                   }))
                   .sort((a, b) => String(a._id).localeCompare(String(b._id))),
               );
+
+              const problemSet = await ContestProblemSet.findOne({ roomId });
+
+              initializeMatchProblems(
+                room,
+                problemSet?.problems ?? [],
+                contest.mode,
+              );
+              room.scoreStats = availableTeams.map((team) => ({
+                teamId: String(team._id),
+                score: 0,
+                solveTimeMs: 0,
+                wrongSubmissions: 0,
+                penaltyTimeMs: 0,
+                lastSolveAt: 0,
+                seed: team.seed,
+              }));
 
               contest.status = "active";
               await contest.save();

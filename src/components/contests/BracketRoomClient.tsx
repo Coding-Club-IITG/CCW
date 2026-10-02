@@ -22,7 +22,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import type { ContestListingItem } from "@/lib/actions/contests";
-import { expectAppData } from "@/lib/api/result";
+import { expectAppData, readAppResult } from "@/lib/api/result";
 import {
   parseBracketPosition,
   type BracketNode,
@@ -354,8 +354,7 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
       <span className={`${styles.badge} ${styles.badgeWarning}`}>Walkover</span>
     ) : node.terminationReason === "opponent_absent" ? (
       <span className={`${styles.badge} ${styles.badgeWarning}`}>No-show</span>
-    ) : node.terminationReason === "both_absent" ||
-      node.terminationReason === "no_solve" ? (
+    ) : node.terminationReason === "both_absent" ? (
       <span className={`${styles.badge} ${styles.badgeWarning}`}>
         Eliminated
       </span>
@@ -520,17 +519,17 @@ function MatchSidePanel({
           }),
         },
       );
-      const resData = await res.json();
+      const resData = await readAppResult<{ bracket: BracketSnapshot }>(res);
 
-      if (!res.ok || !resData.success) {
+      if (!resData.ok) {
         setAdminError(
           resData.error?.message || "Failed to process admin action",
         );
       } else {
-        if (resData.bracket && onSnapshotUpdate) {
-          onSnapshotUpdate(resData.bracket);
+        if (resData.data.bracket && onSnapshotUpdate) {
+          onSnapshotUpdate(resData.data.bracket);
 
-          const updated = resData.bracket.nodes.find(
+          const updated = resData.data.bracket.nodes.find(
             (n: BracketNode) => n.roomId === displayNode.roomId,
           );
 

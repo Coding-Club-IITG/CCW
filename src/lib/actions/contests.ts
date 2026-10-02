@@ -1,6 +1,8 @@
 "use server";
 
 import mongoose from "mongoose";
+import { problemAllocationError } from "@/lib/contests/problemAllocation";
+
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
@@ -287,10 +289,13 @@ async function getContestListingAction() {
               .map((team) => team.score)
               .sort((a: number, b: number) => b - a);
 
-            const us = item.userScore ?? 0;
-            const op = item.opponentScore ?? 0;
-
-            item.result = us > op ? "victory" : us === op ? "tie" : "loss";
+            item.result = room.winnerTeamId
+              ? String(room.winnerTeamId) === String(userTeam._id)
+                ? "victory"
+                : "loss"
+              : room.resultMethod === "draw"
+                ? "tie"
+                : "loss";
           }
         }
       }
@@ -605,6 +610,10 @@ async function createRoomContestAction(input: unknown) {
       }
     }
 
+    const allocationError = problemAllocationError({ ...data, problemSlots });
+
+    if (allocationError) return appError("VALIDATION_ERROR", allocationError);
+
     // Handle scheduling based on registrationStartTime and deadline
     const now = Date.now();
     const regStartTime = data.registrationStartTime
@@ -635,9 +644,14 @@ async function createRoomContestAction(input: unknown) {
       bulkPlatform: "codeforces",
       bulkRatingMin: data.bulkRatingMin,
       bulkRatingMax: data.bulkRatingMax,
+      bulkMinContestId: data.bulkMinContestId,
       bulkProblemCount: data.bulkProblemCount,
       problemSlots: problemSlots.length > 0 ? problemSlots : undefined,
-      overallDurationMinutes: data.overallDurationMinutes,
+      overallDurationMinutes:
+        data.overallDurationMinutes ??
+        (durationSeconds
+          ? durationSeconds / 60
+          : webEnv.CONTEST_DEFAULT_MATCH_MINUTES),
       perProblemDurationMinutes: data.perProblemDurationMinutes,
       bracketSettings:
         format === "bracket"
@@ -1140,6 +1154,16 @@ async function createBracketContestAction(input: unknown) {
       }
     }
   }
+
+  const allocationError = problemAllocationError({
+    ...data,
+    format: "bracket",
+    problemSelectionMode,
+    bulkProblemCount,
+    problemSlots,
+  });
+
+  if (allocationError) return appError("VALIDATION_ERROR", allocationError);
 
   const registrations = await prepareContestRegistrations(data);
 

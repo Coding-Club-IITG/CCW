@@ -19,7 +19,6 @@ export const nightlyProblemSyncJobDataSchema = z.object({
 export const reconciliationJobDataSchema = z.object({
   roomId: optionalObjectId,
   contestId: optionalObjectId,
-  trigger: z.enum(["timeout", "completed"]).optional().default("completed"),
 });
 
 export const reconciliationJobNames = [
@@ -31,7 +30,8 @@ export const reconciliationJobNames = [
   "start_waiting_room",
   "ready_timeout",
   "room_timeout",
-  "room_completed",
+  "problem_timeout",
+  "finalize_match",
 ] as const;
 
 export type CfSyncJobData = z.infer<typeof cfSyncJobDataSchema>;
@@ -59,6 +59,8 @@ export const contestRoomProblemSchema = z
     rating: z.number().optional(),
     points: z.number().optional(),
     revealedAt: z.number().nullable().optional(),
+    deadlineAt: z.number().nullable().optional(),
+    closedAt: z.number().nullable().optional(),
     statementHtml: z.string().optional(),
     inputSpecificationHtml: z.string().optional(),
     outputSpecificationHtml: z.string().optional(),
@@ -79,33 +81,20 @@ export const contestRoomStateSchema = z
     startTime: z.string().optional(),
     timeLimit: z.string().optional(),
     problemTimeLimit: z.string().optional(),
-    currentProblemStartTime: z.string().optional(),
     currentProblem: z.string().optional(),
     contestId: z.string().optional(),
     readyOpensAt: z.string().optional(),
     readyDeadline: z.string().optional(),
     matchDeadline: z.string().optional(),
+    gameplayEndedAt: z.string().optional(),
+    judgingDeadline: z.string().optional(),
+    participationRevision: z.string().optional(),
   })
   .passthrough();
-
-export const contestSubmissionEventSchema = z.object({
-  userId: objectIdStringSchema,
-  teamId: objectIdStringSchema,
-  problemId: z.string().min(1),
-  cfSubmissionId: z.number().int(),
-  verdict: z.string().min(1),
-  points: z.number(),
-  solveMs: z.number().nonnegative(),
-  cfTimestamp: z.number().positive(),
-});
 
 export type ContestRoomProblem = z.infer<typeof contestRoomProblemSchema>;
 
 export type ContestRoomState = z.infer<typeof contestRoomStateSchema>;
-
-export type ContestSubmissionEvent = z.infer<
-  typeof contestSubmissionEventSchema
->;
 
 const scoreMapSchema = z.record(z.string(), z.number());
 const roomParticipantSchema = z.object({

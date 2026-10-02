@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { problemAllocationError } from "@/lib/contests/problemAllocation";
+
 import { minimumBracketEntrants } from "@/lib/contests/bracketTopology";
 import { objectIdStringSchema } from "@/lib/api/schemas/contestRoute";
 
@@ -61,7 +63,7 @@ const contestCreationFields = {
   bulkProblemCount: z.number().int().min(1).max(100).optional(),
   bulkMinContestId: z.number().int().min(0).optional(),
   fineTunedProblems: z.array(z.string().trim().min(1).max(100)).optional(),
-  problemSlots: z.array(contestProblemSlotSchema).max(100).default([]),
+  problemSlots: z.array(contestProblemSlotSchema).max(51_200).default([]),
   presetId: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.union([objectIdStringSchema, z.literal("custom")]).optional(),
@@ -69,7 +71,7 @@ const contestCreationFields = {
   bracketType: z
     .enum(["single_elimination", "double_elimination"])
     .default("single_elimination"),
-  overallDurationMinutes: z.number().int().min(1).max(600).optional(),
+  overallDurationMinutes: z.number().int().min(1).max(1440).optional(),
   perProblemDurationMinutes: z.number().int().min(1).max(120).optional(),
 
   registeredUsers: z.array(contestRegisteredUserSchema).max(768).default([]),
@@ -81,6 +83,17 @@ const contestCreationFields = {
 export const contestCreationPayloadSchema = z
   .object(contestCreationFields)
   .superRefine((data, ctx) => {
+    if (!data.presetId || data.presetId === "custom") {
+      const error = problemAllocationError(data);
+
+      if (error)
+        ctx.addIssue({
+          code: "custom",
+          message: error,
+          path: ["problemSlots"],
+        });
+    }
+
     if (
       data.problemSelectionMode === "fine-tuned" &&
       data.format !== "bracket"

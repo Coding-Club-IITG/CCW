@@ -1,5 +1,10 @@
 import mongoose, { Schema, type Document } from "mongoose";
 
+import {
+  CONTEST_RESULT_METHODS,
+  type ContestResultMethod,
+} from "@/lib/constants";
+
 export interface IFirstSolver {
   problemId: string;
   userId: mongoose.Types.ObjectId;
@@ -24,6 +29,30 @@ export interface IRoomAdmission {
   userId: mongoose.Types.ObjectId;
   teamId: mongoose.Types.ObjectId;
   admittedAt: Date;
+}
+
+export interface IRoomProblemState {
+  problemId: string;
+  revealedAt?: number;
+  deadlineAt?: number;
+  closedAt?: number;
+  closeReason?: "solved" | "expired" | "match_end";
+  claim?: {
+    userId: string;
+    teamId: string;
+    submissionId: string;
+    submittedAt: number;
+  };
+}
+
+export interface IRoomScore {
+  teamId: string;
+  score: number;
+  solveTimeMs: number;
+  wrongSubmissions: number;
+  penaltyTimeMs: number;
+  lastSolveAt: number;
+  seed?: number;
 }
 
 export interface IContestRoom extends Document {
@@ -53,6 +82,13 @@ export interface IContestRoom extends Document {
   judgingGraceSeconds?: number;
   problemDurationSeconds?: number;
   matchDeadline?: Date;
+  problemStates: IRoomProblemState[];
+  scoreStats: IRoomScore[];
+  arenaWrongPenaltySeconds?: number;
+  gameplayEndedAt?: Date;
+  judgingDeadline?: Date;
+  finalizedAt?: Date;
+  resultMethod?: ContestResultMethod;
   terminationReason?: string;
   winnerTeamId?: mongoose.Types.ObjectId;
   actualStartTime?: Date;
@@ -168,6 +204,57 @@ const ContestRoomSchema = new Schema<IContestRoom>(
     judgingGraceSeconds: { type: Number, min: 0 },
     problemDurationSeconds: { type: Number, min: 1 },
     matchDeadline: Date,
+    problemStates: {
+      type: [
+        new Schema<IRoomProblemState>(
+          {
+            problemId: { type: String, required: true },
+            revealedAt: Number,
+            deadlineAt: Number,
+            closedAt: Number,
+            closeReason: {
+              type: String,
+              enum: ["solved", "expired", "match_end"],
+            },
+            claim: {
+              type: new Schema(
+                {
+                  userId: { type: String, required: true },
+                  teamId: { type: String, required: true },
+                  submissionId: { type: String, required: true },
+                  submittedAt: { type: Number, required: true },
+                },
+                { _id: false },
+              ),
+            },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+    scoreStats: {
+      type: [
+        new Schema<IRoomScore>(
+          {
+            teamId: { type: String, required: true },
+            score: { type: Number, required: true },
+            solveTimeMs: { type: Number, required: true },
+            wrongSubmissions: { type: Number, required: true },
+            penaltyTimeMs: { type: Number, required: true },
+            lastSolveAt: { type: Number, required: true },
+            seed: Number,
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+    arenaWrongPenaltySeconds: { type: Number, min: 0 },
+    gameplayEndedAt: Date,
+    judgingDeadline: Date,
+    finalizedAt: Date,
+    resultMethod: { type: String, enum: CONTEST_RESULT_METHODS },
     terminationReason: { type: String },
     winnerTeamId: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     actualStartTime: { type: Date },

@@ -17,6 +17,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
 import type {
@@ -45,8 +47,6 @@ import { useRoomParticipation } from "@/components/contests/useRoomParticipation
 import { useMatchNavigationWarning } from "@/components/contests/useMatchNavigationWarning";
 import Button from "@/components/shared/Button";
 
-import { useRuntimeConfig } from "@/components/layout/Providers";
-
 import styles from "./BlitzRoomClient.module.scss";
 
 export default function BlitzRoomClient({
@@ -65,6 +65,7 @@ export default function BlitzRoomClient({
   initialProblemIndex = 0,
   initialStartTime,
   initialTimeLimit,
+  initialJudgingDeadline,
   from,
   syncCooldownSeconds = 60,
   isSpectator = false,
@@ -88,6 +89,7 @@ export default function BlitzRoomClient({
   initialProblemIndex?: number;
   initialStartTime?: number;
   initialTimeLimit?: number;
+  initialJudgingDeadline?: number;
   initialReadyDeadline?: number;
   initialReadyOpensAt?: number;
   initialAdmittedUserIds?: string[];
@@ -97,7 +99,6 @@ export default function BlitzRoomClient({
   initialActivityFeed?: RoomActivityDto[];
 }) {
   const router = useRouter();
-  const { contestResultRedirectSeconds } = useRuntimeConfig();
 
   const [matchState, setMatchState] = useState<
     "waiting" | "active" | "completed"
@@ -107,6 +108,9 @@ export default function BlitzRoomClient({
   const [matchOverDismissed, setMatchOverDismissed] = useState(false);
   const [problems, setProblems] =
     useState<ContestRoomProblemDto[]>(initialProblems);
+  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
+    null,
+  );
   const [currentProblemIndex, setCurrentProblemIndex] =
     useState(initialProblemIndex);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
@@ -156,6 +160,9 @@ export default function BlitzRoomClient({
   const [timeLimit, setTimeLimit] = useState<number | undefined>(
     initialTimeLimit,
   );
+  const [judgingDeadline, setJudgingDeadline] = useState(
+    initialJudgingDeadline,
+  );
   const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
@@ -179,7 +186,7 @@ export default function BlitzRoomClient({
     if (matchState === "completed" && initialMatchState !== "completed") {
       const t = setTimeout(() => {
         router.replace(getContestRoomResultsPath(roomId, contest.format));
-      }, contestResultRedirectSeconds * 1000);
+      }, CONTEST_TIMING.resultRedirectMs);
 
       return () => clearTimeout(t);
     }
@@ -190,7 +197,6 @@ export default function BlitzRoomClient({
     router,
     contest.format,
     contest.mode,
-    contestResultRedirectSeconds,
   ]);
 
   const handleEvent = (payload: RoomEventPayloadDto) => {
@@ -214,6 +220,11 @@ export default function BlitzRoomClient({
         });
         if (payload.state.startTime)
           setStartTime(parseInt(payload.state.startTime));
+        setJudgingDeadline(
+          payload.state.judgingDeadline
+            ? Number(payload.state.judgingDeadline)
+            : undefined,
+        );
         if (payload.state.timeLimit)
           setTimeLimit(parseInt(payload.state.timeLimit));
         if (payload.onlineUserIds) {
@@ -221,8 +232,11 @@ export default function BlitzRoomClient({
           setOnlineUserIds(new Set(payload.onlineUserIds));
         }
         syncParticipation(payload);
-        if (payload.state.currentProblem)
+        if (payload.state.currentProblem) {
+          if (Number(payload.state.currentProblem) !== currentProblemIndex)
+            setSelectedProblemId(null);
           setCurrentProblemIndex(Number(payload.state.currentProblem));
+        }
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
         if (payload.activityLogs)
@@ -365,8 +379,6 @@ export default function BlitzRoomClient({
 
     setSyncing(true);
 
-    const activeProblem = problems[currentProblemIndex];
-
     if (!activeProblem) return;
 
     const res = await fetch("/api/contests/sync", {
@@ -395,11 +407,25 @@ export default function BlitzRoomClient({
     }
   };
 
-  const activeProblem = problems[currentProblemIndex] || {
-    name: "Loading...",
-    rating: 0,
-  };
-  const totalProblems = problems.length || 5;
+  const revealedProblems = problems.filter(
+    (problem) => problem.revealedAt != null,
+  );
+  const activeProblem = revealedProblems.find(
+    (problem) => problem.problemId === selectedProblemId,
+  ) ??
+    problems[currentProblemIndex] ??
+    revealedProblems.at(-1) ?? {
+      name: "Loading...",
+      rating: 0,
+    };
+  const totalProblems = problems.length;
+  const problemTimeLeft = useRoomCountdown(
+    matchState,
+    activeProblem.revealedAt ?? undefined,
+    activeProblem.deadlineAt && activeProblem.revealedAt
+      ? (activeProblem.deadlineAt - activeProblem.revealedAt) / 1000
+      : undefined,
+  );
 
   return (
     <div className={styles.page}>
@@ -432,7 +458,9 @@ export default function BlitzRoomClient({
                 <span className={styles.statusDot}></span>
               )}
               {matchState === "active"
-                ? "LIVE MATCH"
+                ? judgingDeadline
+                  ? "JUDGING"
+                  : "LIVE MATCH"
                 : matchState === "completed"
                   ? "MATCH OVER"
                   : "WAITING FOR PLAYERS"}
@@ -502,10 +530,23 @@ export default function BlitzRoomClient({
           <div className={styles.timerBox}>
             <Timer className={styles.timerIcon} size={18} />
             <span className={styles.timerText}>
-              {timeLeft} <span className={styles.timerSub}>remaining</span>
+              {judgingDeadline ? (
+                "Play ended"
+              ) : (
+                <>
+                  {timeLeft} <span className={styles.timerSub}>remaining</span>
+                </>
+              )}
             </span>
           </div>
         </header>
+
+        {judgingDeadline && matchState === "active" && (
+          <p role="status" className={styles.entryNotice}>
+            Play has ended. On-time submissions can still be synced while
+            judging finishes.
+          </p>
+        )}
 
         {/* 3-Column Layout */}
         <div className={styles.grid}>
@@ -655,7 +696,9 @@ export default function BlitzRoomClient({
                         size={16}
                       />
                       <span className={styles.problemCountText}>
-                        Problem {currentProblemIndex + 1} of {totalProblems}
+                        Problem{" "}
+                        {Math.min(currentProblemIndex + 1, totalProblems)} of{" "}
+                        {totalProblems}
                       </span>
                     </div>
                     <div className={styles.progressBars}>
@@ -673,6 +716,34 @@ export default function BlitzRoomClient({
                       ))}
                     </div>
                   </div>
+
+                  {revealedProblems.length > 1 && (
+                    <label className={styles.entryNotice}>
+                      Review or sync a revealed problem
+                      <select
+                        value={activeProblem.problemId ?? ""}
+                        onChange={(event) =>
+                          setSelectedProblemId(event.target.value)
+                        }
+                      >
+                        {revealedProblems.map((problem) => (
+                          <option
+                            key={problem.problemId}
+                            value={problem.problemId}
+                          >
+                            {problem.problemId}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <p className={styles.problemCountText}>
+                    {activeProblem.closedAt
+                      ? "Problem closed, on-time submissions remain eligible during judging"
+                      : activeProblem.deadlineAt
+                        ? "Problem time remaining: " + problemTimeLeft
+                        : "No problem timer"}
+                  </p>
 
                   <div key={animationKey} className={styles.problemCard}>
                     <div className={styles.problemWatermark}>

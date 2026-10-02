@@ -14,12 +14,9 @@ import {
   generateBracket,
   processWalkover,
 } from "@/lib/contests/bracket";
-import {
-  finishRoomParticipation,
-  readyOrEnterRoom,
-} from "@/lib/contests/participation";
+import { readyOrEnterRoom } from "@/lib/contests/participation";
 import { updateRoomPresence } from "@/lib/contests/presence";
-import { reconciliationQueue } from "@/lib/contests/queues";
+import { reconciliationQueue, cfSyncQueue } from "@/lib/contests/queues";
 import {
   recoverRoomParticipation,
   synchronizeRoomRuntime,
@@ -32,6 +29,7 @@ import {
 } from "@/lib/platforms/codeforces";
 import "@/lib/contests/workers/codeforcesSync";
 import "@/lib/contests/workers/reconciliation";
+import { reconcileMatch } from "@/lib/contests/gameplay";
 import { getRedis } from "@/lib/db/redis";
 import { workerEnv } from "@/lib/env/worker";
 
@@ -53,6 +51,9 @@ vi.mock("@/lib/contests/queues", async () => {
   const { bullMqConnection } = await import("@/lib/queues/bullMq");
 
   return {
+    cfSyncQueue: new Queue(`ccw-test-participation-cf-${process.pid}`, {
+      connection: bullMqConnection,
+    }),
     reconciliationQueue: new Queue(`ccw-test-participation-${process.pid}`, {
       connection: bullMqConnection,
     }),
@@ -99,6 +100,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await reconciliationQueue.drain(true);
+  await cfSyncQueue.drain(true);
 
   for (const [records, prefix] of [
     [await ContestRoom.find().lean(), "room"],
@@ -118,6 +120,8 @@ afterEach(async () => {
 afterAll(async () => {
   await reconciliationQueue.obliterate({ force: true });
   await reconciliationQueue.close();
+  await cfSyncQueue.obliterate({ force: true });
+  await cfSyncQueue.close();
   redis.destroy();
   await stopTestMongo();
 });
@@ -290,9 +294,9 @@ describe("readiness and durable live participation", () => {
         mode === "arena" ? 2 : 1,
       );
       expect(
-        (await reconciliationQueue.getJob(`room-timeout-${f.roomId}`))!
+        (await reconciliationQueue.getJob(`room_timeout-${f.roomId}`))!
           .timestamp +
-          (await reconciliationQueue.getJob(`room-timeout-${f.roomId}`))!.delay,
+          (await reconciliationQueue.getJob(`room_timeout-${f.roomId}`))!.delay,
       ).toBeCloseTo(started!.matchDeadline!.getTime(), -1);
     },
   );
@@ -385,7 +389,7 @@ describe("readiness and durable live participation", () => {
         second.deadline + 1,
       ),
     ).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
-    await finishRoomParticipation(first.roomId);
+    await finishMatch(first.roomId);
     expect(
       (
         await readyOrEnterRoom(
@@ -479,7 +483,7 @@ describe("readiness and durable live participation", () => {
     expect(state.matchDeadline).toBe(String(before!.matchDeadline!.getTime()));
     expect(after!.toObject().admissions).toEqual(before!.toObject().admissions);
     expect(
-      await reconciliationQueue.getJob(`room-timeout-${f.roomId}`),
+      await reconciliationQueue.getJob(`room_timeout-${f.roomId}`),
     ).toBeDefined();
     expect(
       await redis.sMembers(`room:${f.roomId}:admitted_users`),
@@ -528,7 +532,7 @@ describe("participation across workers and registration", () => {
       { _id: second.roomId },
       { $set: { readyDeadline: firstStarted.actualStartTime } },
     );
-    await finishRoomParticipation(first.roomId);
+    await finishMatch(first.roomId);
     await readyOrEnterRoom(second.roomId);
     const ended = (await ContestRoom.findById(second.roomId))!;
 
@@ -613,9 +617,7 @@ describe("participation across workers and registration", () => {
       submission(entryTime - 1000),
     ]);
     await process({ name: "cf_sync", data, id: "old-submission" });
-    expect(
-      await redis.zScore(`room:${f.roomId}:scores`, data.teamId),
-    ).toBeNull();
+    expect(await redis.zScore(`room:${f.roomId}:scores`, data.teamId)).toBe(0);
     const connection = { userId: lateUser, id: "late-tab", expirySeconds: 45 };
 
     await updateRoomPresence(f.roomId, "refresh", connection);
@@ -653,11 +655,16 @@ describe("participation across workers and registration", () => {
     expect(
       await ContestParticipation.countDocuments({ roomId: f.roomId }),
     ).toBe(2);
-    await redis.zAdd(`room:${f.roomId}:scores`, {
-      score: 100,
-      value: String(f.teams[0]._id),
-    });
-    await process({ name: "room_completed", data, id: "completed" });
+    await ContestRoom.updateOne(
+      { _id: f.roomId },
+      {
+        $set: {
+          matchDeadline: new Date(Date.now() - 1000),
+          judgingGraceSeconds: 0,
+        },
+      },
+    );
+    await process({ name: "room_timeout", data, id: "completed" });
     expect((await ContestRoom.findById(f.roomId))!.status).toBe("ended");
     expect(
       await ContestParticipation.countDocuments({ roomId: f.roomId }),
@@ -860,3 +867,25 @@ describe("bracket no-shows", () => {
     ).toBe(true);
   });
 });
+
+vi.mock("@/lib/platforms/problemContent", async (original) => ({
+  ...(await original<typeof import("@/lib/platforms/problemContent")>()),
+  fetchProblemContentForScheduling: vi.fn(async () => ({
+    title: "Fixture problem",
+    statementHtml: "<p>Fixture statement</p>",
+    inputSpecificationHtml: "",
+    outputSpecificationHtml: "",
+    samples: [],
+    sourceUrl: "https://codeforces.com",
+  })),
+}));
+
+async function finishMatch(roomId: string) {
+  await ContestRoom.updateOne(
+    { _id: roomId },
+    {
+      $set: { matchDeadline: new Date(Date.now() - 1), judgingGraceSeconds: 0 },
+    },
+  );
+  await reconcileMatch(roomId);
+}

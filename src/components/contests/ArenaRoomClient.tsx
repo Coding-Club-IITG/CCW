@@ -14,6 +14,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
 import type {
@@ -42,8 +44,6 @@ import { useRoomParticipation } from "@/components/contests/useRoomParticipation
 import { useMatchNavigationWarning } from "@/components/contests/useMatchNavigationWarning";
 import Button from "@/components/shared/Button";
 
-import { useRuntimeConfig } from "@/components/layout/Providers";
-
 import styles from "./ArenaRoomClient.module.scss";
 
 export default function ArenaRoomClient({
@@ -62,6 +62,7 @@ export default function ArenaRoomClient({
   initialLocks = {},
   initialStartTime,
   initialTimeLimit,
+  initialJudgingDeadline,
   from,
   syncCooldownSeconds = 60,
   isSpectator = false,
@@ -85,6 +86,7 @@ export default function ArenaRoomClient({
   initialLocks?: Record<string, string>;
   initialStartTime?: number;
   initialTimeLimit?: number;
+  initialJudgingDeadline?: number;
   initialReadyDeadline?: number;
   initialReadyOpensAt?: number;
   initialAdmittedUserIds?: string[];
@@ -94,7 +96,6 @@ export default function ArenaRoomClient({
   initialActivityFeed?: RoomActivityDto[];
 }) {
   const router = useRouter();
-  const { contestResultRedirectSeconds } = useRuntimeConfig();
 
   const [matchState, setMatchState] = useState<
     "waiting" | "active" | "completed"
@@ -152,6 +153,9 @@ export default function ArenaRoomClient({
   const [timeLimit, setTimeLimit] = useState<number | undefined>(
     initialTimeLimit,
   );
+  const [judgingDeadline, setJudgingDeadline] = useState(
+    initialJudgingDeadline,
+  );
   const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
     null,
@@ -177,7 +181,7 @@ export default function ArenaRoomClient({
     if (matchState === "completed" && initialMatchState !== "completed") {
       const t = setTimeout(() => {
         router.replace(getContestRoomResultsPath(roomId, contest.format));
-      }, contestResultRedirectSeconds * 1000);
+      }, CONTEST_TIMING.resultRedirectMs);
 
       return () => clearTimeout(t);
     }
@@ -188,7 +192,6 @@ export default function ArenaRoomClient({
     router,
     contest.format,
     contest.mode,
-    contestResultRedirectSeconds,
   ]);
 
   const stateRef = useRef({ locks, problems, teams, userId });
@@ -212,6 +215,11 @@ export default function ArenaRoomClient({
         setMatchState(nextStatus);
         if (payload.state.startTime)
           setStartTime(parseInt(payload.state.startTime));
+        setJudgingDeadline(
+          payload.state.judgingDeadline
+            ? Number(payload.state.judgingDeadline)
+            : undefined,
+        );
         if (payload.state.timeLimit)
           setTimeLimit(parseInt(payload.state.timeLimit));
         if (payload.onlineUserIds) {
@@ -456,7 +464,9 @@ export default function ArenaRoomClient({
                 <span className={styles.statusDot}></span>
               )}
               {matchState === "active"
-                ? "LIVE MATCH"
+                ? judgingDeadline
+                  ? "JUDGING"
+                  : "LIVE MATCH"
                 : matchState === "completed"
                   ? "MATCH OVER"
                   : "WAITING FOR PLAYERS"}
@@ -493,10 +503,23 @@ export default function ArenaRoomClient({
           <div className={styles.timerBox}>
             <Timer className={styles.timerIcon} size={18} />
             <span className={styles.timerText}>
-              {timeLeft} <span className={styles.timerSub}>remaining</span>
+              {judgingDeadline ? (
+                "Play ended"
+              ) : (
+                <>
+                  {timeLeft} <span className={styles.timerSub}>remaining</span>
+                </>
+              )}
             </span>
           </div>
         </header>
+
+        {judgingDeadline && matchState === "active" && (
+          <p role="status" className={styles.entryNotice}>
+            Play has ended. On-time submissions can still be synced while
+            judging finishes.
+          </p>
+        )}
 
         {/* 3-Column Layout */}
         <div className={styles.grid}>

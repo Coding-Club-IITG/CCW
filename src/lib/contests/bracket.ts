@@ -1,18 +1,20 @@
 import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
 import { parseBracketPosition } from "@/lib/contests/bracketLayout";
 import {
   buildBracketTopology,
   minimumBracketEntrants,
 } from "@/lib/contests/bracketTopology";
+import { provisionProblems } from "@/lib/contests/provisioning";
 import { configureRoomTiming } from "@/lib/contests/roomTiming";
 import { synchronizeRoomRuntime } from "@/lib/contests/roomRuntime";
 import { publishContest } from "@/lib/contests/events";
 import type { BracketNode, BracketSnapshot } from "@/lib/contests/types";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { getRedis } from "@/lib/db/redis";
-import { workerEnv } from "@/lib/env/worker";
 
 import ContestMatch, {
   type IBracketEntrant,
@@ -20,10 +22,7 @@ import ContestMatch, {
   type IRegistration,
 } from "@/models/ContestMatch";
 import ContestParticipation from "@/models/ContestParticipation";
-import ContestProblemSet, {
-  type ISelectedProblem,
-} from "@/models/ContestProblemSet";
-import ContestQuestion from "@/models/ContestQuestion";
+import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestRound from "@/models/ContestRound";
 import ContestRoom, {
   type IBracketDestination,
@@ -120,7 +119,7 @@ export async function synchronizeBracketRuntime(contestId: string) {
   if (
     !(await redis.set(lockKey, token, {
       NX: true,
-      EX: workerEnv.CONTEST_TRANSITION_LOCK_SECONDS,
+      EX: CONTEST_TIMING.transitionLockSeconds,
     }))
   ) {
     const { reconciliationQueue } = await import("@/lib/contests/queues");
@@ -130,7 +129,7 @@ export async function synchronizeBracketRuntime(contestId: string) {
       "bracket_transition",
       { contestId },
       {
-        delay: workerEnv.CONTEST_TRANSITION_LOCK_SECONDS * 1000,
+        delay: CONTEST_TIMING.transitionLockSeconds * 1000,
         jobId: `bracket-transition-${contestId}-${token}`,
         removeOnComplete: true,
       },
@@ -193,94 +192,45 @@ async function createRoomTeam(
   return team._id;
 }
 
-async function allocateProblems(
-  contest: IContestMatch,
-  topology: ReturnType<typeof buildBracketTopology>,
-  roomIds: Map<string, mongoose.Types.ObjectId>,
-  solved?: Set<string>,
-) {
-  const count = contest.bulkProblemCount || 3;
-  // Reserve content for every playable match including the conditional reset
-  const matches = topology.matches.filter((match) => match.playable);
-  let pool: Array<Partial<ISelectedProblem> & { problemId: string }> = [];
-
-  if (contest.problemSelectionMode === "bulk") {
-    pool = await ContestQuestion.aggregate([
-      {
-        $match: {
-          rating: {
-            $gte: Math.max(contest.bulkRatingMin || 800, 1),
-            $lte: contest.bulkRatingMax || 1200,
-          },
-          ...(contest.bulkMinContestId
-            ? { contestId: { $gte: contest.bulkMinContestId } }
-            : {}),
-          ...(solved?.size ? { problemId: { $nin: [...solved] } } : {}),
-        },
-      },
-      { $sample: { size: matches.length * count } },
-      { $sort: { rating: 1 } },
-    ]);
-
-    if (pool.length < matches.length * count) {
-      throw new Error(
-        "Not enough fresh problems for every bracket match and possible reset.",
-      );
-    }
-  }
-
-  const slots = [...(contest.problemSlots ?? [])];
-
-  for (const match of matches) {
-    let assigned: typeof pool;
-
-    if (contest.problemSelectionMode === "bulk") {
-      assigned = pool.splice(0, count);
-    } else if (contest.problemSelectionMode === "test") {
-      assigned = [
-        { problemId: "4A", name: "Watermelon", rating: 800 },
-        { problemId: "1A", name: "Theatre Square", rating: 1000 },
-        { problemId: "158A", name: "Next Round", rating: 800 },
-      ].slice(0, count);
-    } else {
-      const chosen = slots
-        .filter(
-          (slot) => slot.roundNumber === match.roundNumber && slot.problemId,
-        )
-        .slice(0, count);
-
-      if (chosen.length < count) {
-        throw new Error(`Missing problems for ${match.roundName}.`);
-      }
-
-      assigned = chosen.map((slot) => ({
-        ...slot,
-        problemId: slot.problemId!,
-      }));
-
-      for (const slot of chosen) {
-        slots.splice(slots.indexOf(slot), 1);
-      }
-    }
-
-    await ContestProblemSet.create({
-      contestId: contest._id,
-      roomId: roomIds.get(match.position),
-      problems: assigned.map((problem) => ({
-        ...problem,
-        platform: problem.platform || "codeforces",
-        name: problem.name || problem.problemId,
-        points: problem.points ?? Math.floor((problem.rating || 1000) / 10),
-      })),
-    });
-  }
-}
-
 export async function generateBracket(
   contestId: string,
   solvedProblemIds?: Set<string>,
   deferredEffects?: DeferredBracketEffect[],
 ) {
+  await connectMongoDB();
+
+  const preparedContest = await ContestMatch.findOne({
+    _id: contestId,
+    format: "bracket",
+  });
+  let allocations: Awaited<ReturnType<typeof provisionProblems>> | undefined;
+
+  if (
+    preparedContest?.status === "provisioning" &&
+    !preparedContest.bracketGeneratedAt &&
+    !preparedContest.cancellationReason
+  ) {
+    const groups = groupBracketRegistrations(
+      preparedContest.registrations ?? [],
+      preparedContest.teamSize || 1,
+    );
+    const type = preparedContest.bracketSettings?.type || "single_elimination";
+    const capacity = preparedContest.registrationSettings?.entrantCapacity;
+
+    if (
+      capacity &&
+      groups.length >= minimumBracketEntrants(type) &&
+      groups.length <= capacity
+    ) {
+      // Fetch external content before holding the bracket transaction open
+      allocations = await provisionProblems(
+        preparedContest,
+        solvedProblemIds ?? new Set(),
+        buildBracketTopology(groups.length, type),
+      );
+    }
+  }
+
   return mutateBracket(contestId, deferredEffects, async (contest) => {
     if (contest.cancellationReason) {
       return getBracketSnapshot(contestId);
@@ -323,6 +273,12 @@ export async function generateBracket(
       await contest.save();
 
       return getBracketSnapshot(contestId);
+    }
+
+    if (!allocations || preparedContest?.get("__v") !== contest.get("__v")) {
+      throw new Error(
+        "Bracket registrations changed during provisioning. Retry generation.",
+      );
     }
 
     // Snapshot team averages once so later rating changes cannot reorder seeds
@@ -432,7 +388,13 @@ export async function generateBracket(
       await room.save();
     }
 
-    await allocateProblems(contest, topology, roomIds, solvedProblemIds);
+    for (const [position, problems] of allocations) {
+      await ContestProblemSet.create({
+        contestId: contest._id,
+        roomId: roomIds.get(position),
+        problems,
+      });
+    }
     await contest.save();
     await settleRooms(contest);
 
@@ -547,6 +509,15 @@ async function resolveMatch(
     : null;
 
   room.status = "ended";
+  room.finalizedAt ??= new Date();
+  room.resultMethod ??=
+    reason === "walkover" || reason === "admin_nullify"
+      ? "admin"
+      : reason === "bye"
+        ? "bye"
+        : reason === "empty_slots"
+          ? "empty"
+          : "no_show";
   room.actualEndTime ??= new Date();
   room.winnerTeamId = winner?._id;
   room.terminationReason = reason ?? room.terminationReason;

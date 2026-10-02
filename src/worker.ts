@@ -1,5 +1,7 @@
 import "@/lib/env/load";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
 import { cfSyncQueue, reconciliationQueue } from "@/lib/contests/queues";
 import { workerEnv } from "@/lib/env/worker";
 import { agenda } from "@/lib/jobs/agenda";
@@ -52,7 +54,7 @@ async function run() {
 
   await reconciliationQueue.upsertJobScheduler(
     "recover_participation",
-    { every: workerEnv.CONTEST_RECOVERY_INTERVAL_SECONDS * 1000 },
+    { every: CONTEST_TIMING.recoveryIntervalMs },
     {
       name: "recover_participation",
       data: {},

@@ -23,19 +23,16 @@ const required = {
 
 describe("runtime environment schemas", () => {
   it.each([parseWebEnv, parseWorkerEnv, parseCliEnv])(
-    "validates participation timing defaults and bounds",
+    "validates key contest timing defaults and bounds",
     (parse) => {
       const policies = [
-        ["CONTEST_JUDGING_GRACE_SECONDS", 120, 0, 600],
-        ["CONTEST_CF_RETRY_SECONDS", 5, 1, 60],
-        ["CONTEST_CF_RATE_WINDOW_SECONDS", 1, 1, 60],
-        ["CONTEST_SYNC_RETENTION_MINUTES", 60, 1, 1440],
-        ["CONTEST_RESULT_REDIRECT_SECONDS", 2, 0, 30],
+        ["REGISTRATION_DEADLINE_MINUTES", 3, 1, 1440],
+        ["ROOM_PRE_START_SECONDS", 5, 0, 3600],
+        ["ROOM_READY_TIMEOUT_MINUTES", 2, 1, 1440],
         ["CONTEST_DEFAULT_MATCH_MINUTES", 60, 1, 1440],
-        ["CONTEST_WORKER_LOCK_MINUTES", 10, 1, 60],
-        ["CONTEST_RECONCILIATION_RETRY_SECONDS", 2, 1, 60],
-        ["CONTEST_RECOVERY_INTERVAL_SECONDS", 30, 1, 300],
-        ["CONTEST_DISPLAY_REFRESH_MILLISECONDS", 1000, 100, 5000],
+        ["CONTEST_DEFAULT_BLITZ_PROBLEM_MINUTES", 15, 1, 120],
+        ["CONTEST_JUDGING_GRACE_SECONDS", 120, 0, 600],
+        ["SYNC_COOLDOWN", 60, 0, 3600],
       ] as const;
 
       for (const [key, fallback, min, max] of policies) {
@@ -49,83 +46,9 @@ describe("runtime environment schemas", () => {
           );
         }
       }
-
-      expect(parse(required)).not.toHaveProperty(
-        "DISCONNECT_FORFEIT_TIMEOUT_SECONDS",
-      );
     },
   );
 
-  it.each([parseWebEnv, parseWorkerEnv, parseCliEnv])(
-    "validates contest stream and refresh timing",
-    (parse) => {
-      expect(parse(required)).toMatchObject({
-        CONTEST_TRANSITION_LOCK_SECONDS: 5,
-        CONTEST_SSE_HEARTBEAT_SECONDS: 15,
-        CONTEST_PRESENCE_EXPIRY_SECONDS: 45,
-        CONTEST_PREPARATION_REFRESH_SECONDS: 5,
-      });
-      expect(
-        parse({
-          ...required,
-          CONTEST_SSE_HEARTBEAT_SECONDS: "20",
-          CONTEST_PRESENCE_EXPIRY_SECONDS: "60",
-          CONTEST_PREPARATION_REFRESH_SECONDS: "10",
-        }),
-      ).toMatchObject({
-        CONTEST_SSE_HEARTBEAT_SECONDS: 20,
-        CONTEST_PRESENCE_EXPIRY_SECONDS: 60,
-        CONTEST_PREPARATION_REFRESH_SECONDS: 10,
-      });
-      for (const value of [
-        { CONTEST_TRANSITION_LOCK_SECONDS: "0" },
-        { CONTEST_TRANSITION_LOCK_SECONDS: "61" },
-        { CONTEST_TRANSITION_LOCK_SECONDS: "1.5" },
-        { CONTEST_SSE_HEARTBEAT_SECONDS: "0" },
-        { CONTEST_SSE_HEARTBEAT_SECONDS: "301" },
-        { CONTEST_SSE_HEARTBEAT_SECONDS: "1.5" },
-        { CONTEST_PRESENCE_EXPIRY_SECONDS: "15" },
-        { CONTEST_PRESENCE_EXPIRY_SECONDS: "1" },
-        { CONTEST_PRESENCE_EXPIRY_SECONDS: "3601" },
-        { CONTEST_PREPARATION_REFRESH_SECONDS: "0" },
-        { CONTEST_PREPARATION_REFRESH_SECONDS: "61" },
-      ])
-        expect(() => parse({ ...required, ...value })).toThrow(/CONTEST_/);
-    },
-  );
-  it.each([parseWebEnv, parseWorkerEnv, parseCliEnv])(
-    "validates contest scheduling defaults and bounds",
-    (parse) => {
-      expect(parse(required)).toMatchObject({
-        CONTEST_START_BUFFER_SECONDS: 60,
-        CONTEST_START_TOLERANCE_SECONDS: 5,
-      });
-      expect(
-        parse({
-          ...required,
-          CONTEST_START_BUFFER_SECONDS: "120",
-          CONTEST_START_TOLERANCE_SECONDS: "10",
-        }),
-      ).toMatchObject({
-        CONTEST_START_BUFFER_SECONDS: 120,
-        CONTEST_START_TOLERANCE_SECONDS: 10,
-      });
-      for (const values of [
-        { CONTEST_START_BUFFER_SECONDS: "0" },
-        { CONTEST_START_BUFFER_SECONDS: "3601" },
-        { CONTEST_START_TOLERANCE_SECONDS: "-1" },
-        { CONTEST_START_TOLERANCE_SECONDS: "61" },
-        { CONTEST_START_BUFFER_SECONDS: "1.5" },
-        {
-          CONTEST_START_BUFFER_SECONDS: "5",
-          CONTEST_START_TOLERANCE_SECONDS: "5",
-        },
-      ])
-        expect(() => parse({ ...required, ...values })).toThrow(
-          /CONTEST_START/,
-        );
-    },
-  );
   it.each([
     ["shared server", parseSharedServerEnv],
     ["web", parseWebEnv],
@@ -171,10 +94,6 @@ describe("runtime environment schemas", () => {
       REGISTRATION_DEADLINE_MINUTES: 3,
       ROOM_PRE_START_SECONDS: 5,
       CONTEST_DEFAULT_MATCH_MINUTES: 60,
-      CONTEST_WORKER_LOCK_MINUTES: 10,
-      CONTEST_RECONCILIATION_RETRY_SECONDS: 2,
-      CONTEST_RECOVERY_INTERVAL_SECONDS: 30,
-      CONTEST_DISPLAY_REFRESH_MILLISECONDS: 1000,
       ROOM_READY_TIMEOUT_MINUTES: 2,
       SYNC_COOLDOWN: 60,
       FILE_UPLOAD_DIR: "uploads/files",

@@ -83,7 +83,7 @@ export function buildBracketTopology(entrants: number, type: EliminationType) {
     entrants > 256
   ) {
     throw new Error(
-      `This bracket requires ${minimumBracketEntrants(type)}–256 entrants.`,
+      `This bracket requires ${minimumBracketEntrants(type)}-256 entrants.`,
     );
   }
 

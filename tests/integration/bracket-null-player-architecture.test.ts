@@ -9,6 +9,8 @@ import {
   vi,
 } from "vitest";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
 import {
   advanceNullPlayer,
   advanceWinner,
@@ -23,6 +25,7 @@ import { bracketProblemRequirements } from "@/lib/contests/bracketTopology";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import { getRedis } from "@/lib/db/redis";
 import { workerEnv } from "@/lib/env/worker";
+import { fetchProblemContentForScheduling } from "@/lib/platforms/problemContent";
 
 import ContestMatch from "@/models/ContestMatch";
 import ContestProblemSet from "@/models/ContestProblemSet";
@@ -170,7 +173,7 @@ describe("persisted bracket topology and advancement", () => {
     const contest = await fixture(4);
     const key = `contest:${contest._id}:transition_lock`;
     await redis.set(key, "another-owner", {
-      EX: workerEnv.CONTEST_TRANSITION_LOCK_SECONDS,
+      EX: CONTEST_TIMING.transitionLockSeconds,
     });
     await synchronizeBracketRuntime(String(contest._id));
     expect(await redis.get(key)).toBe("another-owner");
@@ -178,7 +181,7 @@ describe("persisted bracket topology and advancement", () => {
     const recovery = jobs.find((job) => job.name === "bracket_transition");
     expect(recovery?.data.contestId).toBe(String(contest._id));
     expect(recovery?.opts.delay).toBe(
-      workerEnv.CONTEST_TRANSITION_LOCK_SECONDS * 1000,
+      CONTEST_TIMING.transitionLockSeconds * 1000,
     );
   });
   it.each([3, 5, 6, 7, 9])(
@@ -433,4 +436,52 @@ describe("persisted bracket topology and advancement", () => {
     expect(ids).toHaveLength(9);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("fetches content before graph writes and rejects registration changes during preparation", async () => {
+    const contest = await fixture(4, "single_elimination", 1, false);
+    let roomsDuringFetch = -1;
+
+    vi.mocked(fetchProblemContentForScheduling).mockImplementationOnce(
+      async () => {
+        roomsDuringFetch = await ContestRoom.countDocuments();
+        await ContestMatch.updateOne(
+          { _id: contest._id },
+          { $inc: { __v: 1 } },
+        );
+
+        return {
+          title: "Fixture problem",
+          statementHtml: "<p>Fixture statement</p>",
+          inputSpecificationHtml: "",
+          outputSpecificationHtml: "",
+          samples: [],
+          sourceUrl: "https://codeforces.com",
+        };
+      },
+    );
+
+    await expect(generateBracket(String(contest._id))).rejects.toThrow(
+      /changed during provisioning/,
+    );
+    expect(roomsDuringFetch).toBe(0);
+    expect(await ContestRoom.countDocuments()).toBe(0);
+    expect(
+      (await ContestMatch.findById(contest._id))!.bracketGeneratedAt,
+    ).toBeUndefined();
+
+    await generateBracket(String(contest._id));
+    expect(await ContestRoom.countDocuments()).toBe(3);
+  });
 });
+
+vi.mock("@/lib/platforms/problemContent", async (original) => ({
+  ...(await original<typeof import("@/lib/platforms/problemContent")>()),
+  fetchProblemContentForScheduling: vi.fn(async () => ({
+    title: "Fixture problem",
+    statementHtml: "<p>Fixture statement</p>",
+    inputSpecificationHtml: "",
+    outputSpecificationHtml: "",
+    samples: [],
+    sourceUrl: "https://codeforces.com",
+  })),
+}));

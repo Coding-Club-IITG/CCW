@@ -3,14 +3,13 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
 import { getContestById } from "@/lib/actions/contests";
 import { objectIdStringSchema } from "@/lib/api/schemas/contestRoute";
 import { webEnv } from "@/lib/env/web";
 import { userRateLimitsEnabled } from "@/lib/users/rateLimit";
-import {
-  contestRoomStateSchema,
-  parseContestRoomProblems,
-} from "@/lib/contests/runtime";
+import { roomGameplaySnapshot } from "@/lib/contests/roomSnapshot";
 import type {
   ContestRoomProblemDto,
   RoomActivityDto,
@@ -23,6 +22,7 @@ import { isHead } from "@/lib/access/roles";
 import { authorizeContestView, authorizeRoomView } from "@/lib/access/contests";
 import { getRoomOnlineUserIds } from "@/lib/contests/presence";
 
+import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import User from "@/models/User";
@@ -193,7 +193,7 @@ export default async function ContestRoomPage({
             </p>
             <meta
               httpEquiv="refresh"
-              content={String(webEnv.CONTEST_PREPARATION_REFRESH_SECONDS)}
+              content={String(CONTEST_TIMING.preparationRefreshSeconds)}
             />
           </div>
         );
@@ -247,10 +247,13 @@ export default async function ContestRoomPage({
 
     const initialOnlineUserIds = await getRoomOnlineUserIds(roomId!);
 
-    // Fetch current state from Redis
-    const stateObj = contestRoomStateSchema.parse(
-      await redis.hGetAll(`room:${roomId}:state`),
+    const problemSet = await ContestProblemSet.findOne({ roomId }).lean();
+    const snapshot = roomGameplaySnapshot(
+      room,
+      contest.mode,
+      problemSet?.problems ?? [],
     );
+    const stateObj = snapshot.state;
     const rawStatus = stateObj.status || room.status;
     const status =
       rawStatus === "active"
@@ -265,19 +268,9 @@ export default async function ContestRoomPage({
     let initialActivityFeed: RoomActivityDto[] = [];
 
     if (status === "active" || status === "completed") {
-      const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
-
-      initialProblems = parseContestRoomProblems(problemsRaw);
-
-      for (const t of populatedTeams) {
-        const s = await redis.zScore(`room:${roomId}:scores`, t._id);
-
-        initialScores[t._id] = s ? parseFloat(s.toString()) : 0;
-      }
-
-      if (contest.mode === "arena") {
-        initialLocks = await redis.hGetAll(`room:${roomId}:locks`);
-      }
+      initialProblems = snapshot.problems;
+      initialScores = snapshot.scores;
+      initialLocks = snapshot.locks;
 
       const activityLogsRaw = await redis.lRange(
         `room:${roomId}:activity_logs`,
@@ -320,6 +313,7 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
+          initialJudgingDeadline={room.judgingDeadline?.getTime()}
           initialReadyDeadline={room.readyDeadline?.getTime()}
           initialReadyOpensAt={room.readyOpensAt?.getTime()}
           initialAdmittedUserIds={room.admissions.map((admission) =>
@@ -353,6 +347,7 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
+          initialJudgingDeadline={room.judgingDeadline?.getTime()}
           initialReadyDeadline={room.readyDeadline?.getTime()}
           initialReadyOpensAt={room.readyOpensAt?.getTime()}
           initialAdmittedUserIds={room.admissions.map((admission) =>

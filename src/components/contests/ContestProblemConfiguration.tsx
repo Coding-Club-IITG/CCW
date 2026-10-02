@@ -82,7 +82,7 @@ export default function ContestProblemConfiguration({
         )}
       </div>
 
-      {form.mode === "arena" ? (
+      {
         <div className={styles.field}>
           <label className={styles.label} htmlFor="match-duration">
             Match Duration (Minutes)
@@ -90,8 +90,8 @@ export default function ContestProblemConfiguration({
           <input
             id="match-duration"
             type="number"
-            min={5}
-            max={300}
+            min={1}
+            max={1440}
             value={
               form.overallDurationMinutes === undefined ||
               Number.isNaN(form.overallDurationMinutes)
@@ -102,7 +102,7 @@ export default function ContestProblemConfiguration({
               updateForm({
                 overallDurationMinutes:
                   event.target.value === ""
-                    ? ("" as unknown as number)
+                    ? undefined
                     : parseInt(event.target.value, 10),
               })
             }
@@ -110,19 +110,20 @@ export default function ContestProblemConfiguration({
             className={styles.formInput}
           />
           <span className={styles.hintMuted}>
-            Overall countdown for the arena match (5 - 300 minutes).
+            Required overall limit for every match (1-1440 minutes).
           </span>
         </div>
-      ) : (
+      }
+      {form.mode === "blitz" && (
         <div className={styles.field}>
           <label className={styles.label} htmlFor="problem-duration">
-            Default Time Limit (Minutes)
+            Optional Problem Limit (Minutes)
           </label>
           <input
             id="problem-duration"
             type="number"
             min={1}
-            max={60}
+            max={120}
             value={
               form.perProblemDurationMinutes === undefined ||
               Number.isNaN(form.perProblemDurationMinutes)
@@ -141,7 +142,8 @@ export default function ContestProblemConfiguration({
             className={styles.formInput}
           />
           <span className={styles.hintMuted}>
-            Countdown per problem in blitz mode (1 - 60 minutes).
+            Leave blank for no default problem timer. A specific problem limit
+            overrides this value.
           </span>
         </div>
       )}

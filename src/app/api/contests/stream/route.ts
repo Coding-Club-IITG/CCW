@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
 import { authorizeContestView, authorizeRoomView } from "@/lib/access/contests";
 import { parseSearchParams } from "@/lib/api/result";
 import {
@@ -15,15 +17,12 @@ import {
   getRoomOnlineUserIds,
   updateRoomPresence,
 } from "@/lib/contests/presence";
-import {
-  contestRoomStateSchema,
-  parseContestRoomProblems,
-  roomActivitySchema,
-} from "@/lib/contests/runtime";
+import { roomActivitySchema } from "@/lib/contests/runtime";
 import { getRedis } from "@/lib/db/redis";
-import { webEnv } from "@/lib/env/web";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
+import { roomGameplaySnapshot } from "@/lib/contests/roomSnapshot";
+import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestRoom from "@/models/ContestRoom";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +88,7 @@ export async function GET(request: NextRequest) {
     const connection = {
       userId,
       id: randomUUID(),
-      expirySeconds: webEnv.CONTEST_PRESENCE_EXPIRY_SECONDS,
+      expirySeconds: CONTEST_TIMING.presenceExpirySeconds,
     };
     const encoder = new TextEncoder();
 
@@ -277,15 +276,6 @@ export async function GET(request: NextRequest) {
             present = roomAccess.isParticipant;
             await presence("refresh");
 
-            const state = contestRoomStateSchema.parse(
-              await redis.hGetAll(`room:${roomId}:state`),
-            );
-
-            state.status ??=
-              roomAccess.room.status === "ended"
-                ? "completed"
-                : roomAccess.room.status;
-
             const currentRoom = await ContestRoom.findById(roomId).lean();
 
             if (!currentRoom) {
@@ -293,21 +283,14 @@ export async function GET(request: NextRequest) {
               return;
             }
 
-            state.readyOpensAt = String(
-              currentRoom.readyOpensAt?.getTime() ?? "",
+            const problemSet = await ContestProblemSet.findOne({
+              roomId,
+            }).lean();
+            const { state, scores, locks, problems } = roomGameplaySnapshot(
+              currentRoom,
+              roomAccess.contest.mode,
+              problemSet?.problems ?? [],
             );
-            state.readyDeadline = String(
-              currentRoom.readyDeadline?.getTime() ?? "",
-            );
-
-            const scores: Record<string, number> = {};
-
-            for (const team of roomAccess.room.teams) {
-              scores[String(team)] = Number(
-                (await redis.zScore(`room:${roomId}:scores`, String(team))) ??
-                  0,
-              );
-            }
 
             const activityLogs = (
               await redis.lRange(`room:${roomId}:activity_logs`, 0, -1)
@@ -334,14 +317,9 @@ export async function GET(request: NextRequest) {
                 ),
                 problems:
                   state.status === "active" || state.status === "completed"
-                    ? parseContestRoomProblems(
-                        await redis.lRange(`room:${roomId}:problems`, 0, -1),
-                      )
+                    ? problems
                     : [],
-                locks:
-                  state.type === "arena"
-                    ? await redis.hGetAll(`room:${roomId}:locks`)
-                    : {},
+                locks,
                 readyUserIds: currentRoom.readyUserIds.map(String),
                 onlineUserIds: await getRoomOnlineUserIds(roomId),
               },
@@ -373,7 +351,7 @@ export async function GET(request: NextRequest) {
 
                 send("ping", { time: Date.now() });
               });
-            }, webEnv.CONTEST_SSE_HEARTBEAT_SECONDS * 1000);
+            }, CONTEST_TIMING.heartbeatSeconds * 1000);
           }
         });
       },

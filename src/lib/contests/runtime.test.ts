@@ -4,26 +4,18 @@ import {
   cfSyncJobDataSchema,
   reconciliationJobDataSchema,
   contestRoomStateSchema,
-  contestSubmissionEventSchema,
   roomStreamEventSchema,
 } from "@/lib/contests/runtime";
 
 describe("contest runtime boundaries", () => {
-  it("uses queue names for scheduling and reserves triggers for match endings", () => {
-    const contestId = "507f1f77bcf86cd799439011";
-
-    expect(reconciliationJobDataSchema.safeParse({ contestId }).success).toBe(
-      true,
-    );
-    expect(
-      reconciliationJobDataSchema.safeParse({ contestId, trigger: "timeout" })
-        .success,
-    ).toBe(true);
+  it("validates room and contest IDs for reconciliation jobs", () => {
     expect(
       reconciliationJobDataSchema.safeParse({
-        contestId,
-        trigger: "check_start",
+        contestId: "507f1f77bcf86cd799439011",
       }).success,
+    ).toBe(true);
+    expect(
+      reconciliationJobDataSchema.safeParse({ roomId: "invalid" }).success,
     ).toBe(false);
   });
 
@@ -63,20 +55,5 @@ describe("contest runtime boundaries", () => {
         problemIndex: 1,
       }).success,
     ).toBe(false);
-  });
-
-  it("validates persisted submission stream records", () => {
-    expect(
-      contestSubmissionEventSchema.safeParse({
-        userId: "507f191e810c19729de860ea",
-        teamId: "507f1f77bcf86cd799439012",
-        problemId: "4A",
-        cfSubmissionId: 123,
-        verdict: "OK",
-        points: 100,
-        solveMs: 5000,
-        cfTimestamp: 1787563200000,
-      }).success,
-    ).toBe(true);
   });
 });

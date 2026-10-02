@@ -1,6 +1,6 @@
 import { Queue } from "bullmq";
 
-import { workerEnv } from "@/lib/env/worker";
+import { CONTEST_TIMING } from "@/lib/constants";
 
 import type {
   CfSyncJobName,
@@ -19,7 +19,7 @@ export const cfSyncQueue = new Queue<CfSyncQueueData, void, CfSyncJobName>(
       attempts: 3,
       backoff: {
         type: "exponential",
-        delay: workerEnv.CONTEST_CF_RETRY_SECONDS * 1000,
+        delay: CONTEST_TIMING.cfRetryDelayMs,
       },
     },
   },
@@ -35,7 +35,7 @@ export const reconciliationQueue = new Queue<
     attempts: 3,
     backoff: {
       type: "exponential",
-      delay: workerEnv.CONTEST_RECONCILIATION_RETRY_SECONDS * 1000,
+      delay: CONTEST_TIMING.reconciliationRetryDelayMs,
     },
   },
 });

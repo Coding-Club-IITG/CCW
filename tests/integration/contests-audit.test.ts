@@ -193,3 +193,15 @@ function jsonRequest(path: string, body: unknown) {
     body: JSON.stringify(body),
   });
 }
+
+vi.mock("@/lib/platforms/problemContent", async (original) => ({
+  ...(await original<typeof import("@/lib/platforms/problemContent")>()),
+  fetchProblemContentForScheduling: vi.fn(async () => ({
+    title: "Fixture problem",
+    statementHtml: "<p>Fixture statement</p>",
+    inputSpecificationHtml: "",
+    outputSpecificationHtml: "",
+    samples: [],
+    sourceUrl: "https://codeforces.com",
+  })),
+}));

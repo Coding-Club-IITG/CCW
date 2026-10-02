@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { useRuntimeConfig } from "@/components/layout/Providers";
+import { problemAllocationError } from "@/lib/contests/problemAllocation";
+
 import { bracketProblemRequirements } from "@/lib/contests/bracketTopology";
 import {
   createRoomContest,
@@ -47,6 +50,8 @@ export default function CreateRoomModal({
   registrationTiming: ContestRegistrationTiming;
 }) {
   const { deadlineMinutes } = registrationTiming;
+  const { contestDefaultMatchMinutes, contestDefaultBlitzProblemMinutes } =
+    useRuntimeConfig();
   const router = useRouter();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
@@ -64,7 +69,10 @@ export default function CreateRoomModal({
   };
 
   const [formData, setFormData] = useState(() =>
-    createInitialContestForm(isHead),
+    createInitialContestForm(isHead, {
+      overallMinutes: contestDefaultMatchMinutes,
+      problemMinutes: contestDefaultBlitzProblemMinutes,
+    }),
   );
 
   const [registeredUsers, setRegisteredUsers] = useState<ContestParticipant[]>(
@@ -202,13 +210,13 @@ export default function CreateRoomModal({
       typeof formData.overallDurationMinutes === "number" &&
       !Number.isNaN(formData.overallDurationMinutes)
         ? formData.overallDurationMinutes
-        : 60;
+        : contestDefaultMatchMinutes;
 
     const perProblemDurationMinutes =
       typeof formData.perProblemDurationMinutes === "number" &&
       !Number.isNaN(formData.perProblemDurationMinutes)
         ? formData.perProblemDurationMinutes
-        : 15;
+        : undefined;
 
     if (
       formData.format !== "bracket" &&
@@ -327,6 +335,16 @@ export default function CreateRoomModal({
             });
           }
         }
+      }
+
+      const allocationError = problemAllocationError({
+        ...formData,
+        problemSlots: bracketProblemSlots,
+      });
+
+      if (allocationError) {
+        toast.error(allocationError);
+        return;
       }
 
       setLoading(true);

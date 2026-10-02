@@ -15,6 +15,8 @@ import { POST as createRoomPOST } from "@/app/api/contests/rooms/route";
 import { POST as readyPOST } from "@/app/api/contests/rooms/[id]/ready/route";
 import { POST as syncPOST } from "@/app/api/contests/sync/route";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
 import {
   authorizeContestView,
   authorizeRoomView,
@@ -31,10 +33,10 @@ import {
 } from "@/lib/contests/presence";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import { getRedis } from "@/lib/db/redis";
-import { webEnv } from "@/lib/env/web";
 
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
+import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
 
@@ -135,6 +137,18 @@ async function fixture(
   roomIds.push(roomId);
   teamIds.push(teamId);
   contestIds.push(contestId);
+  await ContestProblemSet.create({
+    contestId,
+    roomId,
+    problems: [
+      {
+        platform: "codeforces",
+        problemId: roomId,
+        name: "Isolated problem",
+        points: 100,
+      },
+    ],
+  });
   await redis.hSet(`room:${roomId}:state`, {
     status: "active",
     type: "blitz",
@@ -404,8 +418,8 @@ describe("shared contest and room access", () => {
     const outsider = await viewer();
     for (const [user, status] of [
       [outsider, 403],
-      [f.owner, 400],
-      [await viewer("Head"), 400],
+      [f.owner, 409],
+      [await viewer("Head"), 409],
     ] as const) {
       const response = await createRoomPOST(
         new NextRequest("http://localhost/api/contests/rooms", {
@@ -421,10 +435,10 @@ describe("shared contest and room access", () => {
         }),
       );
       expect(response.status).toBe(status);
-      if (status === 400)
+      if (status === 409)
         expect(await response.json()).toMatchObject({
           ok: false,
-          error: { message: "insufficient_problems" },
+          error: { message: "This contest cannot open a direct room." },
         });
     }
     expect(await ContestRoom.countDocuments()).toBe(1);
@@ -432,13 +446,13 @@ describe("shared contest and room access", () => {
 });
 
 describe("isolated live events and connection presence", () => {
-  it("uses the configured heartbeat and refreshes spectator presence after a crashed connection expires", async () => {
+  it("uses the shared heartbeat and refreshes spectator presence after a crashed connection expires", async () => {
     const f = await fixture();
     const spectator = await viewer();
     await updateRoomPresence(f.roomId, "refresh", {
       userId: f.player.id,
       id: "crashed",
-      expirySeconds: webEnv.CONTEST_PRESENCE_EXPIRY_SECONDS,
+      expirySeconds: CONTEST_TIMING.presenceExpirySeconds,
     });
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const stream = await open(f, spectator);
@@ -447,7 +461,7 @@ describe("isolated live events and connection presence", () => {
     ]);
     await redis.del(`room:${f.roomId}:presence_connections`);
     await vi.advanceTimersByTimeAsync(
-      webEnv.CONTEST_SSE_HEARTBEAT_SECONDS * 1000 - 1,
+      CONTEST_TIMING.heartbeatSeconds * 1000 - 1,
     );
     expect(stream.events.some((event) => event.event === "ping")).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
@@ -466,7 +480,7 @@ describe("isolated live events and connection presence", () => {
       `events:room:${first.roomId}`,
       `events:user:${first.player.id}`,
     ]);
-    expect((await a.wait("room.state_sync")).problems).toEqual([
+    expect((await a.wait("room.state_sync")).problems).toMatchObject([
       { problemId: first.roomId, name: "Isolated problem" },
     ]);
     await publishRoom(second.roomId, {
@@ -633,3 +647,15 @@ describe("isolated live events and connection presence", () => {
     }
   });
 });
+
+vi.mock("@/lib/platforms/problemContent", async (original) => ({
+  ...(await original<typeof import("@/lib/platforms/problemContent")>()),
+  fetchProblemContentForScheduling: vi.fn(async () => ({
+    title: "Fixture problem",
+    statementHtml: "<p>Fixture statement</p>",
+    inputSpecificationHtml: "",
+    outputSpecificationHtml: "",
+    samples: [],
+    sourceUrl: "https://codeforces.com",
+  })),
+}));

@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 
-import { configureRoomTiming } from "@/lib/contests/roomTiming";
+import {
+  createProvisionedRoom,
+  provisionProblems,
+  ProblemAllocationError,
+} from "@/lib/contests/provisioning";
 import { synchronizeRoomRuntime } from "@/lib/contests/roomRuntime";
 
 import { canManageContest } from "@/lib/access/contests";
@@ -10,14 +14,9 @@ import { auth } from "@/lib/auth/server";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 import { parseJson } from "@/lib/api/result";
 import { createContestRoomSchema } from "@/lib/api/schemas/contestRoute";
-import { fetchContestProblemContent } from "@/lib/contests/problemContent";
 
 import ContestMatch from "@/models/ContestMatch";
-import ContestRoom from "@/models/ContestRoom";
-import ContestProblemSet from "@/models/ContestProblemSet";
-import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
-import ContestQuestion from "@/models/ContestQuestion";
 
 export async function POST(req: NextRequest) {
   try {
@@ -67,10 +66,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const problemCount = contest.bulkProblemCount || 3;
-    const minRating = Math.max(contest.bulkRatingMin || 800, 1);
-    const maxRating = contest.bulkRatingMax || 1200;
-    const minContestId = contest.bulkMinContestId || 0;
+    if (contest.format === "bracket" || contest.status === "completed") {
+      return jsonError("CONFLICT", "This contest cannot open a direct room.");
+    }
 
     // Collect all user IDs and fetch them to get solved problems
     const allUserIds = teams.flatMap((t) => t.members);
@@ -87,86 +85,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Query MongoDB problem pool
-    const availableProblems = await ContestQuestion.aggregate([
-      {
-        $match: {
-          rating: {
-            $exists: true,
-            $ne: null,
-            $gt: 0,
-            $gte: minRating,
-            $lte: maxRating,
-          },
-          ...(minContestId > 0 ? { contestId: { $gte: minContestId } } : {}),
-          problemId: { $nin: Array.from(solvedProblemIds) },
-        },
-      },
-      { $sample: { size: problemCount } },
-      { $sort: { rating: 1 } },
-    ]);
-
-    if (availableProblems.length < problemCount) {
-      return jsonError("VALIDATION_ERROR", "insufficient_problems");
-    }
-
-    const problemsWithContent = await Promise.all(
-      availableProblems.map(async (problem) => ({
-        problem,
-        content: await fetchContestProblemContent({
-          platform: "codeforces",
-          problemId: problem.problemId,
-        }),
-      })),
+    const allocation = await provisionProblems(contest, solvedProblemIds);
+    const room = await createProvisionedRoom(
+      contestId,
+      teams,
+      allocation.get("room")!,
+      "waiting",
     );
-
-    // Write stub ContestRoom to MongoDB
-    const room = new ContestRoom({
-      contestId: contest._id,
-      name: `Room for ${contest.name}`,
-      status: "waiting",
-      participants: allUserIds,
-      currentProblemIndex: 0,
-      firstSolvers: [],
-    });
-
-    // Write stub ContestProblemSet
-    const problemSet = new ContestProblemSet({
-      contestId: contest._id,
-      roomId: room._id,
-      problems: problemsWithContent.map(({ problem, content }) => ({
-        platform: "codeforces",
-        problemId: problem.problemId,
-        name: content?.title || problem.name,
-        rating: problem.rating,
-        points: Math.floor((problem.rating || 1000) / 10),
-        ...content,
-      })),
-    });
-
-    // Create teams in MongoDB
-    const teamSize = teamSizes[0]; // Already validated that all sizes are equal
-    const createdTeams = [];
-
-    for (const t of teams) {
-      const team = new ContestTeam({
-        contestId: contest._id,
-        roomId: room._id,
-        name: t.name,
-        members: t.members,
-        teamSize,
-        score: 0,
-      });
-
-      await team.save();
-      createdTeams.push(team);
-    }
-
-    room.teams = createdTeams.map((t) => t._id);
-    configureRoomTiming(room, contest);
-
-    await room.save();
-    await problemSet.save();
 
     const roomId = room._id.toString();
 
@@ -174,6 +99,9 @@ export async function POST(req: NextRequest) {
 
     return jsonOk({ roomId });
   } catch (error) {
+    if (error instanceof ProblemAllocationError)
+      return jsonError("VALIDATION_ERROR", error.message);
+
     logger.error("Contest room creation failed", {
       route: "POST /api/contests/rooms",
       operation: "create_room",

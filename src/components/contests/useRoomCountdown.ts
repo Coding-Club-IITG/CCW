@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { useRuntimeConfig } from "@/components/layout/Providers";
+import { CONTEST_TIMING } from "@/lib/constants";
 
 import { formatRemainingTime } from "@/components/contests/roomPresentation";
 
@@ -13,7 +13,6 @@ export function useRoomCountdown(
   startTime?: number,
   timeLimit?: number,
 ): string {
-  const { contestDisplayRefreshMilliseconds } = useRuntimeConfig();
   const [timeLeft, setTimeLeft] = useState(() =>
     formatRemainingTime(timeLimit ?? 0),
   );
@@ -36,10 +35,10 @@ export function useRoomCountdown(
     updateTimeLeft();
     const interval = setInterval(
       updateTimeLeft,
-      contestDisplayRefreshMilliseconds,
+      CONTEST_TIMING.displayRefreshMs,
     );
     return () => clearInterval(interval);
-  }, [matchState, startTime, timeLimit, contestDisplayRefreshMilliseconds]);
+  }, [matchState, startTime, timeLimit]);
 
   return timeLeft;
 }

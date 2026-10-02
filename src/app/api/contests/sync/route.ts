@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { auth } from "@/lib/auth/server";
 import { getRedis } from "@/lib/db/redis";
@@ -13,10 +15,7 @@ import {
   releaseUserRateLimit,
 } from "@/lib/users/rateLimit";
 import { webEnv } from "@/lib/env/web";
-import {
-  contestRoomStateSchema,
-  parseContestRoomProblems,
-} from "@/lib/contests/runtime";
+import { submissionWindow } from "@/lib/contests/matchScoring";
 import { connectMongoDB } from "@/lib/db/mongodb";
 
 import CPUser from "@/models/CPUser";
@@ -57,28 +56,17 @@ export async function POST(request: NextRequest) {
 
     const redis = await getRedis();
 
-    // 1. Resolve teamId if not provided
-    let resolvedTeamId = teamId;
+    const resolvedTeamId =
+      teamId ??
+      room.admissions
+        .find((entry) => String(entry.userId) === userId)
+        ?.teamId.toString();
 
-    if (!resolvedTeamId) {
-      const teams = await redis.sMembers(`room:${roomId}:teams`);
-
-      for (const tId of teams) {
-        const isMember = await redis.sIsMember(`team:${tId}:users`, userId);
-
-        if (isMember) {
-          resolvedTeamId = tId;
-          break;
-        }
-      }
-
-      if (!resolvedTeamId) {
-        return jsonError(
-          "FORBIDDEN",
-          "User is not part of any team in this room",
-        );
-      }
-    }
+    if (!resolvedTeamId)
+      return jsonError(
+        "FORBIDDEN",
+        "Enter this match before syncing submissions.",
+      );
 
     const team = await ContestTeam.findOne({
       _id: resolvedTeamId,
@@ -103,34 +91,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const state = contestRoomStateSchema.parse(
-      await redis.hGetAll(`room:${roomId}:state`),
+    const problem = room.problemStates.find(
+      (entry) => entry.problemId === problemId,
     );
 
-    if (state.status !== "active") {
-      return jsonError("CONFLICT", "This contest room is not active");
-    }
-
-    const parsedProblems = parseContestRoomProblems(
-      await redis.lRange(`room:${roomId}:problems`, 0, -1),
-    );
-    const problemIndex = parsedProblems.findIndex(
-      (problem) => problem.problemId === problemId,
-    );
-
-    if (problemIndex === -1) {
+    if (!problem)
       return jsonError(
         "VALIDATION_ERROR",
         "Problem is not assigned to this room",
       );
-    }
-
-    if (
-      state.type !== "arena" &&
-      problemIndex > Number.parseInt(state.currentProblem || "0", 10)
-    ) {
+    if (problem.revealedAt === undefined)
       return jsonError("FORBIDDEN", "This problem has not been revealed yet");
-    }
+
+    const admission = room.admissions.find(
+      (entry) => String(entry.userId) === userId,
+    )!;
+    const window = submissionWindow(
+      room,
+      problem,
+      admission.admittedAt.getTime(),
+    );
+
+    if (Date.now() > window.judgingDeadline)
+      return jsonError("CONFLICT", "Judging has closed for this problem");
 
     // 2. Check rate limit
     const rateLimit = await consumeUserRateLimit(
@@ -173,10 +156,7 @@ export async function POST(request: NextRequest) {
       jobId: job.id || "",
     });
     // Expire sync status after the configured retention window
-    await redis.expire(
-      syncStateKey,
-      webEnv.CONTEST_SYNC_RETENTION_MINUTES * 60,
-    );
+    await redis.expire(syncStateKey, CONTEST_TIMING.syncRetentionSeconds);
 
     // 5. Publish event to user
     await publishUser(userId, roomId, {

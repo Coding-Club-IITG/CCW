@@ -9,12 +9,10 @@ describe("contest scheduling timing", () => {
   const now = Date.parse("2030-01-01T00:00:00Z");
   const timing = contestRegistrationTiming({
     REGISTRATION_DEADLINE_MINUTES: 3,
-    CONTEST_START_BUFFER_SECONDS: 120,
-    CONTEST_START_TOLERANCE_SECONDS: 10,
   });
-  it("uses configured buffer and tolerance for both casual and scheduled matches", () => {
+  it("uses the shared buffer and tolerance for both casual and scheduled matches", () => {
     for (const casual of [true, false]) {
-      const earliest = now + (casual ? 110 : 290) * 1000;
+      const earliest = now + (casual ? 55 : 235) * 1000;
       expect(
         contestStartTimeError(
           new Date(earliest).toISOString(),
@@ -39,8 +37,8 @@ describe("contest scheduling timing", () => {
     );
     expect(timing).toEqual({
       deadlineMinutes: 3,
-      startBufferSeconds: 120,
-      startToleranceSeconds: 10,
+      startBufferSeconds: 60,
+      startToleranceSeconds: 5,
     });
   });
 });

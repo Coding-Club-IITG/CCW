@@ -17,6 +17,7 @@ export function useRoomEventSource(
   }, [onEvent]);
 
   useEffect(() => {
+    let latestRevision = -1;
     const eventSource = new EventSource(
       `/api/contests/stream?roomId=${roomId}`,
     );
@@ -26,9 +27,17 @@ export function useRoomEventSource(
         const data: unknown = JSON.parse(event.data);
         const payload = parseRoomStreamMessage(data, roomId, userId);
 
+        if (payload?.type === "room.state_sync") {
+          const revision = Number(payload.state.participationRevision);
+
+          if (revision < latestRevision) return;
+
+          latestRevision = revision;
+        }
+
         if (payload) onEventRef.current(payload);
       } catch {
-        // Ignore malformed events and keep the stream connected.
+        // Ignore malformed events and keep the stream connected
       }
     };
 

@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
 import { readAppResult } from "@/lib/api/result";
 import type { ParticipationResult } from "@/lib/contests/participation";
 import type { RoomStreamEvent } from "@/lib/contests/runtime";
 
-import { useRuntimeConfig } from "@/components/layout/Providers";
 import type { RoomMatchState } from "@/components/contests/useRoomCountdown";
 
 export function useRoomParticipation({
@@ -26,7 +27,6 @@ export function useRoomParticipation({
   initialReadyOpensAt?: number;
   initialReadyDeadline?: number;
 }) {
-  const { contestDisplayRefreshMilliseconds } = useRuntimeConfig();
   const [readyUserIds, setReadyUserIds] = useState(
     new Set(initialReadyUserIds),
   );
@@ -46,11 +46,11 @@ export function useRoomParticipation({
 
     const interval = setInterval(
       () => setNow(Date.now()),
-      contestDisplayRefreshMilliseconds,
+      CONTEST_TIMING.displayRefreshMs,
     );
 
     return () => clearInterval(interval);
-  }, [matchState, contestDisplayRefreshMilliseconds]);
+  }, [matchState]);
 
   function syncParticipation(
     event: Extract<RoomStreamEvent, { type: "room.state_sync" }>,

@@ -14,11 +14,15 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 
-import { CONTEST_ABSENCE_LABELS } from "@/lib/constants";
+import {
+  CONTEST_TIMING,
+  CONTEST_ABSENCE_LABELS,
+  CONTEST_RESULT_LABELS,
+  type ContestResultMethod,
+} from "@/lib/constants";
 
 import { getDisplayName } from "@/lib/users/identity";
 
-import { useRuntimeConfig } from "@/components/layout/Providers";
 import BackLink from "@/components/shared/BackLink";
 import UserAvatar from "@/components/shared/UserAvatar";
 
@@ -67,6 +71,7 @@ export type MatchData = {
   isKnockout: boolean;
   contestId?: string;
   terminationReason?: string;
+  resultMethod?: ContestResultMethod;
   winnerTeamId?: string | null;
   format?: string;
   isProcessing?: boolean;
@@ -93,16 +98,15 @@ export default function PostMatchResultClient({
   }
 
   const router = useRouter();
-  const { contestDisplayRefreshMilliseconds } = useRuntimeConfig();
 
   useEffect(() => {
     if (matchData.isProcessing) {
       const interval = setInterval(() => {
         router.refresh();
-      }, contestDisplayRefreshMilliseconds);
+      }, CONTEST_TIMING.displayRefreshMs);
       return () => clearInterval(interval);
     }
-  }, [matchData.isProcessing, router, contestDisplayRefreshMilliseconds]);
+  }, [matchData.isProcessing, router]);
 
   if (matchData.isProcessing) {
     return (
@@ -155,7 +159,11 @@ export default function PostMatchResultClient({
                   {index > 0 && <span className={styles.vsDash}>-</span>}
                   <div
                     className={`${styles.teamResult} ${
-                      isWinner ? styles.winner : styles.loser
+                      isWinner
+                        ? styles.winner
+                        : matchData.resultMethod === "draw"
+                          ? ""
+                          : styles.loser
                     }`}
                   >
                     {isWinner && (
@@ -190,6 +198,11 @@ export default function PostMatchResultClient({
           <p className={styles.heroMeta}>
             {matchData.roomType} • <strong>{matchData.duration}</strong>
           </p>
+          {matchData.resultMethod && (
+            <p className={styles.heroMeta}>
+              {CONTEST_RESULT_LABELS[matchData.resultMethod]}
+            </p>
+          )}
         </section>
 
         {/* Termination Reason Banner */}

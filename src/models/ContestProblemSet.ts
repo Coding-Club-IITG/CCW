@@ -60,12 +60,15 @@ const ContestProblemSetSchema = new Schema<IContestProblemSet>(
     roomId: {
       type: Schema.Types.ObjectId,
       ref: "ContestRoom",
-      index: true,
-      sparse: true,
     },
     problems: [SelectedProblemSchema],
   },
   { timestamps: true },
+);
+
+ContestProblemSetSchema.index(
+  { roomId: 1 },
+  { unique: true, partialFilterExpression: { roomId: { $type: "objectId" } } },
 );
 
 const ContestProblemSet =

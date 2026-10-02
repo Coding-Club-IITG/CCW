@@ -103,6 +103,8 @@ export type ContestRoomProblemDto = {
   rating?: number;
   points?: number;
   revealedAt?: number | null;
+  deadlineAt?: number | null;
+  closedAt?: number | null;
   statementHtml?: string;
   inputSpecificationHtml?: string;
   outputSpecificationHtml?: string;

@@ -78,10 +78,9 @@ export default async function RootLayout({
       <body>
         <Providers
           runtimeConfig={{
-            contestResultRedirectSeconds:
-              webEnv.CONTEST_RESULT_REDIRECT_SECONDS,
-            contestDisplayRefreshMilliseconds:
-              webEnv.CONTEST_DISPLAY_REFRESH_MILLISECONDS,
+            contestDefaultMatchMinutes: webEnv.CONTEST_DEFAULT_MATCH_MINUTES,
+            contestDefaultBlitzProblemMinutes:
+              webEnv.CONTEST_DEFAULT_BLITZ_PROBLEM_MINUTES,
             developmentAuthEnabled: webEnv.DEV_AUTH_ENABLED,
             googleAuthEnabled: !!webEnv.GOOGLE_CLIENT_ID,
             userRateLimitsEnabled: !webEnv.DEV_DISABLE_USER_RATE_LIMITS,

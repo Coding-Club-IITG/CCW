@@ -56,6 +56,7 @@ export default async function PostMatchResultPage({
   const submissions = await ContestSubmission.find({
     roomId,
     verdict: "OK",
+    points: { $gt: 0 },
   }).lean();
 
   const userIds = teams.flatMap((t) => t.members || []);
@@ -203,28 +204,14 @@ export default async function PostMatchResultPage({
 
   let durationStr = "0m 0s";
 
-  if (contest.startTime && contest.endTime) {
-    const diffMs =
-      new Date(contest.endTime).getTime() -
-      new Date(contest.startTime).getTime();
+  if (room.actualStartTime && (room.gameplayEndedAt || room.actualEndTime)) {
+    const end = room.gameplayEndedAt ?? room.actualEndTime!;
+    const seconds = Math.max(
+      0,
+      Math.floor((end.getTime() - room.actualStartTime.getTime()) / 1000),
+    );
 
-    if (diffMs > 0) {
-      const totalSeconds = Math.floor(diffMs / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-
-      durationStr = `${minutes}m ${seconds}s`;
-    }
-  } else if (submissions.length > 0) {
-    const maxSolveMs = Math.max(...submissions.map((s) => s.solveMs || 0));
-
-    if (maxSolveMs > 0) {
-      const totalSeconds = Math.floor(maxSolveMs / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-
-      durationStr = `${minutes}m ${seconds}s`;
-    }
+    durationStr = Math.floor(seconds / 60) + "m " + (seconds % 60) + "s";
   }
 
   const matchData = {
@@ -238,6 +225,7 @@ export default async function PostMatchResultPage({
     isKnockout: contest.format === "bracket",
     contestId: contest._id.toString(),
     terminationReason: room.terminationReason,
+    resultMethod: room.resultMethod,
     format: contest.format,
     isProcessing,
   };

@@ -243,97 +243,24 @@ const operationalSchema = z.object({
     1,
     1440,
   ),
-  CONTEST_START_BUFFER_SECONDS: integer(
-    "CONTEST_START_BUFFER_SECONDS",
-    60,
-    1,
-    3600,
-  ),
-  CONTEST_START_TOLERANCE_SECONDS: integer(
-    "CONTEST_START_TOLERANCE_SECONDS",
-    5,
-    0,
-    60,
-  ),
   ROOM_PRE_START_SECONDS: integer("ROOM_PRE_START_SECONDS", 5, 0, 3600),
-  CONTEST_TRANSITION_LOCK_SECONDS: integer(
-    "CONTEST_TRANSITION_LOCK_SECONDS",
-    5,
-    1,
-    60,
-  ),
-  CONTEST_SSE_HEARTBEAT_SECONDS: integer(
-    "CONTEST_SSE_HEARTBEAT_SECONDS",
-    15,
-    1,
-    300,
-  ),
-  CONTEST_PRESENCE_EXPIRY_SECONDS: integer(
-    "CONTEST_PRESENCE_EXPIRY_SECONDS",
-    45,
-    2,
-    3600,
-  ),
-  CONTEST_PREPARATION_REFRESH_SECONDS: integer(
-    "CONTEST_PREPARATION_REFRESH_SECONDS",
-    5,
-    1,
-    60,
-  ),
   CONTEST_JUDGING_GRACE_SECONDS: integer(
     "CONTEST_JUDGING_GRACE_SECONDS",
     120,
     0,
     600,
   ),
-  CONTEST_CF_RETRY_SECONDS: integer("CONTEST_CF_RETRY_SECONDS", 5, 1, 60),
-  CONTEST_CF_RATE_WINDOW_SECONDS: integer(
-    "CONTEST_CF_RATE_WINDOW_SECONDS",
+  CONTEST_DEFAULT_BLITZ_PROBLEM_MINUTES: integer(
+    "CONTEST_DEFAULT_BLITZ_PROBLEM_MINUTES",
+    15,
     1,
-    1,
-    60,
-  ),
-  CONTEST_SYNC_RETENTION_MINUTES: integer(
-    "CONTEST_SYNC_RETENTION_MINUTES",
-    60,
-    1,
-    1440,
-  ),
-  CONTEST_RESULT_REDIRECT_SECONDS: integer(
-    "CONTEST_RESULT_REDIRECT_SECONDS",
-    2,
-    0,
-    30,
+    120,
   ),
   CONTEST_DEFAULT_MATCH_MINUTES: integer(
     "CONTEST_DEFAULT_MATCH_MINUTES",
     60,
     1,
     1440,
-  ),
-  CONTEST_WORKER_LOCK_MINUTES: integer(
-    "CONTEST_WORKER_LOCK_MINUTES",
-    10,
-    1,
-    60,
-  ),
-  CONTEST_RECONCILIATION_RETRY_SECONDS: integer(
-    "CONTEST_RECONCILIATION_RETRY_SECONDS",
-    2,
-    1,
-    60,
-  ),
-  CONTEST_RECOVERY_INTERVAL_SECONDS: integer(
-    "CONTEST_RECOVERY_INTERVAL_SECONDS",
-    30,
-    1,
-    300,
-  ),
-  CONTEST_DISPLAY_REFRESH_MILLISECONDS: integer(
-    "CONTEST_DISPLAY_REFRESH_MILLISECONDS",
-    1000,
-    100,
-    5000,
   ),
   ROOM_READY_TIMEOUT_MINUTES: integer("ROOM_READY_TIMEOUT_MINUTES", 2, 1, 1440),
   SYNC_COOLDOWN: integer("SYNC_COOLDOWN", 60, 0, 3600),
@@ -346,30 +273,6 @@ const uploadSchema = z.object({
   PROJECT_UPLOAD_DIR: uploadPath("uploads/projects"),
   AVATAR_UPLOAD_DIR: uploadPath("uploads/avatars"),
 });
-
-function validateContestTiming(
-  value: z.infer<typeof operationalSchema>,
-  ctx: z.RefinementCtx,
-) {
-  if (
-    value.CONTEST_PRESENCE_EXPIRY_SECONDS <= value.CONTEST_SSE_HEARTBEAT_SECONDS
-  ) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["CONTEST_PRESENCE_EXPIRY_SECONDS"],
-      message: "Presence expiry must exceed the SSE heartbeat interval.",
-    });
-  }
-  if (
-    value.CONTEST_START_TOLERANCE_SECONDS >= value.CONTEST_START_BUFFER_SECONDS
-  ) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["CONTEST_START_TOLERANCE_SECONDS"],
-      message: "Start tolerance must be shorter than the scheduling buffer.",
-    });
-  }
-}
 
 export const webEnvSchema = sharedServerSchema
   .extend({
@@ -384,7 +287,6 @@ export const webEnvSchema = sharedServerSchema
   })
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
-  .superRefine(validateContestTiming)
   .superRefine((value, ctx) => {
     validateSharedConfiguration(value, ctx);
     if (!!value.GOOGLE_CLIENT_ID !== !!value.GOOGLE_CLIENT_SECRET) {
@@ -415,13 +317,11 @@ export const webEnvSchema = sharedServerSchema
 export const workerEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
-  .superRefine(validateContestTiming)
   .superRefine(validateSharedConfiguration);
 
 export const cliEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
-  .superRefine(validateContestTiming)
   .superRefine(validateSharedConfiguration);
 
 export const testEnvSchema = baseSchema

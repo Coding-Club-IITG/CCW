@@ -17,7 +17,7 @@ export interface ContestCreationForm {
   fineTunedProblemCount: string | number;
   fineTunedProblems: string[];
   fineTunedProblemPoints?: number[];
-  fineTunedProblemTimeLimits?: number[];
+  fineTunedProblemTimeLimits?: Array<number | undefined>;
   presetId: string;
 
   bracketType?: "single_elimination" | "double_elimination";
@@ -68,7 +68,10 @@ export interface ContestParticipant {
   teamName?: string;
 }
 
-export function createInitialContestForm(isHead = true): ContestCreationForm {
+export function createInitialContestForm(
+  isHead: boolean,
+  timing: { overallMinutes: number; problemMinutes: number },
+): ContestCreationForm {
   return {
     name: "",
     description: "",
@@ -93,8 +96,8 @@ export function createInitialContestForm(isHead = true): ContestCreationForm {
     registrationStartMode: "immediate",
     registrationStartTime: "",
     registrationType: isHead ? "open" : "closed",
-    overallDurationMinutes: 60,
-    perProblemDurationMinutes: 15,
+    overallDurationMinutes: timing.overallMinutes,
+    perProblemDurationMinutes: timing.problemMinutes,
     spectatorRestriction: "none",
   };
 }
@@ -127,9 +130,7 @@ export function applyContestPreset(
 ): ContestCreationForm {
   const problemIds = preset.problemSlots?.map((slot) => slot.problemId || "");
   const points = preset.problemSlots?.map((slot) => slot.points ?? 100);
-  const timeLimits = preset.problemSlots?.map(
-    (slot) => slot.timeLimitMinutes ?? 15,
-  );
+  const timeLimits = preset.problemSlots?.map((slot) => slot.timeLimitMinutes);
 
   return {
     ...form,
