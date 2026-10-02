@@ -110,12 +110,7 @@ export default function Navbar() {
       }
     | undefined;
 
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => setIsMounted(true), []);
-
-  const showInternal = isMounted
-    ? !!session && viewMode === "internal"
-    : pathname.startsWith("/internal");
+  const showInternal = !!session && viewMode === "internal";
   const navLinks = showInternal ? INTERNAL_LINKS : PUBLIC_LINKS;
   const roleLabels = getUserRoleLabels(
     user?.access,
@@ -200,17 +195,7 @@ export default function Navbar() {
 
           {showInternal && <NotificationBell />}
 
-          {!isMounted ? (
-            pathname.startsWith("/internal") ? (
-              <div className={styles.avatarWrapper}>
-                <div className={styles.avatarSkeleton} />
-              </div>
-            ) : (
-              <button disabled className={styles.authButton}>
-                Login
-              </button>
-            )
-          ) : session ? (
+          {session ? (
             <div className={styles.avatarWrapper} ref={menuRef}>
               <button
                 className={styles.avatarButton}

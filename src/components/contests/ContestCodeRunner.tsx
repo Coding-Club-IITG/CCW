@@ -13,7 +13,7 @@ import {
   TestCasePanel,
 } from "@/components/shared/code-runner";
 
-import styles from "@/components/shared/code-runner/CodeRunner.module.scss";
+import styles from "./ContestCodeRunner.module.scss";
 
 type Props = {
   problemId?: string;

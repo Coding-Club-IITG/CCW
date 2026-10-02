@@ -31,7 +31,7 @@ import {
 } from "@/lib/contests/bracketLayout";
 
 import BackLink from "@/components/shared/BackLink";
-import CompatibleImage from "@/components/shared/CompatibleImage";
+import UserAvatar from "@/components/shared/UserAvatar";
 
 import styles from "./BracketRoomClient.module.scss";
 
@@ -89,26 +89,13 @@ function TeamSlot({
         className={`${styles.teamSlot} ${isWinner ? styles.teamSlotWinner : ""}`}
       >
         <div className={styles.teamSlotInner}>
-          {timage ? (
-            <CompatibleImage
-              src={timage}
-              alt={tname}
-              className={styles.teamAvatar}
-              width={24}
-              height={24}
-              fallback={
-                <div className={`${styles.teamAvatarFallback} ${styles.teamAvatarFallbackHi}`}>
-                  {getInitials(tname)}
-                </div>
-              }
-            />
-          ) : (
-            <div
-              className={`${styles.teamAvatarFallback} ${styles.teamAvatarFallbackHi}`}
-            >
-              {getInitials(tname)}
-            </div>
-          )}
+          <UserAvatar
+            name={tname}
+            image={timage}
+            size={24}
+            imageClassName={styles.teamAvatar}
+            fallbackClassName={`${styles.teamAvatarFallback} ${styles.teamAvatarFallbackHi}`}
+          />
           <span
             className={`${styles.slotName} ${isWinner ? styles.slotNameWinner : ""}`}
           >
@@ -172,33 +159,15 @@ function TeamRow({
     );
   }
 
-  const ini = getInitials(tname);
-
-  const renderAvatar = (hi?: boolean) => {
-    if (timage) {
-      return (
-        <CompatibleImage
-          src={timage}
-          alt={tname}
-          className={styles.teamAvatar}
-          width={24}
-          height={24}
-          fallback={
-            <div className={`${styles.teamAvatarFallback} ${hi ? styles.teamAvatarFallbackHi : ""}`}>
-              {ini}
-            </div>
-          }
-        />
-      );
-    }
-    return (
-      <div
-        className={`${styles.teamAvatarFallback} ${hi ? styles.teamAvatarFallbackHi : ""}`}
-      >
-        {ini}
-      </div>
-    );
-  };
+  const renderAvatar = (hi?: boolean) => (
+    <UserAvatar
+      name={tname}
+      image={timage}
+      size={24}
+      imageClassName={styles.teamAvatar}
+      fallbackClassName={`${styles.teamAvatarFallback} ${hi ? styles.teamAvatarFallbackHi : ""}`}
+    />
+  );
 
   if (isWinner) {
     return (
@@ -275,7 +244,12 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
         if (openMatchDetails) openMatchDetails(e, node);
       }}
     >
-      <Handle type="target" position={Position.Left} id="target-left" style={{ top: 55 }} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="target-left"
+        style={{ top: 55 }}
+      />
       <div className={styles.nodeHeader}>
         <span className={styles.nodeHeaderTitle}>
           <Trophy className={styles.trophyIcon} size={16} />
@@ -367,7 +341,9 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
       <span className={`${styles.badge} ${styles.badgeWarning}`}>Walkover</span>
     ) : node.terminationReason === "both_no_show" ||
       node.terminationReason === "both_zero_solve" ? (
-      <span className={`${styles.badge} ${styles.badgeWarning}`}>Eliminated</span>
+      <span className={`${styles.badge} ${styles.badgeWarning}`}>
+        Eliminated
+      </span>
     ) : (
       <span className={`${styles.badge} ${styles.badgePrimary}`}>Final</span>
     )
@@ -395,8 +371,18 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
         if (openMatchDetails) openMatchDetails(e, node);
       }}
     >
-      <Handle type="target" position={Position.Left} id="target-left" style={{ top: 55 }} />
-      <Handle type="target" position={Position.Top} id="target-top" style={{ opacity: 0 }} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="target-left"
+        style={{ top: 55 }}
+      />
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="target-top"
+        style={{ opacity: 0 }}
+      />
       <div className={styles.nodeHeader}>
         <span className={styles.nodeHeaderLabel}>{matchLabel}</span>
         {badge}
@@ -423,8 +409,18 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
           isNull={node.teamIsNull?.[1]}
         />
       </div>
-      <Handle type="source" position={Position.Right} id="source-right" style={{ top: 55 }} />
-      <Handle type="source" position={Position.Bottom} id="source-bottom" style={{ opacity: 0 }} />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="source-right"
+        style={{ top: 55 }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="source-bottom"
+        style={{ opacity: 0 }}
+      />
     </div>
   );
 }
@@ -532,9 +528,7 @@ function MatchSidePanel({
         }
       }
     } catch (err: unknown) {
-      setAdminError(
-        err instanceof Error ? err.message : "An error occurred",
-      );
+      setAdminError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setAdminLoading(false);
     }
@@ -748,12 +742,14 @@ function MatchSidePanel({
           )}
 
           {/* ACTIVE STATUS */}
-          {isActive && displayNode?.roomId && (isParticipant || isSpectator) && (
-            <button onClick={handleEnterRoom} className={styles.footerBtn}>
-              <LogIn className={styles.icon18} size={18} />
-              {isParticipant ? "ENTER ROOM" : "SPECTATE ROOM"}
-            </button>
-          )}
+          {isActive &&
+            displayNode?.roomId &&
+            (isParticipant || isSpectator) && (
+              <button onClick={handleEnterRoom} className={styles.footerBtn}>
+                <LogIn className={styles.icon18} size={18} />
+                {isParticipant ? "ENTER ROOM" : "SPECTATE ROOM"}
+              </button>
+            )}
 
           {/* PENDING STATUS */}
           {isPending && (
@@ -771,11 +767,12 @@ function MatchSidePanel({
                 {isParticipant ? "ENTER ROOM" : "SPECTATE ROOM"}
               </button>
             )}
-          {(displayNode?.status as string) === "waiting" && !(isParticipant || isSpectator) && (
-            <div className={styles.footerNote}>
-              Waiting for the participants to get ready...
-            </div>
-          )}
+          {(displayNode?.status as string) === "waiting" &&
+            !(isParticipant || isSpectator) && (
+              <div className={styles.footerNote}>
+                Waiting for the participants to get ready...
+              </div>
+            )}
 
           {/* ADMIN OVERRIDE CONTROLS */}
           {isAdmin && !isCompleted && displayNode?.roomId && (
@@ -880,9 +877,7 @@ export default function BracketRoomClient({
         if (
           channel === `events:contest:${contest._id}` &&
           payload?.type &&
-          [
-            "contest.bracket_update",
-          ].includes(payload.type)
+          ["contest.bracket_update"].includes(payload.type)
         ) {
           const res = await fetch(
             `/api/contests/${contest._id}/bracket/snapshot`,
@@ -1190,21 +1185,27 @@ export default function BracketRoomClient({
     // 4. Position Grand Final Node
     if (gfNode && showGf) {
       const gfX =
-        filter === "grand_final"
-          ? 0
-          : Math.max(U * X_GAP, L * X_GAP) + 60;
+        filter === "grand_final" ? 0 : Math.max(U * X_GAP, L * X_GAP) + 60;
       let gfY = 100;
       if (filter === "grand_final") {
         gfY = 0;
       } else if (filter === "upper" && upperRounds[U - 1]?.[0]) {
-        const ufNode = flowNodes.find((n) => n.id === upperRounds[U - 1][0].roomId);
+        const ufNode = flowNodes.find(
+          (n) => n.id === upperRounds[U - 1][0].roomId,
+        );
         gfY = ufNode ? ufNode.position.y : 100;
       } else if (filter === "lower" && lowerRounds[L - 1]?.[0]) {
-        const lfNode = flowNodes.find((n) => n.id === lowerRounds[L - 1][0].roomId);
+        const lfNode = flowNodes.find(
+          (n) => n.id === lowerRounds[L - 1][0].roomId,
+        );
         gfY = lfNode ? lfNode.position.y : 100;
       } else if (filter === "all") {
-        const ufNode = flowNodes.find((n) => n.id === upperRounds[U - 1]?.[0]?.roomId);
-        const lfNode = flowNodes.find((n) => n.id === lowerRounds[L - 1]?.[0]?.roomId);
+        const ufNode = flowNodes.find(
+          (n) => n.id === upperRounds[U - 1]?.[0]?.roomId,
+        );
+        const lfNode = flowNodes.find(
+          (n) => n.id === lowerRounds[L - 1]?.[0]?.roomId,
+        );
         if (ufNode && lfNode) {
           gfY = (ufNode.position.y + lfNode.position.y) / 2;
         } else {

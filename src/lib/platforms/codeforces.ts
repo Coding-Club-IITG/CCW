@@ -73,7 +73,13 @@ export async function fetchCodeforcesUserStatus(
     count,
     from,
   });
-
+  if (sharedServerEnv.DEV_MOCK_CF_SUBMISSIONS) {
+    if (!targetProblemId || from > 1 || count === 0) return [];
+    return [mockSubmission(handle, targetProblemId, Date.now())].slice(
+      0,
+      count,
+    );
+  }
   return cp.codeforces.getSubmissions(handle, { count, from });
 }
 
@@ -107,7 +113,10 @@ export async function getUserSubmissionsSince(
   sinceMs: number,
   targetProblemId?: string,
 ) {
-
+  if (sharedServerEnv.DEV_MOCK_CF_SUBMISSIONS) {
+    if (!targetProblemId) return [];
+    return [mockSubmission(handle, targetProblemId, sinceMs + 1_000)];
+  }
   return cp.codeforces.getSubmissionsSince(handle, sinceMs);
 }
 

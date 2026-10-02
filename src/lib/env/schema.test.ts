@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseBrowserEnv,
   parseCliEnv,
+  parseSharedServerEnv,
   parseTestEnv,
   parseWebEnv,
   parseWorkerEnv,
@@ -20,6 +21,26 @@ const required = {
 };
 
 describe("runtime environment schemas", () => {
+  it.each([
+    ["shared server", parseSharedServerEnv],
+    ["web", parseWebEnv],
+    ["worker", parseWorkerEnv],
+    ["CLI", parseCliEnv],
+  ])(
+    "keeps shared Codeforces mocks development-only in the %s profile",
+    (_name, parse) => {
+      expect(parse(required).DEV_MOCK_CF_SUBMISSIONS).toBe(false);
+      expect(
+        parse({ ...required, DEV_MOCK_CF_SUBMISSIONS: "true" })
+          .DEV_MOCK_CF_SUBMISSIONS,
+      ).toBe(true);
+      for (const NODE_ENV of ["test", "production"]) {
+        expect(() =>
+          parse({ ...required, NODE_ENV, DEV_MOCK_CF_SUBMISSIONS: "true" }),
+        ).toThrow(/DEV_MOCK_CF_SUBMISSIONS/);
+      }
+    },
+  );
   it("requires paired Google credentials only for the web process", () => {
     expect(() =>
       parseWebEnv({ ...required, GOOGLE_CLIENT_ID: "google-client" }),
