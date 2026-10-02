@@ -73,6 +73,7 @@ function CountdownTimer({
   useEffect(() => {
     if (!startTime || !durationSeconds) {
       setTimeLeft("--:--:--");
+
       return;
     }
 
@@ -84,6 +85,7 @@ function CountdownTimer({
 
       if (diff <= 0) {
         setTimeLeft("00:00:00");
+
         return;
       }
 
@@ -97,7 +99,9 @@ function CountdownTimer({
     };
 
     updateTimer();
+
     const interval = setInterval(updateTimer, 1000);
+
     return () => clearInterval(interval);
   }, [startTime, durationSeconds]);
 
@@ -168,11 +172,14 @@ export default function ContestListingClient({
     action: "accept" | "reject",
   ) => {
     setInviteActionLoading(requestId);
+
     const res = await respondToContestTeamRequest(requestId, action);
+
     if (res.ok) {
       setMyInvites((prev) => prev.filter((i) => i._id !== requestId));
       router.refresh();
     }
+
     setInviteActionLoading(null);
   };
 
@@ -181,11 +188,14 @@ export default function ContestListingClient({
     action: "accept" | "reject",
   ) => {
     setInviteActionLoading(requestId);
+
     const res = await respondToContestTeamRequest(requestId, action);
+
     if (res.ok) {
       setMyJoinRequests((prev) => prev.filter((i) => i._id !== requestId));
       router.refresh();
     }
+
     setInviteActionLoading(null);
   };
 
@@ -202,16 +212,20 @@ export default function ContestListingClient({
     });
 
   const [now, setNow] = useState(Date.now());
+
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
+
     return () => clearInterval(timer);
   }, []);
 
   const [isMounted, setIsMounted] = useState(false);
+
   useEffect(() => setIsMounted(true), []);
 
   const isPastDeadline = (deadline?: Date | string | null) => {
     if (!isMounted || !deadline) return false;
+
     return now > new Date(deadline).getTime();
   };
 
@@ -234,12 +248,12 @@ export default function ContestListingClient({
       setLocalUpcoming((prevUpcoming) => {
         const transferring = prevUpcoming.filter((c) => {
           const transitionTime = c.startTime;
+
           return transitionTime && new Date(transitionTime).getTime() <= now;
         });
+
         if (transferring.length > 0) {
-          // Safe to call another state setter here because we are in an effect callback,
-          // BUT React 18 strict mode might execute updaters twice.
-          // To be safe, we schedule it out of the pure function using setTimeout
+          // Schedule the second state update outside the updater callback
           setTimeout(() => {
             setLocalActive((prevActive) => {
               const newActive: ContestListingItem[] = [...transferring].map(
@@ -249,11 +263,13 @@ export default function ContestListingClient({
                   roomStatus: "waiting",
                 }),
               );
+
               for (const item of prevActive) {
                 if (!newActive.some((x) => x._id === item._id)) {
                   newActive.push(item);
                 }
               }
+
               return newActive;
             });
           }, 0);
@@ -262,6 +278,7 @@ export default function ContestListingClient({
             (c) => !transferring.some((t) => t._id === c._id),
           );
         }
+
         return prevUpcoming;
       });
     }, 1000);
@@ -271,7 +288,9 @@ export default function ContestListingClient({
 
   const filterByFormat = (contest: ContestListingItem) => {
     if (formatFilter === "all") return true;
+
     if (formatFilter === "bracket") return contest.format === "bracket";
+
     return contest.mode === formatFilter && contest.format !== "bracket";
   };
 
@@ -951,6 +970,7 @@ function UpcomingCountdownTimer({
   useEffect(() => {
     if (!startTime) {
       setTimeLeft(null);
+
       return;
     }
 
@@ -962,6 +982,7 @@ function UpcomingCountdownTimer({
 
       if (diff <= 0) {
         setTimeLeft("Starts soon");
+
         return;
       }
 
@@ -980,7 +1001,9 @@ function UpcomingCountdownTimer({
     };
 
     updateTimer();
+
     const interval = setInterval(updateTimer, 1000);
+
     return () => clearInterval(interval);
   }, [startTime]);
 

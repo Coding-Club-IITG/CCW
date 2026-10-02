@@ -3,675 +3,435 @@ import {
   afterAll,
   afterEach,
   beforeAll,
-  beforeEach,
   describe,
   expect,
   it,
   vi,
 } from "vitest";
 
+import {
+  advanceNullPlayer,
+  advanceWinner,
+  generateBracket,
+  getBracketSnapshot,
+  processNullifyMatch,
+  processWalkover,
+  synchronizeBracketRuntime,
+} from "@/lib/contests/bracket";
+import { bracketProblemRequirements } from "@/lib/contests/bracketTopology";
+import { reconciliationQueue } from "@/lib/contests/queues";
+import { getRedis } from "@/lib/db/redis";
+import { workerEnv } from "@/lib/env/worker";
+
 import ContestMatch from "@/models/ContestMatch";
-import ContestRound from "@/models/ContestRound";
-import ContestRoom from "@/models/ContestRoom";
-import ContestTeam from "@/models/ContestTeam";
 import ContestProblemSet from "@/models/ContestProblemSet";
+import ContestRoom from "@/models/ContestRoom";
+import ContestRound from "@/models/ContestRound";
+import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
-import User from "@/models/User";
+
 import {
   clearTestMongo,
   startTestMongo,
   stopTestMongo,
 } from "../utils/mongodb";
-import {
-  generateBracket,
-  advanceWinner,
-  advanceNullPlayer,
-  processWalkover,
-  processNullifyMatch,
-  getBracketSnapshot,
-} from "@/lib/contests/bracket";
 
-const reconciliationQueueAdd = vi.hoisted(() => vi.fn());
-
-const createMockRedis = () => {
-  const store = new Map<string, any>();
+vi.mock("@/lib/contests/queues", async () => {
+  const { Queue } = await import("bullmq");
+  const { bullMqConnection } = await import("@/lib/queues/bullMq");
   return {
-    del: vi.fn(async (key: string) => store.delete(key)),
-    rPush: vi.fn(async (key: string, val: any) => {
-      if (!store.has(key)) store.set(key, []);
-      const arr = store.get(key);
-      if (Array.isArray(val)) arr.push(...val);
-      else arr.push(val);
-      return arr.length;
+    reconciliationQueue: new Queue(`ccw-test-topology-${process.pid}`, {
+      connection: bullMqConnection,
     }),
-    hSet: vi.fn(async (key: string, val: any) => {
-      const existing = store.get(key) || {};
-      store.set(key, { ...existing, ...val });
-      return 1;
-    }),
-    hGetAll: vi.fn(async (key: string) => store.get(key) || {}),
-    sAdd: vi.fn(async (key: string, member: string) => {
-      if (!store.has(key)) store.set(key, new Set());
-      store.get(key).add(member);
-      return 1;
-    }),
-    sMembers: vi.fn(async (key: string) => {
-      const s = store.get(key);
-      return s ? Array.from(s) : [];
-    }),
-    zScore: vi.fn(async () => null),
-    zAdd: vi.fn(async () => 1),
-    expire: vi.fn(async () => 1),
-    publish: vi.fn(async () => 1),
   };
-};
-
-const mockRedis = createMockRedis();
-
-vi.mock("@/lib/redis", () => ({
-  getRedis: vi.fn(async () => mockRedis),
-}));
-
-vi.mock("@/lib/contests/queues", () => ({
-  reconciliationQueue: { add: reconciliationQueueAdd, remove: vi.fn() },
-  cfSyncQueue: { add: vi.fn() },
-}));
-
-vi.mock("@/lib/contests/events", () => ({
-  publishContest: vi.fn(async () => undefined),
-  publishRoom: vi.fn(async () => undefined),
-  recordRoomActivity: vi.fn(async () => undefined),
-}));
-
-describe("Bracket Tournament — Null Player Architecture & Design Suite (#57)", () => {
-  let adminUser: any;
-  let testUsers: any[] = [];
-  let mongoConnected = false;
-
-  beforeAll(async () => {
-    if (!process.env.MONGODB_TEST_URI) {
-      mongoConnected = false;
-      return;
+});
+let redis: Awaited<ReturnType<typeof getRedis>>;
+beforeAll(async () => {
+  const url = new URL(process.env.REDIS_URL!);
+  if (
+    !["localhost", "127.0.0.1"].includes(url.hostname) ||
+    url.pathname !== "/15"
+  )
+    throw new Error("Local test Redis DB15 required.");
+  await startTestMongo();
+  redis = await getRedis();
+});
+afterEach(async () => {
+  await reconciliationQueue.drain(true);
+  for (const [records, prefix] of [
+    [await ContestRoom.find().select("_id").lean(), "room"],
+    [await ContestTeam.find().select("_id").lean(), "team"],
+    [await ContestMatch.find().select("_id").lean(), "contest"],
+  ] as const) {
+    for (const record of records) {
+      const keys = await redis.keys(`${prefix}:${record._id}:*`);
+      if (keys.length) await redis.del(keys);
     }
-    try {
-      await startTestMongo();
-      mongoConnected = true;
-    } catch {
-      mongoConnected = false;
-    }
-  });
-
-  afterEach(async () => {
-    if (!mongoConnected) return;
-    await clearTestMongo();
-    vi.clearAllMocks();
-  });
-
-  afterAll(async () => {
-    if (!mongoConnected) return;
-    await stopTestMongo();
-  });
-
-  beforeEach((context) => {
-    if (!mongoConnected) {
-      context.skip();
-    }
-  });
-
-  const setupUsers = async (count: number = 8) => {
-    adminUser = await User.create({
-      name: "Admin User",
-      email: "admin@test.com",
-      access: "Admin",
+  }
+  await clearTestMongo();
+});
+afterAll(async () => {
+  await reconciliationQueue.obliterate({ force: true });
+  await reconciliationQueue.close();
+  redis.destroy();
+  await stopTestMongo();
+});
+async function fixture(
+  count: number,
+  type: "single_elimination" | "double_elimination" = "single_elimination",
+  teamSize = 1,
+  generate = true,
+) {
+  const registrations = [];
+  for (let index = 0; index < count * teamSize; index++) {
+    const userId = new mongoose.Types.ObjectId();
+    await CPUser.create({
+      userId,
+      cfHandle: `fixture_${userId}`,
+      cfRating:
+        2500 - Math.floor(index / teamSize) * 100 + (index % teamSize) * 30,
     });
-
-    testUsers = [];
-    for (let i = 1; i <= count; i++) {
-      const u = await User.create({
-        name: `User ${i}`,
-        email: `user${i}@test.com`,
-        codeforcesId: `cf_${i}`,
-      });
-      await CPUser.create({
-        userId: u._id,
-        cfHandle: `cf_${i}`,
-        cfRating: 2000 - i * 50,
-      });
-      testUsers.push(u);
-    }
-  };
-
-  const createTestContest = async (
-    eliminationType: "single" | "double" = "single",
-    teamCount: number = 4,
-  ) => {
-    const registrations = [];
-    for (let i = 0; i < teamCount; i++) {
-      registrations.push({
-        userId: testUsers[i]._id,
-        cfHandle: `user_${i}`,
-        teamName: `Team ${String.fromCharCode(65 + i)}`,
-        registeredAt: new Date(),
-      });
-    }
-
-    const contest = await ContestMatch.create({
-      name: "Championship Tournament",
-      format: "bracket",
-      mode: "blitz",
-      status: "provisioning",
-      teamSize: 1,
-      creatorId: adminUser._id,
-      overallDurationMinutes: 30,
-      startTime: new Date(Date.now() - 5000),
-      endTime: new Date(Date.now() + 3600000),
-      bracketSettings: {
-        type:
-          eliminationType === "double"
-            ? "double_elimination"
-            : "single_elimination",
-        thirdPlacePlayoff: false,
-        seedingMethod: "cf_rating",
-      },
-      problemSelectionMode: "test",
-      spectatorRestriction: "none",
-      registrations,
-      grandFinalState: eliminationType === "double" ? "pending" : undefined,
+    registrations.push({
+      userId,
+      cfHandle: `fixture_${userId}`,
+      teamName: `Team ${Math.floor(index / teamSize) + 1}`,
+      registeredAt: new Date(),
     });
+  }
+  const contest = await ContestMatch.create({
+    name: "Bracket topology fixture",
+    creatorId: new mongoose.Types.ObjectId(),
+    format: "bracket",
+    mode: "blitz",
+    teamSize,
+    status: "provisioning",
+    startTime: new Date(),
+    registrations,
+    problemSelectionMode: "test",
+    bulkProblemCount: 1,
+    registrationSettings: {
+      type: "closed",
+      deadline: new Date(),
+      maxParticipants: Math.max(count, 4) * teamSize,
+      entrantCapacity: Math.max(count, 4),
+    },
+    bracketSettings: { type },
+  });
+  if (generate) await generateBracket(String(contest._id));
+  return contest;
+}
+async function play(contestId: string, lowerWins = false) {
+  for (let guard = 0; guard < 100; guard++) {
+    const contest = await ContestMatch.findById(contestId).lean();
+    if (contest!.status === "completed") return contest!;
+    const rooms = await ContestRoom.find({ contestId, status: "waiting" });
+    expect(rooms.length).toBeGreaterThan(0);
+    // Reverse arrival order deliberately, including lower finalist before upper finalist.
+    for (const room of rooms.reverse()) {
+      const slot =
+        lowerWins && room.bracketPosition === "grand_final-0-0" ? 1 : 0;
+      await advanceWinner(
+        String(room._id),
+        contestId,
+        String(room.bracketSlots![slot].teamId),
+      );
+    }
+  }
+  throw new Error("Bracket failed to finish.");
+}
 
-    // Populate problem set
-    await ContestProblemSet.create({
-      contestId: contest._id,
-      problems: [
-        {
-          problemId: "100A",
-          name: "Problem A",
-          platform: "codeforces",
-          rating: 1200,
-          points: 120,
-        },
-        {
-          problemId: "100B",
-          name: "Problem B",
-          platform: "codeforces",
-          rating: 1300,
-          points: 130,
-        },
-      ],
-    });
-
-    await generateBracket(contest._id.toString());
-    contest.status = "active";
+describe("persisted bracket topology and advancement", () => {
+  it("persists initial ready deadlines after the scheduled start, including matches reached by byes", async () => {
+    const contest = await fixture(5, "single_elimination", 1, false);
+    contest.startTime = new Date(Date.now() + 60 * 60_000);
     await contest.save();
-
-    return contest;
-  };
-
-  describe("S1 & S2 & S8: Ready Phase Timeouts, Walkovers, and Admin Nullify", () => {
-    it("Scenario S2 & S8: Admin forces walkover for Team A, marking loser eliminated", async () => {
-      await setupUsers(4);
-      const contest = await createTestContest("single", 4);
-
-      // Find Match 1 (round 1, match 0)
-      const r1Rooms = await ContestRoom.find({
-        contestId: contest._id,
-        bracketPosition: "0-0",
-      });
-      expect(r1Rooms).toHaveLength(1);
-      const room = r1Rooms[0];
-      expect(room.teams).toHaveLength(2);
-
-      const teamADoc = await ContestTeam.findOne({
-        _id: { $in: room.teams },
-        name: "Team A",
-      });
-      const teamBDoc = await ContestTeam.findOne({
-        _id: { $in: room.teams },
-        name: { $ne: "Team A" },
-      });
-
-      const teamAId = teamADoc!._id.toString();
-      const teamBId = teamBDoc!._id.toString();
-
-      // Process walkover for Team A
-      const snapshot = await processWalkover(
-        room._id.toString(),
-        teamAId,
-        "Team B forfeited",
-        adminUser._id.toString(),
-      );
-
-      // Verify room state
-      const updatedRoom = await ContestRoom.findById(room._id);
-      expect(updatedRoom?.status).toBe("ended");
-      expect(updatedRoom?.terminationReason).toBe("walkover");
-      expect(updatedRoom?.winnerTeamId?.toString()).toBe(teamAId);
-
-      // Verify loser is marked eliminated and null
-      const loserTeam = await ContestTeam.findById(teamBId);
-      expect(loserTeam?.isNull).toBe(true);
-      expect(loserTeam?.name).toBe("[Eliminated]");
-
-      // Verify winner advanced to Round 2
-      const r2Room = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "1-0",
-      });
-      expect(r2Room).toBeDefined();
-      expect(r2Room?.teams.length).toBeGreaterThanOrEqual(1);
-
-      const advancedTeam = await ContestTeam.findById(r2Room?.teams[0]);
-      expect(advancedTeam?.name).toBe("Team A");
-      expect(advancedTeam?.isNull).toBe(false);
-
-      // Verify snapshot reflection
-      const node = snapshot.nodes.find((n) => n.roomId === room._id.toString());
-      expect(node?.walkover).toBe(true);
-      expect(node?.winner).toBe(teamAId);
+    await generateBracket(String(contest._id));
+    const rooms = await ContestRoom.find({
+      contestId: contest._id,
+      status: "waiting",
     });
-
-    it("Scenario S1 & S8: Admin nullifies match (both eliminated) -> advances virtual null player", async () => {
-      await setupUsers(4);
-      const contest = await createTestContest("single", 4);
-
-      const room = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "0-0",
-      });
-      expect(room).toBeDefined();
-
-      const teamAId = room!.teams[0];
-      const teamBId = room!.teams[1];
-
-      // Admin nullifies match
-      await processNullifyMatch(
-        room!._id.toString(),
-        "Both teams no-show",
-        adminUser._id.toString(),
+    expect(rooms.length).toBeGreaterThan(0);
+    expect(
+      rooms.some((room) =>
+        room.bracketSlots?.some((slot) => slot.source.kind !== "seed"),
+      ),
+    ).toBe(true);
+    for (const room of rooms) {
+      const expected =
+        contest.startTime.getTime() +
+        workerEnv.ROOM_READY_TIMEOUT_MINUTES * 60_000;
+      expect(room.readyDeadline?.getTime()).toBe(expected);
+      expect(await redis.hGet(`room:${room._id}:state`, "readyDeadline")).toBe(
+        String(expected),
       );
-
-      const updatedRoom = await ContestRoom.findById(room!._id);
-      expect(updatedRoom?.status).toBe("ended");
-      expect(updatedRoom?.terminationReason).toBe("admin_nullify");
-
-      const tA = await ContestTeam.findById(teamAId);
-      const tB = await ContestTeam.findById(teamBId);
-      expect(tA?.isNull).toBe(true);
-      expect(tB?.isNull).toBe(true);
-      expect(tA?.name).toBe("[Eliminated]");
-      expect(tB?.name).toBe("[Eliminated]");
-
-      // Next round room should receive a virtual null player
-      const r2Room = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "1-0",
-      });
-      expect(r2Room?.teams.length).toBe(1);
-      const nullTeamInR2 = await ContestTeam.findById(r2Room?.teams[0]);
-      expect(nullTeamInR2?.isNull).toBe(true);
-      expect(nullTeamInR2?.name).toBe("[No Show]");
-    });
+    }
   });
-
-  describe("S5 & S6: Null Player Invariants and Automated Resolution Cascades", () => {
-    it("Scenario S5: Null player automatically loses to real player via instant walkover without playing", async () => {
-      await setupUsers(4);
-      const contest = await createTestContest("single", 4);
-
-      const match0 = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "0-0",
-      });
-      const match1 = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "0-1",
-      });
-
-      // Match 0: Both no-show -> null advances to finals (slot 0)
-      await advanceNullPlayer(contest._id.toString(), match0!._id.toString());
-
-      const finalsRoom = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "1-0",
-      });
-      expect(finalsRoom?.teams).toHaveLength(1);
-      const slot0Team = await ContestTeam.findById(finalsRoom?.teams[0]);
-      expect(slot0Team?.isNull).toBe(true);
-
-      // Match 1: Team C wins normally -> advances to finals (slot 1)
-      const teamCDoc = await ContestTeam.findOne({
-        _id: { $in: match1!.teams },
-        name: "Team C",
-      });
-      const teamCId = teamCDoc!._id.toString();
-      await advanceWinner(
-        match1!._id.toString(),
-        contest._id.toString(),
-        teamCId,
-      );
-
-      // Check finals room: With Null vs Real, it must automatically resolve via walkover!
-      const updatedFinals = await ContestRoom.findById(finalsRoom?._id);
-      expect(updatedFinals?.status).toBe("ended");
-      expect(updatedFinals?.terminationReason).toBe("walkover");
-
-      const winnerTeam = await ContestTeam.findById(updatedFinals?.winnerTeamId);
-      expect(winnerTeam?.name).toBe("Team C");
-      expect(winnerTeam?.score).toBe(1);
-
-      // Tournament crowns Team C
-      const updatedContest = await ContestMatch.findById(contest._id);
-      expect(updatedContest?.status).toBe("completed");
-      expect(updatedContest?.winnerName).toBe("Team C");
+  it("queues recovery behind a busy transition lease without deleting its owner's lock", async () => {
+    const contest = await fixture(4);
+    const key = `contest:${contest._id}:transition_lock`;
+    await redis.set(key, "another-owner", {
+      EX: workerEnv.CONTEST_TRANSITION_LOCK_SECONDS,
     });
-
-    it("Scenario S6 & S10: Null vs Null tournament cascade results in 'No Winner'", async () => {
-      await setupUsers(4);
-      const contest = await createTestContest("single", 4);
-
-      const match0 = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "0-0",
-      });
-      const match1 = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "0-1",
-      });
-
-      // Both Round 1 matches have no-shows
-      await advanceNullPlayer(contest._id.toString(), match0!._id.toString());
-      await advanceNullPlayer(contest._id.toString(), match1!._id.toString());
-
-      // Finals room: Null vs Null automatically completes with both_null
-      const finalsRoom = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "1-0",
-      });
-      expect(finalsRoom?.status).toBe("ended");
-      expect(finalsRoom?.terminationReason).toBe("both_null");
-
-      // Tournament completes with "No Winner"
-      const updatedContest = await ContestMatch.findById(contest._id);
-      expect(updatedContest?.status).toBe("completed");
-      expect(updatedContest?.winnerName).toBe("No Winner");
-    });
+    await synchronizeBracketRuntime(String(contest._id));
+    expect(await redis.get(key)).toBe("another-owner");
+    const jobs = await reconciliationQueue.getJobs(["delayed"]);
+    const recovery = jobs.find((job) => job.name === "bracket_transition");
+    expect(recovery?.data.contestId).toBe(String(contest._id));
+    expect(recovery?.opts.delay).toBe(
+      workerEnv.CONTEST_TRANSITION_LOCK_SECONDS * 1000,
+    );
   });
-
-  describe("S7: Double Elimination Grand Final Reset Logic", () => {
-    it("Grand Final: Upper Bracket Winner wins -> crowned immediately, no reset spawned", async () => {
-      await setupUsers(4);
-      const contest = await createTestContest("double", 4);
-
-      // In 4-team double elim:
-      // Upper R1 has 2 matches: upper-0-0 and upper-0-1
-      const upperR1M0 = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "upper-0-0",
-      });
-      const upperR1M1 = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "upper-0-1",
-      });
-
-      // Upper R1-M0: Team A wins
-      const teamADocR1M0 = await ContestTeam.findOne({
-        _id: { $in: upperR1M0!.teams },
-        name: "Team A",
-      });
-      await advanceWinner(
-        upperR1M0!._id.toString(),
-        contest._id.toString(),
-        teamADocR1M0!._id.toString(),
+  it.each([3, 5, 6, 7, 9])(
+    "seeds %i entrants with top-seed byes and no bye problems",
+    async (count) => {
+      const contest = await fixture(count);
+      const rooms = await ContestRoom.find({ contestId: contest._id });
+      const byes = rooms.filter((room) => room.terminationReason === "bye");
+      const winners = await ContestTeam.find({
+        _id: { $in: byes.map((room) => room.winnerTeamId!) },
+      }).sort({ seed: 1 });
+      expect(winners.map((team) => team.seed)).toEqual(
+        Array.from(
+          { length: 2 ** Math.ceil(Math.log2(count)) - count },
+          (_, index) => index + 1,
+        ),
       );
-      // Upper R1-M1: Team C wins
-      const teamCDocR1M1 = await ContestTeam.findOne({
-        _id: { $in: upperR1M1!.teams },
-        name: "Team C",
-      });
-      await advanceWinner(
-        upperR1M1!._id.toString(),
-        contest._id.toString(),
-        teamCDocR1M1!._id.toString(),
-      );
-
-      // Upper Final: upper-1-0 (Team A vs Team C)
-      const upperFinal = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "upper-1-0",
-      });
-      expect(upperFinal).toBeDefined();
-      expect(upperFinal?.teams).toHaveLength(2);
-
-      // Team A wins Upper Final -> advances to Grand Final
-      const teamADocUpperFinal = await ContestTeam.findOne({
-        _id: { $in: upperFinal!.teams },
-        name: "Team A",
-      });
-      await advanceWinner(
-        upperFinal!._id.toString(),
-        contest._id.toString(),
-        teamADocUpperFinal!._id.toString(),
-      );
-
-      // Lower R1: lower-0-0 (Loser A vs Loser C: Team B vs Team D)
-      const lowerR1 = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "lower-0-0",
-      });
-      expect(lowerR1).toBeDefined();
-      // Team B wins Lower R1
-      const teamBDocLowerR1 = await ContestTeam.findOne({
-        _id: { $in: lowerR1!.teams },
-        name: "Team B",
-      });
-      await advanceWinner(
-        lowerR1!._id.toString(),
-        contest._id.toString(),
-        teamBDocLowerR1!._id.toString(),
-      );
-
-      // Lower Final: lower-1-0 (Team B vs Loser Upper Final Team C)
-      const lowerFinal = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "lower-1-0",
-      });
-      expect(lowerFinal).toBeDefined();
-      // Team B wins Lower Final -> advances to Grand Final
-      const teamBDocLowerFinal = await ContestTeam.findOne({
-        _id: { $in: lowerFinal!.teams },
-        name: "Team B",
-      });
-      await advanceWinner(
-        lowerFinal!._id.toString(),
-        contest._id.toString(),
-        teamBDocLowerFinal!._id.toString(),
-      );
-
-      // Grand Final: grand_final-0-0 (or gf-0-0)
-      const gfRoom = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: { $in: ["gf-0-0", "grand_final-0-0"] },
-      });
-      expect(gfRoom).toBeDefined();
-      expect(gfRoom?.teams).toHaveLength(2);
-
-      // UPPER FINALIST (slot 0: Team A) wins Grand Final
-      const upperFinalistId = gfRoom!.teams[0].toString();
-      await advanceWinner(
-        gfRoom!._id.toString(),
-        contest._id.toString(),
-        upperFinalistId,
-      );
-
-      const finalContest = await ContestMatch.findById(contest._id);
-      expect(finalContest?.status).toBe("completed");
-      expect(finalContest?.winnerName).toBe("Team A");
-      expect(finalContest?.grandFinalState).toBe("complete");
-
-      // Verify NO reset match was created
-      const resetRoom = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: { $in: ["gf-1-0", "grand_final_reset-0-0"] },
-      });
-      expect(resetRoom).toBeNull();
+      expect(
+        await ContestProblemSet.countDocuments({ contestId: contest._id }),
+      ).toBe(count - 1);
+      expect(
+        await ContestProblemSet.countDocuments({
+          roomId: { $in: byes.map((room) => room._id) },
+        }),
+      ).toBe(0);
+      expect((await play(String(contest._id))).winnerName).toBe("Team 1");
+    },
+  );
+  it.each([4, 5, 6, 9])(
+    "completes %i-entry double elimination with and without a reset",
+    async (count) => {
+      for (const reset of [false, true]) {
+        const contest = await fixture(count, "double_elimination");
+        await play(String(contest._id), reset);
+        const resetRoom = await ContestRoom.findOne({
+          contestId: contest._id,
+          bracketPosition: "grand_final_reset-0-0",
+        });
+        expect(resetRoom!.status).toBe("ended");
+        expect(resetRoom!.terminationReason === "reset_not_needed").toBe(
+          !reset,
+        );
+        if (reset) {
+          const teams = await ContestTeam.find({ roomId: resetRoom!._id });
+          expect(teams.map((team) => team.bracketLosses)).toEqual([1, 1]);
+        }
+      }
+    },
+    15_000,
+  );
+  it("freezes average team ratings and stable identities across room copies", async () => {
+    const contest = await fixture(4, "single_elimination", 3);
+    const frozen = await ContestMatch.findById(contest._id).lean();
+    expect(frozen!.bracketEntrants![0].rating).toBe(2530);
+    await CPUser.updateMany({}, { $set: { cfRating: 1 } });
+    await play(String(contest._id));
+    const teams = await ContestTeam.find({
+      contestId: contest._id,
+      name: "Team 1",
     });
-
-    it("Grand Final: Lower Bracket Winner beats Upper Winner -> spawns Bracket Reset Match", async () => {
-      await setupUsers(4);
-      const contest = await createTestContest("double", 4);
-
-      const upperR1M0 = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "upper-0-0",
-      });
-      const upperR1M1 = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "upper-0-1",
-      });
-
-      // Upper R1-M0: Team A wins
-      const teamADocR1M0 = await ContestTeam.findOne({
-        _id: { $in: upperR1M0!.teams },
-        name: "Team A",
-      });
-      await advanceWinner(
-        upperR1M0!._id.toString(),
-        contest._id.toString(),
-        teamADocR1M0!._id.toString(),
-      );
-      // Upper R1-M1: Team C wins
-      const teamCDocR1M1 = await ContestTeam.findOne({
-        _id: { $in: upperR1M1!.teams },
-        name: "Team C",
-      });
-      await advanceWinner(
-        upperR1M1!._id.toString(),
-        contest._id.toString(),
-        teamCDocR1M1!._id.toString(),
-      );
-
-      // Upper Final: Team A wins
-      const upperFinal = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "upper-1-0",
-      });
-      const teamADocUpperFinal = await ContestTeam.findOne({
-        _id: { $in: upperFinal!.teams },
-        name: "Team A",
-      });
-      await advanceWinner(
-        upperFinal!._id.toString(),
-        contest._id.toString(),
-        teamADocUpperFinal!.name === "Team A"
-          ? teamADocUpperFinal!._id.toString()
-          : upperFinal!.teams[0].toString(),
-      );
-
-      // Lower R1: Team B wins
-      const lowerR1 = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "lower-0-0",
-      });
-      const teamBDocLowerR1 = await ContestTeam.findOne({
-        _id: { $in: lowerR1!.teams },
-        name: "Team B",
-      });
-      await advanceWinner(
-        lowerR1!._id.toString(),
-        contest._id.toString(),
-        teamBDocLowerR1!._id.toString(),
-      );
-
-      // Lower Final: Team B wins
-      const lowerFinal = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "lower-1-0",
-      });
-      const teamBDocLowerFinal = await ContestTeam.findOne({
-        _id: { $in: lowerFinal!.teams },
-        name: "Team B",
-      });
-      await advanceWinner(
-        lowerFinal!._id.toString(),
-        contest._id.toString(),
-        teamBDocLowerFinal!._id.toString(),
-      );
-
-      // Grand Final
-      const gfRoom = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: { $in: ["gf-0-0", "grand_final-0-0"] },
-      });
-      expect(gfRoom).toBeDefined();
-
-      // LOWER FINALIST (slot 1: Team B) wins Grand Final
-      const lowerFinalistId = gfRoom!.teams[1].toString();
-      await advanceWinner(
-        gfRoom!._id.toString(),
-        contest._id.toString(),
-        lowerFinalistId,
-      );
-
-      // Check contest state: Must NOT be completed yet, must be reset_in_progress
-      const resetContest = await ContestMatch.findById(contest._id);
-      expect(resetContest?.status).toBe("active");
-      expect(resetContest?.grandFinalState).toBe("reset_in_progress");
-
-      // Verify Grand Final Reset match was created
-      const resetRoom = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: { $in: ["gf-1-0", "grand_final_reset-0-0"] },
-      });
-      expect(resetRoom).toBeDefined();
-      expect(resetRoom?.name).toContain("Grand Final (Reset)");
-      expect(resetRoom?.teams).toHaveLength(2);
-
-      // Now play the Reset Match: Lower Finalist (Team B) wins again!
-      const teamBDocReset = await ContestTeam.findOne({
-        _id: { $in: resetRoom!.teams },
-        name: "Team B",
-      });
-      await advanceWinner(
-        resetRoom!._id.toString(),
-        contest._id.toString(),
-        teamBDocReset!._id.toString(),
-      );
-
-      // Contest is finally completed, Team B is Champion!
-      const completedContest = await ContestMatch.findById(contest._id);
-      expect(completedContest?.status).toBe("completed");
-      expect(completedContest?.winnerName).toBe("Team B");
-      expect(completedContest?.grandFinalState).toBe("complete");
-    });
+    expect(new Set(teams.map((team) => String(team.entrantId))).size).toBe(1);
+    expect(
+      teams.every((team) => team.seed === 1 && team.frozenRating === 2530),
+    ).toBe(true);
   });
-
-  describe("Snapshot & Presentation Metadata", () => {
-    it("getBracketSnapshot includes teamIsNull, walkover, and grandFinalState", async () => {
-      await setupUsers(4);
-      const contest = await createTestContest("single", 4);
-
-      const r1Room = await ContestRoom.findOne({
-        contestId: contest._id,
-        bracketPosition: "0-0",
-      });
-
-      await processWalkover(
-        r1Room!._id.toString(),
-        r1Room!.teams[0].toString(),
-        "Team B no-show",
-        adminUser._id.toString(),
-      );
-
-      const snapshot = await getBracketSnapshot(contest._id.toString());
-      expect(snapshot).toBeDefined();
-      expect(snapshot.nodes.length).toBeGreaterThan(0);
-
-      const walkoverNode = snapshot.nodes.find(
-        (n) => n.roomId === r1Room!._id.toString(),
-      );
-      expect(walkoverNode?.walkover).toBe(true);
-      expect(walkoverNode?.terminationReason).toBe("walkover");
-      expect(walkoverNode?.teamIsNull).toEqual([false, true]);
+  it("handles duplicate and simultaneous generation and winner delivery without duplicate teams", async () => {
+    const contest = await fixture(4, "single_elimination", 1, false);
+    await Promise.all([
+      generateBracket(String(contest._id)),
+      generateBracket(String(contest._id)),
+    ]);
+    expect(await ContestRoom.countDocuments({ contestId: contest._id })).toBe(
+      3,
+    );
+    const rooms = await ContestRoom.find({
+      contestId: contest._id,
+      status: "waiting",
     });
+    await Promise.all(
+      rooms.flatMap((room) =>
+        [0, 1].map(() =>
+          advanceWinner(
+            String(room._id),
+            String(contest._id),
+            String(room.teams[0]),
+          ),
+        ),
+      ),
+    );
+    const final = await ContestRoom.findOne({
+      contestId: contest._id,
+      bracketPosition: "upper-1-0",
+    });
+    expect(final!.teams).toHaveLength(2);
+    expect(await ContestTeam.countDocuments({ roomId: final!._id })).toBe(2);
+    expect(
+      final!.bracketSlots!.map((slot) => String(slot.source.roomId)),
+    ).toEqual(rooms.map((room) => String(room._id)));
+    await expect(
+      advanceWinner(
+        String(rooms[0]._id),
+        String(contest._id),
+        String(rooms[0].teams[1]),
+      ),
+    ).rejects.toThrow(/different outcome/);
+  });
+  it("resolves both-absent and empty lower slots to no-winner completion", async () => {
+    const contest = await fixture(4, "double_elimination");
+    for (let guard = 0; guard < 20; guard++) {
+      if ((await ContestMatch.findById(contest._id))!.status === "completed")
+        break;
+      const rooms = await ContestRoom.find({
+        contestId: contest._id,
+        status: "waiting",
+      });
+      expect(rooms.length).toBeGreaterThan(0);
+      for (const room of rooms)
+        await advanceNullPlayer(String(contest._id), String(room._id));
+    }
+    expect(await ContestMatch.findById(contest._id)).toMatchObject({
+      status: "completed",
+      winnerName: "No Winner",
+    });
+    expect(await ContestTeam.countDocuments({ isNull: true })).toBe(0);
+  });
+  it("records audited-style overrides distinctly and sends an upper loser to its lower slot", async () => {
+    const contest = await fixture(4, "double_elimination");
+    const room = await ContestRoom.findOne({
+      contestId: contest._id,
+      bracketPosition: "upper-0-0",
+    });
+    const loser = await ContestTeam.findById(room!.teams[1]);
+    await processWalkover(
+      String(room!._id),
+      String(room!.teams[0]),
+      "reason",
+      "admin",
+    );
+    const advancedLoser = await ContestTeam.findOne({
+      roomId: room!.loserDestination!.roomId,
+      entrantId: loser!.entrantId,
+    });
+    expect(advancedLoser).toMatchObject({
+      name: loser!.name,
+      bracketLosses: 1,
+      isNull: false,
+    });
+    expect(
+      (await getBracketSnapshot(String(contest._id))).nodes.find(
+        (node) => node.roomId === String(room!._id),
+      )!.walkover,
+    ).toBe(true);
+    const sibling = await ContestRoom.findOne({
+      contestId: contest._id,
+      bracketPosition: "upper-0-1",
+    });
+    await processNullifyMatch(String(sibling!._id), "reason", "admin");
+    expect((await ContestRoom.findById(sibling!._id))!.terminationReason).toBe(
+      "admin_nullify",
+    );
+  });
+  it("rejects cross-contest and foreign-team results without writes", async () => {
+    const a = await fixture(4),
+      b = await fixture(4);
+    const room = await ContestRoom.findOne({
+      contestId: a._id,
+      status: "waiting",
+    });
+    await expect(
+      advanceWinner(String(room!._id), String(b._id), String(room!.teams[0])),
+    ).rejects.toThrow(/belong/);
+    await expect(
+      advanceWinner(
+        String(room!._id),
+        String(a._id),
+        String(new mongoose.Types.ObjectId()),
+      ),
+    ).rejects.toThrow(/eligible/);
+    expect((await ContestRoom.findById(room!._id))!.status).toBe("waiting");
+  });
+  it("rolls back graph changes with an outer audit transaction, and replays runtime after commit", async () => {
+    const contest = await fixture(4, "single_elimination", 1, false);
+    await expect(
+      mongoose.connection.transaction(async () => {
+        await generateBracket(String(contest._id), undefined, []);
+        throw new Error("audit failed");
+      }),
+    ).rejects.toThrow("audit failed");
+    expect(await ContestRoom.countDocuments()).toBe(0);
+    expect(await redis.exists(`contest:${contest._id}:meta`)).toBe(0);
+    await mongoose.connection.transaction(async () => {
+      await generateBracket(String(contest._id), undefined, []);
+    });
+    await generateBracket(String(contest._id));
+    const room = await ContestRoom.findOne({
+      contestId: contest._id,
+      status: "waiting",
+    });
+    const deadline = await redis.hGet(
+      `room:${room!._id}:state`,
+      "readyDeadline",
+    );
+    await redis.hSet(`room:${room!._id}:state`, {
+      status: "active",
+      startTime: "123",
+    });
+    await synchronizeBracketRuntime(String(contest._id));
+    expect(await redis.hGet(`room:${room!._id}:state`, "status")).toBe(
+      "active",
+    );
+    expect(await redis.hGet(`room:${room!._id}:state`, "readyDeadline")).toBe(
+      deadline,
+    );
+  });
+  it("excludes incomplete teams and preserves a clear cancellation below the minimum", async () => {
+    const contest = await fixture(4, "double_elimination", 3, false);
+    contest.registrations!.pop();
+    await contest.save();
+    await generateBracket(String(contest._id));
+    expect(await ContestMatch.findById(contest._id)).toMatchObject({
+      status: "completed",
+      cancellationReason:
+        "Registration closed with 3 complete entrants; 4 required.",
+    });
+    expect(await ContestRoom.countDocuments()).toBe(0);
+  });
+  it("uses stage requirements including fresh reset reserves and rolls back shortages", async () => {
+    const contest = await fixture(5, "double_elimination", 1, false);
+    contest.problemSelectionMode = "fine-tuned";
+    let nextProblem = 1;
+    contest.problemSlots = bracketProblemRequirements(
+      5,
+      "double_elimination",
+      1,
+    ).flatMap((round) =>
+      Array.from({ length: round.problemCount }, () => ({
+        platform: "codeforces",
+        problemId: `${nextProblem++}A`,
+        roundNumber: round.roundNumber,
+      })),
+    );
+    const last = contest.problemSlots.pop()!;
+    await contest.save();
+    await expect(generateBracket(String(contest._id))).rejects.toThrow(/Reset/);
+    expect(await ContestRoom.countDocuments()).toBe(0);
+    contest.problemSlots.push(last);
+    await contest.save();
+    await generateBracket(String(contest._id));
+    const sets = await ContestProblemSet.find({ contestId: contest._id });
+    const ids = sets.flatMap((set) =>
+      set.problems.map((problem) => problem.problemId),
+    );
+    expect(ids).toHaveLength(9);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

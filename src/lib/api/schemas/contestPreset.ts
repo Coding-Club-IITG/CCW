@@ -12,12 +12,11 @@ const problemSlotSchema = z.object({
 const registrationSettingsSchema = z.object({
   type: z.enum(["open", "closed"]),
   maxParticipants: z.number().int().min(2),
+  entrantCapacity: z.number().int().min(2).max(256).optional(),
 });
 
 const bracketSettingsSchema = z.object({
   type: z.enum(["single_elimination", "double_elimination"]).optional(),
-  thirdPlacePlayoff: z.boolean(),
-  seedingMethod: z.enum(["cf_rating", "manual"]),
 });
 
 const presetFields = {

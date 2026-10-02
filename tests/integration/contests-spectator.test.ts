@@ -107,6 +107,7 @@ describe("Spectator Mode", () => {
         startTime: new Date(Date.now() + 86400000).toISOString(),
         registrationType: "open",
         maxParticipants: 10,
+        entrantCapacity: 10,
         registeredUsers: [],
       });
 
@@ -139,6 +140,7 @@ describe("Spectator Mode", () => {
         startTime: new Date(Date.now() + 86400000).toISOString(),
         registrationType: "open",
         maxParticipants: 16,
+        entrantCapacity: 16,
       });
 
       expect(res.ok).toBe(true);
@@ -164,12 +166,14 @@ describe("Spectator Mode", () => {
     });
 
     const createDummyContest = async (restriction: string) => {
+      const creator = await CPUser.findOne({ userId: creatorId });
+
       return await ContestMatch.create({
         name: "Test Contest",
         format: "1v1",
         mode: "blitz",
         status: "active",
-        creatorId: creatorId,
+        creatorId: creator!._id,
         teamSize: 1,
         spectatorRestriction: restriction as any,
         problemSelectionMode: "bulk",

@@ -35,14 +35,22 @@ export async function registrationTransaction<T>(
   operation: (session: ClientSession) => Promise<T>,
 ): Promise<AppResult<T>> {
   await connectMongoDB();
+
   const session = await mongoose.startSession();
+
   try {
     return ok(await session.withTransaction(() => operation(session)));
   } catch (error) {
-    if (error instanceof RegistrationError)
+    if (error instanceof RegistrationError) {
       return err(error.code, error.message);
+    }
+
     const mapped = mongoErrorResult(error);
-    if (!mapped.ok && mapped.error.code !== "INTERNAL_ERROR") return mapped;
+
+    if (!mapped.ok && mapped.error.code !== "INTERNAL_ERROR") {
+      return mapped;
+    }
+
     throw error;
   } finally {
     await session.endSession();
@@ -51,7 +59,7 @@ export async function registrationTransaction<T>(
 
 type RegistrationContest = Pick<
   IContestMatch,
-  "status" | "registrationSettings" | "registrations" | "teamSize"
+  "status" | "registrationSettings" | "registrations" | "teamSize" | "format"
 >;
 
 export function assertRegistrationOpen(
@@ -59,6 +67,7 @@ export function assertRegistrationOpen(
   now = new Date(),
 ) {
   const settings = contest.registrationSettings;
+
   if (
     contest.status !== "registration" ||
     !settings ||
@@ -66,17 +75,21 @@ export function assertRegistrationOpen(
   ) {
     reject("VALIDATION_ERROR", "Contest is not open for registration.");
   }
+
   if (
     !Number.isFinite(settings.deadline?.getTime()) ||
     (settings.startTime && !Number.isFinite(settings.startTime.getTime()))
   ) {
     reject("VALIDATION_ERROR", "Contest registration window is incomplete.");
   }
+
   if (settings.startTime && now < settings.startTime) {
     reject("VALIDATION_ERROR", "Registration has not started yet.");
   }
-  if (now >= settings.deadline)
+
+  if (now >= settings.deadline) {
     reject("VALIDATION_ERROR", "Registration deadline has passed.");
+  }
 }
 
 async function openContest(
@@ -90,19 +103,28 @@ async function openContest(
     { $inc: { __v: 1 } },
     { session, returnDocument: "after" },
   );
-  if (!contest) reject("NOT_FOUND", "Contest not found.");
-  if (requireOpen) assertRegistrationOpen(contest);
+
+  if (!contest) {
+    reject("NOT_FOUND", "Contest not found.");
+  }
+
+  if (requireOpen) {
+    assertRegistrationOpen(contest);
+  }
+
   return contest;
 }
 
 async function verifiedMember(userId: string, session?: ClientSession) {
   const member = await CPUser.findOne({ userId }).session(session ?? null);
+
   if (!member?.cfVerified || !member.cfHandle?.trim()) {
     reject(
       "VALIDATION_ERROR",
       "Every participant must have a verified Codeforces handle.",
     );
   }
+
   return { userId: member.userId, cfHandle: member.cfHandle };
 }
 
@@ -112,16 +134,46 @@ function assertCapacity(
   teamName?: string,
 ) {
   const registrations = contest.registrations ?? [];
+
   if (
     new Set(ids).size !== ids.length ||
     registrations.some((r) => ids.includes(String(r.userId)))
   ) {
     reject("CONFLICT", "A member is already registered for this contest.");
   }
+
+  if (contest.format === "bracket") {
+    const entrantCapacity = contest.registrationSettings?.entrantCapacity;
+
+    if (!entrantCapacity) {
+      reject("CONFLICT", "Bracket entrant capacity is required.");
+    }
+
+    const names = new Set(
+      registrations.map((registration) =>
+        (contest.teamSize ?? 1) === 1
+          ? String(registration.userId)
+          : registration.teamName?.toLowerCase(),
+      ),
+    );
+    const additional =
+      (contest.teamSize ?? 1) === 1
+        ? ids.length
+        : names.has(teamName?.toLowerCase())
+          ? 0
+          : 1;
+
+    if (names.size + additional > entrantCapacity) {
+      reject("CONFLICT", "Contest entrant capacity has been reached.");
+    }
+  }
+
   const capacity = contest.registrationSettings?.maxParticipants;
+
   if (!capacity || registrations.length + ids.length > capacity) {
     reject("CONFLICT", "Contest participant capacity has been reached.");
   }
+
   if (
     teamName &&
     registrations.filter((r) => r.teamName === teamName).length + ids.length >
@@ -136,13 +188,19 @@ async function teamForContest(
   teamId: string,
   session: ClientSession,
 ) {
-  if ((contest.teamSize ?? 1) <= 1)
+  if ((contest.teamSize ?? 1) <= 1) {
     reject("VALIDATION_ERROR", "This contest uses solo registration.");
+  }
+
   const team = await ContestRegistrationTeam.findOne({
     _id: teamId,
     contestId: contest._id,
   }).session(session);
-  if (!team) reject("NOT_FOUND", "Team not found in this contest.");
+
+  if (!team) {
+    reject("NOT_FOUND", "Team not found in this contest.");
+  }
+
   if (
     !contest.registrations?.some(
       (r) => String(r.userId) === team.leaderId && r.teamName === team.name,
@@ -150,6 +208,7 @@ async function teamForContest(
   ) {
     reject("CONFLICT", "Team leader is no longer registered with this team.");
   }
+
   return team;
 }
 
@@ -160,13 +219,17 @@ async function appendMembers(
   session: ClientSession,
 ) {
   assertCapacity(contest, ids, teamName);
+
   const entries: IRegistration[] = [];
-  for (const id of ids)
+
+  for (const id of ids) {
     entries.push({
       ...(await verifiedMember(id, session)),
       teamName,
       registeredAt: new Date(),
     });
+  }
+
   // Recheck the absolute deadline after validation
   assertRegistrationOpen(contest);
   contest.registrations = [...(contest.registrations ?? []), ...entries];
@@ -185,6 +248,7 @@ async function createTeam(
     contestId: contest._id,
     name: { $regex: `^${pattern}$`, $options: "i" },
   }).session(session);
+
   if (
     exists ||
     contest.registrations?.some(
@@ -193,10 +257,12 @@ async function createTeam(
   ) {
     reject("CONFLICT", "A team with this name already exists.");
   }
+
   const [team] = await ContestRegistrationTeam.create(
     [{ contestId: contest._id, name, leaderId, isPublic }],
     { session },
   );
+
   return team;
 }
 
@@ -208,10 +274,14 @@ export async function registerContestMember(
     const contest = await openContest(input.contestId, session);
     const member = await verifiedMember(userId, session);
     let name = input.teamName ?? member.cfHandle;
+
     if ((contest.teamSize ?? 1) > 1) {
-      if (!input.teamName)
+      if (!input.teamName) {
         reject("VALIDATION_ERROR", "A team name is required.");
+      }
+
       let team: IContestRegistrationTeam;
+
       if (input.isPublic !== undefined) {
         team = await createTeam(contest, name, userId, input.isPublic, session);
       } else {
@@ -220,14 +290,21 @@ export async function registerContestMember(
           contestId: contest._id,
           name: { $regex: `^${pattern}$`, $options: "i" },
         }).session(session);
-        if (!found) reject("NOT_FOUND", "Team not found.");
+
+        if (!found) {
+          reject("NOT_FOUND", "Team not found.");
+        }
+
         team = await teamForContest(contest, String(found._id), session);
-        if (!team.isPublic)
+
+        if (!team.isPublic) {
           reject(
             "FORBIDDEN",
             "Private teams require an invitation or leader-approved join request.",
           );
+        }
       }
+
       name = team.name;
     } else if (
       contest.registrations?.some(
@@ -236,7 +313,9 @@ export async function registerContestMember(
     ) {
       reject("CONFLICT", "Display name already taken.");
     }
+
     await appendMembers(contest, [userId], name, session);
+
     return { message: "Successfully registered" };
   });
 }
@@ -248,6 +327,7 @@ export async function registerCompleteContestTeam(
 ) {
   return registrationTransaction(async (session) => {
     const contest = await openContest(contestId, session);
+
     if (
       contest.teamSize !== 3 ||
       input.memberIds.length !== 3 ||
@@ -258,8 +338,10 @@ export async function registerCompleteContestTeam(
         "The registrant must be part of a complete three-person team.",
       );
     }
+
     await createTeam(contest, input.teamName, userId, true, session);
     await appendMembers(contest, input.memberIds, input.teamName, session);
+
     return { registered: true };
   });
 }
@@ -270,19 +352,26 @@ export async function leaveContest(userId: string, contestId: string) {
     const registration = contest.registrations?.find(
       (r) => String(r.userId) === userId,
     );
-    if (!registration) reject("NOT_FOUND", "Not registered.");
+
+    if (!registration) {
+      reject("NOT_FOUND", "Not registered.");
+    }
+
     contest.registrations = contest.registrations!.filter(
       (r) => String(r.userId) !== userId,
     );
+
     if ((contest.teamSize ?? 1) > 1) {
       const team = await ContestRegistrationTeam.findOne({
         contestId,
         name: registration.teamName,
       }).session(session);
+
       if (team) {
         const remaining = contest.registrations.filter(
           (r) => r.teamName === team.name,
         );
+
         if (!remaining.length) {
           await ContestRegistrationTeam.deleteOne(
             { _id: team._id },
@@ -310,8 +399,10 @@ export async function leaveContest(userId: string, contestId: string) {
         }
       }
     }
+
     assertRegistrationOpen(contest);
     await contest.save({ session });
+
     return { message: "Successfully unregistered" };
   });
 }
@@ -325,19 +416,30 @@ export async function sendContestTeamRequest(
     const team = await teamForContest(contest, input.teamId, session);
     const isInvite = input.cfHandle !== undefined;
     let targetId = userId;
+
     if (isInvite) {
-      if (team.leaderId !== userId)
+      if (team.leaderId !== userId) {
         reject("FORBIDDEN", "Only the team leader may invite members.");
+      }
+
       await verifiedMember(userId, session);
+
       const pattern = prepareSearchQuery(input.cfHandle)!.pattern;
       const target = await CPUser.findOne({
         cfHandle: { $regex: `^${pattern}$`, $options: "i" },
       }).session(session);
-      if (!target) reject("NOT_FOUND", "Codeforces user not found.");
+
+      if (!target) {
+        reject("NOT_FOUND", "Codeforces user not found.");
+      }
+
       targetId = String(target.userId);
     }
+
     const member = await verifiedMember(targetId, session);
+
     assertCapacity(contest, [targetId], team.name);
+
     const type = isInvite ? "invite" : "join_request";
     const duplicate = await ContestTeamRequest.exists({
       contestId: contest._id,
@@ -346,7 +448,11 @@ export async function sendContestTeamRequest(
       status: "pending",
       ...(isInvite ? { toUserId: targetId } : { fromUserId: userId }),
     }).session(session);
-    if (duplicate) reject("CONFLICT", "A matching request is already pending.");
+
+    if (duplicate) {
+      reject("CONFLICT", "A matching request is already pending.");
+    }
+
     assertRegistrationOpen(contest);
     await ContestTeamRequest.create(
       [
@@ -374,6 +480,7 @@ export async function sendContestTeamRequest(
       ],
       { session },
     );
+
     return {
       message: isInvite
         ? "Invite sent successfully"
@@ -390,38 +497,57 @@ export async function respondToTeamRequest(
   return registrationTransaction(async (session) => {
     const request =
       await ContestTeamRequest.findById(requestId).session(session);
-    if (!request || request.status !== "pending")
+
+    if (!request || request.status !== "pending") {
       reject("NOT_FOUND", "Request not found or already processed.");
+    }
+
     const team = await ContestRegistrationTeam.findOne({
       _id: request.teamId,
       contestId: request.contestId,
     }).session(session);
-    if (!team) reject("NOT_FOUND", "Team not found in this contest.");
+
+    if (!team) {
+      reject("NOT_FOUND", "Team not found in this contest.");
+    }
+
     if (
       (request.type === "join_request" && team.leaderId !== userId) ||
       (request.type === "invite" && request.toUserId !== userId)
     ) {
       reject("FORBIDDEN", "You cannot respond to this request.");
     }
+
     const contest = await openContest(
       String(request.contestId),
       session,
       action === "accept",
     );
+
+    // Failed acceptance leaves the request pending with every membership write rolled back
     if (action === "accept") {
       await teamForContest(contest, String(team._id), session);
-      if (request.type === "invite" && request.fromUserId !== team.leaderId)
+
+      if (request.type === "invite" && request.fromUserId !== team.leaderId) {
         reject(
           "CONFLICT",
           "The invitation is no longer from this team's leader.",
         );
+      }
+
       const targetId =
         request.type === "join_request" ? request.fromUserId : request.toUserId;
-      if (!targetId) reject("VALIDATION_ERROR", "Request has no recipient.");
+
+      if (!targetId) {
+        reject("VALIDATION_ERROR", "Request has no recipient.");
+      }
+
       await appendMembers(contest, [targetId], team.name, session);
     }
+
     request.status = action === "accept" ? "accepted" : "rejected";
     await request.save({ session });
+
     return {
       message:
         action === "accept"
@@ -440,50 +566,70 @@ export async function prepareContestRegistrations(input: {
 }): Promise<AppResult<IRegistration[]>> {
   try {
     const members = input.registeredUsers;
-    if (input.registrationType === "open" && members.length)
+
+    if (input.registrationType === "open" && members.length) {
       reject(
         "VALIDATION_ERROR",
         "Open contests cannot include pre-registered users.",
       );
+    }
+
     const ids = members.map((member) => member.id.toLowerCase());
-    if (new Set(ids).size !== ids.length)
+
+    if (new Set(ids).size !== ids.length) {
       reject("VALIDATION_ERROR", "Each registered user may appear only once.");
-    if (members.length > input.maxParticipants)
+    }
+
+    if (members.length > input.maxParticipants) {
       reject(
         "VALIDATION_ERROR",
         "Registered users exceed the participant capacity.",
       );
+    }
+
     if (
       input.registrationType === "closed" &&
       members.length < input.teamSize * 2
-    )
+    ) {
       reject(
         "VALIDATION_ERROR",
         "Closed contests require at least two complete sides.",
       );
+    }
+
     const counts = new Map<string, number>();
     const canonicalNames = new Map<string, string>();
     const registrations: IRegistration[] = [];
+
     for (const member of members) {
       const verified = await verifiedMember(member.id);
       let teamName = member.teamName?.trim() || verified.cfHandle;
-      if (input.teamSize > 1 && !member.teamName?.trim())
+
+      if (input.teamSize > 1 && !member.teamName?.trim()) {
         reject("VALIDATION_ERROR", "Every team member needs a team name.");
+      }
+
       const key = teamName.toLowerCase();
+
       teamName = canonicalNames.get(key) ?? teamName;
       canonicalNames.set(key, teamName);
       counts.set(teamName, (counts.get(teamName) ?? 0) + 1);
       registrations.push({ ...verified, teamName, registeredAt: new Date() });
     }
-    if ([...counts.values()].some((count) => count !== input.teamSize))
+
+    if ([...counts.values()].some((count) => count !== input.teamSize)) {
       reject(
         "VALIDATION_ERROR",
         "Every registered side must be complete and have a unique name.",
       );
+    }
+
     return ok(registrations);
   } catch (error) {
-    if (error instanceof RegistrationError)
+    if (error instanceof RegistrationError) {
       return err(error.code, error.message);
+    }
+
     throw error;
   }
 }

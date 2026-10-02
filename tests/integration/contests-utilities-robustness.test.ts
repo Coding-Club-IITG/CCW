@@ -9,23 +9,28 @@ import {
   it,
   vi,
 } from "vitest";
+import {
+  parseBracketPosition,
+  getRoundName,
+  nextPowerOf2,
+} from "@/lib/contests/bracketLayout";
+
+import { renderProblemMath } from "@/lib/math";
+import {
+  createRoomContest,
+  createBracketContest,
+  getContestListing,
+} from "@/lib/actions/contests";
+import { recordRoomActivity } from "@/lib/contests/events";
+import { getRedis } from "@/lib/db/redis";
+import { webEnv } from "@/lib/env/web";
 
 import ContestMatch from "@/models/ContestMatch";
 import ContestQuestion from "@/models/ContestQuestion";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
-import { renderProblemMath } from "@/lib/math";
-import {
-  clearTestMongo,
-  startTestMongo,
-  stopTestMongo,
-} from "../utils/mongodb";
-import {
-  createRoomContest,
-  createBracketContest,
-  getContestListing,
-} from "@/lib/actions/contests";
+
 import {
   getCodeforcesProblemUrl,
   formatRemainingTime,
@@ -33,15 +38,12 @@ import {
   getDisplayTeamName,
   getContestRoomResultsPath,
 } from "@/components/contests/roomPresentation";
+
 import {
-  parseBracketPosition,
-  getRoundName,
-  snakeSeed,
-  nextPowerOf2,
-} from "@/types/bracket";
-import { recordRoomActivity } from "@/lib/contests/events";
-import { getRedis } from "@/lib/db/redis";
-import { webEnv } from "@/lib/env/web";
+  clearTestMongo,
+  startTestMongo,
+  stopTestMongo,
+} from "../utils/mongodb";
 
 const getSession = vi.hoisted(() => vi.fn());
 const reconciliationQueueAdd = vi.hoisted(() => vi.fn());
@@ -239,12 +241,9 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
       expect(getContestRoomResultsPath("room_1", "bracket")).toBe(
         "/internal/contests/rooms/room_1/result?from=bracket",
       );
-      expect(getContestRoomResultsPath("room_1", "1v1", "knockout")).toBe(
-        "/internal/contests/rooms/room_1/result?from=bracket",
+      expect(getContestRoomResultsPath("room_2", "team-tournament")).toBe(
+        "/internal/contests/rooms/room_2/result",
       );
-      expect(
-        getContestRoomResultsPath("room_2", "team-tournament", "swiss"),
-      ).toBe("/internal/contests/rooms/room_2/result");
     });
   });
 
@@ -263,38 +262,8 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
       expect(nextPowerOf2(32)).toBe(32);
     });
 
-    it("performs deterministic snake seeding for 2, 4, and 8 teams", () => {
-      const twoTeams = [
-        { teamId: "t1", seed: 1 },
-        { teamId: "t2", seed: 2 },
-      ];
-      expect(snakeSeed(twoTeams).map((t) => t.seed)).toEqual([1, 2]);
-
-      const fourTeams = [
-        { teamId: "t1", seed: 1 },
-        { teamId: "t2", seed: 2 },
-        { teamId: "t3", seed: 3 },
-        { teamId: "t4", seed: 4 },
-      ];
-      expect(snakeSeed(fourTeams).map((t) => t.seed)).toEqual([1, 4, 2, 3]);
-
-      const eightTeams = [
-        { teamId: "t1", seed: 1 },
-        { teamId: "t2", seed: 2 },
-        { teamId: "t3", seed: 3 },
-        { teamId: "t4", seed: 4 },
-        { teamId: "t5", seed: 5 },
-        { teamId: "t6", seed: 6 },
-        { teamId: "t7", seed: 7 },
-        { teamId: "t8", seed: 8 },
-      ];
-      expect(snakeSeed(eightTeams).map((t) => t.seed)).toEqual([
-        1, 8, 2, 7, 3, 6, 4, 5,
-      ]);
-    });
-
-    it("parses bracket positions correctly across legacy and modern formats", () => {
-      expect(parseBracketPosition("0-0")).toEqual({
+    it("parses bracket positions correctly for every supported stage", () => {
+      expect(parseBracketPosition("upper-0-0")).toEqual({
         stage: "upper",
         roundIndex: 0,
         matchIndex: 0,
@@ -434,12 +403,13 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
         mode: "blitz",
         teamSize: 1,
         maxParticipants: 8,
+        entrantCapacity: 8,
         registrationType: "closed",
         problemSelectionMode: "bulk",
         bulkRatingMin: 800,
         bulkRatingMax: 1200,
         bulkProblemCount: 3,
-        seedingMethod: "cf_rating",
+
         startTime: validGraceTime,
         registeredUsers: [
           { id: user.userId.toString(), cfHandle: "grace_user" },
@@ -480,12 +450,13 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
         mode: "blitz",
         teamSize: 1,
         maxParticipants: 8,
+        entrantCapacity: 8,
         registrationType: "closed",
         problemSelectionMode: "bulk",
         bulkRatingMin: 800,
         bulkRatingMax: 1200,
         bulkProblemCount: 3,
-        seedingMethod: "cf_rating",
+
         startTime: lateTime,
         registeredUsers: [
           { id: user.userId.toString(), cfHandle: "late_user" },
@@ -555,6 +526,7 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
         format: "1v1",
         teamSize: 1,
         maxParticipants: 2,
+        entrantCapacity: 2,
         registrationType: "closed",
         problemSelectionMode: "fine-tuned",
         startTime: new Date(Date.now() + 86400000).toISOString(),
@@ -580,6 +552,7 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
         format: "1v1",
         teamSize: 1,
         maxParticipants: 2,
+        entrantCapacity: 2,
         registrationType: "closed",
         problemSelectionMode: "fine-tuned",
         startTime: new Date(Date.now() + 86400000).toISOString(),
@@ -621,6 +594,7 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
         format: "1v1",
         teamSize: 1,
         maxParticipants: 2,
+        entrantCapacity: 2,
         registrationType: "closed",
         problemSelectionMode: "fine-tuned",
         startTime: new Date(Date.now() + 86400000).toISOString(),

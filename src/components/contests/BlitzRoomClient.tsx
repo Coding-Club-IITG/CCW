@@ -52,10 +52,12 @@ const ForfeitTimer = ({ targetTime }: { targetTime: number }) => {
     const t = setInterval(() => {
       setLeft(Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)));
     }, 1000);
+
     return () => clearInterval(t);
   }, [targetTime]);
 
   if (left <= 0) return null;
+
   return <span className={styles.forfeitTimer}>(Forfeit in {left}s)</span>;
 };
 
@@ -125,22 +127,28 @@ export default function BlitzRoomClient({
   const [readySecondsLeft, setReadySecondsLeft] = useState<number | null>(
     () => {
       if (!initialReadyDeadline) return null;
+
       return Math.max(0, Math.ceil((initialReadyDeadline - Date.now()) / 1000));
     },
   );
 
   useEffect(() => {
     if (!initialReadyDeadline || matchState !== "waiting") return;
+
     const interval = setInterval(() => {
       const remaining = Math.max(
         0,
         Math.ceil((initialReadyDeadline - Date.now()) / 1000),
       );
+
       setReadySecondsLeft(remaining);
+
       if (remaining <= 0) clearInterval(interval);
     }, 1000);
+
     return () => clearInterval(interval);
   }, [initialReadyDeadline, matchState]);
+
   const onlineUserIdsRef = useRef<Set<string>>(
     new Set(initialOnlineUserIds || [userId]),
   );
@@ -171,23 +179,20 @@ export default function BlitzRoomClient({
   >({});
   const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
 
-  // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
+  // Redirect to results page immediately ONLY if the match was already completed on initial load
   useEffect(() => {
     if (initialMatchState === "completed") {
-      router.replace(
-        getContestRoomResultsPath(roomId, contest.format, contest.mode),
-      );
+      router.replace(getContestRoomResultsPath(roomId, contest.format));
     }
-  }, [initialMatchState, roomId, router, contest.format, contest.mode]);
+  }, [initialMatchState, roomId, router, contest.format]);
 
   // Also redirect dynamically if the match completes while connected
   useEffect(() => {
     if (matchState === "completed" && initialMatchState !== "completed") {
       const t = setTimeout(() => {
-        router.replace(
-          getContestRoomResultsPath(roomId, contest.format, contest.mode),
-        );
+        router.replace(getContestRoomResultsPath(roomId, contest.format));
       }, 2000);
+
       return () => clearTimeout(t);
     }
   }, [
@@ -215,6 +220,7 @@ export default function BlitzRoomClient({
           if (prev !== "active" && nextStatus === "active") {
             setShowMatchStartedModal(true);
           }
+
           return nextStatus;
         });
         if (payload.state.startTime)
@@ -240,7 +246,9 @@ export default function BlitzRoomClient({
         setCurrentProblemIndex(payload.problemIndex);
         setProblems((prev) => {
           const arr = [...prev];
+
           arr[payload.problemIndex] = payload.nextProblem;
+
           return arr;
         });
         setAnimationKey((k) => k + 1);
@@ -282,7 +290,9 @@ export default function BlitzRoomClient({
       case "room.user_ready":
         setReadyUserIds((prev) => {
           const newSet = new Set(prev);
+
           newSet.add(payload.userId);
+
           return newSet;
         });
         if (payload.userId === userId) {
@@ -322,9 +332,12 @@ export default function BlitzRoomClient({
           onlineUserIdsRef.current.add(payload.userId);
           setOnlineUserIds(new Set(onlineUserIdsRef.current));
         }
+
         setForfeitTimeouts((prev) => {
           const next = { ...prev };
+
           delete next[payload.userId];
+
           return next;
         });
         break;
@@ -335,6 +348,7 @@ export default function BlitzRoomClient({
 
         if (payload.forfeitTimeout) {
           const timeout = payload.forfeitTimeout;
+
           setForfeitTimeouts((prev) => ({
             ...prev,
             [payload.userId]: Date.now() + timeout * 1000,
@@ -343,7 +357,9 @@ export default function BlitzRoomClient({
 
         setReadyUserIds((prev) => {
           const newSet = new Set(prev);
+
           newSet.delete(payload.userId);
+
           return newSet;
         });
         break;
@@ -359,11 +375,13 @@ export default function BlitzRoomClient({
 
   const getMemberName = (uid: string) => {
     if (!teams) return "Unknown";
+
     for (const t of teams) {
       for (const m of t.members) {
         if (m.id === uid) return getDisplayName(m.name, m.pizza_count);
       }
     }
+
     return uid === userId ? "You" : "Unknown";
   };
 
@@ -390,16 +408,21 @@ export default function BlitzRoomClient({
 
   const handleReady = async () => {
     setIsReady(true);
+
     const response = await fetch(`/api/contests/rooms/${roomId}/ready`, {
       method: "POST",
     });
+
     if (!(await readAppResult(response)).ok) setIsReady(false);
   };
 
   const handleSync = async () => {
     if (syncing || matchState !== "active" || syncCooldown > 0) return;
+
     setSyncing(true);
+
     const activeProblem = problems[currentProblemIndex];
+
     if (!activeProblem) return;
 
     const res = await fetch("/api/contests/sync", {
@@ -416,6 +439,7 @@ export default function BlitzRoomClient({
     beginSync();
 
     const syncRes = await readAppResult(res);
+
     if (!syncRes.ok) {
       // If it failed immediately (Eg. 429), turn off syncing spinner since SSE won't fire
       setSyncing(false);
@@ -824,13 +848,7 @@ export default function BlitzRoomClient({
             </p>
             <button
               onClick={() =>
-                router.push(
-                  getContestRoomResultsPath(
-                    roomId,
-                    contest.format,
-                    contest.mode,
-                  ),
-                )
+                router.push(getContestRoomResultsPath(roomId, contest.format))
               }
               className={styles.toastBtnSecondary}
             >

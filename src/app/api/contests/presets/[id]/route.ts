@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
+import { bracketCapacityError } from "@/lib/contests/bracketTopology";
 import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeContest } from "@/lib/audit/summary";
 import { requireSession } from "@/lib/auth/session";
@@ -29,23 +30,29 @@ async function validatedId(context: Context) {
 
 export async function GET(request: NextRequest, context: Context) {
   const authorization = await requireSession(request);
+
   if (!authorization.ok) {
     return jsonError(authorization.error.code, authorization.error.message);
   }
 
   const params = await validatedId(context);
+
   if (!params.ok) {
     return jsonError(params.error.code, params.error.message, {
       fields: params.error.fields,
     });
   }
+
   try {
     await connectMongoDB();
+
     const preset = await ContestPreset.findById(params.data.id).lean();
+
     if (!preset) return jsonError("NOT_FOUND", "Preset not found");
 
     const isAdmin = isHead(authorization.data.user.access);
     const isOwner = preset.creatorId?.toString() === authorization.data.user.id;
+
     if (!preset.isGlobal && !isAdmin && !isOwner) {
       return jsonError(
         "FORBIDDEN",
@@ -61,16 +68,21 @@ export async function GET(request: NextRequest, context: Context) {
 
 export async function PUT(request: NextRequest, context: Context) {
   const authorization = await requireSession(request);
+
   if (!authorization.ok) {
     return jsonError(authorization.error.code, authorization.error.message);
   }
+
   const params = await validatedId(context);
+
   if (!params.ok) {
     return jsonError(params.error.code, params.error.message, {
       fields: params.error.fields,
     });
   }
+
   const body = await parseJson(request, updateContestPresetSchema);
+
   if (!body.ok) {
     return jsonError(body.error.code, body.error.message, {
       fields: body.error.fields,
@@ -79,7 +91,9 @@ export async function PUT(request: NextRequest, context: Context) {
 
   try {
     await connectMongoDB();
+
     const existingPreset = await ContestPreset.findById(params.data.id).lean();
+
     if (!existingPreset) return jsonError("NOT_FOUND", "Preset not found");
 
     const isAdmin = isHead(authorization.data.user.access);
@@ -93,39 +107,53 @@ export async function PUT(request: NextRequest, context: Context) {
       );
     }
 
+    const capacityError = bracketCapacityError({
+      ...existingPreset,
+      ...body.data,
+    });
+
+    if (capacityError) return jsonError("VALIDATION_ERROR", capacityError);
+
     if (!isAdmin) {
       // Non-admins cannot modify global state
       if (body.data.isGlobal !== undefined) {
         delete body.data.isGlobal;
       }
-      
+
       const format = body.data.format || existingPreset.format;
-      const maxParticipants =
-        body.data.registrationSettings?.maxParticipants ||
-        existingPreset.registrationSettings?.maxParticipants;
-      if (format === "bracket" && maxParticipants && maxParticipants > 8) {
+      const entrantCapacity =
+        body.data.registrationSettings?.entrantCapacity ||
+        existingPreset.registrationSettings?.entrantCapacity;
+
+      if (format === "bracket" && entrantCapacity && entrantCapacity > 8) {
         return jsonError(
           "VALIDATION_ERROR",
-          "Non-admin users cannot create a knockout tournament preset with more than 8 members.",
+          "Non-admin users cannot create a knockout tournament preset with more than 8 entrants.",
         );
       }
     }
+
     if (body.data.name) {
       const duplicate = await ContestPreset.exists({
         _id: { $ne: params.data.id },
         name: body.data.name,
       });
+
       if (duplicate) return jsonError("CONFLICT", "Preset name already exists");
     }
+
     const dbSession = await mongoose.startSession();
     let preset;
+
     try {
       preset = await auditedTransaction(dbSession, async (transaction) => {
         const before = await ContestPreset.findById(params.data.id)
           .session(transaction)
           .lean();
+
         if (!before)
           throw new Error("Contest preset disappeared during update.");
+
         const updated = await ContestPreset.findByIdAndUpdate(
           params.data.id,
           body.data,
@@ -135,8 +163,10 @@ export async function PUT(request: NextRequest, context: Context) {
             session: transaction,
           },
         ).lean();
+
         if (!updated)
           throw new Error("Contest preset disappeared during update.");
+
         return {
           result: updated,
           audit: {
@@ -161,6 +191,7 @@ export async function PUT(request: NextRequest, context: Context) {
     } finally {
       await dbSession.endSession();
     }
+
     return preset
       ? jsonOk(toContestPresetDto(preset))
       : jsonError("NOT_FOUND", "Preset not found");
@@ -171,16 +202,21 @@ export async function PUT(request: NextRequest, context: Context) {
 
 export async function PATCH(request: NextRequest, context: Context) {
   const authorization = await requireSession(request);
+
   if (!authorization.ok) {
     return jsonError(authorization.error.code, authorization.error.message);
   }
+
   const params = await validatedId(context);
+
   if (!params.ok) {
     return jsonError(params.error.code, params.error.message, {
       fields: params.error.fields,
     });
   }
+
   const body = await parseJson(request, archiveContestPresetSchema);
+
   if (!body.ok) {
     return jsonError(body.error.code, body.error.message, {
       fields: body.error.fields,
@@ -189,7 +225,9 @@ export async function PATCH(request: NextRequest, context: Context) {
 
   try {
     await connectMongoDB();
+
     const existingPreset = await ContestPreset.findById(params.data.id).lean();
+
     if (!existingPreset) return jsonError("NOT_FOUND", "Preset not found");
 
     const isAdmin = isHead(authorization.data.user.access);
@@ -202,15 +240,19 @@ export async function PATCH(request: NextRequest, context: Context) {
         "You do not have permission to archive this preset",
       );
     }
+
     const dbSession = await mongoose.startSession();
     let preset;
+
     try {
       preset = await auditedTransaction(dbSession, async (transaction) => {
         const before = await ContestPreset.findById(params.data.id)
           .session(transaction)
           .lean();
+
         if (!before)
           throw new Error("Contest preset disappeared during archive update.");
+
         const updated = await ContestPreset.findByIdAndUpdate(
           params.data.id,
           body.data,
@@ -220,8 +262,10 @@ export async function PATCH(request: NextRequest, context: Context) {
             session: transaction,
           },
         ).lean();
+
         if (!updated)
           throw new Error("Contest preset disappeared during archive update.");
+
         return {
           result: updated,
           audit: {
@@ -246,6 +290,7 @@ export async function PATCH(request: NextRequest, context: Context) {
     } finally {
       await dbSession.endSession();
     }
+
     return preset
       ? jsonOk(toContestPresetDto(preset))
       : jsonError("NOT_FOUND", "Preset not found");
@@ -256,10 +301,13 @@ export async function PATCH(request: NextRequest, context: Context) {
 
 export async function DELETE(request: NextRequest, context: Context) {
   const authorization = await requireSession(request);
+
   if (!authorization.ok) {
     return jsonError(authorization.error.code, authorization.error.message);
   }
+
   const params = await validatedId(context);
+
   if (!params.ok) {
     return jsonError(params.error.code, params.error.message, {
       fields: params.error.fields,
@@ -268,7 +316,9 @@ export async function DELETE(request: NextRequest, context: Context) {
 
   try {
     await connectMongoDB();
+
     const existingPreset = await ContestPreset.findById(params.data.id).lean();
+
     if (!existingPreset) return jsonError("NOT_FOUND", "Preset not found");
 
     const isAdmin = isHead(authorization.data.user.access);
@@ -283,13 +333,16 @@ export async function DELETE(request: NextRequest, context: Context) {
     }
 
     const dbSession = await mongoose.startSession();
+
     try {
       await auditedTransaction(dbSession, async (transaction) => {
         const deleted = await ContestPreset.findByIdAndDelete(params.data.id)
           .session(transaction)
           .lean();
+
         if (!deleted)
           throw new Error("Contest preset disappeared during delete.");
+
         return {
           result: deleted,
           audit: {
@@ -311,6 +364,7 @@ export async function DELETE(request: NextRequest, context: Context) {
     } finally {
       await dbSession.endSession();
     }
+
     return jsonOk({ success: true });
   } catch (error) {
     return boundaryErrorResponse("delete_contest_preset", error, request);

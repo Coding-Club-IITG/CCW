@@ -24,7 +24,6 @@ import "@xyflow/react/dist/style.css";
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { expectAppData } from "@/lib/api/result";
 import {
-  getRoundName,
   parseBracketPosition,
   type BracketNode,
   type BracketSnapshot,
@@ -48,11 +47,14 @@ const Controls = dynamic(
   { ssr: false },
 );
 
-// ── Helpers ───────────────────────────────────────────────────────
+// Helpers
 function getInitials(name: string) {
   if (!name) return "??";
+
   const parts = name.split(/[\s_-]+/);
+
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+
   return name.substring(0, 2).toUpperCase();
 }
 
@@ -75,6 +77,7 @@ function TeamSlot({
     const isNullPlayer = Boolean(
       isNull || tname === "[No Show]" || tname === "[Eliminated]",
     );
+
     if (isNullPlayer) {
       return (
         <div className={`${styles.teamSlot} ${styles.teamSlotTbd}`}>
@@ -84,6 +87,7 @@ function TeamSlot({
         </div>
       );
     }
+
     return (
       <div
         className={`${styles.teamSlot} ${isWinner ? styles.teamSlotWinner : ""}`}
@@ -106,6 +110,7 @@ function TeamSlot({
       </div>
     );
   }
+
   return (
     <div className={`${styles.teamSlot} ${styles.teamSlotTbd}`}>
       <span className={styles.slotTbd}>{fallback}</span>
@@ -122,6 +127,7 @@ function TeamRow({
   isLoser,
   isActive,
   isNull,
+  resolved,
 }: {
   tid: string | null;
   tname: string | null;
@@ -131,12 +137,15 @@ function TeamRow({
   isLoser: boolean;
   isActive: boolean;
   isNull?: boolean;
+  resolved?: boolean;
 }) {
   if (!tid || !tname) {
     return (
       <div className={styles.teamRow}>
         <div className={styles.rowInner}>
-          <span className={styles.rowTbd}>TBD</span>
+          <span className={styles.rowTbd}>
+            {resolved ? "Empty slot" : "TBD"}
+          </span>
         </div>
         <span className={styles.rowScoreMuted}>-</span>
       </div>
@@ -180,6 +189,7 @@ function TeamRow({
       </div>
     );
   }
+
   if (isLoser) {
     return (
       <div className={styles.teamRow}>
@@ -191,6 +201,7 @@ function TeamRow({
       </div>
     );
   }
+
   if (isActive) {
     return (
       <div className={`${styles.teamRow} ${styles.teamRowActive}`}>
@@ -202,6 +213,7 @@ function TeamRow({
       </div>
     );
   }
+
   return (
     <div className={styles.teamRow}>
       <div className={styles.rowInner}>
@@ -213,10 +225,9 @@ function TeamRow({
   );
 }
 
-// ── Grand Final Node ──────────────────────────────────────────────
+// Grand Final Node
 type BracketFlowNodeData = {
   node: BracketNode;
-  totalRounds: number;
   openMatchDetails: (event: React.MouseEvent, node: BracketNode) => void;
 };
 
@@ -234,6 +245,7 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
   const isWalkover = Boolean(
     node.walkover || node.terminationReason === "walkover",
   );
+
   return (
     <div
       className={`${styles.matchNode} ${
@@ -241,6 +253,7 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
       } ${!t1 && !t2 ? styles.nodeEmpty : ""}`}
       onClick={(e) => {
         e.stopPropagation();
+
         if (openMatchDetails) openMatchDetails(e, node);
       }}
     >
@@ -286,7 +299,7 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
           tid={t1}
           tname={n1}
           timage={node.teamImages?.[0]}
-          fallback="Winner SF 1"
+          fallback={node.slotsResolved[0] ? "Empty slot" : "Awaiting entrant"}
           isWinner={isCompleted && node.winner === t1}
           isNull={node.teamIsNull?.[0]}
         />
@@ -295,7 +308,7 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
           tid={t2}
           tname={n2}
           timage={node.teamImages?.[1]}
-          fallback="Winner SF 2"
+          fallback={node.slotsResolved[1] ? "Empty slot" : "Awaiting entrant"}
           isWinner={isCompleted && node.winner === t2}
           isNull={node.teamIsNull?.[1]}
         />
@@ -305,9 +318,9 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
   );
 }
 
-// ── Standard Match Card ───────────────────────────────────────────
+// Standard Match Card
 function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
-  const { node, openMatchDetails, totalRounds } = data;
+  const { node, openMatchDetails } = data;
   const t1 = node.teams[0],
     t2 = node.teams[1];
   const n1 = node.teamNames?.[0],
@@ -319,12 +332,7 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
   const isWaiting = node.status === "waiting";
   const isPending = !isCompleted && !isActive && !isWaiting && !isBye;
 
-  const pos = parseBracketPosition(node.bracketPosition || "");
-  const roundName = getRoundName(
-    pos.roundIndex + 1,
-    totalRounds,
-    node.bracketType,
-  );
+  const roundName = node.roundName;
   const matchLabel = `${roundName === "Final" || roundName.includes("Semi") ? roundName.replace("s", "") : roundName} ${node.matchIndex + 1}`;
 
   const winnerId = node.winner;
@@ -368,6 +376,7 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
       } ${isPending ? styles.nodePending : ""}`}
       onClick={(e) => {
         e.stopPropagation();
+
         if (openMatchDetails) openMatchDetails(e, node);
       }}
     >
@@ -396,6 +405,7 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
           isWinner={t1Win}
           isLoser={t1Lose}
           isActive={isActive}
+          resolved={node.slotsResolved[0]}
           isNull={node.teamIsNull?.[0]}
         />
         <TeamRow
@@ -406,6 +416,7 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
           isWinner={t2Win}
           isLoser={t2Lose}
           isActive={isActive}
+          resolved={node.slotsResolved[1]}
           isNull={node.teamIsNull?.[1]}
         />
       </div>
@@ -440,10 +451,9 @@ function isBracketNode(value: unknown): value is BracketNode {
   );
 }
 
-// ── Match Detail Side Panel ────────────────────────────────────────
+// Match Detail Side Panel
 function MatchSidePanel({
   node,
-  totalRounds,
   onClose,
   contestId,
   data,
@@ -451,7 +461,6 @@ function MatchSidePanel({
   onSnapshotUpdate,
 }: {
   node: BracketNode | null;
-  totalRounds: number;
   onClose: () => void;
   contestId: string;
   data?: { currentUserTeamIds?: string[]; canSpectate?: boolean };
@@ -472,6 +481,7 @@ function MatchSidePanel({
 
   if (node !== prevNode) {
     setPrevNode(node);
+
     if (node !== null) {
       setDisplayNode(node);
       setAdminError(null);
@@ -483,8 +493,10 @@ function MatchSidePanel({
     winnerTeamId?: string,
   ) => {
     if (!displayNode?.roomId) return;
+
     setAdminLoading(true);
     setAdminError(null);
+
     try {
       const res = await fetch(
         `/api/contests/rooms/${displayNode.roomId}/walkover`,
@@ -502,6 +514,7 @@ function MatchSidePanel({
         },
       );
       const resData = await res.json();
+
       if (!res.ok || !resData.success) {
         setAdminError(
           resData.error?.message || "Failed to process admin action",
@@ -509,20 +522,26 @@ function MatchSidePanel({
       } else {
         if (resData.bracket && onSnapshotUpdate) {
           onSnapshotUpdate(resData.bracket);
+
           const updated = resData.bracket.nodes.find(
             (n: BracketNode) => n.roomId === displayNode.roomId,
           );
+
           if (updated) setDisplayNode(updated);
         } else {
           const sRes = await fetch(
             `/api/contests/${contestId}/bracket/snapshot`,
           );
+
           if (sRes.ok) {
             const sData = await expectAppData<BracketSnapshot>(sRes);
+
             onSnapshotUpdate?.(sData);
+
             const updated = sData.nodes.find(
               (n: BracketNode) => n.roomId === displayNode.roomId,
             );
+
             if (updated) setDisplayNode(updated);
           }
         }
@@ -536,6 +555,7 @@ function MatchSidePanel({
 
   const handleEnterRoom = () => {
     if (!displayNode?.roomId) return;
+
     router.push(
       `/internal/contests/${contestId}?matchRoomId=${displayNode.roomId}&from=bracket`,
     );
@@ -543,6 +563,7 @@ function MatchSidePanel({
 
   const handleViewResults = () => {
     if (!displayNode?.roomId) return;
+
     router.push(
       `/internal/contests/rooms/${displayNode.roomId}/result?from=bracket`,
     );
@@ -557,15 +578,9 @@ function MatchSidePanel({
   const isCompleted = displayNode?.status === "completed";
   const isActive = displayNode?.status === "active";
   const isPending = displayNode?.status === "pending";
-  const roundName = displayNode
-    ? getRoundName(
-        displayNode.roundNumber,
-        totalRounds,
-        displayNode.bracketType,
-      )
-    : "";
+  const roundName = displayNode?.roundName ?? "";
   const matchLabel = displayNode
-    ? `${roundName.includes("Final") ? roundName : roundName} ${displayNode.matchIndex + 1}`
+    ? `${roundName} ${displayNode.matchIndex + 1}`
     : "";
   const winnerId = displayNode?.winner;
 
@@ -835,7 +850,7 @@ function MatchSidePanel({
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────
+// Main Component
 export default function BracketRoomClient({
   contest,
   initialSnapshot,
@@ -863,7 +878,7 @@ export default function BracketRoomClient({
     }
   }, []);
 
-  // ── SSE: Subscribe to contest events and refresh snapshot ──
+  // SSE: Subscribe to contest events and refresh snapshot
   useEffect(() => {
     const eventSource = new EventSource(
       `/api/contests/stream?contestId=${contest._id}`,
@@ -884,8 +899,10 @@ export default function BracketRoomClient({
           const res = await fetch(
             `/api/contests/${contest._id}/bracket/snapshot`,
           );
+
           if (res.ok) {
             const data = await expectAppData<BracketSnapshot>(res);
+
             setSnapshot(data);
           }
         }
@@ -911,10 +928,7 @@ export default function BracketRoomClient({
 
   const closeSidebar = useCallback(() => setSelectedNode(null), []);
 
-  const currentRoundName = getRoundName(
-    snapshot.currentRound,
-    snapshot.totalRounds,
-  );
+  const currentRoundName = snapshot.currentRoundName ?? "Bracket";
   const hasActiveMatches = snapshot.nodes.some((n) => n.status === "active");
 
   const [filter, setFilter] = useState<
@@ -923,8 +937,42 @@ export default function BracketRoomClient({
 
   const { nodes, edges } = useMemo(() => {
     const flowNodes: BracketFlowNode[] = [];
-    const flowEdges: Edge[] = [];
 
+    const routedEdges = () => {
+      const visible = new Set(flowNodes.map((node) => node.id));
+
+      return snapshot.nodes.flatMap((node) =>
+        [node.winnerDestination, node.loserDestination].flatMap(
+          (target, index): Edge[] => {
+            if (
+              !target ||
+              !visible.has(node.roomId) ||
+              !visible.has(target.roomId)
+            )
+              return [];
+
+            const drop = index === 1 && node.bracketType === "upper";
+
+            return [
+              {
+                id: `e-${node.roomId}-${target.roomId}-${target.slot}`,
+                source: node.roomId,
+                target: target.roomId,
+                sourceHandle: drop ? "source-bottom" : "source-right",
+                targetHandle: drop ? "target-top" : "target-left",
+                type: "smoothstep",
+                animated: node.status === "completed" || node.status === "bye",
+                style: {
+                  stroke: drop ? "var(--warning)" : "var(--border)",
+                  strokeWidth: 2,
+                  ...(drop ? { strokeDasharray: "4 4" } : {}),
+                },
+              },
+            ];
+          },
+        ),
+      );
+    };
     const isDoubleElim = snapshot.bracketType === "double_elimination";
 
     if (!isDoubleElim) {
@@ -932,6 +980,7 @@ export default function BracketRoomClient({
         { length: snapshot.totalRounds },
         () => [],
       );
+
       snapshot.nodes.forEach((nd) => {
         if (nd.roundNumber >= 1 && nd.roundNumber <= snapshot.totalRounds)
           rounds[nd.roundNumber - 1].push(nd);
@@ -942,6 +991,7 @@ export default function BracketRoomClient({
 
       for (let r = 0; r < snapshot.totalRounds; r++) {
         const isGrandFinal = r === snapshot.totalRounds - 1;
+
         rounds[r].forEach((nd, i) => {
           const scale = Math.pow(2, r);
           const x = r * X_GAP;
@@ -953,76 +1003,47 @@ export default function BracketRoomClient({
             position: { x, y },
             data: {
               node: nd,
-              totalRounds: snapshot.totalRounds,
               openMatchDetails,
             },
           });
-
-          if (r < snapshot.totalRounds - 1) {
-            const pi = Math.floor(i / 2);
-            const parent = rounds[r + 1][pi];
-            if (parent) {
-              const active = nd.status === "completed" && nd.winner !== null;
-              flowEdges.push({
-                id: `e-${nd.roomId}-${parent.roomId}`,
-                source: nd.roomId,
-                target: parent.roomId,
-                sourceHandle: "source-right",
-                targetHandle: "target-left",
-                type: "smoothstep",
-                animated: active,
-                style: {
-                  stroke: active ? "var(--success)" : "var(--border)",
-                  strokeWidth: 2,
-                },
-              });
-            }
-          }
         });
       }
-      return { nodes: flowNodes, edges: flowEdges };
+
+      return { nodes: flowNodes, edges: routedEdges() };
     }
 
-    // ── Double Elimination Layout ────────────────────────────────────
+    // Double Elimination Layout
     const upperNodes = snapshot.nodes.filter((n) => {
       const stage = parseBracketPosition(n.bracketPosition || "").stage;
+
       return stage === "upper";
     });
     const lowerNodes = snapshot.nodes.filter((n) => {
       const stage = parseBracketPosition(n.bracketPosition || "").stage;
+
       return stage === "lower";
     });
     const gfNode = snapshot.nodes.find((n) => {
       const stage = parseBracketPosition(n.bracketPosition || "").stage;
+
       return stage === "grand_final";
     });
     const gfResetNode = snapshot.nodes.find((n) => {
       const stage = parseBracketPosition(n.bracketPosition || "").stage;
+
       return (
         stage === "grand_final_reset" || n.bracketType === "grand_final_reset"
       );
     });
 
-    const U =
-      snapshot.upperRounds ||
-      Math.max(
-        ...upperNodes.map(
-          (n) => parseBracketPosition(n.bracketPosition).roundIndex + 1,
-        ),
-        1,
-      );
-    const L =
-      snapshot.lowerRounds ||
-      Math.max(
-        ...lowerNodes.map(
-          (n) => parseBracketPosition(n.bracketPosition).roundIndex + 1,
-        ),
-        1,
-      );
+    const U = snapshot.upperRounds;
+    const L = snapshot.lowerRounds;
 
     const upperRounds: BracketNode[][] = Array.from({ length: U }, () => []);
+
     upperNodes.forEach((n) => {
       const pos = parseBracketPosition(n.bracketPosition);
+
       if (pos.roundIndex >= 0 && pos.roundIndex < U) {
         upperRounds[pos.roundIndex].push(n);
       }
@@ -1036,8 +1057,10 @@ export default function BracketRoomClient({
     );
 
     const lowerRounds: BracketNode[][] = Array.from({ length: L }, () => []);
+
     lowerNodes.forEach((n) => {
       const pos = parseBracketPosition(n.bracketPosition);
+
       if (pos.roundIndex >= 0 && pos.roundIndex < L) {
         lowerRounds[pos.roundIndex].push(n);
       }
@@ -1068,6 +1091,7 @@ export default function BracketRoomClient({
     if (showUpper) {
       for (let u = 0; u < U; u++) {
         const scale = Math.pow(2, u);
+
         upperRounds[u].forEach((nd, i) => {
           const x = u * X_GAP;
           const y = ((scale - 1) * Y_GAP) / 2 + i * scale * Y_GAP;
@@ -1078,32 +1102,9 @@ export default function BracketRoomClient({
             position: { x, y },
             data: {
               node: nd,
-              totalRounds: U,
               openMatchDetails,
             },
           });
-
-          // Upper -> Next Upper Edge
-          if (u < U - 1) {
-            const pi = Math.floor(i / 2);
-            const parent = upperRounds[u + 1]?.[pi];
-            if (parent) {
-              const active = nd.status === "completed" && nd.winner !== null;
-              flowEdges.push({
-                id: `e-${nd.roomId}-${parent.roomId}`,
-                source: nd.roomId,
-                target: parent.roomId,
-                sourceHandle: "source-right",
-                targetHandle: "target-left",
-                type: "smoothstep",
-                animated: active,
-                style: {
-                  stroke: active ? "var(--success)" : "var(--border)",
-                  strokeWidth: 2,
-                },
-              });
-            }
-          }
         });
       }
     }
@@ -1121,65 +1122,9 @@ export default function BracketRoomClient({
             position: { x, y },
             data: {
               node: nd,
-              totalRounds: L,
               openMatchDetails,
             },
           });
-
-          // Lower -> Next Lower Edge
-          if (l < L - 1) {
-            const nextMatchIdx = l % 2 === 0 ? i : Math.floor(i / 2);
-            const parent = lowerRounds[l + 1]?.[nextMatchIdx];
-            if (parent) {
-              const active = nd.status === "completed" && nd.winner !== null;
-              flowEdges.push({
-                id: `e-${nd.roomId}-${parent.roomId}`,
-                source: nd.roomId,
-                target: parent.roomId,
-                sourceHandle: "source-right",
-                targetHandle: "target-left",
-                type: "smoothstep",
-                animated: active,
-                style: {
-                  stroke: active ? "var(--success)" : "var(--border)",
-                  strokeWidth: 2,
-                },
-              });
-            }
-          }
-        });
-      }
-    }
-
-    // 3. Drop-down edges from Upper to Lower (only in 'all' view)
-    if (filter === "all") {
-      for (let u = 0; u < U; u++) {
-        upperRounds[u].forEach((uNode, m) => {
-          let targetLowerNode: BracketNode | undefined;
-          if (u === 0) {
-            targetLowerNode = lowerRounds[0]?.[Math.floor(m / 2)];
-          } else if (u < U - 1) {
-            const targetLowerRoundIdx = 2 * u - 1;
-            targetLowerNode = lowerRounds[targetLowerRoundIdx]?.[m];
-          } else {
-            targetLowerNode = lowerRounds[L - 1]?.[0];
-          }
-
-          if (targetLowerNode) {
-            flowEdges.push({
-              id: `e-drop-${uNode.roomId}-${targetLowerNode.roomId}`,
-              source: uNode.roomId,
-              target: targetLowerNode.roomId,
-              sourceHandle: "source-bottom",
-              targetHandle: "target-top",
-              type: "smoothstep",
-              style: {
-                stroke: "var(--warning, #f59e0b)",
-                strokeDasharray: "4 4",
-                strokeWidth: 1.5,
-              },
-            });
-          }
         });
       }
     }
@@ -1189,17 +1134,20 @@ export default function BracketRoomClient({
       const gfX =
         filter === "grand_final" ? 0 : Math.max(U * X_GAP, L * X_GAP) + 60;
       let gfY = 100;
+
       if (filter === "grand_final") {
         gfY = 0;
       } else if (filter === "upper" && upperRounds[U - 1]?.[0]) {
         const ufNode = flowNodes.find(
           (n) => n.id === upperRounds[U - 1][0].roomId,
         );
+
         gfY = ufNode ? ufNode.position.y : 100;
       } else if (filter === "lower" && lowerRounds[L - 1]?.[0]) {
         const lfNode = flowNodes.find(
           (n) => n.id === lowerRounds[L - 1][0].roomId,
         );
+
         gfY = lfNode ? lfNode.position.y : 100;
       } else if (filter === "all") {
         const ufNode = flowNodes.find(
@@ -1208,6 +1156,7 @@ export default function BracketRoomClient({
         const lfNode = flowNodes.find(
           (n) => n.id === lowerRounds[L - 1]?.[0]?.roomId,
         );
+
         if (ufNode && lfNode) {
           gfY = (ufNode.position.y + lfNode.position.y) / 2;
         } else {
@@ -1221,84 +1170,28 @@ export default function BracketRoomClient({
         position: { x: gfX, y: gfY },
         data: {
           node: gfNode,
-          totalRounds: 1,
           openMatchDetails,
         },
       });
-
-      // Upper Final to Grand Final Edge
-      const upperFinal = upperRounds[U - 1]?.[0];
-      if (upperFinal && showUpper) {
-        const active =
-          upperFinal.status === "completed" && upperFinal.winner !== null;
-        flowEdges.push({
-          id: `e-${upperFinal.roomId}-${gfNode.roomId}`,
-          source: upperFinal.roomId,
-          target: gfNode.roomId,
-          sourceHandle: "source-right",
-          targetHandle: "target-left",
-          type: "smoothstep",
-          animated: active,
-          style: {
-            stroke: active ? "var(--success)" : "var(--border)",
-            strokeWidth: 2,
-          },
-        });
-      }
-
-      // Lower Final to Grand Final Edge
-      const lowerFinal = lowerRounds[L - 1]?.[0];
-      if (lowerFinal && showLower) {
-        const active =
-          lowerFinal.status === "completed" && lowerFinal.winner !== null;
-        flowEdges.push({
-          id: `e-${lowerFinal.roomId}-${gfNode.roomId}`,
-          source: lowerFinal.roomId,
-          target: gfNode.roomId,
-          sourceHandle: "source-right",
-          targetHandle: "target-left",
-          type: "smoothstep",
-          animated: active,
-          style: {
-            stroke: active ? "var(--success)" : "var(--border)",
-            strokeWidth: 2,
-          },
-        });
-      }
 
       // 5. Position Grand Final Reset Node if present
       if (gfResetNode && showGf && gfNode) {
         const gfResetX = gfX + X_GAP;
         const gfResetY = gfY;
+
         flowNodes.push({
           id: gfResetNode.roomId,
           type: "grandFinalNode",
           position: { x: gfResetX, y: gfResetY },
           data: {
             node: gfResetNode,
-            totalRounds: snapshot.totalRounds,
             openMatchDetails,
-          },
-        });
-
-        const active = gfNode.status === "completed" && gfNode.winner !== null;
-        flowEdges.push({
-          id: `e-${gfNode.roomId}-${gfResetNode.roomId}`,
-          source: gfNode.roomId,
-          target: gfResetNode.roomId,
-          sourceHandle: "source-right",
-          targetHandle: "target-left",
-          type: "smoothstep",
-          animated: active,
-          style: {
-            stroke: active ? "var(--warning, #f59e0b)" : "var(--border)",
-            strokeWidth: 2,
           },
         });
       }
     }
 
-    return { nodes: flowNodes, edges: flowEdges };
+    return { nodes: flowNodes, edges: routedEdges() };
   }, [snapshot, openMatchDetails, filter]);
 
   return (
@@ -1386,7 +1279,6 @@ export default function BracketRoomClient({
       {/* ── Match Detail Side Panel ─────────────────────────── */}
       <MatchSidePanel
         node={selectedNode}
-        totalRounds={snapshot.totalRounds}
         onClose={closeSidebar}
         contestId={contest._id.toString()}
         data={{ currentUserTeamIds, canSpectate }}

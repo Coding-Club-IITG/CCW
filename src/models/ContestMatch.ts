@@ -21,12 +21,19 @@ export interface IRegistrationSettings {
   startTime?: Date;
   deadline: Date;
   maxParticipants: number;
+  entrantCapacity?: number;
 }
 
 export interface IBracketSettings {
   type?: "single_elimination" | "double_elimination";
-  thirdPlacePlayoff: boolean;
-  seedingMethod: "cf_rating" | "manual";
+}
+
+export interface IBracketEntrant {
+  entrantId: mongoose.Types.ObjectId;
+  name: string;
+  members: mongoose.Types.ObjectId[];
+  seed: number;
+  rating: number;
 }
 
 export interface IContestMatch extends Document {
@@ -39,7 +46,7 @@ export interface IContestMatch extends Document {
   overallDurationMinutes?: number;
   perProblemDurationMinutes?: number;
   format: "1v1" | "solo-tournament" | "team-tournament" | "bracket";
-  mode: "blitz" | "arena" | "knockout";
+  mode: "blitz" | "arena";
   status: "draft" | "registration" | "provisioning" | "active" | "completed";
   teamSize?: number;
   presetId?: mongoose.Types.ObjectId;
@@ -57,9 +64,14 @@ export interface IContestMatch extends Document {
   registrationSettings?: IRegistrationSettings;
   bracketSettings?: IBracketSettings;
   spectatorRestriction: "none" | "all" | "admin_creator" | "club_members";
-  grandFinalState?: "pending" | "awaiting_reset" | "reset_in_progress" | "complete";
+  grandFinalState?:
+    "pending" | "awaiting_reset" | "reset_in_progress" | "complete";
   winner?: mongoose.Types.ObjectId;
   winnerName?: string;
+  bracketRevision?: number;
+  bracketGeneratedAt?: Date;
+  cancellationReason?: string;
+  bracketEntrants?: IBracketEntrant[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -85,6 +97,7 @@ const RegistrationSettingsSchema = new Schema<IRegistrationSettings>({
   startTime: { type: Date },
   deadline: { type: Date, required: true },
   maxParticipants: { type: Number, required: true, min: 2 },
+  entrantCapacity: { type: Number, min: 2, max: 256 },
 });
 
 const BracketSettingsSchema = new Schema<IBracketSettings>({
@@ -92,12 +105,6 @@ const BracketSettingsSchema = new Schema<IBracketSettings>({
     type: String,
     enum: ["single_elimination", "double_elimination"],
     default: "single_elimination",
-  },
-  thirdPlacePlayoff: { type: Boolean, default: false },
-  seedingMethod: {
-    type: String,
-    enum: ["cf_rating", "manual"],
-    required: true,
   },
 });
 
@@ -167,6 +174,24 @@ const ContestMatchSchema = new Schema<IContestMatch>(
     },
     winner: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     winnerName: { type: String },
+    bracketRevision: { type: Number, default: 0 },
+    bracketGeneratedAt: Date,
+    cancellationReason: String,
+    bracketEntrants: {
+      type: [
+        new Schema<IBracketEntrant>(
+          {
+            entrantId: { type: Schema.Types.ObjectId, required: true },
+            name: { type: String, required: true },
+            members: [{ type: Schema.Types.ObjectId, ref: "User" }],
+            seed: { type: Number, required: true },
+            rating: { type: Number, required: true },
+          },
+          { _id: false },
+        ),
+      ],
+      default: undefined,
+    },
   },
   { timestamps: true },
 );

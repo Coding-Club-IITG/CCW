@@ -19,17 +19,24 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth.api.getSession({ headers: request.headers });
+
   if (!session?.user) {
     return jsonError("UNAUTHENTICATED", "Unauthorized");
   }
 
   const validatedParams = parseRouteParams(await params, contestIdParamsSchema);
+
   if (!validatedParams.ok) return jsonResult(validatedParams);
+
   const { id } = validatedParams.data;
+
   try {
     const access = await authorizeContestView(id, session.user);
+
     if (!access.ok) return jsonResult(access);
+
     const snapshot = await getBracketSnapshot(id);
+
     return jsonOk(snapshot);
   } catch (error) {
     return boundaryErrorResponse(

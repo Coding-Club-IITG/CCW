@@ -57,7 +57,15 @@ describe("roomPresentation utilities", () => {
         _id: "t1",
         name: "Code Warriors",
         score: 10,
-        members: [{ id: "m1", name: "Alice", pizza_count: 3, handle: "alice", avatar: null }],
+        members: [
+          {
+            id: "m1",
+            name: "Alice",
+            pizza_count: 3,
+            handle: "alice",
+            avatar: null,
+          },
+        ],
       };
 
       expect(getDisplayTeamName(team, "1v1")).toContain("Alice");
@@ -67,9 +75,12 @@ describe("roomPresentation utilities", () => {
 
   describe("getContestRoomResultsPath", () => {
     it("appends query param for bracket or knockout results", () => {
-      expect(getContestRoomResultsPath("r1")).toBe("/internal/contests/rooms/r1/result");
-      expect(getContestRoomResultsPath("r1", "bracket")).toBe("/internal/contests/rooms/r1/result?from=bracket");
-      expect(getContestRoomResultsPath("r1", "1v1", "knockout")).toBe("/internal/contests/rooms/r1/result?from=bracket");
+      expect(getContestRoomResultsPath("r1")).toBe(
+        "/internal/contests/rooms/r1/result",
+      );
+      expect(getContestRoomResultsPath("r1", "bracket")).toBe(
+        "/internal/contests/rooms/r1/result?from=bracket",
+      );
     });
   });
 });

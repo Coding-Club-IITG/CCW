@@ -3,12 +3,12 @@ import styles from "../ContestWizard.module.scss";
 interface Step2Props {
   registrationType: string;
   spectatorRestriction?: string;
-  maxParticipants: number;
+  entrantCapacity: number;
   startTime: string;
   updateFields: (fields: {
     registrationType?: "open" | "closed";
     spectatorRestriction?: string;
-    maxParticipants?: number;
+    entrantCapacity?: number;
     startTime?: string;
   }) => void;
   errors: Record<string, string>;
@@ -17,7 +17,7 @@ interface Step2Props {
 export default function Step2Registration({
   registrationType,
   spectatorRestriction,
-  maxParticipants,
+  entrantCapacity,
   startTime,
   updateFields,
   errors,
@@ -85,21 +85,19 @@ export default function Step2Registration({
       </div>
 
       <div className={`${styles.field} ${styles.fieldFlush}`}>
-        <label className={styles.label}>
-          Max Participants (Total brackets / teams size)
-        </label>
+        <label className={styles.label}>Max Entrants (players or teams)</label>
         <input
           type="number"
-          value={maxParticipants}
+          value={entrantCapacity}
           onChange={(e) =>
-            updateFields({ maxParticipants: Number(e.target.value) })
+            updateFields({ entrantCapacity: Number(e.target.value) })
           }
           min={2}
-          className={`${styles.input} ${errors.maxParticipants ? styles.inputError : ""}`}
+          className={`${styles.input} ${errors.entrantCapacity ? styles.inputError : ""}`}
           required
         />
-        {errors.maxParticipants && (
-          <span className={styles.error}>{errors.maxParticipants}</span>
+        {errors.entrantCapacity && (
+          <span className={styles.error}>{errors.entrantCapacity}</span>
         )}
       </div>
     </div>

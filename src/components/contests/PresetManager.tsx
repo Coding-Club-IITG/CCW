@@ -52,11 +52,10 @@ export default function PresetManager({
   // Registration Settings
   const [regType, setRegType] = useState("open");
   const [maxParticipants, setMaxParticipants] = useState(16);
+  const [entrantCapacity, setEntrantCapacity] = useState(8);
 
   // Bracket Settings
   const [bracketType, setBracketType] = useState("single_elimination");
-  const [thirdPlacePlayoff, setThirdPlacePlayoff] = useState(false);
-  const [seedingMethod, setSeedingMethod] = useState("cf_rating");
 
   const [problemSelectionMode, setProblemSelectionMode] = useState("bulk");
 
@@ -93,8 +92,6 @@ export default function PresetManager({
     setRegType("open");
     setMaxParticipants(16);
     setBracketType("single_elimination");
-    setThirdPlacePlayoff(false);
-    setSeedingMethod("cf_rating");
 
     setProblemSelectionMode("bulk");
     setBulkPlatform("codeforces");
@@ -127,10 +124,9 @@ export default function PresetManager({
 
     setRegType(preset.registrationSettings?.type || "open");
     setMaxParticipants(preset.registrationSettings?.maxParticipants || 16);
+    setEntrantCapacity(preset.registrationSettings?.entrantCapacity ?? 8);
 
     setBracketType(preset.bracketSettings?.type || "single_elimination");
-    setThirdPlacePlayoff(preset.bracketSettings?.thirdPlacePlayoff || false);
-    setSeedingMethod(preset.bracketSettings?.seedingMethod || "cf_rating");
 
     setProblemSelectionMode(preset.problemSelectionMode || "bulk");
     setBulkPlatform(preset.bulkPlatform || "codeforces");
@@ -155,14 +151,16 @@ export default function PresetManager({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!isAdmin && format === "bracket" && maxParticipants > 8) {
+    if (!isAdmin && format === "bracket" && entrantCapacity > 8) {
       toast.error(
-        "Non-admin users cannot create a knockout tournament with more than 8 members.",
+        "Non-admin users cannot create a knockout tournament with more than 8 entrants.",
       );
+
       return;
     }
 
     setLoading(true);
+
     try {
       const payload: any = {
         name,
@@ -174,14 +172,14 @@ export default function PresetManager({
         spectatorRestriction,
         registrationSettings: {
           type: regType,
-          maxParticipants,
+          maxParticipants:
+            format === "bracket" ? entrantCapacity * teamSize : maxParticipants,
+          entrantCapacity: format === "bracket" ? entrantCapacity : undefined,
         },
         bracketSettings:
           format === "bracket"
             ? {
                 type: bracketType,
-                thirdPlacePlayoff,
-                seedingMethod,
               }
             : undefined,
         problemSelectionMode,
@@ -205,8 +203,10 @@ export default function PresetManager({
 
       if (overallDurationMinutes)
         payload.overallDurationMinutes = overallDurationMinutes;
+
       if (perProblemDurationMinutes)
         payload.perProblemDurationMinutes = perProblemDurationMinutes;
+
       if (isAdmin) payload.isGlobal = isGlobal;
 
       const url = editingPreset
@@ -254,9 +254,11 @@ export default function PresetManager({
       confirmLabel: preset.archived ? "Unarchive" : "Archive",
       variant: preset.archived ? "primary" : "danger",
     });
+
     if (!confirmed) return;
 
     setLoading(true);
+
     try {
       const res = await fetch(`/api/contests/presets/${preset._id}`, {
         method: "PATCH",
@@ -266,9 +268,12 @@ export default function PresetManager({
 
       if (!res.ok) {
         toast.error(appErrorMessage(res, "Failed to update preset."));
+
         return;
       }
+
       const updated = await expectAppData<ContestPresetDto>(res);
+
       setPresets(presets.map((p) => (p._id === updated._id ? updated : p)));
       toast.success(
         `Preset ${updated.archived ? "archived" : "unarchived"} successfully.`,
@@ -287,6 +292,7 @@ export default function PresetManager({
       confirmLabel: "Delete",
       variant: "danger",
     });
+
     if (!confirmed) return;
 
     const res = await fetch(`/api/contests/presets/${preset._id}`, {
@@ -295,8 +301,10 @@ export default function PresetManager({
 
     if (!res.ok) {
       toast.error(appErrorMessage(res, "Failed to delete preset."));
+
       return;
     }
+
     setPresets(presets.filter((p) => p._id !== preset._id));
     toast.success("Preset deleted successfully.");
   }
@@ -310,12 +318,14 @@ export default function PresetManager({
 
   function updateSlot(index: number, field: string, value: string | number) {
     const updated = [...problemSlots];
+
     updated[index] = { ...updated[index], [field]: value };
     setProblemSlots(updated);
   }
 
   function removeSlot(index: number) {
     if (problemSlots.length <= 1) return;
+
     setProblemSlots(problemSlots.filter((_, i) => i !== index));
   }
 
@@ -487,10 +497,18 @@ export default function PresetManager({
                   value={format}
                   onChange={(e) => {
                     const newFormat = e.target.value;
+
                     setFormat(newFormat);
-                    if (newFormat === "1v1" || newFormat === "solo-tournament") {
+
+                    if (
+                      newFormat === "1v1" ||
+                      newFormat === "solo-tournament"
+                    ) {
                       setTeamSize(1);
-                    } else if (newFormat === "team-tournament" && teamSize === 1) {
+                    } else if (
+                      newFormat === "team-tournament" &&
+                      teamSize === 1
+                    ) {
                       setTeamSize(3);
                     }
                   }}
@@ -513,7 +531,9 @@ export default function PresetManager({
               <div className={styles.field}>
                 <label>Team Size</label>
                 <select
-                  value={["1v1", "solo-tournament"].includes(format) ? 1 : teamSize}
+                  value={
+                    ["1v1", "solo-tournament"].includes(format) ? 1 : teamSize
+                  }
                   onChange={(e) => setTeamSize(Number(e.target.value))}
                   disabled={["1v1", "solo-tournament"].includes(format)}
                 >
@@ -565,28 +585,9 @@ export default function PresetManager({
                       </option>
                     </select>
                   </div>
-                  <div className={styles.field}>
-                    <label>Seeding Method</label>
-                    <select
-                      value={seedingMethod}
-                      onChange={(e) => setSeedingMethod(e.target.value)}
-                    >
-                      <option value="cf_rating">CF Rating (Automatic)</option>
-                      <option value="manual">Manual Seeding</option>
-                    </select>
-                  </div>
-                  <div className={styles.field}>
-                    <label>Third Place Playoff?</label>
-                    <select
-                      value={thirdPlacePlayoff ? "yes" : "no"}
-                      onChange={(e) =>
-                        setThirdPlacePlayoff(e.target.value === "yes")
-                      }
-                    >
-                      <option value="no">No</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                  </div>
+                  <p>
+                    Seeds use frozen Codeforces ratings, averaged for teams.
+                  </p>
                 </div>
               </fieldset>
             )}
@@ -614,11 +615,21 @@ export default function PresetManager({
                   </select>
                 </div>
                 <div className={styles.field}>
-                  <label>Max Participants / Teams</label>
+                  <label>
+                    {format === "bracket"
+                      ? "Max Entrants (players or teams)"
+                      : "Max Participants"}
+                  </label>
                   <input
                     type="number"
-                    value={maxParticipants}
-                    onChange={(e) => setMaxParticipants(Number(e.target.value))}
+                    value={
+                      format === "bracket" ? entrantCapacity : maxParticipants
+                    }
+                    onChange={(e) =>
+                      format === "bracket"
+                        ? setEntrantCapacity(Number(e.target.value))
+                        : setMaxParticipants(Number(e.target.value))
+                    }
                     min={2}
                     required
                   />
@@ -641,7 +652,15 @@ export default function PresetManager({
                 <div className={styles.field}>
                   <label>
                     Match Duration (Secs)
-                    <span style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "normal", marginTop: "0.25rem" }}>
+                    <span
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        color: "var(--text-muted)",
+                        fontWeight: "normal",
+                        marginTop: "0.25rem",
+                      }}
+                    >
                       Max time for a single head-to-head match
                     </span>
                   </label>
@@ -657,7 +676,15 @@ export default function PresetManager({
                   <div className={styles.field}>
                     <label>
                       Overall Duration (Mins)
-                      <span style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "normal", marginTop: "0.25rem" }}>
+                      <span
+                        style={{
+                          display: "block",
+                          fontSize: "0.75rem",
+                          color: "var(--text-muted)",
+                          fontWeight: "normal",
+                          marginTop: "0.25rem",
+                        }}
+                      >
                         Total time for the entire tournament/event
                       </span>
                     </label>
@@ -674,7 +701,15 @@ export default function PresetManager({
                 <div className={styles.field}>
                   <label>
                     Per Problem (Mins)
-                    <span style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "normal", marginTop: "0.25rem" }}>
+                    <span
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        color: "var(--text-muted)",
+                        fontWeight: "normal",
+                        marginTop: "0.25rem",
+                      }}
+                    >
                       Recommended time spent per problem
                     </span>
                   </label>

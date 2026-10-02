@@ -180,7 +180,7 @@ function snapshot(contestId: string) {
         scores: [0, 0] as [number, number],
         status: "pending" as const,
         winner: null,
-        bracketPosition: "0-0",
+        bracketPosition: "upper-0-0",
       },
     ],
   };

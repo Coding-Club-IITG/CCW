@@ -41,9 +41,12 @@ export default function ManageTeamModal({
 
   const fetchRequests = React.useCallback(async () => {
     if (!teamId) return;
+
     setLoading(true);
+
     try {
       const res = await getContestTeamRequests(teamId);
+
       if (res.ok) {
         setRequests(res.data);
       }
@@ -62,8 +65,10 @@ export default function ManageTeamModal({
 
   const handleRespond = async (reqId: string, action: "accept" | "reject") => {
     setLoading(true);
+
     try {
       const res = await respondToContestTeamRequest(reqId, action);
+
       if (res.ok) {
         toast.success(`Request ${action}ed`);
         fetchRequests();
@@ -80,15 +85,18 @@ export default function ManageTeamModal({
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!inviteHandle.trim()) return;
 
     setLoading(true);
+
     try {
       const res = await inviteToContestTeam(
         contestId,
         teamId,
         inviteHandle.trim(),
       );
+
       if (res.ok) {
         toast.success("Invite sent successfully");
         setInviteHandle("");

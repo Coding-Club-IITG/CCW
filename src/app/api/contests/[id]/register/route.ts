@@ -21,30 +21,43 @@ export async function POST(
 ) {
   try {
     const session = await auth.api.getSession({ headers: request.headers });
+
     if (!session?.user) return jsonError("UNAUTHENTICATED", "Unauthorized");
+
     const validated = parseRouteParams(await params, contestIdParamsSchema);
+
     if (!validated.ok) return jsonResult(validated);
+
     const id = validated.data.id.toLowerCase();
+
     await connectMongoDB();
+
     const contest = await ContestMatch.findById(id, "teamSize").lean();
+
     if (!contest) return jsonError("NOT_FOUND", "Contest not found");
 
     if ((contest.teamSize ?? 1) === 1) {
       const result = await registerContestMember(session.user.id, {
         contestId: id,
       });
+
       if (!result.ok) return jsonResult(result);
     } else {
       const body = await parseJson(request, contestTeamRegistrationSchema);
+
       if (!body.ok) return jsonResult(body);
+
       const result = await registerCompleteContestTeam(
         session.user.id,
         id,
         body.data,
       );
+
       if (!result.ok) return jsonResult(result);
     }
+
     revalidatePath("/internal/contests");
+
     return jsonOk({ registered: true });
   } catch (error) {
     logger.error("Contest registration failed", {
@@ -52,6 +65,7 @@ export async function POST(
       operation: "register",
       ...errorToLogMetadata(error),
     });
+
     return jsonError(
       "INTERNAL_ERROR",
       "Unable to complete contest registration.",

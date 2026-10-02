@@ -46,16 +46,15 @@ export function formatRoomActivityTime(
 export function getContestRoomResultsPath(
   roomId: string,
   format?: string,
-  mode?: string,
 ): string {
-  const fromBracket = format === "bracket" || mode === "knockout";
+  const fromBracket = format === "bracket";
 
   return `/internal/contests/rooms/${roomId}/result${
     fromBracket ? "?from=bracket" : ""
   }`;
 }
 
-/** Preserve numeric suffixes in Codeforces indexes (for example, B1). */
+/** Preserve numeric suffixes in Codeforces indexes (for example, B1) */
 export function getCodeforcesProblemUrl(
   problemId?: string | null,
 ): string | null {

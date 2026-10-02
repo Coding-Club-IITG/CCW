@@ -317,7 +317,7 @@ export default async function BlogPage({ searchParams }: Props) {
             hrefParams={paginationParams}
             keyboard
             ariaLabel="Blog pagination"
-            rangeLabel={`showing ${first}–${last} of ${listing.pagination.total} · page ${page} / ${listing.pagination.totalPages}`}
+            rangeLabel={`showing ${first}-${last} of ${listing.pagination.total} · page ${page} / ${listing.pagination.totalPages}`}
           />
         </div>
       )}

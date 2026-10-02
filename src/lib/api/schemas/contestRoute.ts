@@ -38,19 +38,13 @@ export const contestStreamQuerySchema = z
   .object({
     contestId: objectIdStringSchema.toLowerCase().optional(),
     roomId: objectIdStringSchema.toLowerCase().optional(),
-    rooms: objectIdStringSchema.toLowerCase().optional(),
   })
+  .strict()
   .superRefine((value, ctx) => {
-    if (!value.contestId && !value.roomId && !value.rooms)
+    if (!value.contestId && !value.roomId)
       ctx.addIssue({
         code: "custom",
         path: ["roomId"],
         message: "A room or contest is required.",
-      });
-    if (value.roomId && value.rooms && value.roomId !== value.rooms)
-      ctx.addIssue({
-        code: "custom",
-        path: ["rooms"],
-        message: "Room IDs must match.",
       });
   });

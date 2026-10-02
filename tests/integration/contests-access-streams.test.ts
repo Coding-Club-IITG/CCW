@@ -11,7 +11,6 @@ import {
 } from "vitest";
 import { GET as streamGET } from "@/app/api/contests/stream/route";
 import { GET as snapshotGET } from "@/app/api/contests/[id]/bracket/snapshot/route";
-import { GET as legacySnapshotGET } from "@/app/api/contests/[id]/bracket/generate/route";
 import { POST as createRoomPOST } from "@/app/api/contests/rooms/route";
 import { POST as readyPOST } from "@/app/api/contests/rooms/[id]/ready/route";
 import { POST as syncPOST } from "@/app/api/contests/sync/route";
@@ -275,11 +274,6 @@ describe("shared contest and room access", () => {
         params: Promise.resolve({ id: f.contestId }),
       });
       expect(snapshot.status).toBe(allowed ? 200 : 403);
-      const legacySnapshot = await legacySnapshotGET(
-        request("/generate", outsider),
-        { params: Promise.resolve({ id: f.contestId }) },
-      );
-      expect(legacySnapshot.status).toBe(allowed ? 200 : 403);
       const response = await streamGET(
         request(`/api/contests/stream?roomId=${f.roomId}`, outsider),
       );
@@ -295,15 +289,21 @@ describe("shared contest and room access", () => {
       });
     },
   );
-  it("supports creator reference forms, Heads/Admins and serialized club roles", async () => {
+  it("supports canonical creator references, Heads/Admins and serialized club roles", async () => {
     const f = await fixture("admin_creator");
     for (const user of [f.owner, await viewer("Head"), await viewer("Admin")])
       expect((await authorizeRoomView(f.roomId, user)).ok).toBe(true);
+
     await ContestMatch.updateOne(
       { _id: f.game._id },
       { $set: { creatorId: f.owner.id } },
     );
-    expect((await authorizeRoomView(f.roomId, f.owner)).ok).toBe(true);
+    expect((await authorizeRoomView(f.roomId, f.owner)).ok).toBe(false);
+    await ContestMatch.updateOne(
+      { _id: f.game._id },
+      { $set: { creatorId: f.owner.cpId } },
+    );
+
     const club = await viewer(
       "Member",
       JSON.stringify([
@@ -428,13 +428,6 @@ describe("shared contest and room access", () => {
         });
     }
     expect(await ContestRoom.countDocuments()).toBe(1);
-    expect(
-      (
-        await legacySnapshotGET(request("/generate"), {
-          params: Promise.resolve({ id: f.contestId }),
-        })
-      ).status,
-    ).toBe(401);
   });
 });
 
@@ -628,7 +621,7 @@ describe("isolated live events and connection presence", () => {
       if (early) abort.abort();
       const response = await streamGET(
         request(
-          `/api/contests/stream?rooms=${f.roomId.toUpperCase()}`,
+          `/api/contests/stream?roomId=${f.roomId.toUpperCase()}`,
           f.player,
           abort.signal,
         ),

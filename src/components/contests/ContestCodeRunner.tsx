@@ -21,7 +21,7 @@ type Props = {
   plain?: boolean;
 };
 
-/** A local runner: code never leaves the participant's browser. */
+/** A local runner: code never leaves the participant's browser */
 export default function ContestCodeRunner({
   problemId,
   samples,
@@ -52,6 +52,7 @@ export default function ContestCodeRunner({
           expectedOutput: sample.output,
         }))
       : [{ id: `${problemId || "sample"}-1`, input: "", expectedOutput: "" }];
+
     setTestCases(nextTestCases);
     setActiveTestCaseId(nextTestCases[0].id);
   }, [problemId, samples]);

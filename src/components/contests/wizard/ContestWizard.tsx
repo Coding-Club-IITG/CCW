@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { validateStep, createBracketContest } from "@/lib/actions/contests";
+
 import type {
   ContestWizardForm,
   ContestCreationPreset,
@@ -39,6 +40,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     teamSize: 1,
     registrationType: "open",
     maxParticipants: 8,
+    entrantCapacity: 8,
     presetId: "",
     problemSelectionMode: "bulk",
     problemSlots: [] as {
@@ -46,8 +48,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
       problemId: string;
       roundNumber: number;
     }[],
-    thirdPlacePlayoff: false,
-    seedingMethod: "cf_rating",
+
     spectatorRestriction: "none",
   });
 
@@ -69,17 +70,24 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
   function updateFields(fields: Partial<typeof formData>) {
     setFormData((prev) => {
       let newProblemSlots = prev.problemSlots;
+
       if (fields.presetId !== undefined && fields.presetId !== prev.presetId) {
         newProblemSlots = [];
       }
+
       return {
         ...prev,
         ...fields,
+        maxParticipants:
+          (fields.entrantCapacity ?? prev.entrantCapacity) *
+          (fields.teamSize ?? prev.teamSize),
         problemSlots: fields.problemSlots ?? newProblemSlots,
       };
     });
+
     // Clear errors for fields as they are edited
     const updatedErrors = { ...errors };
+
     Object.keys(fields).forEach((key) => {
       delete updatedErrors[key];
     });
@@ -88,8 +96,10 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
 
   async function handleNext() {
     setIsSubmitting(true);
+
     try {
       const result = await validateStep(currentStep, formData);
+
       if (!result.ok) {
         toast.error(result.error.message);
       } else if (!result.data.valid) {
@@ -114,8 +124,10 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
 
   async function handleCreate() {
     setIsSubmitting(true);
+
     try {
       const result = await createBracketContest(formData);
+
       if (!result.ok) {
         toast.error(result.error.message);
       } else {
@@ -167,7 +179,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
           <Step2Registration
             registrationType={formData.registrationType}
             spectatorRestriction={formData.spectatorRestriction}
-            maxParticipants={formData.maxParticipants}
+            entrantCapacity={formData.entrantCapacity}
             startTime={formData.startTime}
             updateFields={updateFields}
             errors={errors}
@@ -183,7 +195,8 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
         )}
         {steps[currentStep - 1]?.id === "problems" && (
           <Step3aFineTuned
-            maxParticipants={formData.maxParticipants}
+            entrantCapacity={formData.entrantCapacity}
+            bracketType={formData.bracketType}
             problemSlots={formData.problemSlots}
             updateFields={updateFields}
             errors={errors}
@@ -193,10 +206,7 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
         {steps[currentStep - 1]?.id === "settings" && (
           <Step4BracketSettings
             bracketType={formData.bracketType}
-            thirdPlacePlayoff={formData.thirdPlacePlayoff}
-            seedingMethod={formData.seedingMethod}
             updateFields={updateFields}
-            errors={errors}
           />
         )}
         {steps[currentStep - 1]?.id === "preview" && (

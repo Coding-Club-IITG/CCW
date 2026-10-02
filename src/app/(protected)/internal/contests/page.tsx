@@ -15,6 +15,7 @@ import ContestListingClient from "@/components/contests/ContestListingClient";
 
 export default async function ContestsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
+
   if (!session) redirect("/");
 
   const userRole = session?.user?.access as string | undefined;
@@ -26,10 +27,13 @@ export default async function ContestsPage() {
     : { active: [], upcoming: [], completed: [] };
 
   await connectMongoDB();
+
   const presetFilter: any = { archived: { $ne: true } };
+
   if (!admin) {
     presetFilter.$or = [{ isGlobal: true }, { creatorId: session.user.id }];
   }
+
   const presetsJson = await ContestPreset.find(presetFilter)
     .sort({ name: 1 })
     .lean();

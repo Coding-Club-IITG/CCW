@@ -2,12 +2,31 @@ import { describe, expect, it } from "vitest";
 
 import {
   cfSyncJobDataSchema,
+  reconciliationJobDataSchema,
   contestRoomStateSchema,
   contestSubmissionEventSchema,
   roomStreamEventSchema,
 } from "@/lib/contests/runtime";
 
 describe("contest runtime boundaries", () => {
+  it("uses queue names for scheduling and reserves triggers for match endings", () => {
+    const contestId = "507f1f77bcf86cd799439011";
+
+    expect(reconciliationJobDataSchema.safeParse({ contestId }).success).toBe(
+      true,
+    );
+    expect(
+      reconciliationJobDataSchema.safeParse({ contestId, trigger: "timeout" })
+        .success,
+    ).toBe(true);
+    expect(
+      reconciliationJobDataSchema.safeParse({
+        contestId,
+        trigger: "check_start",
+      }).success,
+    ).toBe(false);
+  });
+
   it("validates BullMQ sync jobs before worker use", () => {
     expect(
       cfSyncJobDataSchema.safeParse({

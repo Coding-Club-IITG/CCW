@@ -1,7 +1,12 @@
 import { type Job, Worker } from "bullmq";
 import mongoose from "mongoose";
 
-import { publishRoom, publishUser, publishContest, recordRoomActivity } from "@/lib/contests/events";
+import {
+  publishRoom,
+  publishUser,
+  publishContest,
+  recordRoomActivity,
+} from "@/lib/contests/events";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   cfSyncJobDataSchema,
@@ -33,6 +38,7 @@ async function notifyBracketContest(contest: any) {
     });
   }
 }
+
 import ContestTeam from "@/models/ContestTeam";
 import User from "@/models/User";
 
@@ -53,6 +59,7 @@ export const codeforcesSyncWorker = new Worker<
     if (job.name === "nightly-cf-problem-sync") {
       nightlyProblemSyncJobDataSchema.parse(job.data);
       await syncCodeforcesProblems();
+
       return;
     }
 
@@ -73,11 +80,13 @@ export const codeforcesSyncWorker = new Worker<
             reason: "invalid_room_id",
             problemId,
           });
+
           return;
         }
 
         // 1. Fetch Room and Contest to get timestamps
         const room = await ContestRoom.findById(roomId).lean();
+
         if (!room) {
           logger.warn(
             `[codeforcesSyncWorker] Room ${roomId} not found for sync.`,
@@ -88,6 +97,7 @@ export const codeforcesSyncWorker = new Worker<
             reason: "room_not_found",
             problemId,
           });
+
           return;
         }
 
@@ -104,10 +114,12 @@ export const codeforcesSyncWorker = new Worker<
             reason: "invalid_contest_id",
             problemId,
           });
+
           return;
         }
 
         const contest = await ContestMatch.findById(room.contestId).lean();
+
         if (!contest) {
           logger.warn(
             `[codeforcesSyncWorker] Contest not found for room ${roomId}.`,
@@ -118,6 +130,7 @@ export const codeforcesSyncWorker = new Worker<
             reason: "contest_not_found",
             problemId,
           });
+
           return;
         }
 
@@ -128,6 +141,7 @@ export const codeforcesSyncWorker = new Worker<
           roomId: room._id,
           members: userId,
         }).lean();
+
         if (!team) {
           logger.warn(
             `[cfSyncWorker] User ${userId} is not a member of team ${teamId} in room ${roomId}.`,
@@ -138,6 +152,7 @@ export const codeforcesSyncWorker = new Worker<
             reason: "not_team_member",
             problemId,
           });
+
           return;
         }
 
@@ -145,6 +160,7 @@ export const codeforcesSyncWorker = new Worker<
           `team:${teamId}:users`,
           userId,
         );
+
         if (!isTeamMember) {
           logger.warn(
             `[codeforcesSyncWorker] User ${userId} is not a member of team ${teamId} in room ${roomId}.`,
@@ -155,20 +171,24 @@ export const codeforcesSyncWorker = new Worker<
             reason: "not_team_member",
             problemId,
           });
+
           return;
         }
 
         const state = contestRoomStateSchema.parse(
           await redis.hGetAll(`room:${roomId}:state`),
         );
+
         if (state.status !== "active") {
           await publishUser(userId, roomId, {
             type: "sync.failed",
             reason: "room_not_active",
             problemId,
           });
+
           return;
         }
+
         const problemsRaw = await redis.lRange(
           `room:${roomId}:problems`,
           0,
@@ -184,11 +204,12 @@ export const codeforcesSyncWorker = new Worker<
           const targetProblem = problems.find(
             (problem) => problem.problemId === problemId,
           );
+
           if (targetProblem) {
             if (targetProblem.revealedAt) {
               lowerTimestamp = targetProblem.revealedAt;
             } else {
-              // Problem hasn't been revealed yet! Don't fallback to match start time.
+              // Problem hasn't been revealed yet! Don't fallback to match start time
               lowerTimestamp = Infinity;
             }
           }
@@ -234,6 +255,7 @@ export const codeforcesSyncWorker = new Worker<
               subTimestamp <= upperTimestamp
             ) {
               hasSubmissionForProblem = true;
+
               if (subVerdict !== "OK") {
                 bestVerdict = subVerdict;
               }
@@ -253,6 +275,7 @@ export const codeforcesSyncWorker = new Worker<
             `room:${roomId}:wrong_subs:${teamId}`,
             wrongSubIds.map(String),
           );
+
           if (newWrongs > 0 && state && state.type === "arena") {
             await redis.zIncrBy(
               `room:${roomId}:penalty_time`,
@@ -283,6 +306,7 @@ export const codeforcesSyncWorker = new Worker<
               const targetProblem = problems.find(
                 (problem) => problem.problemId === problemId,
               );
+
               if (targetProblem) {
                 const points = targetProblem.points || 100;
                 const cfTimestamp =
@@ -305,6 +329,7 @@ export const codeforcesSyncWorker = new Worker<
                     const parts = claimResult.split("|");
                     const oldTeamId = parts[1];
                     const oldTimestamp = parseInt(parts[2], 10);
+
                     await redis.zIncrBy(
                       `room:${roomId}:scores`,
                       -points,
@@ -312,6 +337,7 @@ export const codeforcesSyncWorker = new Worker<
                     );
 
                     const oldSolveMs = oldTimestamp - startTime;
+
                     await redis.zIncrBy(
                       `room:${roomId}:penalty_time`,
                       -oldSolveMs,
@@ -320,7 +346,9 @@ export const codeforcesSyncWorker = new Worker<
                   }
 
                   await redis.zIncrBy(`room:${roomId}:scores`, points, teamId);
+
                   const solveMs = cfTimestamp - startTime;
+
                   await redis.zIncrBy(
                     `room:${roomId}:penalty_time`,
                     solveMs,
@@ -331,6 +359,7 @@ export const codeforcesSyncWorker = new Worker<
                     `room:${roomId}:last_solve`,
                     teamId,
                   );
+
                   if (
                     !currentLastSolve ||
                     cfTimestamp > parseInt(currentLastSolve, 10)
@@ -350,6 +379,7 @@ export const codeforcesSyncWorker = new Worker<
                     solveMs,
                     cfTimestamp,
                   };
+
                   await redis.xAdd(`room:${roomId}:submissions`, "*", {
                     data: JSON.stringify(submissionObj),
                   });
@@ -370,10 +400,14 @@ export const codeforcesSyncWorker = new Worker<
                     problemId;
 
                   let tName = teamDoc?.name || "Unknown Team";
-                  if (["1v1", "solo-tournament"].includes(contest?.format || "")) {
+
+                  if (
+                    ["1v1", "solo-tournament"].includes(contest?.format || "")
+                  ) {
                     const memberUser = await User.findById(userId)
                       .select("name pizza_count")
                       .lean();
+
                     if (memberUser) {
                       tName = getDisplayName(
                         memberUser.name || "Unknown",
@@ -398,17 +432,21 @@ export const codeforcesSyncWorker = new Worker<
 
                   const scores: Record<string, number> = {};
                   const teams = await redis.sMembers(`room:${roomId}:teams`);
+
                   for (const tId of teams) {
                     const score = await redis.zScore(
                       `room:${roomId}:scores`,
                       tId,
                     );
+
                     scores[tId] = score || 0;
                   }
+
                   await publishRoom(roomId, { type: "room.score", scores });
                   await notifyBracketContest(contest);
 
                   const lockCount = await redis.hLen(`room:${roomId}:locks`);
+
                   if (lockCount === problems.length) {
                     await redis.hSet(`room:${roomId}:state`, {
                       status: "completed",
@@ -478,6 +516,7 @@ export const codeforcesSyncWorker = new Worker<
                     const parts = claimResult.split("|");
                     const oldTeamId = parts[1];
                     const oldTimestamp = parseInt(parts[2], 10);
+
                     await redis.zIncrBy(
                       `room:${roomId}:scores`,
                       -points,
@@ -485,6 +524,7 @@ export const codeforcesSyncWorker = new Worker<
                     );
 
                     const oldSolveMs = oldTimestamp - revealedAt;
+
                     await redis.zIncrBy(
                       `room:${roomId}:solve_times`,
                       -oldSolveMs,
@@ -509,6 +549,7 @@ export const codeforcesSyncWorker = new Worker<
                     solveMs,
                     cfTimestamp,
                   };
+
                   await redis.xAdd(`room:${roomId}:submissions`, "*", {
                     data: JSON.stringify(submissionObj),
                   });
@@ -517,11 +558,13 @@ export const codeforcesSyncWorker = new Worker<
 
                   const scores: Record<string, number> = {};
                   const teams = await redis.sMembers(`room:${roomId}:teams`);
+
                   for (const tId of teams) {
                     const score = await redis.zScore(
                       `room:${roomId}:scores`,
                       tId,
                     );
+
                     scores[tId] = score || 0;
                   }
 
@@ -530,7 +573,9 @@ export const codeforcesSyncWorker = new Worker<
                     targetProblemIndex === currentProblemIndex
                   ) {
                     isAdvanceTriggered = true;
+
                     const newProblemIndex = currentProblemIndex + 1;
+
                     await redis.hIncrBy(
                       `room:${roomId}:state`,
                       "currentProblem",
@@ -552,8 +597,12 @@ export const codeforcesSyncWorker = new Worker<
                         .select("name pizza_count")
                         .lean();
                       const uName = userDoc
-                        ? getDisplayName(userDoc.name || "Someone", userDoc.pizza_count)
+                        ? getDisplayName(
+                            userDoc.name || "Someone",
+                            userDoc.pizza_count,
+                          )
                         : "Someone";
+
                       await recordRoomActivity(roomId, {
                         icon: "check_circle",
                         text: `${uName} solved the final problem!`,
@@ -574,6 +623,7 @@ export const codeforcesSyncWorker = new Worker<
                       );
                     } else {
                       const nextProblem = problems[newProblemIndex];
+
                       nextProblem.revealedAt = Date.now();
                       await redis.lSet(
                         `room:${roomId}:problems`,
@@ -595,8 +645,12 @@ export const codeforcesSyncWorker = new Worker<
                         .select("name pizza_count")
                         .lean();
                       const uName = userDoc
-                        ? getDisplayName(userDoc.name || "Someone", userDoc.pizza_count)
+                        ? getDisplayName(
+                            userDoc.name || "Someone",
+                            userDoc.pizza_count,
+                          )
                         : "Someone";
+
                       await recordRoomActivity(roomId, {
                         icon: "check_circle",
                         text: `Valid AC by ${uName}! Advanced to next problem (+${points} pts)`,
@@ -610,6 +664,7 @@ export const codeforcesSyncWorker = new Worker<
                     // Just emit updated scores for reclaimed points
                     await publishRoom(roomId, { type: "room.score", scores });
                     await notifyBracketContest(contest);
+
                     if (claimResult.startsWith("reclaimed|")) {
                       await publishRoom(roomId, {
                         type: "room.reclaimed",
@@ -634,6 +689,7 @@ export const codeforcesSyncWorker = new Worker<
           const failVerdict = hasSubmissionForProblem
             ? bestVerdict
             : "not_found";
+
           logger.info("Contest submission validation failed", {
             worker: "codeforcesSyncWorker",
             operation: "validate_submission",
@@ -647,7 +703,7 @@ export const codeforcesSyncWorker = new Worker<
           });
         }
       } catch (error) {
-        throw error; // The worker failure listener owns diagnostic logging.
+        throw error; // The worker failure listener owns diagnostic logging
       }
     }
   },
@@ -677,6 +733,7 @@ codeforcesSyncWorker.on(
     const errorDetails = err.isAxiosError
       ? { status: err.response?.status, data: err.response?.data }
       : err.message;
+
     logger.error(
       `[codeforcesSyncWorker] Job ${job?.id} failed with error: ${err.message}`,
       errorDetails,
@@ -687,6 +744,7 @@ codeforcesSyncWorker.on(
       job.attemptsMade >= (job.opts.attempts || 3)
     ) {
       const { userId, roomId } = cfSyncJobDataSchema.parse(job.data);
+
       logger.error(
         `[codeforcesSyncWorker] Permanent failure for sync job ${job.id}. Publishing cf_unavailable to user ${userId}`,
       );

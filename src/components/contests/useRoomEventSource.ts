@@ -25,6 +25,7 @@ export function useRoomEventSource(
       try {
         const data: unknown = JSON.parse(event.data);
         const payload = parseRoomStreamMessage(data, roomId, userId);
+
         if (payload) onEventRef.current(payload);
       } catch {
         // Ignore malformed events and keep the stream connected.

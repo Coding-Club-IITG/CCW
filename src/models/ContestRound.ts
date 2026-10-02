@@ -7,7 +7,7 @@ export interface IContestRound extends Document {
   status: "pending" | "active" | "completed";
   rooms: mongoose.Types.ObjectId[];
   bracketLevel?: string;
-  bracketType?: "upper" | "lower" | "grand_final";
+  bracketType?: "upper" | "lower" | "grand_final" | "grand_final_reset";
   bracketRoundNumber?: number;
   createdAt: Date;
   updatedAt: Date;
@@ -33,7 +33,7 @@ const ContestRoundSchema = new Schema<IContestRound>(
     bracketLevel: { type: String },
     bracketType: {
       type: String,
-      enum: ["upper", "lower", "grand_final"],
+      enum: ["upper", "lower", "grand_final", "grand_final_reset"],
       default: "upper",
     },
     bracketRoundNumber: { type: Number },

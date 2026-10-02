@@ -256,6 +256,12 @@ const operationalSchema = z.object({
     60,
   ),
   ROOM_PRE_START_SECONDS: integer("ROOM_PRE_START_SECONDS", 5, 0, 3600),
+  CONTEST_TRANSITION_LOCK_SECONDS: integer(
+    "CONTEST_TRANSITION_LOCK_SECONDS",
+    5,
+    1,
+    60,
+  ),
   CONTEST_SSE_HEARTBEAT_SECONDS: integer(
     "CONTEST_SSE_HEARTBEAT_SECONDS",
     15,

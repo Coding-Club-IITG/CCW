@@ -50,8 +50,6 @@ describe("contest creation payload", () => {
       bulkPlatform: "codeforces",
       problemSlots: [],
       registeredUsers: [],
-      thirdPlacePlayoff: false,
-      seedingMethod: "cf_rating",
     });
     expect(result).not.toHaveProperty("internalFlag");
   });
@@ -78,8 +76,10 @@ describe("bracket contest invariants", () => {
       validateBracketContestInput({
         teamSize: 1,
         maxParticipants: 2,
+        entrantCapacity: 2,
+        bracketType: "single_elimination",
         registrationType: "closed",
-        seedingMethod: "cf_rating",
+
         registeredUsers: [
           { id: USER_ONE, cfHandle: "one" },
           { id: USER_ONE, cfHandle: "one-again" },
@@ -96,8 +96,10 @@ describe("bracket contest invariants", () => {
       validateBracketContestInput({
         teamSize: 1,
         maxParticipants: 2,
+        entrantCapacity: 2,
+        bracketType: "single_elimination",
         registrationType: "closed",
-        seedingMethod: "manual",
+
         registeredUsers: [
           { id: USER_ONE, cfHandle: "one" },
           { id: USER_TWO, cfHandle: "two" },
@@ -150,9 +152,7 @@ describe("bracket contest invariants", () => {
         validPayload({
           format: "1v1",
           problemSelectionMode: "fine-tuned",
-          problemSlots: [
-            { platform: "codeforces", problemId: "4A" },
-          ],
+          problemSlots: [{ platform: "codeforces", problemId: "4A" }],
         }),
       ).success,
     ).toBe(false);

@@ -3,8 +3,13 @@
 import { Lock } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 
-import type { ContestCreationForm } from "@/components/contests/contestCreationForm";
+import {
+  bracketProblemRequirements,
+  minimumBracketEntrants,
+} from "@/lib/contests/bracketTopology";
 import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
+
+import type { ContestCreationForm } from "@/components/contests/contestCreationForm";
 
 import styles from "./CreateRoomModal.module.scss";
 
@@ -36,38 +41,32 @@ export default function ContestProblemConfiguration({
     setForm((current) => ({ ...current, ...updates }));
   };
 
-  const bracketParticipantCount = Math.max(2, form.maxParticipants || 2);
-  const bracketRoundCount = Math.ceil(Math.log2(bracketParticipantCount));
   const problemsPerMatch = form.bulkProblemCount || 3;
-
-  const syncedBracketRounds: BracketRoundProblems[] = [];
-  if (form.problemSelectionMode === "fine-tuned" && form.format === "bracket") {
-    for (let roundNumber = 1; roundNumber <= bracketRoundCount; roundNumber++) {
-      const matchCount = Math.pow(2, bracketRoundCount - roundNumber);
-      const requiredProblemCount = matchCount * problemsPerMatch;
-      const existing = bracketRoundProblems.find(
-        (round) => round.roundNumber === roundNumber,
-      );
-      const problemIds = existing ? [...existing.problemIds] : [];
-      while (problemIds.length < requiredProblemCount) problemIds.push("");
-      while (problemIds.length > requiredProblemCount) problemIds.pop();
-      syncedBracketRounds.push({ roundNumber, problemIds });
-    }
-
-    if (
-      JSON.stringify(syncedBracketRounds) !==
-      JSON.stringify(bracketRoundProblems)
-    ) {
-      setTimeout(() => setBracketRoundProblems(syncedBracketRounds), 0);
-    }
-  }
-
-  const getRoundLabel = (roundNumber: number) => {
-    if (roundNumber === bracketRoundCount) return "Final";
-    if (roundNumber === bracketRoundCount - 1) return "Semi-Finals";
-    if (roundNumber === bracketRoundCount - 2) return "Quarter-Finals";
-    return `Round ${roundNumber}`;
-  };
+  const type = form.bracketType || "single_elimination";
+  const capacity = Math.min(
+    256,
+    Math.max(
+      minimumBracketEntrants(type),
+      Math.floor(form.entrantCapacity || minimumBracketEntrants(type)),
+    ),
+  );
+  const requirements = bracketProblemRequirements(
+    capacity,
+    type,
+    problemsPerMatch,
+  );
+  const syncedBracketRounds = requirements.map((round) => ({
+    roundNumber: round.roundNumber,
+    problemIds: Array.from(
+      { length: round.problemCount },
+      (_, index) =>
+        bracketRoundProblems.find(
+          (existing) => existing.roundNumber === round.roundNumber,
+        )?.problemIds[index] ?? "",
+    ),
+  }));
+  const getRoundLabel = (roundNumber: number) =>
+    requirements.find((round) => round.roundNumber === roundNumber)?.name;
 
   return (
     <div
@@ -277,13 +276,17 @@ export default function ContestProblemConfiguration({
 
                   if (validInteger && count >= 1 && count <= 10) {
                     setFineTunedCountError("");
+
                     const fineTunedProblems = [...form.fineTunedProblems];
+
                     while (fineTunedProblems.length < count) {
                       fineTunedProblems.push("");
                     }
+
                     while (fineTunedProblems.length > count) {
                       fineTunedProblems.pop();
                     }
+
                     updateForm({
                       fineTunedProblemCount: value,
                       fineTunedProblems,
@@ -311,7 +314,10 @@ export default function ContestProblemConfiguration({
               {form.fineTunedProblems.map((problem, index) => (
                 <div key={index} className={styles.grid3}>
                   <div className={styles.field}>
-                    <label className={styles.label} htmlFor={`problem-${index}`}>
+                    <label
+                      className={styles.label}
+                      htmlFor={`problem-${index}`}
+                    >
                       Problem {index + 1} ID
                     </label>
                     <input
@@ -322,6 +328,7 @@ export default function ContestProblemConfiguration({
                       value={problem}
                       onChange={(event) => {
                         const fineTunedProblems = [...form.fineTunedProblems];
+
                         fineTunedProblems[index] = event.target.value;
                         updateForm({ fineTunedProblems });
                       }}
@@ -349,6 +356,7 @@ export default function ContestProblemConfiguration({
                         const fineTunedProblemPoints = [
                           ...(form.fineTunedProblemPoints || []),
                         ];
+
                         fineTunedProblemPoints[index] =
                           event.target.value === ""
                             ? ("" as unknown as number)
@@ -358,7 +366,8 @@ export default function ContestProblemConfiguration({
                       disabled={presetLocked}
                       className={`${styles.formInput} ${
                         form.fineTunedProblemPoints?.[index] !== undefined &&
-                        form.fineTunedProblemPoints?.[index] !== ("" as unknown) &&
+                        form.fineTunedProblemPoints?.[index] !==
+                          ("" as unknown) &&
                         !Number.isNaN(form.fineTunedProblemPoints[index]) &&
                         form.fineTunedProblemPoints[index] < 80
                           ? styles.inputError
@@ -366,7 +375,8 @@ export default function ContestProblemConfiguration({
                       }`}
                     />
                     {form.fineTunedProblemPoints?.[index] !== undefined &&
-                      form.fineTunedProblemPoints?.[index] !== ("" as unknown) &&
+                      form.fineTunedProblemPoints?.[index] !==
+                        ("" as unknown) &&
                       !Number.isNaN(form.fineTunedProblemPoints[index]) &&
                       form.fineTunedProblemPoints[index] < 80 && (
                         <span className={styles.errorText}>
@@ -375,7 +385,10 @@ export default function ContestProblemConfiguration({
                       )}
                   </div>
                   <div className={styles.field}>
-                    <label className={styles.label} htmlFor={`timelimit-${index}`}>
+                    <label
+                      className={styles.label}
+                      htmlFor={`timelimit-${index}`}
+                    >
                       Time Limit (Mins)
                     </label>
                     <input
@@ -389,6 +402,7 @@ export default function ContestProblemConfiguration({
                           ...(form.fineTunedProblemTimeLimits || []),
                         ];
                         const val = parseInt(event.target.value, 10);
+
                         fineTunedProblemTimeLimits[index] = isNaN(val)
                           ? (undefined as unknown as number)
                           : val;
@@ -408,10 +422,10 @@ export default function ContestProblemConfiguration({
         form.format === "bracket" && (
           <div className={styles.roundsList}>
             {syncedBracketRounds.map((round) => {
-              const matchCount = Math.pow(
-                2,
-                bracketRoundCount - round.roundNumber,
-              );
+              const matchCount = requirements.find(
+                (entry) => entry.roundNumber === round.roundNumber,
+              )!.positions.length;
+
               return (
                 <div key={round.roundNumber} className={styles.roundCard}>
                   <div className={styles.roundHeader}>
@@ -451,6 +465,7 @@ export default function ContestProblemConfiguration({
                                     }
                                   : candidate,
                             );
+
                             setBracketRoundProblems(updated);
                           }}
                           className={styles.formInput}

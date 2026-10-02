@@ -45,6 +45,7 @@ export async function updateRoomPresence(
       String((connection?.expirySeconds ?? 0) * 1000),
     ],
   })) as [string[], string[], string[]];
+
   return {
     onlineUserIds: result[0],
     joinedUserIds: result[1],
@@ -59,5 +60,6 @@ export async function getRoomOnlineUserIds(roomId: string) {
     Date.now() + 1,
     "+inf",
   );
+
   return [...new Set(connections.map((connection) => connection.slice(0, 24)))];
 }

@@ -5,12 +5,12 @@ import {
   parseBracketPosition,
   type BracketNode,
   type BracketSnapshot,
-} from "@/types/bracket";
+} from "@/lib/contests/bracketLayout";
 
-describe("Bracket Null Player & Grand Final Architecture Unit Tests (#57)", () => {
+describe("Bracket Null Player & Grand Final Architecture Unit Tests", () => {
   describe("1. Bracket Position & Stage Parsing", () => {
-    it("maps single elimination 0-0 to upper stage", () => {
-      const pos = parseBracketPosition("0-0");
+    it("parses the single elimination upper stage", () => {
+      const pos = parseBracketPosition("upper-0-0");
       expect(pos.stage).toBe("upper");
       expect(pos.roundIndex).toBe(0);
       expect(pos.matchIndex).toBe(0);
@@ -28,18 +28,6 @@ describe("Bracket Null Player & Grand Final Architecture Unit Tests (#57)", () =
       expect(pos.stage).toBe("lower");
       expect(pos.roundIndex).toBe(2);
       expect(pos.matchIndex).toBe(0);
-    });
-
-    it("maps gf-0-0 to grand_final and gf-1-0 to grand_final_reset", () => {
-      const gf = parseBracketPosition("gf-0-0");
-      expect(gf.stage).toBe("grand_final");
-      expect(gf.roundIndex).toBe(0);
-      expect(gf.matchIndex).toBe(0);
-
-      const gfReset = parseBracketPosition("gf-1-0");
-      expect(gfReset.stage).toBe("grand_final_reset");
-      expect(gfReset.roundIndex).toBe(1);
-      expect(gfReset.matchIndex).toBe(0);
     });
 
     it("parses explicit grand_final_reset prefix correctly", () => {
@@ -77,6 +65,8 @@ describe("Bracket Null Player & Grand Final Architecture Unit Tests (#57)", () =
       const normalNode: BracketNode = {
         roomId: "room-1",
         roundNumber: 1,
+        roundName: "Final",
+        slotsResolved: [true, true],
         matchIndex: 0,
         bracketType: "upper",
         teams: ["team-1", "team-2"],
@@ -94,6 +84,8 @@ describe("Bracket Null Player & Grand Final Architecture Unit Tests (#57)", () =
       const nullVsRealNode: BracketNode = {
         roomId: "room-2",
         roundNumber: 2,
+        roundName: "Final",
+        slotsResolved: [true, true],
         matchIndex: 0,
         bracketType: "upper",
         teams: ["team-null", "team-real"],
@@ -115,6 +107,8 @@ describe("Bracket Null Player & Grand Final Architecture Unit Tests (#57)", () =
       const nullVsNullNode: BracketNode = {
         roomId: "room-3",
         roundNumber: 2,
+        roundName: "Final",
+        slotsResolved: [true, true],
         matchIndex: 1,
         bracketType: "upper",
         teams: ["team-null-1", "team-null-2"],

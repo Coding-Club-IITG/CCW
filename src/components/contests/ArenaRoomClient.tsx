@@ -49,10 +49,12 @@ const ForfeitTimer = ({ targetTime }: { targetTime: number }) => {
     const t = setInterval(() => {
       setLeft(Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)));
     }, 1000);
+
     return () => clearInterval(t);
   }, [targetTime]);
 
   if (left <= 0) return null;
+
   return <span className={styles.forfeitTimer}>(Forfeit in {left}s)</span>;
 };
 
@@ -123,20 +125,25 @@ export default function ArenaRoomClient({
   const [readySecondsLeft, setReadySecondsLeft] = useState<number | null>(
     () => {
       if (!initialReadyDeadline) return null;
+
       return Math.max(0, Math.ceil((initialReadyDeadline - Date.now()) / 1000));
     },
   );
 
   useEffect(() => {
     if (!initialReadyDeadline || matchState !== "waiting") return;
+
     const interval = setInterval(() => {
       const remaining = Math.max(
         0,
         Math.ceil((initialReadyDeadline - Date.now()) / 1000),
       );
+
       setReadySecondsLeft(remaining);
+
       if (remaining <= 0) clearInterval(interval);
     }, 1000);
+
     return () => clearInterval(interval);
   }, [initialReadyDeadline, matchState]);
 
@@ -170,23 +177,20 @@ export default function ArenaRoomClient({
   const displayTeamName = (team?: ContestRoomTeamDto) =>
     getDisplayTeamName(team, contest?.format);
 
-  // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
+  // Redirect to results page immediately ONLY if the match was already completed on initial load
   useEffect(() => {
     if (initialMatchState === "completed") {
-      router.replace(
-        getContestRoomResultsPath(roomId, contest.format, contest.mode),
-      );
+      router.replace(getContestRoomResultsPath(roomId, contest.format));
     }
-  }, [initialMatchState, roomId, router, contest.format, contest.mode]);
+  }, [initialMatchState, roomId, router, contest.format]);
 
   // Also redirect dynamically if the match completes while connected
   useEffect(() => {
     if (matchState === "completed" && initialMatchState !== "completed") {
       const t = setTimeout(() => {
-        router.replace(
-          getContestRoomResultsPath(roomId, contest.format, contest.mode),
-        );
+        router.replace(getContestRoomResultsPath(roomId, contest.format));
       }, 2000);
+
       return () => clearTimeout(t);
     }
   }, [
@@ -199,6 +203,7 @@ export default function ArenaRoomClient({
   ]);
 
   const stateRef = useRef({ locks, problems, teams, userId });
+
   useEffect(() => {
     stateRef.current = { locks, problems, teams, userId };
   }, [locks, problems, teams, userId]);
@@ -240,12 +245,14 @@ export default function ArenaRoomClient({
           (t) => t._id === payload.claimedBy,
         );
         let tName = t?.name || "Unknown Team";
+
         if (
           ["1v1", "solo-tournament"].includes(contest?.format) &&
           t?.members?.[0]
         ) {
           tName = getDisplayName(t.members[0].name, t.members[0].pizza_count);
         }
+
         const pName =
           stateRef.current.problems.find(
             (p) => p.problemId === payload.problemId,
@@ -268,6 +275,7 @@ export default function ArenaRoomClient({
       case "sync.queued":
         if (payload.problemId) {
           const problemId = payload.problemId;
+
           setSyncingMap((prev) => ({ ...prev, [problemId]: true }));
         }
         addActivity(
@@ -279,6 +287,7 @@ export default function ArenaRoomClient({
       case "sync.detected":
         if (payload.problemId) {
           const problemId = payload.problemId;
+
           setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
         }
         if (payload.verdict === "OK") {
@@ -298,6 +307,7 @@ export default function ArenaRoomClient({
       case "sync.failed":
         if (payload.problemId) {
           const problemId = payload.problemId;
+
           setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
         }
         if (payload.verdict === "not_found") {
@@ -323,7 +333,9 @@ export default function ArenaRoomClient({
       case "room.user_ready":
         setReadyUserIds((prev) => {
           const newSet = new Set(prev);
+
           newSet.add(payload.userId);
+
           return newSet;
         });
         if (payload.userId === stateRef.current.userId) {
@@ -342,30 +354,39 @@ export default function ArenaRoomClient({
           onlineUserIdsRef.current.add(payload.userId);
           setOnlineUserIds(new Set(onlineUserIdsRef.current));
         }
+
         setForfeitTimeouts((prev) => {
           const next = { ...prev };
+
           delete next[payload.userId];
+
           return next;
         });
         break;
       }
       case "presence.offline": {
         const uName = getMemberName(payload.userId);
+
         onlineUserIdsRef.current.delete(payload.userId);
         setOnlineUserIds(new Set(onlineUserIdsRef.current));
 
         setReadyUserIds((prev) => {
           const newSet = new Set(prev);
+
           newSet.delete(payload.userId);
+
           return newSet;
         });
+
         if (payload.forfeitTimeout) {
           const timeout = payload.forfeitTimeout;
+
           setForfeitTimeouts((prev) => ({
             ...prev,
             [payload.userId]: Date.now() + timeout * 1000,
           }));
         }
+
         break;
       }
       case "room.activity":
@@ -379,11 +400,13 @@ export default function ArenaRoomClient({
 
   const getMemberName = (uid: string) => {
     if (!teams) return "Unknown";
+
     for (const t of teams) {
       for (const m of t.members) {
         if (m.id === uid) return getDisplayName(m.name, m.pizza_count);
       }
     }
+
     return uid === userId ? "You" : "Unknown";
   };
 
@@ -410,9 +433,11 @@ export default function ArenaRoomClient({
 
   const handleReady = async () => {
     setIsReady(true);
+
     const response = await fetch(`/api/contests/rooms/${roomId}/ready`, {
       method: "POST",
     });
+
     if (!(await readAppResult(response)).ok) setIsReady(false);
   };
 
@@ -436,6 +461,7 @@ export default function ArenaRoomClient({
     beginSync();
 
     const syncRes = await readAppResult(res);
+
     if (!syncRes.ok) {
       setSyncingMap((prev) => ({ ...prev, [problemId]: false }));
       addActivity(
@@ -647,8 +673,11 @@ export default function ArenaRoomClient({
 
                           if (isClaimed) {
                             const [cTeamId, cTimestamp] = lockVal.split("|");
+
                             claimedByMe = cTeamId === teamId;
+
                             const t = teams?.find((t) => t._id === cTeamId);
+
                             claimedByWhoName = t
                               ? displayTeamName(t)
                               : "Unknown";
@@ -876,13 +905,7 @@ export default function ArenaRoomClient({
             </div>
             <button
               onClick={() =>
-                router.push(
-                  getContestRoomResultsPath(
-                    roomId,
-                    contest.format,
-                    contest.mode,
-                  ),
-                )
+                router.push(getContestRoomResultsPath(roomId, contest.format))
               }
               className={styles.toastBtn}
             >

@@ -1,4 +1,5 @@
 import type { RoomStreamEvent } from "@/lib/contests/runtime";
+
 import type { IContestPreset } from "@/models/ContestPreset";
 import type { IContestTeamRequest } from "@/models/ContestTeamRequest";
 
@@ -86,11 +87,10 @@ export type ContestPresetDto = {
   registrationSettings?: {
     type: "open" | "closed";
     maxParticipants: number;
+    entrantCapacity?: number;
   };
   bracketSettings?: {
     type?: "single_elimination" | "double_elimination";
-    seedingMethod?: "cf_rating" | "manual";
-    thirdPlacePlayoff?: boolean;
   };
   archived?: boolean;
   createdAt?: string;
@@ -183,13 +183,12 @@ export function toContestPresetDto(
       ? {
           type: preset.registrationSettings.type,
           maxParticipants: preset.registrationSettings.maxParticipants,
+          entrantCapacity: preset.registrationSettings.entrantCapacity,
         }
       : undefined,
     bracketSettings: preset.bracketSettings
       ? {
           type: preset.bracketSettings.type,
-          seedingMethod: preset.bracketSettings.seedingMethod,
-          thirdPlacePlayoff: preset.bracketSettings.thirdPlacePlayoff,
         }
       : undefined,
     archived: preset.archived ?? false,

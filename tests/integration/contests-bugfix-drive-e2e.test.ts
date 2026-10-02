@@ -9,20 +9,24 @@ import {
   it,
   vi,
 } from "vitest";
-
-import ContestMatch from "@/models/ContestMatch";
-import CPUser from "@/models/CPUser";
 import {
-  clearTestMongo,
-  startTestMongo,
-  stopTestMongo,
-} from "../utils/mongodb";
+  parseBracketPosition,
+  getRoundName,
+  nextPowerOf2,
+} from "@/lib/contests/bracketLayout";
+
 import {
   createRoomContest,
   createBracketContest,
   getContestListing,
   registerForContest,
 } from "@/lib/actions/contests";
+import { recordRoomActivity } from "@/lib/contests/events";
+import { getRedis } from "@/lib/db/redis";
+
+import ContestMatch from "@/models/ContestMatch";
+import CPUser from "@/models/CPUser";
+
 import {
   getCodeforcesProblemUrl,
   formatRemainingTime,
@@ -30,14 +34,12 @@ import {
   getDisplayTeamName,
   getContestRoomResultsPath,
 } from "@/components/contests/roomPresentation";
+
 import {
-  parseBracketPosition,
-  getRoundName,
-  snakeSeed,
-  nextPowerOf2,
-} from "@/types/bracket";
-import { recordRoomActivity } from "@/lib/contests/events";
-import { getRedis } from "@/lib/db/redis";
+  clearTestMongo,
+  startTestMongo,
+  stopTestMongo,
+} from "../utils/mongodb";
 
 const getSession = vi.hoisted(() => vi.fn());
 const reconciliationQueueAdd = vi.hoisted(() => vi.fn());
@@ -146,6 +148,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         bulkRatingMax: 1000,
         startTime: new Date(Date.now() + 86400000).toISOString(),
         maxParticipants: 16,
+        entrantCapacity: 16,
       });
 
       expect(soloRes.ok).toBe(true);
@@ -168,7 +171,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       expect(teamRes.ok).toBe(true);
     });
 
-    it("allows regular members to create knockout tournaments with up to 8 participants", async () => {
+    it("allows regular members to create knockout tournaments with up to 8 entrants", async () => {
       const regularUser = await CPUser.create({
         userId: new mongoose.Types.ObjectId(),
         cfHandle: "casual_bracket_user",
@@ -192,12 +195,13 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         mode: "blitz",
         teamSize: 1,
         maxParticipants: 8,
+        entrantCapacity: 8,
         registrationType: "closed",
         problemSelectionMode: "bulk",
         bulkRatingMin: 800,
         bulkRatingMax: 1200,
         bulkProblemCount: 3,
-        seedingMethod: "cf_rating",
+
         startTime: new Date(Date.now() + 86400000).toISOString(),
         registeredUsers: [
           {
@@ -228,9 +232,10 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         mode: "blitz",
         teamSize: 1,
         maxParticipants: 16,
+        entrantCapacity: 16,
         registrationType: "open",
         problemSelectionMode: "bulk",
-        seedingMethod: "cf_rating",
+
         startTime: new Date(Date.now() + 86400000).toISOString(),
         registeredUsers: [],
       });
@@ -238,7 +243,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       expect(bracketRes.ok).toBe(false);
       if (!bracketRes.ok) {
         expect(bracketRes.error.code).toBe("FORBIDDEN");
-        expect(bracketRes.error.message).toContain("8 participants");
+        expect(bracketRes.error.message).toContain("8 entrants");
       }
 
       // Via createRoomContest with format: "bracket"
@@ -248,6 +253,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         format: "bracket",
         teamSize: 1,
         maxParticipants: 16,
+        entrantCapacity: 16,
         registrationType: "open",
         problemSelectionMode: "bulk",
         startTime: new Date(Date.now() + 86400000).toISOString(),
@@ -256,7 +262,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       expect(roomRes.ok).toBe(false);
       if (!roomRes.ok) {
         expect(roomRes.error.code).toBe("FORBIDDEN");
-        expect(roomRes.error.message).toContain("8 participants");
+        expect(roomRes.error.message).toContain("8 entrants");
       }
     });
 
@@ -297,6 +303,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         ],
         startTime: new Date(Date.now() + 86400000).toISOString(),
         maxParticipants: 16,
+        entrantCapacity: 16,
         registeredUsers: [],
       });
 
@@ -314,7 +321,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
 
   describe("3. Double Elimination Bracket Math & Position Parsing (#43)", () => {
     it("correctly parses position strings for Upper, Lower, and Grand Finals", () => {
-      expect(parseBracketPosition("0-1")).toEqual({
+      expect(parseBracketPosition("upper-0-1")).toEqual({
         stage: "upper",
         roundIndex: 0,
         matchIndex: 1,
@@ -342,23 +349,6 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       expect(getRoundName(2, 4)).toBe("Quarter-Finals");
       expect(getRoundName(4, 4, "lower")).toBe("Lower Final");
       expect(getRoundName(1, 1, "grand_final")).toBe("Grand Final");
-    });
-
-    it("correctly computes mathematical powers of 2 and snake seeds", () => {
-      expect(nextPowerOf2(1)).toBe(2);
-      expect(nextPowerOf2(3)).toBe(4);
-      expect(nextPowerOf2(5)).toBe(8);
-      expect(nextPowerOf2(8)).toBe(8);
-      expect(nextPowerOf2(9)).toBe(16);
-
-      const teams = [
-        { teamId: "t1", seed: 1 },
-        { teamId: "t2", seed: 2 },
-        { teamId: "t3", seed: 3 },
-        { teamId: "t4", seed: 4 },
-      ];
-      const seeded = snakeSeed(teams);
-      expect(seeded.map((t) => t.teamId)).toEqual(["t1", "t4", "t2", "t3"]);
     });
   });
 
@@ -475,6 +465,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         format: "1v1",
         teamSize: 1,
         maxParticipants: 2,
+        entrantCapacity: 2,
         registrationType: "closed",
         problemSelectionMode: "test",
         startTime: invalidStart,
@@ -514,6 +505,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         format: "1v1",
         teamSize: 1,
         maxParticipants: 2,
+        entrantCapacity: 2,
         registrationType: "closed",
         problemSelectionMode: "test",
         startTime: validStart,
@@ -555,6 +547,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
           format: "1v1",
           teamSize: 1,
           maxParticipants: 2,
+          entrantCapacity: 2,
           registrationType: "closed",
           problemSelectionMode: "test",
           startTime: new Date(Date.now() + 120 * 1000).toISOString(),
@@ -575,9 +568,10 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
           startTime: new Date(Date.now() + 600000).toISOString(),
           registrationType: "closed",
           maxParticipants: 4,
+          entrantCapacity: 4,
           presetId: "custom",
           problemSelectionMode: "test",
-          seedingMethod: "cf_rating",
+
           registeredUsers: [],
         });
 
@@ -600,9 +594,10 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
           startTime: new Date(Date.now() + 600000).toISOString(),
           registrationType: "closed",
           maxParticipants: 4,
+          entrantCapacity: 4,
           presetId: "custom",
           problemSelectionMode: "test",
-          seedingMethod: "cf_rating",
+
           registeredUsers: [],
         });
 
@@ -702,9 +697,6 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       expect(getContestRoomResultsPath("room_abc", "bracket")).toBe(
         "/internal/contests/rooms/room_abc/result?from=bracket",
       );
-      expect(getContestRoomResultsPath("room_abc", "1v1", "knockout")).toBe(
-        "/internal/contests/rooms/room_abc/result?from=bracket",
-      );
     });
   });
 
@@ -720,18 +712,6 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       expect(nextPowerOf2(9)).toBe(16);
       expect(nextPowerOf2(16)).toBe(16);
       expect(nextPowerOf2(17)).toBe(32);
-    });
-
-    it("generates deterministic snake seeding with balanced pairings", () => {
-      const teams = [
-        { teamId: "team_1", seed: 1 },
-        { teamId: "team_2", seed: 2 },
-        { teamId: "team_3", seed: 3 },
-        { teamId: "team_4", seed: 4 },
-      ];
-      const seeded = snakeSeed(teams);
-      expect(seeded).toHaveLength(4);
-      expect(seeded.map((t) => t.seed)).toEqual([1, 4, 2, 3]);
     });
 
     it("returns correct human-readable round names across upper, lower, and grand final rounds", () => {
@@ -766,6 +746,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
           type: "open",
           deadline: new Date(Date.now() + 3_600_000),
           maxParticipants: 8,
+          entrantCapacity: 8,
         },
         creatorId: user.userId,
         format: "bracket",

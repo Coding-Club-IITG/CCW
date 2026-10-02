@@ -25,7 +25,10 @@ vi.mock("@/lib/auth/server", () => ({
 }));
 
 const session = (access: "Member" | "Head") => {
-  const hexId = access === "Member" ? "507f191e810c19729de860ea" : "507f1f77bcf86cd799439011";
+  const hexId =
+    access === "Member"
+      ? "507f191e810c19729de860ea"
+      : "507f1f77bcf86cd799439011";
   return {
     user: { id: hexId, access },
     session: { id: "session-1", userId: hexId },
@@ -50,8 +53,18 @@ describe("contest preset routes", () => {
     const { GET } = await import("@/app/api/contests/presets/route");
     const mongoose = (await import("mongoose")).default;
     await ContestPreset.create([
-      { name: "Visible preset", archived: false, creatorId: new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"), isGlobal: true },
-      { name: "Archived preset", archived: true, creatorId: new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"), isGlobal: true },
+      {
+        name: "Visible preset",
+        archived: false,
+        creatorId: new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"),
+        isGlobal: true,
+      },
+      {
+        name: "Archived preset",
+        archived: true,
+        creatorId: new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"),
+        isGlobal: true,
+      },
     ]);
 
     const response = await GET(
@@ -73,7 +86,9 @@ describe("contest preset routes", () => {
     });
 
     getSession.mockResolvedValueOnce(session("Member"));
-    const allowed = await POST(createRequest({ name: "Member preset", isGlobal: true }));
+    const allowed = await POST(
+      createRequest({ name: "Member preset", isGlobal: true }),
+    );
     expect(allowed.status).toBe(201);
     const memberPreset = await responseData<any>(allowed);
     // Members can create presets, but they are forced to be non-global
@@ -129,6 +144,11 @@ describe("contest preset routes", () => {
     const { POST } = await import("@/app/api/contests/presets/route");
     const payload = {
       name: "Bracket standard",
+      registrationSettings: {
+        type: "open",
+        maxParticipants: 8,
+        entrantCapacity: 8,
+      },
       format: "bracket",
       mode: "blitz",
       durationSeconds: 300,
@@ -165,7 +185,10 @@ describe("contest preset routes", () => {
     expect(invalid.status).toBe(400);
 
     const mongoose = (await import("mongoose")).default;
-    const preset = await ContestPreset.create({ name: "Archive me", creatorId: new mongoose.Types.ObjectId() });
+    const preset = await ContestPreset.create({
+      name: "Archive me",
+      creatorId: new mongoose.Types.ObjectId(),
+    });
     const response = await PATCH(
       new NextRequest(
         `http://localhost/api/contests/presets/${preset._id.toString()}`,
@@ -198,17 +221,30 @@ describe("contest preset routes", () => {
       format: "bracket",
       mode: "blitz",
       durationSeconds: 300,
-      registrationSettings: { type: "open", maxParticipants: 16 },
+      registrationSettings: {
+        type: "open",
+        maxParticipants: 16,
+        entrantCapacity: 16,
+      },
     };
 
     const createRes = await POST(createRequest(payload));
     expect(createRes.status).toBe(400);
     expect(await responseError(createRes)).toMatchObject({
       code: "VALIDATION_ERROR",
-      message: "Non-admin users cannot create a knockout tournament preset with more than 8 members.",
+      message:
+        "Non-admin users cannot create a knockout tournament preset with more than 8 entrants.",
     });
 
-    const validPayload = { ...payload, name: "Small Bracket Preset", registrationSettings: { type: "open", maxParticipants: 8 } };
+    const validPayload = {
+      ...payload,
+      name: "Small Bracket Preset",
+      registrationSettings: {
+        type: "open",
+        maxParticipants: 8,
+        entrantCapacity: 8,
+      },
+    };
     const validRes = await POST(createRequest(validPayload));
     expect(validRes.status).toBe(201);
     const created = await responseData<any>(validRes);
@@ -217,19 +253,28 @@ describe("contest preset routes", () => {
       new NextRequest(`http://localhost/api/contests/presets/${created._id}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ registrationSettings: { type: "open", maxParticipants: 16 } }),
+        body: JSON.stringify({
+          registrationSettings: {
+            type: "open",
+            maxParticipants: 16,
+            entrantCapacity: 16,
+          },
+        }),
       }),
-      { params: Promise.resolve({ id: created._id }) }
+      { params: Promise.resolve({ id: created._id }) },
     );
 
     expect(updateRes.status).toBe(400);
     expect(await responseError(updateRes)).toMatchObject({
       code: "VALIDATION_ERROR",
-      message: "Non-admin users cannot create a knockout tournament preset with more than 8 members.",
+      message:
+        "Non-admin users cannot create a knockout tournament preset with more than 8 entrants.",
     });
 
     getSession.mockResolvedValue(session("Head"));
-    const adminRes = await POST(createRequest({ ...payload, name: "Admin Big Bracket Preset" }));
+    const adminRes = await POST(
+      createRequest({ ...payload, name: "Admin Big Bracket Preset" }),
+    );
     expect(adminRes.status).toBe(201);
   });
 });

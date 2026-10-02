@@ -46,32 +46,52 @@ export default async function ContestRoomPage({
   const { id } = await params;
   const { from, matchRoomId } = await searchParams;
   const session = await auth.api.getSession({ headers: await headers() });
+
   if (!session?.user) redirect("/");
+
   if (
     matchRoomId !== undefined &&
     !objectIdStringSchema.safeParse(matchRoomId).success
   )
     notFound();
+
   const viewAccess = await authorizeContestView(id, session.user);
+
   if (!viewAccess.ok) notFound();
+
   const contestResult = await getContestById(id);
+
   if (!contestResult.ok) notFound();
+
   const contest = contestResult.data;
+
+  if (viewAccess.data.contest.cancellationReason)
+    return (
+      <div className={styles.stateWrap}>
+        <CalendarX
+          className={`${styles.stateIcon} ${styles.iconError}`}
+          size={60}
+        />
+        <h1 className={styles.stateTitle}>Contest Cancelled</h1>
+        <p className={styles.stateText}>
+          {viewAccess.data.contest.cancellationReason}
+        </p>
+      </div>
+    );
+
   const admin = isHead(session.user.access);
   const userId = session.user.id;
   let isSpectator = false;
 
   // Bracket format: show bracket viewer (unless entering a specific match room)
-  if (
-    (contest.format === "bracket" || contest.mode === "knockout") &&
-    !matchRoomId
-  ) {
+  if (contest.format === "bracket" && !matchRoomId) {
     const bracketSnapshot = await getBracketSnapshot(contest._id.toString());
     const userTeams = await ContestTeam.find({
       contestId: contest._id,
       members: userId,
     }).lean();
     const userTeamIds = userTeams.map((t) => t._id.toString());
+
     return (
       <BracketRoomClient
         contest={contest}
@@ -99,29 +119,34 @@ export default async function ContestRoomPage({
   let roomName = null;
 
   if (matchRoomId && !room) notFound();
+
   if (room) {
     const roomAccess = await authorizeRoomView(
       String(room._id),
       session.user,
       id,
     );
+
     if (!roomAccess.ok) notFound();
+
     isSpectator = roomAccess.data.isSpectator;
     teamId = roomAccess.data.teamId;
-    if (room.status === "ended" || room.status === "completed") {
+
+    if (room.status === "ended") {
       // For bracket, ended rooms go back to bracket viewer
-      if (
-        matchRoomId &&
-        (contest.format === "bracket" || contest.mode === "knockout")
-      ) {
+      if (matchRoomId && contest.format === "bracket") {
         const { redirect } = await import("next/navigation");
+
         redirect(`/internal/contests/${id}`);
       }
+
       const { redirect } = await import("next/navigation");
+
       redirect(
         `/internal/contests/rooms/${room._id.toString()}/result${from ? `?from=${from}` : ""}`,
       );
     }
+
     roomId = room._id.toString();
     roomName = room.name;
   }
@@ -135,9 +160,11 @@ export default async function ContestRoomPage({
               contestId: contest._id,
             }).lean()
           : null;
+
         if (anyRoom) {
           redirect(`/internal/contests/rooms/${anyRoom._id.toString()}/result`);
         }
+
         // No rooms at all - contest was cancelled before provisioning
         return (
           <div className={styles.stateWrap}>
@@ -185,6 +212,7 @@ export default async function ContestRoomPage({
         );
       }
     }
+
     const teams = await ContestTeam.find({ roomId: room._id }).lean();
     const allMemberIds = teams.flatMap((t) => t.members);
     const users = await User.find(
@@ -203,6 +231,7 @@ export default async function ContestRoomPage({
       members: t.members.map((memberId) => {
         const u = userMap.get(memberId.toString());
         const cp = cpUserMap.get(memberId.toString());
+
         return {
           id: memberId.toString(),
           name: u?.name || "Unknown Player",
@@ -237,10 +266,12 @@ export default async function ContestRoomPage({
 
     if (status === "active" || status === "completed") {
       const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
+
       initialProblems = parseContestRoomProblems(problemsRaw);
 
       for (const t of populatedTeams) {
         const s = await redis.zScore(`room:${roomId}:scores`, t._id);
+
         initialScores[t._id] = s ? parseFloat(s.toString()) : 0;
       }
 
@@ -253,6 +284,7 @@ export default async function ContestRoomPage({
         0,
         -1,
       );
+
       initialActivityFeed = activityLogsRaw.map((l) => JSON.parse(l));
     }
 

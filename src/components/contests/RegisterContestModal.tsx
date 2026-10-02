@@ -76,6 +76,7 @@ export default function RegisterContestModal({
       getAvailableTeamsForContest(contestId)
         .then((result) => {
           if (result.ok) setAvailableTeams(result.data);
+
           setLoadingTeams(false);
         })
         .catch(() => {
@@ -95,6 +96,7 @@ export default function RegisterContestModal({
             setIsDeadlinePassed(res.data.isDeadlinePassed || false);
             setRegistrationType(res.data.registrationType || "open");
           }
+
           setLoadingRegistrations(false);
         })
         .catch(() => {
@@ -113,24 +115,31 @@ export default function RegisterContestModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (isPrivateTeamSelected) {
       await handleRequestToJoin();
+
       return;
     }
+
     const isSoloFormat =
       ["1v1", "solo-tournament"].includes(format) || teamSize === 1;
+
     if (!isSoloFormat && !teamName.trim()) {
       toast.error("Please provide a team name.");
+
       return;
     }
 
     setLoading(true);
+
     try {
       const res = await registerForContest(
         contestId,
         teamName,
         mode === "new" ? isPublic : undefined,
       );
+
       if (res.ok) {
         toast.success("Registered successfully!");
         onClose();
@@ -147,12 +156,15 @@ export default function RegisterContestModal({
 
   const handleRequestToJoin = async () => {
     if (!selectedTeamInfo?.teamId) return;
+
     setLoading(true);
+
     try {
       const res = await requestToJoinContestTeam(
         contestId,
         selectedTeamInfo.teamId,
       );
+
       if (res.ok) {
         toast.success("Join request sent! The team leader will review it.");
         onClose();
@@ -173,10 +185,14 @@ export default function RegisterContestModal({
         "Your registration will be withdrawn. You can register again while registration stays open.",
       confirmLabel: "Leave contest",
     });
+
     if (!confirmed) return;
+
     setLoading(true);
+
     try {
       const res = await unregisterFromContest(contestId);
+
       if (res.ok) {
         toast.success("Successfully unregistered!");
         onClose();
@@ -199,6 +215,7 @@ export default function RegisterContestModal({
           Loading registrations...
         </div>
       );
+
     if (registrations.length === 0)
       return (
         <div className={styles.regEmpty}>
@@ -225,10 +242,13 @@ export default function RegisterContestModal({
       );
     } else {
       const teams: Record<string, ContestRegistrationDto[]> = {};
+
       registrations.forEach((r) => {
         if (!teams[r.teamName]) teams[r.teamName] = [];
+
         teams[r.teamName].push(r);
       });
+
       return (
         <div className={`${styles.regList} ${styles.teamList}`}>
           {Object.entries(teams).map(([tName, members], i) => (

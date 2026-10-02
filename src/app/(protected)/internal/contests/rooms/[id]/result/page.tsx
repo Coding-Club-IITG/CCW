@@ -25,23 +25,29 @@ export default async function PostMatchResultPage({
   const unwrappedParams = await params;
   const unwrappedSearch = await searchParams;
   const session = await auth.api.getSession({ headers: await headers() });
+
   if (!session) redirect("/");
 
   const currentUserId = session?.user?.id || "";
 
   await connectMongoDB();
+
   const roomId = unwrappedParams.id;
 
   const roomAccess = await authorizeRoomView(roomId, session.user);
+
   if (!roomAccess.ok) notFound();
+
   const { room } = roomAccess.data;
 
   const isProcessing = room.status !== "ended";
 
   const contestResult = await getContestById(room.contestId.toString());
+
   if (!contestResult.ok || !contestResult.data) {
     notFound();
   }
+
   const contest = contestResult.data;
 
   // 2. Fetch all match data
@@ -60,17 +66,21 @@ export default async function PostMatchResultPage({
 
   // 3. Process problems first to calculate user contributions
   let processedProblems: any[] = [];
+
   if (problemSet && problemSet.problems) {
     processedProblems = problemSet.problems.map((p: any) => {
       const subsForProb = submissions.filter(
         (s) => s.problemId === p.problemId,
       );
+
       subsForProb.sort(
         (a, b) => (a.solveMs || Infinity) - (b.solveMs || Infinity),
       );
+
       const firstSub = subsForProb[0];
 
       let solverDetails = null;
+
       if (firstSub) {
         const solverTeamId = firstSub.teamId?.toString();
         const solverUserId = firstSub.userId?.toString();
@@ -80,6 +90,7 @@ export default async function PostMatchResultPage({
 
         if (t && u) {
           const avatarUrl = normalizeAvatar(u.image);
+
           solverDetails = {
             userId: u._id.toString(),
             userName: cp?.cfHandle || u.name,
@@ -105,6 +116,7 @@ export default async function PostMatchResultPage({
 
   // 4. Calculate user scores
   const userScores: Record<string, number> = {};
+
   for (const prob of processedProblems) {
     if (prob.solved && prob.solver) {
       userScores[prob.solver.userId] =
@@ -154,6 +166,7 @@ export default async function PostMatchResultPage({
     } else if (room.terminationReason === "disconnect") {
       // For legacy disconnect/forfeit rooms where scores were set to 1 vs -1:
       const positiveTeam = teams.find((t) => (t.score ?? 0) > 0);
+
       if (positiveTeam) {
         winnerTeamId = positiveTeam._id.toString();
       }
@@ -163,14 +176,17 @@ export default async function PostMatchResultPage({
   processedTeams.sort((a, b) => {
     if (winnerTeamId) {
       if (a.id === winnerTeamId) return -1;
+
       if (b.id === winnerTeamId) return 1;
     }
+
     return b.score - a.score;
   });
 
   // 6. Unique MVP
   let mvp = null;
   let maxUserScore = 0;
+
   for (const [userId, score] of Object.entries(userScores)) {
     if (score > maxUserScore) {
       maxUserScore = score;
@@ -179,11 +195,13 @@ export default async function PostMatchResultPage({
   }
 
   let mvpDetails = null;
+
   if (mvp) {
     const mvpUser = users.find((u) => u._id.toString() === mvp);
     const mvpTeam = processedTeams.find((t) =>
       t.members.some((m) => m.id === mvp),
     );
+
     if (mvpUser && mvpTeam) {
       const cpUser = cpUsers.find((cp) => cp.userId?.toString() === mvp);
       const mvpAvatar = normalizeAvatar(mvpUser.image);
@@ -200,22 +218,27 @@ export default async function PostMatchResultPage({
   }
 
   let durationStr = "0m 0s";
+
   if (contest.startTime && contest.endTime) {
     const diffMs =
       new Date(contest.endTime).getTime() -
       new Date(contest.startTime).getTime();
+
     if (diffMs > 0) {
       const totalSeconds = Math.floor(diffMs / 1000);
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
+
       durationStr = `${minutes}m ${seconds}s`;
     }
   } else if (submissions.length > 0) {
     const maxSolveMs = Math.max(...submissions.map((s) => s.solveMs || 0));
+
     if (maxSolveMs > 0) {
       const totalSeconds = Math.floor(maxSolveMs / 1000);
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
+
       durationStr = `${minutes}m ${seconds}s`;
     }
   }

@@ -71,7 +71,7 @@ export default async function CalendarEventPage({
             <span>{event.module ?? "General"}</span>
             <span>
               {format.format(event.startAt)}
-              {event.endAt ? ` – ${format.format(event.endAt)}` : ""}
+              {event.endAt ? ` - ${format.format(event.endAt)}` : ""}
             </span>
             {event.recurrenceType !== "none" && (
               <span>

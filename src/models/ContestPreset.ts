@@ -1,4 +1,5 @@
 import mongoose, { Schema, type Document } from "mongoose";
+
 import {
   type IProblemSlot,
   type IRegistrationSettings,
@@ -54,6 +55,7 @@ const ProblemSlotSchema = new Schema<IProblemSlot>({
 const RegistrationSettingsSchema = new Schema<IRegistrationSettings>({
   type: { type: String, enum: ["open", "closed"], required: true },
   maxParticipants: { type: Number, required: true, min: 2 },
+  entrantCapacity: { type: Number, min: 2, max: 256 },
   // Omit startTime and deadline as they are temporal and unique to matches
 });
 
@@ -62,12 +64,6 @@ const BracketSettingsSchema = new Schema<IBracketSettings>({
     type: String,
     enum: ["single_elimination", "double_elimination"],
     default: "single_elimination",
-  },
-  thirdPlacePlayoff: { type: Boolean, default: false },
-  seedingMethod: {
-    type: String,
-    enum: ["cf_rating", "manual"],
-    required: true,
   },
 });
 

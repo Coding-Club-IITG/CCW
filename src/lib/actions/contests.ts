@@ -160,8 +160,10 @@ async function getContestListingAction() {
   await connectMongoDB();
 
   let cpUserId = null;
+
   if (userId) {
     const cpUser = await CPUser.findOne({ userId }).lean();
+
     if (cpUser) {
       cpUserId = cpUser._id.toString();
     }
@@ -221,12 +223,15 @@ async function getContestListingAction() {
       const userReg = (contest.registrations || []).find(
         (r) => r.userId.toString() === userId,
       );
+
       if (userReg) {
         item.registeredTeamName = userReg.teamName;
+
         const regTeam = await ContestRegistrationTeam.findOne({
           contestId: contest._id,
           name: userReg.teamName,
         }).lean();
+
         if (regTeam) {
           item.registeredTeamId = regTeam._id.toString();
           item.isTeamLeader = regTeam.leaderId === userId;
@@ -242,11 +247,13 @@ async function getContestListingAction() {
           contestId: contest._id,
           participants: userId,
         }).lean();
+
         if (room) {
           item.roomStatus = room.status;
           item.actualStartTime = room.actualStartTime || null;
         }
       }
+
       active.push(item);
     } else if (["registration", "draft", "provisioning"].includes(status)) {
       upcoming.push(item);
@@ -258,16 +265,20 @@ async function getContestListingAction() {
         })
           .sort({ actualStartTime: -1, createdAt: -1 })
           .lean();
+
         if (room) {
           const teams = await ContestTeam.find({ roomId: room._id }).lean();
           const userTeam = teams.find((team) =>
             team.members.some((memberId) => memberId.toString() === userId),
           );
+
           if (userTeam) {
             item.userScore = userTeam.score;
+
             const otherTeams = teams.filter(
               (team) => team._id.toString() !== userTeam._id.toString(),
             );
+
             item.opponentScore =
               otherTeams.length > 0
                 ? Math.max(...otherTeams.map((team) => team.score))
@@ -275,12 +286,15 @@ async function getContestListingAction() {
             item.otherScores = otherTeams
               .map((team) => team.score)
               .sort((a: number, b: number) => b - a);
+
             const us = item.userScore ?? 0;
             const op = item.opponentScore ?? 0;
+
             item.result = us > op ? "victory" : us === op ? "tie" : "loss";
           }
         }
       }
+
       // Always add completed contests so any user can view results
       completed.push(item);
     }
@@ -313,8 +327,10 @@ async function getContestByIdAction(id: string) {
   await connectMongoDB();
 
   let cpUserId = null;
+
   if (userId) {
     const cpUser = await CPUser.findOne({ userId }).lean();
+
     if (cpUser) {
       cpUserId = cpUser._id.toString();
     }
@@ -322,6 +338,7 @@ async function getContestByIdAction(id: string) {
 
   try {
     const contest = await ContestMatch.findById(id).lean();
+
     if (!contest) return appError("NOT_FOUND", "Contest not found");
 
     const isRegistered = userId
@@ -332,6 +349,7 @@ async function getContestByIdAction(id: string) {
 
     let computedStatus = contest.status;
     const now = new Date();
+
     if (
       ["completed", "active", "draft", "provisioning"].includes(contest.status)
     ) {
@@ -371,6 +389,7 @@ async function getContestByIdAction(id: string) {
       action: "getContestById",
       ...errorToLogMetadata(error),
     });
+
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
@@ -381,36 +400,53 @@ async function registerForContestAction(
   isPublic?: boolean,
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
+
   if (!session?.user?.id) return appError("UNAUTHENTICATED", "Unauthorized");
+
   const parsed = contestRegistrationSchema.safeParse({
     contestId,
     teamName,
     isPublic,
   });
+
   if (!parsed.success) return validationError(parsed.error);
+
   const result = await registerContestMember(session.user.id, parsed.data);
+
   if (result.ok) revalidatePath("/internal/contests");
+
   return result;
 }
 
 async function getAvailableTeamsForContestAction(contestId: string) {
   const session = await auth.api.getSession({ headers: await headers() });
+
   if (!session?.user?.id) return appError("UNAUTHENTICATED", "Unauthorized");
+
   const parsed = contestRegistrationIdSchema.safeParse(contestId);
+
   if (!parsed.success) return validationError(parsed.error);
+
   await connectMongoDB();
+
   const contest = await ContestMatch.findById(parsed.data).lean();
+
   if (!contest) return appError("NOT_FOUND", "Contest not found");
+
   const teamSize = contest.teamSize ?? 1;
+
   if (teamSize <= 1) return ok<ContestAvailableTeamDto[]>([]);
+
   const teams = await ContestRegistrationTeam.find({
     contestId: contest._id,
   }).lean();
   const available: ContestAvailableTeamDto[] = [];
+
   for (const team of teams) {
     const members = (contest.registrations ?? []).filter(
       (r) => r.teamName === team.name,
     );
+
     if (members.length && members.length < teamSize)
       available.push({
         teamId: String(team._id),
@@ -421,6 +457,7 @@ async function getAvailableTeamsForContestAction(contestId: string) {
         leaderId: team.leaderId,
       });
   }
+
   return ok(available);
 }
 
@@ -428,10 +465,13 @@ async function createRoomContestAction(input: unknown) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
+
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
     const parsed = contestCreationPayloadSchema.safeParse(input);
+
     if (!parsed.success) return validationError(parsed.error);
+
     const data = parsed.data;
 
     if (
@@ -445,16 +485,19 @@ async function createRoomContestAction(input: unknown) {
     }
 
     await connectMongoDB();
+
     const cpUser = await CPUser.findOne({ userId });
+
     if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
     const userRole = session.user.access;
     const isHeadUser = isHead(userRole);
+
     if (!isHeadUser) {
-      if (data.format === "bracket" && data.maxParticipants > 8) {
+      if (data.format === "bracket" && (data.entrantCapacity ?? 0) > 8) {
         return appError(
           "FORBIDDEN",
-          "Non-admin users cannot create a knockout tournament with more than 8 participants.",
+          "Non-admin users cannot create a knockout tournament with more than 8 entrants.",
         );
       }
     }
@@ -468,6 +511,7 @@ async function createRoomContestAction(input: unknown) {
       isCasual1v1,
       contestRegistrationTiming(webEnv),
     );
+
     if (startError) return appError("VALIDATION_ERROR", startError);
 
     const deadline = isCasual1v1
@@ -482,6 +526,7 @@ async function createRoomContestAction(input: unknown) {
       maxParticipants = 2;
     } else if (format === "solo-tournament") {
       teamSize = 1;
+
       if (maxParticipants < 2)
         return appError(
           "VALIDATION_ERROR",
@@ -489,12 +534,21 @@ async function createRoomContestAction(input: unknown) {
         );
     } else if (format === "team-tournament") {
       teamSize = 3;
+
       if (maxParticipants < 6)
         return appError(
           "VALIDATION_ERROR",
           "Team battles require at least 6 participants.",
         );
+
       maxParticipants = maxParticipants - (maxParticipants % 3);
+    }
+
+    if (format === "bracket") {
+      const validation = validateBracketContestInput(data);
+
+      if (!validation.success)
+        return appError("VALIDATION_ERROR", validation.error);
     }
 
     const registrations = await prepareContestRegistrations({
@@ -502,6 +556,7 @@ async function createRoomContestAction(input: unknown) {
       teamSize,
       maxParticipants,
     });
+
     if (!registrations.ok) return registrations;
 
     let problemSlots: ContestProblemSlot[] = [];
@@ -510,6 +565,7 @@ async function createRoomContestAction(input: unknown) {
     if (data.presetId && data.presetId !== "custom") {
       const ContestPreset = (await import("@/models/ContestPreset")).default;
       const preset = await ContestPreset.findById(data.presetId);
+
       if (preset && preset.durationSeconds) {
         durationSeconds = preset.durationSeconds;
       }
@@ -527,6 +583,7 @@ async function createRoomContestAction(input: unknown) {
 
       for (let i = 0; i < problemSlots.length; i++) {
         const slot = problemSlots[i];
+
         if (
           slot.points === undefined ||
           slot.points === null ||
@@ -538,6 +595,7 @@ async function createRoomContestAction(input: unknown) {
             `Problem ${i + 1} (${slot.problemId}): points are mandatory in fine-tuned mode.`,
           );
         }
+
         if (slot.points < 80) {
           return appError(
             "VALIDATION_ERROR",
@@ -585,8 +643,6 @@ async function createRoomContestAction(input: unknown) {
         format === "bracket"
           ? {
               type: data.bracketType || "single_elimination",
-              thirdPlacePlayoff: data.thirdPlacePlayoff,
-              seedingMethod: data.seedingMethod,
             }
           : undefined,
       registrationSettings: {
@@ -596,6 +652,8 @@ async function createRoomContestAction(input: unknown) {
           : undefined,
         deadline: deadline,
         maxParticipants: maxParticipants,
+        entrantCapacity:
+          format === "bracket" ? data.entrantCapacity : undefined,
       },
       registrations: registrations.data,
     });
@@ -604,6 +662,7 @@ async function createRoomContestAction(input: unknown) {
 
     if (isHeadUser && format !== "1v1") {
       const auditNow = new Date();
+
       await AuditLog.create({
         actor: auditActor(session.user),
         category: "contests",
@@ -638,6 +697,7 @@ async function createRoomContestAction(input: unknown) {
 
       // Schedule the check_start job at the registration deadline
       const delay = Math.max(0, deadlineTime - Date.now());
+
       await reconciliationQueue.add(
         "check_start",
         { contestId: contest._id.toString() },
@@ -653,12 +713,14 @@ async function createRoomContestAction(input: unknown) {
     }
 
     revalidatePath("/internal/contests");
+
     return ok({});
   } catch (err: unknown) {
     logger.error("Contest room creation failed", {
       action: "createRoomContest",
       ...errorToLogMetadata(err),
     });
+
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
@@ -666,11 +728,17 @@ async function createRoomContestAction(input: unknown) {
 async function getContestRegistrationsAction(contestId: string) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
+
     if (!session?.user?.id) return appError("UNAUTHENTICATED", "Unauthorized");
+
     const parsed = contestRegistrationIdSchema.safeParse(contestId);
+
     if (!parsed.success) return validationError(parsed.error);
+
     await connectMongoDB();
+
     const contest = await ContestMatch.findById(contestId).lean();
+
     if (!contest) return appError("NOT_FOUND", "Contest not found");
 
     const User = (await import("@/models/User")).default;
@@ -680,6 +748,7 @@ async function getContestRegistrationsAction(contestId: string) {
     const users = await User.find({ _id: { $in: userIds } }, "image").lean();
 
     const imageMap: Record<string, string> = {};
+
     users.forEach((user) => {
       if (user.image) imageMap[user._id.toString()] = user.image;
     });
@@ -712,23 +781,31 @@ async function getContestRegistrationsAction(contestId: string) {
       action: "getContestRegistrations",
       ...errorToLogMetadata(error),
     });
+
     return appError("INTERNAL_ERROR", "Failed to fetch registrations");
   }
 }
 
 async function unregisterFromContestAction(contestId: string) {
   const session = await auth.api.getSession({ headers: await headers() });
+
   if (!session?.user?.id) return appError("UNAUTHENTICATED", "Unauthorized");
+
   const parsed = contestRegistrationIdSchema.safeParse(contestId);
+
   if (!parsed.success) return validationError(parsed.error);
+
   const result = await leaveContest(session.user.id, parsed.data);
+
   if (result.ok) revalidatePath("/internal/contests");
+
   return result;
 }
 
 async function searchVerifiedUsersAction(query: string) {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
+
   if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
 
   if (!query || query.length < 2) return ok({ users: [] });
@@ -736,6 +813,7 @@ async function searchVerifiedUsersAction(query: string) {
   await connectMongoDB();
 
   const search = prepareSearchQuery(query);
+
   if (!search) return ok({ users: [] });
 
   const users = await User.find({
@@ -758,6 +836,7 @@ async function searchVerifiedUsersAction(query: string) {
     .lean();
 
   const cpUserMap = new Map<string, { cfHandle: string; cfRating: number }>();
+
   for (const c of cpUsers) {
     cpUserMap.set(c.userId.toString(), {
       cfHandle: c.cfHandle,
@@ -769,6 +848,7 @@ async function searchVerifiedUsersAction(query: string) {
     .filter((user) => cpUserMap.has(user._id.toString()))
     .map((user) => {
       const cpData = cpUserMap.get(user._id.toString())!;
+
       return {
         id: user._id.toString(),
         name: user.name ?? "",
@@ -782,11 +862,13 @@ async function searchVerifiedUsersAction(query: string) {
   return ok({ users: result });
 }
 
-// ─── Bracket / Knockout creation for all authenticated users ──────────────────
+// Bracket / Knockout creation for all authenticated users
 
 async function validateStepAction(step: number, input: unknown) {
   const parsed = contestCreationDraftSchema.safeParse(input);
+
   if (!parsed.success) return validationError(parsed.error);
+
   const data = parsed.data;
   const errors: Record<string, string> = {};
 
@@ -794,6 +876,7 @@ async function validateStepAction(step: number, input: unknown) {
     if (data.mode !== "blitz" && data.mode !== "arena") {
       errors.mode = "Mode must be blitz or arena";
     }
+
     if (data.teamSize !== 1 && data.teamSize !== 3) {
       errors.teamSize = "Team size must be 1 or 3";
     }
@@ -806,18 +889,18 @@ async function validateStepAction(step: number, input: unknown) {
     ) {
       errors.startTime = "A valid tournament start time is required";
     }
+
     if (
       data.registrationType !== "open" &&
       data.registrationType !== "closed"
     ) {
       errors.registrationType = "Registration type must be open or closed";
     }
-    if (!data.maxParticipants || isNaN(Number(data.maxParticipants))) {
-      errors.maxParticipants =
-        "Max participants is required and must be a number";
-    } else if (Number(data.maxParticipants) < 2) {
-      errors.maxParticipants = "Minimum 2 participants required";
-    }
+
+    const minimum = data.bracketType === "double_elimination" ? 4 : 2;
+
+    if (!data.entrantCapacity || data.entrantCapacity < minimum)
+      errors.entrantCapacity = `At least ${minimum} entrants required`;
   }
 
   if (step === 3) {
@@ -828,7 +911,9 @@ async function validateStepAction(step: number, input: unknown) {
         errors.presetId = "Invalid preset ID format";
       } else {
         await connectMongoDB();
+
         const preset = await ContestPreset.findById(data.presetId);
+
         if (!preset) {
           errors.presetId = "Selected preset does not exist";
         } else if (preset.archived) {
@@ -838,28 +923,21 @@ async function validateStepAction(step: number, input: unknown) {
     }
   }
 
-  if (step === 4 || step === 5) {
-    if (
-      data.seedingMethod &&
-      data.seedingMethod !== "cf_rating" &&
-      data.seedingMethod !== "manual"
-    ) {
-      errors.seedingMethod = "Seeding method must be cf_rating or manual";
-    }
-  }
-
   return ok({ valid: Object.keys(errors).length === 0, errors });
 }
 
 async function createBracketContestAction(input: unknown) {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
+
   if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
 
   const isHeadUser = isHead(session.user.access);
 
   const parsed = contestCreationPayloadSchema.safeParse(input);
+
   if (!parsed.success) return validationError(parsed.error);
+
   const data = parsed.data;
 
   if (
@@ -872,34 +950,38 @@ async function createBracketContestAction(input: unknown) {
     );
   }
 
-  if (!isHeadUser && data.maxParticipants > 8) {
+  if (!isHeadUser && (data.entrantCapacity ?? 0) > 8) {
     return appError(
       "FORBIDDEN",
-      "Non-admin users cannot create a knockout tournament with more than 8 participants.",
+      "Non-admin users cannot create a knockout tournament with more than 8 entrants.",
     );
   }
 
   await connectMongoDB();
 
-  // ── Server-side validation ──────────────────────────────────────────────────
+  // Server-side validation
   if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
     return appError("VALIDATION_ERROR", "Contest name is required.");
   }
+
   if (data.name.trim().length > 100) {
     return appError(
       "VALIDATION_ERROR",
       "Contest name must be 100 characters or fewer.",
     );
   }
+
   if (!data.mode || !["blitz", "arena"].includes(data.mode)) {
     return appError(
       "VALIDATION_ERROR",
       "Mode must be either 'blitz' or 'arena'.",
     );
   }
+
   if (!data.startTime || isNaN(new Date(data.startTime).getTime())) {
     return appError("VALIDATION_ERROR", "A valid start time is required.");
   }
+
   const _deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
   const _startMs = new Date(data.startTime).getTime();
   const startError = contestStartTimeError(
@@ -907,11 +989,15 @@ async function createBracketContestAction(input: unknown) {
     false,
     contestRegistrationTiming(webEnv),
   );
+
   if (startError) return appError("VALIDATION_ERROR", startError);
+
   const bracketInputValidation = validateBracketContestInput(data);
+
   if (!bracketInputValidation.success) {
     return appError("VALIDATION_ERROR", bracketInputValidation.error);
   }
+
   if (
     data.registrationStartTime &&
     isNaN(new Date(data.registrationStartTime).getTime())
@@ -921,15 +1007,19 @@ async function createBracketContestAction(input: unknown) {
       "Registration start time must be a valid date.",
     );
   }
+
   const registrationDeadlineMs = _startMs - _deadlineMinutes * 60_000;
+
   if (data.registrationType === "open" && data.registrationStartTime) {
     const registrationStartMs = new Date(data.registrationStartTime).getTime();
+
     if (registrationStartMs <= Date.now()) {
       return appError(
         "VALIDATION_ERROR",
         "Scheduled registration must start in the future.",
       );
     }
+
     if (registrationStartMs >= registrationDeadlineMs) {
       return appError(
         "VALIDATION_ERROR",
@@ -937,7 +1027,6 @@ async function createBracketContestAction(input: unknown) {
       );
     }
   }
-  // ───────────────────────────────────────────────────────────────────────────
 
   let presetId = undefined;
   let problemSelectionMode = data.problemSelectionMode;
@@ -952,9 +1041,12 @@ async function createBracketContestAction(input: unknown) {
   if (data.presetId && data.presetId !== "custom") {
     const ContestPreset = (await import("@/models/ContestPreset")).default;
     const preset = await ContestPreset.findById(data.presetId);
+
     if (!preset) return appError("NOT_FOUND", "Selected preset does not exist");
+
     if (preset.archived)
       return appError("INTERNAL_ERROR", "An unexpected error occurred.");
+
     presetId = preset._id;
     problemSelectionMode = preset.problemSelectionMode ?? "bulk";
     bulkPlatform = preset.bulkPlatform ?? "codeforces";
@@ -988,22 +1080,26 @@ async function createBracketContestAction(input: unknown) {
         "Problem selection mode must be 'bulk' or 'fine-tuned'.",
       );
     }
+
     if (problemSelectionMode === "bulk") {
       const rMin = Number(bulkRatingMin);
       const rMax = Number(bulkRatingMax);
       const rCount = Number(bulkProblemCount);
+
       if (isNaN(rMin) || isNaN(rMax) || rMin < 800 || rMax > 3500) {
         return appError(
           "VALIDATION_ERROR",
           "Rating range must be between 800 and 3500.",
         );
       }
+
       if (rMin >= rMax) {
         return appError(
           "VALIDATION_ERROR",
           "Minimum rating must be less than maximum rating.",
         );
       }
+
       if (isNaN(rCount) || rCount < 1 || rCount > 20) {
         return appError(
           "VALIDATION_ERROR",
@@ -1011,6 +1107,7 @@ async function createBracketContestAction(input: unknown) {
         );
       }
     }
+
     if (problemSelectionMode === "fine-tuned") {
       if (!Array.isArray(data.problemSlots) || data.problemSlots.length === 0) {
         return appError(
@@ -1018,14 +1115,18 @@ async function createBracketContestAction(input: unknown) {
           "Fine-tuned problem slots with round assignments are required for a bracket contest.",
         );
       }
+
       problemSlots = data.problemSlots.filter(
         (slot) => slot.problemId.trim() !== "",
       );
+
       if (problemSlots.length === 0) {
         return appError("INTERNAL_ERROR", "An unexpected error occurred.");
       }
+
       for (let i = 0; i < problemSlots.length; i++) {
         const slot = problemSlots[i];
+
         if (
           slot.points !== undefined &&
           slot.points !== null &&
@@ -1041,10 +1142,12 @@ async function createBracketContestAction(input: unknown) {
   }
 
   const registrations = await prepareContestRegistrations(data);
+
   if (!registrations.ok) return registrations;
 
   try {
     const cpUser = await CPUser.findOne({ userId: session.user.id });
+
     if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
     const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
@@ -1078,17 +1181,17 @@ async function createBracketContestAction(input: unknown) {
           new Date(data.startTime).getTime() - deadlineMinutes * 60000,
         ),
         maxParticipants: Number(data.maxParticipants),
+        entrantCapacity: data.entrantCapacity,
       },
       overallDurationMinutes: data.overallDurationMinutes,
       perProblemDurationMinutes: data.perProblemDurationMinutes,
       bracketSettings: {
         type: data.bracketType || "single_elimination",
-        thirdPlacePlayoff: !!data.thirdPlacePlayoff,
-        seedingMethod: data.seedingMethod || "cf_rating",
       },
     });
 
     const auditNow = new Date();
+
     await AuditLog.create({
       actor: auditActor(session.user),
       category: "contests",
@@ -1141,12 +1244,14 @@ async function createBracketContestAction(input: unknown) {
     }
 
     revalidatePath("/internal/contests");
+
     return ok({ contestId: contest._id.toString() });
   } catch (err: unknown) {
     logger.error("[createBracketContest] Failed to create bracket contest", {
       err,
       userId: session.user.id,
     });
+
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }
@@ -1155,12 +1260,17 @@ async function getContestTeamRequestsAction(teamId: string) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
+
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
     await connectMongoDB();
+
     const parsed = contestRegistrationIdSchema.safeParse(teamId);
+
     if (!parsed.success) return validationError(parsed.error);
+
     const team = await ContestRegistrationTeam.findById(parsed.data);
+
     if (!team) return appError("NOT_FOUND", "Team not found");
 
     if (team.leaderId !== userId) {
@@ -1175,8 +1285,10 @@ async function getContestTeamRequestsAction(teamId: string) {
 
     // Collect all userIds we need to resolve
     const userIds = new Set<string>();
+
     for (const req of requests) {
       if (req.fromUserId) userIds.add(req.fromUserId);
+
       if (req.toUserId) userIds.add(req.toUserId);
     }
 
@@ -1185,6 +1297,7 @@ async function getContestTeamRequestsAction(teamId: string) {
       "userId cfHandle",
     ).lean();
     const handleMap = new Map<string, string>();
+
     for (const cp of cpUsers) {
       handleMap.set(cp.userId.toString(), cp.cfHandle || cp.userId.toString());
     }
@@ -1199,6 +1312,7 @@ async function getContestTeamRequestsAction(teamId: string) {
       action: "getContestTeamRequests",
       ...errorToLogMetadata(error),
     });
+
     return appError("INTERNAL_ERROR", "An unexpected error occurred");
   }
 }
@@ -1208,11 +1322,17 @@ async function requestToJoinContestTeamAction(
   teamId: string,
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
+
   if (!session?.user?.id) return appError("UNAUTHENTICATED", "Unauthorized");
+
   const parsed = contestTeamTargetSchema.safeParse({ contestId, teamId });
+
   if (!parsed.success) return validationError(parsed.error);
+
   const result = await sendContestTeamRequest(session.user.id, parsed.data);
+
   if (result.ok) revalidatePath("/internal/contests");
+
   return result;
 }
 
@@ -1222,15 +1342,21 @@ async function inviteToContestTeamAction(
   cfHandle: string,
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
+
   if (!session?.user?.id) return appError("UNAUTHENTICATED", "Unauthorized");
+
   const parsed = contestTeamInviteSchema.safeParse({
     contestId,
     teamId,
     cfHandle,
   });
+
   if (!parsed.success) return validationError(parsed.error);
+
   const result = await sendContestTeamRequest(session.user.id, parsed.data);
+
   if (result.ok) revalidatePath("/internal/contests");
+
   return result;
 }
 
@@ -1239,15 +1365,21 @@ async function respondToContestTeamRequestAction(
   action: "accept" | "reject",
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
+
   if (!session?.user?.id) return appError("UNAUTHENTICATED", "Unauthorized");
+
   const parsed = contestTeamResponseSchema.safeParse({ requestId, action });
+
   if (!parsed.success) return validationError(parsed.error);
+
   const result = await respondToTeamRequest(
     session.user.id,
     parsed.data.requestId,
     parsed.data.action,
   );
+
   if (result.ok) revalidatePath("/internal/contests");
+
   return result;
 }
 
@@ -1255,6 +1387,7 @@ async function getMyContestInvitesAction() {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
+
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
     await connectMongoDB();
@@ -1280,6 +1413,7 @@ async function getMyContestInvitesAction() {
         const leaderCp = team
           ? await CPUser.findOne({ userId: team.leaderId }, "cfHandle").lean()
           : null;
+
         return {
           _id: invite._id.toString(),
           teamId: invite.teamId.toString(),
@@ -1298,6 +1432,7 @@ async function getMyContestInvitesAction() {
       action: "getMyContestInvites",
       ...errorToLogMetadata(error),
     });
+
     return appError("INTERNAL_ERROR", "An unexpected error occurred");
   }
 }
@@ -1306,6 +1441,7 @@ async function getMyTeamJoinRequestsAction() {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const userId = session?.user?.id;
+
     if (!userId) return appError("UNAUTHENTICATED", "Unauthorized");
 
     await connectMongoDB();
@@ -1315,6 +1451,7 @@ async function getMyTeamJoinRequestsAction() {
       { leaderId: userId },
       "_id name contestId",
     ).lean();
+
     if (myTeams.length === 0) return ok([]);
 
     // Now find pending join requests for these teams
@@ -1358,6 +1495,7 @@ async function getMyTeamJoinRequestsAction() {
     const enriched = requests.map((req) => {
       const team = teamMap.get(req.teamId.toString());
       const contest = team ? contestMap.get(team.contestId.toString()) : null;
+
       return {
         _id: req._id.toString(),
         teamId: req.teamId.toString(),
@@ -1375,6 +1513,7 @@ async function getMyTeamJoinRequestsAction() {
       action: "getMyTeamJoinRequests",
       ...errorToLogMetadata(error),
     });
+
     return appError("INTERNAL_ERROR", "An unexpected error occurred");
   }
 }

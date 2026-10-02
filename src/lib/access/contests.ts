@@ -18,7 +18,6 @@ export function canManageContest(
 ) {
   return (
     isHead(viewer.access) ||
-    String(contest.creatorId) === viewer.id ||
     (cpUserId !== undefined && String(contest.creatorId) === cpUserId)
   );
 }
@@ -28,17 +27,31 @@ export function canSpectateContest(
   viewer: ContestViewer | null | undefined,
   cpUserId?: string,
 ): boolean {
-  if (!viewer) return false;
+  if (!viewer) {
+    return false;
+  }
+
   const restriction = contest.spectatorRestriction ?? "none";
-  if (restriction === "none") return false;
-  if (restriction === "all") return true;
-  if (restriction === "admin_creator")
+
+  if (restriction === "none") {
+    return false;
+  }
+
+  if (restriction === "all") {
+    return true;
+  }
+
+  if (restriction === "admin_creator") {
     return canManageContest(contest, viewer, cpUserId);
-  if (restriction === "club_members")
+  }
+
+  if (restriction === "club_members") {
     return (
       canManageContest(contest, viewer, cpUserId) ||
       parseRoles(viewer.roles).length > 0
     );
+  }
+
   return false;
 }
 
@@ -49,6 +62,7 @@ async function spectatorPermission(
   const profile = await CPUser.findOne({ userId: viewer.id })
     .select("_id")
     .lean();
+
   return canSpectateContest(contest, viewer, profile?._id.toString());
 }
 
@@ -56,12 +70,22 @@ export async function authorizeContestView(
   contestId: string,
   viewer: ContestViewer | null | undefined,
 ) {
-  if (!viewer) return err("UNAUTHENTICATED", "Authentication required.");
-  if (!objectIdStringSchema.safeParse(contestId).success)
+  if (!viewer) {
+    return err("UNAUTHENTICATED", "Authentication required.");
+  }
+
+  if (!objectIdStringSchema.safeParse(contestId).success) {
     return err("VALIDATION_ERROR", "Invalid contest ID.");
+  }
+
   await connectMongoDB();
+
   const contest = await ContestMatch.findById(contestId);
-  if (!contest) return err("NOT_FOUND", "Contest not found.");
+
+  if (!contest) {
+    return err("NOT_FOUND", "Contest not found.");
+  }
+
   const canSpectate = await spectatorPermission(contest, viewer);
   const isParticipant =
     Boolean(
@@ -75,8 +99,11 @@ export async function authorizeContestView(
         participants: viewer.id,
       }),
     );
-  if (!isParticipant && !canSpectate)
+
+  if (!isParticipant && !canSpectate) {
     return err("FORBIDDEN", "You do not have access to this contest.");
+  }
+
   return ok({ contest, canSpectate, isParticipant });
 }
 
@@ -85,32 +112,50 @@ export async function authorizeRoomView(
   viewer: ContestViewer | null | undefined,
   contestId?: string,
 ) {
-  if (!viewer) return err("UNAUTHENTICATED", "Authentication required.");
+  if (!viewer) {
+    return err("UNAUTHENTICATED", "Authentication required.");
+  }
+
   if (
     !objectIdStringSchema.safeParse(roomId).success ||
     (contestId !== undefined &&
       !objectIdStringSchema.safeParse(contestId).success)
-  )
+  ) {
     return err("VALIDATION_ERROR", "Invalid room or contest ID.");
+  }
+
   await connectMongoDB();
+
   const room = await ContestRoom.findOne({
     _id: roomId,
     ...(contestId ? { contestId } : {}),
   }).lean();
-  if (!room) return err("NOT_FOUND", "Room not found in this contest.");
+
+  if (!room) {
+    return err("NOT_FOUND", "Room not found in this contest.");
+  }
+
   const contest = await ContestMatch.findById(room.contestId);
-  if (!contest) return err("NOT_FOUND", "Contest not found.");
+
+  if (!contest) {
+    return err("NOT_FOUND", "Contest not found.");
+  }
+
+  // Both the room roster and a team in this contest must admit the viewer
   const team = room.participants.some((id) => String(id) === viewer.id)
     ? await ContestTeam.findOne({
         roomId: room._id,
         members: viewer.id,
-        $or: [{ contestId: room.contestId }, { contestId: { $exists: false } }],
+        contestId: room.contestId,
       }).lean()
     : null;
   const isParticipant = team !== null;
   const canSpectate = await spectatorPermission(contest, viewer);
-  if (!isParticipant && !canSpectate)
+
+  if (!isParticipant && !canSpectate) {
     return err("FORBIDDEN", "You do not have access to this room.");
+  }
+
   return ok({
     room,
     contest,

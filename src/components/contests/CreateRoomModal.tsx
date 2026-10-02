@@ -1,18 +1,11 @@
 "use client";
 
-import {
-  GripVertical,
-  Lock,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Lock, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { bracketProblemRequirements } from "@/lib/contests/bracketTopology";
 import {
   createRoomContest,
   searchVerifiedUsers,
@@ -30,7 +23,6 @@ import {
   applyContestPreset,
   createInitialContestForm,
   getMaxParticipantsError,
-  reorderContestEntries,
   type ContestCreationPreset,
   type ContestParticipant,
 } from "@/components/contests/contestCreationForm";
@@ -92,22 +84,20 @@ export default function CreateRoomModal({
   const [searchResults, setSearchResults] = useState<ContestParticipant[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedUserIndex, setSelectedUserIndex] = useState(0);
-  const [draggedUserIndex, setDraggedUserIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [draggedTeamIndex, setDraggedTeamIndex] = useState<number | null>(null);
-  const [dragOverTeamIndex, setDragOverTeamIndex] = useState<number | null>(
-    null,
-  );
 
   useEffect(() => {
     if (searchQuery.length < 2) {
       setSearchResults([]);
+
       return;
     }
+
     const timer = setTimeout(async () => {
       setIsSearching(true);
+
       try {
         const res = await searchVerifiedUsers(searchQuery);
+
         if (res.ok && res.data.users) {
           const isUserInAnyTeam = (id: string) =>
             manualTeams.some((t) => t.members.some((m) => m.id === id));
@@ -116,6 +106,7 @@ export default function CreateRoomModal({
               !registeredUsers.some((invitee) => invitee.id === user.id) &&
               !isUserInAnyTeam(user.id),
           );
+
           setSearchResults(filtered);
           setSelectedUserIndex(0);
         }
@@ -125,20 +116,23 @@ export default function CreateRoomModal({
         setIsSearching(false);
       }
     }, 300);
+
     return () => clearTimeout(timer);
   }, [manualTeams, registeredUsers, searchQuery]);
 
   useEffect(() => {
     setFormData(applyContestFormatDefaults);
-  }, [formData.format]);
+  }, [formData.format, formData.teamSize, formData.entrantCapacity]);
 
   const handleTopPresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;
+
     setTopPresetId(id);
 
     if (!id) return;
 
     const preset = presets.find((p) => p._id === id);
+
     if (preset) {
       setFormData((prev) => applyContestPreset(prev, preset));
     }
@@ -146,6 +140,7 @@ export default function CreateRoomModal({
 
   const [maxPartError, setMaxPartError] = useState("");
   const [fineTunedCountError, setFineTunedCountError] = useState("");
+
   useEffect(() => {
     setMaxPartError(
       getMaxParticipantsError(formData, manualTeams.length, isHead),
@@ -177,19 +172,22 @@ export default function CreateRoomModal({
       isCasual1v1,
       registrationTiming,
     );
+
     if (startError) {
       toast.error(startError);
+
       return;
     }
 
     if (
       !isHead &&
       formData.format === "bracket" &&
-      Number(formData.maxParticipants) > 8
+      Number(formData.entrantCapacity) > 8
     ) {
       toast.error(
-        "Non-admin users cannot create a knockout tournament with more than 8 members.",
+        "Non-admin users cannot create a knockout tournament with more than 8 entrants.",
       );
+
       return;
     }
 
@@ -217,28 +215,37 @@ export default function CreateRoomModal({
       formData.problemSelectionMode === "fine-tuned"
     ) {
       const emptyIndex = formData.fineTunedProblems.findIndex((p) => !p.trim());
+
       if (emptyIndex !== -1) {
         toast.error(`Please enter a Problem ID for Problem ${emptyIndex + 1}.`);
+
         return;
       }
     }
 
     let regStartIso = undefined;
+
     if (formData.registrationStartMode === "schedule") {
       const rStart = new Date(formData.registrationStartTime);
+
       if (isNaN(rStart.getTime()) || rStart.getTime() <= Date.now()) {
         toast.error("Scheduled registration start time must be in the future.");
+
         return;
       }
+
       if (rStart.getTime() >= start.getTime()) {
         toast.error("Registration must start before the contest deadline.");
+
         return;
       }
+
       regStartIso = rStart.toISOString();
     }
 
     let finalRegisteredUsers =
       formData.registrationType === "closed" ? registeredUsers : [];
+
     if (formData.registrationType === "closed") {
       if (useTeamsUI) {
         for (const team of manualTeams) {
@@ -246,9 +253,11 @@ export default function CreateRoomModal({
             toast.error(
               `Team "${team.name}" does not have exactly ${membersPerTeamLimit} member(s).`,
             );
+
             return;
           }
         }
+
         finalRegisteredUsers = manualTeams.flatMap((team) =>
           team.members.map((member) => ({ ...member, teamName: team.name })),
         );
@@ -256,9 +265,11 @@ export default function CreateRoomModal({
         if (formData.format === "1v1") {
           if (registeredUsers.length !== 2) {
             toast.error("1v1 format requires exactly 2 participants.");
+
             return;
           }
         }
+
         finalRegisteredUsers = registeredUsers.map((member) => ({
           ...member,
           teamName: member.name || member.cfHandle,
@@ -272,6 +283,7 @@ export default function CreateRoomModal({
 
       if (!effectivePresetId) {
         toast.error("Please select a match preset for the bracket.");
+
         return;
       }
 
@@ -281,15 +293,33 @@ export default function CreateRoomModal({
         problemId: string;
         roundNumber: number;
       }[] = [];
+
       if (formData.problemSelectionMode === "fine-tuned") {
-        for (const rnd of bracketRoundProblems) {
+        for (const requirement of bracketProblemRequirements(
+          formData.entrantCapacity,
+          formData.bracketType || "single_elimination",
+          formData.bulkProblemCount || 3,
+        )) {
+          const rnd = {
+            roundNumber: requirement.roundNumber,
+            problemIds: Array.from(
+              { length: requirement.problemCount },
+              (_, index) =>
+                bracketRoundProblems.find(
+                  (round) => round.roundNumber === requirement.roundNumber,
+                )?.problemIds[index] ?? "",
+            ),
+          };
+
           for (const pid of rnd.problemIds) {
             if (!pid.trim()) {
               toast.error(
                 `Round ${rnd.roundNumber}: all problem IDs must be filled in.`,
               );
+
               return;
             }
+
             bracketProblemSlots.push({
               platform: "codeforces",
               problemId: pid.trim(),
@@ -300,6 +330,7 @@ export default function CreateRoomModal({
       }
 
       setLoading(true);
+
       try {
         const res = await createBracketContest({
           ...formData,
@@ -319,6 +350,7 @@ export default function CreateRoomModal({
               }
             : {}),
         });
+
         if (!res.ok) {
           toast.error(res.error.message);
         } else {
@@ -330,23 +362,30 @@ export default function CreateRoomModal({
       } finally {
         setLoading(false);
       }
+
       return;
     }
 
     if (formData.problemSelectionMode === "fine-tuned") {
       const pids = formData.fineTunedProblems;
+
       if (!pids || pids.length === 0) {
         toast.error("Please specify at least one problem.");
+
         return;
       }
 
       for (let i = 0; i < pids.length; i++) {
         const pid = pids[i]?.trim();
+
         if (!pid) {
           toast.error(`Problem ${i + 1} ID is required.`);
+
           return;
         }
+
         const pts = formData.fineTunedProblemPoints?.[i];
+
         if (
           pts === undefined ||
           pts === null ||
@@ -354,10 +393,13 @@ export default function CreateRoomModal({
           typeof pts !== "number"
         ) {
           toast.error(`Problem ${i + 1} points are mandatory.`);
+
           return;
         }
+
         if (pts < 80) {
           toast.error(`Problem ${i + 1} points must be at least 80.`);
+
           return;
         }
       }
@@ -368,6 +410,7 @@ export default function CreateRoomModal({
       formData.fineTunedProblems.length > 0
         ? formData.fineTunedProblems.map((pid, idx) => {
             const rawPoints = formData.fineTunedProblemPoints?.[idx];
+
             return {
               platform: "codeforces",
               problemId: pid.trim(),
@@ -378,6 +421,7 @@ export default function CreateRoomModal({
         : undefined;
 
     setLoading(true);
+
     try {
       const res = await createRoomContest({
         ...formData,
@@ -391,6 +435,7 @@ export default function CreateRoomModal({
           (p) => p.trim() !== "",
         ),
       });
+
       if (!res.ok) {
         toast.error(res.error.message);
       } else {
@@ -406,6 +451,7 @@ export default function CreateRoomModal({
 
   const handleTimeAdd = (mins: number) => {
     const date = new Date();
+
     date.setMinutes(date.getMinutes() + mins);
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     setFormData({ ...formData, startTime: date.toISOString().slice(0, 16) });
@@ -413,6 +459,7 @@ export default function CreateRoomModal({
 
   const handleRegTimeAdd = (mins: number) => {
     const date = new Date();
+
     date.setMinutes(date.getMinutes() + mins);
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     setFormData({
@@ -421,97 +468,8 @@ export default function CreateRoomModal({
     });
   };
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedUserIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-    // Required for Firefox
-    e.dataTransfer.setData("text/html", e.currentTarget.innerHTML);
-    e.dataTransfer.setData("text/plain", index.toString());
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (draggedUserIndex !== null && draggedUserIndex !== index) {
-      setDragOverIndex(index);
-    }
-  };
-
-  const handleDragLeave = () => {
-    setDragOverIndex(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedUserIndex(null);
-    setDragOverIndex(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    const draggedIdxStr = e.dataTransfer.getData("text/plain");
-    if (!draggedIdxStr) {
-      handleDragEnd();
-      return;
-    }
-    const draggedIdx = parseInt(draggedIdxStr, 10);
-    if (draggedIdx === index) {
-      handleDragEnd();
-      return;
-    }
-
-    setRegisteredUsers((prev) => {
-      return reorderContestEntries(prev, draggedIdx, index);
-    });
-
-    handleDragEnd();
-  };
-
   const removeUser = (id: string) => {
     setRegisteredUsers((prev) => prev.filter((u) => u.id !== id));
-  };
-
-  const handleTeamDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedTeamIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/html", e.currentTarget.innerHTML);
-    e.dataTransfer.setData("text/plain", index.toString());
-  };
-
-  const handleTeamDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (draggedTeamIndex !== null && draggedTeamIndex !== index) {
-      setDragOverTeamIndex(index);
-    }
-  };
-
-  const handleTeamDragLeave = () => {
-    setDragOverTeamIndex(null);
-  };
-
-  const handleTeamDragEnd = () => {
-    setDraggedTeamIndex(null);
-    setDragOverTeamIndex(null);
-  };
-
-  const handleTeamDrop = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    const draggedIdxStr = e.dataTransfer.getData("text/plain");
-    if (!draggedIdxStr) {
-      handleTeamDragEnd();
-      return;
-    }
-    const draggedIdx = parseInt(draggedIdxStr, 10);
-    if (draggedIdx === index) {
-      handleTeamDragEnd();
-      return;
-    }
-
-    setManualTeams((prev) => {
-      return reorderContestEntries(prev, draggedIdx, index);
-    });
-
-    handleTeamDragEnd();
   };
 
   const renderProblemConfiguration = () => (
@@ -678,6 +636,7 @@ export default function CreateRoomModal({
                 value={formData.format}
                 onChange={(e) => {
                   const nextFormat = e.target.value;
+
                   setFormData((prev) =>
                     applyContestFormatDefaults({ ...prev, format: nextFormat }),
                   );
@@ -716,7 +675,9 @@ export default function CreateRoomModal({
             </div>
             <div className={styles.field}>
               <label className={styles.label} htmlFor="max-participants">
-                Max Participants
+                {formData.format === "bracket"
+                  ? "Max Entrants (players or teams)"
+                  : "Max Participants"}
               </label>
               <input
                 required
@@ -725,14 +686,26 @@ export default function CreateRoomModal({
                 min={formData.format === "team-tournament" ? 6 : 2}
                 step={formData.format === "team-tournament" ? 3 : 1}
                 value={
-                  Number.isNaN(formData.maxParticipants)
+                  Number.isNaN(
+                    formData.format === "bracket"
+                      ? formData.entrantCapacity
+                      : formData.maxParticipants,
+                  )
                     ? ""
-                    : formData.maxParticipants
+                    : formData.format === "bracket"
+                      ? formData.entrantCapacity
+                      : formData.maxParticipants
                 }
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    maxParticipants: parseInt(e.target.value),
+                    ...(formData.format === "bracket"
+                      ? {
+                          entrantCapacity: parseInt(e.target.value),
+                          maxParticipants:
+                            parseInt(e.target.value) * formData.teamSize,
+                        }
+                      : { maxParticipants: parseInt(e.target.value) }),
                   })
                 }
                 disabled={isMaxPartLocked}
@@ -765,6 +738,7 @@ export default function CreateRoomModal({
                   const selectedMatchPreset = presets.find(
                     (p) => p._id === formData.presetId,
                   );
+
                   return selectedMatchPreset ? (
                     <div className={styles.presetInfo}>
                       <span className={styles.presetInfoName}>
@@ -794,35 +768,6 @@ export default function CreateRoomModal({
 
               <div className={styles.grid2}>
                 <div className={styles.field}>
-                  <label className={styles.label} htmlFor="seeding-method">
-                    Seeding Method
-                  </label>
-                  <select
-                    id="seeding-method"
-                    value={formData.seedingMethod}
-                    disabled={!!topPresetId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === "manual") {
-                        setFormData({
-                          ...formData,
-                          seedingMethod: val,
-                          registrationType: "closed",
-                        });
-                      } else {
-                        setFormData({ ...formData, seedingMethod: val });
-                      }
-                    }}
-                    className={`${styles.formInput} ${styles.formSelect}`}
-                  >
-                    <option value="cf_rating">
-                      Codeforces Rating (Average)
-                    </option>
-                    <option value="manual">Manual Seeding</option>
-                  </select>
-                </div>
-
-                <div className={styles.field}>
                   <label className={styles.label} htmlFor="bracket-type">
                     Elimination Type
                   </label>
@@ -848,23 +793,10 @@ export default function CreateRoomModal({
                   </select>
                 </div>
 
-                <div className={styles.field}>
-                  <label className={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={formData.thirdPlacePlayoff}
-                      disabled={!!topPresetId}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          thirdPlacePlayoff: e.target.checked,
-                        })
-                      }
-                      className={styles.checkbox}
-                    />
-                    <span>Third Place Playoff</span>
-                  </label>
-                </div>
+                <p className={styles.hintMuted}>
+                  Seeds use Codeforces ratings frozen at bracket generation,
+                  averaged for teams. Highest seeds receive byes.
+                </p>
               </div>
 
               {!topPresetId && renderProblemConfiguration()}
@@ -885,10 +817,6 @@ export default function CreateRoomModal({
                       ...formData,
                       registrationType: e.target.value,
                     })
-                  }
-                  disabled={
-                    formData.format === "bracket" &&
-                    formData.seedingMethod === "manual"
                   }
                   className={`${styles.formInput} ${styles.formSelect}`}
                 >
@@ -991,44 +919,15 @@ export default function CreateRoomModal({
                 {useTeamsUI ? (
                   <div className={styles.teamsList}>
                     {manualTeams.map((team, teamIndex) => (
-                      <div
-                        key={team.id}
-                        draggable={formData.seedingMethod === "manual"}
-                        onDragStart={(e) => handleTeamDragStart(e, teamIndex)}
-                        onDragOver={(e) => handleTeamDragOver(e, teamIndex)}
-                        onDragLeave={handleTeamDragLeave}
-                        onDragEnd={handleTeamDragEnd}
-                        onDrop={(e) => handleTeamDrop(e, teamIndex)}
-                        className={`${styles.teamCard} ${
-                          formData.seedingMethod === "manual"
-                            ? styles.teamCardDraggable
-                            : ""
-                        } ${
-                          draggedTeamIndex === teamIndex
-                            ? styles.dragging
-                            : dragOverTeamIndex === teamIndex
-                              ? styles.dragOver
-                              : ""
-                        }`}
-                      >
+                      <div key={team.id} className={styles.teamCard}>
                         <div className={styles.teamCardHeader}>
                           <div className={styles.teamNameWrap}>
-                            {formData.seedingMethod === "manual" && (
-                              <>
-                                <GripVertical
-                                  className={styles.dragHandle}
-                                  size={18}
-                                />
-                                <span className={styles.seedNum}>
-                                  #{teamIndex + 1}
-                                </span>
-                              </>
-                            )}
                             <input
                               type="text"
                               value={team.name}
                               onChange={(e) => {
                                 const newTeams = [...manualTeams];
+
                                 newTeams[teamIndex].name = e.target.value;
                                 setManualTeams(newTeams);
                               }}
@@ -1078,6 +977,7 @@ export default function CreateRoomModal({
                                 type="button"
                                 onClick={() => {
                                   const newTeams = [...manualTeams];
+
                                   newTeams[teamIndex].members = newTeams[
                                     teamIndex
                                   ].members.filter((m) => m.id !== member.id);
@@ -1124,12 +1024,14 @@ export default function CreateRoomModal({
                                     );
                                   } else if (e.key === "Enter") {
                                     e.preventDefault();
+
                                     if (
                                       searchResults.length > 0 &&
                                       selectedUserIndex >= 0 &&
                                       selectedUserIndex < searchResults.length
                                     ) {
                                       const newTeams = [...manualTeams];
+
                                       newTeams[teamIndex].members.push(
                                         searchResults[selectedUserIndex],
                                       );
@@ -1163,6 +1065,7 @@ export default function CreateRoomModal({
                                         }`}
                                         onClick={() => {
                                           const newTeams = [...manualTeams];
+
                                           newTeams[teamIndex].members.push(
                                             user,
                                           );
@@ -1281,6 +1184,7 @@ export default function CreateRoomModal({
                               );
                             } else if (e.key === "Enter") {
                               e.preventDefault();
+
                               if (
                                 searchResults.length > 0 &&
                                 selectedUserIndex >= 0 &&
@@ -1365,104 +1269,33 @@ export default function CreateRoomModal({
 
                 {formData.teamSize === 1 && registeredUsers.length > 0 && (
                   <>
-                    {formData.seedingMethod === "manual" ? (
-                      <div className={styles.soloList}>
-                        {registeredUsers.map((u, index) => (
-                          <div
-                            key={u.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, index)}
-                            onDragOver={(e) => handleDragOver(e, index)}
-                            onDragLeave={handleDragLeave}
-                            onDragEnd={handleDragEnd}
-                            onDrop={(e) => handleDrop(e, index)}
-                            className={`${styles.soloRow} ${
-                              draggedUserIndex === index
-                                ? styles.dragging
-                                : dragOverIndex === index
-                                  ? styles.dragOver
-                                  : ""
-                            }`}
-                          >
-                            <div className={styles.soloInfo}>
-                              <GripVertical
-                                className={styles.dragHandle}
-                                size={18}
-                              />
-                              <span className={styles.seedNum}>
-                                #{index + 1}
-                              </span>
-                              <UserAvatar
-                                name={u.name}
-                                image={u.image}
-                                size={32}
-                              />
-                              <div className={styles.soloUserCol}>
-                                <div className={styles.searchUserTop}>
-                                  <span className={styles.searchUserName}>
-                                    {getDisplayName(u.name, u.pizza_count)}
-                                  </span>
-                                  <span className={styles.searchSepInline}>
-                                    |
-                                  </span>
-                                  <span
-                                    className={`${styles.searchUserRating} ${getRatingClass(
-                                      u.cfRating,
-                                    )}`}
-                                  >
-                                    {u.cfRating || "Unrated"}
-                                  </span>
-                                </div>
-                                <span className={styles.searchUserHandle}>
-                                  {u.cfHandle}
-                                </span>
-                              </div>
-                            </div>
-                            <div className={styles.memberInfo}>
-                              <button
-                                type="button"
-                                onClick={() => removeUser(u.id)}
-                                className={styles.iconBtnMuted}
-                              >
-                                <X className={styles.icon18} size={18} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className={styles.chipList}>
-                        {registeredUsers.map((u) => (
-                          <div key={u.id} className={styles.chip}>
-                            <UserAvatar
-                              name={u.name}
-                              image={u.image}
-                              size={24}
-                            />
-                            <div className={styles.chipBody}>
-                              <span className={styles.memberName}>
-                                {getDisplayName(u.name, u.pizza_count)}
-                              </span>
-                              <span className={styles.sep}>|</span>
-                              <span
-                                className={`${styles.ratingValue} ${getRatingClass(
-                                  u.cfRating,
-                                )}`}
-                              >
-                                {u.cfRating || "Unrated"}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeUser(u.id)}
-                              className={styles.iconBtnChip}
+                    <div className={styles.chipList}>
+                      {registeredUsers.map((u) => (
+                        <div key={u.id} className={styles.chip}>
+                          <UserAvatar name={u.name} image={u.image} size={24} />
+                          <div className={styles.chipBody}>
+                            <span className={styles.memberName}>
+                              {getDisplayName(u.name, u.pizza_count)}
+                            </span>
+                            <span className={styles.sep}>|</span>
+                            <span
+                              className={`${styles.ratingValue} ${getRatingClass(
+                                u.cfRating,
+                              )}`}
                             >
-                              <X className={styles.icon16} size={16} />
-                            </button>
+                              {u.cfRating || "Unrated"}
+                            </span>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          <button
+                            type="button"
+                            onClick={() => removeUser(u.id)}
+                            className={styles.iconBtnChip}
+                          >
+                            <X className={styles.icon16} size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </>
                 )}
 
@@ -1496,6 +1329,7 @@ export default function CreateRoomModal({
                 const quickAddMins = isCasual1v1
                   ? [2, 3, 5, 10]
                   : [deadlineMinutes + 2, deadlineMinutes + 3, 10, 15];
+
                 return (
                   <div className={styles.timeAddRow}>
                     {quickAddMins.map((mins) => (

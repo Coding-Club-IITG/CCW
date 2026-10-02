@@ -10,6 +10,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { POST } from "@/app/api/contests/[id]/register/route";
 
 import {
   registerForContest,
@@ -23,14 +24,15 @@ import {
   createRoomContest,
   createBracketContest,
 } from "@/lib/actions/contests";
-import { POST } from "@/app/api/contests/[id]/register/route";
 import { createBracketContest as createAdminBracketContest } from "@/lib/actions/admin/contests";
+
 import AuditLog from "@/models/AuditLog";
 import ContestMatch from "@/models/ContestMatch";
 import ContestRegistrationTeam from "@/models/ContestRegistrationTeam";
 import ContestTeamRequest from "@/models/ContestTeamRequest";
 import CPUser from "@/models/CPUser";
 import Notification from "@/models/Notification";
+
 import {
   clearTestMongo,
   startTestMongo,
@@ -851,6 +853,7 @@ describe("pre-registered contest members", () => {
       mode: "blitz",
       teamSize: 1,
       maxParticipants: 2,
+      entrantCapacity: 2,
       startTime: new Date(Date.now() + 3_600_000).toISOString(),
       registrationType: "closed",
       presetId: "custom",
@@ -865,6 +868,44 @@ describe("pre-registered contest members", () => {
       })),
     };
   }
+  it.each([createRoomContest, createBracketContest])(
+    "allows members eight team entrants and Heads larger brackets",
+    async (create) => {
+      const owner = await member();
+      login(owner.id);
+      const payload = {
+        ...input([]),
+        registrationType: "open",
+        teamSize: 3,
+        entrantCapacity: 8,
+        maxParticipants: 24,
+      };
+      expect(await create(payload)).toMatchObject({ ok: true });
+      expect(
+        (await ContestMatch.findOne())!.registrationSettings,
+      ).toMatchObject({ entrantCapacity: 8, maxParticipants: 24 });
+      expect(
+        await create({ ...payload, entrantCapacity: 9, maxParticipants: 27 }),
+      ).toMatchObject({ ok: false, error: { code: "FORBIDDEN" } });
+      mocks.getSession.mockResolvedValue({
+        user: { id: owner.id, access: "Head" },
+      });
+      expect(
+        await create({ ...payload, entrantCapacity: 9, maxParticipants: 27 }),
+      ).toMatchObject({ ok: true });
+      expect(
+        await create({ ...payload, entrantCapacity: undefined }),
+      ).toMatchObject({ ok: false });
+      expect(
+        await create({
+          ...payload,
+          entrantCapacity: 3,
+          maxParticipants: 9,
+          bracketType: "double_elimination",
+        }),
+      ).toMatchObject({ ok: false });
+    },
+  );
   it.each([createRoomContest, createBracketContest, createAdminBracketContest])(
     "requires verified profiles and saves canonical handles",
     async (create) => {

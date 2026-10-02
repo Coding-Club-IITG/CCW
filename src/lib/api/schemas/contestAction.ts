@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { minimumBracketEntrants } from "@/lib/contests/bracketTopology";
 import { objectIdStringSchema } from "@/lib/api/schemas/contestRoute";
 
 export const contestModeSchema = z.enum(["blitz", "arena"]);
@@ -10,8 +11,11 @@ export const contestFormatSchema = z.enum([
   "bracket",
 ]);
 export const contestRegistrationTypeSchema = z.enum(["open", "closed"]);
-export const contestProblemSelectionModeSchema = z.enum(["test", "bulk", "fine-tuned"]);
-export const contestSeedingMethodSchema = z.enum(["cf_rating", "manual"]);
+export const contestProblemSelectionModeSchema = z.enum([
+  "test",
+  "bulk",
+  "fine-tuned",
+]);
 
 const dateStringSchema = z
   .string()
@@ -46,6 +50,7 @@ const contestCreationFields = {
   format: contestFormatSchema.default("bracket"),
   teamSize: z.union([z.literal(1), z.literal(3)]),
   maxParticipants: z.number().int().min(2),
+  entrantCapacity: z.number().int().min(2).max(256).optional(),
   startTime: dateStringSchema,
   registrationType: contestRegistrationTypeSchema,
   registrationStartTime: dateStringSchema.optional(),
@@ -66,9 +71,8 @@ const contestCreationFields = {
     .default("single_elimination"),
   overallDurationMinutes: z.number().int().min(1).max(600).optional(),
   perProblemDurationMinutes: z.number().int().min(1).max(120).optional(),
-  thirdPlacePlayoff: z.boolean().default(false),
-  seedingMethod: contestSeedingMethodSchema.default("cf_rating"),
-  registeredUsers: z.array(contestRegisteredUserSchema).max(256).default([]),
+
+  registeredUsers: z.array(contestRegisteredUserSchema).max(768).default([]),
   spectatorRestriction: z
     .enum(["none", "all", "admin_creator", "club_members"])
     .default("none"),
@@ -126,7 +130,8 @@ export type BracketContestInput = Pick<
   | "maxParticipants"
   | "registrationType"
   | "registeredUsers"
-  | "seedingMethod"
+  | "entrantCapacity"
+  | "bracketType"
 >;
 
 export type BracketInputValidationResult =
@@ -135,7 +140,19 @@ export type BracketInputValidationResult =
 export function validateBracketContestInput(
   data: BracketContestInput,
 ): BracketInputValidationResult {
-  const { teamSize, maxParticipants, registrationType, seedingMethod } = data;
+  const { teamSize, maxParticipants, registrationType } = data;
+  const minimum = minimumBracketEntrants(data.bracketType);
+  if (!data.entrantCapacity || data.entrantCapacity < minimum)
+    return {
+      success: false,
+      error: `This bracket requires capacity for at least ${minimum} entrants.`,
+    };
+  if (maxParticipants !== data.entrantCapacity * teamSize)
+    return {
+      success: false,
+      error:
+        "Participant capacity must equal entrant capacity times team size.",
+    };
 
   if (teamSize === 3 && maxParticipants < teamSize * 2) {
     return {
@@ -167,13 +184,13 @@ export function validateBracketContestInput(
   }
 
   if (registrationType === "closed") {
-    if (registeredUsers.length < teamSize * 2) {
+    if (registeredUsers.length < teamSize * minimum) {
       return {
         success: false,
         error:
           teamSize === 1
-            ? "Closed brackets require at least 2 participants."
-            : "Closed team brackets require at least two complete teams.",
+            ? `Closed brackets require at least ${minimum} entrants.`
+            : `Closed team brackets require at least ${minimum} complete teams.`,
       };
     }
 
@@ -200,13 +217,6 @@ export function validateBracketContestInput(
     return {
       success: false,
       error: "Open brackets cannot include pre-registered users.",
-    };
-  }
-
-  if (seedingMethod !== "cf_rating" && seedingMethod !== "manual") {
-    return {
-      success: false,
-      error: "Seeding method must be either 'cf_rating' or 'manual'.",
     };
   }
 

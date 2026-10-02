@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 
+import { bracketCapacityError } from "@/lib/contests/bracketTopology";
 import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeContest } from "@/lib/audit/summary";
 import { requireSession } from "@/lib/auth/session";
@@ -22,6 +23,7 @@ import ContestPreset from "@/models/ContestPreset";
 
 export async function GET(request: NextRequest) {
   const authorization = await requireSession(request);
+
   if (!authorization.ok) {
     return jsonError(authorization.error.code, authorization.error.message);
   }
@@ -30,6 +32,7 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams,
     contestPresetQuerySchema,
   );
+
   if (!query.ok) {
     return jsonError(query.error.code, query.error.message, {
       fields: query.error.fields,
@@ -38,6 +41,7 @@ export async function GET(request: NextRequest) {
 
   try {
     await connectMongoDB();
+
     const filter: any = query.data.includeArchived
       ? {}
       : { archived: { $ne: true } };
@@ -48,6 +52,7 @@ export async function GET(request: NextRequest) {
     ];
 
     const presets = await ContestPreset.find(filter).sort({ name: 1 }).lean();
+
     return jsonOk(presets.map(toContestPresetDto));
   } catch (error) {
     return boundaryErrorResponse("list_contest_presets", error, request);
@@ -56,10 +61,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const authorization = await requireSession(request);
+
   if (!authorization.ok) {
     return jsonError(authorization.error.code, authorization.error.message);
   }
+
   const body = await parseJson(request, createContestPresetSchema);
+
   if (!body.ok) {
     return jsonError(body.error.code, body.error.message, {
       fields: body.error.fields,
@@ -68,7 +76,9 @@ export async function POST(request: NextRequest) {
 
   try {
     await connectMongoDB();
+
     const existing = await ContestPreset.exists({ name: body.data.name });
+
     if (existing) {
       return jsonError("CONFLICT", "Preset name already exists");
     }
@@ -77,19 +87,24 @@ export async function POST(request: NextRequest) {
       ? (body.data.isGlobal ?? false)
       : false;
 
+    const capacityError = bracketCapacityError(body.data);
+
+    if (capacityError) return jsonError("VALIDATION_ERROR", capacityError);
+
     if (
       !isHead(authorization.data.user.access) &&
       body.data.format === "bracket" &&
-      (body.data.registrationSettings?.maxParticipants ?? 0) > 8
+      (body.data.registrationSettings?.entrantCapacity ?? 0) > 8
     ) {
       return jsonError(
         "VALIDATION_ERROR",
-        "Non-admin users cannot create a knockout tournament preset with more than 8 members.",
+        "Non-admin users cannot create a knockout tournament preset with more than 8 entrants.",
       );
     }
 
     const dbSession = await mongoose.startSession();
     let preset;
+
     try {
       preset = await auditedTransaction(dbSession, async (transaction) => {
         const [created] = await ContestPreset.create(
@@ -105,6 +120,7 @@ export async function POST(request: NextRequest) {
           ],
           { session: transaction },
         );
+
         return {
           result: created,
           audit: {
@@ -126,6 +142,7 @@ export async function POST(request: NextRequest) {
     } finally {
       await dbSession.endSession();
     }
+
     return jsonOk(toContestPresetDto(preset), { status: 201 });
   } catch (error) {
     return boundaryErrorResponse("create_contest_preset", error, request);

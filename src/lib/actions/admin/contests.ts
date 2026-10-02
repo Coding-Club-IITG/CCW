@@ -11,6 +11,7 @@ import { err as appError, ok, validationError } from "@/lib/api/result";
 import {
   contestCreationDraftSchema,
   contestCreationPayloadSchema,
+  validateBracketContestInput,
   type ContestProblemSlot,
 } from "@/lib/api/schemas/contestAction";
 import { auth } from "@/lib/auth/server";
@@ -36,7 +37,9 @@ export const createBracketContest = defineAction(
 
 async function validateStepAction(step: number, input: unknown) {
   const parsed = contestCreationDraftSchema.safeParse(input);
+
   if (!parsed.success) return validationError(parsed.error);
+
   const data = parsed.data;
   const errors: Record<string, string> = {};
 
@@ -44,6 +47,7 @@ async function validateStepAction(step: number, input: unknown) {
     if (data.mode !== "blitz" && data.mode !== "arena") {
       errors.mode = "Mode must be blitz or arena";
     }
+
     if (data.teamSize !== 1 && data.teamSize !== 3) {
       errors.teamSize = "Team size must be 1 or 3";
     }
@@ -56,18 +60,18 @@ async function validateStepAction(step: number, input: unknown) {
     ) {
       errors.startTime = "A valid tournament start time is required";
     }
+
     if (
       data.registrationType !== "open" &&
       data.registrationType !== "closed"
     ) {
       errors.registrationType = "Registration type must be open or closed";
     }
-    if (!data.maxParticipants || isNaN(Number(data.maxParticipants))) {
-      errors.maxParticipants =
-        "Max participants is required and must be a number";
-    } else if (Number(data.maxParticipants) < 2) {
-      errors.maxParticipants = "Minimum 2 participants required";
-    }
+
+    const minimum = data.bracketType === "double_elimination" ? 4 : 2;
+
+    if (!data.entrantCapacity || data.entrantCapacity < minimum)
+      errors.entrantCapacity = `At least ${minimum} entrants required`;
   }
 
   if (step === 3) {
@@ -78,7 +82,9 @@ async function validateStepAction(step: number, input: unknown) {
         errors.presetId = "Invalid preset ID format";
       } else {
         await connectMongoDB();
+
         const preset = await ContestPreset.findById(data.presetId);
+
         if (!preset) {
           errors.presetId = "Selected preset does not exist";
         } else if (preset.archived) {
@@ -88,30 +94,29 @@ async function validateStepAction(step: number, input: unknown) {
     }
   }
 
-  if (step === 4 || step === 5) {
-    if (
-      data.seedingMethod &&
-      data.seedingMethod !== "cf_rating" &&
-      data.seedingMethod !== "manual"
-    ) {
-      errors.seedingMethod = "Seeding method must be cf_rating or manual";
-    }
-  }
-
   return ok({ valid: Object.keys(errors).length === 0, errors });
 }
 
 async function createBracketContestAction(input: unknown) {
   const reqHeaders = await headers();
   const session = await auth.api.getSession({ headers: reqHeaders });
+
   if (!session) return appError("UNAUTHENTICATED", "Unauthorized");
 
   const user = session.user;
+
   if (!isHead(user.access)) return appError("FORBIDDEN", "Forbidden");
 
   const parsed = contestCreationPayloadSchema.safeParse(input);
+
   if (!parsed.success) return validationError(parsed.error);
+
   const data = parsed.data;
+
+  const bracketValidation = validateBracketContestInput(data);
+
+  if (!bracketValidation.success)
+    return appError("VALIDATION_ERROR", bracketValidation.error);
 
   // Re-run validation server-side for safety
   const step1 = await validateStepAction(1, data);
@@ -121,9 +126,13 @@ async function createBracketContestAction(input: unknown) {
   const step5 = await validateStepAction(5, data);
 
   if (!step1.ok) return step1;
+
   if (!step2.ok) return step2;
+
   if (!step3.ok) return step3;
+
   if (!step4.ok) return step4;
+
   if (!step5.ok) return step5;
 
   if (
@@ -141,9 +150,13 @@ async function createBracketContestAction(input: unknown) {
     false,
     contestRegistrationTiming(webEnv),
   );
+
   if (startError) return appError("VALIDATION_ERROR", startError);
+
   await connectMongoDB();
+
   const registrations = await prepareContestRegistrations(data);
+
   if (!registrations.ok) return registrations;
 
   let presetId = undefined;
@@ -163,6 +176,7 @@ async function createBracketContestAction(input: unknown) {
           "Fine-tuned problem slots with round assignments are required for a bracket contest.",
         );
       }
+
       // Per-round bracket fine-tuned: problemSlots already has roundNumber set by the UI
       problemSlots = data.problemSlots.filter(
         (slot) => slot.problemId.trim() !== "",
@@ -174,7 +188,9 @@ async function createBracketContestAction(input: unknown) {
     }
   } else {
     const preset = await ContestPreset.findById(data.presetId);
+
     if (!preset) return appError("NOT_FOUND", "Selected preset does not exist");
+
     presetId = preset._id;
     problemSelectionMode = preset.problemSelectionMode ?? "bulk";
     bulkPlatform = preset.bulkPlatform ?? "codeforces";
@@ -200,6 +216,7 @@ async function createBracketContestAction(input: unknown) {
 
   try {
     const cpUser = await CPUser.findOne({ userId: user.id });
+
     if (!cpUser) return appError("NOT_FOUND", "CP Profile not found");
 
     const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
@@ -209,12 +226,14 @@ async function createBracketContestAction(input: unknown) {
       : now;
     const deadlineTime =
       new Date(data.startTime).getTime() - deadlineMinutes * 60000;
+
     if (data.registrationType !== "closed" && regStartTime >= deadlineTime) {
       return appError(
         "VALIDATION_ERROR",
         "Registration start time must be before the deadline.",
       );
     }
+
     const initialStatus =
       data.registrationType === "closed"
         ? "provisioning"
@@ -223,6 +242,7 @@ async function createBracketContestAction(input: unknown) {
           : "registration";
     const dbSession = await mongoose.startSession();
     let contest;
+
     try {
       contest = await auditedTransaction(dbSession, async (transaction) => {
         const [created] = await ContestMatch.create(
@@ -254,15 +274,16 @@ async function createBracketContestAction(input: unknown) {
                   new Date(data.startTime).getTime() - deadlineMinutes * 60000,
                 ), // strictly before based on ENV
                 maxParticipants: Number(data.maxParticipants),
+                entrantCapacity: data.entrantCapacity,
               },
               bracketSettings: {
-                thirdPlacePlayoff: !!data.thirdPlacePlayoff,
-                seedingMethod: data.seedingMethod,
+                type: data.bracketType,
               },
             },
           ],
           { session: transaction },
         );
+
         return {
           result: created,
           audit: {
@@ -296,8 +317,7 @@ async function createBracketContestAction(input: unknown) {
         );
       }
     } else {
-      // If closed, we skip the registration phase and go straight to provisioning.
-      // Invoke check_start immediately to generate the bracket
+      // Closed registration goes directly to bracket provisioning
       await reconciliationQueue.add("check_start", {
         contestId: contest._id.toString(),
       });
@@ -318,6 +338,7 @@ async function createBracketContestAction(input: unknown) {
       action: "createContest",
       ...errorToLogMetadata(err),
     });
+
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
 }

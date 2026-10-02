@@ -68,13 +68,16 @@ async function determineWinner(
     const members = await redis.sMembers(`team:${tId}:users`);
     let totalRating = 0;
     let validMembers = 0;
+
     for (const mId of members) {
       const cpUser = await CPUser.findOne({ userId: mId });
+
       if (cpUser && cpUser.cfRating) {
         totalRating += cpUser.cfRating;
         validMembers++;
       }
     }
+
     const avgRating = validMembers > 0 ? totalRating / validMembers : 0;
 
     teamStats[tId] = {
@@ -96,11 +99,13 @@ async function determineWinner(
       if (isArena) {
         if (a.penaltyTime !== b.penaltyTime)
           return a.penaltyTime - b.penaltyTime;
+
         if (a.lastSolveTime !== b.lastSolveTime)
           return a.lastSolveTime - b.lastSolveTime;
       } else {
         if (a.solveTimeSum !== b.solveTimeSum)
           return a.solveTimeSum - b.solveTimeSum;
+
         if (a.wrongSubs !== b.wrongSubs) return a.wrongSubs - b.wrongSubs;
       }
 
@@ -112,6 +117,7 @@ async function determineWinner(
   }
 
   const teamScores: Record<string, number> = {};
+
   for (const t of sortedTeams) {
     teamScores[t.id] = t.score;
   }
@@ -130,9 +136,11 @@ export const reconciliationWorker = new Worker<
       `[reconciliationWorker] Processing job ${job.id} (name: ${job.name})`,
       job.data,
     );
+
     let { roomId, contestId, trigger, forfeitedUserId, teamId, userId } =
       reconciliationJobDataSchema.parse(job.data);
     const redis = await getRedis();
+
     await connectMongoDB();
 
     // Handle team ready timeout
@@ -145,17 +153,20 @@ export const reconciliationWorker = new Worker<
       if (state && state.status === "waiting") {
         const teamMembers = await redis.sMembers(`team:${teamId}:users`);
         const readyMembers = [];
+
         for (const memberId of teamMembers) {
           const isReady = await redis.sIsMember(
             `room:${roomId}:ready_users`,
             memberId,
           );
+
           if (isReady) {
             readyMembers.push(memberId);
           }
         }
 
         const allReady = readyMembers.length === teamMembers.length;
+
         if (!allReady) {
           // Team is not ready within 60s, withdraw the entire team
           logger.info(
@@ -181,13 +192,18 @@ export const reconciliationWorker = new Worker<
 
           // If no teams are left or only one team, end the room
           const remainingTeams = await redis.sMembers(`room:${roomId}:teams`);
+
           if (remainingTeams.length === 0 || remainingTeams.length === 1) {
             await redis.hSet(`room:${roomId}:state`, { status: "completed" });
+
             const teamScores: Record<string, number> = {};
+
             for (const tId of remainingTeams) {
               const score = await redis.zScore(`room:${roomId}:scores`, tId);
+
               teamScores[tId] = score || 0;
             }
+
             await publishRoom(roomId, {
               type: "room.end",
               finalScores: teamScores,
@@ -196,6 +212,7 @@ export const reconciliationWorker = new Worker<
           }
         }
       }
+
       return;
     }
 
@@ -211,6 +228,7 @@ export const reconciliationWorker = new Worker<
         );
 
         const room = await ContestRoom.findById(roomId);
+
         if (!room) return;
 
         const teams = await redis.sMembers(`room:${roomId}:teams`);
@@ -226,13 +244,13 @@ export const reconciliationWorker = new Worker<
               `room:${roomId}:ready_users`,
               memberId,
             );
+
             if (isReady) {
               readyMembers.push(memberId);
             }
           }
 
-          // Partial readiness threshold (Scenario S4):
-          // At least 1 ready member means team is present
+          // One ready member makes the team present
           if (readyMembers.length > 0) {
             readyTeams.push(tId);
 
@@ -241,10 +259,12 @@ export const reconciliationWorker = new Worker<
               const unreadyMembers = teamMembers.filter(
                 (m) => !readyMembers.includes(m),
               );
+
               for (const unreadyId of unreadyMembers) {
                 await redis.sRem(`team:${tId}:users`, unreadyId);
                 await redis.sRem(`room:${roomId}:ready_users`, unreadyId);
               }
+
               await ContestTeam.findByIdAndUpdate(tId, {
                 $pull: {
                   members: {
@@ -255,6 +275,7 @@ export const reconciliationWorker = new Worker<
                 },
               });
             }
+
             await redis.sAdd(`room:${roomId}:teams_ready`, tId);
           } else {
             unreadyTeams.push(tId);
@@ -264,6 +285,7 @@ export const reconciliationWorker = new Worker<
         // Case 1: Both teams ready -> Start the match!
         if (readyTeams.length === teams.length && teams.length >= 2) {
           const now = Date.now();
+
           await redis.hSet(`room:${roomId}:state`, {
             status: "active",
             startTime: now.toString(),
@@ -274,11 +296,13 @@ export const reconciliationWorker = new Worker<
             0,
             -1,
           );
+
           if (state.type === "arena") {
             for (let i = 0; i < problemsRaw.length; i++) {
               const p = contestRoomProblemSchema.parse(
                 JSON.parse(problemsRaw[i]),
               );
+
               p.revealedAt = now;
               await redis.lSet(`room:${roomId}:problems`, i, JSON.stringify(p));
             }
@@ -286,6 +310,7 @@ export const reconciliationWorker = new Worker<
             const firstProblem = contestRoomProblemSchema.parse(
               JSON.parse(problemsRaw[0]),
             );
+
             firstProblem.revealedAt = now;
             await redis.lSet(
               `room:${roomId}:problems`,
@@ -311,8 +336,10 @@ export const reconciliationWorker = new Worker<
             -1,
           );
           const scores: Record<string, number> = {};
+
           for (const tId of teams) {
             const score = await redis.zScore(`room:${roomId}:scores`, tId);
+
             scores[tId] = score || 0;
           }
 
@@ -326,11 +353,13 @@ export const reconciliationWorker = new Worker<
 
           const timeLimitSecs = parseInt(state.timeLimit || "3600", 10);
           const { reconciliationQueue } = await import("@/lib/contests/queues");
+
           await reconciliationQueue.add(
             "room_timeout",
             { roomId, contestId: state.contestId, trigger: "timeout" },
             { delay: timeLimitSecs * 1000, jobId: `timeout-${roomId}` },
           );
+
           return;
         }
 
@@ -354,6 +383,7 @@ export const reconciliationWorker = new Worker<
           await room.save();
 
           const readyTeamDoc = await ContestTeam.findById(readyTeamId);
+
           if (readyTeamDoc) {
             readyTeamDoc.score = Math.max(readyTeamDoc.score || 0, 1);
             await readyTeamDoc.save();
@@ -370,26 +400,30 @@ export const reconciliationWorker = new Worker<
             reason: "walkover",
           });
 
-          const { advanceWinner, checkRoundCompletion } = await import(
-            "@/lib/contests/bracket"
-          );
+          const { advanceWinner, checkRoundCompletion } =
+            await import("@/lib/contests/bracket");
+
           await advanceWinner(roomId, contestId, readyTeamId);
 
           if (room.currentRoundId) {
             const roundDoc = await ContestRound.findById(
               room.currentRoundId,
             ).lean();
+
             if (roundDoc) {
               await checkRoundCompletion(contestId, roundDoc.roundNumber);
             }
           }
 
           const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
+
           if (completedRoomKeys.length > 0) await redis.del(completedRoomKeys);
+
           for (const tId of teams) {
             await redis.del(`team:${tId}:meta`);
             await redis.del(`team:${tId}:users`);
           }
+
           return;
         }
 
@@ -416,35 +450,50 @@ export const reconciliationWorker = new Worker<
             reason: "no_show",
           });
 
-          const { advanceNullPlayer, checkRoundCompletion } = await import(
-            "@/lib/contests/bracket"
-          );
+          const { advanceNullPlayer, checkRoundCompletion } =
+            await import("@/lib/contests/bracket");
+
           await advanceNullPlayer(contestId, roomId);
 
           if (room.currentRoundId) {
             const roundDoc = await ContestRound.findById(
               room.currentRoundId,
             ).lean();
+
             if (roundDoc) {
               await checkRoundCompletion(contestId, roundDoc.roundNumber);
             }
           }
 
           const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
+
           if (completedRoomKeys.length > 0) await redis.del(completedRoomKeys);
+
           for (const tId of teams) {
             await redis.del(`team:${tId}:meta`);
             await redis.del(`team:${tId}:users`);
           }
+
           return;
         }
       }
+
+      return;
+    }
+
+    if (job.name === "bracket_transition") {
+      const { synchronizeBracketRuntime } =
+        await import("@/lib/contests/bracket");
+
+      await synchronizeBracketRuntime(contestId);
+
       return;
     }
 
     // Handle starting registration for scheduled brackets
-    if (job.name === "start_registration" || trigger === "start_registration") {
+    if (job.name === "start_registration") {
       const contest = await ContestMatch.findById(contestId);
+
       if (contest && contest.status === "draft") {
         contest.status = "registration";
         await contest.save();
@@ -452,33 +501,20 @@ export const reconciliationWorker = new Worker<
           `[reconciliationWorker] Started registration for contest ${contestId}`,
         );
       }
+
       return;
     }
 
     // Handle checking contest start
-    if (job.name === "check_start" || trigger === "check_start") {
+    if (job.name === "check_start") {
       const contest = await ContestMatch.findById(contestId);
+
       if (!contest) return;
 
-      // ── Bracket tournaments: generate bracket here (single entry point) ──
+      // Bracket tournaments: generate bracket here (single entry point)
       if (contest.format === "bracket") {
-        if (contest.registrations && contest.registrations.length < 2) {
-          logger.info(
-            `[reconciliationWorker] check_start: bracket ${contestId} has insufficient registrations. Canceling.`,
-          );
-          await ContestMatch.findByIdAndDelete(contestId);
-          const creator = await CPUser.findById(contest.creatorId);
-          if (creator && creator.userId) {
-            await notify({
-              userId: String(creator.userId),
-              type: "announcement",
-              title: "Tournament Cancelled",
-              message: `Your bracket tournament '${contest.name}' was cancelled due to insufficient registrations.`,
-              link: "/internal/contests",
-            });
-          }
+        if (contest.status === "completed" || contest.status === "active")
           return;
-        }
 
         contest.status = "provisioning";
         await contest.save();
@@ -487,21 +523,25 @@ export const reconciliationWorker = new Worker<
           (registration) => registration.userId.toString(),
         );
 
-        // Incremental CF sync for all bracket registrants
-        // OPTIMIZATION: Only do this if problemSelectionMode is "bulk"
+        // Bulk selection excludes recently solved problems for each entrant
         if (contest.problemSelectionMode === "bulk") {
           const { fetchCodeforcesUserStatus } =
             await import("@/lib/platforms/codeforces");
 
           for (const uid of bracketUserIds) {
             const cpUser = await CPUser.findOne({ userId: uid });
+
             if (!cpUser || !cpUser.cfHandle) continue;
+
             const solvedProblems = cpUser.solvedProblems || [];
             let latestSolvedMs = 0;
+
             for (const sp of solvedProblems) {
               const ts = sp.solvedAt ? new Date(sp.solvedAt).getTime() : 0;
+
               if (ts > latestSolvedMs) latestSolvedMs = ts;
             }
+
             try {
               const existingSolvedIds = new Set(
                 solvedProblems.map((problem) => problem.problemId),
@@ -528,6 +568,7 @@ export const reconciliationWorker = new Worker<
                     sub.creationTimeSeconds * 1000 > latestSolvedMs
                   ) {
                     const pid = `${sub.problem.contestId}${sub.problem.index}`;
+
                     if (!existingSolvedIds.has(pid)) {
                       newSolves.push({
                         problemId: pid,
@@ -542,8 +583,9 @@ export const reconciliationWorker = new Worker<
                 if (submissions.length < chunkSize) {
                   keepFetching = false; // no more submissions available
                 } else {
-                  // If the very last (oldest) submission in this chunk is still newer than latestSolvedMs, fetch more.
+                  // If the very last (oldest) submission in this chunk is still newer than latestSolvedMs, fetch more
                   const lastSub = submissions[submissions.length - 1];
+
                   if (
                     lastSub &&
                     lastSub.creationTimeSeconds * 1000 > latestSolvedMs
@@ -554,6 +596,7 @@ export const reconciliationWorker = new Worker<
                   }
                 }
               }
+
               if (newSolves.length > 0) {
                 await CPUser.findByIdAndUpdate(cpUser._id, {
                   $push: { solvedProblems: { $each: newSolves } },
@@ -586,7 +629,27 @@ export const reconciliationWorker = new Worker<
 
         try {
           const { generateBracket } = await import("@/lib/contests/bracket");
+
           await generateBracket(contestId, bracketSolvedIds);
+
+          const generatedContest =
+            await ContestMatch.findById(contestId).lean();
+
+          if (generatedContest?.cancellationReason) {
+            const creator = await CPUser.findById(contest.creatorId);
+
+            if (creator?.userId) {
+              await notify({
+                userId: String(creator.userId),
+                type: "announcement",
+                title: "Tournament Cancelled",
+                message: generatedContest.cancellationReason,
+                link: "/internal/contests",
+              });
+            }
+
+            return;
+          }
 
           const startTimeMs = contest.startTime
             ? contest.startTime.getTime()
@@ -598,9 +661,10 @@ export const reconciliationWorker = new Worker<
           );
 
           const { reconciliationQueue } = await import("@/lib/contests/queues");
+
           await reconciliationQueue.add(
             "activate_bracket",
-            { contestId: contestId.toString(), trigger: "activate_bracket" },
+            { contestId: contestId.toString() },
             { delay: delayToStart, jobId: `activate-bracket-${contestId}` },
           );
 
@@ -612,31 +676,26 @@ export const reconciliationWorker = new Worker<
             `[reconciliationWorker] check_start: bracket generation failed for ${contestId}:`,
             err,
           );
-          await ContestMatch.findByIdAndDelete(contestId);
-          const creator = await CPUser.findById(contest.creatorId);
-          if (creator && creator.userId) {
-            await notify({
-              userId: String(creator.userId),
-              type: "announcement",
-              title: "Tournament Failed",
-              message: `Your bracket tournament '${contest.name}' failed to generate (likely due to 0 suitable problems found).`,
-              link: "/internal/contests",
-            });
-          }
+          // Preserve the contest and retry
+          throw err;
         }
+
         return;
       }
 
-      // ── Non-bracket contests: existing team-grouping + provisioning logic ──
+      // Non-bracket contests: existing team-grouping + provisioning logic
 
       // Group registrations into teams
       const teamsMap = new Map<string, string[]>();
       const regs = contest.registrations || [];
+
       for (const r of regs) {
         const tName = r.teamName || r.cfHandle || r.userId.toString();
+
         if (!teamsMap.has(tName)) {
           teamsMap.set(tName, []);
         }
+
         teamsMap.get(tName)?.push(r.userId.toString());
       }
 
@@ -657,6 +716,7 @@ export const reconciliationWorker = new Worker<
 
         // Notify creator
         const creator = await CPUser.findById(contest.creatorId);
+
         if (creator && creator.userId) {
           await notify({
             userId: String(creator.userId),
@@ -666,6 +726,7 @@ export const reconciliationWorker = new Worker<
             link: "/internal/contests",
           });
         }
+
         return;
       }
 
@@ -679,6 +740,7 @@ export const reconciliationWorker = new Worker<
 
         // Notify creator
         const creator = await CPUser.findById(contest.creatorId);
+
         if (creator && creator.userId) {
           await notify({
             userId: String(creator.userId),
@@ -688,6 +750,7 @@ export const reconciliationWorker = new Worker<
             link: "/internal/contests",
           });
         }
+
         return;
       }
 
@@ -703,24 +766,23 @@ export const reconciliationWorker = new Worker<
 
       const allUserIds = validTeams.flatMap((t) => t[1]);
 
-      // --- Incremental CF submission fetch to get fresh solved problem data ---
-      // For each registered user: find the most recent solved problem timestamp in DB,
-      // fetch any new ACs from CF API since then, and update CPUser.solvedProblems.
-      // OPTIMIZATION: Only do this if problemSelectionMode is "bulk", because "test" mode
-      // uses manual problem slots and ignores the solved array anyway!
+      // Refresh solved problems only when selecting from the bulk problem bank
       if (contest.problemSelectionMode === "bulk") {
         const { fetchCodeforcesUserStatus } =
           await import("@/lib/platforms/codeforces");
 
         for (const uid of allUserIds) {
           const cpUser = await CPUser.findOne({ userId: uid });
+
           if (!cpUser || !cpUser.cfHandle) continue;
 
           // Find the timestamp of the most recently recorded solve
           const solvedProblems = cpUser.solvedProblems || [];
           let latestSolvedMs = 0;
+
           for (const sp of solvedProblems) {
             const ts = sp.solvedAt ? new Date(sp.solvedAt).getTime() : 0;
+
             if (ts > latestSolvedMs) latestSolvedMs = ts;
           }
 
@@ -742,6 +804,7 @@ export const reconciliationWorker = new Worker<
                 sub.creationTimeSeconds * 1000 > latestSolvedMs
               ) {
                 const pid = `${sub.problem.contestId}${sub.problem.index}`;
+
                 if (!existingSolvedIds.has(pid)) {
                   newSolves.push({
                     problemId: pid,
@@ -788,6 +851,7 @@ export const reconciliationWorker = new Worker<
         points?: number;
         timeLimitMinutes?: number;
       }> = [];
+
       if (contest.problemSelectionMode === "test") {
         availableProblems = [
           { problemId: "4A", name: "Watermelon", rating: 800 },
@@ -805,7 +869,9 @@ export const reconciliationWorker = new Worker<
 
         for (const slot of slots) {
           if (!slot.problemId) continue;
+
           const q = questions.find((q) => q.problemId === slot.problemId);
+
           if (q) {
             availableProblems.push({
               problemId: q.problemId,
@@ -857,7 +923,9 @@ export const reconciliationWorker = new Worker<
           `[reconciliationWorker] check_start: 0 available problems for contest ${contestId}. Canceling.`,
         );
         await ContestMatch.findByIdAndDelete(contestId);
+
         const creator = await CPUser.findById(contest.creatorId);
+
         if (creator && creator.userId) {
           await notify({
             userId: String(creator.userId),
@@ -867,6 +935,7 @@ export const reconciliationWorker = new Worker<
             link: "/internal/contests",
           });
         }
+
         return;
       }
 
@@ -910,17 +979,21 @@ export const reconciliationWorker = new Worker<
 
       const teamSize = contest.teamSize || 1;
       const createdTeams = [];
+
       for (const t of validTeams) {
         const team = new ContestTeam({
+          contestId: contest._id,
           roomId: room._id,
           name: t[0],
           members: t[1],
           teamSize,
           score: 0,
         });
+
         await team.save();
         createdTeams.push(team);
       }
+
       room.teams = createdTeams.map((team) => team._id);
 
       await room.save();
@@ -941,7 +1014,9 @@ export const reconciliationWorker = new Worker<
           ...content,
         }),
       );
+
       await redis.del(`room:${newRoomId}:problems`);
+
       if (redisProblems.length > 0) {
         await redis.rPush(`room:${newRoomId}:problems`, redisProblems);
       }
@@ -958,14 +1033,17 @@ export const reconciliationWorker = new Worker<
         contestId: contestId.toString(),
         readyCount: 0,
       };
+
       if (contest.perProblemDurationMinutes) {
         stateObj.problemTimeLimit = (
           contest.perProblemDurationMinutes * 60
         ).toString();
       }
+
       if (contest.mode !== "arena") {
         stateObj.currentProblem = 0;
       }
+
       await redis.hSet(`room:${newRoomId}:state`, stateObj);
       await redis.sAdd(
         `room:${newRoomId}:teams`,
@@ -974,6 +1052,7 @@ export const reconciliationWorker = new Worker<
 
       for (const t of createdTeams) {
         const tId = t._id.toString();
+
         await redis.hSet(`team:${tId}:meta`, { name: t.name, score: 0 });
         await redis.sAdd(
           `team:${tId}:users`,
@@ -983,9 +1062,7 @@ export const reconciliationWorker = new Worker<
 
       await redis.sAdd(`contest:${contestId}:rooms`, newRoomId);
 
-      // Schedule the job to open the room at the configured startTime
-      // Fire ROOM_PRE_START_SECONDS before startTime so the room is "waiting" by the time
-      // the client-side timer triggers at startTime - prevents a "No Room Found" race condition.
+      // Open the room before start so the client can enter it on schedule
       const { reconciliationQueue } = await import("@/lib/contests/queues");
       const startTimeMs = contest.startTime
         ? contest.startTime.getTime()
@@ -1001,7 +1078,6 @@ export const reconciliationWorker = new Worker<
         {
           roomId: newRoomId,
           contestId: contestId.toString(),
-          trigger: "start_waiting_room",
         },
         { delay: delayToStart, jobId: `start-waiting-${newRoomId}` },
       );
@@ -1009,13 +1085,15 @@ export const reconciliationWorker = new Worker<
       logger.info(
         `[reconciliationWorker] Successfully provisioned room ${newRoomId}. Scheduled start_waiting_room in ${delayToStart}ms (${preStartSeconds}s before startTime).`,
       );
+
       return;
     }
 
     // Handle activating a bracket contest exactly 5 seconds before start time
-    if (job.name === "activate_bracket" || trigger === "activate_bracket") {
+    if (job.name === "activate_bracket") {
       const contest = await ContestMatch.findById(contestId);
-      if (!contest) return;
+
+      if (!contest || contest.status === "completed") return;
 
       if (contest.status !== "active") {
         contest.status = "active";
@@ -1026,32 +1104,24 @@ export const reconciliationWorker = new Worker<
           contestId,
           status: "waiting",
         });
-        const now = Date.now();
-        for (const wr of waitingRooms) {
-          const wrId = wr._id.toString();
-          await redis.hSet(`room:${wrId}:state`, {
-            waitingStartTime: now.toString(),
-            readyDeadline: (now + 120000).toString(),
-          });
-          const { reconciliationQueue } = await import("@/lib/contests/queues");
-          await reconciliationQueue.add(
-            "bracket_ready_timeout",
-            { roomId: wrId, contestId: contestId.toString() },
-            { delay: 120000, jobId: `ready-timeout-${wrId}` },
-          );
-        }
+        const { synchronizeBracketRuntime } =
+          await import("@/lib/contests/bracket");
+
+        await synchronizeBracketRuntime(contestId);
 
         logger.info(
           `[reconciliationWorker] activate_bracket: contest ${contestId} is now active with ${waitingRooms.length} waiting rooms scheduled for ready timeout.`,
         );
       }
+
       return;
     }
 
     // Handle starting the waiting room (making it visible to users)
-    if (job.name === "start_waiting_room" || trigger === "start_waiting_room") {
+    if (job.name === "start_waiting_room") {
       const contest = await ContestMatch.findById(contestId);
       const room = await ContestRoom.findById(roomId);
+
       if (!contest || !room) return;
 
       room.status = "waiting";
@@ -1078,6 +1148,7 @@ export const reconciliationWorker = new Worker<
       // Schedule a ready_timeout to cancel if players don't ready up in time
       const timeoutMins = workerEnv.ROOM_READY_TIMEOUT_MINUTES;
       const { reconciliationQueue } = await import("@/lib/contests/queues");
+
       await reconciliationQueue.add(
         "ready_timeout",
         { roomId, contestId: contestId.toString() },
@@ -1103,6 +1174,7 @@ export const reconciliationWorker = new Worker<
           );
 
           const room = await ContestRoom.findById(roomId);
+
           if (room) {
             const now = Date.now();
 
@@ -1112,10 +1184,12 @@ export const reconciliationWorker = new Worker<
               0,
               -1,
             );
+
             if (problemsRaw.length > 0) {
               const firstProblem = contestRoomProblemSchema.parse(
                 JSON.parse(problemsRaw[0]),
               );
+
               firstProblem.revealedAt = now;
               await redis.lSet(
                 `room:${roomId}:problems`,
@@ -1144,8 +1218,10 @@ export const reconciliationWorker = new Worker<
               parseContestRoomProblems(updatedProblemsRaw);
             const teamIds = await redis.sMembers(`room:${roomId}:teams`);
             const scores: Record<string, number> = {};
+
             for (const tId of teamIds) {
               const score = await redis.zScore(`room:${roomId}:scores`, tId);
+
               scores[tId] = score || 0;
             }
 
@@ -1161,12 +1237,14 @@ export const reconciliationWorker = new Worker<
             const timeLimitSecs = parseInt(state.timeLimit || "3600", 10);
             const { reconciliationQueue } =
               await import("@/lib/contests/queues");
+
             await reconciliationQueue.add(
               "room_timeout",
               { roomId, contestId: contestId.toString(), trigger: "timeout" },
               { delay: timeLimitSecs * 1000, jobId: `timeout-${roomId}` },
             );
           }
+
           return;
         }
 
@@ -1176,9 +1254,11 @@ export const reconciliationWorker = new Worker<
 
         // Collect team IDs before any deletion so we can clean up team-scoped Redis keys
         const teamIds = await redis.sMembers(`room:${roomId}:teams`);
+
         if (c) {
           // Notify creator
           const creator = await CPUser.findById(c.creatorId);
+
           if (creator && creator.userId) {
             await notify({
               userId: String(creator.userId),
@@ -1196,6 +1276,7 @@ export const reconciliationWorker = new Worker<
 
         // Clean up room-scoped Redis keys
         const keys = await redis.keys(`room:${roomId}:*`);
+
         if (keys.length > 0) {
           await redis.del(keys);
         }
@@ -1216,12 +1297,11 @@ export const reconciliationWorker = new Worker<
           reason: "ready_timeout",
         });
       }
+
       return;
     }
 
-    // Handle natural room completion (all problems solved/locked in codeforcesSyncWorker)
-    // This handler is intentionally lean: it does NOT create a new ContestProblemSet
-    // (one was already created during provisioning). It only finalises scores and cleans up.
+    // Finalize natural completion using the problem set created during provisioning
     if (job.name === "room_completed") {
       logger.info(
         `[reconciliationWorker] Handling room_completed for room ${roomId}`,
@@ -1229,15 +1309,18 @@ export const reconciliationWorker = new Worker<
 
       // Fetch teams from Redis before cleanup
       const completedTeams = await redis.sMembers(`room:${roomId}:teams`);
+
       if (completedTeams.length === 0) {
         logger.info(
           `[reconciliationWorker] room_completed: no teams found in Redis for room ${roomId}. Already processed?`,
         );
+
         return;
       }
 
       // Write final scores to MongoDB
       const completedRoom = await ContestRoom.findById(roomId);
+
       if (completedRoom) {
         let maxScore = -1;
         let bestTeamId: string | null = null;
@@ -1246,6 +1329,7 @@ export const reconciliationWorker = new Worker<
         for (const tId of completedTeams) {
           const score = await redis.zScore(`room:${roomId}:scores`, tId);
           const finalScore = Math.max(score || 0, 0);
+
           if (finalScore > maxScore) {
             maxScore = finalScore;
             bestTeamId = tId;
@@ -1253,6 +1337,7 @@ export const reconciliationWorker = new Worker<
           } else if (finalScore === maxScore) {
             isTie = true;
           }
+
           await ContestTeam.findByIdAndUpdate(tId, { score: finalScore });
         }
 
@@ -1268,8 +1353,10 @@ export const reconciliationWorker = new Worker<
         "-",
         "+",
       );
+
       for (const sub of completedSubs) {
         const data = JSON.parse(sub.message.data);
+
         await ContestSubmission.updateOne(
           { roomId, submissionId: String(data.cfSubmissionId) },
           {
@@ -1299,6 +1386,7 @@ export const reconciliationWorker = new Worker<
         if (contestId) {
           const completedContest =
             await ContestMatch.findById(contestId).lean();
+
           if (completedContest?.format === "bracket") {
             const stateObj = await redis.hGetAll(`room:${roomId}:state`);
             const { winnerId: bracketWinnerId, teamScores } =
@@ -1326,11 +1414,14 @@ export const reconciliationWorker = new Worker<
               try {
                 const { advanceNullPlayer, checkRoundCompletion } =
                   await import("@/lib/contests/bracket");
+
                 await advanceNullPlayer(contestId, roomId);
+
                 if (completedRoom.currentRoundId) {
                   const roundDoc = await ContestRound.findById(
                     completedRoom.currentRoundId,
                   ).lean();
+
                   if (roundDoc)
                     await checkRoundCompletion(contestId, roundDoc.roundNumber);
                 }
@@ -1344,11 +1435,14 @@ export const reconciliationWorker = new Worker<
               try {
                 const { advanceWinner, checkRoundCompletion } =
                   await import("@/lib/contests/bracket");
+
                 await advanceWinner(roomId, contestId, bracketWinnerId);
+
                 if (completedRoom.currentRoundId) {
                   const roundDoc = await ContestRound.findById(
                     completedRoom.currentRoundId,
                   ).lean();
+
                   if (roundDoc)
                     await checkRoundCompletion(contestId, roundDoc.roundNumber);
                 }
@@ -1360,19 +1454,21 @@ export const reconciliationWorker = new Worker<
               }
             }
 
-            // Bracket: clean up ONLY room-scoped and team-scoped keys
-            // Contest-level keys (contest:${contestId}:meta, contest:${contestId}:rooms) must persist
-            // until the entire tournament is finished (handled by advanceWinner / checkRoundCompletion).
+            // Preserve contest runtime keys until the entire bracket finishes
             const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
+
             if (completedRoomKeys.length > 0)
               await redis.del(completedRoomKeys);
+
             for (const tId of completedTeams) {
               await redis.del(`team:${tId}:meta`);
               await redis.del(`team:${tId}:users`);
             }
+
             logger.info(
               `[reconciliationWorker] room_completed (bracket): cleanup done for room ${roomId}.`,
             );
+
             return;
           }
         }
@@ -1382,8 +1478,9 @@ export const reconciliationWorker = new Worker<
           const totalRooms = await ContestRoom.countDocuments({ contestId });
           const endedRooms = await ContestRoom.countDocuments({
             contestId,
-            status: { $in: ["ended", "completed"] },
+            status: "ended",
           });
+
           if (totalRooms > 0 && totalRooms === endedRooms) {
             await ContestMatch.findByIdAndUpdate(contestId, {
               status: "completed",
@@ -1398,20 +1495,23 @@ export const reconciliationWorker = new Worker<
 
       // Non-bracket: clean up room-scoped, team-scoped, and contest-scoped keys
       const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
+
       if (completedRoomKeys.length > 0) {
         await redis.del(completedRoomKeys);
       }
+
       for (const tId of completedTeams) {
         await redis.del(`team:${tId}:meta`);
         await redis.del(`team:${tId}:users`);
       }
-      
+
       if (contestId) {
         const totalRooms = await ContestRoom.countDocuments({ contestId });
         const endedRooms = await ContestRoom.countDocuments({
           contestId,
-          status: { $in: ["ended", "completed"] },
+          status: "ended",
         });
+
         if (totalRooms > 0 && totalRooms === endedRooms) {
           await redis.del(`contest:${contestId}:rooms`);
         }
@@ -1420,11 +1520,9 @@ export const reconciliationWorker = new Worker<
       logger.info(
         `[reconciliationWorker] room_completed: finished cleanup for room ${roomId}.`,
       );
+
       return;
     }
-
-    // Note: end_registration handler has been removed.
-    // Bracket generation is now handled entirely inside check_start for a single entry point.
 
     // Handle mid-match disconnect timeout
     if (job.name === "mid_match_disconnect_timeout") {
@@ -1440,14 +1538,17 @@ export const reconciliationWorker = new Worker<
         logger.info(
           `[reconciliationWorker] User ${disconnectedUserId} disconnected for too long in room ${roomId}. Forfeiting.`,
         );
+
         // Find which team this user belongs to
         const allTeams = await redis.sMembers(`room:${roomId}:teams`);
         let forfeitedTeamId = null;
+
         for (const tId of allTeams) {
           const isMember = await redis.sIsMember(
             `team:${tId}:users`,
             disconnectedUserId,
           );
+
           if (isMember) {
             forfeitedTeamId = tId;
             break;
@@ -1458,27 +1559,31 @@ export const reconciliationWorker = new Worker<
           // Trigger a forfeit for this team, declare the other team the winner
           trigger = "forfeit";
           forfeitedUserId = disconnectedUserId;
-          // We will let the original reconciliation logic below handle the `trigger === "forfeit"` ending procedure
+          // Continue through the shared forfeit finalization path
         } else {
           return;
         }
       } else {
-        // User came back online, or room is no longer active. Ignore.
+        // User came back online, or room is no longer active - Ignore
         logger.info(
           `[reconciliationWorker] mid_match_disconnect_timeout ignored for ${disconnectedUserId} (isOnline=${isOnline}, status=${state?.status})`,
         );
+
         return;
       }
     }
 
     // Original reconciliation logic continues below
     const teams = await redis.sMembers(`room:${roomId}:teams`);
+
     if (teams.length === 0) {
       logger.info(
         `[reconciliationWorker] No teams found in Redis for room ${roomId}. Room likely already processed. Skipping.`,
       );
+
       return;
     }
+
     const stateObj = await redis.hGetAll(`room:${roomId}:state`);
     let { winnerId, teamScores } = await determineWinner(
       redis,
@@ -1495,6 +1600,7 @@ export const reconciliationWorker = new Worker<
           `team:${tId}:users`,
           forfeitedUserId,
         );
+
         if (!isMember) {
           winnerId = tId;
           break;
@@ -1504,6 +1610,7 @@ export const reconciliationWorker = new Worker<
 
     // 2. Write to MongoDB
     const room = await ContestRoom.findById(roomId);
+
     if (room) {
       if (trigger === "forfeit") room.terminationReason = "disconnect";
       else if (trigger === "timeout") room.terminationReason = "timeout";
@@ -1511,44 +1618,60 @@ export const reconciliationWorker = new Worker<
       if (winnerId && mongoose.isValidObjectId(winnerId)) {
         room.winnerTeamId = new mongoose.Types.ObjectId(winnerId);
       }
+
       await room.save();
 
       for (const tId of teams) {
         const finalScore = Math.max(teamScores[tId] || 0, 0);
+
         await ContestTeam.findByIdAndUpdate(tId, { score: finalScore });
       }
     }
 
-    // 2.5 Bracket advancement hook - now handled in room_completed. This path covers
-    // forfeit/timeout endings for bracket rooms.
+    // Advance bracket outcomes for timeout and forfeit endings
     if (contestId) {
       try {
         const bracketContest = await ContestMatch.findById(contestId).lean();
+
         if (bracketContest?.format === "bracket") {
           const allZero =
             teams.length >= 2 &&
             teams.every((tId) => (teamScores[tId] || 0) === 0);
+
           if (allZero && trigger === "timeout") {
+            await ContestRoom.updateOne(
+              { _id: roomId, advancementCompletedAt: { $exists: false } },
+              { $unset: { winnerTeamId: "" } },
+            );
+
             const { advanceNullPlayer, checkRoundCompletion } =
               await import("@/lib/contests/bracket");
+
             await advanceNullPlayer(contestId, roomId);
+
             const bracketRoom = await ContestRoom.findById(roomId).lean();
+
             if (bracketRoom?.currentRoundId) {
               const roundDoc = await ContestRound.findById(
                 bracketRoom.currentRoundId,
               ).lean();
+
               if (roundDoc)
                 await checkRoundCompletion(contestId, roundDoc.roundNumber);
             }
           } else if (winnerId) {
             const { advanceWinner, checkRoundCompletion } =
               await import("@/lib/contests/bracket");
+
             await advanceWinner(roomId, contestId, winnerId);
+
             const bracketRoom = await ContestRoom.findById(roomId).lean();
+
             if (bracketRoom?.currentRoundId) {
               const roundDoc = await ContestRound.findById(
                 bracketRoom.currentRoundId,
               ).lean();
+
               if (roundDoc)
                 await checkRoundCompletion(contestId, roundDoc.roundNumber);
             }
@@ -1568,10 +1691,12 @@ export const reconciliationWorker = new Worker<
       "-",
       "+",
     );
+
     for (const sub of submissions) {
       const data = contestSubmissionEventSchema.parse(
         JSON.parse(sub.message.data),
       );
+
       await ContestSubmission.updateOne(
         { roomId, submissionId: String(data.cfSubmissionId) },
         {
@@ -1594,6 +1719,7 @@ export const reconciliationWorker = new Worker<
 
     // 4. Finalise ContestProblemSet
     const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
+
     if (problemsRaw.length > 0) {
       const problems = parseContestRoomProblems(problemsRaw);
       const problemSet = new ContestProblemSet({
@@ -1608,6 +1734,7 @@ export const reconciliationWorker = new Worker<
           points: problem.points || 100,
         })),
       });
+
       await problemSet.save();
     }
 
@@ -1621,7 +1748,7 @@ export const reconciliationWorker = new Worker<
         const totalRooms = await ContestRoom.countDocuments({ contestId });
         const endedRooms = await ContestRoom.countDocuments({
           contestId,
-          status: { $in: ["ended", "completed"] },
+          status: "ended",
         });
 
         if (totalRooms > 0 && totalRooms === endedRooms) {
@@ -1635,10 +1762,12 @@ export const reconciliationWorker = new Worker<
         }
       }
     }
-    // Publish room.end if triggered by timeout or forfeit (meaning it didn't end naturally in codeforcesSyncWorker)
+
+    // Publish endings triggered by timeout or forfeit
     if (trigger === "timeout" || trigger === "forfeit") {
       const stateObj = await redis.hGetAll(`room:${roomId}:state`);
       const startTime = parseInt(stateObj.startTime || "0", 10);
+
       await publishRoom(roomId, {
         type: "room.end",
         finalScores: teamScores,
@@ -1646,10 +1775,11 @@ export const reconciliationWorker = new Worker<
         reason: trigger === "forfeit" ? "disconnect" : "timeout",
       });
       await redis.hSet(`room:${roomId}:state`, { status: "completed" });
-      
+
       // Notify clients that the bracket advanced so they draw green lines and update node states
       if (contestId) {
         const { publishContest } = await import("@/lib/contests/events");
+
         await publishContest(contestId, {
           type: "contest.bracket_update",
           contestId: contestId,
@@ -1659,6 +1789,7 @@ export const reconciliationWorker = new Worker<
 
     // 5. Clean up Redis
     const keys = await redis.keys(`room:${roomId}:*`);
+
     if (keys.length > 0) {
       await redis.del(keys);
     }
@@ -1670,7 +1801,7 @@ export const reconciliationWorker = new Worker<
   {
     connection: bullMqConnection,
     concurrency: 1,
-    lockDuration: 600000, // Extended lock to 10 minutes (600,000 ms) for long API polling loop
+    lockDuration: 600000, // Extended lock to 10 min for long API polling loop
   },
 );
 

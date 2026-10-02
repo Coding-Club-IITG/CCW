@@ -26,6 +26,7 @@ describe("runtime environment schemas", () => {
     "validates contest stream and refresh timing",
     (parse) => {
       expect(parse(required)).toMatchObject({
+        CONTEST_TRANSITION_LOCK_SECONDS: 5,
         CONTEST_SSE_HEARTBEAT_SECONDS: 15,
         CONTEST_PRESENCE_EXPIRY_SECONDS: 45,
         CONTEST_PREPARATION_REFRESH_SECONDS: 5,
@@ -43,6 +44,9 @@ describe("runtime environment schemas", () => {
         CONTEST_PREPARATION_REFRESH_SECONDS: 10,
       });
       for (const value of [
+        { CONTEST_TRANSITION_LOCK_SECONDS: "0" },
+        { CONTEST_TRANSITION_LOCK_SECONDS: "61" },
+        { CONTEST_TRANSITION_LOCK_SECONDS: "1.5" },
         { CONTEST_SSE_HEARTBEAT_SECONDS: "0" },
         { CONTEST_SSE_HEARTBEAT_SECONDS: "301" },
         { CONTEST_SSE_HEARTBEAT_SECONDS: "1.5" },

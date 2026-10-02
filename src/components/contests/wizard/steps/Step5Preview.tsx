@@ -1,8 +1,9 @@
-import styles from "../ContestWizard.module.scss";
 import type {
   ContestWizardForm,
   ContestCreationPreset,
 } from "@/components/contests/contestCreationForm";
+
+import styles from "../ContestWizard.module.scss";
 
 interface Step5Props {
   formData: ContestWizardForm;
@@ -56,9 +57,9 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
             {formData.registrationType}
           </strong>
 
-          <span className={styles.previewLabel}>Max Participants:</span>
+          <span className={styles.previewLabel}>Max Entrants:</span>
           <strong className={styles.previewValue}>
-            {formData.maxParticipants}
+            {formData.entrantCapacity}
           </strong>
         </div>
 
@@ -88,18 +89,11 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
         <div
           className={`${styles.previewSection} ${styles.previewSectionLast}`}
         >
-          <span className={styles.previewLabel}>Bronze Playoff:</span>
-          <strong className={styles.previewValue}>
-            {formData.thirdPlacePlayoff ? "Enabled" : "Disabled"}
-          </strong>
-
           <span className={styles.previewLabel}>Seeding:</span>
           <strong
             className={`${styles.previewValue} ${styles.previewValueCap}`}
           >
-            {formData.seedingMethod === "cf_rating"
-              ? "Auto Codeforces Rating"
-              : "Manual"}
+            Codeforces Rating
           </strong>
         </div>
       </div>

@@ -4,13 +4,12 @@ import {
   getRoundName,
   nextPowerOf2,
   parseBracketPosition,
-  snakeSeed,
 } from "./bracketLayout";
 
 describe("bracket helpers & double elimination structures", () => {
   describe("parseBracketPosition", () => {
-    it("handles legacy two-part bracket position strings by defaulting to upper bracket", () => {
-      const pos = parseBracketPosition("0-1");
+    it("parses the explicit upper stage for single elimination", () => {
+      const pos = parseBracketPosition("upper-0-1");
       expect(pos).toEqual({
         stage: "upper",
         roundIndex: 0,
@@ -53,15 +52,6 @@ describe("bracket helpers & double elimination structures", () => {
         matchIndex: 0,
       });
     });
-
-    it("parses short gf reset prefix (gf-1-0) correctly as grand_final_reset", () => {
-      const pos = parseBracketPosition("gf-1-0");
-      expect(pos).toEqual({
-        stage: "grand_final_reset",
-        roundIndex: 1,
-        matchIndex: 0,
-      });
-    });
   });
 
   describe("getRoundName", () => {
@@ -93,7 +83,7 @@ describe("bracket helpers & double elimination structures", () => {
     });
   });
 
-  describe("snakeSeed & nextPowerOf2", () => {
+  describe("nextPowerOf2", () => {
     it("computes next power of 2 correctly", () => {
       expect(nextPowerOf2(1)).toBe(2);
       expect(nextPowerOf2(2)).toBe(2);
@@ -101,17 +91,6 @@ describe("bracket helpers & double elimination structures", () => {
       expect(nextPowerOf2(4)).toBe(4);
       expect(nextPowerOf2(5)).toBe(8);
       expect(nextPowerOf2(15)).toBe(16);
-    });
-
-    it("seeds teams in snake order", () => {
-      const teams = [
-        { teamId: "t1", seed: 1 },
-        { teamId: "t2", seed: 2 },
-        { teamId: "t3", seed: 3 },
-        { teamId: "t4", seed: 4 },
-      ];
-      const seeded = snakeSeed(teams);
-      expect(seeded.map((t) => t.teamId)).toEqual(["t1", "t4", "t2", "t3"]);
     });
   });
 

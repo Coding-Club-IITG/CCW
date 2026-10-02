@@ -20,16 +20,7 @@ export const reconciliationJobDataSchema = z.object({
   roomId: optionalObjectId,
   contestId: optionalObjectId,
   trigger: z
-    .enum([
-      "start_registration",
-      "check_start",
-      "activate_bracket",
-      "start_waiting_room",
-      "timeout",
-      "completed",
-      "disconnect",
-      "forfeit",
-    ])
+    .enum(["timeout", "completed", "disconnect", "forfeit"])
     .optional()
     .default("completed"),
   forfeitedUserId: optionalObjectId,
@@ -38,6 +29,7 @@ export const reconciliationJobDataSchema = z.object({
 });
 
 export const reconciliationJobNames = [
+  "bracket_transition",
   "team_ready_timeout",
   "bracket_ready_timeout",
   "start_registration",
@@ -51,15 +43,21 @@ export const reconciliationJobNames = [
 ] as const;
 
 export type CfSyncJobData = z.infer<typeof cfSyncJobDataSchema>;
+
 export type NightlyProblemSyncJobData = z.infer<
   typeof nightlyProblemSyncJobDataSchema
 >;
+
 export type ReconciliationJobData = z.infer<typeof reconciliationJobDataSchema>;
+
 export type ReconciliationJobInput = z.input<
   typeof reconciliationJobDataSchema
 >;
+
 export type ReconciliationJobName = (typeof reconciliationJobNames)[number];
+
 export type CfSyncJobName = "cf_sync" | "nightly-cf-problem-sync";
+
 export type CfSyncQueueData = CfSyncJobData | NightlyProblemSyncJobData;
 
 export const contestRoomProblemSchema = z
@@ -109,7 +107,9 @@ export const contestSubmissionEventSchema = z.object({
 });
 
 export type ContestRoomProblem = z.infer<typeof contestRoomProblemSchema>;
+
 export type ContestRoomState = z.infer<typeof contestRoomStateSchema>;
+
 export type ContestSubmissionEvent = z.infer<
   typeof contestSubmissionEventSchema
 >;
@@ -277,8 +277,11 @@ export const userEventSchema = z.union([
 ]);
 
 export type RoomEvent = z.infer<typeof roomEventSchema>;
+
 export type ContestEvent = z.infer<typeof contestEventSchema>;
+
 export type UserEvent = z.infer<typeof userEventSchema>;
+
 export type RoomStreamEvent =
   z.infer<typeof roomEventSchema> | z.infer<typeof typedUserEventSchema>;
 
