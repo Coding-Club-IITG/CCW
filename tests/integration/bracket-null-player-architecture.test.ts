@@ -18,6 +18,7 @@ import {
   processWalkover,
   synchronizeBracketRuntime,
 } from "@/lib/contests/bracket";
+import { readyOrEnterRoom } from "@/lib/contests/participation";
 import { bracketProblemRequirements } from "@/lib/contests/bracketTopology";
 import { reconciliationQueue } from "@/lib/contests/queues";
 import { getRedis } from "@/lib/db/redis";
@@ -26,7 +27,6 @@ import { workerEnv } from "@/lib/env/worker";
 import ContestMatch from "@/models/ContestMatch";
 import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestRoom from "@/models/ContestRoom";
-import ContestRound from "@/models/ContestRound";
 import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
 
@@ -126,7 +126,7 @@ async function play(contestId: string, lowerWins = false) {
     if (contest!.status === "completed") return contest!;
     const rooms = await ContestRoom.find({ contestId, status: "waiting" });
     expect(rooms.length).toBeGreaterThan(0);
-    // Reverse arrival order deliberately, including lower finalist before upper finalist.
+    // Reverse arrival order deliberately, including lower finalist before upper finalist
     for (const room of rooms.reverse()) {
       const slot =
         lowerWins && room.bracketPosition === "grand_final-0-0" ? 1 : 0;
@@ -381,10 +381,9 @@ describe("persisted bracket topology and advancement", () => {
       `room:${room!._id}:state`,
       "readyDeadline",
     );
-    await redis.hSet(`room:${room!._id}:state`, {
-      status: "active",
-      startTime: "123",
-    });
+    for (const user of room!.participants) {
+      await readyOrEnterRoom(String(room!._id), String(user));
+    }
     await synchronizeBracketRuntime(String(contest._id));
     expect(await redis.hGet(`room:${room!._id}:state`, "status")).toBe(
       "active",

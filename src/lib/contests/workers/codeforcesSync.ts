@@ -26,6 +26,8 @@ import {
 } from "@/lib/platforms/codeforces";
 import { claimProblem } from "@/lib/contests/problemClaims";
 import { getRedis } from "@/lib/db/redis";
+import { workerEnv } from "@/lib/env/worker";
+
 import { logger } from "@/lib/telemetry/logger";
 import { getDisplayName } from "@/lib/users/identity";
 import ContestMatch from "@/models/ContestMatch";
@@ -156,6 +158,20 @@ export const codeforcesSyncWorker = new Worker<
           return;
         }
 
+        const admission = room.admissions.find(
+          (entry) =>
+            String(entry.userId) === userId && String(entry.teamId) === teamId,
+        );
+
+        if (!admission) {
+          await publishUser(userId, roomId, {
+            type: "sync.failed",
+            reason: "not_admitted",
+            problemId,
+          });
+          return;
+        }
+
         const isTeamMember = await redis.sIsMember(
           `team:${teamId}:users`,
           userId,
@@ -215,9 +231,14 @@ export const codeforcesSyncWorker = new Worker<
           }
         }
 
-        // Add a 2-minute grace period after the match ends for late submissions to process
+        lowerTimestamp = Math.max(
+          lowerTimestamp,
+          admission.admittedAt.getTime(),
+        );
+
+        // Apply the configured judging grace
         const upperTimestamp =
-          lowerTimestamp + (contest.durationSeconds || 3600) * 1000 + 120000;
+          room.matchDeadline!.getTime() + room.judgingGraceSeconds! * 1000;
 
         // 2. Fetch CF Submissions (last 20)
         const submissions: CFSubmission[] = await fetchCodeforcesUserStatus(
@@ -710,9 +731,10 @@ export const codeforcesSyncWorker = new Worker<
   {
     connection: bullMqConnection,
     concurrency: 1, // Serialize cf_sync jobs to prevent Blitz concurrent-solve race condition
+    lockDuration: workerEnv.CONTEST_WORKER_LOCK_MINUTES * 60_000,
     limiter: {
       max: 2,
-      duration: 1000,
+      duration: workerEnv.CONTEST_CF_RATE_WINDOW_SECONDS * 1000,
     },
   },
 );

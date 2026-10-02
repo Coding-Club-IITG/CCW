@@ -297,12 +297,6 @@
     gap: 2px;
   }
 
-  .forfeitTimer {
-    font-size: 0.85em;
-    color: var(--error);
-    font-weight: 600;
-  }
-
   .memberName {
     @include metadata($text-sm, var(--foreground-strong));
     overflow: hidden;
@@ -327,6 +321,17 @@
 
   .dotMuted {
     background: var(--muted-light);
+  }
+
+  .entryNotice {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    color: var(--foreground);
   }
 
   /* Waiting room */

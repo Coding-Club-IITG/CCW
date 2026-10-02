@@ -19,19 +19,12 @@ export const nightlyProblemSyncJobDataSchema = z.object({
 export const reconciliationJobDataSchema = z.object({
   roomId: optionalObjectId,
   contestId: optionalObjectId,
-  trigger: z
-    .enum(["timeout", "completed", "disconnect", "forfeit"])
-    .optional()
-    .default("completed"),
-  forfeitedUserId: optionalObjectId,
-  userId: optionalObjectId,
-  teamId: optionalObjectId,
+  trigger: z.enum(["timeout", "completed"]).optional().default("completed"),
 });
 
 export const reconciliationJobNames = [
   "bracket_transition",
-  "team_ready_timeout",
-  "bracket_ready_timeout",
+  "recover_participation",
   "start_registration",
   "check_start",
   "activate_bracket",
@@ -39,7 +32,6 @@ export const reconciliationJobNames = [
   "ready_timeout",
   "room_timeout",
   "room_completed",
-  "mid_match_disconnect_timeout",
 ] as const;
 
 export type CfSyncJobData = z.infer<typeof cfSyncJobDataSchema>;
@@ -90,8 +82,9 @@ export const contestRoomStateSchema = z
     currentProblemStartTime: z.string().optional(),
     currentProblem: z.string().optional(),
     contestId: z.string().optional(),
-    waitingStartTime: z.string().optional(),
+    readyOpensAt: z.string().optional(),
     readyDeadline: z.string().optional(),
+    matchDeadline: z.string().optional(),
   })
   .passthrough();
 
@@ -137,7 +130,7 @@ const roomStateSyncEventSchema = z
     scores: scoreMapSchema.optional(),
     locks: z.record(z.string(), z.string()).optional(),
     activityLogs: z.array(roomActivitySchema).optional(),
-    forfeitTimeouts: z.record(z.string(), z.number()).optional(),
+    admittedUserIds: z.array(objectIdStringSchema).optional(),
     onlineUserIds: z.array(objectIdStringSchema).optional(),
     readyUserIds: z.array(objectIdStringSchema).optional(),
   })
@@ -195,22 +188,14 @@ export const roomEventSchema = z.discriminatedUnion("type", [
     .passthrough(),
   z
     .object({
-      type: z.literal("team.withdrawn"),
-      teamId: z.string().min(1),
-    })
-    .passthrough(),
-  z
-    .object({
       type: z.literal("presence.online"),
       userId: z.string().min(1),
-      cancelledForfeit: z.boolean().optional(),
     })
     .passthrough(),
   z
     .object({
       type: z.literal("presence.offline"),
       userId: z.string().min(1),
-      forfeitTimeout: z.number().optional(),
     })
     .passthrough(),
   z

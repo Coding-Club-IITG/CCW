@@ -153,25 +153,9 @@ export default async function PostMatchResultPage({
   });
 
   // Determine winner team
-  let winnerTeamId: string | null = room.winnerTeamId
+  const winnerTeamId: string | null = room.winnerTeamId
     ? room.winnerTeamId.toString()
     : null;
-
-  if (!winnerTeamId && processedTeams.length > 0) {
-    if (
-      processedTeams.length === 1 ||
-      processedTeams[0].score > (processedTeams[1]?.score ?? 0)
-    ) {
-      winnerTeamId = processedTeams[0].id;
-    } else if (room.terminationReason === "disconnect") {
-      // For legacy disconnect/forfeit rooms where scores were set to 1 vs -1:
-      const positiveTeam = teams.find((t) => (t.score ?? 0) > 0);
-
-      if (positiveTeam) {
-        winnerTeamId = positiveTeam._id.toString();
-      }
-    }
-  }
 
   processedTeams.sort((a, b) => {
     if (winnerTeamId) {

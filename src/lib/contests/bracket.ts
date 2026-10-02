@@ -6,6 +6,8 @@ import {
   buildBracketTopology,
   minimumBracketEntrants,
 } from "@/lib/contests/bracketTopology";
+import { configureRoomTiming } from "@/lib/contests/roomTiming";
+import { synchronizeRoomRuntime } from "@/lib/contests/roomRuntime";
 import { publishContest } from "@/lib/contests/events";
 import type { BracketNode, BracketSnapshot } from "@/lib/contests/types";
 import { connectMongoDB } from "@/lib/db/mongodb";
@@ -17,6 +19,7 @@ import ContestMatch, {
   type IContestMatch,
   type IRegistration,
 } from "@/models/ContestMatch";
+import ContestParticipation from "@/models/ContestParticipation";
 import ContestProblemSet, {
   type ISelectedProblem,
 } from "@/models/ContestProblemSet";
@@ -144,86 +147,8 @@ export async function synchronizeBracketRuntime(contestId: string) {
     }
 
     const rooms = await ContestRoom.find({ contestId }).lean();
-    const { reconciliationQueue } = await import("@/lib/contests/queues");
-
     for (const room of rooms) {
-      const roomId = String(room._id);
-
-      await redis.sAdd(`contest:${contestId}:rooms`, roomId);
-
-      if (room.status === "ended") {
-        await redis.hSet(`room:${roomId}:state`, { status: "completed" });
-        continue;
-      }
-
-      if (room.status !== "waiting") {
-        continue;
-      }
-
-      const deadline = room.readyDeadline?.getTime();
-
-      if (!deadline) {
-        throw new Error("Bracket room is missing its ready deadline.");
-      }
-
-      const duration = contest.overallDurationMinutes
-        ? contest.overallDurationMinutes * 60
-        : contest.durationSeconds || 3600;
-      const state = {
-        status: "waiting",
-        type: contest.mode,
-        startTime: "",
-        timeLimit: String(duration),
-        readyCount: "0",
-        contestId,
-        waitingStartTime: String(
-          deadline - workerEnv.ROOM_READY_TIMEOUT_MINUTES * 60_000,
-        ),
-        readyDeadline: String(deadline),
-      };
-
-      // Existing runtime values win when a committed transition is replayed
-      for (const [key, value] of Object.entries(state)) {
-        await redis.hSetNX(`room:${roomId}:state`, key, value);
-      }
-
-      const teams = await ContestTeam.find({ _id: { $in: room.teams } }).lean();
-
-      for (const team of teams) {
-        const teamId = String(team._id);
-
-        await redis.sAdd(`room:${roomId}:teams`, teamId);
-        await redis.hSetNX(`team:${teamId}:meta`, "name", team.name);
-        await redis.hSetNX(`team:${teamId}:meta`, "score", String(team.score));
-
-        if (team.members.length) {
-          await redis.sAdd(`team:${teamId}:users`, team.members.map(String));
-        }
-      }
-
-      const problemSet = await ContestProblemSet.findOne({
-        roomId: room._id,
-      }).lean();
-
-      if (problemSet?.problems.length) {
-        const problems = problemSet.problems.map((problem) =>
-          JSON.stringify({ ...problem, revealedAt: null }),
-        );
-
-        await redis.eval(
-          "if redis.call('EXISTS', KEYS[1]) == 0 then return redis.call('RPUSH', KEYS[1], unpack(ARGV)) end return 0",
-          { keys: [`room:${roomId}:problems`], arguments: problems },
-        );
-      }
-
-      await reconciliationQueue.add(
-        "bracket_ready_timeout",
-        { roomId, contestId },
-        {
-          delay: Math.max(0, deadline - Date.now()),
-          jobId: `ready-timeout-${roomId}`,
-        },
-      );
+      await synchronizeRoomRuntime(String(room._id));
     }
 
     const snapshot = await getBracketSnapshot(contestId);
@@ -622,10 +547,14 @@ async function resolveMatch(
     : null;
 
   room.status = "ended";
+  room.actualEndTime ??= new Date();
   room.winnerTeamId = winner?._id;
   room.terminationReason = reason ?? room.terminationReason;
   room.advancementCompletedAt = new Date();
+  room.participationRevision += 1;
+  room.runtimeSyncPending = true;
   await room.save();
+  await ContestParticipation.deleteMany({ roomId: room._id });
 
   const stage = parseBracketPosition(room.bracketPosition!).stage;
 
@@ -732,10 +661,7 @@ async function settleRooms(contest: IContestMatch) {
       } else {
         room.status = "waiting";
         room.participants = teams.flatMap((team) => team.members);
-        room.readyDeadline = new Date(
-          Math.max(Date.now(), contest.startTime?.getTime() ?? 0) +
-            workerEnv.ROOM_READY_TIMEOUT_MINUTES * 60_000,
-        );
+        configureRoomTiming(room, contest);
         await room.save();
       }
     }

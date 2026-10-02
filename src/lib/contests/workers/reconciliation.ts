@@ -1,11 +1,17 @@
 import { type Job, Worker } from "bullmq";
 import mongoose from "mongoose";
 
-import { getRoomOnlineUserIds } from "@/lib/contests/presence";
-import { publishRoom, recordRoomActivity } from "@/lib/contests/events";
 import {
-  contestRoomProblemSchema,
-  contestRoomStateSchema,
+  readyOrEnterRoom,
+  finishRoomParticipation,
+} from "@/lib/contests/participation";
+import {
+  synchronizeRoomRuntime,
+  recoverRoomParticipation,
+} from "@/lib/contests/roomRuntime";
+import { configureRoomTiming } from "@/lib/contests/roomTiming";
+import { publishRoom } from "@/lib/contests/events";
+import {
   contestSubmissionEventSchema,
   parseContestRoomProblems,
   reconciliationJobDataSchema,
@@ -137,345 +143,24 @@ export const reconciliationWorker = new Worker<
       job.data,
     );
 
-    let { roomId, contestId, trigger, forfeitedUserId, teamId, userId } =
-      reconciliationJobDataSchema.parse(job.data);
+    const { roomId, contestId, trigger } = reconciliationJobDataSchema.parse(
+      job.data,
+    );
     const redis = await getRedis();
 
     await connectMongoDB();
 
-    // Handle team ready timeout
-    if (job.name === "team_ready_timeout") {
-      const state = contestRoomStateSchema.parse(
-        await redis.hGetAll(`room:${roomId}:state`),
-      );
-
-      // Only process if room is still waiting
-      if (state && state.status === "waiting") {
-        const teamMembers = await redis.sMembers(`team:${teamId}:users`);
-        const readyMembers = [];
-
-        for (const memberId of teamMembers) {
-          const isReady = await redis.sIsMember(
-            `room:${roomId}:ready_users`,
-            memberId,
-          );
-
-          if (isReady) {
-            readyMembers.push(memberId);
-          }
-        }
-
-        const allReady = readyMembers.length === teamMembers.length;
-
-        if (!allReady) {
-          // Team is not ready within 60s, withdraw the entire team
-          logger.info(
-            `[reconciliationWorker] Team ${teamId} not ready within 60s, withdrawing from room ${roomId}`,
-          );
-
-          // Remove team from room and mark participants as withdrawn
-          await redis.sRem(`room:${roomId}:teams`, teamId);
-          await redis.del(`team:${teamId}:users`);
-          await redis.del(`team:${teamId}:meta`);
-
-          // Remove team members from participants
-          for (const memberId of teamMembers) {
-            await redis.sRem(`room:${roomId}:ready_users`, memberId);
-          }
-
-          // Publish withdrawal event
-          await publishRoom(roomId, {
-            type: "team.withdrawn",
-            teamId,
-            reason: "ready_timeout",
-          });
-
-          // If no teams are left or only one team, end the room
-          const remainingTeams = await redis.sMembers(`room:${roomId}:teams`);
-
-          if (remainingTeams.length === 0 || remainingTeams.length === 1) {
-            await redis.hSet(`room:${roomId}:state`, { status: "completed" });
-
-            const teamScores: Record<string, number> = {};
-
-            for (const tId of remainingTeams) {
-              const score = await redis.zScore(`room:${roomId}:scores`, tId);
-
-              teamScores[tId] = score || 0;
-            }
-
-            await publishRoom(roomId, {
-              type: "room.end",
-              finalScores: teamScores,
-              reason: "team_withdrawal",
-            });
-          }
-        }
-      }
+    if (job.name === "recover_participation") {
+      await recoverRoomParticipation();
 
       return;
     }
 
-    // Handle bracket 2-minute ready timeout
-    if (job.name === "bracket_ready_timeout") {
-      const state = contestRoomStateSchema.parse(
-        await redis.hGetAll(`room:${roomId}:state`),
-      );
+    if (job.name === "ready_timeout") {
+      const result = await readyOrEnterRoom(roomId);
 
-      if (state && state.status === "waiting") {
-        logger.info(
-          `[reconciliationWorker] bracket_ready_timeout fired for room ${roomId}`,
-        );
-
-        const room = await ContestRoom.findById(roomId);
-
-        if (!room) return;
-
-        const teams = await redis.sMembers(`room:${roomId}:teams`);
-        const readyTeams: string[] = [];
-        const unreadyTeams: string[] = [];
-
-        for (const tId of teams) {
-          const teamMembers = await redis.sMembers(`team:${tId}:users`);
-          const readyMembers: string[] = [];
-
-          for (const memberId of teamMembers) {
-            const isReady = await redis.sIsMember(
-              `room:${roomId}:ready_users`,
-              memberId,
-            );
-
-            if (isReady) {
-              readyMembers.push(memberId);
-            }
-          }
-
-          // One ready member makes the team present
-          if (readyMembers.length > 0) {
-            readyTeams.push(tId);
-
-            // Prune unready members if any
-            if (readyMembers.length < teamMembers.length) {
-              const unreadyMembers = teamMembers.filter(
-                (m) => !readyMembers.includes(m),
-              );
-
-              for (const unreadyId of unreadyMembers) {
-                await redis.sRem(`team:${tId}:users`, unreadyId);
-                await redis.sRem(`room:${roomId}:ready_users`, unreadyId);
-              }
-
-              await ContestTeam.findByIdAndUpdate(tId, {
-                $pull: {
-                  members: {
-                    $in: unreadyMembers.map(
-                      (id) => new mongoose.Types.ObjectId(id),
-                    ),
-                  },
-                },
-              });
-            }
-
-            await redis.sAdd(`room:${roomId}:teams_ready`, tId);
-          } else {
-            unreadyTeams.push(tId);
-          }
-        }
-
-        // Case 1: Both teams ready -> Start the match!
-        if (readyTeams.length === teams.length && teams.length >= 2) {
-          const now = Date.now();
-
-          await redis.hSet(`room:${roomId}:state`, {
-            status: "active",
-            startTime: now.toString(),
-          });
-
-          const problemsRaw = await redis.lRange(
-            `room:${roomId}:problems`,
-            0,
-            -1,
-          );
-
-          if (state.type === "arena") {
-            for (let i = 0; i < problemsRaw.length; i++) {
-              const p = contestRoomProblemSchema.parse(
-                JSON.parse(problemsRaw[i]),
-              );
-
-              p.revealedAt = now;
-              await redis.lSet(`room:${roomId}:problems`, i, JSON.stringify(p));
-            }
-          } else if (problemsRaw.length > 0) {
-            const firstProblem = contestRoomProblemSchema.parse(
-              JSON.parse(problemsRaw[0]),
-            );
-
-            firstProblem.revealedAt = now;
-            await redis.lSet(
-              `room:${roomId}:problems`,
-              0,
-              JSON.stringify(firstProblem),
-            );
-          }
-
-          room.status = "active";
-          room.actualStartTime = new Date(now);
-          await room.save();
-
-          await recordRoomActivity(roomId, {
-            icon: "info",
-            text: "Match started after ready phase countdown! Good luck.",
-            color: "text-primary",
-          });
-
-          const updatedState = await redis.hGetAll(`room:${roomId}:state`);
-          const updatedProblems = await redis.lRange(
-            `room:${roomId}:problems`,
-            0,
-            -1,
-          );
-          const scores: Record<string, number> = {};
-
-          for (const tId of teams) {
-            const score = await redis.zScore(`room:${roomId}:scores`, tId);
-
-            scores[tId] = score || 0;
-          }
-
-          await publishRoom(roomId, {
-            type: "room.state_sync",
-            roomId,
-            state: updatedState,
-            problems: parseContestRoomProblems(updatedProblems),
-            scores,
-          });
-
-          const timeLimitSecs = parseInt(state.timeLimit || "3600", 10);
-          const { reconciliationQueue } = await import("@/lib/contests/queues");
-
-          await reconciliationQueue.add(
-            "room_timeout",
-            { roomId, contestId: state.contestId, trigger: "timeout" },
-            { delay: timeLimitSecs * 1000, jobId: `timeout-${roomId}` },
-          );
-
-          return;
-        }
-
-        // Case 2: Exactly one team ready -> Walkover! (Scenario S2)
-        if (readyTeams.length === 1 && unreadyTeams.length >= 1) {
-          const readyTeamId = readyTeams[0];
-          const unreadyTeamId = unreadyTeams[0];
-
-          logger.info(
-            `[reconciliationWorker] Walkover in room ${roomId}: Ready team ${readyTeamId} wins over unready team ${unreadyTeamId}`,
-          );
-
-          await ContestTeam.findByIdAndUpdate(unreadyTeamId, {
-            isNull: true,
-            name: "[No Show]",
-          });
-
-          room.status = "ended";
-          room.terminationReason = "walkover";
-          room.winnerTeamId = new mongoose.Types.ObjectId(readyTeamId);
-          await room.save();
-
-          const readyTeamDoc = await ContestTeam.findById(readyTeamId);
-
-          if (readyTeamDoc) {
-            readyTeamDoc.score = Math.max(readyTeamDoc.score || 0, 1);
-            await readyTeamDoc.save();
-          }
-
-          const teamScores: Record<string, number> = {
-            [readyTeamId]: readyTeamDoc?.score || 1,
-            [unreadyTeamId]: 0,
-          };
-
-          await publishRoom(roomId, {
-            type: "room.end",
-            finalScores: teamScores,
-            reason: "walkover",
-          });
-
-          const { advanceWinner, checkRoundCompletion } =
-            await import("@/lib/contests/bracket");
-
-          await advanceWinner(roomId, contestId, readyTeamId);
-
-          if (room.currentRoundId) {
-            const roundDoc = await ContestRound.findById(
-              room.currentRoundId,
-            ).lean();
-
-            if (roundDoc) {
-              await checkRoundCompletion(contestId, roundDoc.roundNumber);
-            }
-          }
-
-          const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
-
-          if (completedRoomKeys.length > 0) await redis.del(completedRoomKeys);
-
-          for (const tId of teams) {
-            await redis.del(`team:${tId}:meta`);
-            await redis.del(`team:${tId}:users`);
-          }
-
-          return;
-        }
-
-        // Case 3: Neither team ready -> Both eliminated! (Scenario S1)
-        if (readyTeams.length === 0) {
-          logger.info(
-            `[reconciliationWorker] Both teams failed to ready up in room ${roomId}. Both eliminated, advancing null player.`,
-          );
-
-          for (const tId of teams) {
-            await ContestTeam.findByIdAndUpdate(tId, {
-              isNull: true,
-              name: "[No Show]",
-            });
-          }
-
-          room.status = "ended";
-          room.terminationReason = "no_show";
-          await room.save();
-
-          await publishRoom(roomId, {
-            type: "room.end",
-            finalScores: {},
-            reason: "no_show",
-          });
-
-          const { advanceNullPlayer, checkRoundCompletion } =
-            await import("@/lib/contests/bracket");
-
-          await advanceNullPlayer(contestId, roomId);
-
-          if (room.currentRoundId) {
-            const roundDoc = await ContestRound.findById(
-              room.currentRoundId,
-            ).lean();
-
-            if (roundDoc) {
-              await checkRoundCompletion(contestId, roundDoc.roundNumber);
-            }
-          }
-
-          const completedRoomKeys = await redis.keys(`room:${roomId}:*`);
-
-          if (completedRoomKeys.length > 0) await redis.del(completedRoomKeys);
-
-          for (const tId of teams) {
-            await redis.del(`team:${tId}:meta`);
-            await redis.del(`team:${tId}:users`);
-          }
-
-          return;
-        }
+      if (!result.ok) {
+        throw new Error(result.error.message);
       }
 
       return;
@@ -995,6 +680,7 @@ export const reconciliationWorker = new Worker<
       }
 
       room.teams = createdTeams.map((team) => team._id);
+      configureRoomTiming(room, contest);
 
       await room.save();
       await problemSet.save();
@@ -1021,9 +707,7 @@ export const reconciliationWorker = new Worker<
         await redis.rPush(`room:${newRoomId}:problems`, redisProblems);
       }
 
-      const durationSec = contest.overallDurationMinutes
-        ? contest.overallDurationMinutes * 60
-        : contest.durationSeconds || 3600;
+      const durationSec = room.durationSeconds!;
 
       const stateObj: Record<string, string | number> = {
         status: "pending",
@@ -1031,7 +715,6 @@ export const reconciliationWorker = new Worker<
         startTime: "", // Empty for now, set when all ready
         timeLimit: durationSec.toString(),
         contestId: contestId.toString(),
-        readyCount: 0,
       };
 
       if (contest.perProblemDurationMinutes) {
@@ -1089,7 +772,7 @@ export const reconciliationWorker = new Worker<
       return;
     }
 
-    // Handle activating a bracket contest exactly 5 seconds before start time
+    // Open bracket visibility using the configured pre-start buffer
     if (job.name === "activate_bracket") {
       const contest = await ContestMatch.findById(contestId);
 
@@ -1117,186 +800,17 @@ export const reconciliationWorker = new Worker<
       return;
     }
 
-    // Handle starting the waiting room (making it visible to users)
+    // Visibility may open early but the persisted ready window starts on schedule
     if (job.name === "start_waiting_room") {
-      const contest = await ContestMatch.findById(contestId);
-      const room = await ContestRoom.findById(roomId);
-
-      if (!contest || !room) return;
-
-      room.status = "waiting";
-      await room.save();
-
-      if (contest.status !== "active") {
-        contest.status = "active";
-        await contest.save();
-      }
-
-      await redis.hSet(`room:${roomId}:state`, { status: "waiting" });
-
-      // Publish SSE event that room is now waiting
-      await publishRoom(roomId, {
-        type: "room.state_sync",
-        roomId,
-        state: await redis.hGetAll(`room:${roomId}:state`),
-      });
-
-      logger.info(
-        `[reconciliationWorker] Room ${roomId} is now waiting for players.`,
+      await ContestRoom.updateOne(
+        { _id: roomId, status: "pending" },
+        { $set: { status: "waiting", runtimeSyncPending: true } },
       );
-
-      // Schedule a ready_timeout to cancel if players don't ready up in time
-      const timeoutMins = workerEnv.ROOM_READY_TIMEOUT_MINUTES;
-      const { reconciliationQueue } = await import("@/lib/contests/queues");
-
-      await reconciliationQueue.add(
-        "ready_timeout",
-        { roomId, contestId: contestId.toString() },
-        { delay: timeoutMins * 60000, jobId: `ready-timeout-${roomId}` },
+      await ContestMatch.updateOne(
+        { _id: contestId, status: { $ne: "completed" } },
+        { $set: { status: "active" } },
       );
-
-      return;
-    }
-
-    // Handle ready timeout (if not all players clicked ready within grace period)
-    if (job.name === "ready_timeout") {
-      const state = await redis.hGetAll(`room:${roomId}:state`);
-
-      // If room is still waiting, it means not everyone clicked ready
-      if (state && state.status === "waiting") {
-        // Fetch contest before deleting or force-starting
-        const c = await ContestMatch.findById(contestId).lean();
-
-        // For brackets, NEVER cancel the tournament. Instead, force-start the match!
-        if (c && c.format === "bracket") {
-          logger.info(
-            `[reconciliationWorker] Room ${roomId} ready timeout hit, but it's a bracket. Force-starting the match!`,
-          );
-
-          const room = await ContestRoom.findById(roomId);
-
-          if (room) {
-            const now = Date.now();
-
-            // Reveal the problem
-            const problemsRaw = await redis.lRange(
-              `room:${roomId}:problems`,
-              0,
-              -1,
-            );
-
-            if (problemsRaw.length > 0) {
-              const firstProblem = contestRoomProblemSchema.parse(
-                JSON.parse(problemsRaw[0]),
-              );
-
-              firstProblem.revealedAt = now;
-              await redis.lSet(
-                `room:${roomId}:problems`,
-                0,
-                JSON.stringify(firstProblem),
-              );
-            }
-
-            // Update DB and Redis
-            room.status = "active";
-            room.actualStartTime = new Date(now);
-            await room.save();
-            await redis.hSet(`room:${roomId}:state`, {
-              status: "active",
-              startTime: now.toString(),
-            });
-
-            // Re-fetch and sync to clients
-            const updatedState = await redis.hGetAll(`room:${roomId}:state`);
-            const updatedProblemsRaw = await redis.lRange(
-              `room:${roomId}:problems`,
-              0,
-              -1,
-            );
-            const updatedProblems =
-              parseContestRoomProblems(updatedProblemsRaw);
-            const teamIds = await redis.sMembers(`room:${roomId}:teams`);
-            const scores: Record<string, number> = {};
-
-            for (const tId of teamIds) {
-              const score = await redis.zScore(`room:${roomId}:scores`, tId);
-
-              scores[tId] = score || 0;
-            }
-
-            await publishRoom(roomId, {
-              type: "room.state_sync",
-              roomId,
-              state: updatedState,
-              problems: updatedProblems,
-              scores,
-            });
-
-            // Start the match timer
-            const timeLimitSecs = parseInt(state.timeLimit || "3600", 10);
-            const { reconciliationQueue } =
-              await import("@/lib/contests/queues");
-
-            await reconciliationQueue.add(
-              "room_timeout",
-              { roomId, contestId: contestId.toString(), trigger: "timeout" },
-              { delay: timeLimitSecs * 1000, jobId: `timeout-${roomId}` },
-            );
-          }
-
-          return;
-        }
-
-        logger.info(
-          `[reconciliationWorker] Room ${roomId} ready timeout hit. Canceling contest.`,
-        );
-
-        // Collect team IDs before any deletion so we can clean up team-scoped Redis keys
-        const teamIds = await redis.sMembers(`room:${roomId}:teams`);
-
-        if (c) {
-          // Notify creator
-          const creator = await CPUser.findById(c.creatorId);
-
-          if (creator && creator.userId) {
-            await notify({
-              userId: String(creator.userId),
-              type: "announcement",
-              title: "Contest Cancelled",
-              message: `Your contest '${c.name}' was cancelled because players didn't click Ready in time.`,
-              link: "/internal/contests",
-            });
-          }
-        }
-
-        // Remove room/contest data to abort
-        await ContestMatch.findByIdAndDelete(contestId);
-        await ContestRoom.findByIdAndDelete(roomId);
-
-        // Clean up room-scoped Redis keys
-        const keys = await redis.keys(`room:${roomId}:*`);
-
-        if (keys.length > 0) {
-          await redis.del(keys);
-        }
-
-        // Clean up team-scoped Redis keys (not covered by room:${roomId}:* pattern)
-        for (const tId of teamIds) {
-          await redis.del(`team:${tId}:meta`);
-          await redis.del(`team:${tId}:users`);
-        }
-
-        // Clean up contest-scoped Redis key
-        if (contestId) {
-          await redis.del(`contest:${contestId}:rooms`);
-        }
-
-        await publishRoom(roomId, {
-          type: "room.end",
-          reason: "ready_timeout",
-        });
-      }
+      await synchronizeRoomRuntime(roomId);
 
       return;
     }
@@ -1379,8 +893,8 @@ export const reconciliationWorker = new Worker<
 
       // Finally, update the room status to "ended"
       if (completedRoom) {
+        await finishRoomParticipation(roomId);
         completedRoom.status = "ended";
-        await completedRoom.save();
 
         // For bracket contests: advance winner + check round completion
         if (contestId) {
@@ -1524,56 +1038,10 @@ export const reconciliationWorker = new Worker<
       return;
     }
 
-    // Handle mid-match disconnect timeout
-    if (job.name === "mid_match_disconnect_timeout") {
-      const disconnectedUserId = userId;
-
-      // Check if user is still offline
-      const isOnline = (await getRoomOnlineUserIds(roomId)).includes(
-        disconnectedUserId,
-      );
-      const state = await redis.hGetAll(`room:${roomId}:state`);
-
-      if (!isOnline && state && state.status === "active") {
-        logger.info(
-          `[reconciliationWorker] User ${disconnectedUserId} disconnected for too long in room ${roomId}. Forfeiting.`,
-        );
-
-        // Find which team this user belongs to
-        const allTeams = await redis.sMembers(`room:${roomId}:teams`);
-        let forfeitedTeamId = null;
-
-        for (const tId of allTeams) {
-          const isMember = await redis.sIsMember(
-            `team:${tId}:users`,
-            disconnectedUserId,
-          );
-
-          if (isMember) {
-            forfeitedTeamId = tId;
-            break;
-          }
-        }
-
-        if (forfeitedTeamId) {
-          // Trigger a forfeit for this team, declare the other team the winner
-          trigger = "forfeit";
-          forfeitedUserId = disconnectedUserId;
-          // Continue through the shared forfeit finalization path
-        } else {
-          return;
-        }
-      } else {
-        // User came back online, or room is no longer active - Ignore
-        logger.info(
-          `[reconciliationWorker] mid_match_disconnect_timeout ignored for ${disconnectedUserId} (isOnline=${isOnline}, status=${state?.status})`,
-        );
-
-        return;
-      }
+    if (job.name !== "room_timeout") {
+      throw new Error("Unsupported contest reconciliation job");
     }
 
-    // Original reconciliation logic continues below
     const teams = await redis.sMembers(`room:${roomId}:teams`);
 
     if (teams.length === 0) {
@@ -1585,35 +1053,18 @@ export const reconciliationWorker = new Worker<
     }
 
     const stateObj = await redis.hGetAll(`room:${roomId}:state`);
-    let { winnerId, teamScores } = await determineWinner(
+    const { winnerId, teamScores } = await determineWinner(
       redis,
       roomId,
       teams,
       stateObj,
     );
 
-    // Handle forfeit winner if provided
-    if (trigger === "forfeit" && forfeitedUserId) {
-      // Find the team that the forfeited user does NOT belong to
-      for (const tId of teams) {
-        const isMember = await redis.sIsMember(
-          `team:${tId}:users`,
-          forfeitedUserId,
-        );
-
-        if (!isMember) {
-          winnerId = tId;
-          break;
-        }
-      }
-    }
-
     // 2. Write to MongoDB
     const room = await ContestRoom.findById(roomId);
 
     if (room) {
-      if (trigger === "forfeit") room.terminationReason = "disconnect";
-      else if (trigger === "timeout") room.terminationReason = "timeout";
+      if (trigger === "timeout") room.terminationReason = "timeout";
 
       if (winnerId && mongoose.isValidObjectId(winnerId)) {
         room.winnerTeamId = new mongoose.Types.ObjectId(winnerId);
@@ -1628,7 +1079,7 @@ export const reconciliationWorker = new Worker<
       }
     }
 
-    // Advance bracket outcomes for timeout and forfeit endings
+    // Advance bracket outcomes for timeout endings
     if (contestId) {
       try {
         const bracketContest = await ContestMatch.findById(contestId).lean();
@@ -1740,8 +1191,7 @@ export const reconciliationWorker = new Worker<
 
     // 5. Finalise Room Status
     if (room) {
-      room.status = "ended";
-      await room.save();
+      await finishRoomParticipation(roomId);
 
       // Approach 1: Global Backend Aggregation for ContestMatch
       if (contestId) {
@@ -1763,8 +1213,8 @@ export const reconciliationWorker = new Worker<
       }
     }
 
-    // Publish endings triggered by timeout or forfeit
-    if (trigger === "timeout" || trigger === "forfeit") {
+    // Publish endings triggered by timeout
+    if (trigger === "timeout") {
       const stateObj = await redis.hGetAll(`room:${roomId}:state`);
       const startTime = parseInt(stateObj.startTime || "0", 10);
 
@@ -1772,7 +1222,7 @@ export const reconciliationWorker = new Worker<
         type: "room.end",
         finalScores: teamScores,
         duration: Date.now() - startTime,
-        reason: trigger === "forfeit" ? "disconnect" : "timeout",
+        reason: "timeout",
       });
       await redis.hSet(`room:${roomId}:state`, { status: "completed" });
 
@@ -1801,7 +1251,7 @@ export const reconciliationWorker = new Worker<
   {
     connection: bullMqConnection,
     concurrency: 1,
-    lockDuration: 600000, // Extended lock to 10 min for long API polling loop
+    lockDuration: workerEnv.CONTEST_WORKER_LOCK_MINUTES * 60_000,
   },
 );
 

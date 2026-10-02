@@ -243,7 +243,7 @@ export default async function ContestRoomPage({
     }));
 
     const redis = await getRedis();
-    const readyUserIds = await redis.sMembers(`room:${roomId}:ready_users`);
+    const readyUserIds = room.readyUserIds.map(String);
 
     const initialOnlineUserIds = await getRoomOnlineUserIds(roomId!);
 
@@ -320,11 +320,11 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
-          initialReadyDeadline={
-            stateObj?.readyDeadline
-              ? parseInt(stateObj.readyDeadline)
-              : undefined
-          }
+          initialReadyDeadline={room.readyDeadline?.getTime()}
+          initialReadyOpensAt={room.readyOpensAt?.getTime()}
+          initialAdmittedUserIds={room.admissions.map((admission) =>
+            String(admission.userId),
+          )}
           initialActivityFeed={initialActivityFeed}
           from={from}
           syncCooldownSeconds={syncCooldown}
@@ -353,11 +353,11 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
-          initialReadyDeadline={
-            stateObj?.readyDeadline
-              ? parseInt(stateObj.readyDeadline)
-              : undefined
-          }
+          initialReadyDeadline={room.readyDeadline?.getTime()}
+          initialReadyOpensAt={room.readyOpensAt?.getTime()}
+          initialAdmittedUserIds={room.admissions.map((admission) =>
+            String(admission.userId),
+          )}
           initialActivityFeed={initialActivityFeed}
           from={from}
           syncCooldownSeconds={syncCooldown}

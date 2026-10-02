@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
@@ -41,25 +41,13 @@ import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
 import ContestProblemWorkspace from "@/components/contests/ContestProblemWorkspace";
 
+import { useRoomParticipation } from "@/components/contests/useRoomParticipation";
+import { useMatchNavigationWarning } from "@/components/contests/useMatchNavigationWarning";
+import Button from "@/components/shared/Button";
+
+import { useRuntimeConfig } from "@/components/layout/Providers";
+
 import styles from "./BlitzRoomClient.module.scss";
-
-const ForfeitTimer = ({ targetTime }: { targetTime: number }) => {
-  const [left, setLeft] = useState(() =>
-    Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)),
-  );
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      setLeft(Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)));
-    }, 1000);
-
-    return () => clearInterval(t);
-  }, [targetTime]);
-
-  if (left <= 0) return null;
-
-  return <span className={styles.forfeitTimer}>(Forfeit in {left}s)</span>;
-};
 
 export default function BlitzRoomClient({
   contest,
@@ -82,6 +70,8 @@ export default function BlitzRoomClient({
   isSpectator = false,
   initialActivityFeed = [],
   initialReadyDeadline,
+  initialReadyOpensAt,
+  initialAdmittedUserIds = [],
 }: {
   contest: ContestListingItem;
   roomId: string;
@@ -99,12 +89,15 @@ export default function BlitzRoomClient({
   initialStartTime?: number;
   initialTimeLimit?: number;
   initialReadyDeadline?: number;
+  initialReadyOpensAt?: number;
+  initialAdmittedUserIds?: string[];
   from?: string;
   syncCooldownSeconds?: number;
   isSpectator?: boolean;
   initialActivityFeed?: RoomActivityDto[];
 }) {
   const router = useRouter();
+  const { contestResultRedirectSeconds } = useRuntimeConfig();
 
   const [matchState, setMatchState] = useState<
     "waiting" | "active" | "completed"
@@ -117,42 +110,39 @@ export default function BlitzRoomClient({
   const [currentProblemIndex, setCurrentProblemIndex] =
     useState(initialProblemIndex);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
-  const [readyUserIds, setReadyUserIds] = useState<Set<string>>(
-    new Set(initialReadyUserIds),
-  );
+
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(
     new Set(initialOnlineUserIds || [userId]),
   );
 
-  const [readySecondsLeft, setReadySecondsLeft] = useState<number | null>(
-    () => {
-      if (!initialReadyDeadline) return null;
-
-      return Math.max(0, Math.ceil((initialReadyDeadline - Date.now()) / 1000));
-    },
-  );
-
-  useEffect(() => {
-    if (!initialReadyDeadline || matchState !== "waiting") return;
-
-    const interval = setInterval(() => {
-      const remaining = Math.max(
-        0,
-        Math.ceil((initialReadyDeadline - Date.now()) / 1000),
-      );
-
-      setReadySecondsLeft(remaining);
-
-      if (remaining <= 0) clearInterval(interval);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [initialReadyDeadline, matchState]);
-
   const onlineUserIdsRef = useRef<Set<string>>(
     new Set(initialOnlineUserIds || [userId]),
   );
-  const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
+  const {
+    readyUserIds,
+    setReadyUserIds,
+    admittedUserIds,
+    syncParticipation,
+    handleReady,
+    isReady,
+    isAdmitted,
+    readySecondsLeft,
+    opensInSeconds,
+    entering,
+    entryError,
+  } = useRoomParticipation({
+    roomId,
+    userId,
+    matchState,
+    initialReadyUserIds,
+    initialAdmittedUserIds,
+    initialReadyDeadline,
+    initialReadyOpensAt,
+  });
+
+  useMatchNavigationWarning(
+    matchState === "active" && isAdmitted && !isSpectator,
+  );
   const [syncing, setSyncing] = useState(false);
   const { cooldown: syncCooldown, begin: beginSync } = useSyncCooldown(
     roomId,
@@ -174,9 +164,7 @@ export default function BlitzRoomClient({
 
   const [activityFeed, setActivityFeed] =
     useState<RoomActivityDto[]>(initialActivityFeed);
-  const [forfeitTimeouts, setForfeitTimeouts] = useState<
-    Record<string, number>
-  >({});
+
   const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
 
   // Redirect to results page immediately ONLY if the match was already completed on initial load
@@ -191,7 +179,7 @@ export default function BlitzRoomClient({
     if (matchState === "completed" && initialMatchState !== "completed") {
       const t = setTimeout(() => {
         router.replace(getContestRoomResultsPath(roomId, contest.format));
-      }, 2000);
+      }, contestResultRedirectSeconds * 1000);
 
       return () => clearTimeout(t);
     }
@@ -202,6 +190,7 @@ export default function BlitzRoomClient({
     router,
     contest.format,
     contest.mode,
+    contestResultRedirectSeconds,
   ]);
 
   const handleEvent = (payload: RoomEventPayloadDto) => {
@@ -231,14 +220,11 @@ export default function BlitzRoomClient({
           onlineUserIdsRef.current = new Set(payload.onlineUserIds);
           setOnlineUserIds(new Set(payload.onlineUserIds));
         }
-        if (payload.readyUserIds)
-          setReadyUserIds(new Set(payload.readyUserIds));
+        syncParticipation(payload);
         if (payload.state.currentProblem)
           setCurrentProblemIndex(Number(payload.state.currentProblem));
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
-        if (payload.forfeitTimeouts)
-          setForfeitTimeouts(payload.forfeitTimeouts);
         if (payload.activityLogs)
           setActivityFeed([...payload.activityLogs].reverse());
         break;
@@ -295,9 +281,6 @@ export default function BlitzRoomClient({
 
           return newSet;
         });
-        if (payload.userId === userId) {
-          setIsReady(true);
-        }
         break;
       case "sync.failed":
         setSyncing(false);
@@ -333,35 +316,11 @@ export default function BlitzRoomClient({
           setOnlineUserIds(new Set(onlineUserIdsRef.current));
         }
 
-        setForfeitTimeouts((prev) => {
-          const next = { ...prev };
-
-          delete next[payload.userId];
-
-          return next;
-        });
         break;
       }
       case "presence.offline": {
         onlineUserIdsRef.current.delete(payload.userId);
         setOnlineUserIds(new Set(onlineUserIdsRef.current));
-
-        if (payload.forfeitTimeout) {
-          const timeout = payload.forfeitTimeout;
-
-          setForfeitTimeouts((prev) => ({
-            ...prev,
-            [payload.userId]: Date.now() + timeout * 1000,
-          }));
-        }
-
-        setReadyUserIds((prev) => {
-          const newSet = new Set(prev);
-
-          newSet.delete(payload.userId);
-
-          return newSet;
-        });
         break;
       }
       case "room.activity":
@@ -372,18 +331,6 @@ export default function BlitzRoomClient({
   };
 
   useRoomEventSource(roomId, userId, handleEvent);
-
-  const getMemberName = (uid: string) => {
-    if (!teams) return "Unknown";
-
-    for (const t of teams) {
-      for (const m of t.members) {
-        if (m.id === uid) return getDisplayName(m.name, m.pizza_count);
-      }
-    }
-
-    return uid === userId ? "You" : "Unknown";
-  };
 
   const addActivity = (
     icon: string,
@@ -406,18 +353,15 @@ export default function BlitzRoomClient({
     sendBrowserNotification(icon, text);
   };
 
-  const handleReady = async () => {
-    setIsReady(true);
-
-    const response = await fetch(`/api/contests/rooms/${roomId}/ready`, {
-      method: "POST",
-    });
-
-    if (!(await readAppResult(response)).ok) setIsReady(false);
-  };
-
   const handleSync = async () => {
-    if (syncing || matchState !== "active" || syncCooldown > 0) return;
+    if (
+      !isAdmitted ||
+      isSpectator ||
+      syncing ||
+      matchState !== "active" ||
+      syncCooldown > 0
+    )
+      return;
 
     setSyncing(true);
 
@@ -568,7 +512,7 @@ export default function BlitzRoomClient({
           {/* Left Sidebar (Roster) */}
           <div className={styles.sideCol}>
             <div className={styles.panel}>
-              <h2 className={styles.panelTitle}>Active Roster</h2>
+              <h2 className={styles.panelTitle}>Team Roster</h2>
 
               {teams?.map((team) => (
                 <div key={team._id} className={styles.rosterTeam}>
@@ -582,17 +526,20 @@ export default function BlitzRoomClient({
                     </span>
                   )}
                   {team.members.map((member) => {
-                    const memberIsReady = readyUserIds.has(member.id);
+                    const memberIsReady =
+                      matchState === "active"
+                        ? admittedUserIds.has(member.id)
+                        : readyUserIds.has(member.id);
                     const memberIsOnline = onlineUserIds.has(member.id);
 
                     const borderClass = !memberIsOnline
                       ? styles.borderError
-                      : memberIsReady || matchState !== "waiting"
+                      : memberIsReady
                         ? styles.borderPrimary
                         : styles.borderNone;
                     const dotClass = !memberIsOnline
                       ? styles.dotError
-                      : matchState === "waiting" && !memberIsReady
+                      : !memberIsReady
                         ? styles.dotMuted
                         : styles.dotPrimary;
 
@@ -617,14 +564,16 @@ export default function BlitzRoomClient({
                             {getDisplayName(member.name, member.pizza_count)}{" "}
                             {member.id === userId && "(You)"}
                           </span>
-                          {!memberIsOnline && forfeitTimeouts[member.id] && (
-                            <ForfeitTimer
-                              targetTime={forfeitTimeouts[member.id]}
-                            />
-                          )}
                         </div>
                         <div
                           className={`${styles.statusDotSm} ${dotClass}`}
+                          title={
+                            memberIsReady
+                              ? memberIsOnline
+                                ? "Ready to play"
+                                : "Playing while offline"
+                              : "Not ready to play"
+                          }
                         ></div>
                       </div>
                     );
@@ -646,30 +595,59 @@ export default function BlitzRoomClient({
                   <h2 className={styles.waitingTitle}>Waiting for Players</h2>
                   <p className={styles.waitingText}>
                     The arena is being prepared. Review your strategy-the match
-                    begins when all teams are ready.
+                    starts as soon as everyone is ready. At the deadline, each
+                    team needs at least one ready member.
                   </p>
                   {readySecondsLeft !== null && readySecondsLeft > 0 && (
                     <div className={styles.readyCountdown}>
                       <Hourglass size={16} />
-                      <span>Ready Phase: {readySecondsLeft}s remaining</span>
+                      <span>
+                        {opensInSeconds > 0
+                          ? `Readiness opens in ${opensInSeconds}s`
+                          : `Ready phase: ${readySecondsLeft}s remaining`}
+                      </span>
                     </div>
                   )}
-                  <button
-                    onClick={handleReady}
-                    disabled={isReady}
-                    className={styles.readyBtn}
-                  >
-                    {isReady ? (
-                      <span className={styles.animatedDots}>
-                        Ready! Waiting on others
-                      </span>
-                    ) : (
-                      "I am Ready"
-                    )}
-                  </button>
+                  {!isSpectator && (
+                    <button
+                      onClick={handleReady}
+                      disabled={
+                        isReady ||
+                        entering ||
+                        opensInSeconds > 0 ||
+                        readySecondsLeft === 0
+                      }
+                      className={styles.readyBtn}
+                    >
+                      {isReady ? (
+                        <span className={styles.animatedDots}>
+                          Ready! Waiting on others
+                        </span>
+                      ) : (
+                        "I am Ready"
+                      )}
+                    </button>
+                  )}
+                  {entryError && <p role="alert">{entryError}</p>}
                 </div>
               ) : (
                 <>
+                  {!isSpectator && !isAdmitted && matchState === "active" && (
+                    <div className={styles.entryNotice}>
+                      <p>
+                        Your team can keep playing while you are away. Enter
+                        this match to participate.
+                      </p>
+                      <Button
+                        variant="primary"
+                        disabled={entering}
+                        onClick={handleReady}
+                      >
+                        Enter match
+                      </Button>
+                      {entryError && <p role="alert">{entryError}</p>}
+                    </div>
+                  )}
                   <div className={styles.problemHead}>
                     <div className={styles.problemCount}>
                       <Target
@@ -733,7 +711,7 @@ export default function BlitzRoomClient({
                         <ExternalLink size={16} />
                         Open in Codeforces
                       </a>
-                      {!isSpectator && (
+                      {!isSpectator && isAdmitted && (
                         <button
                           onClick={handleSync}
                           disabled={
@@ -768,7 +746,7 @@ export default function BlitzRoomClient({
                   </div>
                   <ContestProblemWorkspace
                     problem={activeProblem}
-                    isSpectator={isSpectator}
+                    isSpectator={isSpectator || !isAdmitted}
                   />
                 </>
               )}

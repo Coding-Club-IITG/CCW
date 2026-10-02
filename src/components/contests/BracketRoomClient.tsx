@@ -275,6 +275,11 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
             <span className={`${styles.badge} ${styles.badgeWarning}`}>
               Walkover
             </span>
+          ) : node.terminationReason === "opponent_absent" ||
+            node.terminationReason === "both_absent" ? (
+            <span className={`${styles.badge} ${styles.badgeWarning}`}>
+              No-show
+            </span>
           ) : (
             <span className={`${styles.badge} ${styles.badgePrimary}`}>
               Completed
@@ -347,8 +352,10 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
   const badge = isCompleted ? (
     isWalkover ? (
       <span className={`${styles.badge} ${styles.badgeWarning}`}>Walkover</span>
-    ) : node.terminationReason === "both_no_show" ||
-      node.terminationReason === "both_zero_solve" ? (
+    ) : node.terminationReason === "opponent_absent" ? (
+      <span className={`${styles.badge} ${styles.badgeWarning}`}>No-show</span>
+    ) : node.terminationReason === "both_absent" ||
+      node.terminationReason === "no_solve" ? (
       <span className={`${styles.badge} ${styles.badgeWarning}`}>
         Eliminated
       </span>
@@ -910,7 +917,7 @@ export default function BracketRoomClient({
     });
 
     eventSource.onerror = () => {
-      // Browsers natively handle EventSource reconnects. No need to log the empty ErrorEvent object.
+      // Browsers natively handle EventSource reconnects
     };
 
     return () => {

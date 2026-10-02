@@ -90,6 +90,19 @@ export async function POST(request: NextRequest) {
       return jsonError("FORBIDDEN", "You are not a member of this room's team");
     }
 
+    if (
+      !room.admissions.some(
+        (admission) =>
+          String(admission.userId) === userId &&
+          String(admission.teamId) === resolvedTeamId,
+      )
+    ) {
+      return jsonError(
+        "FORBIDDEN",
+        "Enter the active match before syncing submissions.",
+      );
+    }
+
     const state = contestRoomStateSchema.parse(
       await redis.hGetAll(`room:${roomId}:state`),
     );
@@ -159,8 +172,11 @@ export async function POST(request: NextRequest) {
       createdAt: createdAt.toString(),
       jobId: job.id || "",
     });
-    // Set a TTL so it doesn't leak indefinitely (Eg. 1 hour)
-    await redis.expire(syncStateKey, 3600);
+    // Expire sync status after the configured retention window
+    await redis.expire(
+      syncStateKey,
+      webEnv.CONTEST_SYNC_RETENTION_MINUTES * 60,
+    );
 
     // 5. Publish event to user
     await publishUser(userId, roomId, {

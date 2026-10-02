@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
-import mongoose from "mongoose";
+
+import { configureRoomTiming } from "@/lib/contests/roomTiming";
+import { synchronizeRoomRuntime } from "@/lib/contests/roomRuntime";
 
 import { canManageContest } from "@/lib/access/contests";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { connectMongoDB } from "@/lib/db/mongodb";
-import { getRedis } from "@/lib/db/redis";
 import { auth } from "@/lib/auth/server";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 import { parseJson } from "@/lib/api/result";
@@ -162,67 +163,14 @@ export async function POST(req: NextRequest) {
     }
 
     room.teams = createdTeams.map((t) => t._id);
+    configureRoomTiming(room, contest);
 
     await room.save();
     await problemSet.save();
 
     const roomId = room._id.toString();
 
-    const redis = await getRedis();
-
-    // Write ordered problem array to room:<id>:problems
-    const redisProblems = problemsWithContent.map(({ problem, content }) =>
-      JSON.stringify({
-        problemId: problem.problemId,
-        name: content?.title || problem.name,
-        rating: problem.rating,
-        points: Math.floor((problem.rating || 1000) / 10),
-        revealedAt: null,
-        ...content,
-      }),
-    );
-
-    await redis.del(`room:${roomId}:problems`);
-
-    if (redisProblems.length > 0) {
-      await redis.rPush(`room:${roomId}:problems`, redisProblems);
-    }
-
-    // Set room:<id>:state Hash
-    const stateObj: Record<string, string | number> = {
-      status: "waiting",
-      type: contest.mode || "blitz",
-      startTime: "",
-      timeLimit: (contest.durationSeconds ?? 3600).toString(),
-      contestId: contestId.toString(),
-      readyCount: 0,
-    };
-
-    if (contest.mode !== "arena") {
-      stateObj.currentProblem = 0;
-    }
-
-    await redis.hSet(`room:${roomId}:state`, stateObj);
-
-    // Write room:<id>:teams Set
-    await redis.sAdd(
-      `room:${roomId}:teams`,
-      createdTeams.map((t) => t._id.toString()),
-    );
-
-    // Write team:<teamId>:meta and team:<teamId>:users
-    for (const t of createdTeams) {
-      const tId = t._id.toString();
-
-      await redis.hSet(`team:${tId}:meta`, { name: t.name, score: 0 });
-      await redis.sAdd(
-        `team:${tId}:users`,
-        t.members.map((member) => member.toString()),
-      );
-    }
-
-    // Add roomId to contest:<contestId>:rooms Set
-    await redis.sAdd(`contest:${contestId}:rooms`, roomId);
+    await synchronizeRoomRuntime(roomId);
 
     return jsonOk({ roomId });
   } catch (error) {

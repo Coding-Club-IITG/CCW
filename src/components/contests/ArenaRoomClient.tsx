@@ -12,7 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
@@ -38,25 +38,13 @@ import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
 import ContestProblemWorkspace from "@/components/contests/ContestProblemWorkspace";
 
+import { useRoomParticipation } from "@/components/contests/useRoomParticipation";
+import { useMatchNavigationWarning } from "@/components/contests/useMatchNavigationWarning";
+import Button from "@/components/shared/Button";
+
+import { useRuntimeConfig } from "@/components/layout/Providers";
+
 import styles from "./ArenaRoomClient.module.scss";
-
-const ForfeitTimer = ({ targetTime }: { targetTime: number }) => {
-  const [left, setLeft] = useState(() =>
-    Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)),
-  );
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      setLeft(Math.max(0, Math.ceil((targetTime - Date.now()) / 1000)));
-    }, 1000);
-
-    return () => clearInterval(t);
-  }, [targetTime]);
-
-  if (left <= 0) return null;
-
-  return <span className={styles.forfeitTimer}>(Forfeit in {left}s)</span>;
-};
 
 export default function ArenaRoomClient({
   contest,
@@ -79,6 +67,8 @@ export default function ArenaRoomClient({
   isSpectator = false,
   initialActivityFeed = [],
   initialReadyDeadline,
+  initialReadyOpensAt,
+  initialAdmittedUserIds = [],
 }: {
   contest: ContestListingItem;
   roomId: string;
@@ -96,12 +86,15 @@ export default function ArenaRoomClient({
   initialStartTime?: number;
   initialTimeLimit?: number;
   initialReadyDeadline?: number;
+  initialReadyOpensAt?: number;
+  initialAdmittedUserIds?: string[];
   from?: string;
   syncCooldownSeconds?: number;
   isSpectator?: boolean;
   initialActivityFeed?: RoomActivityDto[];
 }) {
   const router = useRouter();
+  const { contestResultRedirectSeconds } = useRuntimeConfig();
 
   const [matchState, setMatchState] = useState<
     "waiting" | "active" | "completed"
@@ -111,41 +104,38 @@ export default function ArenaRoomClient({
     useState<ContestRoomProblemDto[]>(initialProblems);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
   const [locks, setLocks] = useState<Record<string, string>>(initialLocks);
-  const [readyUserIds, setReadyUserIds] = useState<Set<string>>(
-    new Set(initialReadyUserIds),
-  );
+
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(
     new Set(initialOnlineUserIds || [userId]),
   ); // Track online users
   const onlineUserIdsRef = useRef<Set<string>>(
     new Set(initialOnlineUserIds || [userId]),
   );
-  const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
+  const {
+    readyUserIds,
+    setReadyUserIds,
+    admittedUserIds,
+    syncParticipation,
+    handleReady,
+    isReady,
+    isAdmitted,
+    readySecondsLeft,
+    opensInSeconds,
+    entering,
+    entryError,
+  } = useRoomParticipation({
+    roomId,
+    userId,
+    matchState,
+    initialReadyUserIds,
+    initialAdmittedUserIds,
+    initialReadyDeadline,
+    initialReadyOpensAt,
+  });
 
-  const [readySecondsLeft, setReadySecondsLeft] = useState<number | null>(
-    () => {
-      if (!initialReadyDeadline) return null;
-
-      return Math.max(0, Math.ceil((initialReadyDeadline - Date.now()) / 1000));
-    },
+  useMatchNavigationWarning(
+    matchState === "active" && isAdmitted && !isSpectator,
   );
-
-  useEffect(() => {
-    if (!initialReadyDeadline || matchState !== "waiting") return;
-
-    const interval = setInterval(() => {
-      const remaining = Math.max(
-        0,
-        Math.ceil((initialReadyDeadline - Date.now()) / 1000),
-      );
-
-      setReadySecondsLeft(remaining);
-
-      if (remaining <= 0) clearInterval(interval);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [initialReadyDeadline, matchState]);
 
   const [syncingMap, setSyncingMap] = useState<Record<string, boolean>>({});
   const {
@@ -155,9 +145,7 @@ export default function ArenaRoomClient({
   } = useSyncCooldown(roomId, userId, syncCooldownSeconds);
   const [activityFeed, setActivityFeed] =
     useState<RoomActivityDto[]>(initialActivityFeed);
-  const [forfeitTimeouts, setForfeitTimeouts] = useState<
-    Record<string, number>
-  >({});
+
   const [startTime, setStartTime] = useState<number | undefined>(
     initialStartTime,
   );
@@ -189,7 +177,7 @@ export default function ArenaRoomClient({
     if (matchState === "completed" && initialMatchState !== "completed") {
       const t = setTimeout(() => {
         router.replace(getContestRoomResultsPath(roomId, contest.format));
-      }, 2000);
+      }, contestResultRedirectSeconds * 1000);
 
       return () => clearTimeout(t);
     }
@@ -200,6 +188,7 @@ export default function ArenaRoomClient({
     router,
     contest.format,
     contest.mode,
+    contestResultRedirectSeconds,
   ]);
 
   const stateRef = useRef({ locks, problems, teams, userId });
@@ -229,13 +218,10 @@ export default function ArenaRoomClient({
           onlineUserIdsRef.current = new Set(payload.onlineUserIds);
           setOnlineUserIds(new Set(payload.onlineUserIds));
         }
-        if (payload.readyUserIds)
-          setReadyUserIds(new Set(payload.readyUserIds));
+        syncParticipation(payload);
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
         if (payload.locks) setLocks(payload.locks);
-        if (payload.forfeitTimeouts)
-          setForfeitTimeouts(payload.forfeitTimeouts);
         if (payload.activityLogs)
           setActivityFeed([...payload.activityLogs].reverse());
         break;
@@ -338,9 +324,6 @@ export default function ArenaRoomClient({
 
           return newSet;
         });
-        if (payload.userId === stateRef.current.userId) {
-          setIsReady(true);
-        }
         break;
       case "presence.sync":
         onlineUserIdsRef.current = new Set(payload.onlineUserIds);
@@ -355,38 +338,11 @@ export default function ArenaRoomClient({
           setOnlineUserIds(new Set(onlineUserIdsRef.current));
         }
 
-        setForfeitTimeouts((prev) => {
-          const next = { ...prev };
-
-          delete next[payload.userId];
-
-          return next;
-        });
         break;
       }
       case "presence.offline": {
-        const uName = getMemberName(payload.userId);
-
         onlineUserIdsRef.current.delete(payload.userId);
         setOnlineUserIds(new Set(onlineUserIdsRef.current));
-
-        setReadyUserIds((prev) => {
-          const newSet = new Set(prev);
-
-          newSet.delete(payload.userId);
-
-          return newSet;
-        });
-
-        if (payload.forfeitTimeout) {
-          const timeout = payload.forfeitTimeout;
-
-          setForfeitTimeouts((prev) => ({
-            ...prev,
-            [payload.userId]: Date.now() + timeout * 1000,
-          }));
-        }
-
         break;
       }
       case "room.activity":
@@ -431,18 +387,14 @@ export default function ArenaRoomClient({
     sendBrowserNotification(icon, text);
   };
 
-  const handleReady = async () => {
-    setIsReady(true);
-
-    const response = await fetch(`/api/contests/rooms/${roomId}/ready`, {
-      method: "POST",
-    });
-
-    if (!(await readAppResult(response)).ok) setIsReady(false);
-  };
-
   const handleSync = async (problemId: string) => {
-    if (syncingMap[problemId] || matchState !== "active" || syncCooldown > 0)
+    if (
+      !isAdmitted ||
+      isSpectator ||
+      syncingMap[problemId] ||
+      matchState !== "active" ||
+      syncCooldown > 0
+    )
       return;
 
     holdSync();
@@ -551,7 +503,7 @@ export default function ArenaRoomClient({
           {/* Left Sidebar (Roster) */}
           <div className={styles.sideCol}>
             <div className={styles.panel}>
-              <h2 className={styles.panelTitle}>Active Roster</h2>
+              <h2 className={styles.panelTitle}>Team Roster</h2>
 
               {teams?.map((team) => (
                 <div key={team._id} className={styles.rosterTeam}>
@@ -565,17 +517,20 @@ export default function ArenaRoomClient({
                     </span>
                   )}
                   {team.members.map((member) => {
-                    const memberIsReady = readyUserIds.has(member.id);
+                    const memberIsReady =
+                      matchState === "active"
+                        ? admittedUserIds.has(member.id)
+                        : readyUserIds.has(member.id);
                     const memberIsOnline = onlineUserIds.has(member.id);
 
                     const borderClass = !memberIsOnline
                       ? styles.borderError
-                      : memberIsReady || matchState !== "waiting"
+                      : memberIsReady
                         ? styles.borderPrimary
                         : styles.borderNone;
                     const dotClass = !memberIsOnline
                       ? styles.dotError
-                      : matchState === "waiting" && !memberIsReady
+                      : !memberIsReady
                         ? styles.dotMuted
                         : styles.dotPrimary;
 
@@ -600,14 +555,16 @@ export default function ArenaRoomClient({
                             {getDisplayName(member.name, member.pizza_count)}{" "}
                             {member.id === userId && "(You)"}
                           </span>
-                          {!memberIsOnline && forfeitTimeouts[member.id] && (
-                            <ForfeitTimer
-                              targetTime={forfeitTimeouts[member.id]}
-                            />
-                          )}
                         </div>
                         <div
                           className={`${styles.statusDotSm} ${dotClass}`}
+                          title={
+                            memberIsReady
+                              ? memberIsOnline
+                                ? "Ready to play"
+                                : "Playing while offline"
+                              : "Not ready to play"
+                          }
                         ></div>
                       </div>
                     );
@@ -632,20 +589,29 @@ export default function ArenaRoomClient({
                       </h2>
                       <p className={styles.waitingText}>
                         The arena is being prepared. Review your strategy-the
-                        match begins when all teams are ready.
+                        match starts as soon as everyone is ready. At the
+                        deadline, each team needs at least one ready member.
                       </p>
                       {readySecondsLeft !== null && readySecondsLeft > 0 && (
                         <div className={styles.readyCountdown}>
                           <Hourglass size={16} />
                           <span>
-                            Ready Phase: {readySecondsLeft}s remaining
+                            {opensInSeconds > 0
+                              ? `Readiness opens in ${opensInSeconds}s`
+                              : `Ready phase: ${readySecondsLeft}s remaining`}
                           </span>
                         </div>
                       )}
+                      {entryError && <p role="alert">{entryError}</p>}
                       {!isSpectator && (
                         <button
                           onClick={handleReady}
-                          disabled={isReady}
+                          disabled={
+                            isReady ||
+                            entering ||
+                            opensInSeconds > 0 ||
+                            readySecondsLeft === 0
+                          }
                           className={styles.readyBtn}
                         >
                           {isReady ? (
@@ -660,6 +626,24 @@ export default function ArenaRoomClient({
                     </div>
                   ) : (
                     <>
+                      {!isSpectator &&
+                        !isAdmitted &&
+                        matchState === "active" && (
+                          <div className={styles.entryNotice}>
+                            <p>
+                              Your team can keep playing while you are away.
+                              Enter this match to participate.
+                            </p>
+                            <Button
+                              variant="primary"
+                              disabled={entering}
+                              onClick={handleReady}
+                            >
+                              Enter match
+                            </Button>
+                            {entryError && <p role="alert">{entryError}</p>}
+                          </div>
+                        )}
                       <div className={styles.gridHead}>
                         <h2 className={styles.gridHeadTitle}>Problem Grid</h2>
                       </div>
@@ -801,7 +785,7 @@ export default function ArenaRoomClient({
                                       size={16}
                                     />
                                   </a>
-                                  {!isSpectator && (
+                                  {!isSpectator && isAdmitted && (
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -859,7 +843,7 @@ export default function ArenaRoomClient({
                       </div>
                       <ContestProblemWorkspace
                         problem={runnerProblem}
-                        isSpectator={isSpectator}
+                        isSpectator={isSpectator || !isAdmitted}
                       />
                     </>
                   )}

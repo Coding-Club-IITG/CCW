@@ -23,6 +23,40 @@ const required = {
 
 describe("runtime environment schemas", () => {
   it.each([parseWebEnv, parseWorkerEnv, parseCliEnv])(
+    "validates participation timing defaults and bounds",
+    (parse) => {
+      const policies = [
+        ["CONTEST_JUDGING_GRACE_SECONDS", 120, 0, 600],
+        ["CONTEST_CF_RETRY_SECONDS", 5, 1, 60],
+        ["CONTEST_CF_RATE_WINDOW_SECONDS", 1, 1, 60],
+        ["CONTEST_SYNC_RETENTION_MINUTES", 60, 1, 1440],
+        ["CONTEST_RESULT_REDIRECT_SECONDS", 2, 0, 30],
+        ["CONTEST_DEFAULT_MATCH_MINUTES", 60, 1, 1440],
+        ["CONTEST_WORKER_LOCK_MINUTES", 10, 1, 60],
+        ["CONTEST_RECONCILIATION_RETRY_SECONDS", 2, 1, 60],
+        ["CONTEST_RECOVERY_INTERVAL_SECONDS", 30, 1, 300],
+        ["CONTEST_DISPLAY_REFRESH_MILLISECONDS", 1000, 100, 5000],
+      ] as const;
+
+      for (const [key, fallback, min, max] of policies) {
+        expect(parse(required)[key]).toBe(fallback);
+        expect(parse({ ...required, [key]: String(min) })[key]).toBe(min);
+        expect(parse({ ...required, [key]: String(max) })[key]).toBe(max);
+
+        for (const invalid of [min - 1, max + 1, 1.5]) {
+          expect(() => parse({ ...required, [key]: String(invalid) })).toThrow(
+            key,
+          );
+        }
+      }
+
+      expect(parse(required)).not.toHaveProperty(
+        "DISCONNECT_FORFEIT_TIMEOUT_SECONDS",
+      );
+    },
+  );
+
+  it.each([parseWebEnv, parseWorkerEnv, parseCliEnv])(
     "validates contest stream and refresh timing",
     (parse) => {
       expect(parse(required)).toMatchObject({
@@ -136,7 +170,11 @@ describe("runtime environment schemas", () => {
       TRUSTED_ORIGINS: ["http://localhost:3000", "https://ccw.example.com"],
       REGISTRATION_DEADLINE_MINUTES: 3,
       ROOM_PRE_START_SECONDS: 5,
-      DISCONNECT_FORFEIT_TIMEOUT_SECONDS: 90,
+      CONTEST_DEFAULT_MATCH_MINUTES: 60,
+      CONTEST_WORKER_LOCK_MINUTES: 10,
+      CONTEST_RECONCILIATION_RETRY_SECONDS: 2,
+      CONTEST_RECOVERY_INTERVAL_SECONDS: 30,
+      CONTEST_DISPLAY_REFRESH_MILLISECONDS: 1000,
       ROOM_READY_TIMEOUT_MINUTES: 2,
       SYNC_COOLDOWN: 60,
       FILE_UPLOAD_DIR: "uploads/files",

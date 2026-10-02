@@ -50,7 +50,9 @@
   padding: 1.25rem;
   border: 1px solid var(--border);
   background: var(--surface);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
   cursor: pointer;
 }
 
@@ -253,6 +255,10 @@
   position: absolute;
   inset: 1.5rem;
   overflow: hidden;
+
+  @media (max-width: 1023px) {
+    position: static;
+  }
 }
 
 .workspaceScroll {

@@ -432,3 +432,9 @@ export const ATLAS_RESULT_KINDS = [
 ] as const;
 
 export type AtlasResultKind = (typeof ATLAS_RESULT_KINDS)[number];
+
+export const CONTEST_ABSENCE_LABELS: Record<string, string> = {
+  opponent_absent:
+    "Match awarded because the opposing team missed the ready deadline",
+  both_absent: "Both teams missed the ready deadline and were eliminated",
+};

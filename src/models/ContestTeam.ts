@@ -29,7 +29,7 @@ const ContestTeamSchema = new Schema<IContestTeam>(
     members: [
       {
         type: Schema.Types.ObjectId,
-        ref: "CPUser",
+        ref: "User",
         required: true,
         index: true,
       },

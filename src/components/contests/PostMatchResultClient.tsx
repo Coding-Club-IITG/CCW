@@ -14,8 +14,11 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 
+import { CONTEST_ABSENCE_LABELS } from "@/lib/constants";
+
 import { getDisplayName } from "@/lib/users/identity";
 
+import { useRuntimeConfig } from "@/components/layout/Providers";
 import BackLink from "@/components/shared/BackLink";
 import UserAvatar from "@/components/shared/UserAvatar";
 
@@ -90,15 +93,16 @@ export default function PostMatchResultClient({
   }
 
   const router = useRouter();
+  const { contestDisplayRefreshMilliseconds } = useRuntimeConfig();
 
   useEffect(() => {
     if (matchData.isProcessing) {
       const interval = setInterval(() => {
         router.refresh();
-      }, 1000);
+      }, contestDisplayRefreshMilliseconds);
       return () => clearInterval(interval);
     }
-  }, [matchData.isProcessing, router]);
+  }, [matchData.isProcessing, router, contestDisplayRefreshMilliseconds]);
 
   if (matchData.isProcessing) {
     return (
@@ -144,12 +148,8 @@ export default function PostMatchResultClient({
         <section className={styles.hero}>
           <div className={styles.heroTeams}>
             {matchData.teams.slice(0, 3).map((team, index) => {
-              const isWinner = matchData.winnerTeamId
-                ? team.id === matchData.winnerTeamId
-                : index === 0 &&
-                  matchData.teams.length > 0 &&
-                  (matchData.teams.length === 1 ||
-                    team.score > matchData.teams[1].score);
+              const isWinner = team.id === matchData.winnerTeamId;
+
               return (
                 <div key={team.id} className={styles.teamBlock}>
                   {index > 0 && <span className={styles.vsDash}>-</span>}
@@ -193,12 +193,13 @@ export default function PostMatchResultClient({
         </section>
 
         {/* Termination Reason Banner */}
-        {matchData.terminationReason === "disconnect" && (
-          <div className={styles.terminationBanner}>
-            <UserX size={16} />
-            <span>Match concluded early: A user disconnected</span>
-          </div>
-        )}
+        {matchData.terminationReason &&
+          CONTEST_ABSENCE_LABELS[matchData.terminationReason] && (
+            <div className={styles.terminationBanner}>
+              <UserX size={16} />
+              <span>{CONTEST_ABSENCE_LABELS[matchData.terminationReason]}</span>
+            </div>
+          )}
 
         {/* Advancement Banner */}
         {matchData.isKnockout && (

@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { Job } from "bullmq";
 import { NextRequest } from "next/server";
 
 import { authorizeContestView, authorizeRoomView } from "@/lib/access/contests";
@@ -16,7 +15,6 @@ import {
   getRoomOnlineUserIds,
   updateRoomPresence,
 } from "@/lib/contests/presence";
-import { reconciliationQueue } from "@/lib/contests/queues";
 import {
   contestRoomStateSchema,
   parseContestRoomProblems,
@@ -25,6 +23,8 @@ import {
 import { getRedis } from "@/lib/db/redis";
 import { webEnv } from "@/lib/env/web";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
+import ContestRoom from "@/models/ContestRoom";
 
 export const dynamic = "force-dynamic";
 
@@ -157,62 +157,11 @@ export async function GET(request: NextRequest) {
       );
 
       for (const joined of changes.joinedUserIds) {
-        const job = await Job.fromId(
-          reconciliationQueue,
-          `disconnect-timeout-${roomId}-${joined}`,
-        );
-
-        if (job) {
-          await job.remove();
-        }
-
-        await publishRoom(roomId, {
-          type: "presence.online",
-          userId: joined,
-          cancelledForfeit: Boolean(job),
-        });
+        await publishRoom(roomId, { type: "presence.online", userId: joined });
       }
 
       for (const left of changes.leftUserIds) {
-        const state = await redis.hGetAll(`room:${roomId}:state`);
-        let activeTeams = 0;
-
-        for (const teamId of await redis.sMembers(`room:${roomId}:teams`)) {
-          const members = await redis.sMembers(`team:${teamId}:users`);
-
-          if (
-            members.some((member) => changes.onlineUserIds.includes(member))
-          ) {
-            activeTeams++;
-          }
-        }
-
-        const timeout =
-          state.status === "active" && activeTeams <= 1
-            ? webEnv.DISCONNECT_FORFEIT_TIMEOUT_SECONDS
-            : undefined;
-
-        await publishRoom(roomId, {
-          type: "presence.offline",
-          userId: left,
-          ...(timeout ? { forfeitTimeout: timeout } : {}),
-        });
-
-        if (timeout) {
-          await reconciliationQueue.add(
-            "mid_match_disconnect_timeout",
-            {
-              roomId,
-              userId: left,
-              contestId: String(roomAccess.room.contestId),
-              trigger: "disconnect",
-            },
-            {
-              delay: timeout * 1000,
-              jobId: `disconnect-timeout-${roomId}-${left}`,
-            },
-          );
-        }
+        await publishRoom(roomId, { type: "presence.offline", userId: left });
       }
 
       return changes.onlineUserIds;
@@ -337,6 +286,20 @@ export async function GET(request: NextRequest) {
                 ? "completed"
                 : roomAccess.room.status;
 
+            const currentRoom = await ContestRoom.findById(roomId).lean();
+
+            if (!currentRoom) {
+              void cleanup();
+              return;
+            }
+
+            state.readyOpensAt = String(
+              currentRoom.readyOpensAt?.getTime() ?? "",
+            );
+            state.readyDeadline = String(
+              currentRoom.readyDeadline?.getTime() ?? "",
+            );
+
             const scores: Record<string, number> = {};
 
             for (const team of roomAccess.room.teams) {
@@ -357,22 +320,6 @@ export async function GET(request: NextRequest) {
                 return [];
               }
             });
-            const forfeitTimeouts: Record<string, number> = {};
-
-            if (state.status === "active") {
-              for (const participant of roomAccess.room.participants) {
-                const job = await Job.fromId(
-                  reconciliationQueue,
-                  `disconnect-timeout-${roomId}-${participant}`,
-                );
-
-                if (job && (await job.getState()) === "delayed") {
-                  forfeitTimeouts[String(participant)] =
-                    job.timestamp + (job.opts.delay ?? 0);
-                }
-              }
-            }
-
             // Send reconnect state only to this connection
             send("message", {
               channel,
@@ -382,7 +329,9 @@ export async function GET(request: NextRequest) {
                 state,
                 scores,
                 activityLogs,
-                forfeitTimeouts,
+                admittedUserIds: currentRoom.admissions.map((admission) =>
+                  String(admission.userId),
+                ),
                 problems:
                   state.status === "active" || state.status === "completed"
                     ? parseContestRoomProblems(
@@ -393,9 +342,7 @@ export async function GET(request: NextRequest) {
                   state.type === "arena"
                     ? await redis.hGetAll(`room:${roomId}:locks`)
                     : {},
-                readyUserIds: await redis.sMembers(
-                  `room:${roomId}:ready_users`,
-                ),
+                readyUserIds: currentRoom.readyUserIds.map(String),
                 onlineUserIds: await getRoomOnlineUserIds(roomId),
               },
             });

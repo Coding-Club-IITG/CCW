@@ -502,7 +502,7 @@ describe("isolated live events and connection presence", () => {
       first.player.id,
     ]);
   });
-  it("keeps a second tab online and only schedules a disconnect after the final tab closes", async () => {
+  it("keeps a second tab online and closing every tab never schedules a forfeit", async () => {
     const f = await fixture();
     const a = await open(f),
       b = await open(f);
@@ -526,7 +526,7 @@ describe("isolated live events and connection presence", () => {
       await reconciliationQueue.getJob(
         `disconnect-timeout-${f.roomId}-${f.player.id}`,
       ),
-    ).toBeDefined();
+    ).toBeUndefined();
     const reconnect = await open(f);
     expect(
       await reconciliationQueue.getJob(
