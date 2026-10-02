@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   parseBrowserEnv,
   parseCliEnv,
@@ -21,6 +22,39 @@ const required = {
 };
 
 describe("runtime environment schemas", () => {
+  it.each([parseWebEnv, parseWorkerEnv, parseCliEnv])(
+    "validates contest stream and refresh timing",
+    (parse) => {
+      expect(parse(required)).toMatchObject({
+        CONTEST_SSE_HEARTBEAT_SECONDS: 15,
+        CONTEST_PRESENCE_EXPIRY_SECONDS: 45,
+        CONTEST_PREPARATION_REFRESH_SECONDS: 5,
+      });
+      expect(
+        parse({
+          ...required,
+          CONTEST_SSE_HEARTBEAT_SECONDS: "20",
+          CONTEST_PRESENCE_EXPIRY_SECONDS: "60",
+          CONTEST_PREPARATION_REFRESH_SECONDS: "10",
+        }),
+      ).toMatchObject({
+        CONTEST_SSE_HEARTBEAT_SECONDS: 20,
+        CONTEST_PRESENCE_EXPIRY_SECONDS: 60,
+        CONTEST_PREPARATION_REFRESH_SECONDS: 10,
+      });
+      for (const value of [
+        { CONTEST_SSE_HEARTBEAT_SECONDS: "0" },
+        { CONTEST_SSE_HEARTBEAT_SECONDS: "301" },
+        { CONTEST_SSE_HEARTBEAT_SECONDS: "1.5" },
+        { CONTEST_PRESENCE_EXPIRY_SECONDS: "15" },
+        { CONTEST_PRESENCE_EXPIRY_SECONDS: "1" },
+        { CONTEST_PRESENCE_EXPIRY_SECONDS: "3601" },
+        { CONTEST_PREPARATION_REFRESH_SECONDS: "0" },
+        { CONTEST_PREPARATION_REFRESH_SECONDS: "61" },
+      ])
+        expect(() => parse({ ...required, ...value })).toThrow(/CONTEST_/);
+    },
+  );
   it.each([parseWebEnv, parseWorkerEnv, parseCliEnv])(
     "validates contest scheduling defaults and bounds",
     (parse) => {

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import mongoose from "mongoose";
 
+import { canManageContest } from "@/lib/access/contests";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { getRedis } from "@/lib/db/redis";
@@ -8,6 +9,7 @@ import { auth } from "@/lib/auth/server";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 import { parseJson } from "@/lib/api/result";
 import { createContestRoomSchema } from "@/lib/api/schemas/contestRoute";
+import { fetchContestProblemContent } from "@/lib/contests/problemContent";
 
 import ContestMatch from "@/models/ContestMatch";
 import ContestRoom from "@/models/ContestRoom";
@@ -15,7 +17,6 @@ import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
 import ContestQuestion from "@/models/ContestQuestion";
-import { fetchContestProblemContent } from "@/lib/contests/problemContent";
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,6 +46,17 @@ export async function POST(req: NextRequest) {
     const contest = await ContestMatch.findById(contestId);
     if (!contest) {
       return jsonError("NOT_FOUND", "Contest not found");
+    }
+    const creatorProfile = await CPUser.findOne({ userId: session.user.id })
+      .select("_id")
+      .lean();
+    if (
+      !canManageContest(contest, session.user, creatorProfile?._id.toString())
+    ) {
+      return jsonError(
+        "FORBIDDEN",
+        "Only the creator or an administrator can create contest rooms.",
+      );
     }
 
     const problemCount = contest.bulkProblemCount || 3;

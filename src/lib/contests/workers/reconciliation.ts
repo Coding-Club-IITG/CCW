@@ -1,6 +1,7 @@
 import { type Job, Worker } from "bullmq";
 import mongoose from "mongoose";
 
+import { getRoomOnlineUserIds } from "@/lib/contests/presence";
 import { publishRoom, recordRoomActivity } from "@/lib/contests/events";
 import {
   contestRoomProblemSchema,
@@ -1430,8 +1431,9 @@ export const reconciliationWorker = new Worker<
       const disconnectedUserId = userId;
 
       // Check if user is still offline
-      const presenceKey = `room:${roomId}:presence:${disconnectedUserId}`;
-      const isOnline = await redis.exists(presenceKey);
+      const isOnline = (await getRoomOnlineUserIds(roomId)).includes(
+        disconnectedUserId,
+      );
       const state = await redis.hGetAll(`room:${roomId}:state`);
 
       if (!isOnline && state && state.status === "active") {

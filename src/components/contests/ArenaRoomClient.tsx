@@ -53,11 +53,7 @@ const ForfeitTimer = ({ targetTime }: { targetTime: number }) => {
   }, [targetTime]);
 
   if (left <= 0) return null;
-  return (
-    <span className={styles.forfeitTimer}>
-      (Forfeit in {left}s)
-    </span>
-  );
+  return <span className={styles.forfeitTimer}>(Forfeit in {left}s)</span>;
 };
 
 export default function ArenaRoomClient({
@@ -124,10 +120,12 @@ export default function ArenaRoomClient({
   );
   const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
 
-  const [readySecondsLeft, setReadySecondsLeft] = useState<number | null>(() => {
-    if (!initialReadyDeadline) return null;
-    return Math.max(0, Math.ceil((initialReadyDeadline - Date.now()) / 1000));
-  });
+  const [readySecondsLeft, setReadySecondsLeft] = useState<number | null>(
+    () => {
+      if (!initialReadyDeadline) return null;
+      return Math.max(0, Math.ceil((initialReadyDeadline - Date.now()) / 1000));
+    },
+  );
 
   useEffect(() => {
     if (!initialReadyDeadline || matchState !== "waiting") return;
@@ -148,8 +146,11 @@ export default function ArenaRoomClient({
     hold: holdSync,
     begin: beginSync,
   } = useSyncCooldown(roomId, userId, syncCooldownSeconds);
-  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>(initialActivityFeed);
-  const [forfeitTimeouts, setForfeitTimeouts] = useState<Record<string, number>>({});
+  const [activityFeed, setActivityFeed] =
+    useState<RoomActivityDto[]>(initialActivityFeed);
+  const [forfeitTimeouts, setForfeitTimeouts] = useState<
+    Record<string, number>
+  >({});
   const [startTime, setStartTime] = useState<number | undefined>(
     initialStartTime,
   );
@@ -219,11 +220,19 @@ export default function ArenaRoomClient({
           setStartTime(parseInt(payload.state.startTime));
         if (payload.state.timeLimit)
           setTimeLimit(parseInt(payload.state.timeLimit));
+        if (payload.onlineUserIds) {
+          onlineUserIdsRef.current = new Set(payload.onlineUserIds);
+          setOnlineUserIds(new Set(payload.onlineUserIds));
+        }
+        if (payload.readyUserIds)
+          setReadyUserIds(new Set(payload.readyUserIds));
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
         if (payload.locks) setLocks(payload.locks);
-        if (payload.forfeitTimeouts) setForfeitTimeouts(payload.forfeitTimeouts);
-        if (payload.activityLogs) setActivityFeed([...payload.activityLogs].reverse());
+        if (payload.forfeitTimeouts)
+          setForfeitTimeouts(payload.forfeitTimeouts);
+        if (payload.activityLogs)
+          setActivityFeed([...payload.activityLogs].reverse());
         break;
       case "room.locked": {
         const existingLock = stateRef.current.locks[payload.problemId];
@@ -321,6 +330,10 @@ export default function ArenaRoomClient({
           setIsReady(true);
         }
         break;
+      case "presence.sync":
+        onlineUserIdsRef.current = new Set(payload.onlineUserIds);
+        setOnlineUserIds(new Set(payload.onlineUserIds));
+        break;
       case "presence.online": {
         const uName = getMemberName(payload.userId);
         const wasOffline = !onlineUserIdsRef.current.has(payload.userId);
@@ -356,15 +369,13 @@ export default function ArenaRoomClient({
         break;
       }
       case "room.activity":
-        setActivityFeed((prev) =>
-          [payload.activity, ...prev].slice(0, 50)
-        );
+        setActivityFeed((prev) => [payload.activity, ...prev].slice(0, 50));
         sendBrowserNotification(payload.activity.icon, payload.activity.text);
         break;
     }
   };
 
-  useRoomEventSource(roomId, handleEvent);
+  useRoomEventSource(roomId, userId, handleEvent);
 
   const getMemberName = (uid: string) => {
     if (!teams) return "Unknown";
@@ -473,7 +484,13 @@ export default function ArenaRoomClient({
                   : "WAITING FOR PLAYERS"}
             </div>
             {isSpectator && (
-              <div className={styles.statusBadge} style={{ background: 'var(--border)', color: 'var(--foreground)' }}>
+              <div
+                className={styles.statusBadge}
+                style={{
+                  background: "var(--border)",
+                  color: "var(--foreground)",
+                }}
+              >
                 👁 Spectator Mode
               </div>
             )}
@@ -558,7 +575,9 @@ export default function ArenaRoomClient({
                             {member.id === userId && "(You)"}
                           </span>
                           {!memberIsOnline && forfeitTimeouts[member.id] && (
-                            <ForfeitTimer targetTime={forfeitTimeouts[member.id]} />
+                            <ForfeitTimer
+                              targetTime={forfeitTimeouts[member.id]}
+                            />
                           )}
                         </div>
                         <div
@@ -578,225 +597,243 @@ export default function ArenaRoomClient({
               <div className={styles.workspaceWrapper}>
                 <div className={styles.workspaceScroll}>
                   {matchState === "waiting" ? (
-                <div className={styles.waiting}>
-                  <div className={styles.waitingIcon}>
-                    <Users size={48} />
-                  </div>
-                  <h2 className={styles.waitingTitle}>Waiting for Players</h2>
-                  <p className={styles.waitingText}>
-                    The arena is being prepared. Review your strategy-the match
-                    begins when all teams are ready.
-                  </p>
-                  {readySecondsLeft !== null && readySecondsLeft > 0 && (
-                    <div className={styles.readyCountdown}>
-                      <Hourglass size={16} />
-                      <span>Ready Phase: {readySecondsLeft}s remaining</span>
-                    </div>
-                  )}
-                  {!isSpectator && (
-                    <button
-                      onClick={handleReady}
-                      disabled={isReady}
-                      className={styles.readyBtn}
-                    >
-                      {isReady ? (
-                        <span className={styles.animatedDots}>
-                          Ready! Waiting on others
-                        </span>
-                      ) : (
-                        "I am Ready"
+                    <div className={styles.waiting}>
+                      <div className={styles.waitingIcon}>
+                        <Users size={48} />
+                      </div>
+                      <h2 className={styles.waitingTitle}>
+                        Waiting for Players
+                      </h2>
+                      <p className={styles.waitingText}>
+                        The arena is being prepared. Review your strategy-the
+                        match begins when all teams are ready.
+                      </p>
+                      {readySecondsLeft !== null && readySecondsLeft > 0 && (
+                        <div className={styles.readyCountdown}>
+                          <Hourglass size={16} />
+                          <span>
+                            Ready Phase: {readySecondsLeft}s remaining
+                          </span>
+                        </div>
                       )}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <div className={styles.gridHead}>
-                    <h2 className={styles.gridHeadTitle}>Problem Grid</h2>
-                  </div>
-
-                  <div className={styles.problemGrid}>
-                    {problems.map((prob, idx) => {
-                      const lockVal = locks[prob.problemId];
-                      const isClaimed = !!lockVal;
-                      let claimedByMe = false;
-                      let claimedByWhoName = "Unknown";
-
-                      if (isClaimed) {
-                        const [cTeamId, cTimestamp] = lockVal.split("|");
-                        claimedByMe = cTeamId === teamId;
-                        const t = teams?.find((t) => t._id === cTeamId);
-                        claimedByWhoName = t ? displayTeamName(t) : "Unknown";
-                      }
-
-                      const cardStateClass = isClaimed
-                        ? claimedByMe
-                          ? styles.gridCardMine
-                          : styles.gridCardOther
-                        : styles.gridCardOpen;
-                      const badgeClass = isClaimed
-                        ? claimedByMe
-                          ? styles.badgeMine
-                          : styles.badgeOther
-                        : styles.badgeOpen;
-                      const topIconClass = isClaimed
-                        ? claimedByMe
-                          ? styles.topIconMine
-                          : styles.topIconOther
-                        : styles.topIconOpen;
-                      const isSyncing = syncingMap[prob.problemId];
-                      const isSelected =
-                        runnerProblem?.problemId === prob.problemId;
-
-                      return (
-                        <div
-                          key={`${prob.problemId}-${idx}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setSelectedProblemId(prob.problemId)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              setSelectedProblemId(prob.problemId);
-                            }
-                          }}
-                          className={`${styles.gridCard} ${cardStateClass} ${
-                            isSelected ? styles.gridCardSelected : ""
-                          }`}
+                      {!isSpectator && (
+                        <button
+                          onClick={handleReady}
+                          disabled={isReady}
+                          className={styles.readyBtn}
                         >
-                          {isClaimed && (
+                          {isReady ? (
+                            <span className={styles.animatedDots}>
+                              Ready! Waiting on others
+                            </span>
+                          ) : (
+                            "I am Ready"
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className={styles.gridHead}>
+                        <h2 className={styles.gridHeadTitle}>Problem Grid</h2>
+                      </div>
+
+                      <div className={styles.problemGrid}>
+                        {problems.map((prob, idx) => {
+                          const lockVal = locks[prob.problemId];
+                          const isClaimed = !!lockVal;
+                          let claimedByMe = false;
+                          let claimedByWhoName = "Unknown";
+
+                          if (isClaimed) {
+                            const [cTeamId, cTimestamp] = lockVal.split("|");
+                            claimedByMe = cTeamId === teamId;
+                            const t = teams?.find((t) => t._id === cTeamId);
+                            claimedByWhoName = t
+                              ? displayTeamName(t)
+                              : "Unknown";
+                          }
+
+                          const cardStateClass = isClaimed
+                            ? claimedByMe
+                              ? styles.gridCardMine
+                              : styles.gridCardOther
+                            : styles.gridCardOpen;
+                          const badgeClass = isClaimed
+                            ? claimedByMe
+                              ? styles.badgeMine
+                              : styles.badgeOther
+                            : styles.badgeOpen;
+                          const topIconClass = isClaimed
+                            ? claimedByMe
+                              ? styles.topIconMine
+                              : styles.topIconOther
+                            : styles.topIconOpen;
+                          const isSyncing = syncingMap[prob.problemId];
+                          const isSelected =
+                            runnerProblem?.problemId === prob.problemId;
+
+                          return (
                             <div
-                              className={`${styles.lockOverlay} ${
-                                claimedByMe
-                                  ? styles.lockOverlayMine
-                                  : styles.lockOverlayOther
+                              key={`${prob.problemId}-${idx}`}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() =>
+                                setSelectedProblemId(prob.problemId)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  setSelectedProblemId(prob.problemId);
+                                }
+                              }}
+                              className={`${styles.gridCard} ${cardStateClass} ${
+                                isSelected ? styles.gridCardSelected : ""
                               }`}
                             >
-                              {claimedByMe ? (
-                                <CircleCheck size={64} />
-                              ) : (
-                                <Lock size={64} />
-                              )}
-                            </div>
-                          )}
-                          <div className={styles.gridCardHeader}>
-                            <span
-                              className={`${styles.ratingBadge} ${badgeClass}`}
-                            >
-                              {prob.rating}
-                            </span>
-                            {isClaimed && !claimedByMe ? (
-                              <Lock className={topIconClass} size={18} />
-                            ) : (
-                              <Code className={topIconClass} size={18} />
-                            )}
-                          </div>
-                          <div className={styles.gridCardBody}>
-                            <h3
-                              className={styles.gridCardTitle}
-                              title={prob.name}
-                            >
-                              {prob.problemId ? `${prob.problemId} - ` : ""}
-                              {prob.name}
-                            </h3>
-                            <p className={styles.gridCardPoints}>
-                              {prob.points || 100} pts
-                            </p>
-                          </div>
-
-                          <div className={styles.gridCardFooter}>
-                            {isClaimed ? (
-                              <div
-                                className={`${styles.claimedInfo} ${
-                                  claimedByMe
-                                    ? styles.claimedInfoMine
-                                    : styles.claimedInfoOther
-                                }`}
-                              >
-                                <span
-                                  className={styles.claimedName}
-                                  title={claimedByWhoName}
+                              {isClaimed && (
+                                <div
+                                  className={`${styles.lockOverlay} ${
+                                    claimedByMe
+                                      ? styles.lockOverlayMine
+                                      : styles.lockOverlayOther
+                                  }`}
                                 >
-                                  {claimedByWhoName}
-                                </span>
-                                <span className={styles.claimedLabel}>
-                                  Locked
-                                </span>
-                              </div>
-                            ) : (
-                              <span className={styles.unclaimed}>
-                                Unclaimed
-                              </span>
-                            )}
-
-                            <div className={styles.gridCardActions}>
-                              <a
-                                href={getCodeforcesProblemUrl(prob.problemId) || "#"}
-                                target="_blank"
-                                rel="noreferrer"
-                                className={styles.cfIconBtn}
-                                title="Open in Codeforces"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink
-                                  className={styles.icon16}
-                                  size={16}
-                                />
-                              </a>
-                              {!isSpectator && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSync(prob.problemId);
-                                  }}
-                                  disabled={
-                                    !cfHandle ||
-                                    isClaimed ||
-                                    isSyncing ||
-                                    matchState !== "active" ||
-                                    syncCooldown > 0
-                                  }
-                                  className={styles.syncMini}
-                                  title={!cfHandle ? "Please link your Codeforces account to sync" : ""}
-                                >
-                                  {isClaimed ? (
-                                    <Lock className={styles.icon14} size={14} />
-                                  ) : isSyncing ? (
-                                    <RefreshCw
-                                      className={`${styles.icon14} ${styles.spin}`}
-                                      size={14}
-                                    />
-                                  ) : syncCooldown > 0 ? (
-                                    <Hourglass
-                                      className={styles.icon14}
-                                      size={14}
-                                    />
+                                  {claimedByMe ? (
+                                    <CircleCheck size={64} />
                                   ) : (
-                                    <RefreshCw
-                                      className={styles.icon14}
-                                      size={14}
-                                    />
+                                    <Lock size={64} />
                                   )}
-                                  {isClaimed
-                                    ? "Locked"
-                                    : isSyncing
-                                      ? "Syncing"
-                                      : syncCooldown > 0
-                                        ? `${syncCooldown}s`
-                                        : "Sync"}
-                                </button>
+                                </div>
                               )}
+                              <div className={styles.gridCardHeader}>
+                                <span
+                                  className={`${styles.ratingBadge} ${badgeClass}`}
+                                >
+                                  {prob.rating}
+                                </span>
+                                {isClaimed && !claimedByMe ? (
+                                  <Lock className={topIconClass} size={18} />
+                                ) : (
+                                  <Code className={topIconClass} size={18} />
+                                )}
+                              </div>
+                              <div className={styles.gridCardBody}>
+                                <h3
+                                  className={styles.gridCardTitle}
+                                  title={prob.name}
+                                >
+                                  {prob.problemId ? `${prob.problemId} - ` : ""}
+                                  {prob.name}
+                                </h3>
+                                <p className={styles.gridCardPoints}>
+                                  {prob.points || 100} pts
+                                </p>
+                              </div>
+
+                              <div className={styles.gridCardFooter}>
+                                {isClaimed ? (
+                                  <div
+                                    className={`${styles.claimedInfo} ${
+                                      claimedByMe
+                                        ? styles.claimedInfoMine
+                                        : styles.claimedInfoOther
+                                    }`}
+                                  >
+                                    <span
+                                      className={styles.claimedName}
+                                      title={claimedByWhoName}
+                                    >
+                                      {claimedByWhoName}
+                                    </span>
+                                    <span className={styles.claimedLabel}>
+                                      Locked
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className={styles.unclaimed}>
+                                    Unclaimed
+                                  </span>
+                                )}
+
+                                <div className={styles.gridCardActions}>
+                                  <a
+                                    href={
+                                      getCodeforcesProblemUrl(prob.problemId) ||
+                                      "#"
+                                    }
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={styles.cfIconBtn}
+                                    title="Open in Codeforces"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <ExternalLink
+                                      className={styles.icon16}
+                                      size={16}
+                                    />
+                                  </a>
+                                  {!isSpectator && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSync(prob.problemId);
+                                      }}
+                                      disabled={
+                                        !cfHandle ||
+                                        isClaimed ||
+                                        isSyncing ||
+                                        matchState !== "active" ||
+                                        syncCooldown > 0
+                                      }
+                                      className={styles.syncMini}
+                                      title={
+                                        !cfHandle
+                                          ? "Please link your Codeforces account to sync"
+                                          : ""
+                                      }
+                                    >
+                                      {isClaimed ? (
+                                        <Lock
+                                          className={styles.icon14}
+                                          size={14}
+                                        />
+                                      ) : isSyncing ? (
+                                        <RefreshCw
+                                          className={`${styles.icon14} ${styles.spin}`}
+                                          size={14}
+                                        />
+                                      ) : syncCooldown > 0 ? (
+                                        <Hourglass
+                                          className={styles.icon14}
+                                          size={14}
+                                        />
+                                      ) : (
+                                        <RefreshCw
+                                          className={styles.icon14}
+                                          size={14}
+                                        />
+                                      )}
+                                      {isClaimed
+                                        ? "Locked"
+                                        : isSyncing
+                                          ? "Syncing"
+                                          : syncCooldown > 0
+                                            ? `${syncCooldown}s`
+                                            : "Sync"}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <ContestProblemWorkspace
-                    problem={runnerProblem}
-                    isSpectator={isSpectator}
-                  />
-                </>
-              )}
+                          );
+                        })}
+                      </div>
+                      <ContestProblemWorkspace
+                        problem={runnerProblem}
+                        isSpectator={isSpectator}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             </div>

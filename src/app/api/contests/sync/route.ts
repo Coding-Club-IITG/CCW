@@ -18,6 +18,7 @@ import {
   parseContestRoomProblems,
 } from "@/lib/contests/runtime";
 import { connectMongoDB } from "@/lib/db/mongodb";
+
 import CPUser from "@/models/CPUser";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
@@ -89,7 +90,10 @@ export async function POST(request: NextRequest) {
       (problem) => problem.problemId === problemId,
     );
     if (problemIndex === -1) {
-      return jsonError("VALIDATION_ERROR", "Problem is not assigned to this room");
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Problem is not assigned to this room",
+      );
     }
     if (
       state.type !== "arena" &&
@@ -139,7 +143,11 @@ export async function POST(request: NextRequest) {
     await redis.expire(syncStateKey, 3600);
 
     // 5. Publish event to user
-    await publishUser(userId, { type: "sync.queued", position, problemId });
+    await publishUser(userId, roomId, {
+      type: "sync.queued",
+      position,
+      problemId,
+    });
 
     // 6. Return 202
     return jsonOk({ queued: true }, { status: 202 });

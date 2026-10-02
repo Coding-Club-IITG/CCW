@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
 
 import { getContestById } from "@/lib/actions/contests";
+import { objectIdStringSchema } from "@/lib/api/schemas/contestRoute";
 import { webEnv } from "@/lib/env/web";
 import { userRateLimitsEnabled } from "@/lib/users/rateLimit";
 import {
@@ -16,11 +17,11 @@ import type {
 } from "@/lib/contests/dtos";
 import { normalizeAvatar } from "@/lib/users/identity";
 import { auth } from "@/lib/auth/server";
-import { connectMongoDB } from "@/lib/db/mongodb";
 import { getRedis } from "@/lib/db/redis";
 import { getBracketSnapshot } from "@/lib/contests/bracket";
 import { isHead } from "@/lib/access/roles";
-import { parseRoles } from "@/lib/users/roles";
+import { authorizeContestView, authorizeRoomView } from "@/lib/access/contests";
+import { getRoomOnlineUserIds } from "@/lib/contests/presence";
 
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
@@ -30,6 +31,7 @@ import CPUser from "@/models/CPUser";
 import BlitzRoomClient from "@/components/contests/BlitzRoomClient";
 import ArenaRoomClient from "@/components/contests/ArenaRoomClient";
 import BracketRoomClient from "@/components/contests/BracketRoomClient";
+
 import styles from "./page.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -43,46 +45,20 @@ export default async function ContestRoomPage({
 }) {
   const { id } = await params;
   const { from, matchRoomId } = await searchParams;
-  const contestResult = await getContestById(id);
-
-  if (!contestResult.ok || !contestResult.data) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) redirect("/");
+  if (
+    matchRoomId !== undefined &&
+    !objectIdStringSchema.safeParse(matchRoomId).success
+  )
     notFound();
-  }
+  const viewAccess = await authorizeContestView(id, session.user);
+  if (!viewAccess.ok) notFound();
+  const contestResult = await getContestById(id);
+  if (!contestResult.ok) notFound();
   const contest = contestResult.data;
-
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!session || !session.user) {
-    return <div>Unauthorized</div>;
-  }
-
-  const userRole = session.user.access as string | undefined;
-  const admin = isHead(userRole);
-
+  const admin = isHead(session.user.access);
   const userId = session.user.id;
-  await connectMongoDB();
-  const cpUser = await CPUser.findOne({ userId }).select("_id").lean();
-  const cpUserId = cpUser?._id?.toString();
-
-  function canSpectate() {
-    const restriction = (contest as any).spectatorRestriction || "none";
-    if (restriction === "none") return false;
-    if (restriction === "all") return true;
-    const isCreator =
-      contest.creatorId.toString() === userId ||
-      (Boolean(cpUserId) && contest.creatorId.toString() === cpUserId);
-    if (restriction === "admin_creator") return admin || isCreator;
-    if (restriction === "club_members") {
-      if (admin || isCreator) return true;
-      // @ts-expect-error - session.user.roles might not be typed
-      const roles = parseRoles(session.user?.roles);
-      return roles.length > 0;
-    }
-    return false;
-  }
-
   let isSpectator = false;
 
   // Bracket format: show bracket viewer (unless entering a specific match room)
@@ -102,7 +78,7 @@ export default async function ContestRoomPage({
         initialSnapshot={bracketSnapshot}
         userId={userId}
         currentUserTeamIds={userTeamIds}
-        isSpectator={userTeams.length === 0 && canSpectate()}
+        canSpectate={viewAccess.data.canSpectate}
         isAdmin={admin}
       />
     );
@@ -114,20 +90,24 @@ export default async function ContestRoomPage({
 
   let room = await ContestRoom.findOne(roomQuery).lean();
 
-  if (!room && canSpectate()) {
-    isSpectator = true;
-    if (matchRoomId) {
-      room = await ContestRoom.findOne({ _id: matchRoomId, contestId: contest._id }).lean();
-    } else {
-      room = await ContestRoom.findOne({ contestId: contest._id }).lean();
-    }
+  if (!room && !matchRoomId && viewAccess.data.canSpectate) {
+    room = await ContestRoom.findOne({ contestId: contest._id }).lean();
   }
 
   let teamId = null;
   let roomId = null;
   let roomName = null;
 
+  if (matchRoomId && !room) notFound();
   if (room) {
+    const roomAccess = await authorizeRoomView(
+      String(room._id),
+      session.user,
+      id,
+    );
+    if (!roomAccess.ok) notFound();
+    isSpectator = roomAccess.data.isSpectator;
+    teamId = roomAccess.data.teamId;
     if (room.status === "ended" || room.status === "completed") {
       // For bracket, ended rooms go back to bracket viewer
       if (
@@ -144,22 +124,17 @@ export default async function ContestRoomPage({
     }
     roomId = room._id.toString();
     roomName = room.name;
-    const team = await ContestTeam.findOne({
-      roomId: room._id,
-      members: userId,
-    }).lean();
-    if (team) {
-      teamId = team._id.toString();
-    }
   }
 
   if (contest.mode === "blitz" || contest.mode === "arena") {
     if (!room || (!teamId && !isSpectator)) {
       if (contest.status === "completed") {
         // Non-participant or unassigned user: try to redirect to any room
-        const anyRoom = await ContestRoom.findOne({
-          contestId: contest._id,
-        }).lean();
+        const anyRoom = viewAccess.data.canSpectate
+          ? await ContestRoom.findOne({
+              contestId: contest._id,
+            }).lean()
+          : null;
         if (anyRoom) {
           redirect(`/internal/contests/rooms/${anyRoom._id.toString()}/result`);
         }
@@ -189,7 +164,10 @@ export default async function ContestRoomPage({
             <p className={styles.stateText}>
               The rooms are currently being provisioned. Please wait...
             </p>
-            <meta httpEquiv="refresh" content="5" />
+            <meta
+              httpEquiv="refresh"
+              content={String(webEnv.CONTEST_PREPARATION_REFRESH_SECONDS)}
+            />
           </div>
         );
       } else {
@@ -238,27 +216,7 @@ export default async function ContestRoomPage({
     const redis = await getRedis();
     const readyUserIds = await redis.sMembers(`room:${roomId}:ready_users`);
 
-    // Check online presence for all members
-    const initialOnlineUserIds = [userId];
-    const presenceKeysToFetch: string[] = [];
-    const membersToFetch: string[] = [];
-
-    for (const mId of allMemberIds) {
-      const idStr = mId.toString();
-      if (idStr !== userId) {
-        presenceKeysToFetch.push(`room:${roomId}:presence:${idStr}`);
-        membersToFetch.push(idStr);
-      }
-    }
-
-    if (presenceKeysToFetch.length > 0) {
-      const presenceResults = await redis.mGet(presenceKeysToFetch);
-      for (let i = 0; i < presenceResults.length; i++) {
-        if (presenceResults[i]) {
-          initialOnlineUserIds.push(membersToFetch[i]);
-        }
-      }
-    }
+    const initialOnlineUserIds = await getRoomOnlineUserIds(roomId!);
 
     // Fetch current state from Redis
     const stateObj = contestRoomStateSchema.parse(

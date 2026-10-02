@@ -16,7 +16,7 @@ export async function publishRoom(
   const redis = await getRedis();
   return redis.publish(
     `events:room:${roomId}`,
-    JSON.stringify(roomEventSchema.parse(event)),
+    JSON.stringify({ ...roomEventSchema.parse(event), roomId }),
   );
 }
 
@@ -33,12 +33,13 @@ export async function publishContest(
 
 export async function publishUser(
   userId: string,
+  roomId: string,
   event: UserEvent,
 ): Promise<number> {
   const redis = await getRedis();
   return redis.publish(
     `events:user:${userId}`,
-    JSON.stringify(userEventSchema.parse(event)),
+    JSON.stringify({ ...userEventSchema.parse(event), roomId }),
   );
 }
 

@@ -67,7 +67,7 @@ export const codeforcesSyncWorker = new Worker<
           logger.warn(
             `[codeforcesSyncWorker] Invalid roomId format: ${roomId}`,
           );
-          await publishUser(userId, {
+          await publishUser(userId, roomId, {
             type: "sync.failed",
             verdict: "invalid",
             reason: "invalid_room_id",
@@ -82,7 +82,7 @@ export const codeforcesSyncWorker = new Worker<
           logger.warn(
             `[codeforcesSyncWorker] Room ${roomId} not found for sync.`,
           );
-          await publishUser(userId, {
+          await publishUser(userId, roomId, {
             type: "sync.failed",
             verdict: "invalid",
             reason: "room_not_found",
@@ -98,7 +98,7 @@ export const codeforcesSyncWorker = new Worker<
           logger.warn(
             `[codeforcesSyncWorker] Invalid or missing contestId in room ${roomId}.`,
           );
-          await publishUser(userId, {
+          await publishUser(userId, roomId, {
             type: "sync.failed",
             verdict: "invalid",
             reason: "invalid_contest_id",
@@ -112,7 +112,7 @@ export const codeforcesSyncWorker = new Worker<
           logger.warn(
             `[codeforcesSyncWorker] Contest not found for room ${roomId}.`,
           );
-          await publishUser(userId, {
+          await publishUser(userId, roomId, {
             type: "sync.failed",
             verdict: "invalid",
             reason: "contest_not_found",
@@ -132,7 +132,7 @@ export const codeforcesSyncWorker = new Worker<
           logger.warn(
             `[cfSyncWorker] User ${userId} is not a member of team ${teamId} in room ${roomId}.`,
           );
-          await publishUser(userId, {
+          await publishUser(userId, roomId, {
             type: "sync.failed",
             verdict: "invalid",
             reason: "not_team_member",
@@ -149,7 +149,7 @@ export const codeforcesSyncWorker = new Worker<
           logger.warn(
             `[codeforcesSyncWorker] User ${userId} is not a member of team ${teamId} in room ${roomId}.`,
           );
-          await publishUser(userId, {
+          await publishUser(userId, roomId, {
             type: "sync.failed",
             verdict: "invalid",
             reason: "not_team_member",
@@ -162,7 +162,7 @@ export const codeforcesSyncWorker = new Worker<
           await redis.hGetAll(`room:${roomId}:state`),
         );
         if (state.status !== "active") {
-          await publishUser(userId, {
+          await publishUser(userId, roomId, {
             type: "sync.failed",
             reason: "room_not_active",
             problemId,
@@ -623,7 +623,7 @@ export const codeforcesSyncWorker = new Worker<
             }
           }
 
-          await publishUser(userId, eventPayload);
+          await publishUser(userId, roomId, eventPayload);
 
           logger.info("Accepted contest submission detected", {
             worker: "codeforcesSyncWorker",
@@ -640,7 +640,7 @@ export const codeforcesSyncWorker = new Worker<
             problemId,
             verdict: failVerdict,
           });
-          await publishUser(userId, {
+          await publishUser(userId, roomId, {
             type: "sync.failed",
             verdict: failVerdict,
             problemId,
@@ -686,11 +686,11 @@ codeforcesSyncWorker.on(
       job?.name === "cf_sync" &&
       job.attemptsMade >= (job.opts.attempts || 3)
     ) {
-      const { userId } = cfSyncJobDataSchema.parse(job.data);
+      const { userId, roomId } = cfSyncJobDataSchema.parse(job.data);
       logger.error(
         `[codeforcesSyncWorker] Permanent failure for sync job ${job.id}. Publishing cf_unavailable to user ${userId}`,
       );
-      await publishUser(userId, {
+      await publishUser(userId, roomId, {
         type: "sync.failed",
         reason: "cf_unavailable",
       });

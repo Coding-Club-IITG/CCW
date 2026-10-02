@@ -5,10 +5,9 @@ import { redirect } from "next/navigation";
 import { getContestById } from "@/lib/actions/contests";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { auth } from "@/lib/auth/server";
-import { isHead } from "@/lib/access/roles";
+import { authorizeRoomView } from "@/lib/access/contests";
 import { normalizeAvatar } from "@/lib/users/identity";
 
-import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestSubmission from "@/models/ContestSubmission";
@@ -28,18 +27,14 @@ export default async function PostMatchResultPage({
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/");
 
-  const userRole = session?.user?.access as string | undefined;
-  const admin = isHead(userRole);
-
   const currentUserId = session?.user?.id || "";
 
   await connectMongoDB();
   const roomId = unwrappedParams.id;
 
-  let room = await ContestRoom.findById(roomId).lean();
-  if (!room) {
-    notFound();
-  }
+  const roomAccess = await authorizeRoomView(roomId, session.user);
+  if (!roomAccess.ok) notFound();
+  const { room } = roomAccess.data;
 
   const isProcessing = room.status !== "ended";
 

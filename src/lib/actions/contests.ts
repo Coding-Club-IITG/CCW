@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 
 import { err as appError, ok, validationError } from "@/lib/api/result";
 import { defineAction } from "@/lib/actions/defineAction";
-import { parseRoles } from "@/lib/users/roles";
+import { canSpectateContest } from "@/lib/access/contests";
 import { isHead } from "@/lib/access/roles";
 import {
   contestRegistrationTiming,
@@ -183,25 +183,11 @@ async function getContestListingAction() {
           (registration) => registration.userId.toString() === userId,
         )
       : false;
-    let canSpectate = false;
-    const restriction = (contest as any).spectatorRestriction || "none";
-    if (restriction === "all") {
-      canSpectate = true;
-    } else if (userId && restriction !== "none") {
-      const isCreator =
-        contest.creatorId?.toString() === userId ||
-        (Boolean(cpUserId) && contest.creatorId?.toString() === cpUserId);
-      const isAdmin = isHead(session?.user?.access);
-      if (restriction === "admin_creator") {
-        canSpectate = isAdmin || isCreator;
-      } else if (restriction === "club_members") {
-        if (isAdmin || isCreator) canSpectate = true;
-        else {
-          const roles = parseRoles(session?.user?.roles);
-          canSpectate = roles.length > 0;
-        }
-      }
-    }
+    const canSpectate = canSpectateContest(
+      contest,
+      session?.user,
+      cpUserId ?? undefined,
+    );
 
     const item: ContestListingItem = {
       _id: contest._id.toString(),

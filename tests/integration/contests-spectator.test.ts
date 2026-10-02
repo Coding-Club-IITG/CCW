@@ -10,18 +10,20 @@ import {
   vi,
 } from "vitest";
 
-import ContestMatch from "@/models/ContestMatch";
-import CPUser from "@/models/CPUser";
-import {
-  clearTestMongo,
-  startTestMongo,
-  stopTestMongo,
-} from "../utils/mongodb";
 import {
   getContestListing,
   createRoomContest,
   createBracketContest,
 } from "@/lib/actions/contests";
+
+import ContestMatch from "@/models/ContestMatch";
+import CPUser from "@/models/CPUser";
+
+import {
+  clearTestMongo,
+  startTestMongo,
+  stopTestMongo,
+} from "../utils/mongodb";
 
 const getSession = vi.hoisted(() => vi.fn());
 const reconciliationQueueAdd = vi.hoisted(() => vi.fn());
@@ -198,7 +200,7 @@ describe("Spectator Mode", () => {
 
       getSession.mockResolvedValue(null);
       res = await getContestListing();
-      expect(((res as any).data as any).active[0].canSpectate).toBe(true);
+      expect(((res as any).data as any).active[0].canSpectate).toBe(false);
     });
 
     it("should return canSpectate = true for club_members, admins, or creator when restriction is club_members", async () => {

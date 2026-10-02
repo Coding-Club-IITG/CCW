@@ -56,11 +56,7 @@ const ForfeitTimer = ({ targetTime }: { targetTime: number }) => {
   }, [targetTime]);
 
   if (left <= 0) return null;
-  return (
-    <span className={styles.forfeitTimer}>
-      (Forfeit in {left}s)
-    </span>
-  );
+  return <span className={styles.forfeitTimer}>(Forfeit in {left}s)</span>;
 };
 
 export default function BlitzRoomClient({
@@ -126,10 +122,12 @@ export default function BlitzRoomClient({
     new Set(initialOnlineUserIds || [userId]),
   );
 
-  const [readySecondsLeft, setReadySecondsLeft] = useState<number | null>(() => {
-    if (!initialReadyDeadline) return null;
-    return Math.max(0, Math.ceil((initialReadyDeadline - Date.now()) / 1000));
-  });
+  const [readySecondsLeft, setReadySecondsLeft] = useState<number | null>(
+    () => {
+      if (!initialReadyDeadline) return null;
+      return Math.max(0, Math.ceil((initialReadyDeadline - Date.now()) / 1000));
+    },
+  );
 
   useEffect(() => {
     if (!initialReadyDeadline || matchState !== "waiting") return;
@@ -166,8 +164,11 @@ export default function BlitzRoomClient({
   const displayTeamName = (team?: ContestRoomTeamDto) =>
     getDisplayTeamName(team, contest?.format);
 
-  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>(initialActivityFeed);
-  const [forfeitTimeouts, setForfeitTimeouts] = useState<Record<string, number>>({});
+  const [activityFeed, setActivityFeed] =
+    useState<RoomActivityDto[]>(initialActivityFeed);
+  const [forfeitTimeouts, setForfeitTimeouts] = useState<
+    Record<string, number>
+  >({});
   const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
 
   // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
@@ -220,10 +221,20 @@ export default function BlitzRoomClient({
           setStartTime(parseInt(payload.state.startTime));
         if (payload.state.timeLimit)
           setTimeLimit(parseInt(payload.state.timeLimit));
+        if (payload.onlineUserIds) {
+          onlineUserIdsRef.current = new Set(payload.onlineUserIds);
+          setOnlineUserIds(new Set(payload.onlineUserIds));
+        }
+        if (payload.readyUserIds)
+          setReadyUserIds(new Set(payload.readyUserIds));
+        if (payload.state.currentProblem)
+          setCurrentProblemIndex(Number(payload.state.currentProblem));
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
-        if (payload.forfeitTimeouts) setForfeitTimeouts(payload.forfeitTimeouts);
-        if (payload.activityLogs) setActivityFeed([...payload.activityLogs].reverse());
+        if (payload.forfeitTimeouts)
+          setForfeitTimeouts(payload.forfeitTimeouts);
+        if (payload.activityLogs)
+          setActivityFeed([...payload.activityLogs].reverse());
         break;
       case "room.advance":
         setCurrentProblemIndex(payload.problemIndex);
@@ -300,6 +311,10 @@ export default function BlitzRoomClient({
           );
         }
         break;
+      case "presence.sync":
+        onlineUserIdsRef.current = new Set(payload.onlineUserIds);
+        setOnlineUserIds(new Set(payload.onlineUserIds));
+        break;
       case "presence.online": {
         const wasOffline = !onlineUserIdsRef.current.has(payload.userId);
 
@@ -334,15 +349,13 @@ export default function BlitzRoomClient({
         break;
       }
       case "room.activity":
-        setActivityFeed((prev) =>
-          [payload.activity, ...prev].slice(0, 50)
-        );
+        setActivityFeed((prev) => [payload.activity, ...prev].slice(0, 50));
         sendBrowserNotification(payload.activity.icon, payload.activity.text);
         break;
     }
   };
 
-  useRoomEventSource(roomId, handleEvent);
+  useRoomEventSource(roomId, userId, handleEvent);
 
   const getMemberName = (uid: string) => {
     if (!teams) return "Unknown";
@@ -457,7 +470,13 @@ export default function BlitzRoomClient({
                   : "WAITING FOR PLAYERS"}
             </div>
             {isSpectator && (
-              <div className={styles.statusBadge} style={{ background: 'var(--border)', color: 'var(--foreground)' }}>
+              <div
+                className={styles.statusBadge}
+                style={{
+                  background: "var(--border)",
+                  color: "var(--foreground)",
+                }}
+              >
                 👁 Spectator Mode
               </div>
             )}
@@ -575,7 +594,9 @@ export default function BlitzRoomClient({
                             {member.id === userId && "(You)"}
                           </span>
                           {!memberIsOnline && forfeitTimeouts[member.id] && (
-                            <ForfeitTimer targetTime={forfeitTimeouts[member.id]} />
+                            <ForfeitTimer
+                              targetTime={forfeitTimeouts[member.id]}
+                            />
                           )}
                         </div>
                         <div
@@ -676,7 +697,11 @@ export default function BlitzRoomClient({
 
                     <div className={styles.problemActions}>
                       <a
-                        href={getCodeforcesProblemUrl(activeProblem.problemId || "") || "#"}
+                        href={
+                          getCodeforcesProblemUrl(
+                            activeProblem.problemId || "",
+                          ) || "#"
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className={styles.cfLink}
@@ -688,10 +713,17 @@ export default function BlitzRoomClient({
                         <button
                           onClick={handleSync}
                           disabled={
-                            !cfHandle || syncing || matchState !== "active" || syncCooldown > 0
+                            !cfHandle ||
+                            syncing ||
+                            matchState !== "active" ||
+                            syncCooldown > 0
                           }
                           className={styles.syncBtn}
-                          title={!cfHandle ? "Please link your Codeforces account to sync" : ""}
+                          title={
+                            !cfHandle
+                              ? "Please link your Codeforces account to sync"
+                              : ""
+                          }
                         >
                           {syncCooldown > 0 && !syncing ? (
                             <Hourglass size={16} />
@@ -810,4 +842,3 @@ export default function BlitzRoomClient({
     </div>
   );
 }
-

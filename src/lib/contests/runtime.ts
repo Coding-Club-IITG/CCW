@@ -138,10 +138,18 @@ const roomStateSyncEventSchema = z
     locks: z.record(z.string(), z.string()).optional(),
     activityLogs: z.array(roomActivitySchema).optional(),
     forfeitTimeouts: z.record(z.string(), z.number()).optional(),
+    onlineUserIds: z.array(objectIdStringSchema).optional(),
+    readyUserIds: z.array(objectIdStringSchema).optional(),
   })
   .passthrough();
 
 export const roomEventSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("presence.sync"),
+      onlineUserIds: z.array(objectIdStringSchema),
+    })
+    .passthrough(),
   z
     .object({
       type: z.literal("room.locked"),

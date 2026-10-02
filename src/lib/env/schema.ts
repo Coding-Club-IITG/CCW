@@ -256,6 +256,24 @@ const operationalSchema = z.object({
     60,
   ),
   ROOM_PRE_START_SECONDS: integer("ROOM_PRE_START_SECONDS", 5, 0, 3600),
+  CONTEST_SSE_HEARTBEAT_SECONDS: integer(
+    "CONTEST_SSE_HEARTBEAT_SECONDS",
+    15,
+    1,
+    300,
+  ),
+  CONTEST_PRESENCE_EXPIRY_SECONDS: integer(
+    "CONTEST_PRESENCE_EXPIRY_SECONDS",
+    45,
+    2,
+    3600,
+  ),
+  CONTEST_PREPARATION_REFRESH_SECONDS: integer(
+    "CONTEST_PREPARATION_REFRESH_SECONDS",
+    5,
+    1,
+    60,
+  ),
   DISCONNECT_FORFEIT_TIMEOUT_SECONDS: integer(
     "DISCONNECT_FORFEIT_TIMEOUT_SECONDS",
     90,
@@ -278,6 +296,15 @@ function validateContestTiming(
   value: z.infer<typeof operationalSchema>,
   ctx: z.RefinementCtx,
 ) {
+  if (
+    value.CONTEST_PRESENCE_EXPIRY_SECONDS <= value.CONTEST_SSE_HEARTBEAT_SECONDS
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["CONTEST_PRESENCE_EXPIRY_SECONDS"],
+      message: "Presence expiry must exceed the SSE heartbeat interval.",
+    });
+  }
   if (
     value.CONTEST_START_TOLERANCE_SECONDS >= value.CONTEST_START_BUFFER_SECONDS
   ) {

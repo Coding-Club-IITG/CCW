@@ -454,7 +454,7 @@ function MatchSidePanel({
   totalRounds: number;
   onClose: () => void;
   contestId: string;
-  data?: { currentUserTeamIds?: string[]; isSpectator?: boolean };
+  data?: { currentUserTeamIds?: string[]; canSpectate?: boolean };
   isAdmin?: boolean;
   onSnapshotUpdate?: (s: BracketSnapshot) => void;
 }) {
@@ -465,7 +465,7 @@ function MatchSidePanel({
   const [adminError, setAdminError] = useState<string | null>(null);
 
   // Accept currentUserTeamIds to determine if the user is a participant
-  const { currentUserTeamIds = [], isSpectator } = data || {};
+  const { currentUserTeamIds = [], canSpectate } = data || {};
   const isParticipant = currentUserTeamIds.some((id) =>
     displayNode?.teams.includes(id),
   );
@@ -734,17 +734,19 @@ function MatchSidePanel({
         {/* Sidebar Footer - action buttons */}
         <div className={styles.sidebarFooter}>
           {/* COMPLETED STATUS */}
-          {isCompleted && displayNode?.roomId && (
-            <button onClick={handleViewResults} className={styles.footerBtn}>
-              <BarChart3 className={styles.icon18} size={18} />
-              VIEW RESULTS
-            </button>
-          )}
+          {isCompleted &&
+            displayNode?.roomId &&
+            (isParticipant || canSpectate) && (
+              <button onClick={handleViewResults} className={styles.footerBtn}>
+                <BarChart3 className={styles.icon18} size={18} />
+                VIEW RESULTS
+              </button>
+            )}
 
           {/* ACTIVE STATUS */}
           {isActive &&
             displayNode?.roomId &&
-            (isParticipant || isSpectator) && (
+            (isParticipant || canSpectate) && (
               <button onClick={handleEnterRoom} className={styles.footerBtn}>
                 <LogIn className={styles.icon18} size={18} />
                 {isParticipant ? "ENTER ROOM" : "SPECTATE ROOM"}
@@ -760,7 +762,7 @@ function MatchSidePanel({
 
           {/* WAITING STATUS */}
           {(displayNode?.status as string) === "waiting" &&
-            (isParticipant || isSpectator) &&
+            (isParticipant || canSpectate) &&
             displayNode?.roomId && (
               <button onClick={handleEnterRoom} className={styles.footerBtn}>
                 <LogIn className={styles.icon18} size={18} />
@@ -768,7 +770,7 @@ function MatchSidePanel({
               </button>
             )}
           {(displayNode?.status as string) === "waiting" &&
-            !(isParticipant || isSpectator) && (
+            !(isParticipant || canSpectate) && (
               <div className={styles.footerNote}>
                 Waiting for the participants to get ready...
               </div>
@@ -839,14 +841,14 @@ export default function BracketRoomClient({
   initialSnapshot,
   userId,
   currentUserTeamIds = [],
-  isSpectator = false,
+  canSpectate = false,
   isAdmin = false,
 }: {
   contest: ContestListingItem;
   initialSnapshot: BracketSnapshot;
   userId?: string;
   currentUserTeamIds?: string[];
-  isSpectator?: boolean;
+  canSpectate?: boolean;
   isAdmin?: boolean;
 }) {
   const [selectedNode, setSelectedNode] = useState<BracketNode | null>(null);
@@ -1387,7 +1389,7 @@ export default function BracketRoomClient({
         totalRounds={snapshot.totalRounds}
         onClose={closeSidebar}
         contestId={contest._id.toString()}
-        data={{ currentUserTeamIds, isSpectator }}
+        data={{ currentUserTeamIds, canSpectate }}
         isAdmin={isAdmin}
         onSnapshotUpdate={setSnapshot}
       />
