@@ -173,5 +173,6 @@ export const authDatabaseHooks: NonNullable<
 };
 
 export const authSecurityPlugin: BetterAuthPlugin = {
+  id: "auth-security",
   databaseHooks: authDatabaseHooks,
-};
+} as unknown as BetterAuthPlugin;

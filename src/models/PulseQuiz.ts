@@ -138,8 +138,8 @@ const PulseQuizSchema = new Schema<PulseQuiz>(
       default: "draft",
     },
     roomCode: { type: String, required: true, unique: true },
-    ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    coHostIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true } as any,
+    coHostIds: [{ type: Schema.Types.ObjectId, ref: "User" }] as any,
     presenter: {
       activePresenterId: { type: Schema.Types.ObjectId, ref: "User", default: null },
       claimedAt: { type: Date, default: null },

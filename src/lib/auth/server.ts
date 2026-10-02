@@ -105,7 +105,7 @@ export const auth = betterAuth({
 
   secret: webEnv.AUTH_SECRET,
   baseURL: webEnv.BASE_URL,
-  trustedOrigins: webEnv.TRUSTED_ORGANIZATIONS,
+  trustedOrigins: webEnv.TRUSTED_ORIGINS,
 
   advanced: {
     trustedProxyHeaders: true,

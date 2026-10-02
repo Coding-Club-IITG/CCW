@@ -64,7 +64,7 @@ export async function requirePulseHost(request: NextRequest, quizId: string) {
   // FALLBACK: Link host assignments if not already linked via auth hooks
   // This ensures that if the auth hook didn't run for some reason, we still link
   try {
-    await linkHostAssignmentsForUser({ userId: user._id.toString(), email: normalizedEmail });
+    await linkHostAssignmentsForUser({ userId: user.id, email: normalizedEmail });
   } catch (error) {
     // Log but don't fail - linking is best-effort
     // eslint-disable-next-line no-console
@@ -72,9 +72,9 @@ export async function requirePulseHost(request: NextRequest, quizId: string) {
   }
 
   // Check if the user is an owner or co-host of the quiz
-  const isOwner = quiz.ownerId?.toString() === user._id.toString();
+  const isOwner = quiz.ownerId === user.id;
   const isCoHost = quiz.coHostIds?.some(
-    (id) => id.toString() === user._id.toString()
+    (id: string) => id === user.id
   ) ?? false;
 
   if (isOwner) {

@@ -19,9 +19,9 @@ export interface PulseHostAssignment extends Document {
 // Define the schema
 const PulseHostAssignmentSchema = new Schema<PulseHostAssignment>(
   {
-    quizId: { type: Schema.Types.ObjectId, ref: "PulseQuiz", required: true },
+    quizId: { type: Schema.Types.ObjectId, ref: "PulseQuiz", required: true } as any,
     email: { type: String, required: true, lowercase: true, trim: true },
-    userId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    userId: { type: Schema.Types.ObjectId, ref: "User", default: null } as any,
     assignmentType: { type: String, enum: ["owner", "co-host"], required: true },
     linkedAt: { type: Date, default: null },
   },
