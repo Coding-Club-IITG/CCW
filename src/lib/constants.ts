@@ -2,21 +2,26 @@
  * Shared constants
  */
 
-export const MODULES = [
-  "Software Development",
-  "Competitive Programming",
-  "Machine Learning",
-  "Cybersecurity",
-  "Design",
-] as const;
-
-export type ModuleName = (typeof MODULES)[number];
-
-export const FILE_SHARING_LIMIT = 100;
-
 export const CURRENT_TENURE = "2026-27";
 
 export const APP_TIME_ZONE = "Asia/Kolkata";
+
+/* Analytics */
+
+export const PUBLIC_ANALYTICS_PAGES = [
+  "/",
+  "/blog",
+  "/events",
+  "/projects",
+  "/team",
+  "/recruitment",
+  "/privacy",
+] as const;
+export const PUBLIC_PAGE_VIEW_METRIC = "page_view";
+export const VISITOR_COOKIE_NAME = "ccw_visitor";
+export const VISITOR_COOKIE_MAX_AGE = 90 * 24 * 60 * 60;
+
+/* Authorization */
 
 export const ACCESS_LEVELS = ["Member", "Head", "Admin"] as const;
 export type AccessLevel = (typeof ACCESS_LEVELS)[number];
@@ -64,40 +69,26 @@ export const USER_SORT_LABELS: Record<
   provider: "Sign-in method",
 };
 
-export const AUDIT_CATEGORIES = [
-  "users",
-  "blog",
-  "projects",
-  "events",
-  "calendar",
-  "files",
-  "recruitment",
-  "notifications",
-  "credits",
-  "hackathons",
-  "contests",
-  "potd",
-] as const;
-export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
-
-export const AUDIT_ACTIONS = [
-  "create",
-  "update",
-  "delete",
-  "publish",
-  "upload",
-  "broadcast",
-  "schedule",
-  "bulk_schedule",
-  "sync",
-  "status_change",
-  "generate_bracket",
-  "walkover",
-] as const;
-export type AuditAction = (typeof AUDIT_ACTIONS)[number];
-
 export const CLUB_POSITIONS = ["Secretary", "OC", "Projects Head"] as const;
 export type ClubPosition = (typeof CLUB_POSITIONS)[number];
+
+export const LEADERSHIP_ROLES = CLUB_POSITIONS;
+export type LeadershipRole = (typeof LEADERSHIP_ROLES)[number];
+
+export const TEAM_ROLES = [...LEADERSHIP_ROLES, "Head"] as const;
+export type TeamRole = (typeof TEAM_ROLES)[number];
+
+/* Modules */
+
+export const MODULES = [
+  "Software Development",
+  "Competitive Programming",
+  "Machine Learning",
+  "Cybersecurity",
+  "Design",
+] as const;
+
+export type ModuleName = (typeof MODULES)[number];
 
 export const MODULE_POSITIONS = [
   "Head",
@@ -111,9 +102,6 @@ export type ModulePosition = (typeof MODULE_POSITIONS)[number];
 export type UserRole =
   | { position: ClubPosition; module?: never }
   | { module: ModuleName; position: ModulePosition };
-
-export const PROJECT_MODULES = [...MODULES, "General"] as const;
-export type ProjectModuleName = (typeof PROJECT_MODULES)[number];
 
 export const MODULE_ACCENTS: Record<ProjectModuleName, string> = {
   "Software Development": "var(--module-software-accent)",
@@ -149,6 +137,14 @@ const EXTRA_TAG_ACCENTS: Record<string, string> = {
   "Event Recap": "var(--brand-ember)",
 };
 
+/* Projects */
+
+export const PROJECT_MODULES = [...MODULES, "General"] as const;
+export type ProjectModuleName = (typeof PROJECT_MODULES)[number];
+
+export const PROJECT_STATUSES = ["Upcoming", "Ongoing", "Completed"] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
 export function tagAccent(tag: string): string {
   return (
     MODULE_ACCENTS[tag as ProjectModuleName] ??
@@ -157,14 +153,7 @@ export function tagAccent(tag: string): string {
   );
 }
 
-export const LEADERSHIP_ROLES = CLUB_POSITIONS;
-export type LeadershipRole = (typeof LEADERSHIP_ROLES)[number];
-
-export const TEAM_ROLES = [...LEADERSHIP_ROLES, "Head"] as const;
-export type TeamRole = (typeof TEAM_ROLES)[number];
-
-export const PROJECT_STATUSES = ["Upcoming", "Ongoing", "Completed"] as const;
-export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+/* Events */
 
 export const EVENT_STATUSES = ["Upcoming", "Ongoing", "Completed"] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
@@ -182,8 +171,7 @@ export const EVENT_PUBLICATION_STATUSES = ["draft", "published"] as const;
 export type EventPublicationStatus =
   (typeof EVENT_PUBLICATION_STATUSES)[number];
 
-export const CALENDAR_SCOPES = ["general", "module"] as const;
-export type CalendarScope = (typeof CALENDAR_SCOPES)[number];
+/* Recruitment */
 
 export const RECRUITMENT_SEASONS = ["Summer", "Winter"] as const;
 export type RecruitmentSeason = (typeof RECRUITMENT_SEASONS)[number];
@@ -196,6 +184,48 @@ export const RECRUITMENT_DOCUMENT_KINDS = ["resources", "task"] as const;
 export type RecruitmentDocumentKind =
   (typeof RECRUITMENT_DOCUMENT_KINDS)[number];
 export const MAX_RECRUITMENT_PDF_BYTES = 20 * 1024 * 1024;
+
+/* Audit */
+
+export const AUDIT_CATEGORIES = [
+  "users",
+  "blog",
+  "projects",
+  "events",
+  "calendar",
+  "files",
+  "recruitment",
+  "notifications",
+  "credits",
+  "hackathons",
+  "contests",
+  "potd",
+] as const;
+export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
+
+export const AUDIT_ACTIONS = [
+  "create",
+  "update",
+  "delete",
+  "publish",
+  "upload",
+  "broadcast",
+  "schedule",
+  "bulk_schedule",
+  "sync",
+  "status_change",
+  "generate_bracket",
+  "walkover",
+] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+/* Calendar */
+
+export const CALENDAR_SCOPES = ["general", "module"] as const;
+export type CalendarScope = (typeof CALENDAR_SCOPES)[number];
+
+/* Files */
+export const FILE_SHARING_LIMIT = 100;
 
 /* CP Platforms */
 
@@ -224,8 +254,6 @@ export const PLATFORM_PROBLEM_URLS: Record<
   atcoder: (contestId, index) =>
     `https://atcoder.jp/contests/${contestId}/tasks/${index}`,
 };
-
-/* Contest Platforms */
 
 export const CONTEST_PLATFORMS = [
   "codeforces",
@@ -361,10 +389,7 @@ export const IMAGE_EXTENSION_TO_MIME: Record<ImageExtension, ImageMimeType> = {
   ".avif": "image/avif",
 };
 
-/**
- * Regex fragment matching allowed image extensions
- * For use in filename validation
- * */
+// Regex fragment matching allowed image extensions
 export const IMAGE_EXTENSIONS_REGEX_FRAGMENT = ALLOWED_IMAGE_EXTENSIONS.map(
   (e) => e.slice(1),
 ).join("|");

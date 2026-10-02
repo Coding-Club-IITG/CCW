@@ -80,6 +80,7 @@ programming systems, content, administration, and background integrations.
 - `src/lib/shared`: cross-feature dates, pagination, search, slugs, and tags
 - `src/lib/stores`: browser UI state stores
 - `src/lib/telemetry`: shared logging and web/worker telemetry
+  including public-page collection and pseudonymous visitor metrics
 - `src/lib/constants.ts`: shared constants, enums, display maps, and URL patterns
 - `src/models`: Mongoose models
 - `src/styles`: global theme variables and reusable SCSS mixins
