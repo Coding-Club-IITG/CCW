@@ -180,7 +180,7 @@
 
 .managePresetsLink {
   font-size: 0.85rem;
-  color: #60a5fa;
+  color: var(--primary);
   text-decoration: none;
 
   &:hover {
@@ -190,7 +190,7 @@
 
 .emptyPresetsHint {
   font-size: 0.85rem;
-  color: var(--muted-foreground);
+  color: var(--muted);
   margin-top: 0.5rem;
 }
 
@@ -525,7 +525,7 @@
   margin-top: 0.25rem;
   max-height: 12rem;
   overflow-y: auto;
-  background-color: var(--background, #09090b);
+  background-color: var(--background);
   border: 1px solid var(--border);
   box-shadow: 0 8px 24px var(--shadow-md);
 }
@@ -807,4 +807,9 @@
 .requiredAsterisk {
   color: var(--destructive);
   margin-left: 0.15rem;
+}
+
+.fineTunedList {
+  display: grid;
+  gap: 1rem;
 }

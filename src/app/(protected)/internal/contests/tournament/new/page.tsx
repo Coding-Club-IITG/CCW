@@ -1,15 +1,13 @@
-import { connectMongoDB } from "@/lib/db/mongodb";
-import ContestPreset from "@/models/ContestPreset";
-import { toContestPresetDto } from "@/lib/contests/dtos";
-import ContestWizard from "@/components/contests/wizard/ContestWizard";
-import { auth } from "@/lib/auth/server";
-import { isHead } from "@/lib/access/roles";
 import { headers } from "next/headers";
 
-export const metadata = {
-  title: "CCW Admin - New Tournament",
-  description: "Create a new knockout tournament",
-};
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { toContestPresetDto } from "@/lib/contests/dtos";
+import { auth } from "@/lib/auth/server";
+import { isHead } from "@/lib/access/roles";
+
+import ContestPreset from "@/models/ContestPreset";
+
+import ContestWizard from "@/components/contests/wizard/ContestWizard";
 
 export default async function NewContestPage() {
   await connectMongoDB();
@@ -17,19 +15,17 @@ export default async function NewContestPage() {
   const userRole = session?.user?.access as string | undefined;
   const admin = isHead(userRole);
 
-  const presetFilter: any = { archived: { $ne: true } };
-  if (!admin) {
-    presetFilter.$or = [{ isGlobal: true }, { creatorId: session?.user?.id }];
-  }
+  const presetFilter = {
+    archived: { $ne: true },
+    ...(!admin
+      ? { $or: [{ isGlobal: true }, { creatorId: session?.user?.id }] }
+      : {}),
+  };
   const presetsJson = await ContestPreset.find(presetFilter)
     .sort({ name: 1 })
     .lean();
 
   const presets = presetsJson.map(toContestPresetDto);
 
-  return (
-    <div>
-      <ContestWizard presets={presets} />
-    </div>
-  );
+  return <ContestWizard presets={presets} />;
 }

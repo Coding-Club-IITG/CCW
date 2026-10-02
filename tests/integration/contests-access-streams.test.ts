@@ -484,8 +484,8 @@ describe("isolated live events and connection presence", () => {
       { problemId: first.roomId, name: "Isolated problem" },
     ]);
     await publishRoom(second.roomId, {
-      type: "room.score",
-      scores: { team: 77 },
+      type: "room.end",
+      finalScores: { team: 77 },
     });
     await publishUser(first.player.id, second.roomId, {
       type: "sync.failed",
@@ -497,12 +497,12 @@ describe("isolated live events and connection presence", () => {
       JSON.stringify({ type: "sync.failed", reason: "legacy-unscoped" }),
     );
     await publishRoom(first.roomId, {
-      type: "room.score",
-      scores: { team: 88 },
+      type: "room.end",
+      finalScores: { team: 88 },
     });
-    await a.wait("room.score");
+    await a.wait("room.end");
     expect(
-      a.events.filter((e) => e.data.payload?.type === "room.score"),
+      a.events.filter((e) => e.data.payload?.type === "room.end"),
     ).toHaveLength(1);
     expect(a.events.some((e) => e.data.payload?.type === "sync.failed")).toBe(
       false,
@@ -588,7 +588,10 @@ describe("isolated live events and connection presence", () => {
       stream.events.find((e) => e.event === "connected")!.data
         .subscribedChannels,
     ).toEqual([`events:contest:${f.contestId}`]);
-    await publishRoom(f.roomId, { type: "room.score", scores: { team: 42 } });
+    await publishRoom(f.roomId, {
+      type: "room.end",
+      finalScores: { team: 42 },
+    });
     await publishContest(other.contestId, {
       type: "contest.status_change",
       status: "completed",
@@ -598,9 +601,9 @@ describe("isolated live events and connection presence", () => {
       status: "active",
     });
     expect((await stream.wait("contest.status_change")).status).toBe("active");
-    expect(
-      stream.events.some((e) => e.data.payload?.type === "room.score"),
-    ).toBe(false);
+    expect(stream.events.some((e) => e.data.payload?.type === "room.end")).toBe(
+      false,
+    );
     expect(await getRoomOnlineUserIds(f.roomId)).toEqual([]);
   });
   it("closes a spectator stream before forwarding events after access is revoked", async () => {
@@ -615,17 +618,23 @@ describe("isolated live events and connection presence", () => {
       { _id: f.game._id },
       { $set: { spectatorRestriction: "none" } },
     );
-    await publishRoom(f.roomId, { type: "room.score", scores: { team: 200 } });
+    await publishRoom(f.roomId, {
+      type: "room.end",
+      finalScores: { team: 200 },
+    });
     await vi.waitFor(() => expect(stream.ended()).toBe(true));
-    expect(
-      stream.events.some((e) => e.data.payload?.type === "room.score"),
-    ).toBe(false);
+    expect(stream.events.some((e) => e.data.payload?.type === "room.end")).toBe(
+      false,
+    );
   });
   it("closes revoked sessions and handles aborts before and during initialization", async () => {
     const f = await fixture();
     const stream = await open(f);
     sessions.delete(f.player.id);
-    await publishRoom(f.roomId, { type: "room.score", scores: { team: 200 } });
+    await publishRoom(f.roomId, {
+      type: "room.end",
+      finalScores: { team: 200 },
+    });
     await vi.waitFor(() => expect(stream.ended()).toBe(true));
     await stream.close();
     expect(await getRoomOnlineUserIds(f.roomId)).toEqual([]);

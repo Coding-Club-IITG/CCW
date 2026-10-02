@@ -3,10 +3,12 @@
 import { Plus, Edit2, Archive, Loader2, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import type { CreateContestPresetInput } from "@/lib/api/schemas/contestPreset";
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
 import type { ContestPresetDto } from "@/lib/contests/dtos";
 
+import { useRuntimeConfig } from "@/components/layout/Providers";
 import Modal from "@/components/shared/Modal";
 import { useToast } from "@/components/shared/Toast";
 import { useConfirm } from "@/components/shared/useConfirm";
@@ -23,6 +25,7 @@ export default function PresetManager({
   isAdmin,
 }: PresetManagerProps) {
   const toast = useToast();
+  const { contestDefaultMatchMinutes } = useRuntimeConfig();
   const { confirm, confirmDialog } = useConfirm();
   const [presets, setPresets] = useState<ContestPresetDto[]>(initialPresets);
   const [loading, setLoading] = useState(false);
@@ -35,11 +38,15 @@ export default function PresetManager({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isGlobal, setIsGlobal] = useState(false);
-  const [format, setFormat] = useState("bracket");
-  const [mode, setMode] = useState("blitz");
-  const [durationSeconds, setDurationSeconds] = useState(300);
+  const [format, setFormat] =
+    useState<NonNullable<CreateContestPresetInput["format"]>>("bracket");
+  const [mode, setMode] =
+    useState<NonNullable<CreateContestPresetInput["mode"]>>("blitz");
+  const [durationSeconds, setDurationSeconds] = useState(
+    contestDefaultMatchMinutes * 60,
+  );
 
-  // New Structural States
+  // Optional match timing and admission settings
   const [overallDurationMinutes, setOverallDurationMinutes] = useState<
     number | ""
   >("");
@@ -47,26 +54,40 @@ export default function PresetManager({
     number | ""
   >("");
   const [teamSize, setTeamSize] = useState(1);
-  const [spectatorRestriction, setSpectatorRestriction] = useState("none");
+  const [spectatorRestriction, setSpectatorRestriction] =
+    useState<NonNullable<CreateContestPresetInput["spectatorRestriction"]>>(
+      "none",
+    );
 
   // Registration Settings
-  const [regType, setRegType] = useState("open");
+  const [regType, setRegType] =
+    useState<
+      NonNullable<CreateContestPresetInput["registrationSettings"]>["type"]
+    >("open");
   const [maxParticipants, setMaxParticipants] = useState(16);
   const [entrantCapacity, setEntrantCapacity] = useState(8);
 
   // Bracket Settings
-  const [bracketType, setBracketType] = useState("single_elimination");
+  const [bracketType, setBracketType] =
+    useState<
+      NonNullable<
+        NonNullable<CreateContestPresetInput["bracketSettings"]>["type"]
+      >
+    >("single_elimination");
 
-  const [problemSelectionMode, setProblemSelectionMode] = useState("bulk");
+  const [problemSelectionMode, setProblemSelectionMode] =
+    useState<NonNullable<CreateContestPresetInput["problemSelectionMode"]>>(
+      "bulk",
+    );
 
-  // Mode A Bulk Settings
+  // Automatic problem selection
   const [bulkPlatform, setBulkPlatform] = useState("codeforces");
   const [bulkRatingMin, setBulkRatingMin] = useState(800);
   const [bulkRatingMax, setBulkRatingMax] = useState(1200);
   const [bulkProblemCount, setBulkProblemCount] = useState(3);
   const [bulkMinContestId, setBulkMinContestId] = useState(0);
 
-  // Mode B Fine-Tuned Slots
+  // Manual problem slots
   const [problemSlots, setProblemSlots] = useState<
     Array<{
       platform: string;
@@ -84,13 +105,14 @@ export default function PresetManager({
     setIsGlobal(false);
     setFormat("bracket");
     setMode("blitz");
-    setDurationSeconds(300);
+    setDurationSeconds(contestDefaultMatchMinutes * 60);
     setOverallDurationMinutes("");
     setPerProblemDurationMinutes("");
     setTeamSize(1);
     setSpectatorRestriction("none");
     setRegType("open");
     setMaxParticipants(16);
+    setEntrantCapacity(8);
     setBracketType("single_elimination");
 
     setProblemSelectionMode("bulk");
@@ -115,7 +137,9 @@ export default function PresetManager({
     setIsGlobal(preset.isGlobal || false);
     setFormat(preset.format || "bracket");
     setMode(preset.mode || "blitz");
-    setDurationSeconds(preset.durationSeconds || 300);
+    setDurationSeconds(
+      preset.durationSeconds ?? contestDefaultMatchMinutes * 60,
+    );
 
     setOverallDurationMinutes(preset.overallDurationMinutes || "");
     setPerProblemDurationMinutes(preset.perProblemDurationMinutes || "");
@@ -162,7 +186,7 @@ export default function PresetManager({
     setLoading(true);
 
     try {
-      const payload: any = {
+      const payload: CreateContestPresetInput = {
         name,
         description,
         format,
@@ -316,7 +340,11 @@ export default function PresetManager({
     ]);
   }
 
-  function updateSlot(index: number, field: string, value: string | number) {
+  function updateSlot<Key extends keyof (typeof problemSlots)[number]>(
+    index: number,
+    field: Key,
+    value: (typeof problemSlots)[number][Key],
+  ) {
     const updated = [...problemSlots];
 
     updated[index] = { ...updated[index], [field]: value };
@@ -448,9 +476,10 @@ export default function PresetManager({
         >
           <form id="preset-form" onSubmit={handleSubmit}>
             <div className={styles.row}>
-              <div className={styles.field} style={{ flex: 2 }}>
-                <label>Name</label>
+              <div className={`${styles.field} ${styles.fieldWide}`}>
+                <label htmlFor="preset-name">Name</label>
                 <input
+                  id="preset-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -459,17 +488,9 @@ export default function PresetManager({
                 />
               </div>
               {isAdmin && (
-                <div className={styles.field} style={{ flex: 1 }}>
+                <div className={styles.field}>
                   <label>Global Preset?</label>
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      marginTop: "0.5rem",
-                      cursor: "pointer",
-                    }}
-                  >
+                  <label className={styles.checkboxLabel}>
                     <input
                       type="checkbox"
                       checked={isGlobal}
@@ -482,8 +503,9 @@ export default function PresetManager({
             </div>
 
             <div className={styles.field}>
-              <label>Description (Optional)</label>
+              <label htmlFor="preset-description">Description (Optional)</label>
               <textarea
+                id="preset-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Details about this preset..."
@@ -492,11 +514,12 @@ export default function PresetManager({
 
             <div className={styles.row}>
               <div className={styles.field}>
-                <label>Format</label>
+                <label htmlFor="preset-format">Format</label>
                 <select
+                  id="preset-format"
                   value={format}
                   onChange={(e) => {
-                    const newFormat = e.target.value;
+                    const newFormat = e.target.value as typeof format;
 
                     setFormat(newFormat);
 
@@ -521,16 +544,21 @@ export default function PresetManager({
               </div>
 
               <div className={styles.field}>
-                <label>Mode</label>
-                <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                <label htmlFor="preset-mode">Mode</label>
+                <select
+                  id="preset-mode"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value as typeof mode)}
+                >
                   <option value="blitz">Blitz</option>
                   <option value="arena">Arena</option>
                 </select>
               </div>
 
               <div className={styles.field}>
-                <label>Team Size</label>
+                <label htmlFor="preset-team-size">Team Size</label>
                 <select
+                  id="preset-team-size"
                   value={
                     ["1v1", "solo-tournament"].includes(format) ? 1 : teamSize
                   }
@@ -545,10 +573,17 @@ export default function PresetManager({
 
             <div className={styles.row}>
               <div className={styles.field}>
-                <label>Spectator Policy</label>
+                <label htmlFor="preset-spectatorRestriction">
+                  Spectator Policy
+                </label>
                 <select
+                  id="preset-spectatorRestriction"
                   value={spectatorRestriction}
-                  onChange={(e) => setSpectatorRestriction(e.target.value)}
+                  onChange={(e) =>
+                    setSpectatorRestriction(
+                      e.target.value as typeof spectatorRestriction,
+                    )
+                  }
                 >
                   <option value="none">No Spectators</option>
                   <option value="all">Any Authenticated User</option>
@@ -559,23 +594,17 @@ export default function PresetManager({
             </div>
 
             {format === "bracket" && (
-              <fieldset
-                style={{
-                  border: "1px solid #ddd",
-                  padding: "1rem",
-                  marginBottom: "1rem",
-                  borderRadius: "4px",
-                }}
-              >
-                <legend style={{ padding: "0 0.5rem", fontWeight: "bold" }}>
-                  Bracket Settings
-                </legend>
+              <fieldset className={styles.fieldset}>
+                <legend className={styles.legend}>Bracket Settings</legend>
                 <div className={styles.row}>
                   <div className={styles.field}>
-                    <label>Bracket Type</label>
+                    <label htmlFor="preset-bracketType">Bracket Type</label>
                     <select
+                      id="preset-bracketType"
                       value={bracketType}
-                      onChange={(e) => setBracketType(e.target.value)}
+                      onChange={(e) =>
+                        setBracketType(e.target.value as typeof bracketType)
+                      }
                     >
                       <option value="single_elimination">
                         Single Elimination
@@ -585,42 +614,35 @@ export default function PresetManager({
                       </option>
                     </select>
                   </div>
-                  <p>
-                    Seeds use frozen Codeforces ratings, averaged for teams.
-                  </p>
+                  <p>Seeds use Codeforces ratings, averaged for teams.</p>
                 </div>
               </fieldset>
             )}
 
-            <fieldset
-              style={{
-                border: "1px solid #ddd",
-                padding: "1rem",
-                marginBottom: "1rem",
-                borderRadius: "4px",
-              }}
-            >
-              <legend style={{ padding: "0 0.5rem", fontWeight: "bold" }}>
-                Registration Settings
-              </legend>
+            <fieldset className={styles.fieldset}>
+              <legend className={styles.legend}>Registration Settings</legend>
               <div className={styles.row}>
                 <div className={styles.field}>
-                  <label>Registration Type</label>
+                  <label htmlFor="preset-regType">Registration Type</label>
                   <select
+                    id="preset-regType"
                     value={regType}
-                    onChange={(e) => setRegType(e.target.value)}
+                    onChange={(e) =>
+                      setRegType(e.target.value as typeof regType)
+                    }
                   >
                     <option value="open">Open Registration</option>
                     <option value="closed">Closed (Invite Only)</option>
                   </select>
                 </div>
                 <div className={styles.field}>
-                  <label>
+                  <label htmlFor="preset-capacity">
                     {format === "bracket"
                       ? "Max Entrants (players or teams)"
                       : "Max Participants"}
                   </label>
                   <input
+                    id="preset-capacity"
                     type="number"
                     value={
                       format === "bracket" ? entrantCapacity : maxParticipants
@@ -637,34 +659,18 @@ export default function PresetManager({
               </div>
             </fieldset>
 
-            <fieldset
-              style={{
-                border: "1px solid #ddd",
-                padding: "1rem",
-                marginBottom: "1rem",
-                borderRadius: "4px",
-              }}
-            >
-              <legend style={{ padding: "0 0.5rem", fontWeight: "bold" }}>
-                Time Settings
-              </legend>
+            <fieldset className={styles.fieldset}>
+              <legend className={styles.legend}>Time Settings</legend>
               <div className={styles.row}>
                 <div className={styles.field}>
-                  <label>
+                  <label htmlFor="preset-durationSeconds">
                     Match Duration (Secs)
-                    <span
-                      style={{
-                        display: "block",
-                        fontSize: "0.75rem",
-                        color: "var(--text-muted)",
-                        fontWeight: "normal",
-                        marginTop: "0.25rem",
-                      }}
-                    >
+                    <span className={styles.hint}>
                       Max time for a single head-to-head match
                     </span>
                   </label>
                   <input
+                    id="preset-durationSeconds"
                     type="number"
                     value={durationSeconds}
                     onChange={(e) => setDurationSeconds(Number(e.target.value))}
@@ -674,21 +680,14 @@ export default function PresetManager({
                 </div>
                 {format !== "1v1" && (
                   <div className={styles.field}>
-                    <label>
-                      Overall Duration (Mins)
-                      <span
-                        style={{
-                          display: "block",
-                          fontSize: "0.75rem",
-                          color: "var(--text-muted)",
-                          fontWeight: "normal",
-                          marginTop: "0.25rem",
-                        }}
-                      >
-                        Total time for the entire tournament/event
+                    <label htmlFor="preset-overallDurationMinutes">
+                      Match Override (Mins)
+                      <span className={styles.hint}>
+                        Overrides the duration in seconds for each match
                       </span>
                     </label>
                     <input
+                      id="preset-overallDurationMinutes"
                       type="number"
                       value={overallDurationMinutes}
                       onChange={(e) =>
@@ -699,21 +698,14 @@ export default function PresetManager({
                   </div>
                 )}
                 <div className={styles.field}>
-                  <label>
+                  <label htmlFor="preset-perProblemDurationMinutes">
                     Per Problem (Mins)
-                    <span
-                      style={{
-                        display: "block",
-                        fontSize: "0.75rem",
-                        color: "var(--text-muted)",
-                        fontWeight: "normal",
-                        marginTop: "0.25rem",
-                      }}
-                    >
-                      Recommended time spent per problem
+                    <span className={styles.hint}>
+                      Optional Blitz deadline, unused in Arena
                     </span>
                   </label>
                   <input
+                    id="preset-perProblemDurationMinutes"
                     type="number"
                     value={perProblemDurationMinutes}
                     onChange={(e) =>
@@ -726,10 +718,17 @@ export default function PresetManager({
             </fieldset>
 
             <div className={styles.field}>
-              <label>Problem Selection Mode</label>
+              <label htmlFor="preset-problemSelectionMode">
+                Problem Selection Mode
+              </label>
               <select
+                id="preset-problemSelectionMode"
                 value={problemSelectionMode}
-                onChange={(e) => setProblemSelectionMode(e.target.value)}
+                onChange={(e) =>
+                  setProblemSelectionMode(
+                    e.target.value as typeof problemSelectionMode,
+                  )
+                }
               >
                 <option value="bulk">Bulk (Automatic query)</option>
                 <option value="fine-tuned">
@@ -739,18 +738,11 @@ export default function PresetManager({
             </div>
 
             {problemSelectionMode === "bulk" ? (
-              <div
-                className={styles.bulkSection}
-                style={{
-                  background: "var(--bg-hover, rgba(255, 255, 255, 0.05))",
-                  padding: "1rem",
-                  borderRadius: "4px",
-                  border: "1px solid var(--border)",
-                }}
-              >
+              <div className={styles.bulkSection}>
                 <div className={styles.field}>
-                  <label>Platform</label>
+                  <label htmlFor="preset-bulkPlatform">Platform</label>
                   <select
+                    id="preset-bulkPlatform"
                     value={bulkPlatform}
                     onChange={(e) => setBulkPlatform(e.target.value)}
                   >
@@ -759,8 +751,9 @@ export default function PresetManager({
                 </div>
                 <div className={styles.row}>
                   <div className={styles.field}>
-                    <label>Min Rating</label>
+                    <label htmlFor="preset-bulkRatingMin">Min Rating</label>
                     <input
+                      id="preset-bulkRatingMin"
                       type="number"
                       value={bulkRatingMin}
                       onChange={(e) => setBulkRatingMin(Number(e.target.value))}
@@ -770,8 +763,9 @@ export default function PresetManager({
                     />
                   </div>
                   <div className={styles.field}>
-                    <label>Max Rating</label>
+                    <label htmlFor="preset-bulkRatingMax">Max Rating</label>
                     <input
+                      id="preset-bulkRatingMax"
                       type="number"
                       value={bulkRatingMax}
                       onChange={(e) => setBulkRatingMax(Number(e.target.value))}
@@ -782,8 +776,9 @@ export default function PresetManager({
                   </div>
                 </div>
                 <div className={styles.field}>
-                  <label>Problem Count</label>
+                  <label htmlFor="preset-bulkProblemCount">Problem Count</label>
                   <input
+                    id="preset-bulkProblemCount"
                     type="number"
                     value={bulkProblemCount}
                     onChange={(e) =>
@@ -794,8 +789,11 @@ export default function PresetManager({
                   />
                 </div>
                 <div className={styles.field}>
-                  <label>Contest Release Date</label>
+                  <label htmlFor="preset-bulkMinContestId">
+                    Contest Release Date
+                  </label>
                   <select
+                    id="preset-bulkMinContestId"
                     value={bulkMinContestId}
                     onChange={(e) =>
                       setBulkMinContestId(Number(e.target.value))
@@ -810,53 +808,18 @@ export default function PresetManager({
                 </div>
               </div>
             ) : (
-              <div
-                className={styles.fineTunedSection}
-                style={{
-                  background: "var(--bg-hover, rgba(255, 255, 255, 0.05))",
-                  padding: "1rem",
-                  borderRadius: "4px",
-                  border: "1px solid var(--border)",
-                }}
-              >
-                <label
-                  style={{
-                    fontWeight: "bold",
-                    display: "block",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Problem Slots
-                </label>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.5rem",
-                  }}
-                >
+              <div className={styles.fineTunedSection}>
+                <label className={styles.sectionLabel}>Problem Slots</label>
+                <div className={styles.slots}>
                   {problemSlots.map((slot, index) => (
-                    <div
-                      key={index}
-                      className={styles.row}
-                      style={{
-                        alignItems: "flex-end",
-                        flexWrap: "wrap",
-                        background: "var(--bg-card)",
-                        padding: "0.5rem",
-                        borderRadius: "4px",
-                        border: "1px solid var(--border)",
-                      }}
-                    >
+                    <div key={index} className={styles.slotRow}>
                       {format === "bracket" && (
-                        <div
-                          className={styles.field}
-                          style={{ marginBottom: 0, flex: 1 }}
-                        >
-                          <label style={{ fontSize: "0.8rem" }}>
+                        <div className={styles.field}>
+                          <label htmlFor={`preset-slot-${index}-roundNumber`}>
                             Rnd (Bracket)
                           </label>
                           <input
+                            id={`preset-slot-${index}-roundNumber`}
                             type="number"
                             value={slot.roundNumber}
                             onChange={(e) =>
@@ -870,12 +833,12 @@ export default function PresetManager({
                           />
                         </div>
                       )}
-                      <div
-                        className={styles.field}
-                        style={{ marginBottom: 0, flex: 2 }}
-                      >
-                        <label style={{ fontSize: "0.8rem" }}>Platform</label>
+                      <div className={styles.field}>
+                        <label htmlFor={`preset-slot-${index}-platform`}>
+                          Platform
+                        </label>
                         <select
+                          id={`preset-slot-${index}-platform`}
                           value={slot.platform}
                           onChange={(e) =>
                             updateSlot(index, "platform", e.target.value)
@@ -884,12 +847,12 @@ export default function PresetManager({
                           <option value="codeforces">Codeforces</option>
                         </select>
                       </div>
-                      <div
-                        className={styles.field}
-                        style={{ marginBottom: 0, flex: 2 }}
-                      >
-                        <label style={{ fontSize: "0.8rem" }}>Rating</label>
+                      <div className={styles.field}>
+                        <label htmlFor={`preset-slot-${index}-rating`}>
+                          Rating
+                        </label>
                         <input
+                          id={`preset-slot-${index}-rating`}
                           type="number"
                           value={slot.rating}
                           onChange={(e) =>
@@ -898,14 +861,12 @@ export default function PresetManager({
                           step={100}
                         />
                       </div>
-                      <div
-                        className={styles.field}
-                        style={{ marginBottom: 0, flex: 2 }}
-                      >
-                        <label style={{ fontSize: "0.8rem" }}>
+                      <div className={styles.field}>
+                        <label htmlFor={`preset-slot-${index}-problemId`}>
                           Specific ID
                         </label>
                         <input
+                          id={`preset-slot-${index}-problemId`}
                           type="text"
                           value={slot.problemId || ""}
                           onChange={(e) =>
@@ -919,7 +880,6 @@ export default function PresetManager({
                         onClick={() => removeSlot(index)}
                         disabled={problemSlots.length <= 1}
                         className={styles.removeSlotBtn}
-                        style={{ height: "38px", flexShrink: 0 }}
                       >
                         Remove
                       </button>

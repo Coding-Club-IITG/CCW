@@ -11,10 +11,11 @@ import {
 } from "@/lib/actions/contests";
 import type { ContestTeamRequestDto } from "@/lib/contests/dtos";
 
+import Button from "@/components/shared/Button";
 import Modal from "@/components/shared/Modal";
 import { useToast } from "@/components/shared/Toast";
 
-import styles from "./RegisterContestModal.module.scss";
+import styles from "./ManageTeamModal.module.scss";
 
 interface ManageTeamModalProps {
   isOpen: boolean;
@@ -49,6 +50,8 @@ export default function ManageTeamModal({
 
       if (res.ok) {
         setRequests(res.data);
+      } else {
+        toast.error(res.error.message);
       }
     } catch {
       toast.error("Failed to load team requests");
@@ -71,12 +74,12 @@ export default function ManageTeamModal({
 
       if (res.ok) {
         toast.success(`Request ${action}ed`);
-        fetchRequests();
+        await fetchRequests();
         router.refresh();
       } else {
         toast.error(res.error.message);
       }
-    } catch (e) {
+    } catch {
       toast.error("An error occurred");
     } finally {
       setLoading(false);
@@ -100,11 +103,11 @@ export default function ManageTeamModal({
       if (res.ok) {
         toast.success("Invite sent successfully");
         setInviteHandle("");
-        fetchRequests();
+        await fetchRequests();
       } else {
         toast.error(res.error.message);
       }
-    } catch (e) {
+    } catch {
       toast.error("Failed to send invite");
     } finally {
       setLoading(false);
@@ -123,191 +126,90 @@ export default function ManageTeamModal({
       closeDisabled={loading}
       maxWidth={500}
     >
-      <div
-        style={{
-          padding: "1rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "1.5rem",
-        }}
-      >
-        {/* Pending Join Requests */}
+      <div className={styles.body}>
         {isLeader && (
-          <div>
-            <h3
-              style={{
-                fontSize: "1rem",
-                marginBottom: "0.75rem",
-                marginTop: 0,
-              }}
-            >
-              Pending Join Requests ({joinRequests.length})
-            </h3>
-            {joinRequests.length === 0 ? (
-              <p
-                style={{
-                  color: "var(--muted-foreground, #888)",
-                  fontSize: "0.9rem",
-                  margin: 0,
-                }}
-              >
-                No pending join requests.
-              </p>
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.5rem",
-                }}
-              >
-                {joinRequests.map((req) => (
-                  <div
-                    key={req._id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "0.75rem",
-                      border: "1px solid var(--border)",
-                      borderRadius: "6px",
-                    }}
-                  >
-                    <span style={{ fontSize: "0.9rem" }}>
-                      <strong>{req.fromUserHandle || req.fromUserId}</strong>{" "}
-                      wants to join
-                    </span>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        onClick={() => handleRespond(req._id, "accept")}
-                        disabled={loading}
-                        style={{
-                          background: "#4caf50",
-                          color: "white",
-                          border: "none",
-                          padding: "0.35rem 0.75rem",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.25rem",
-                        }}
-                      >
-                        <Check size={14} /> Accept
-                      </button>
-                      <button
-                        onClick={() => handleRespond(req._id, "reject")}
-                        disabled={loading}
-                        style={{
-                          background: "#f44336",
-                          color: "white",
-                          border: "none",
-                          padding: "0.35rem 0.75rem",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.25rem",
-                        }}
-                      >
-                        <X size={14} /> Reject
-                      </button>
+          <>
+            <section>
+              <h3 className={styles.heading}>
+                Pending Join Requests ({joinRequests.length})
+              </h3>
+              {joinRequests.length === 0 ? (
+                <p className={styles.hint}>No pending join requests.</p>
+              ) : (
+                <div className={styles.list}>
+                  {joinRequests.map((req) => (
+                    <div key={req._id} className={styles.request}>
+                      <span>
+                        <strong>{req.fromUserHandle || req.fromUserId}</strong>{" "}
+                        wants to join
+                      </span>
+                      <div className={styles.actions}>
+                        <Button
+                          size="small"
+                          variant="primary"
+                          onClick={() => handleRespond(req._id, "accept")}
+                          disabled={loading}
+                        >
+                          <Check size={14} /> Accept
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="danger"
+                          onClick={() => handleRespond(req._id, "reject")}
+                          disabled={loading}
+                        >
+                          <X size={14} /> Reject
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Sent Invites */}
-        {isLeader && sentInvites.length > 0 && (
-          <div>
-            <h3
-              style={{
-                fontSize: "1rem",
-                marginBottom: "0.75rem",
-                marginTop: 0,
-              }}
-            >
-              Pending Invites ({sentInvites.length})
-            </h3>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-              }}
-            >
-              {sentInvites.map((req) => (
-                <div
-                  key={req._id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "0.75rem",
-                    border: "1px solid var(--border)",
-                    borderRadius: "6px",
-                  }}
-                >
-                  <span style={{ fontSize: "0.9rem" }}>
-                    Invited: <strong>{req.toUserHandle || req.toUserId}</strong>
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "0.8rem",
-                      color: "#888",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    Awaiting response
-                  </span>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              )}
+            </section>
 
-        {/* Invite by Codeforces Handle */}
-        {isLeader && (
-          <div>
-            <h3
-              style={{
-                fontSize: "1rem",
-                marginBottom: "0.75rem",
-                marginTop: 0,
-              }}
-            >
-              Invite Member by CF Handle
-            </h3>
-            <form
-              onSubmit={handleInvite}
-              style={{ display: "flex", gap: "0.5rem" }}
-            >
-              <input
-                type="text"
-                placeholder="Enter Codeforces Handle"
-                value={inviteHandle}
-                onChange={(e) => setInviteHandle(e.target.value)}
-                className={styles.input}
-                style={{ flex: 1 }}
-              />
-              <button
-                type="submit"
-                disabled={loading || !inviteHandle.trim()}
-                className={styles.btnPrimary}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <UserPlus size={16} /> Send Invite
-              </button>
+            {sentInvites.length > 0 && (
+              <section>
+                <h3 className={styles.heading}>
+                  Pending Invites ({sentInvites.length})
+                </h3>
+                <div className={styles.list}>
+                  {sentInvites.map((req) => (
+                    <div key={req._id} className={styles.request}>
+                      <span>
+                        Invited:{" "}
+                        <strong>{req.toUserHandle || req.toUserId}</strong>
+                      </span>
+                      <span className={styles.hint}>Awaiting response</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <form onSubmit={handleInvite}>
+              <label htmlFor="team-invite-handle" className={styles.heading}>
+                Invite by Codeforces handle
+              </label>
+              <div className={styles.inviteRow}>
+                <input
+                  id="team-invite-handle"
+                  type="text"
+                  placeholder="Codeforces handle"
+                  value={inviteHandle}
+                  onChange={(e) => setInviteHandle(e.target.value)}
+                  className={styles.input}
+                  disabled={loading}
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={loading || !inviteHandle.trim()}
+                >
+                  <UserPlus size={16} /> Send Invite
+                </Button>
+              </div>
             </form>
-          </div>
+          </>
         )}
       </div>
     </Modal>

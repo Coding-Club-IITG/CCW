@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Calendar, ChevronDown, Timer, Trophy } from "lucide-react";
 
-import { ContestListingItem } from "@/lib/actions/contests";
-import { formatDateTime } from "@/lib/shared/dates";
+import type { ContestListingItem } from "@/lib/actions/contests";
+import { formatDateTime, formatDateInput } from "@/lib/shared/dates";
 
+import EmptyState from "@/components/shared/EmptyState";
 import BackLink from "@/components/shared/BackLink";
 
 import styles from "./MatchHistoryClient.module.scss";
@@ -36,36 +37,12 @@ export default function MatchHistoryClient({
       if (outcomeFilter === "Tie" && result !== "tie") return false;
     }
 
-    // date filter
-    if (startDate) {
+    // Match the IST day shown in the history entry
+    if (startDate || endDate) {
       if (!contest.startTime) return false;
-      const [y, m, d] = startDate.split("-");
-      const startOfDay = new Date(
-        parseInt(y),
-        parseInt(m) - 1,
-        parseInt(d),
-        0,
-        0,
-        0,
-        0,
-      );
-      if (new Date(contest.startTime).getTime() < startOfDay.getTime())
-        return false;
-    }
-    if (endDate) {
-      if (!contest.startTime) return false;
-      const [y, m, d] = endDate.split("-");
-      const endOfDay = new Date(
-        parseInt(y),
-        parseInt(m) - 1,
-        parseInt(d),
-        23,
-        59,
-        59,
-        999,
-      );
-      if (new Date(contest.startTime).getTime() > endOfDay.getTime())
-        return false;
+      const date = formatDateInput(contest.startTime);
+      if (startDate && date < startDate) return false;
+      if (endDate && date > endDate) return false;
     }
 
     return true;
@@ -98,6 +75,7 @@ export default function MatchHistoryClient({
             {/* Format Filter */}
             <div className={styles.selectWrap}>
               <select
+                aria-label="Match format"
                 value={formatFilter}
                 onChange={(e) => setFormatFilter(e.target.value)}
                 className={styles.select}
@@ -111,6 +89,7 @@ export default function MatchHistoryClient({
             {/* Outcome Filter */}
             <div className={styles.selectWrap}>
               <select
+                aria-label="Match outcome"
                 value={outcomeFilter}
                 onChange={(e) => setOutcomeFilter(e.target.value)}
                 className={styles.select}
@@ -126,6 +105,7 @@ export default function MatchHistoryClient({
             <div className={styles.dateGroup}>
               <input
                 type="date"
+                aria-label="From date (IST)"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className={styles.dateInput}
@@ -133,6 +113,8 @@ export default function MatchHistoryClient({
               <span className={styles.dateSep}>-</span>
               <input
                 type="date"
+                aria-label="Through date (IST)"
+                min={startDate}
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className={styles.dateInput}
@@ -142,6 +124,12 @@ export default function MatchHistoryClient({
         </div>
 
         {/* Match History List */}
+        {filteredHistory.length === 0 && (
+          <EmptyState
+            title="No matches found"
+            hint="Try changing the format, outcome or date filters."
+          />
+        )}
         <div className={styles.list}>
           {filteredHistory.map((contest) => {
             const result = contest.result;
@@ -191,7 +179,9 @@ export default function MatchHistoryClient({
                     {contest.format === "bracket" && (
                       <div className={styles.tournamentTag}>
                         <Trophy className={styles.iconXs} size={14} />
-                        {contest.bracketSettings?.type === "double_elimination" ? "Double Elim" : "Knockout"}
+                        {contest.bracketSettings?.type === "double_elimination"
+                          ? "Double Elim"
+                          : "Knockout"}
                       </div>
                     )}
                   </div>
@@ -219,7 +209,9 @@ export default function MatchHistoryClient({
                             }
                             return "0m 0s";
                           })()
-                        : `${Math.floor((contest.durationSeconds || 3600) / 60)}m`}
+                        : contest.durationSeconds
+                          ? `${Math.floor(contest.durationSeconds / 60)}m`
+                          : "—"}
                     </span>
                   </div>
                 </div>
@@ -259,11 +251,12 @@ export default function MatchHistoryClient({
 
                 {/* Right: CTA */}
                 <div className={styles.cta}>
-                  <Link href={`/internal/contests/${contest._id}?from=history`}>
-                    <button className={styles.resultsBtn}>
-                      Results
-                      <ArrowRight className={styles.iconSm} size={16} />
-                    </button>
+                  <Link
+                    href={`/internal/contests/${contest._id}?from=history`}
+                    className={styles.resultsBtn}
+                  >
+                    Results
+                    <ArrowRight className={styles.iconSm} size={16} />
                   </Link>
                 </div>
               </div>

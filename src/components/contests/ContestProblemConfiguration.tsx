@@ -156,7 +156,10 @@ export default function ContestProblemConfiguration({
           id="problem-selection-mode"
           value={form.problemSelectionMode}
           onChange={(event) =>
-            updateForm({ problemSelectionMode: event.target.value })
+            updateForm({
+              problemSelectionMode: event.target
+                .value as ContestCreationForm["problemSelectionMode"],
+            })
           }
           disabled={presetLocked}
           className={`${styles.formInput} ${styles.formSelect}`}

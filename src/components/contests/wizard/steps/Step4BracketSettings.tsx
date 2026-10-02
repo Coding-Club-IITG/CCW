@@ -13,13 +13,17 @@ export default function Step4BracketSettings({
 }: Step4Props) {
   return (
     <div>
-      <h2 className={styles.stepTitle}>Step 4: Bracket & Seeding Settings</h2>
+      <h2 className={styles.stepTitle}>Bracket & Seeding Settings</h2>
 
       <div className={`${styles.field} ${styles.fieldFlush}`}>
-        <label className={`${styles.label} ${styles.labelBlock}`}>
+        <label
+          htmlFor="wizard-bracketType-single-elimination-"
+          className={`${styles.label} ${styles.labelBlock}`}
+        >
           Elimination Type
         </label>
         <select
+          id="wizard-bracketType-single-elimination-"
           value={bracketType || "single_elimination"}
           onChange={(e) =>
             updateFields({

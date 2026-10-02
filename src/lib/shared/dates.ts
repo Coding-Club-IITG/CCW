@@ -55,3 +55,32 @@ export function formatMonthYear(date?: Date | string | null) {
     timeZone: "UTC",
   }).format(new Date(date));
 }
+
+/** ISO calendar date in IST for date inputs and day comparisons */
+export function formatDateInput(date: Date | string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: APP_TIME_ZONE,
+  }).format(new Date(date));
+}
+
+/** Datetime-local value in IST, independent of the browser timezone */
+export function formatDateTimeInput(date: Date | string): string {
+  const time = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: APP_TIME_ZONE,
+  }).format(new Date(date));
+  return `${formatDateInput(date)}T${time}`;
+}
+
+/** Interpret a datetime-local field as an IST schedule */
+export function parseDateTimeInput(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(value)) return null;
+  const parsed = new Date(`${value}:00.000+05:30`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return formatDateInput(parsed) === value.slice(0, 10) ? parsed : null;
+}

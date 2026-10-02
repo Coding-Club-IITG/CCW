@@ -842,4 +842,12 @@
   }
 }
 
-
+.sourceHandle {
+  top: 55px;
+}
+.hiddenHandle {
+  opacity: 0;
+}
+.error {
+  color: var(--danger);
+}

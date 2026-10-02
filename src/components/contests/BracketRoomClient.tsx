@@ -261,7 +261,7 @@ function GrandFinalNode({ data }: NodeProps<BracketFlowNode>) {
         type="target"
         position={Position.Left}
         id="target-left"
-        style={{ top: 55 }}
+        className={styles.sourceHandle}
       />
       <div className={styles.nodeHeader}>
         <span className={styles.nodeHeaderTitle}>
@@ -390,13 +390,13 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
         type="target"
         position={Position.Left}
         id="target-left"
-        style={{ top: 55 }}
+        className={styles.sourceHandle}
       />
       <Handle
         type="target"
         position={Position.Top}
         id="target-top"
-        style={{ opacity: 0 }}
+        className={styles.hiddenHandle}
       />
       <div className={styles.nodeHeader}>
         <span className={styles.nodeHeaderLabel}>{matchLabel}</span>
@@ -430,13 +430,13 @@ function MatchCardNode({ data }: NodeProps<BracketFlowNode>) {
         type="source"
         position={Position.Right}
         id="source-right"
-        style={{ top: 55 }}
+        className={styles.sourceHandle}
       />
       <Handle
         type="source"
         position={Position.Bottom}
         id="source-bottom"
-        style={{ opacity: 0 }}
+        className={styles.hiddenHandle}
       />
     </div>
   );
@@ -802,10 +802,7 @@ function MatchSidePanel({
             <div className={styles.adminControls}>
               <span className={styles.adminHeading}>Admin Match Override</span>
               {adminError && (
-                <div
-                  className={styles.footerNote}
-                  style={{ color: "var(--error)" }}
-                >
+                <div className={`${styles.footerNote} ${styles.error}`}>
                   {adminError}
                 </div>
               )}

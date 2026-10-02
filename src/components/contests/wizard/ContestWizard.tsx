@@ -3,15 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { useRuntimeConfig } from "@/components/layout/Providers";
+import { parseDateTimeInput } from "@/lib/shared/dates";
 import { problemAllocationError } from "@/lib/contests/problemAllocation";
-
 import { validateStep, createBracketContest } from "@/lib/actions/contests";
 
+import { useRuntimeConfig } from "@/components/layout/Providers";
 import type {
   ContestWizardForm,
   ContestCreationPreset,
 } from "@/components/contests/contestCreationForm";
+import Button from "@/components/shared/Button";
 import BackLink from "@/components/shared/BackLink";
 import { useToast } from "@/components/shared/Toast";
 
@@ -124,7 +125,10 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     setIsSubmitting(true);
 
     try {
-      const result = await validateStep(currentStep, formData);
+      const result = await validateStep(currentStep, {
+        ...formData,
+        startTime: parseDateTimeInput(formData.startTime)?.toISOString() ?? "",
+      });
 
       if (!result.ok) {
         toast.error(result.error.message);
@@ -159,7 +163,10 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
     setIsSubmitting(true);
 
     try {
-      const result = await createBracketContest(formData);
+      const result = await createBracketContest({
+        ...formData,
+        startTime: parseDateTimeInput(formData.startTime)?.toISOString() ?? "",
+      });
 
       if (!result.ok) {
         toast.error(result.error.message);
@@ -180,9 +187,13 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
       <h1 className={styles.wizardTitle}>Create Bracket Tournament</h1>
 
       {/* Progress Tracker */}
-      <div className={styles.progressTracker}>
+      <ol
+        className={styles.progressTracker}
+        aria-label="Tournament creation progress"
+      >
         {steps.map((step) => (
-          <div
+          <li
+            aria-current={currentStep === step.number ? "step" : undefined}
             key={step.number}
             className={`${styles.step} ${currentStep === step.number ? styles.active : ""} ${
               currentStep > step.number ? styles.completed : ""
@@ -192,9 +203,9 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
               {String(step.number).padStart(2, "0")}
             </div>
             <div className={styles.label}>{step.title}</div>
-          </div>
+          </li>
         ))}
-      </div>
+      </ol>
 
       {/* Step Content */}
       <div className={styles.stepContent}>
@@ -250,31 +261,31 @@ export default function ContestWizard({ presets }: ContestWizardProps) {
       {/* Controls */}
       <div className={styles.wizardControls}>
         {currentStep > 1 && (
-          <button
+          <Button
             onClick={handleBack}
-            className={styles.backButton}
+            variant="secondary"
             disabled={isSubmitting}
           >
             Back
-          </button>
+          </Button>
         )}
         <div className={styles.spacer} />
         {currentStep < maxStep ? (
-          <button
+          <Button
             onClick={handleNext}
-            className={styles.nextButton}
+            variant="primary"
             disabled={isSubmitting}
           >
             {isSubmitting ? "Validating..." : "Next"}
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             onClick={handleCreate}
-            className={styles.createButton}
+            variant="primary"
             disabled={isSubmitting}
           >
             {isSubmitting ? "Creating..." : "Create Tournament"}
-          </button>
+          </Button>
         )}
       </div>
     </div>

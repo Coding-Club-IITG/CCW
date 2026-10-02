@@ -7,7 +7,7 @@ const otherRoom = "507f1f77bcf86cd799439012";
 const user = "507f1f77bcf86cd799439013";
 describe("room event isolation", () => {
   it("accepts only the current room's events and scoped personal syncs", () => {
-    const score = { type: "room.score", scores: { team: 80 } };
+    const score = { type: "room.end", finalScores: { team: 80 } };
     expect(
       parseRoomStreamMessage(
         { channel: `events:room:${room}`, payload: score },

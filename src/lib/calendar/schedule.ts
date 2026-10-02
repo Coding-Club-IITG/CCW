@@ -1,5 +1,7 @@
 import { createHash } from "crypto";
 
+import { parseDateTimeInput } from "@/lib/shared/dates";
+
 import type {
   CalendarScope,
   EventRecurrenceType,
@@ -31,16 +33,7 @@ export function parseCalendarDateTime(
   time: string,
   allDay: boolean,
 ): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  if (!allDay && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
-
-  const iso = `${date}T${allDay ? "00:00" : time}:00.000+05:30`;
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return null;
-  const dateInIST = new Date(parsed.getTime() + IST_OFFSET_MINUTES * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
-  return dateInIST === date ? parsed : null;
+  return parseDateTimeInput(`${date}T${allDay ? "00:00" : time}`);
 }
 
 function addRecurrence(date: Date, type: EventRecurrenceType, index: number) {

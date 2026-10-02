@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CalendarDays,
-  CalendarX,
   CircleCheck,
   Clock,
   History,
@@ -24,12 +23,17 @@ import {
   getMyTeamJoinRequests,
   respondToContestTeamRequest,
 } from "@/lib/actions/contests";
+import { CONTEST_TIMING } from "@/lib/constants";
 import { formatDayTime, formatShortDate } from "@/lib/shared/dates";
 import type { ContestRegistrationTiming } from "@/lib/contests/registrationTiming";
 
 import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
+import Button from "@/components/shared/Button";
+import EmptyState from "@/components/shared/EmptyState";
+import { useToast } from "@/components/shared/Toast";
 import SegmentedControl from "@/components/shared/SegmentedControl";
 
+import { formatRemainingTime } from "./roomPresentation";
 import CreateRoomModal from "./CreateRoomModal";
 import RegisterContestModal from "./RegisterContestModal";
 import ManageTeamModal from "./ManageTeamModal";
@@ -61,53 +65,6 @@ function RegisterButton({
   );
 }
 
-function CountdownTimer({
-  startTime,
-  durationSeconds,
-}: {
-  startTime: Date | null;
-  durationSeconds: number | null;
-}) {
-  const [timeLeft, setTimeLeft] = useState("--:--:--");
-
-  useEffect(() => {
-    if (!startTime || !durationSeconds) {
-      setTimeLeft("--:--:--");
-
-      return;
-    }
-
-    const endTime = new Date(startTime).getTime() + durationSeconds * 1000;
-
-    const updateTimer = () => {
-      const now = new Date().getTime();
-      const diff = endTime - now;
-
-      if (diff <= 0) {
-        setTimeLeft("00:00:00");
-
-        return;
-      }
-
-      const h = Math.floor(diff / (1000 * 60 * 60));
-      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const s = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeLeft(
-        `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`,
-      );
-    };
-
-    updateTimer();
-
-    const interval = setInterval(updateTimer, 1000);
-
-    return () => clearInterval(interval);
-  }, [startTime, durationSeconds]);
-
-  return <div className={styles.timer}>{timeLeft}</div>;
-}
-
 type FormatFilter = "all" | "blitz" | "arena" | "bracket";
 
 export default function ContestListingClient({
@@ -126,6 +83,7 @@ export default function ContestListingClient({
   registrationTiming: ContestRegistrationTiming;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [registerModalData, setRegisterModalData] = useState<{
@@ -153,7 +111,12 @@ export default function ContestListingClient({
       { ok: true }
     >["data"]
   >([]);
-  const [myJoinRequests, setMyJoinRequests] = useState<any[]>([]);
+  const [myJoinRequests, setMyJoinRequests] = useState<
+    Extract<
+      Awaited<ReturnType<typeof getMyTeamJoinRequests>>,
+      { ok: true }
+    >["data"]
+  >([]);
   const [inviteActionLoading, setInviteActionLoading] = useState<string | null>(
     null,
   );
@@ -167,36 +130,30 @@ export default function ContestListingClient({
     });
   }, []);
 
-  const handleInviteRespond = async (
+  const handleRequestRespond = async (
     requestId: string,
     action: "accept" | "reject",
   ) => {
     setInviteActionLoading(requestId);
 
-    const res = await respondToContestTeamRequest(requestId, action);
-
-    if (res.ok) {
-      setMyInvites((prev) => prev.filter((i) => i._id !== requestId));
-      router.refresh();
+    try {
+      const res = await respondToContestTeamRequest(requestId, action);
+      if (res.ok) {
+        setMyInvites((prev) =>
+          prev.filter((request) => request._id !== requestId),
+        );
+        setMyJoinRequests((prev) =>
+          prev.filter((request) => request._id !== requestId),
+        );
+        router.refresh();
+      } else {
+        toast.error(res.error.message);
+      }
+    } catch {
+      toast.error("Unable to respond to the team request");
+    } finally {
+      setInviteActionLoading(null);
     }
-
-    setInviteActionLoading(null);
-  };
-
-  const handleJoinRequestRespond = async (
-    requestId: string,
-    action: "accept" | "reject",
-  ) => {
-    setInviteActionLoading(requestId);
-
-    const res = await respondToContestTeamRequest(requestId, action);
-
-    if (res.ok) {
-      setMyJoinRequests((prev) => prev.filter((i) => i._id !== requestId));
-      router.refresh();
-    }
-
-    setInviteActionLoading(null);
   };
 
   const handleRegisterClick = (
@@ -211,80 +168,38 @@ export default function ContestListingClient({
       viewOnly,
     });
 
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-
+    setNow(Date.now());
+    const timer = setInterval(
+      () => setNow(Date.now()),
+      CONTEST_TIMING.displayRefreshMs,
+    );
     return () => clearInterval(timer);
   }, []);
 
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => setIsMounted(true), []);
-
-  const isPastDeadline = (deadline?: Date | string | null) => {
-    if (!isMounted || !deadline) return false;
-
-    return now > new Date(deadline).getTime();
-  };
-
-  const [localActive, setLocalActive] =
-    useState<ContestListingItem[]>(initialActive);
-  const [localUpcoming, setLocalUpcoming] =
-    useState<ContestListingItem[]>(initialUpcoming);
-
+  // Refresh from the server once scheduled contests are due to start
   useEffect(() => {
-    setLocalActive(initialActive);
-    setLocalUpcoming(initialUpcoming);
-  }, [initialActive, initialUpcoming]);
-
-  useEffect(() => {
-    if (localUpcoming.length === 0) return;
+    if (initialUpcoming.length === 0) return;
 
     const timer = setInterval(() => {
-      const now = Date.now();
-
-      setLocalUpcoming((prevUpcoming) => {
-        const transferring = prevUpcoming.filter((c) => {
-          const transitionTime = c.startTime;
-
-          return transitionTime && new Date(transitionTime).getTime() <= now;
-        });
-
-        if (transferring.length > 0) {
-          // Schedule the second state update outside the updater callback
-          setTimeout(() => {
-            setLocalActive((prevActive) => {
-              const newActive: ContestListingItem[] = [...transferring].map(
-                (c) => ({
-                  ...c,
-                  status: "active",
-                  roomStatus: "waiting",
-                }),
-              );
-
-              for (const item of prevActive) {
-                if (!newActive.some((x) => x._id === item._id)) {
-                  newActive.push(item);
-                }
-              }
-
-              return newActive;
-            });
-          }, 0);
-
-          return prevUpcoming.filter(
-            (c) => !transferring.some((t) => t._id === c._id),
-          );
-        }
-
-        return prevUpcoming;
-      });
-    }, 1000);
+      if (
+        initialUpcoming.some(
+          (contest) =>
+            contest.startTime &&
+            new Date(contest.startTime).getTime() <= Date.now(),
+        )
+      ) {
+        router.refresh();
+      }
+    }, CONTEST_TIMING.listingRefreshMs);
 
     return () => clearInterval(timer);
-  }, [localUpcoming.length]);
+  }, [initialUpcoming, router]);
+
+  const isPastDeadline = (deadline?: Date | string | null) =>
+    now !== null && Boolean(deadline) && now > new Date(deadline!).getTime();
 
   const filterByFormat = (contest: ContestListingItem) => {
     if (formatFilter === "all") return true;
@@ -294,8 +209,8 @@ export default function ContestListingClient({
     return contest.mode === formatFilter && contest.format !== "bracket";
   };
 
-  const active = localActive.filter(filterByFormat);
-  const upcoming = localUpcoming.filter(filterByFormat);
+  const active = initialActive.filter(filterByFormat);
+  const upcoming = initialUpcoming.filter(filterByFormat);
   const completed = initialCompleted.filter(filterByFormat);
 
   const getFormatDisplay = (contest: ContestListingItem) => {
@@ -374,180 +289,81 @@ export default function ContestListingClient({
             </div>
           </div>
 
-          {/* Pending Invites */}
-          {myInvites.length > 0 && (
-            <section
-              className={styles.section}
-              style={{ marginBottom: "2rem" }}
-            >
-              <div className={styles.sectionHead}>
-                <Users className={styles.icon20} size={20} />
-                <h2 className={styles.sectionTitle}>Pending Team Invites</h2>
-              </div>
-              <div className={styles.cardGrid}>
-                {myInvites.map((invite) => (
-                  <div
-                    key={invite._id}
-                    className={styles.contestCard}
-                    style={{ border: "1px solid #007bff" }}
-                  >
-                    <div className={styles.cardTop}>
-                      <div className={styles.cardTopInfo}>
-                        <span className={styles.cardBadge}>Invite</span>
-                        <h3 className={styles.cardTitle}>{invite.teamName}</h3>
-                        <p
-                          className={styles.cardDesc}
-                          style={{
-                            margin: "0.5rem 0",
-                            color: "var(--muted-foreground)",
-                          }}
-                        >
-                          Contest: {invite.contestName}
-                        </p>
-                        <p
-                          className={styles.cardDesc}
-                          style={{ color: "var(--muted-foreground)" }}
-                        >
-                          Invited by: <strong>{invite.invitedByHandle}</strong>
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      className={styles.cardActionRow}
-                      style={{ marginTop: "1rem", gap: "0.5rem" }}
-                    >
-                      <button
-                        onClick={() =>
-                          handleInviteRespond(invite._id, "accept")
-                        }
-                        disabled={inviteActionLoading === invite._id}
-                        style={{
-                          flex: 1,
-                          padding: "0.5rem",
-                          borderRadius: "6px",
-                          background: "#4caf50",
-                          color: "#fff",
-                          border: "none",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        Accept
-                      </button>
-                      <button
-                        onClick={() =>
-                          handleInviteRespond(invite._id, "reject")
-                        }
-                        disabled={inviteActionLoading === invite._id}
-                        style={{
-                          flex: 1,
-                          padding: "0.5rem",
-                          borderRadius: "6px",
-                          background: "#f44336",
-                          color: "#fff",
-                          border: "none",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        Decline
-                      </button>
-                    </div>
+          {[
+            {
+              title: "Pending Team Invites",
+              requests: myInvites,
+              invite: true,
+            },
+            {
+              title: "Team Join Requests",
+              requests: myJoinRequests,
+              invite: false,
+            },
+          ].map(
+            ({ title, requests, invite }) =>
+              requests.length > 0 && (
+                <section className={styles.section} key={title}>
+                  <div className={styles.sectionHead}>
+                    <Users size={20} />
+                    <h2 className={styles.sectionTitle}>{title}</h2>
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Pending Join Requests */}
-          {myJoinRequests.length > 0 && (
-            <section
-              className={styles.section}
-              style={{ marginBottom: "2rem" }}
-            >
-              <div className={styles.sectionHead}>
-                <Users className={styles.icon20} size={20} />
-                <h2 className={styles.sectionTitle}>Team Join Requests</h2>
-              </div>
-              <div className={styles.cardGrid}>
-                {myJoinRequests.map((req) => (
-                  <div
-                    key={req._id}
-                    className={styles.contestCard}
-                    style={{ border: "1px solid #ff9800" }}
-                  >
-                    <div className={styles.cardTop}>
-                      <div className={styles.cardTopInfo}>
-                        <span
-                          className={styles.cardBadge}
-                          style={{ background: "#fff3e0", color: "#e65100" }}
-                        >
-                          Request
-                        </span>
-                        <h3 className={styles.cardTitle}>{req.teamName}</h3>
-                        <p
-                          className={styles.cardDesc}
-                          style={{
-                            margin: "0.5rem 0",
-                            color: "var(--muted-foreground)",
-                          }}
-                        >
-                          Contest: {req.contestName}
-                        </p>
-                        <p
-                          className={styles.cardDesc}
-                          style={{ color: "var(--muted-foreground)" }}
-                        >
-                          User <strong>{req.fromUserHandle}</strong> wants to
-                          join.
-                        </p>
+                  <div className={styles.cardGrid}>
+                    {requests.map((request) => (
+                      <div key={request._id} className={styles.contestCard}>
+                        <div className={styles.cardTop}>
+                          <div className={styles.cardTopInfo}>
+                            <span className={styles.cardBadge}>
+                              {invite ? "Invite" : "Request"}
+                            </span>
+                            <h3 className={styles.cardTitle}>
+                              {request.teamName}
+                            </h3>
+                            <p className={styles.cardDesc}>
+                              Contest: {request.contestName}
+                            </p>
+                            <p className={styles.cardDesc}>
+                              {"invitedByHandle" in request ? (
+                                <>
+                                  Invited by{" "}
+                                  <strong>{request.invitedByHandle}</strong>
+                                </>
+                              ) : (
+                                <>
+                                  <strong>{request.fromUserHandle}</strong>{" "}
+                                  wants to join
+                                </>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={styles.requestActions}>
+                          <Button
+                            variant="primary"
+                            size="small"
+                            onClick={() =>
+                              handleRequestRespond(request._id, "accept")
+                            }
+                            disabled={inviteActionLoading !== null}
+                          >
+                            {invite ? "Accept" : "Approve"}
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="small"
+                            onClick={() =>
+                              handleRequestRespond(request._id, "reject")
+                            }
+                            disabled={inviteActionLoading !== null}
+                          >
+                            {invite ? "Decline" : "Deny"}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                    <div
-                      className={styles.cardActionRow}
-                      style={{ marginTop: "1rem", gap: "0.5rem" }}
-                    >
-                      <button
-                        onClick={() =>
-                          handleJoinRequestRespond(req._id, "accept")
-                        }
-                        disabled={inviteActionLoading === req._id}
-                        style={{
-                          flex: 1,
-                          padding: "0.5rem",
-                          borderRadius: "6px",
-                          background: "#4caf50",
-                          color: "#fff",
-                          border: "none",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() =>
-                          handleJoinRequestRespond(req._id, "reject")
-                        }
-                        disabled={inviteActionLoading === req._id}
-                        style={{
-                          flex: 1,
-                          padding: "0.5rem",
-                          borderRadius: "6px",
-                          background: "#f44336",
-                          color: "#fff",
-                          border: "none",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        Deny
-                      </button>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </section>
+                </section>
+              ),
           )}
 
           {/* Active Contests */}
@@ -589,6 +405,7 @@ export default function ContestListingClient({
                         ) : (
                           <>
                             <CountdownTimer
+                              now={now}
                               startTime={
                                 contest.actualStartTime || contest.startTime
                               }
@@ -612,10 +429,11 @@ export default function ContestListingClient({
                             <CircleCheck className={styles.icon18} size={18} />
                             Registered
                           </div>
-                          <Link href={`/internal/contests/${contest._id}`}>
-                            <button className={styles.joinBtn}>
-                              Join room
-                            </button>
+                          <Link
+                            href={`/internal/contests/${contest._id}`}
+                            className={styles.joinBtn}
+                          >
+                            Join room
                           </Link>
                         </>
                       ) : contest.canSpectate ? (
@@ -623,17 +441,11 @@ export default function ContestListingClient({
                           <div className={styles.notRegistered}>
                             Not registered
                           </div>
-                          <Link href={`/internal/contests/${contest._id}`}>
-                            <button
-                              className={styles.joinBtn}
-                              style={{
-                                background: "var(--border)",
-                                color: "var(--foreground)",
-                              }}
-                            >
-                              <Eye className={styles.icon18} size={18} />{" "}
-                              Spectate
-                            </button>
+                          <Link
+                            href={`/internal/contests/${contest._id}`}
+                            className={styles.joinBtn}
+                          >
+                            <Eye className={styles.icon18} size={18} /> Spectate
                           </Link>
                         </>
                       ) : (
@@ -690,7 +502,8 @@ export default function ContestListingClient({
                           </span>
                         </span>
                         <div className={styles.regInfoCol}>
-                          {contest.registrationStartTime &&
+                          {now !== null &&
+                            contest.registrationStartTime &&
                             new Date(contest.registrationStartTime).getTime() >
                               now && (
                               <span className={styles.regStart}>
@@ -719,6 +532,7 @@ export default function ContestListingClient({
                             </span>
                           )}
                           <UpcomingCountdownTimer
+                            now={now}
                             startTime={contest.startTime || null}
                           />
                         </div>
@@ -768,7 +582,7 @@ export default function ContestListingClient({
                               contest.registeredTeamId && (
                                 <button
                                   className={`${styles.miniBtn} ${styles.miniBtnPrimary}`}
-                                  style={{ marginRight: "0.5rem" }}
+
                                   onClick={() => {
                                     setManageTeamData({
                                       isOpen: true,
@@ -807,6 +621,7 @@ export default function ContestListingClient({
                               onRegisterClick={handleRegisterClick}
                               disabledOverride={true}
                               label={
+                                now !== null &&
                                 contest.registrationStartTime &&
                                 new Date(
                                   contest.registrationStartTime,
@@ -866,11 +681,12 @@ export default function ContestListingClient({
             <section>
               <div className={styles.sectionHeadBordered}>
                 <h2 className={styles.sectionTitle}>Completed</h2>
-                <Link href="/internal/contests/history">
-                  <button className={styles.pillBtn}>
-                    <History className={styles.icon18} size={18} />
-                    View History
-                  </button>
+                <Link
+                  href="/internal/contests/history"
+                  className={styles.pillBtn}
+                >
+                  <History className={styles.icon18} size={18} />
+                  View History
                 </Link>
               </div>
               <div className={styles.completedCard}>
@@ -886,20 +702,14 @@ export default function ContestListingClient({
                     </thead>
                     <tbody>
                       {completed.map((contest) => (
-                        <tr
-                          key={contest._id}
-                          onClick={() =>
-                            router.push(
-                              `/internal/contests/${contest._id}?from=listing`,
-                            )
-                          }
-                          className={styles.tableRow}
-                          role="button"
-                        >
+                        <tr key={contest._id} className={styles.tableRow}>
                           <td>
-                            <span className={styles.tableName}>
+                            <Link
+                              href={`/internal/contests/${contest._id}?from=listing`}
+                              className={styles.tableName}
+                            >
                               {contest.name}
-                            </span>
+                            </Link>
                           </td>
                           <td>
                             {contest.startTime
@@ -925,13 +735,10 @@ export default function ContestListingClient({
           {active.length === 0 &&
             upcoming.length === 0 &&
             completed.length === 0 && (
-              <div className={styles.empty}>
-                <CalendarX className={styles.emptyIcon} size={64} />
-                <h3 className={styles.emptyTitle}>No contests found</h3>
-                <p className={styles.emptyText}>
-                  There are no contests matching your selected format.
-                </p>
-              </div>
+              <EmptyState
+                title="No contests found"
+                hint="There are no contests matching your selected format."
+              />
             )}
         </div>
 
@@ -960,58 +767,46 @@ export default function ContestListingClient({
   );
 }
 
-function UpcomingCountdownTimer({
+function CountdownTimer({
   startTime,
+  durationSeconds,
+  now,
 }: {
   startTime: Date | string | null;
+  durationSeconds: number | null;
+  now: number | null;
 }) {
-  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const seconds =
+    startTime && durationSeconds && now !== null
+      ? (new Date(startTime).getTime() + durationSeconds * 1000 - now) / 1000
+      : null;
 
-  useEffect(() => {
-    if (!startTime) {
-      setTimeLeft(null);
+  return (
+    <div className={styles.timer}>
+      {seconds === null ? "--:--:--" : formatRemainingTime(seconds, true)}
+    </div>
+  );
+}
 
-      return;
-    }
-
-    const start = new Date(startTime).getTime();
-
-    const updateTimer = () => {
-      const now = new Date().getTime();
-      const diff = start - now;
-
-      if (diff <= 0) {
-        setTimeLeft("Starts soon");
-
-        return;
-      }
-
-      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const s = Math.floor((diff % (1000 * 60)) / 1000);
-
-      if (d > 0) {
-        setTimeLeft(`in ${d}d ${h}h ${m}m`);
-      } else if (h > 0) {
-        setTimeLeft(`in ${h}h ${m}m ${s}s`);
-      } else {
-        setTimeLeft(`in ${m}m ${s}s`);
-      }
-    };
-
-    updateTimer();
-
-    const interval = setInterval(updateTimer, 1000);
-
-    return () => clearInterval(interval);
-  }, [startTime]);
-
-  if (!startTime || !timeLeft) return null;
+function UpcomingCountdownTimer({
+  startTime,
+  now,
+}: {
+  startTime: Date | string | null;
+  now: number | null;
+}) {
+  if (!startTime || now === null) return null;
+  const seconds = Math.max(
+    0,
+    Math.ceil((new Date(startTime).getTime() - now) / 1000),
+  );
 
   return (
     <span className={styles.startsBadge}>
-      Starts <Clock className={styles.icon12} size={12} /> {timeLeft}
+      <Clock size={12} />{" "}
+      {seconds === 0
+        ? "Starts soon"
+        : `Starts in ${formatRemainingTime(seconds, true)}`}
     </span>
   );
 }

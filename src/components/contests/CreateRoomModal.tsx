@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { useRuntimeConfig } from "@/components/layout/Providers";
+import { formatDateTimeInput, parseDateTimeInput } from "@/lib/shared/dates";
+import { CONTEST_TIMING } from "@/lib/constants";
 import { problemAllocationError } from "@/lib/contests/problemAllocation";
-
 import { bracketProblemRequirements } from "@/lib/contests/bracketTopology";
 import {
   createRoomContest,
@@ -20,6 +20,7 @@ import {
   type ContestRegistrationTiming,
 } from "@/lib/contests/registrationTiming";
 
+import { useRuntimeConfig } from "@/components/layout/Providers";
 import ContestProblemConfiguration from "@/components/contests/ContestProblemConfiguration";
 import {
   applyContestFormatDefaults,
@@ -27,6 +28,7 @@ import {
   createInitialContestForm,
   getMaxParticipantsError,
   type ContestCreationPreset,
+  type ContestCreationForm,
   type ContestParticipant,
 } from "@/components/contests/contestCreationForm";
 import CompatibleImage from "@/components/shared/CompatibleImage";
@@ -94,6 +96,9 @@ export default function CreateRoomModal({
   const [selectedUserIndex, setSelectedUserIndex] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    setIsSearching(false);
+
     if (searchQuery.length < 2) {
       setSearchResults([]);
 
@@ -106,7 +111,7 @@ export default function CreateRoomModal({
       try {
         const res = await searchVerifiedUsers(searchQuery);
 
-        if (res.ok && res.data.users) {
+        if (!cancelled && res.ok && res.data.users) {
           const isUserInAnyTeam = (id: string) =>
             manualTeams.some((t) => t.members.some((m) => m.id === id));
           const filtered = res.data.users.filter(
@@ -119,13 +124,16 @@ export default function CreateRoomModal({
           setSelectedUserIndex(0);
         }
       } catch {
-        setSearchResults([]);
+        if (!cancelled) setSearchResults([]);
       } finally {
-        setIsSearching(false);
+        if (!cancelled) setIsSearching(false);
       }
-    }, 300);
+    }, CONTEST_TIMING.searchDebounceMs);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [manualTeams, registeredUsers, searchQuery]);
 
   useEffect(() => {
@@ -172,11 +180,15 @@ export default function CreateRoomModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const start = new Date(formData.startTime);
+    const start = parseDateTimeInput(formData.startTime);
+    if (!start) {
+      toast.error("A valid start time is required.");
+      return;
+    }
     const isCasual1v1 =
       formData.format === "1v1" && formData.registrationType === "closed";
     const startError = contestStartTimeError(
-      formData.startTime,
+      start.toISOString(),
       isCasual1v1,
       registrationTiming,
     );
@@ -234,9 +246,9 @@ export default function CreateRoomModal({
     let regStartIso = undefined;
 
     if (formData.registrationStartMode === "schedule") {
-      const rStart = new Date(formData.registrationStartTime);
+      const rStart = parseDateTimeInput(formData.registrationStartTime);
 
-      if (isNaN(rStart.getTime()) || rStart.getTime() <= Date.now()) {
+      if (!rStart || rStart.getTime() <= Date.now()) {
         toast.error("Scheduled registration start time must be in the future.");
 
         return;
@@ -471,18 +483,16 @@ export default function CreateRoomModal({
     const date = new Date();
 
     date.setMinutes(date.getMinutes() + mins);
-    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-    setFormData({ ...formData, startTime: date.toISOString().slice(0, 16) });
+    setFormData({ ...formData, startTime: formatDateTimeInput(date) });
   };
 
   const handleRegTimeAdd = (mins: number) => {
     const date = new Date();
 
     date.setMinutes(date.getMinutes() + mins);
-    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     setFormData({
       ...formData,
-      registrationStartTime: date.toISOString().slice(0, 16),
+      registrationStartTime: formatDateTimeInput(date),
     });
   };
 
@@ -636,7 +646,10 @@ export default function CreateRoomModal({
                 id="room-mode"
                 value={formData.mode}
                 onChange={(e) =>
-                  setFormData({ ...formData, mode: e.target.value })
+                  setFormData({
+                    ...formData,
+                    mode: e.target.value as ContestCreationForm["mode"],
+                  })
                 }
                 disabled={!!topPresetId}
                 className={`${styles.formInput} ${styles.formSelect}`}
@@ -653,7 +666,8 @@ export default function CreateRoomModal({
                 id="room-format"
                 value={formData.format}
                 onChange={(e) => {
-                  const nextFormat = e.target.value;
+                  const nextFormat = e.target
+                    .value as ContestCreationForm["format"];
 
                   setFormData((prev) =>
                     applyContestFormatDefaults({ ...prev, format: nextFormat }),
@@ -833,7 +847,8 @@ export default function CreateRoomModal({
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      registrationType: e.target.value,
+                      registrationType: e.target
+                        .value as ContestCreationForm["registrationType"],
                     })
                   }
                   className={`${styles.formInput} ${styles.formSelect}`}
@@ -850,7 +865,8 @@ export default function CreateRoomModal({
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      spectatorRestriction: e.target.value,
+                      spectatorRestriction: e.target
+                        .value as ContestCreationForm["spectatorRestriction"],
                     })
                   }
                   className={`${styles.formInput} ${styles.formSelect}`}
@@ -886,7 +902,7 @@ export default function CreateRoomModal({
               formData.registrationStartMode === "schedule" && (
                 <div className={styles.regSub}>
                   <label className={styles.label}>
-                    Registration Start Time
+                    Registration Start Time (IST)
                   </label>
                   <div className={styles.field}>
                     <input
@@ -1327,7 +1343,7 @@ export default function CreateRoomModal({
 
           <div className={styles.startTimeBlock}>
             <label className={styles.label} htmlFor="start-time">
-              Match Start Time
+              Match Start Time (IST)
             </label>
             <div className={styles.field}>
               <input

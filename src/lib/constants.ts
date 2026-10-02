@@ -486,4 +486,6 @@ export const CONTEST_TIMING = {
   reconciliationRetryDelayMs: 2000,
   recoveryIntervalMs: 30000,
   displayRefreshMs: 1000,
+  searchDebounceMs: 300,
+  listingRefreshMs: 5000,
 } as const;

@@ -1,17 +1,18 @@
-import { connectMongoDB } from "@/lib/db/mongodb";
-import ContestPreset from "@/models/ContestPreset";
-import { toContestPresetDto } from "@/lib/contests/dtos";
-import PresetManager from "@/components/contests/PresetManager";
-import { auth } from "@/lib/auth/server";
 import { headers } from "next/headers";
-import { isHead } from "@/lib/access/roles";
 import { redirect } from "next/navigation";
 import mongoose from "mongoose";
 
-export const metadata = {
-  title: "Contest Presets",
-  description: "Manage your contest presets",
-};
+import { connectMongoDB } from "@/lib/db/mongodb";
+import { toContestPresetDto } from "@/lib/contests/dtos";
+import { auth } from "@/lib/auth/server";
+import { isHead } from "@/lib/access/roles";
+
+import ContestPreset from "@/models/ContestPreset";
+
+import BackLink from "@/components/shared/BackLink";
+import PresetManager from "@/components/contests/PresetManager";
+
+import styles from "./page.module.scss";
 
 export default async function PresetsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -23,27 +24,25 @@ export default async function PresetsPage() {
 
   await connectMongoDB();
 
-  const filter: any = {};
-  filter.$or = [
-    { isGlobal: true },
-    { creatorId: new mongoose.Types.ObjectId(session.user.id) },
-  ];
+  const filter = {
+    $or: [
+      { isGlobal: true },
+      { creatorId: new mongoose.Types.ObjectId(session.user.id) },
+    ],
+  };
 
   const presetsJson = await ContestPreset.find(filter).sort({ name: 1 }).lean();
   const presets = presetsJson.map(toContestPresetDto);
 
   return (
-    <div style={{ padding: "2rem" }}>
-      <h1
-        style={{ fontSize: "2rem", marginBottom: "0.5rem", fontWeight: "bold" }}
-      >
-        Contest Presets
-      </h1>
-      <p style={{ color: "var(--text-secondary)", marginBottom: "2rem" }}>
-        Manage your reusable match settings and problem selections.
-      </p>
+    <main className={styles.page}>
+      <BackLink href="/internal/contests" label="Back to Contests" />
+      <header className={styles.header}>
+        <h1>Contest Presets</h1>
+        <p>Manage your reusable match settings and problem selections.</p>
+      </header>
 
       <PresetManager initialPresets={presets} isAdmin={isAdmin} />
-    </div>
+    </main>
   );
 }

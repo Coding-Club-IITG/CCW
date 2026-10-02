@@ -1,3 +1,5 @@
+import { formatDateTime, parseDateTimeInput } from "@/lib/shared/dates";
+
 import type {
   ContestWizardForm,
   ContestCreationPreset,
@@ -15,7 +17,7 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
 
   return (
     <div>
-      <h2 className={styles.stepTitle}>Step 5: Review & Create Tournament</h2>
+      <h2 className={styles.stepTitle}>Review & Create Tournament</h2>
 
       <div className={styles.previewList}>
         <div className={styles.previewSection}>
@@ -50,6 +52,11 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
         </div>
 
         <div className={styles.previewSection}>
+          <span className={styles.previewLabel}>Start (IST):</span>
+          <strong className={styles.previewValue}>
+            {formatDateTime(parseDateTimeInput(formData.startTime))}
+          </strong>
+
           <span className={styles.previewLabel}>Registration:</span>
           <strong
             className={`${styles.previewValue} ${styles.previewValueCap}`}
@@ -73,7 +80,7 @@ export default function Step5Preview({ formData, presets }: Step5Props) {
             <>
               <span className={styles.previewLabel}>Match Duration:</span>
               <strong className={styles.previewValue}>
-                {Math.round((selectedPreset.durationSeconds || 0) / 60)} minutes
+                {formData.overallDurationMinutes} minutes
               </strong>
 
               <span className={styles.previewLabel}>Problem Selection:</span>

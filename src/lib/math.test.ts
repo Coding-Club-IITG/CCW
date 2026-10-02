@@ -7,7 +7,7 @@ describe("decodeMathEntities", () => {
       "x < y && a > b",
     );
     expect(decodeMathEntities("&quot;hello&#39;&nbsp;world")).toBe(
-      '"hello\' world',
+      "\"hello' world",
     );
   });
 });

@@ -11,11 +11,11 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
+import { Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { CONTEST_TIMING } from "@/lib/constants";
-
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
 import type {
@@ -39,7 +39,6 @@ import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
 import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
 import ContestProblemWorkspace from "@/components/contests/ContestProblemWorkspace";
-
 import { useRoomParticipation } from "@/components/contests/useRoomParticipation";
 import { useMatchNavigationWarning } from "@/components/contests/useMatchNavigationWarning";
 import Button from "@/components/shared/Button";
@@ -64,7 +63,7 @@ export default function ArenaRoomClient({
   initialTimeLimit,
   initialJudgingDeadline,
   from,
-  syncCooldownSeconds = 60,
+  syncCooldownSeconds,
   isSpectator = false,
   initialActivityFeed = [],
   initialReadyDeadline,
@@ -91,7 +90,7 @@ export default function ArenaRoomClient({
   initialReadyOpensAt?: number;
   initialAdmittedUserIds?: string[];
   from?: string;
-  syncCooldownSeconds?: number;
+  syncCooldownSeconds: number;
   isSpectator?: boolean;
   initialActivityFeed?: RoomActivityDto[];
 }) {
@@ -114,7 +113,6 @@ export default function ArenaRoomClient({
   );
   const {
     readyUserIds,
-    setReadyUserIds,
     admittedUserIds,
     syncParticipation,
     handleReady,
@@ -194,12 +192,6 @@ export default function ArenaRoomClient({
     contest.mode,
   ]);
 
-  const stateRef = useRef({ locks, problems, teams, userId });
-
-  useEffect(() => {
-    stateRef.current = { locks, problems, teams, userId };
-  }, [locks, problems, teams, userId]);
-
   const handleEvent = (payload: RoomEventPayloadDto) => {
     switch (payload.type) {
       case "room.state_sync":
@@ -232,34 +224,6 @@ export default function ArenaRoomClient({
         if (payload.locks) setLocks(payload.locks);
         if (payload.activityLogs)
           setActivityFeed([...payload.activityLogs].reverse());
-        break;
-      case "room.locked": {
-        const existingLock = stateRef.current.locks[payload.problemId];
-        const t = stateRef.current.teams?.find(
-          (t) => t._id === payload.claimedBy,
-        );
-        let tName = t?.name || "Unknown Team";
-
-        if (
-          ["1v1", "solo-tournament"].includes(contest?.format) &&
-          t?.members?.[0]
-        ) {
-          tName = getDisplayName(t.members[0].name, t.members[0].pizza_count);
-        }
-
-        const pName =
-          stateRef.current.problems.find(
-            (p) => p.problemId === payload.problemId,
-          )?.name || payload.problemId;
-
-        setLocks((prev) => ({
-          ...prev,
-          [payload.problemId]: `${payload.claimedBy}|${payload.timestamp}`,
-        }));
-        break;
-      }
-      case "room.score":
-        setScores(payload.scores);
         break;
       case "room.end":
         matchStateRef.current = "completed";
@@ -323,15 +287,6 @@ export default function ArenaRoomClient({
             "text-error",
           );
         }
-        break;
-      case "room.user_ready":
-        setReadyUserIds((prev) => {
-          const newSet = new Set(prev);
-
-          newSet.add(payload.userId);
-
-          return newSet;
-        });
         break;
       case "presence.sync":
         onlineUserIdsRef.current = new Set(payload.onlineUserIds);
@@ -472,14 +427,8 @@ export default function ArenaRoomClient({
                   : "WAITING FOR PLAYERS"}
             </div>
             {isSpectator && (
-              <div
-                className={styles.statusBadge}
-                style={{
-                  background: "var(--border)",
-                  color: "var(--foreground)",
-                }}
-              >
-                👁 Spectator Mode
+              <div className={`${styles.statusBadge} ${styles.spectatorBadge}`}>
+                <Eye size={14} aria-hidden="true" /> Spectator Mode
               </div>
             )}
           </div>

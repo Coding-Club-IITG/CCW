@@ -1,13 +1,15 @@
+import type { ContestWizardForm } from "@/components/contests/contestCreationForm";
+
 import styles from "../ContestWizard.module.scss";
 
 interface Step2Props {
   registrationType: string;
-  spectatorRestriction?: string;
+  spectatorRestriction?: ContestWizardForm["spectatorRestriction"];
   entrantCapacity: number;
   startTime: string;
   updateFields: (fields: {
     registrationType?: "open" | "closed";
-    spectatorRestriction?: string;
+    spectatorRestriction?: ContestWizardForm["spectatorRestriction"];
     entrantCapacity?: number;
     startTime?: string;
   }) => void;
@@ -24,7 +26,7 @@ export default function Step2Registration({
 }: Step2Props) {
   return (
     <div>
-      <h2 className={styles.stepTitle}>Step 2: Registration settings</h2>
+      <h2 className={styles.stepTitle}>Registration settings</h2>
 
       <div className={styles.field}>
         <label className={`${styles.label} ${styles.labelBlock}`}>
@@ -53,14 +55,21 @@ export default function Step2Registration({
       </div>
 
       <div className={styles.field}>
-        <label className={`${styles.label} ${styles.labelBlock}`}>
+        <label
+          htmlFor="wizard-spectatorRestriction"
+          className={`${styles.label} ${styles.labelBlock}`}
+        >
           Spectator Access
         </label>
         <select
+          id="wizard-spectatorRestriction"
           className={styles.input}
           value={spectatorRestriction}
           onChange={(e) =>
-            updateFields({ spectatorRestriction: e.target.value })
+            updateFields({
+              spectatorRestriction: e.target
+                .value as ContestWizardForm["spectatorRestriction"],
+            })
           }
         >
           <option value="none">No Spectators</option>
@@ -71,8 +80,11 @@ export default function Step2Registration({
       </div>
 
       <div className={`${styles.field} ${styles.fieldFlush}`}>
-        <label className={styles.label}>Tournament Start</label>
+        <label htmlFor="wizard-startTime" className={styles.label}>
+          Tournament Start (IST)
+        </label>
         <input
+          id="wizard-startTime"
           type="datetime-local"
           value={startTime}
           onChange={(event) => updateFields({ startTime: event.target.value })}
@@ -85,8 +97,11 @@ export default function Step2Registration({
       </div>
 
       <div className={`${styles.field} ${styles.fieldFlush}`}>
-        <label className={styles.label}>Max Entrants (players or teams)</label>
+        <label htmlFor="wizard-entrantCapacity" className={styles.label}>
+          Max Entrants (players or teams)
+        </label>
         <input
+          id="wizard-entrantCapacity"
           type="number"
           value={entrantCapacity}
           onChange={(e) =>

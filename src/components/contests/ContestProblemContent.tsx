@@ -4,8 +4,9 @@ import { useMemo } from "react";
 import "katex/dist/katex.min.css";
 
 import type { ContestRoomProblemDto } from "@/lib/contests/dtos";
-import { getCodeforcesProblemUrl } from "@/components/contests/roomPresentation";
 import { renderProblemMath } from "@/lib/math";
+
+import { getCodeforcesProblemUrl } from "@/components/contests/roomPresentation";
 
 import styles from "./ContestProblemContent.module.scss";
 

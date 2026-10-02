@@ -9,6 +9,13 @@ import {
 } from "./roomPresentation";
 
 describe("roomPresentation utilities", () => {
+  it("formats countdown hours without wrapping after one day", () => {
+    expect(formatRemainingTime(3661, true)).toBe("01:01:01");
+    expect(formatRemainingTime(90061, true)).toBe("25:01:01");
+    expect(formatRemainingTime(-3, true)).toBe("00:00:00");
+    expect(formatRemainingTime(3599.9, true)).toBe("00:59:59");
+  });
+
   describe("getCodeforcesProblemUrl", () => {
     it("keeps numeric suffixes in a Codeforces problem index", () => {
       expect(getCodeforcesProblemUrl("1678B1")).toBe(

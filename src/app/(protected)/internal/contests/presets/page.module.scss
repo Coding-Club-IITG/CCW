@@ -1,0 +1,15 @@
+@use "../../../../../styles/mixins" as *;
+
+.page {
+  @include page-container;
+  padding-block: 3rem;
+}
+.header {
+  @include standard-page-header;
+  h1 {
+    @include standard-page-title;
+  }
+  p {
+    @include standard-page-subtitle;
+  }
+}

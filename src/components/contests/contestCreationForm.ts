@@ -3,13 +3,15 @@ import type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/d
 export interface ContestCreationForm {
   name: string;
   description: string;
-  mode: string;
-  format: string;
+  mode: NonNullable<ContestCreationPreset["mode"]>;
+  format: NonNullable<ContestCreationPreset["format"]>;
   teamSize: number;
   maxParticipants: number;
   entrantCapacity: number;
   startTime: string;
-  problemSelectionMode: string;
+  problemSelectionMode: NonNullable<
+    ContestCreationPreset["problemSelectionMode"]
+  >;
   bulkRatingMin: number;
   bulkRatingMax: number;
   bulkProblemCount: number;
@@ -23,10 +25,14 @@ export interface ContestCreationForm {
   bracketType?: "single_elimination" | "double_elimination";
   registrationStartMode: string;
   registrationStartTime: string;
-  registrationType: string;
+  registrationType: NonNullable<
+    ContestCreationPreset["registrationSettings"]
+  >["type"];
   overallDurationMinutes?: number;
   perProblemDurationMinutes?: number;
-  spectatorRestriction: string;
+  spectatorRestriction: NonNullable<
+    ContestCreationPreset["spectatorRestriction"]
+  >;
 }
 
 export type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
@@ -55,7 +61,7 @@ export interface ContestWizardForm {
 
   overallDurationMinutes?: number;
   perProblemDurationMinutes?: number;
-  spectatorRestriction: string;
+  spectatorRestriction: ContestCreationForm["spectatorRestriction"];
 }
 
 export interface ContestParticipant {

@@ -90,7 +90,6 @@ export function useRoomParticipation({
 
   return {
     readyUserIds,
-    setReadyUserIds,
     admittedUserIds,
     syncParticipation,
     handleReady,

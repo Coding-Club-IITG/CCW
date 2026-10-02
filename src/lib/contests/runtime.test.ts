@@ -51,8 +51,8 @@ describe("contest runtime boundaries", () => {
   it("rejects incomplete room events", () => {
     expect(
       roomStreamEventSchema.safeParse({
-        type: "room.advance",
-        problemIndex: 1,
+        type: "room.state_sync",
+        scores: { team: 1 },
       }).success,
     ).toBe(false);
   });

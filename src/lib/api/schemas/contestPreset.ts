@@ -67,3 +67,7 @@ export const contestPresetQuerySchema = z.object({
     .optional()
     .default(false),
 });
+
+export type CreateContestPresetInput = z.infer<
+  typeof createContestPresetSchema
+>;

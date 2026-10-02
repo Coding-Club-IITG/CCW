@@ -24,11 +24,14 @@ export default function Step1BasicInfo({
 }: Step1Props) {
   return (
     <div>
-      <h2 className={styles.stepTitle}>Step 1: Tournament Basic Info</h2>
+      <h2 className={styles.stepTitle}>Tournament Basic Info</h2>
 
       <div className={styles.field}>
-        <label className={styles.label}>Tournament Name</label>
+        <label htmlFor="wizard-name" className={styles.label}>
+          Tournament Name
+        </label>
         <input
+          id="wizard-name"
           type="text"
           value={name}
           onChange={(e) => updateFields({ name: e.target.value })}
@@ -40,8 +43,11 @@ export default function Step1BasicInfo({
       </div>
 
       <div className={styles.field}>
-        <label className={styles.label}>Description</label>
+        <label htmlFor="wizard-description" className={styles.label}>
+          Description
+        </label>
         <textarea
+          id="wizard-description"
           value={description}
           onChange={(e) => updateFields({ description: e.target.value })}
           placeholder="Detailed rules, rules of bracket, prizes, etc. (max 500 characters)"
@@ -55,10 +61,14 @@ export default function Step1BasicInfo({
 
       <div className={styles.twoCol}>
         <div className={styles.col}>
-          <label className={`${styles.label} ${styles.labelBlock}`}>
+          <label
+            htmlFor="wizard-Bracket"
+            className={`${styles.label} ${styles.labelBlock}`}
+          >
             Format (Fixed)
           </label>
           <input
+            id="wizard-Bracket"
             type="text"
             value="Bracket"
             disabled

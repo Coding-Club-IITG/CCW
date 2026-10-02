@@ -14,11 +14,11 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { CONTEST_TIMING } from "@/lib/constants";
-
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
 import type {
@@ -42,7 +42,6 @@ import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
 import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
 import ContestProblemWorkspace from "@/components/contests/ContestProblemWorkspace";
-
 import { useRoomParticipation } from "@/components/contests/useRoomParticipation";
 import { useMatchNavigationWarning } from "@/components/contests/useMatchNavigationWarning";
 import Button from "@/components/shared/Button";
@@ -67,7 +66,7 @@ export default function BlitzRoomClient({
   initialTimeLimit,
   initialJudgingDeadline,
   from,
-  syncCooldownSeconds = 60,
+  syncCooldownSeconds,
   isSpectator = false,
   initialActivityFeed = [],
   initialReadyDeadline,
@@ -94,7 +93,7 @@ export default function BlitzRoomClient({
   initialReadyOpensAt?: number;
   initialAdmittedUserIds?: string[];
   from?: string;
-  syncCooldownSeconds?: number;
+  syncCooldownSeconds: number;
   isSpectator?: boolean;
   initialActivityFeed?: RoomActivityDto[];
 }) {
@@ -124,7 +123,6 @@ export default function BlitzRoomClient({
   );
   const {
     readyUserIds,
-    setReadyUserIds,
     admittedUserIds,
     syncParticipation,
     handleReady,
@@ -171,8 +169,6 @@ export default function BlitzRoomClient({
 
   const [activityFeed, setActivityFeed] =
     useState<RoomActivityDto[]>(initialActivityFeed);
-
-  const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
 
   // Redirect to results page immediately ONLY if the match was already completed on initial load
   useEffect(() => {
@@ -242,22 +238,6 @@ export default function BlitzRoomClient({
         if (payload.activityLogs)
           setActivityFeed([...payload.activityLogs].reverse());
         break;
-      case "room.advance":
-        setCurrentProblemIndex(payload.problemIndex);
-        setProblems((prev) => {
-          const arr = [...prev];
-
-          arr[payload.problemIndex] = payload.nextProblem;
-
-          return arr;
-        });
-        setAnimationKey((k) => k + 1);
-        break;
-      case "room.score":
-        setScores(payload.scores);
-        break;
-      case "room.reclaimed":
-        break;
       case "room.end":
         matchStateRef.current = "completed";
         setMatchState("completed");
@@ -286,15 +266,6 @@ export default function BlitzRoomClient({
             "text-error",
           );
         }
-        break;
-      case "room.user_ready":
-        setReadyUserIds((prev) => {
-          const newSet = new Set(prev);
-
-          newSet.add(payload.userId);
-
-          return newSet;
-        });
         break;
       case "sync.failed":
         setSyncing(false);
@@ -466,14 +437,8 @@ export default function BlitzRoomClient({
                   : "WAITING FOR PLAYERS"}
             </div>
             {isSpectator && (
-              <div
-                className={styles.statusBadge}
-                style={{
-                  background: "var(--border)",
-                  color: "var(--foreground)",
-                }}
-              >
-                👁 Spectator Mode
+              <div className={`${styles.statusBadge} ${styles.spectatorBadge}`}>
+                <Eye size={14} aria-hidden="true" /> Spectator Mode
               </div>
             )}
           </div>
@@ -745,7 +710,7 @@ export default function BlitzRoomClient({
                         : "No problem timer"}
                   </p>
 
-                  <div key={animationKey} className={styles.problemCard}>
+                  <div className={styles.problemCard}>
                     <div className={styles.problemWatermark}>
                       <Code size={96} />
                     </div>

@@ -116,8 +116,11 @@ export default function Step3aFineTuned({
       </p>
 
       <div className={styles.field}>
-        <label className={styles.label}>Problems per match:</label>
+        <label htmlFor="wizard-problemsPerMatch" className={styles.label}>
+          Problems per match:
+        </label>
         <input
+          id="wizard-problemsPerMatch"
           type="number"
           min={1}
           value={problemsPerMatch}
@@ -137,7 +140,10 @@ export default function Step3aFineTuned({
 
           return (
             <div key={roundNum} className={styles.roundCard}>
-              <label className={styles.label}>
+              <label
+                htmlFor={`wizard-round-${roundNum}`}
+                className={styles.label}
+              >
                 {round.name} ({matchesInRound} matches)
               </label>
               <p
@@ -150,6 +156,7 @@ export default function Step3aFineTuned({
                 Required problems: {requiredProblems} | Provided: {currentCount}
               </p>
               <textarea
+                id={`wizard-round-${roundNum}`}
                 value={roundInputs[roundNum] || ""}
                 onChange={(e) => handleInputChange(roundNum, e.target.value)}
                 placeholder="Eg. 4A, 1A, 158A"

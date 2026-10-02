@@ -478,21 +478,14 @@ export default function RegisterContestModal({
               {mode === "new" && teamSize > 1 && (
                 <div className={styles.field}>
                   <label className={styles.fieldLabel}>Team Privacy</label>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      marginBottom: "0.5rem",
-                    }}
-                  >
+                  <div className={styles.checkboxRow}>
                     <input
                       type="checkbox"
                       id="is_public"
                       checked={isPublic}
                       onChange={(e) => setIsPublic(e.target.checked)}
                     />
-                    <label htmlFor="is_public" style={{ fontSize: "0.9rem" }}>
+                    <label htmlFor="is_public" className={styles.checkboxLabel}>
                       Make team public (anyone can join directly)
                     </label>
                   </div>

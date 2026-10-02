@@ -1,8 +1,8 @@
 @use "../../../styles/mixins" as *;
 
 .wizardContainer {
-  max-width: 72rem;
-  margin: 0 auto;
+  @include page-container;
+  padding-block: 3rem;
 }
 
 .wizardTitle {
@@ -10,6 +10,9 @@
 }
 
 .progressTracker {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
   align-items: stretch;
   gap: 1px;
@@ -84,22 +87,6 @@
 
 .spacer {
   flex: 1;
-}
-
-.backButton {
-  @include btn-secondary(0.625rem 1.25rem);
-}
-
-.nextButton,
-.createButton {
-  @include btn-primary(0.625rem 1.25rem);
-}
-
-.createButton {
-  background: var(--btn-primary-bg);
-  &:hover {
-    background: var(--btn-primary-bg-hover);
-  }
 }
 
 /* Shared step form controls */
@@ -180,10 +167,12 @@
 }
 
 .col {
+  min-width: 0;
   flex: 1;
 }
 
 .radioRow {
+  flex-wrap: wrap;
   display: flex;
   gap: 1.5rem;
 }
@@ -358,7 +347,7 @@
 
 .previewSection {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: 150px minmax(0, 1fr);
   gap: 0.5rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border);
@@ -387,4 +376,51 @@
 
 .previewValuePre {
   white-space: pre-line;
+}
+
+@media (max-width: 767px) {
+  .progressTracker {
+    flex-wrap: wrap;
+  }
+  .step {
+    flex: 1 1 30%;
+  }
+  .stepContent {
+    padding: 1rem;
+  }
+  .twoCol {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .detailsGrid {
+    grid-template-columns: 1fr;
+  }
+  .detailSpan2 {
+    grid-column: auto;
+  }
+  .previewSection {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+  .previewValue,
+  .previewValueStrong {
+    margin-bottom: 0.75rem;
+    overflow-wrap: anywhere;
+  }
+  .wizardControls {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
+
+.emptyPresets {
+  padding: 1rem;
+  border: 1px solid var(--border);
+}
+.emptyPresetsText {
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+}
+.emptyPresetsLink {
+  @include btn-secondary;
 }

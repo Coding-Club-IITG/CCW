@@ -150,3 +150,9 @@
 .metaPoints {
   font-family: var(--font-jetbrains-mono), monospace;
 }
+
+.spectatorBadge {
+  background: var(--surface-hover);
+  color: var(--foreground);
+  gap: 0.375rem;
+}

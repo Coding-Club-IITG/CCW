@@ -40,7 +40,10 @@ export async function POST(
     const { winnerTeamId, note, action = "walkover" } = body.data;
 
     if (action === "walkover" && !winnerTeamId) {
-      return jsonError("VALIDATION_ERROR", "Winner team ID is required for a walkover.");
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Winner team ID is required for a walkover.",
+      );
     }
 
     await connectMongoDB();

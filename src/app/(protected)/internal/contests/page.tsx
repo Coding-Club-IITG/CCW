@@ -28,11 +28,12 @@ export default async function ContestsPage() {
 
   await connectMongoDB();
 
-  const presetFilter: any = { archived: { $ne: true } };
-
-  if (!admin) {
-    presetFilter.$or = [{ isGlobal: true }, { creatorId: session.user.id }];
-  }
+  const presetFilter = {
+    archived: { $ne: true },
+    ...(!admin
+      ? { $or: [{ isGlobal: true }, { creatorId: session.user.id }] }
+      : {}),
+  };
 
   const presetsJson = await ContestPreset.find(presetFilter)
     .sort({ name: 1 })

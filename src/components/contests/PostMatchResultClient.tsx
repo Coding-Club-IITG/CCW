@@ -20,12 +20,12 @@ import {
   CONTEST_RESULT_LABELS,
   type ContestResultMethod,
 } from "@/lib/constants";
-
 import { getDisplayName } from "@/lib/users/identity";
 
 import BackLink from "@/components/shared/BackLink";
 import UserAvatar from "@/components/shared/UserAvatar";
 
+import { getCodeforcesProblemUrl } from "./roomPresentation";
 import styles from "./PostMatchResultClient.module.scss";
 
 export type MatchData = {
@@ -120,14 +120,6 @@ export default function PostMatchResultClient({
   const currentUserTeam = matchData.teams.find((t) =>
     t.members.some((m) => m.id === currentUserId),
   );
-
-  const getProblemUrl = (problemId: string) => {
-    const match = problemId.match(/^(\d+)([A-Za-z].*)$/);
-    if (match) {
-      return `https://codeforces.com/problemset/problem/${match[1]}/${match[2]}`;
-    }
-    return `https://codeforces.com/problemset/problem/${problemId}`; // fallback
-  };
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(
     matchData.format || "",
@@ -347,7 +339,7 @@ export default function PostMatchResultClient({
                   return (
                     <a
                       key={`${prob.id}-${idx}`}
-                      href={getProblemUrl(prob.id)}
+                      href={getCodeforcesProblemUrl(prob.id) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`${styles.problemCard} ${

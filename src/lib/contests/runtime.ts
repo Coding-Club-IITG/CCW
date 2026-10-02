@@ -97,11 +97,6 @@ export type ContestRoomProblem = z.infer<typeof contestRoomProblemSchema>;
 export type ContestRoomState = z.infer<typeof contestRoomStateSchema>;
 
 const scoreMapSchema = z.record(z.string(), z.number());
-const roomParticipantSchema = z.object({
-  userId: z.string().min(1),
-  teamId: z.string().min(1),
-});
-const synchronizedRoomStateSchema = contestRoomStateSchema;
 
 export const roomActivitySchema = z.object({
   id: z.number(),
@@ -114,7 +109,7 @@ export const roomActivitySchema = z.object({
 const roomStateSyncEventSchema = z
   .object({
     type: z.literal("room.state_sync"),
-    state: synchronizedRoomStateSchema,
+    state: contestRoomStateSchema,
     problems: z.array(contestRoomProblemSchema).optional(),
     scores: scoreMapSchema.optional(),
     locks: z.record(z.string(), z.string()).optional(),
@@ -132,49 +127,16 @@ export const roomEventSchema = z.discriminatedUnion("type", [
       onlineUserIds: z.array(objectIdStringSchema),
     })
     .passthrough(),
-  z
-    .object({
-      type: z.literal("room.locked"),
-      problemId: z.string().min(1),
-      claimedBy: z.string().min(1),
-      timestamp: z.number(),
-    })
-    .passthrough(),
-  z
-    .object({
-      type: z.literal("room.score"),
-      scores: scoreMapSchema,
-    })
-    .passthrough(),
+
   z
     .object({
       type: z.literal("room.end"),
       finalScores: scoreMapSchema.optional(),
-      lastSolvedBy: roomParticipantSchema.optional(),
     })
     .passthrough(),
-  z
-    .object({
-      type: z.literal("room.advance"),
-      problemIndex: z.number().int().nonnegative(),
-      nextProblem: contestRoomProblemSchema,
-      solvedBy: roomParticipantSchema,
-    })
-    .passthrough(),
-  z
-    .object({
-      type: z.literal("room.reclaimed"),
-      teamId: z.string().min(1),
-      problemId: z.string().min(1),
-    })
-    .passthrough(),
+
   roomStateSyncEventSchema,
-  z
-    .object({
-      type: z.literal("room.user_ready"),
-      userId: z.string().min(1),
-    })
-    .passthrough(),
+
   z
     .object({
       type: z.literal("presence.online"),
@@ -206,7 +168,7 @@ export const contestEventSchema = z
   })
   .passthrough();
 
-const typedUserEventSchema = z.discriminatedUnion("type", [
+export const userEventSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("sync.queued"),
@@ -240,16 +202,6 @@ const typedUserEventSchema = z.discriminatedUnion("type", [
   roomStateSyncEventSchema,
 ]);
 
-export const userEventSchema = z.union([
-  typedUserEventSchema,
-  z
-    .object({
-      verdict: z.string(),
-      reason: z.string(),
-    })
-    .passthrough(),
-]);
-
 export type RoomEvent = z.infer<typeof roomEventSchema>;
 
 export type ContestEvent = z.infer<typeof contestEventSchema>;
@@ -257,11 +209,11 @@ export type ContestEvent = z.infer<typeof contestEventSchema>;
 export type UserEvent = z.infer<typeof userEventSchema>;
 
 export type RoomStreamEvent =
-  z.infer<typeof roomEventSchema> | z.infer<typeof typedUserEventSchema>;
+  z.infer<typeof roomEventSchema> | z.infer<typeof userEventSchema>;
 
 export const roomStreamEventSchema = z.union([
   roomEventSchema,
-  typedUserEventSchema,
+  userEventSchema,
 ]);
 
 export function parseContestRoomProblems(values: readonly string[]) {

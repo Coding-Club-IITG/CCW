@@ -35,7 +35,7 @@ describe("contest creation form domain", () => {
     ["1v1", 1, 2],
     ["solo-tournament", 1, 16],
     ["team-tournament", 3, 15],
-  ])(
+  ] as const)(
     "applies the existing %s participant defaults",
     (format, teamSize, maxParticipants) => {
       const result = applyContestFormatDefaults({

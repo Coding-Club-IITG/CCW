@@ -1,5 +1,6 @@
-import styles from "../ContestWizard.module.scss";
 import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
+
+import styles from "../ContestWizard.module.scss";
 
 interface Step3Props {
   presets: ContestCreationPreset[];
@@ -18,7 +19,7 @@ export default function Step3MatchPreset({
 
   return (
     <div>
-      <h2 className={styles.stepTitle}>Step 3: Select Match Preset</h2>
+      <h2 className={styles.stepTitle}>Select Match Preset</h2>
 
       {errors.presetId && (
         <div className={`${styles.error} ${styles.errorBlock}`}>
@@ -28,9 +29,7 @@ export default function Step3MatchPreset({
 
       {presets.length === 0 ? (
         <div className={styles.emptyPresets}>
-          <p className={styles.emptyPresetsText}>
-            No templates available.
-          </p>
+          <p className={styles.emptyPresetsText}>No templates available.</p>
           <a
             href="/internal/contests/presets"
             target="_blank"
@@ -57,7 +56,9 @@ export default function Step3MatchPreset({
               <div className={styles.presetInfo}>
                 <span className={styles.presetName}>{preset.name}</span>
                 {preset.description && (
-                  <span className={styles.presetDesc}>{preset.description}</span>
+                  <span className={styles.presetDesc}>
+                    {preset.description}
+                  </span>
                 )}
               </div>
             </label>

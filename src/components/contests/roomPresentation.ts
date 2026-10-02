@@ -15,14 +15,19 @@ export function getDisplayTeamName(
   return team.name;
 }
 
-export function formatRemainingTime(totalSeconds: number): string {
+export function formatRemainingTime(
+  totalSeconds: number,
+  includeHours = false,
+): string {
   const clampedSeconds = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(clampedSeconds / 60);
+  const hours = Math.floor(minutes / 60);
   const seconds = clampedSeconds % 60;
 
-  return `${minutes.toString().padStart(2, "0")}:${seconds
-    .toString()
-    .padStart(2, "0")}`;
+  const parts = [includeHours ? minutes % 60 : minutes, seconds];
+  if (includeHours) parts.unshift(hours);
+
+  return parts.map((part) => part.toString().padStart(2, "0")).join(":");
 }
 
 export function formatRoomActivityTime(
