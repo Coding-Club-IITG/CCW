@@ -86,9 +86,9 @@ async function seed() {
     // Seed 6 test users
     const testUsers = [
       {
-        name: "Nigga",
-        email: "anupam.gupta@iitg.ac.in",
-        codeforces_handle: "nigatron",
+        name: "Test User 1",
+        email: "testuser1@test.com",
+        codeforces_handle: "testhandle1",
       },
       {
         name: "Test User 2",
