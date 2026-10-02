@@ -21,6 +21,39 @@ const required = {
 };
 
 describe("runtime environment schemas", () => {
+  it.each([parseWebEnv, parseWorkerEnv, parseCliEnv])(
+    "validates contest scheduling defaults and bounds",
+    (parse) => {
+      expect(parse(required)).toMatchObject({
+        CONTEST_START_BUFFER_SECONDS: 60,
+        CONTEST_START_TOLERANCE_SECONDS: 5,
+      });
+      expect(
+        parse({
+          ...required,
+          CONTEST_START_BUFFER_SECONDS: "120",
+          CONTEST_START_TOLERANCE_SECONDS: "10",
+        }),
+      ).toMatchObject({
+        CONTEST_START_BUFFER_SECONDS: 120,
+        CONTEST_START_TOLERANCE_SECONDS: 10,
+      });
+      for (const values of [
+        { CONTEST_START_BUFFER_SECONDS: "0" },
+        { CONTEST_START_BUFFER_SECONDS: "3601" },
+        { CONTEST_START_TOLERANCE_SECONDS: "-1" },
+        { CONTEST_START_TOLERANCE_SECONDS: "61" },
+        { CONTEST_START_BUFFER_SECONDS: "1.5" },
+        {
+          CONTEST_START_BUFFER_SECONDS: "5",
+          CONTEST_START_TOLERANCE_SECONDS: "5",
+        },
+      ])
+        expect(() => parse({ ...required, ...values })).toThrow(
+          /CONTEST_START/,
+        );
+    },
+  );
   it.each([
     ["shared server", parseSharedServerEnv],
     ["web", parseWebEnv],

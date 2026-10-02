@@ -1,15 +1,19 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Modal from "@/components/shared/Modal";
-import { Check, X, UserPlus, Shield } from "lucide-react";
+import { Check, X, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
+
 import {
   getContestTeamRequests,
   respondToContestTeamRequest,
   inviteToContestTeam,
 } from "@/lib/actions/contests";
+import type { ContestTeamRequestDto } from "@/lib/contests/dtos";
+
+import Modal from "@/components/shared/Modal";
 import { useToast } from "@/components/shared/Toast";
-import { useRouter } from "next/navigation";
+
 import styles from "./RegisterContestModal.module.scss";
 
 interface ManageTeamModalProps {
@@ -19,7 +23,6 @@ interface ManageTeamModalProps {
   teamId: string;
   teamName: string;
   isLeader: boolean;
-  joinCode?: string;
 }
 
 export default function ManageTeamModal({
@@ -29,11 +32,10 @@ export default function ManageTeamModal({
   teamId,
   teamName,
   isLeader,
-  joinCode,
 }: ManageTeamModalProps) {
   const toast = useToast();
   const router = useRouter();
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<ContestTeamRequestDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [inviteHandle, setInviteHandle] = useState("");
 
@@ -82,7 +84,11 @@ export default function ManageTeamModal({
 
     setLoading(true);
     try {
-      const res = await inviteToContestTeam(contestId, teamId, inviteHandle.trim());
+      const res = await inviteToContestTeam(
+        contestId,
+        teamId,
+        inviteHandle.trim(),
+      );
       if (res.ok) {
         toast.success("Invite sent successfully");
         setInviteHandle("");
@@ -109,40 +115,44 @@ export default function ManageTeamModal({
       closeDisabled={loading}
       maxWidth={500}
     >
-      <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        {/* Join Code Display */}
-        {isLeader && joinCode && (
-          <div
-            style={{
-              padding: "1rem",
-              backgroundColor: "var(--card-bg, #f8f9fa)",
-              border: "1px solid var(--border)",
-              borderRadius: "8px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <Shield size={18} />
-              <strong>Private Team Code</strong>
-            </div>
-            <p style={{ margin: 0, fontSize: "0.9rem" }}>
-              Share this code with members:{" "}
-              <strong style={{ fontSize: "1.3rem", letterSpacing: "4px" }}>{joinCode}</strong>
-            </p>
-          </div>
-        )}
-
+      <div
+        style={{
+          padding: "1rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "1.5rem",
+        }}
+      >
         {/* Pending Join Requests */}
         {isLeader && (
           <div>
-            <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem", marginTop: 0 }}>
+            <h3
+              style={{
+                fontSize: "1rem",
+                marginBottom: "0.75rem",
+                marginTop: 0,
+              }}
+            >
               Pending Join Requests ({joinRequests.length})
             </h3>
             {joinRequests.length === 0 ? (
-              <p style={{ color: "var(--muted-foreground, #888)", fontSize: "0.9rem", margin: 0 }}>
+              <p
+                style={{
+                  color: "var(--muted-foreground, #888)",
+                  fontSize: "0.9rem",
+                  margin: 0,
+                }}
+              >
                 No pending join requests.
               </p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                }}
+              >
                 {joinRequests.map((req) => (
                   <div
                     key={req._id}
@@ -156,7 +166,8 @@ export default function ManageTeamModal({
                     }}
                   >
                     <span style={{ fontSize: "0.9rem" }}>
-                      <strong>{req.fromUserHandle || req.fromUserId}</strong> wants to join
+                      <strong>{req.fromUserHandle || req.fromUserId}</strong>{" "}
+                      wants to join
                     </span>
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                       <button
@@ -204,10 +215,22 @@ export default function ManageTeamModal({
         {/* Sent Invites */}
         {isLeader && sentInvites.length > 0 && (
           <div>
-            <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem", marginTop: 0 }}>
+            <h3
+              style={{
+                fontSize: "1rem",
+                marginBottom: "0.75rem",
+                marginTop: 0,
+              }}
+            >
               Pending Invites ({sentInvites.length})
             </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+              }}
+            >
               {sentInvites.map((req) => (
                 <div
                   key={req._id}
@@ -223,7 +246,13 @@ export default function ManageTeamModal({
                   <span style={{ fontSize: "0.9rem" }}>
                     Invited: <strong>{req.toUserHandle || req.toUserId}</strong>
                   </span>
-                  <span style={{ fontSize: "0.8rem", color: "#888", fontStyle: "italic" }}>
+                  <span
+                    style={{
+                      fontSize: "0.8rem",
+                      color: "#888",
+                      fontStyle: "italic",
+                    }}
+                  >
                     Awaiting response
                   </span>
                 </div>
@@ -235,10 +264,19 @@ export default function ManageTeamModal({
         {/* Invite by Codeforces Handle */}
         {isLeader && (
           <div>
-            <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem", marginTop: 0 }}>
+            <h3
+              style={{
+                fontSize: "1rem",
+                marginBottom: "0.75rem",
+                marginTop: 0,
+              }}
+            >
               Invite Member by CF Handle
             </h3>
-            <form onSubmit={handleInvite} style={{ display: "flex", gap: "0.5rem" }}>
+            <form
+              onSubmit={handleInvite}
+              style={{ display: "flex", gap: "0.5rem" }}
+            >
               <input
                 type="text"
                 placeholder="Enter Codeforces Handle"
@@ -251,7 +289,12 @@ export default function ManageTeamModal({
                 type="submit"
                 disabled={loading || !inviteHandle.trim()}
                 className={styles.btnPrimary}
-                style={{ display: "flex", alignItems: "center", gap: "0.4rem", whiteSpace: "nowrap" }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  whiteSpace: "nowrap",
+                }}
               >
                 <UserPlus size={16} /> Send Invite
               </button>
@@ -262,4 +305,3 @@ export default function ManageTeamModal({
     </Modal>
   );
 }
-

@@ -13,17 +13,58 @@ export interface IContestTeamRequest extends Document {
 
 const ContestTeamRequestSchema = new Schema<IContestTeamRequest>(
   {
-    contestId: { type: Schema.Types.ObjectId, ref: "ContestMatch", required: true },
-    teamId: { type: Schema.Types.ObjectId, ref: "ContestRegistrationTeam", required: true, index: true },
+    contestId: {
+      type: Schema.Types.ObjectId,
+      ref: "ContestMatch",
+      required: true,
+    },
+    teamId: {
+      type: Schema.Types.ObjectId,
+      ref: "ContestRegistrationTeam",
+      required: true,
+      index: true,
+    },
     type: { type: String, enum: ["join_request", "invite"], required: true },
     fromUserId: { type: String, required: true },
     toUserId: { type: String },
-    status: { type: String, enum: ["pending", "accepted", "rejected"], default: "pending", index: true },
+    status: {
+      type: String,
+      enum: ["pending", "accepted", "rejected"],
+      default: "pending",
+      index: true,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-ContestTeamRequestSchema.index({ contestId: 1, teamId: 1, fromUserId: 1, type: 1 }, { unique: true, partialFilterExpression: { status: "pending" } });
-ContestTeamRequestSchema.index({ contestId: 1, teamId: 1, toUserId: 1, type: 1 }, { unique: true, partialFilterExpression: { status: "pending", toUserId: { $ne: null } } });
+ContestTeamRequestSchema.index(
+  { contestId: 1, teamId: 1, fromUserId: 1, type: 1 },
+  {
+    name: "unique_pending_join_request",
+    unique: true,
+    partialFilterExpression: { status: "pending", type: "join_request" },
+  },
+);
+ContestTeamRequestSchema.index(
+  { contestId: 1, teamId: 1, toUserId: 1, type: 1 },
+  {
+    name: "unique_pending_invite",
+    unique: true,
+    partialFilterExpression: {
+      status: "pending",
+      type: "invite",
+      toUserId: { $type: "string" },
+    },
+  },
+);
 
-export default mongoose.models.ContestTeamRequest || mongoose.model<IContestTeamRequest>("ContestTeamRequest", ContestTeamRequestSchema, "contest_team_requests");
+const ContestTeamRequest =
+  (mongoose.models.ContestTeamRequest as
+    mongoose.Model<IContestTeamRequest> | undefined) ||
+  mongoose.model<IContestTeamRequest>(
+    "ContestTeamRequest",
+    ContestTeamRequestSchema,
+    "contest_team_requests",
+  );
+
+export default ContestTeamRequest;

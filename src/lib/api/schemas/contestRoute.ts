@@ -22,11 +22,6 @@ export const contestStatusSchema = z.object({
   action: z.enum(["publish", "start", "complete"]),
 });
 
-export const teamRegistrationSchema = z.object({
-  teamName: z.string().trim().min(1).max(200),
-  memberIds: z.array(objectIdStringSchema).length(3),
-});
-
 export const contestSyncSchema = z.object({
   roomId: objectIdStringSchema,
   teamId: objectIdStringSchema.optional(),

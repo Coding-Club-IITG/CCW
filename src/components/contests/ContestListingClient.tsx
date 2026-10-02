@@ -25,6 +25,7 @@ import {
   respondToContestTeamRequest,
 } from "@/lib/actions/contests";
 import { formatDayTime, formatShortDate } from "@/lib/shared/dates";
+import type { ContestRegistrationTiming } from "@/lib/contests/registrationTiming";
 
 import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
 import SegmentedControl from "@/components/shared/SegmentedControl";
@@ -111,14 +112,14 @@ export default function ContestListingClient({
   completed: initialCompleted,
   isHead = false,
   presets = [],
-  deadlineMinutes = 1,
+  registrationTiming,
 }: {
   active: ContestListingItem[];
   upcoming: ContestListingItem[];
   completed: ContestListingItem[];
   isHead?: boolean;
   presets?: ContestCreationPreset[];
-  deadlineMinutes?: number;
+  registrationTiming: ContestRegistrationTiming;
 }) {
   const router = useRouter();
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
@@ -135,36 +136,54 @@ export default function ContestListingClient({
     teamId: string;
     teamName: string;
     isLeader: boolean;
-    joinCode?: string;
-  }>({ isOpen: false, contestId: "", teamId: "", teamName: "", isLeader: false });
-  const [myInvites, setMyInvites] = useState<any[]>([]);
+  }>({
+    isOpen: false,
+    contestId: "",
+    teamId: "",
+    teamName: "",
+    isLeader: false,
+  });
+  const [myInvites, setMyInvites] = useState<
+    Extract<
+      Awaited<ReturnType<typeof getMyContestInvites>>,
+      { ok: true }
+    >["data"]
+  >([]);
   const [myJoinRequests, setMyJoinRequests] = useState<any[]>([]);
-  const [inviteActionLoading, setInviteActionLoading] = useState<string | null>(null);
+  const [inviteActionLoading, setInviteActionLoading] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
-    getMyContestInvites().then(res => {
+    getMyContestInvites().then((res) => {
       if (res.ok) setMyInvites(res.data);
     });
-    getMyTeamJoinRequests().then(res => {
+    getMyTeamJoinRequests().then((res) => {
       if (res.ok) setMyJoinRequests(res.data);
     });
   }, []);
 
-  const handleInviteRespond = async (requestId: string, action: "accept" | "reject") => {
+  const handleInviteRespond = async (
+    requestId: string,
+    action: "accept" | "reject",
+  ) => {
     setInviteActionLoading(requestId);
     const res = await respondToContestTeamRequest(requestId, action);
     if (res.ok) {
-      setMyInvites(prev => prev.filter(i => i._id !== requestId));
+      setMyInvites((prev) => prev.filter((i) => i._id !== requestId));
       router.refresh();
     }
     setInviteActionLoading(null);
   };
 
-  const handleJoinRequestRespond = async (requestId: string, action: "accept" | "reject") => {
+  const handleJoinRequestRespond = async (
+    requestId: string,
+    action: "accept" | "reject",
+  ) => {
     setInviteActionLoading(requestId);
     const res = await respondToContestTeamRequest(requestId, action);
     if (res.ok) {
-      setMyJoinRequests(prev => prev.filter(i => i._id !== requestId));
+      setMyJoinRequests((prev) => prev.filter((i) => i._id !== requestId));
       router.refresh();
     }
     setInviteActionLoading(null);
@@ -285,7 +304,7 @@ export default function ContestListingClient({
           onClose={() => setShowCreateModal(false)}
           isHead={isHead}
           presets={presets}
-          deadlineMinutes={deadlineMinutes}
+          registrationTiming={registrationTiming}
         />
       )}
       <main className={styles.main}>
@@ -338,38 +357,79 @@ export default function ContestListingClient({
 
           {/* Pending Invites */}
           {myInvites.length > 0 && (
-            <section className={styles.section} style={{ marginBottom: "2rem" }}>
+            <section
+              className={styles.section}
+              style={{ marginBottom: "2rem" }}
+            >
               <div className={styles.sectionHead}>
                 <Users className={styles.icon20} size={20} />
                 <h2 className={styles.sectionTitle}>Pending Team Invites</h2>
               </div>
               <div className={styles.cardGrid}>
                 {myInvites.map((invite) => (
-                  <div key={invite._id} className={styles.contestCard} style={{ border: "1px solid #007bff" }}>
+                  <div
+                    key={invite._id}
+                    className={styles.contestCard}
+                    style={{ border: "1px solid #007bff" }}
+                  >
                     <div className={styles.cardTop}>
                       <div className={styles.cardTopInfo}>
                         <span className={styles.cardBadge}>Invite</span>
                         <h3 className={styles.cardTitle}>{invite.teamName}</h3>
-                        <p className={styles.cardDesc} style={{ margin: "0.5rem 0", color: "var(--muted-foreground)" }}>
+                        <p
+                          className={styles.cardDesc}
+                          style={{
+                            margin: "0.5rem 0",
+                            color: "var(--muted-foreground)",
+                          }}
+                        >
                           Contest: {invite.contestName}
                         </p>
-                        <p className={styles.cardDesc} style={{ color: "var(--muted-foreground)" }}>
+                        <p
+                          className={styles.cardDesc}
+                          style={{ color: "var(--muted-foreground)" }}
+                        >
                           Invited by: <strong>{invite.invitedByHandle}</strong>
                         </p>
                       </div>
                     </div>
-                    <div className={styles.cardActionRow} style={{ marginTop: "1rem", gap: "0.5rem" }}>
+                    <div
+                      className={styles.cardActionRow}
+                      style={{ marginTop: "1rem", gap: "0.5rem" }}
+                    >
                       <button
-                        onClick={() => handleInviteRespond(invite._id, "accept")}
+                        onClick={() =>
+                          handleInviteRespond(invite._id, "accept")
+                        }
                         disabled={inviteActionLoading === invite._id}
-                        style={{ flex: 1, padding: "0.5rem", borderRadius: "6px", background: "#4caf50", color: "#fff", border: "none", cursor: "pointer", fontWeight: "bold" }}
+                        style={{
+                          flex: 1,
+                          padding: "0.5rem",
+                          borderRadius: "6px",
+                          background: "#4caf50",
+                          color: "#fff",
+                          border: "none",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                        }}
                       >
                         Accept
                       </button>
                       <button
-                        onClick={() => handleInviteRespond(invite._id, "reject")}
+                        onClick={() =>
+                          handleInviteRespond(invite._id, "reject")
+                        }
                         disabled={inviteActionLoading === invite._id}
-                        style={{ flex: 1, padding: "0.5rem", borderRadius: "6px", background: "#f44336", color: "#fff", border: "none", cursor: "pointer", fontWeight: "bold" }}
+                        style={{
+                          flex: 1,
+                          padding: "0.5rem",
+                          borderRadius: "6px",
+                          background: "#f44336",
+                          color: "#fff",
+                          border: "none",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                        }}
                       >
                         Decline
                       </button>
@@ -382,38 +442,85 @@ export default function ContestListingClient({
 
           {/* Pending Join Requests */}
           {myJoinRequests.length > 0 && (
-            <section className={styles.section} style={{ marginBottom: "2rem" }}>
+            <section
+              className={styles.section}
+              style={{ marginBottom: "2rem" }}
+            >
               <div className={styles.sectionHead}>
                 <Users className={styles.icon20} size={20} />
                 <h2 className={styles.sectionTitle}>Team Join Requests</h2>
               </div>
               <div className={styles.cardGrid}>
                 {myJoinRequests.map((req) => (
-                  <div key={req._id} className={styles.contestCard} style={{ border: "1px solid #ff9800" }}>
+                  <div
+                    key={req._id}
+                    className={styles.contestCard}
+                    style={{ border: "1px solid #ff9800" }}
+                  >
                     <div className={styles.cardTop}>
                       <div className={styles.cardTopInfo}>
-                        <span className={styles.cardBadge} style={{ background: "#fff3e0", color: "#e65100" }}>Request</span>
+                        <span
+                          className={styles.cardBadge}
+                          style={{ background: "#fff3e0", color: "#e65100" }}
+                        >
+                          Request
+                        </span>
                         <h3 className={styles.cardTitle}>{req.teamName}</h3>
-                        <p className={styles.cardDesc} style={{ margin: "0.5rem 0", color: "var(--muted-foreground)" }}>
+                        <p
+                          className={styles.cardDesc}
+                          style={{
+                            margin: "0.5rem 0",
+                            color: "var(--muted-foreground)",
+                          }}
+                        >
                           Contest: {req.contestName}
                         </p>
-                        <p className={styles.cardDesc} style={{ color: "var(--muted-foreground)" }}>
-                          User <strong>{req.fromUserHandle}</strong> wants to join.
+                        <p
+                          className={styles.cardDesc}
+                          style={{ color: "var(--muted-foreground)" }}
+                        >
+                          User <strong>{req.fromUserHandle}</strong> wants to
+                          join.
                         </p>
                       </div>
                     </div>
-                    <div className={styles.cardActionRow} style={{ marginTop: "1rem", gap: "0.5rem" }}>
+                    <div
+                      className={styles.cardActionRow}
+                      style={{ marginTop: "1rem", gap: "0.5rem" }}
+                    >
                       <button
-                        onClick={() => handleJoinRequestRespond(req._id, "accept")}
+                        onClick={() =>
+                          handleJoinRequestRespond(req._id, "accept")
+                        }
                         disabled={inviteActionLoading === req._id}
-                        style={{ flex: 1, padding: "0.5rem", borderRadius: "6px", background: "#4caf50", color: "#fff", border: "none", cursor: "pointer", fontWeight: "bold" }}
+                        style={{
+                          flex: 1,
+                          padding: "0.5rem",
+                          borderRadius: "6px",
+                          background: "#4caf50",
+                          color: "#fff",
+                          border: "none",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                        }}
                       >
                         Approve
                       </button>
                       <button
-                        onClick={() => handleJoinRequestRespond(req._id, "reject")}
+                        onClick={() =>
+                          handleJoinRequestRespond(req._id, "reject")
+                        }
                         disabled={inviteActionLoading === req._id}
-                        style={{ flex: 1, padding: "0.5rem", borderRadius: "6px", background: "#f44336", color: "#fff", border: "none", cursor: "pointer", fontWeight: "bold" }}
+                        style={{
+                          flex: 1,
+                          padding: "0.5rem",
+                          borderRadius: "6px",
+                          background: "#f44336",
+                          color: "#fff",
+                          border: "none",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                        }}
                       >
                         Deny
                       </button>
@@ -441,8 +548,7 @@ export default function ContestListingClient({
                     <div className={styles.cardTop}>
                       <div className={styles.cardTopInfo}>
                         <span className={styles.cardBadge}>
-                          {contest.mode} Mode •{" "}
-                          {getFormatDisplay(contest)}
+                          {contest.mode} Mode • {getFormatDisplay(contest)}
                         </span>
                         <h3 className={styles.cardTitle}>{contest.name}</h3>
                         <p className={styles.cardDesc}>
@@ -479,7 +585,6 @@ export default function ContestListingClient({
                         <Users className={styles.icon16} size={16} />{" "}
                         {contest.participantsCount || 0} Registered
                       </div>
-
                     </div>
                     <div className={styles.cardFooter}>
                       {contest.isRegistered ? (
@@ -502,9 +607,13 @@ export default function ContestListingClient({
                           <Link href={`/internal/contests/${contest._id}`}>
                             <button
                               className={styles.joinBtn}
-                              style={{ background: "var(--border)", color: "var(--foreground)" }}
+                              style={{
+                                background: "var(--border)",
+                                color: "var(--foreground)",
+                              }}
                             >
-                              <Eye className={styles.icon18} size={18} /> Spectate
+                              <Eye className={styles.icon18} size={18} />{" "}
+                              Spectate
                             </button>
                           </Link>
                         </>
@@ -633,25 +742,27 @@ export default function ContestListingClient({
                                 Registered
                               </span>
                             </div>
-                            
-                            {contest.teamSize && contest.teamSize > 1 && contest.isTeamLeader && contest.registeredTeamId && (
-                               <button 
-                                 className={`${styles.miniBtn} ${styles.miniBtnPrimary}`}
-                                 style={{ marginRight: "0.5rem" }}
-                                 onClick={() => {
+
+                            {contest.teamSize &&
+                              contest.teamSize > 1 &&
+                              contest.isTeamLeader &&
+                              contest.registeredTeamId && (
+                                <button
+                                  className={`${styles.miniBtn} ${styles.miniBtnPrimary}`}
+                                  style={{ marginRight: "0.5rem" }}
+                                  onClick={() => {
                                     setManageTeamData({
-                                       isOpen: true,
-                                       contestId: contest._id,
-                                       teamId: contest.registeredTeamId!,
-                                       teamName: contest.registeredTeamName!,
-                                       isLeader: true,
-                                       joinCode: undefined, // Could fetch if needed, leaving undefined for now to not overcomplicate without backend lookup
+                                      isOpen: true,
+                                      contestId: contest._id,
+                                      teamId: contest.registeredTeamId!,
+                                      teamName: contest.registeredTeamName!,
+                                      isLeader: true,
                                     });
-                                 }}
-                               >
+                                  }}
+                                >
                                   Manage Team
-                               </button>
-                            )}
+                                </button>
+                              )}
 
                             <button
                               onClick={() =>
@@ -814,15 +925,16 @@ export default function ContestListingClient({
           teamSize={registerModalData.teamSize}
           viewOnly={registerModalData.viewOnly}
         />
-        
-        <ManageTeamModal 
+
+        <ManageTeamModal
           isOpen={manageTeamData.isOpen}
-          onClose={() => setManageTeamData({ ...manageTeamData, isOpen: false })}
+          onClose={() =>
+            setManageTeamData({ ...manageTeamData, isOpen: false })
+          }
           contestId={manageTeamData.contestId}
           teamId={manageTeamData.teamId}
           teamName={manageTeamData.teamName}
           isLeader={manageTeamData.isLeader}
-          joinCode={manageTeamData.joinCode}
         />
       </main>
     </div>
@@ -880,5 +992,3 @@ function UpcomingCountdownTimer({
     </span>
   );
 }
-
-

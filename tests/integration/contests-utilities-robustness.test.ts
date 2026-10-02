@@ -125,7 +125,9 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
       expect(getCodeforcesProblemUrl("   ")).toBeNull();
       expect(getCodeforcesProblemUrl("ABC")).toBeNull();
       expect(getCodeforcesProblemUrl("12345")).toBeNull();
-      expect(getCodeforcesProblemUrl(undefined as unknown as string)).toBeNull();
+      expect(
+        getCodeforcesProblemUrl(undefined as unknown as string),
+      ).toBeNull();
     });
   });
 
@@ -196,18 +198,34 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
         score: 300,
         isLeader: true,
         members: [
-          { id: "u3", name: "David", pizza_count: 2, handle: "david_cf", avatar: null },
-          { id: "u4", name: "Eve", pizza_count: 1, handle: "eve_cf", avatar: null },
+          {
+            id: "u3",
+            name: "David",
+            pizza_count: 2,
+            handle: "david_cf",
+            avatar: null,
+          },
+          {
+            id: "u4",
+            name: "Eve",
+            pizza_count: 1,
+            handle: "eve_cf",
+            avatar: null,
+          },
         ],
       };
 
       // 1v1 and solo-tournament use member display name
       expect(getDisplayTeamName(soloWithPizza, "1v1")).toContain("Alice");
-      expect(getDisplayTeamName(soloWithPizza, "solo-tournament")).toContain("Alice");
+      expect(getDisplayTeamName(soloWithPizza, "solo-tournament")).toContain(
+        "Alice",
+      );
       expect(getDisplayTeamName(soloWithoutPizza, "1v1")).toContain("Charlie");
 
       // Team battles and team tournaments use team name
-      expect(getDisplayTeamName(groupTeam, "team-tournament")).toBe("The Algorithms");
+      expect(getDisplayTeamName(groupTeam, "team-tournament")).toBe(
+        "The Algorithms",
+      );
       expect(getDisplayTeamName(groupTeam, "arena")).toBe("The Algorithms");
 
       // Undefined team returns "Unknown"
@@ -224,9 +242,9 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
       expect(getContestRoomResultsPath("room_1", "1v1", "knockout")).toBe(
         "/internal/contests/rooms/room_1/result?from=bracket",
       );
-      expect(getContestRoomResultsPath("room_2", "team-tournament", "swiss")).toBe(
-        "/internal/contests/rooms/room_2/result",
-      );
+      expect(
+        getContestRoomResultsPath("room_2", "team-tournament", "swiss"),
+      ).toBe("/internal/contests/rooms/room_2/result");
     });
   });
 
@@ -540,10 +558,10 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
         registrationType: "closed",
         problemSelectionMode: "fine-tuned",
         startTime: new Date(Date.now() + 86400000).toISOString(),
-        registeredUsers: [{ id: user.userId.toString(), cfHandle: "points_tester" }],
-        problemSlots: [
-          { platform: "codeforces", problemId: "4A" },
+        registeredUsers: [
+          { id: user.userId.toString(), cfHandle: "points_tester" },
         ],
+        problemSlots: [{ platform: "codeforces", problemId: "4A" }],
       });
 
       expect(resMissing.ok).toBe(false);
@@ -565,10 +583,10 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
         registrationType: "closed",
         problemSelectionMode: "fine-tuned",
         startTime: new Date(Date.now() + 86400000).toISOString(),
-        registeredUsers: [{ id: user.userId.toString(), cfHandle: "points_tester" }],
-        problemSlots: [
-          { platform: "codeforces", problemId: "4A", points: 50 },
+        registeredUsers: [
+          { id: user.userId.toString(), cfHandle: "points_tester" },
         ],
+        problemSlots: [{ platform: "codeforces", problemId: "4A", points: 50 }],
       });
 
       expect(resBelow80.ok).toBe(false);
@@ -585,12 +603,18 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
       const user = await CPUser.create({
         userId: new mongoose.Types.ObjectId(),
         cfHandle: "valid_points_tester",
+        cfVerified: true,
       });
 
       getSession.mockResolvedValue({
         user: { id: user.userId.toString(), access: "User" },
       });
 
+      const opponent = await CPUser.create({
+        userId: new mongoose.Types.ObjectId(),
+        cfHandle: "points_opponent",
+        cfVerified: true,
+      });
       const res = await createRoomContest({
         name: "Fine-tuned Valid Points",
         mode: "blitz",
@@ -600,15 +624,30 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
         registrationType: "closed",
         problemSelectionMode: "fine-tuned",
         startTime: new Date(Date.now() + 86400000).toISOString(),
-        registeredUsers: [{ id: user.userId.toString(), cfHandle: "valid_points_tester" }],
+        registeredUsers: [
+          { id: String(user.userId) },
+          { id: String(opponent.userId) },
+        ],
         problemSlots: [
-          { platform: "codeforces", problemId: "4A", points: 80, timeLimitMinutes: 15 },
-          { platform: "codeforces", problemId: "1A", points: 150, timeLimitMinutes: 25 },
+          {
+            platform: "codeforces",
+            problemId: "4A",
+            points: 80,
+            timeLimitMinutes: 15,
+          },
+          {
+            platform: "codeforces",
+            problemId: "1A",
+            points: 150,
+            timeLimitMinutes: 25,
+          },
         ],
       });
 
       expect(res.ok).toBe(true);
-      const match = await ContestMatch.findOne({ name: "Fine-tuned Valid Points" });
+      const match = await ContestMatch.findOne({
+        name: "Fine-tuned Valid Points",
+      });
       expect(match).not.toBeNull();
       expect(match?.problemSlots).toHaveLength(2);
       expect(match?.problemSlots?.[0].points).toBe(80);
@@ -617,12 +656,42 @@ describe("Comprehensive Utilities & Robustness Test Suite (#33, #41, #42, #43, #
 
     it("strictly filters only problems with valid ratings in bulk aggregation", async () => {
       await ContestQuestion.collection.insertMany([
-        { problemId: "100A", contestId: 100, index: "A", name: "Problem 100A", rating: 800 },
-        { problemId: "100B", contestId: 100, index: "B", name: "Problem 100B", rating: 1100 },
-        { problemId: "100C", contestId: 100, index: "C", name: "Problem 100C", rating: null },
-        { problemId: "100D", contestId: 100, index: "D", name: "Problem 100D", rating: 0 },
+        {
+          problemId: "100A",
+          contestId: 100,
+          index: "A",
+          name: "Problem 100A",
+          rating: 800,
+        },
+        {
+          problemId: "100B",
+          contestId: 100,
+          index: "B",
+          name: "Problem 100B",
+          rating: 1100,
+        },
+        {
+          problemId: "100C",
+          contestId: 100,
+          index: "C",
+          name: "Problem 100C",
+          rating: null,
+        },
+        {
+          problemId: "100D",
+          contestId: 100,
+          index: "D",
+          name: "Problem 100D",
+          rating: 0,
+        },
         { problemId: "100E", contestId: 100, index: "E", name: "Problem 100E" }, // no rating field
-        { problemId: "100F", contestId: 100, index: "F", name: "Problem 100F", rating: 1600 }, // out of range
+        {
+          problemId: "100F",
+          contestId: 100,
+          index: "F",
+          name: "Problem 100F",
+          rating: 1600,
+        }, // out of range
       ]);
 
       const minRating = Math.max(800, 1);

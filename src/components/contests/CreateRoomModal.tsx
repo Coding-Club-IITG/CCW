@@ -19,6 +19,10 @@ import {
   createBracketContest,
 } from "@/lib/actions/contests";
 import { getDisplayName } from "@/lib/users/identity";
+import {
+  contestStartTimeError,
+  type ContestRegistrationTiming,
+} from "@/lib/contests/registrationTiming";
 
 import ContestProblemConfiguration from "@/components/contests/ContestProblemConfiguration";
 import {
@@ -42,14 +46,15 @@ export default function CreateRoomModal({
   onClose,
   isHead = false,
   presets = [],
-  deadlineMinutes = 1,
+  registrationTiming,
 }: {
   isOpen: boolean;
   onClose: () => void;
   isHead?: boolean;
   presets?: ContestCreationPreset[];
-  deadlineMinutes?: number;
+  registrationTiming: ContestRegistrationTiming;
 }) {
+  const { deadlineMinutes } = registrationTiming;
   const router = useRouter();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
@@ -167,13 +172,13 @@ export default function CreateRoomModal({
     const start = new Date(formData.startTime);
     const isCasual1v1 =
       formData.format === "1v1" && formData.registrationType === "closed";
-    const requiredBufferMinutes = isCasual1v1 ? 1 : deadlineMinutes + 1;
-    if (start.getTime() < Date.now() + requiredBufferMinutes * 60000 - 5000) {
-      toast.error(
-        isCasual1v1
-          ? "Start time must be at least 1 minute ahead of the current time."
-          : `Start time (Deadline) must be at least ${requiredBufferMinutes} minutes ahead of the current time (to allow for the ${deadlineMinutes}-minute registration deadline plus a 1-minute buffer).`,
-      );
+    const startError = contestStartTimeError(
+      formData.startTime,
+      isCasual1v1,
+      registrationTiming,
+    );
+    if (startError) {
+      toast.error(startError);
       return;
     }
 
@@ -597,11 +602,15 @@ export default function CreateRoomModal({
               </>
             ) : (
               <>
-                <select className={`${styles.formInput} ${styles.formSelect}`} disabled>
+                <select
+                  className={`${styles.formInput} ${styles.formSelect}`}
+                  disabled
+                >
                   <option>No templates available</option>
                 </select>
                 <span className={styles.emptyPresetsHint}>
-                  You don&apos;t have any templates yet. Create one to quickly load settings.
+                  You don&apos;t have any templates yet. Create one to quickly
+                  load settings.
                 </span>
               </>
             )}
@@ -751,36 +760,37 @@ export default function CreateRoomModal({
                 )}
               </div>
 
-              {!!topPresetId && (() => {
-                const selectedMatchPreset = presets.find(
-                  (p) => p._id === formData.presetId,
-                );
-                return selectedMatchPreset ? (
-                  <div className={styles.presetInfo}>
-                    <span className={styles.presetInfoName}>
-                      Preset: {selectedMatchPreset.name}
-                    </span>
-                    {selectedMatchPreset.description && (
-                      <span>{selectedMatchPreset.description}</span>
-                    )}
-                    <div className={styles.presetInfoMeta}>
-                      <span>• {selectedMatchPreset.mode}</span>
-                      {selectedMatchPreset.problemSelectionMode === "bulk" ? (
-                        <span>
-                          • {selectedMatchPreset.bulkProblemCount} problems (
-                          {selectedMatchPreset.bulkRatingMin}-
-                          {selectedMatchPreset.bulkRatingMax})
-                        </span>
-                      ) : (
-                        <span>
-                          • {selectedMatchPreset.fineTunedProblemCount}{" "}
-                          specific problems
-                        </span>
+              {!!topPresetId &&
+                (() => {
+                  const selectedMatchPreset = presets.find(
+                    (p) => p._id === formData.presetId,
+                  );
+                  return selectedMatchPreset ? (
+                    <div className={styles.presetInfo}>
+                      <span className={styles.presetInfoName}>
+                        Preset: {selectedMatchPreset.name}
+                      </span>
+                      {selectedMatchPreset.description && (
+                        <span>{selectedMatchPreset.description}</span>
                       )}
+                      <div className={styles.presetInfoMeta}>
+                        <span>• {selectedMatchPreset.mode}</span>
+                        {selectedMatchPreset.problemSelectionMode === "bulk" ? (
+                          <span>
+                            • {selectedMatchPreset.bulkProblemCount} problems (
+                            {selectedMatchPreset.bulkRatingMin}-
+                            {selectedMatchPreset.bulkRatingMax})
+                          </span>
+                        ) : (
+                          <span>
+                            • {selectedMatchPreset.fineTunedProblemCount}{" "}
+                            specific problems
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ) : null;
-              })()}
+                  ) : null;
+                })()}
 
               <div className={styles.grid2}>
                 <div className={styles.field}>
@@ -824,8 +834,7 @@ export default function CreateRoomModal({
                       setFormData({
                         ...formData,
                         bracketType: e.target.value as
-                          | "single_elimination"
-                          | "double_elimination",
+                          "single_elimination" | "double_elimination",
                       })
                     }
                     className={`${styles.formInput} ${styles.formSelect}`}
@@ -859,7 +868,6 @@ export default function CreateRoomModal({
               </div>
 
               {!topPresetId && renderProblemConfiguration()}
-
             </div>
           )}
 

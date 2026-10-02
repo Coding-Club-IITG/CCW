@@ -1,5 +1,60 @@
 import type { RoomStreamEvent } from "@/lib/contests/runtime";
 import type { IContestPreset } from "@/models/ContestPreset";
+import type { IContestTeamRequest } from "@/models/ContestTeamRequest";
+
+export type ContestAvailableTeamDto = {
+  teamId: string;
+  teamName: string;
+  memberCount: number;
+  maxCapacity: number;
+  isPublic: boolean;
+  leaderId: string;
+};
+
+export type ContestTeamRequestDto = {
+  _id: string;
+  contestId: string;
+  teamId: string;
+  type: IContestTeamRequest["type"];
+  status: IContestTeamRequest["status"];
+  fromUserId: string;
+  toUserId: string | null;
+  fromUserHandle: string;
+  toUserHandle: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function toContestTeamRequestDto(
+  request: Pick<
+    IContestTeamRequest,
+    | "contestId"
+    | "teamId"
+    | "type"
+    | "status"
+    | "fromUserId"
+    | "toUserId"
+    | "createdAt"
+    | "updatedAt"
+  > & { _id: { toString(): string } },
+  handles: ReadonlyMap<string, string>,
+): ContestTeamRequestDto {
+  return {
+    _id: String(request._id),
+    contestId: String(request.contestId),
+    teamId: String(request.teamId),
+    type: request.type,
+    status: request.status,
+    fromUserId: request.fromUserId,
+    toUserId: request.toUserId ?? null,
+    fromUserHandle: handles.get(request.fromUserId) ?? request.fromUserId,
+    toUserHandle: request.toUserId
+      ? (handles.get(request.toUserId) ?? request.toUserId)
+      : null,
+    createdAt: request.createdAt.toISOString(),
+    updatedAt: request.updatedAt.toISOString(),
+  };
+}
 
 export type ContestPresetDto = {
   _id: string;

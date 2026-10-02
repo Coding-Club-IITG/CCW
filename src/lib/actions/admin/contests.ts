@@ -15,9 +15,14 @@ import {
 } from "@/lib/api/schemas/contestAction";
 import { auth } from "@/lib/auth/server";
 import { reconciliationQueue } from "@/lib/contests/queues";
+import {
+  contestRegistrationTiming,
+  contestStartTimeError,
+} from "@/lib/contests/registrationTiming";
 import { webEnv } from "@/lib/env/web";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+import { prepareContestRegistrations } from "@/lib/contests/registration";
 
 import ContestMatch from "@/models/ContestMatch";
 import ContestPreset from "@/models/ContestPreset";
@@ -131,7 +136,15 @@ async function createBracketContestAction(input: unknown) {
     return appError("VALIDATION_ERROR", "Invalid form data submission");
   }
 
+  const startError = contestStartTimeError(
+    data.startTime,
+    false,
+    contestRegistrationTiming(webEnv),
+  );
+  if (startError) return appError("VALIDATION_ERROR", startError);
   await connectMongoDB();
+  const registrations = await prepareContestRegistrations(data);
+  if (!registrations.ok) return registrations;
 
   let presetId = undefined;
   let problemSelectionMode = data.problemSelectionMode;
@@ -230,12 +243,7 @@ async function createBracketContestAction(input: unknown) {
               bulkProblemCount: bulkProblemCount,
               bulkMinContestId: bulkMinContestId,
               problemSlots: problemSlots,
-              registrations: data.registeredUsers.map((registeredUser) => ({
-                userId: new mongoose.Types.ObjectId(registeredUser.id),
-                cfHandle: registeredUser.cfHandle,
-                teamName: registeredUser.teamName,
-                registeredAt: new Date(),
-              })),
+              registrations: registrations.data,
               startTime: new Date(data.startTime),
               registrationSettings: {
                 type: data.registrationType,

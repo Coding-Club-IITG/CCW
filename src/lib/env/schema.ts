@@ -243,6 +243,18 @@ const operationalSchema = z.object({
     1,
     1440,
   ),
+  CONTEST_START_BUFFER_SECONDS: integer(
+    "CONTEST_START_BUFFER_SECONDS",
+    60,
+    1,
+    3600,
+  ),
+  CONTEST_START_TOLERANCE_SECONDS: integer(
+    "CONTEST_START_TOLERANCE_SECONDS",
+    5,
+    0,
+    60,
+  ),
   ROOM_PRE_START_SECONDS: integer("ROOM_PRE_START_SECONDS", 5, 0, 3600),
   DISCONNECT_FORFEIT_TIMEOUT_SECONDS: integer(
     "DISCONNECT_FORFEIT_TIMEOUT_SECONDS",
@@ -262,6 +274,21 @@ const uploadSchema = z.object({
   AVATAR_UPLOAD_DIR: uploadPath("uploads/avatars"),
 });
 
+function validateContestTiming(
+  value: z.infer<typeof operationalSchema>,
+  ctx: z.RefinementCtx,
+) {
+  if (
+    value.CONTEST_START_TOLERANCE_SECONDS >= value.CONTEST_START_BUFFER_SECONDS
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["CONTEST_START_TOLERANCE_SECONDS"],
+      message: "Start tolerance must be shorter than the scheduling buffer.",
+    });
+  }
+}
+
 export const webEnvSchema = sharedServerSchema
   .extend({
     AUTH_SECRET: secret("AUTH_SECRET", 32),
@@ -275,6 +302,7 @@ export const webEnvSchema = sharedServerSchema
   })
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
+  .superRefine(validateContestTiming)
   .superRefine((value, ctx) => {
     validateSharedConfiguration(value, ctx);
     if (!!value.GOOGLE_CLIENT_ID !== !!value.GOOGLE_CLIENT_SECRET) {
@@ -305,11 +333,13 @@ export const webEnvSchema = sharedServerSchema
 export const workerEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
+  .superRefine(validateContestTiming)
   .superRefine(validateSharedConfiguration);
 
 export const cliEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
+  .superRefine(validateContestTiming)
   .superRefine(validateSharedConfiguration);
 
 export const testEnvSchema = baseSchema

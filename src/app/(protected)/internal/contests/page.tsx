@@ -6,6 +6,7 @@ import { toContestPresetDto, type ContestPresetDto } from "@/lib/contests/dtos";
 import { auth } from "@/lib/auth/server";
 import { isHead } from "@/lib/access/roles";
 import { connectMongoDB } from "@/lib/db/mongodb";
+import { contestRegistrationTiming } from "@/lib/contests/registrationTiming";
 import { webEnv } from "@/lib/env/web";
 
 import ContestPreset from "@/models/ContestPreset";
@@ -34,8 +35,6 @@ export default async function ContestsPage() {
     .lean();
   const presets: ContestPresetDto[] = presetsJson.map(toContestPresetDto);
 
-  const deadlineMinutes = webEnv.REGISTRATION_DEADLINE_MINUTES;
-
   return (
     <ContestListingClient
       active={active}
@@ -43,7 +42,7 @@ export default async function ContestsPage() {
       completed={completed}
       isHead={admin}
       presets={presets}
-      deadlineMinutes={deadlineMinutes}
+      registrationTiming={contestRegistrationTiming(webEnv)}
     />
   );
 }

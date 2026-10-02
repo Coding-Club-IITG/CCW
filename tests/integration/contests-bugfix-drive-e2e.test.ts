@@ -11,7 +11,6 @@ import {
 } from "vitest";
 
 import ContestMatch from "@/models/ContestMatch";
-import ContestRegistrationTeam from "@/models/ContestRegistrationTeam";
 import CPUser from "@/models/CPUser";
 import {
   clearTestMongo,
@@ -173,6 +172,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       const regularUser = await CPUser.create({
         userId: new mongoose.Types.ObjectId(),
         cfHandle: "casual_bracket_user",
+        cfVerified: true,
         cfRating: 1300,
       });
 
@@ -183,6 +183,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       const p2 = await CPUser.create({
         userId: new mongoose.Types.ObjectId(),
         cfHandle: "casual_p2",
+        cfVerified: true,
         cfRating: 1350,
       });
 
@@ -199,7 +200,10 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         seedingMethod: "cf_rating",
         startTime: new Date(Date.now() + 86400000).toISOString(),
         registeredUsers: [
-          { id: regularUser.userId.toString(), cfHandle: "casual_bracket_user" },
+          {
+            id: regularUser.userId.toString(),
+            cfHandle: "casual_bracket_user",
+          },
           { id: p2.userId.toString(), cfHandle: "casual_p2" },
         ],
       });
@@ -278,16 +282,28 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         problemSelectionMode: "fine-tuned",
         fineTunedProblems: ["4A", "1A"],
         problemSlots: [
-          { platform: "codeforces", problemId: "4A", points: 150, timeLimitMinutes: 20 },
-          { platform: "codeforces", problemId: "1A", points: 250, timeLimitMinutes: 30 },
+          {
+            platform: "codeforces",
+            problemId: "4A",
+            points: 150,
+            timeLimitMinutes: 20,
+          },
+          {
+            platform: "codeforces",
+            problemId: "1A",
+            points: 250,
+            timeLimitMinutes: 30,
+          },
         ],
         startTime: new Date(Date.now() + 86400000).toISOString(),
         maxParticipants: 16,
-        registeredUsers: [{ id: headUser.userId.toString(), cfHandle: "head_admin" }],
+        registeredUsers: [],
       });
 
       expect(res.ok).toBe(true);
-      const match = await ContestMatch.findOne({ name: "Official Open Tournament" });
+      const match = await ContestMatch.findOne({
+        name: "Official Open Tournament",
+      });
       expect(match).not.toBeNull();
       expect(match?.spectatorRestriction).toBe("all");
       expect(match?.problemSlots).toHaveLength(2);
@@ -397,75 +413,20 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       const listing = await getContestListing();
       expect(listing.ok).toBe(true);
       if (listing.ok) {
-        const itemNone = listing.data.active.find((c) => c._id === matchNone._id.toString());
-        const itemAll = listing.data.active.find((c) => c._id === matchAll._id.toString());
-        const itemClub = listing.data.active.find((c) => c._id === matchClub._id.toString());
+        const itemNone = listing.data.active.find(
+          (c) => c._id === matchNone._id.toString(),
+        );
+        const itemAll = listing.data.active.find(
+          (c) => c._id === matchAll._id.toString(),
+        );
+        const itemClub = listing.data.active.find(
+          (c) => c._id === matchClub._id.toString(),
+        );
 
         expect(itemNone?.canSpectate).toBe(false);
         expect(itemAll?.canSpectate).toBe(true);
         expect(itemClub?.canSpectate).toBe(false);
       }
-    });
-  });
-
-  describe("5. Team Creation & Private Join Code Flow (#44)", () => {
-    it("generates a secure joinCode for private teams and supports code-based joining", async () => {
-      const leaderId = new mongoose.Types.ObjectId().toString();
-      const joinerId = new mongoose.Types.ObjectId().toString();
-
-      await CPUser.create([
-        { userId: leaderId, cfHandle: "team_leader", cfRating: 1600 },
-        { userId: joinerId, cfHandle: "team_joiner", cfRating: 1400 },
-      ]);
-
-      const contest = await ContestMatch.create({
-        name: "Team Battle 3v3",
-        creatorId: new mongoose.Types.ObjectId(leaderId),
-        format: "team-tournament",
-        mode: "blitz",
-        teamSize: 3,
-        status: "registration",
-        problemSelectionMode: "test",
-        startTime: new Date(Date.now() + 86400000),
-      });
-
-      // Leader creates a private team with a secure join code
-      getSession.mockResolvedValue({ user: { id: leaderId, access: "Member" } });
-      const createTeamRes = await registerForContest(
-        contest._id.toString(),
-        "Code Ninjas",
-        false,
-        "SECRET_JOIN_123",
-      );
-      expect(createTeamRes.ok).toBe(true);
-
-      const team = await ContestRegistrationTeam.findOne({ name: "Code Ninjas" });
-      expect(team).not.toBeNull();
-      expect(team?.isPublic).toBe(false);
-      expect(team?.joinCode).toBe("SECRET_JOIN_123");
-
-      // Member joins with wrong join code -> Rejected
-      getSession.mockResolvedValue({ user: { id: joinerId, access: "Member" } });
-      const badJoin = await registerForContest(
-        contest._id.toString(),
-        "Code Ninjas",
-        undefined,
-        "WRONG_CODE",
-      );
-      expect(badJoin.ok).toBe(false);
-
-      // Member joins with correct code -> Success
-      const goodJoin = await registerForContest(
-        contest._id.toString(),
-        "Code Ninjas",
-        undefined,
-        "SECRET_JOIN_123",
-      );
-      expect(goodJoin.ok).toBe(true);
-
-      const updatedContest = await ContestMatch.findById(contest._id);
-      expect(updatedContest?.registrations).toHaveLength(2);
-      expect(updatedContest?.registrations?.some((r) => r.cfHandle === "team_joiner")).toBe(true);
     });
   });
 
@@ -522,7 +483,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       expect(res.ok).toBe(false);
       if (!res.ok) {
         expect(res.error.code).toBe("VALIDATION_ERROR");
-        expect(res.error.message).toContain("1 minute");
+        expect(res.error.message).toContain("60 seconds");
       }
     });
 
@@ -530,6 +491,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       const user = await CPUser.create({
         userId: new mongoose.Types.ObjectId(),
         cfHandle: "valid_creator",
+        cfVerified: true,
         cfRating: 1500,
       });
 
@@ -540,6 +502,11 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       // 2 minutes in the future (safely > 55s)
       const validStart = new Date(Date.now() + 120 * 1000).toISOString();
 
+      const opponent = await CPUser.create({
+        userId: new mongoose.Types.ObjectId(),
+        cfHandle: "valid_opponent",
+        cfVerified: true,
+      });
       const res = await createRoomContest({
         name: "Valid 1v1 Match",
         description: "Testing buffer pass",
@@ -550,6 +517,10 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
         registrationType: "closed",
         problemSelectionMode: "test",
         startTime: validStart,
+        registeredUsers: [
+          { id: String(user.userId) },
+          { id: String(opponent.userId) },
+        ],
       });
 
       expect(res.ok).toBe(true);
@@ -711,10 +682,14 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
 
       // In 1v1 or solo-tournament, solo team uses user's display name
       expect(getDisplayTeamName(soloTeam, "1v1")).toContain("Alice");
-      expect(getDisplayTeamName(soloTeam, "solo-tournament")).toContain("Alice");
+      expect(getDisplayTeamName(soloTeam, "solo-tournament")).toContain(
+        "Alice",
+      );
 
       // In team tournaments, team name is used
-      expect(getDisplayTeamName(groupTeam, "team-tournament")).toBe("Byte Bandits");
+      expect(getDisplayTeamName(groupTeam, "team-tournament")).toBe(
+        "Byte Bandits",
+      );
 
       // Undefined team returns "Unknown"
       expect(getDisplayTeamName(undefined)).toBe("Unknown");
@@ -777,6 +752,7 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
       const user = await CPUser.create({
         userId: new mongoose.Types.ObjectId(),
         cfHandle: "solo_bracket_player",
+        cfVerified: true,
         cfRating: 1500,
       });
 
@@ -786,6 +762,11 @@ describe("Contests Bugfix Drive End-to-End Test Suite (#33, #41, #42, #43, #44)"
 
       const contest = await ContestMatch.create({
         name: "Solo Bracket Registration Test",
+        registrationSettings: {
+          type: "open",
+          deadline: new Date(Date.now() + 3_600_000),
+          maxParticipants: 8,
+        },
         creatorId: user.userId,
         format: "bracket",
         mode: "blitz",

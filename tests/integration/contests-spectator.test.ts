@@ -85,9 +85,11 @@ describe("Spectator Mode", () => {
       const cpUser = await CPUser.create({
         userId: new mongoose.Types.ObjectId(),
         cfHandle: "tester",
-        cfRating: 1500
+        cfRating: 1500,
       });
-      getSession.mockResolvedValue({ user: { id: cpUser.userId.toString(), access: "Head" } });
+      getSession.mockResolvedValue({
+        user: { id: cpUser.userId.toString(), access: "Head" },
+      });
 
       const res = await createRoomContest({
         name: "Test Room",
@@ -103,7 +105,7 @@ describe("Spectator Mode", () => {
         startTime: new Date(Date.now() + 86400000).toISOString(),
         registrationType: "open",
         maxParticipants: 10,
-        registeredUsers: [{ id: cpUser.userId.toString(), cfHandle: "tester" }],
+        registeredUsers: [],
       });
 
       expect(res.ok).toBe(true);
@@ -115,9 +117,11 @@ describe("Spectator Mode", () => {
       const cpUser = await CPUser.create({
         userId: new mongoose.Types.ObjectId(),
         cfHandle: "tester2",
-        cfRating: 1500
+        cfRating: 1500,
       });
-      getSession.mockResolvedValue({ user: { id: cpUser.userId.toString(), access: "Head" } });
+      getSession.mockResolvedValue({
+        user: { id: cpUser.userId.toString(), access: "Head" },
+      });
 
       const res = await createBracketContest({
         name: "Bracket Room",
@@ -136,7 +140,9 @@ describe("Spectator Mode", () => {
       });
 
       expect(res.ok).toBe(true);
-      const contest = await ContestMatch.findById(((res as any).data as any).contestId);
+      const contest = await ContestMatch.findById(
+        ((res as any).data as any).contestId,
+      );
       expect((contest as any).spectatorRestriction).toBe("all");
     });
   });
@@ -171,7 +177,7 @@ describe("Spectator Mode", () => {
 
     it("should return canSpectate = false when restriction is none", async () => {
       await createDummyContest("none");
-      
+
       getSession.mockResolvedValue({ user: { id: creatorId, access: "Head" } });
       let res = await getContestListing();
       expect(res.ok).toBe(true);
@@ -184,25 +190,30 @@ describe("Spectator Mode", () => {
 
     it("should return canSpectate = true for any authenticated user when restriction is all", async () => {
       await createDummyContest("all");
-      
+
       getSession.mockResolvedValue({ user: { id: otherId } });
       let res = await getContestListing();
       expect(res.ok).toBe(true);
       expect(((res as any).data as any).active[0].canSpectate).toBe(true);
-      
+
       getSession.mockResolvedValue(null);
       res = await getContestListing();
-      expect(((res as any).data as any).active[0].canSpectate).toBe(true); 
+      expect(((res as any).data as any).active[0].canSpectate).toBe(true);
     });
 
     it("should return canSpectate = true for club_members, admins, or creator when restriction is club_members", async () => {
       await createDummyContest("club_members");
-      
+
       getSession.mockResolvedValue({ user: { id: otherId } });
       let res = await getContestListing();
       expect(((res as any).data as any).active[0].canSpectate).toBe(false);
 
-      getSession.mockResolvedValue({ user: { id: otherId, roles: [{ position: "Core Team", module: "Competitive Programming" }] } });
+      getSession.mockResolvedValue({
+        user: {
+          id: otherId,
+          roles: [{ position: "Core Team", module: "Competitive Programming" }],
+        },
+      });
       res = await getContestListing();
       expect(((res as any).data as any).active[0].canSpectate).toBe(true);
 
@@ -217,12 +228,17 @@ describe("Spectator Mode", () => {
 
     it("should return canSpectate = true for admins or creator only when restriction is admin_creator", async () => {
       await createDummyContest("admin_creator");
-      
+
       getSession.mockResolvedValue({ user: { id: otherId } });
       let res = await getContestListing();
       expect(((res as any).data as any).active[0].canSpectate).toBe(false);
 
-      getSession.mockResolvedValue({ user: { id: otherId, roles: [{ position: "Core Team", module: "Competitive Programming" }] } });
+      getSession.mockResolvedValue({
+        user: {
+          id: otherId,
+          roles: [{ position: "Core Team", module: "Competitive Programming" }],
+        },
+      });
       res = await getContestListing();
       expect(((res as any).data as any).active[0].canSpectate).toBe(false);
 
@@ -236,4 +252,3 @@ describe("Spectator Mode", () => {
     });
   });
 });
-
