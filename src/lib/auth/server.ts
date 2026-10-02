@@ -73,6 +73,7 @@ const microsoftOptions = {
   disableImplicitSignUp: true,
   disableSignUp: true,
 };
+
 const instituteProvider = microsoft(microsoftOptions);
 const googleOptions =
   webEnv.GOOGLE_CLIENT_ID && webEnv.GOOGLE_CLIENT_SECRET
@@ -88,7 +89,6 @@ const googleProvider = googleOptions ? google(googleOptions) : null;
 
 export const auth = betterAuth({
   plugins: [developmentAuth, authSecurityPlugin, loginSwitchPlugin],
-  databaseHooks: authDatabaseHooks,
   onAPIError: { errorURL: "/" },
   logger: { disabled: true },
   session: {
@@ -105,7 +105,7 @@ export const auth = betterAuth({
 
   secret: webEnv.AUTH_SECRET,
   baseURL: webEnv.BASE_URL,
-  trustedOrigins: webEnv.TRUSTED_ORIGINS,
+  trustedOrigins: webEnv.TRUSTED_ORGANIZATIONS,
 
   advanced: {
     trustedProxyHeaders: true,

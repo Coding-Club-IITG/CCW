@@ -13,6 +13,7 @@ import { webEnv } from "@/lib/env/web";
 import { logger } from "@/lib/telemetry/logger";
 
 import User from "@/models/User";
+import { linkHostAssignmentsForUser } from "@/lib/api/pulse";
 
 export function authFailure(
   code: "incorrect_provider" | "unapproved" | "temporary",
@@ -149,82 +150,28 @@ export const authDatabaseHooks: NonNullable<
           });
         return { data: { ...session, authProvider: provider } };
       },
+      after: async (session, ctx) => {
+        // After session is created, link any pre-assigned host assignments
+        // to the newly authenticated user
+        try {
+          const userId = session.userId;
+          const user = await User.findById(userId).select("email").lean();
+          if (user && user.email) {
+            const normalizedEmail = normalizeEmail(user.email);
+            await linkHostAssignmentsForUser({ userId, email: normalizedEmail });
+          }
+        } catch (error) {
+          // Log the error but don't fail the session creation
+          logger.warn("Failed to link host assignments during session creation", {
+            error: error instanceof Error ? error.message : String(error),
+            userId: session.userId,
+          });
+        }
+      },
     },
   },
 };
 
-export const authSecurityPlugin = {
-  id: "approved-identities",
-  hooks: {
-    before: [
-      {
-        matcher: () => true,
-        handler: createAuthMiddleware(async (ctx) => {
-          if (
-            [
-              "/link-social",
-              "/unlink-account",
-              "/change-email",
-              "/delete-user",
-              "/update-session",
-              "/get-access-token",
-              "/refresh-token",
-              "/account-info",
-            ].includes(ctx.path) ||
-            ctx.path.startsWith("/sign-up") ||
-            (ctx.path === "/sign-in/social" &&
-              (ctx.body?.requestSignUp ||
-                ctx.body?.idToken ||
-                ctx.body?.additionalData))
-          ) {
-            throw new APIError("FORBIDDEN", {
-              code: "UNAPPROVED",
-              message: "This authentication operation is unavailable.",
-            });
-          }
-          if (
-            !ctx.path.startsWith("/callback/") &&
-            !ctx.path.startsWith("/login-switch/") &&
-            ![
-              "/sign-in/social",
-              "/get-session",
-              "/dev/sign-in",
-              "/error",
-            ].includes(ctx.path)
-          ) {
-            const current = await getSessionFromCtx(ctx, {
-              disableCookieCache: true,
-            });
-            if (current && !(await isCurrentAuthSession(current.session))) {
-              await ctx.context.internalAdapter.deleteSession(
-                current.session.token,
-              );
-              throw new APIError("UNAUTHORIZED", {
-                message: "Sign in with your current provider.",
-              });
-            }
-          }
-        }),
-      },
-    ],
-    after: [
-      {
-        matcher: (ctx) => ctx.path === "/get-session",
-        handler: createAuthMiddleware(async (ctx) => {
-          const result = ctx.context.returned as {
-            session?: { userId: string; authProvider?: unknown; token: string };
-          } | null;
-          if (
-            result?.session &&
-            !(await isCurrentAuthSession(result.session))
-          ) {
-            await ctx.context.internalAdapter.deleteSession(
-              result.session.token,
-            );
-            return ctx.json(null);
-          }
-        }),
-      },
-    ],
-  },
-} satisfies BetterAuthPlugin;
+export const authSecurityPlugin: BetterAuthPlugin = {
+  databaseHooks: authDatabaseHooks,
+};
