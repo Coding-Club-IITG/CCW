@@ -25,9 +25,10 @@ interface FileAccessControl {
   allowedModules: readonly ModuleName[];
   allowedModulePositions: readonly ModulePosition[];
   allowedUsers: readonly unknown[];
+  allowedGroups?: readonly unknown[];
 }
 
-interface AccessibleFile extends ManageableFile {
+export interface AccessibleFile extends ManageableFile {
   accessControl: FileAccessControl;
 }
 
@@ -72,6 +73,7 @@ export function canManageFile(
  *  • Any of the user's modules is in accessControl.allowedModules.
  *  • Any of the user's module positions is in accessControl.allowedModulePositions.
  *  • The user's ID is in accessControl.allowedUsers.
+ *  • The user belongs to a group in accessControl.allowedGroups.
  */
 export function canAccessFile(
   userId: string,
@@ -79,11 +81,20 @@ export function canAccessFile(
   managedModules: readonly ModuleName[],
   roles: UserRole[],
   file: AccessibleFile,
+  groupIds: readonly unknown[] = [],
 ): boolean {
   if (canManageFile(userId, access, managedModules, file)) return true;
 
-  const acl = file.accessControl;
+  return hasFileGrant(userId, roles, file.accessControl, groupIds);
+}
 
+/** Explicit sharing grants */
+export function hasFileGrant(
+  userId: string,
+  roles: UserRole[],
+  acl: FileAccessControl,
+  groupIds: readonly unknown[] = [],
+): boolean {
   if (acl.allMembers) return true;
   const clubPositions = roles
     .filter((role) => !role.module)
@@ -113,6 +124,9 @@ export function canAccessFile(
 
   if (acl.allowedUsers.some((uid) => String(uid) === userId)) return true;
 
+  const memberships = new Set(groupIds.map(String));
+  if (acl.allowedGroups?.some((id) => memberships.has(String(id)))) return true;
+
   return false;
 }
 
@@ -125,6 +139,7 @@ export function buildAccessFilter(
   access: string,
   managedModules: readonly ModuleName[],
   roles: UserRole[],
+  groupIds: readonly unknown[] = [],
 ): Record<string, unknown> {
   // Global admins see everything
   if (isAdmin(access)) return {};
@@ -150,6 +165,10 @@ export function buildAccessFilter(
     // Files shared with the user directly
     { "accessControl.allowedUsers": userId },
   ];
+
+  if (groupIds.length) {
+    conditions.push({ "accessControl.allowedGroups": { $in: groupIds } });
+  }
 
   // Module heads can see files in their modules
   if (headModules.length > 0) {

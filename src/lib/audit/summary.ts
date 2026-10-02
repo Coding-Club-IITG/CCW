@@ -1,4 +1,5 @@
 import type { AuditSummary, AuditSummaryValue } from "@/lib/audit/types";
+import type { AccessControl } from "@/lib/files/types";
 
 export const AUDIT_SUMMARY_MAX_KEYS = 24;
 export const AUDIT_SUMMARY_MAX_STRING = 160;
@@ -174,8 +175,12 @@ export function summarizeFile(input: Record<string, unknown>): AuditSummary {
       size: input.size,
       allowDownload: input.allowDownload ?? input.isDownloadable,
       allMembers: acl.allMembers,
+      groupIds: Array.isArray(acl.allowedGroups)
+        ? acl.allowedGroups.map(String)
+        : undefined,
       accessCount:
         count(acl.allowedUsers) +
+        count(acl.allowedGroups) +
         count(acl.allowedModules) +
         count(acl.allowedClubPositions) +
         count(acl.allowedModulePositions),
@@ -187,7 +192,46 @@ export function summarizeFile(input: Record<string, unknown>): AuditSummary {
       "size",
       "allowDownload",
       "allMembers",
+      "groupIds",
       "accessCount",
+    ],
+  );
+}
+
+export function summarizeSharingGroup(
+  input: Record<string, unknown>,
+): AuditSummary {
+  const memberIds = Array.isArray(input.memberIds)
+    ? input.memberIds.map(String)
+    : [];
+  return boundedSummary(
+    {
+      name: input.name,
+      module: input.module,
+      memberCount: memberIds.length,
+      memberIds,
+    },
+    ["name", "module", "memberCount", "memberIds"],
+  );
+}
+
+export function summarizeFileSharing(input: {
+  isDownloadable: boolean;
+  accessControl: AccessControl;
+}): AuditSummary {
+  return boundedSummary(
+    {
+      allowDownload: input.isDownloadable,
+      ...input.accessControl,
+    },
+    [
+      "allowDownload",
+      "allMembers",
+      "allowedGroups",
+      "allowedUsers",
+      "allowedModules",
+      "allowedClubPositions",
+      "allowedModulePositions",
     ],
   );
 }

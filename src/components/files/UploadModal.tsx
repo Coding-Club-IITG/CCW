@@ -11,6 +11,7 @@ import Modal from "@/components/shared/Modal";
 import TagEditor from "@/components/shared/TagEditor";
 
 import AccessControlForm from "./AccessControlForm";
+import DownloadPermissionField from "./DownloadPermissionField";
 import styles from "./FilesClient.module.scss";
 import type { AccessControl, CurrentUser } from "./types";
 import { EMPTY_ACL, formatBytes } from "./utils";
@@ -233,24 +234,12 @@ export default function UploadModal({
           )}
         </div>
 
-        {/* Downloadable toggle */}
-        <div className={styles.field}>
-          <label className={styles.toggleLabel}>
-            <input
-              type="checkbox"
-              checked={form.isDownloadable}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, isDownloadable: e.target.checked }))
-              }
-            />
-            <span>Allow downloading</span>
-            <span className={styles.toggleHint}>
-              {form.isDownloadable
-                ? "Users can download this file"
-                : "View-only - no download option"}
-            </span>
-          </label>
-        </div>
+        <DownloadPermissionField
+          value={form.isDownloadable}
+          onChange={(isDownloadable) =>
+            setForm((previous) => ({ ...previous, isDownloadable }))
+          }
+        />
 
         {/* ACL */}
         <div className={styles.aclSection}>

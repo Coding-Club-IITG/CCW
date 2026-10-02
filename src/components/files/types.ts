@@ -1,9 +1,6 @@
-import type {
-  ClubPosition,
-  ModuleName,
-  ModulePosition,
-  UserRole,
-} from "@/lib/constants";
+import type { ModuleName, UserRole } from "@/lib/constants";
+import type { AccessControl } from "@/lib/files/types";
+export type { AccessControl } from "@/lib/files/types";
 
 export interface CurrentUser {
   id: string;
@@ -16,14 +13,6 @@ export interface CurrentUser {
   isAdmin: boolean;
   isHead: boolean;
   headModules: ModuleName[];
-}
-
-export interface AccessControl {
-  allMembers: boolean;
-  allowedModules: ModuleName[];
-  allowedClubPositions: ClubPosition[];
-  allowedModulePositions: ModulePosition[];
-  allowedUsers: string[];
 }
 
 export interface FileEntry {
@@ -40,15 +29,10 @@ export interface FileEntry {
   isDownloadable: boolean;
   accessControl: AccessControl;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface AvailableTag {
   tag: string;
   count: number;
-}
-
-export interface UserBasic {
-  _id: string;
-  name: string;
-  email: string;
 }

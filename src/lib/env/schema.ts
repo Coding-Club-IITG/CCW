@@ -265,6 +265,7 @@ const uploadSchema = z.object({
 export const webEnvSchema = sharedServerSchema
   .extend({
     AUTH_SECRET: secret("AUTH_SECRET", 32),
+    PUBLIC_ANALYTICS_ENABLED: boolean("PUBLIC_ANALYTICS_ENABLED", false),
     BASE_URL: httpUrl("BASE_URL"),
     TRUSTED_ORIGINS: origins,
     AZURE_CLIENT_ID: nonempty("AZURE_CLIENT_ID"),

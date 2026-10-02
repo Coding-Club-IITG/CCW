@@ -14,6 +14,8 @@ programming systems, content, administration, and background integrations.
 - **Public content:** Blogs, events, projects, club team information and privacy policy.
 - **Member workspace:** A dashboard, member profiles, shared files, and
   notifications, plus an internal calendar for general and module events.
+- **File sharing:** Sharing groups with live membership and individual
+  Share dialogs for access and download permissions.
 - **Competitive programming:** Platform profiles, contest rooms and
   tournaments, Problem of the Day (POTD), leaderboards, and solving tools.
 - **Collaboration:** Hackathons, participant teams, and related member
@@ -56,6 +58,8 @@ programming systems, content, administration, and background integrations.
   Redis caching, and shared BullMQ connection configuration
 - `src/lib/calendar`, `src/lib/events`: calendar schedules and iCalendar feeds,
   public event dates, status, and listings
+- `src/lib/files`: shared file-access contracts, normalization, and audited
+  sharing-group operations
 - `src/lib/contests`: contest runtime schemas, client DTOs, bracket domain
   logic, queues, workers, and realtime event publishers
 - `src/lib/codeRunner`: browser code execution, runtime workers, and their types
@@ -76,6 +80,7 @@ programming systems, content, administration, and background integrations.
 - `src/lib/shared`: cross-feature dates, pagination, search, slugs, and tags
 - `src/lib/stores`: browser UI state stores
 - `src/lib/telemetry`: shared logging and web/worker telemetry
+  including public-page collection and pseudonymous visitor metrics
 - `src/lib/constants.ts`: shared constants, enums, display maps, and URL patterns
 - `src/models`: Mongoose models
 - `src/styles`: global theme variables and reusable SCSS mixins

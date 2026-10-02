@@ -6,7 +6,7 @@
   @include standard-page-header($split: true, $bottom-margin: 1.25rem);
 }
 
-.uploadBtn {
+.toolbarPrimaryBtn {
   @include btn-primary(0.4rem 0.875rem);
   white-space: nowrap;
   flex-shrink: 0;
@@ -150,7 +150,7 @@
 }
 
 .aclHint {
-  @include metadata($text-sm, var(--gray-400));
+  @include metadata($text-sm, var(--muted));
   margin-top: 0.2rem;
 }
 
@@ -324,7 +324,9 @@
 }
 
 .hint {
-  @include metadata($text-sm, var(--gray-400));
+  @include metadata($text-sm, var(--muted));
+  margin: 0;
+  line-height: 1.5;
 }
 
 .toggleLabel {
@@ -432,6 +434,7 @@
 }
 
 .aclGroupLabel {
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -461,37 +464,6 @@
   }
 }
 
-// User picker
-
-.userTags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.userTag {
-  @include badge-chip($color: var(--user-tag-text));
-  gap: 0.3rem;
-
-  button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    padding: 0;
-    border-radius: 0;
-    cursor: pointer;
-    color: var(--user-tag-text);
-    opacity: 0.6;
-    transition: opacity 0.1s;
-
-    &:hover {
-      opacity: 1;
-    }
-  }
-}
-
 // Form buttons & feedback
 
 .primaryBtn {
@@ -513,4 +485,106 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.secondaryBtn {
+  @include btn-secondary(0.4rem 0.875rem);
+}
+
+.dangerBtn {
+  @include modal-action;
+  color: var(--danger);
+  margin-right: auto;
+}
+
+.accessRules {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+
+  summary {
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--foreground-secondary);
+
+    svg {
+      vertical-align: middle;
+      margin-right: 0.25rem;
+    }
+  }
+}
+
+.ruleGroup {
+  border: 0;
+  padding: 0.5rem 0 0;
+  margin: 1rem 0 0;
+  min-width: 0;
+}
+
+.impactNote {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface-secondary);
+  color: var(--foreground-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.groupManager {
+  padding: clamp(1.25rem, 3vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.groupHeader {
+  padding-right: 2rem;
+
+  h2 {
+    @include display-type($display-sm, 0.05em);
+    margin: 0.5rem 0;
+  }
+  p {
+    color: var(--muted);
+    margin: 0;
+  }
+}
+
+.groupList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  li > div {
+    flex: 1;
+    min-width: 0;
+  }
+  strong,
+  span {
+    display: block;
+  }
+  p {
+    margin: 0.35rem 0 0;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
 }

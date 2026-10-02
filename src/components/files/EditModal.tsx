@@ -1,6 +1,6 @@
 "use client";
 
-import { Shield, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useState } from "react";
 
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
@@ -9,10 +9,8 @@ import { validateTags } from "@/lib/shared/tags";
 import Modal from "@/components/shared/Modal";
 import TagEditor from "@/components/shared/TagEditor";
 
-import AccessControlForm from "./AccessControlForm";
 import styles from "./FilesClient.module.scss";
 import type { FileEntry } from "./types";
-import { EMPTY_ACL } from "./utils";
 
 interface Props {
   file: FileEntry;
@@ -33,8 +31,6 @@ export default function EditModal({
     title: file.title,
     description: file.description,
     tags: file.tags,
-    isDownloadable: file.isDownloadable,
-    accessControl: { ...EMPTY_ACL, ...file.accessControl },
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -56,7 +52,7 @@ export default function EditModal({
       const res = await fetch(`/api/files/${file._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, updatedAt: file.updatedAt }),
       });
       await expectAppData(res);
       onSuccess();
@@ -132,35 +128,6 @@ export default function EditModal({
             maxTags={10}
             required
             placeholder="Add a tag…"
-          />
-        </div>
-
-        <div className={styles.field}>
-          <label className={styles.toggleLabel}>
-            <input
-              type="checkbox"
-              checked={form.isDownloadable}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, isDownloadable: e.target.checked }))
-              }
-            />
-            <span>Allow downloading</span>
-            <span className={styles.toggleHint}>
-              {form.isDownloadable
-                ? "Users can download this file"
-                : "View-only - no download option"}
-            </span>
-          </label>
-        </div>
-
-        <div className={styles.aclSection}>
-          <div className={styles.aclSectionHeader}>
-            <Shield size={14} />
-            <strong>Access Permissions</strong>
-          </div>
-          <AccessControlForm
-            value={form.accessControl}
-            onChange={(acl) => setForm((p) => ({ ...p, accessControl: acl }))}
           />
         </div>
 

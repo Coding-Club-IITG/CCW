@@ -15,6 +15,11 @@ type TelemetryGlobal = typeof globalThis & {
   __ccwOpsTelemetry?: NextOpsLogger & { provider?: NodeTracerProvider };
 };
 
+export function getOpsLogger(): NextOpsLogger["logger"] {
+  registerOpsRequestTelemetry();
+  return (globalThis as TelemetryGlobal).__ccwOpsTelemetry!.logger;
+}
+
 export function installOpsLoggerSink(logger: NextOpsLogger["logger"]): void {
   setOpsLogReporter((report) => {
     logger[report.level](report.message, opsDetailsFromReport(report));

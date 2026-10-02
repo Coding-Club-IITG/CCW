@@ -1,12 +1,18 @@
 "use client";
 
-import { expectAppData } from "@/lib/api/result";
+import { useId } from "react";
+import { Globe, Shield, Users } from "lucide-react";
 
-import { useEffect, useState } from "react";
-import { Globe, FolderOpen, Shield, Users, X } from "lucide-react";
-import { MODULES, CLUB_POSITIONS, MODULE_POSITIONS } from "@/lib/constants";
-import UserSearch from "@/components/shared/UserSearch";
-import type { AccessControl, UserBasic } from "./types";
+import {
+  MODULES,
+  CLUB_POSITIONS,
+  MODULE_POSITIONS,
+  FILE_SHARING_LIMIT,
+} from "@/lib/constants";
+import type { AccessControl } from "@/lib/files/types";
+import MemberPicker from "@/components/shared/MemberPicker";
+
+import GroupPicker from "./GroupPicker";
 import styles from "./FilesClient.module.scss";
 
 interface Props {
@@ -15,184 +21,113 @@ interface Props {
 }
 
 export default function AccessControlForm({ value, onChange }: Props) {
-  const [userCache, setUserCache] = useState<Record<string, UserBasic>>({});
-
-  // Resolve names for already-selected users not yet in the cache
-  useEffect(() => {
-    const missing = value.allowedUsers.filter((id) => !userCache[id]);
-    if (missing.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/users?ids=${encodeURIComponent(missing.join(","))}`,
-        );
-        if (!res.ok) return;
-        const data = await expectAppData(res);
-        if (cancelled) return;
-        const additions: Record<string, UserBasic> = {};
-        for (const u of (data.items || []) as UserBasic[]) additions[u._id] = u;
-        if (Object.keys(additions).length > 0)
-          setUserCache((prev) => ({ ...prev, ...additions }));
-      } catch {
-        // Non-critical
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [value.allowedUsers, userCache]);
-
-  function toggleArr<T extends string>(
-    arr: T[],
-    item: T,
-    key: keyof AccessControl,
-  ) {
-    const next = arr.includes(item)
-      ? arr.filter((x) => x !== item)
-      : [...arr, item];
-    onChange({ ...value, [key]: next });
-  }
-
-  const selectedUsers = value.allowedUsers
-    .map((id) => userCache[id])
-    .filter((u): u is UserBasic => Boolean(u));
+  const id = useId();
+  const rules = [
+    { key: "allowedModules", label: "Modules", options: MODULES },
+    {
+      key: "allowedClubPositions",
+      label: "Club positions",
+      options: CLUB_POSITIONS,
+    },
+    {
+      key: "allowedModulePositions",
+      label: "Module positions (across all modules)",
+      options: MODULE_POSITIONS,
+    },
+  ] as const;
+  const hasRules = rules.some(({ key }) => value[key].length > 0);
 
   return (
     <div className={styles.aclForm}>
-      {/* All Members */}
-      <label className={styles.aclCheckRow}>
-        <input
-          type="checkbox"
-          checked={value.allMembers}
-          onChange={(e) => onChange({ ...value, allMembers: e.target.checked })}
-        />
-        <Globe size={14} />
-        <strong>All club members can access this file</strong>
-      </label>
-
+      <div className={styles.field}>
+        <label htmlFor={`${id}-general`}>
+          <Globe size={14} /> General access
+        </label>
+        <select
+          id={`${id}-general`}
+          value={value.allMembers ? "all" : "restricted"}
+          onChange={(event) =>
+            onChange({ ...value, allMembers: event.target.value === "all" })
+          }
+        >
+          <option value="restricted">Restricted</option>
+          <option value="all">All club members</option>
+        </select>
+        <p className={styles.hint}>
+          {value.allMembers
+            ? "Every signed-in club member can access this file."
+            : "Access is limited to selected recipients and file managers."}
+        </p>
+      </div>
       {!value.allMembers && (
         <>
-          {/* Modules */}
-          <div className={styles.aclGroup}>
-            <div className={styles.aclGroupLabel}>
-              <FolderOpen size={13} /> Allow by module
-            </div>
-            <div className={styles.checkGrid}>
-              {MODULES.map((m) => (
-                <label key={m} className={styles.checkItem}>
-                  <input
-                    type="checkbox"
-                    checked={value.allowedModules.includes(m)}
-                    onChange={() =>
-                      toggleArr(value.allowedModules, m, "allowedModules")
-                    }
-                  />
-                  {m}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Global Roles */}
-          <div className={styles.aclGroup}>
-            <div className={styles.aclGroupLabel}>
-              <Shield size={13} /> Allow by club position
-            </div>
-            <div className={styles.checkGrid}>
-              {CLUB_POSITIONS.map((r) => (
-                <label key={r} className={styles.checkItem}>
-                  <input
-                    type="checkbox"
-                    checked={value.allowedClubPositions.includes(r)}
-                    onChange={() =>
-                      toggleArr(
-                        value.allowedClubPositions,
-                        r,
-                        "allowedClubPositions",
-                      )
-                    }
-                  />
-                  {r}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Module Roles */}
-          <div className={styles.aclGroup}>
-            <div className={styles.aclGroupLabel}>
-              <Users size={13} /> Allow by module position
-            </div>
-            <div className={styles.checkGrid}>
-              {MODULE_POSITIONS.map((r) => (
-                <label key={r} className={styles.checkItem}>
-                  <input
-                    type="checkbox"
-                    checked={value.allowedModulePositions.includes(r)}
-                    onChange={() =>
-                      toggleArr(
-                        value.allowedModulePositions,
-                        r,
-                        "allowedModulePositions",
-                      )
-                    }
-                  />
-                  {r}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Specific Users */}
-          <div className={styles.aclGroup}>
-            <div className={styles.aclGroupLabel}>
-              <Users size={13} /> Allow specific users
-            </div>
-
-            {selectedUsers.length > 0 && (
-              <div className={styles.userTags}>
-                {selectedUsers.map((u) => (
-                  <span key={u._id} className={styles.userTag}>
-                    {u.name}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onChange({
-                          ...value,
-                          allowedUsers: value.allowedUsers.filter(
-                            (id) => id !== u._id,
-                          ),
-                        })
-                      }
-                    >
-                      <X size={11} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <UserSearch
-              excludedIds={value.allowedUsers}
-              onSelect={(user) => {
-                setUserCache((previous) => ({
-                  ...previous,
-                  [user.id]: {
-                    _id: user.id,
-                    name: user.name,
-                    email: user.secondary || "",
-                  },
-                }));
-                onChange({
-                  ...value,
-                  allowedUsers: [...value.allowedUsers, user.id],
-                });
-              }}
+          <section className={styles.aclGroup} aria-labelledby={`${id}-groups`}>
+            <h3 id={`${id}-groups`} className={styles.aclGroupLabel}>
+              <Users size={14} /> Groups
+            </h3>
+            <GroupPicker
+              value={value.allowedGroups ?? []}
+              onChange={(allowedGroups) =>
+                onChange({ ...value, allowedGroups })
+              }
             />
-          </div>
+            <p className={styles.hint}>
+              Access follows group membership. Select a group name to see its
+              members.
+            </p>
+          </section>
+          <section className={styles.aclGroup} aria-labelledby={`${id}-people`}>
+            <h3 id={`${id}-people`} className={styles.aclGroupLabel}>
+              <Users size={14} /> People
+            </h3>
+            <MemberPicker
+              maxItems={FILE_SHARING_LIMIT}
+              value={value.allowedUsers}
+              onChange={(allowedUsers) => onChange({ ...value, allowedUsers })}
+              placeholder="Add a person…"
+            />
+          </section>
+          <details className={styles.accessRules} open={hasRules || undefined}>
+            <summary>
+              <Shield size={14} /> Modules and positions
+            </summary>
+            {rules.map(({ key, label, options }) => (
+              <fieldset key={key} className={styles.ruleGroup}>
+                <legend className={styles.aclGroupLabel}>{label}</legend>
+                <div className={styles.checkGrid}>
+                  {options.map((option) => (
+                    <label key={option} className={styles.checkItem}>
+                      <input
+                        type="checkbox"
+                        checked={(value[key] as readonly string[]).includes(
+                          option,
+                        )}
+                        onChange={(event) =>
+                          onChange({
+                            ...value,
+                            [key]: event.target.checked
+                              ? [...value[key], option]
+                              : value[key].filter((entry) => entry !== option),
+                          })
+                        }
+                      />
+                      {option}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+          </details>
+          <p className={styles.hint}>
+            Any matching person, group, module, or position grants access.
+            Removing one grant may leave another in effect.
+          </p>
         </>
       )}
+      <p className={styles.hint}>
+        Uploader, admins, and heads managing the file&apos;s module always have
+        access.
+      </p>
     </div>
   );
 }

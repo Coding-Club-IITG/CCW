@@ -13,9 +13,21 @@ import { z } from "zod";
 
 import { buildAccessFilter, canUploadFiles } from "@/lib/access/files";
 import { getHeadModules, isAdmin } from "@/lib/access/roles";
-import { auditActor, auditedTransaction } from "@/lib/audit/index";
+import { auditActor } from "@/lib/audit/index";
 import { summarizeFile } from "@/lib/audit/summary";
-import { parseFormData, parseSearchParams } from "@/lib/api/result";
+import {
+  parseFormData,
+  parseSearchParams,
+  validationError,
+} from "@/lib/api/result";
+import { fileAccessControlSchema } from "@/lib/api/schemas/files";
+import { notifyFileShared } from "@/lib/files/notifications";
+import {
+  fileErrorResponse,
+  lockSharingGroups,
+  memberGroupIds,
+  mutateFiles,
+} from "@/lib/files/server";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   formDataObjectSchema,
@@ -32,6 +44,7 @@ import { validateTags } from "@/lib/shared/tags";
 import { logger } from "@/lib/telemetry/logger";
 
 import FileEntry from "@/models/FileEntry";
+import SharingGroup from "@/models/SharingGroup";
 
 export const runtime = "nodejs";
 
@@ -69,6 +82,8 @@ export async function GET(request: NextRequest) {
 
     await connectMongoDB();
 
+    const groupIds = await memberGroupIds(user.id);
+
     const { searchParams } = new URL(request.url);
     const query = parseSearchParams(searchParams, fileListQuerySchema);
     if (!query.ok) return jsonResult(query);
@@ -79,6 +94,7 @@ export async function GET(request: NextRequest) {
       user.access,
       managedModules,
       roles,
+      groupIds,
     );
 
     const aggregateAccessFilter = buildAccessFilter(
@@ -88,6 +104,7 @@ export async function GET(request: NextRequest) {
       user.access,
       managedModules,
       roles,
+      groupIds,
     );
 
     const rawTags = Array.isArray(query.data.tag)
@@ -148,9 +165,20 @@ export async function GET(request: NextRequest) {
       ]),
     ]);
 
+    const sharedGroupIds = files.flatMap(
+      (file) => file.accessControl.allowedGroups ?? [],
+    );
+    const sharedGroups = await SharingGroup.find({
+      _id: { $in: sharedGroupIds },
+    })
+      .select("name")
+      .lean();
     return jsonOk({
       ...paginatedResponse(files, total, page, limit),
       availableTags,
+      groupNames: Object.fromEntries(
+        sharedGroups.map((group) => [String(group._id), group.name]),
+      ),
     });
   } catch (err) {
     logger.error("[Files] GET /api/files error:", err);
@@ -243,22 +271,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let accessControl;
+    let rawAccessControl: unknown = {};
     try {
       const raw = formData.get("accessControl") as string | null;
-      accessControl = raw ? JSON.parse(raw) : null;
+      rawAccessControl = raw ? JSON.parse(raw) : {};
     } catch {
-      accessControl = null;
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Access permissions must be valid JSON.",
+      );
     }
-
-    const defaultAcl = {
-      allMembers: false,
-      allowedModules: [],
-      allowedClubPositions: [],
-      allowedModulePositions: [],
-      allowedUsers: [],
-    };
-    accessControl = { ...defaultAcl, ...accessControl };
+    const parsedAcl = fileAccessControlSchema.safeParse(rawAccessControl);
+    if (!parsedAcl.success) return jsonResult(validationError(parsedAcl.error));
+    const accessControl = parsedAcl.data;
 
     // Save to disk
 
@@ -277,51 +302,51 @@ export async function POST(request: NextRequest) {
     // Persist metadata
 
     try {
-      await connectMongoDB();
-      const dbSession = await mongoose.startSession();
-      let newFile;
-      try {
-        newFile = await auditedTransaction(dbSession, async (transaction) => {
-          const [created] = await FileEntry.create(
-            [
-              {
-                title,
-                description,
-                originalName: file.name,
-                storedName,
-                mimeType: file.type || "application/octet-stream",
-                size: file.size,
-                tags: parsedTags.tags,
-                uploadedBy: user.id,
-                uploadedByName: user.name,
-                uploaderModule,
-                isDownloadable,
-                accessControl,
-              },
-            ],
-            { session: transaction },
-          );
-          return {
-            result: created,
-            audit: {
-              actor: auditActor(user),
-              category: "files" as const,
-              action: "upload" as const,
-              operation: "files.upload",
-              target: {
-                type: "file",
-                id: String(created._id),
-                label: created.title,
-              },
-              after: summarizeFile(
-                created.toObject() as unknown as Record<string, unknown>,
-              ),
+      const newFile = await mutateFiles(async (transaction) => {
+        await lockSharingGroups(accessControl.allowedGroups, transaction);
+        const [created] = await FileEntry.create(
+          [
+            {
+              title,
+              description,
+              originalName: file.name,
+              storedName,
+              mimeType: file.type || "application/octet-stream",
+              size: file.size,
+              tags: parsedTags.tags,
+              uploadedBy: user.id,
+              uploadedByName: user.name,
+              uploaderModule,
+              isDownloadable,
+              accessControl,
             },
-          };
-        });
-      } finally {
-        await dbSession.endSession();
-      }
+          ],
+          { session: transaction },
+        );
+        return {
+          result: created,
+          notificationIds: await notifyFileShared(
+            created,
+            null,
+            user,
+            transaction,
+          ),
+          audit: {
+            actor: auditActor(user),
+            category: "files" as const,
+            action: "upload" as const,
+            operation: "files.upload",
+            target: {
+              type: "file",
+              id: String(created._id),
+              label: created.title,
+            },
+            after: summarizeFile(
+              created.toObject() as unknown as Record<string, unknown>,
+            ),
+          },
+        };
+      });
 
       logger.info("File uploaded", {
         route: "POST /api/files",
@@ -339,8 +364,7 @@ export async function POST(request: NextRequest) {
         await unlink(path.join(UPLOAD_DIR, storedName));
       } catch {}
 
-      logger.error("[Files] DB write error:", err);
-      return jsonError("INTERNAL_ERROR", "Failed to save file metadata.");
+      return fileErrorResponse("files.upload", err, request);
     }
   } catch (err) {
     logger.error("[Files] POST /api/files error:", err);

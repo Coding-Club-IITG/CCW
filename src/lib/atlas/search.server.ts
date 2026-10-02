@@ -3,6 +3,7 @@ import "server-only";
 import type { Types } from "mongoose";
 
 import { buildAccessFilter } from "@/lib/access/files";
+import { memberGroupIds } from "@/lib/files/server";
 import { isHead } from "@/lib/access/roles";
 import { atlasDateRange, atlasMatchScore } from "@/lib/atlas/query";
 import { type AtlasResultKind } from "@/lib/constants";
@@ -371,9 +372,16 @@ async function files(
 ): Promise<AtlasResult[]> {
   const managed = parseManagedModules(user.managedModules);
   const roles = parseRoles(user.roles);
+  const groupIds = await memberGroupIds(user.id);
   const filter = {
     $and: [
-      buildAccessFilter(user.id, user.access ?? "Member", managed, roles),
+      buildAccessFilter(
+        user.id,
+        user.access ?? "Member",
+        managed,
+        roles,
+        groupIds,
+      ),
       commonFilter(query, "createdAt"),
       regexFilter(query, [
         "title",

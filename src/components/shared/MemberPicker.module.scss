@@ -6,6 +6,13 @@
   gap: 0.6rem;
 }
 
+.retry {
+  color: var(--danger);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .selected {
   display: flex;
   flex-wrap: wrap;
@@ -37,6 +44,10 @@
 
     &:hover {
       color: var(--danger);
+    }
+
+    &.inspect:hover {
+      color: var(--primary);
     }
 
     &:focus-visible {

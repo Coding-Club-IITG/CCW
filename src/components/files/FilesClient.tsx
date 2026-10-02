@@ -8,12 +8,16 @@ import {
   Download,
   FileIcon,
   AlertCircle,
+  Share2,
+  Users,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { canManageFile } from "@/lib/access/files";
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { formatShortDate } from "@/lib/shared/dates";
+import { normalizeAccessControl } from "@/lib/files/accessControl";
+import type { PaginatedResult } from "@/lib/shared/pagination";
 
 import EmptyState from "@/components/shared/EmptyState";
 import Pagination from "@/components/shared/Pagination";
@@ -27,6 +31,8 @@ import EditModal from "./EditModal";
 import FileViewer from "./FileViewer";
 import styles from "./FilesClient.module.scss";
 import UploadModal from "./UploadModal";
+import GroupManager from "./GroupManager";
+import ShareModal from "./ShareModal";
 import type { AvailableTag, CurrentUser, FileEntry } from "./types";
 import { formatBytes, aclSummary } from "./utils";
 
@@ -45,6 +51,7 @@ export default function FilesClient({ currentUser }: Props) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [availableTags, setAvailableTags] = useState<AvailableTag[]>([]);
+  const [groupNames, setGroupNames] = useState<Record<string, string>>({});
   const latestRequest = useRef(0);
 
   // Toolbar
@@ -55,6 +62,8 @@ export default function FilesClient({ currentUser }: Props) {
   const [viewFile, setViewFile] = useState<FileEntry | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [editFile, setEditFile] = useState<FileEntry | null>(null);
+  const [shareFile, setShareFile] = useState<FileEntry | null>(null);
+  const [showGroups, setShowGroups] = useState(false);
 
   // Data fetching
 
@@ -67,9 +76,20 @@ export default function FilesClient({ currentUser }: Props) {
       if (searchQuery.trim()) params.set("search", searchQuery);
       selectedTags.forEach((tag) => params.append("tag", tag));
       const res = await fetch(`/api/files?${params}`);
-      const data = await expectAppData(res);
+      const data = await expectAppData<
+        PaginatedResult<FileEntry> & {
+          availableTags: AvailableTag[];
+          groupNames: Record<string, string>;
+        }
+      >(res);
       if (requestId !== latestRequest.current) return;
-      setFiles(data.items || []);
+      setFiles(
+        data.items.map((file) => ({
+          ...file,
+          accessControl: normalizeAccessControl(file.accessControl),
+        })),
+      );
+      setGroupNames(data.groupNames);
       setTotalPages(data.pagination?.totalPages || 1);
       setAvailableTags(data.availableTags || []);
     } catch (error) {
@@ -132,12 +152,21 @@ export default function FilesClient({ currentUser }: Props) {
           <p>Shared resources, documentation, and module-specific files.</p>
         </div>
         {currentUser.canUpload && (
-          <button
-            className={styles.uploadBtn}
-            onClick={() => setShowUpload(true)}
-          >
-            <Upload size={15} /> Upload File
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.secondaryBtn}
+              onClick={() => setShowGroups(true)}
+            >
+              <Users size={15} /> Manage groups
+            </button>
+            <button
+              className={styles.toolbarPrimaryBtn}
+              onClick={() => setShowUpload(true)}
+            >
+              <Upload size={15} /> Upload File
+            </button>
+          </div>
         )}
       </div>
 
@@ -270,7 +299,7 @@ export default function FilesClient({ currentUser }: Props) {
                           )}
                         </span>
                         <div className={styles.aclHint}>
-                          {aclSummary(file.accessControl)}
+                          {aclSummary(file.accessControl, groupNames)}
                         </div>
                       </td>
                       <td>
@@ -297,6 +326,15 @@ export default function FilesClient({ currentUser }: Props) {
 
                           {canManage && (
                             <>
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                title="Share"
+                                aria-label={`Share ${file.title}`}
+                                onClick={() => setShareFile(file)}
+                              >
+                                <Share2 size={15} />
+                              </button>
                               <button
                                 className={styles.actionBtn}
                                 title="Edit"
@@ -330,6 +368,24 @@ export default function FilesClient({ currentUser }: Props) {
       )}
 
       {/* Modals */}
+      {showGroups && (
+        <GroupManager
+          currentUser={currentUser}
+          onClose={() => setShowGroups(false)}
+          onChanged={fetchFiles}
+        />
+      )}
+      {shareFile && (
+        <ShareModal
+          file={shareFile}
+          onClose={() => setShareFile(null)}
+          onSuccess={() => {
+            setShareFile(null);
+            toast.success("Sharing settings saved.");
+            fetchFiles();
+          }}
+        />
+      )}
       {viewFile && (
         <FileViewer file={viewFile} onClose={() => setViewFile(null)} />
       )}

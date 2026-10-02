@@ -4,25 +4,19 @@ import {
   CLUB_POSITIONS,
   MODULES,
   MODULE_POSITIONS,
-  type ClubPosition,
   type ModuleName,
-  type ModulePosition,
 } from "@/lib/constants";
+import type { AccessControl } from "@/lib/files/types";
 import { normalizeTags } from "@/lib/shared/tags";
 
 // Sub-document interfaces
 
-export interface IAccessControl {
-  // Visible to every authenticated club member
-  allMembers: boolean;
-  // Allow access if user belongs to any of these modules
-  allowedModules: ModuleName[];
-  // Allow access if user has one of these club positions
-  allowedClubPositions: ClubPosition[];
-  // Allow access if user holds one of these roles in ANY module
-  allowedModulePositions: ModulePosition[];
-  // Allow access for specific users by their ID
+export interface IAccessControl extends Omit<
+  AccessControl,
+  "allowedUsers" | "allowedGroups"
+> {
   allowedUsers: Types.ObjectId[];
+  allowedGroups?: Types.ObjectId[];
 }
 
 export interface IFileEntry extends Document {
@@ -68,6 +62,7 @@ const AccessControlSchema = new Schema<IAccessControl>(
     allowedClubPositions: [{ type: String, enum: CLUB_POSITIONS }],
     allowedModulePositions: [{ type: String, enum: MODULE_POSITIONS }],
     allowedUsers: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    allowedGroups: [{ type: Schema.Types.ObjectId, ref: "SharingGroup" }],
   },
   { _id: false },
 );
@@ -114,6 +109,7 @@ const FileEntrySchema = new Schema<IFileEntry>(
         allowedClubPositions: [],
         allowedModulePositions: [],
         allowedUsers: [],
+        allowedGroups: [],
       }),
     },
   },
@@ -124,6 +120,7 @@ const FileEntrySchema = new Schema<IFileEntry>(
 FileEntrySchema.index({ uploaderModule: 1, createdAt: -1 });
 FileEntrySchema.index({ uploadedBy: 1, createdAt: -1 });
 FileEntrySchema.index({ tags: 1, createdAt: -1 });
+FileEntrySchema.index({ "accessControl.allowedGroups": 1, createdAt: -1 });
 
 export default mongoose.models.FileEntry ||
   mongoose.model<IFileEntry>("FileEntry", FileEntrySchema);

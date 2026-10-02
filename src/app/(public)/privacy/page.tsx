@@ -24,7 +24,7 @@ export default function PrivacyPage() {
       <div className={styles.page}>
         <article className={styles.policy} aria-label="Privacy policy">
           <p className={styles.updated}>
-            Last updated: <time dateTime="2026-10-01">1 October 2026</time>
+            Last updated: <time dateTime="2026-10-02">2 October 2026</time>
           </p>
           <p>
             Coding Club IIT Guwahati operates{" "}
@@ -35,34 +35,34 @@ export default function PrivacyPage() {
           <section aria-labelledby="information">
             <h2 id="information">Information we collect</h2>
             <p>
-              Google sign-in uses the <code>openid</code>, <code>email</code>,
-              and <code>profile</code> permissions to access your name, email,
-              verification status, account identifier, and profile picture. We
-              may store authentication tokens Google provides. We do not access
-              your Google password, Gmail, Drive, Contacts, or Calendar.
+              We collect information you submit, account activity, and technical
+              records such as IP addresses and browser details. Public-page
+              usage records contain only page paths and a pseudonymous browser
+              identifier, with no account details or URL query values.
             </p>
             <p>
-              We also collect information you provide, basic account and
-              activity records, and technical details such as your IP address
-              and browser information to operate and secure the website.
+              Google sign-in provides your name, email, verification status,
+              account identifier, and profile picture through the{" "}
+              <code>openid</code>, <code>email</code>, and <code>profile</code>{" "}
+              permissions. We may store Google authentication tokens, but do not
+              access your password, Gmail, Drive, Contacts, or Calendar.
             </p>
           </section>
 
           <section aria-labelledby="use">
             <h2 id="use">How we use and share information</h2>
             <p>
-              We use Google data to verify your identity and manage sign-in and
-              account access. Other information supports club services,
-              communication, and security. Relevant details may be visible to
-              club administrators and members. Published profiles and
-              contributions are public.
+              We use this information to provide club services, manage access,
+              communicate with members, secure the website, and estimate public
+              page visits. Relevant information is available to club
+              administrators, members, and service providers as needed for these
+              purposes. Published profiles and contributions are public.
             </p>
             <p>
-              Service providers process information needed for authentication,
-              hosting, storage, and notifications. We may also disclose
-              information for legal or security reasons. We do not sell personal
-              data or use Google data for advertising or AI model training. Our
-              use and transfer of Google data follows the{" "}
+              We may disclose information for legal or security reasons, but do
+              not sell personal data. Google data is used for sign-in and
+              account access, not advertising or AI model training, in
+              accordance with the{" "}
               <a href="https://developers.google.com/terms/api-services-user-data-policy">
                 Google API Services User Data Policy
               </a>
@@ -73,40 +73,42 @@ export default function PrivacyPage() {
           <section aria-labelledby="storage">
             <h2 id="storage">Storage, security, and cookies</h2>
             <p>
-              Information is stored in our server-side databases and file
-              storage. We use HTTPS and access controls to protect it. Cookies
-              and browser storage support sign-in and remember preferences. You
-              can clear them in your browser, which may sign you out or reset
-              preferences.
+              We store information in server-side databases and file storage,
+              protected by HTTPS and access controls. Cookies and browser
+              storage keep you signed in, remember preferences, and distinguish
+              browsers for visitor estimates. The visitor cookie expires after
+              90 days.
             </p>
           </section>
 
           <section aria-labelledby="retention">
             <h2 id="retention">Retention and your choices</h2>
             <p>
-              We retain account and Google sign-in data while your account
-              remains active or until a deletion request is processed. Some
-              shared content and records may remain for club history, security,
-              or legal needs. You can request access, correction, or deletion
-              using the email link in our <a href="#contact">footer</a>. We may
-              verify your identity before acting.
+              Account and sign-in data are retained while your account is active
+              or until we process a deletion request. Public-page usage records
+              are kept for 90 days. Shared content and records needed for club
+              history, security, or legal purposes may be retained longer.
             </p>
             <p>
-              You can revoke Google access through your{" "}
+              You can clear or block cookies in your browser, which may affect
+              sign-in and preferences. Blocking the visitor cookie or enabling
+              Do Not Track or Global Privacy Control stops analytics collection.
+              You can also revoke Google access through{" "}
               <a href="https://myaccount.google.com/connections">
                 Google Account connections
               </a>
-              . This does not automatically delete data already stored by us.
+              , though this does not delete information already stored by us.
             </p>
           </section>
 
           <section aria-labelledby="updates">
             <h2 id="updates">Updates and contact</h2>
             <p>
-              We will update this page when our practices change and obtain any
-              required consent before new uses of Google data. For privacy
-              questions or data requests, see the contact links in our{" "}
-              <a href="#contact">footer</a>.
+              We update this policy when our practices change and obtain any
+              required consent for new uses of Google data. For privacy
+              questions or requests to access, correct, or delete your data,
+              email us through the <a href="#contact">footer</a>. We may verify
+              your identity before acting on a request.
             </p>
           </section>
         </article>
