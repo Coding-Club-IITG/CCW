@@ -2,7 +2,7 @@
 
 import { expectAppData } from "@/lib/api/result";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { LoaderCircle, Plus, Search } from "lucide-react";
 
 import UserAvatar from "@/components/shared/UserAvatar";
@@ -22,6 +22,7 @@ interface UserSearchProps {
   search?: (query: string, signal: AbortSignal) => Promise<UserSearchItem[]>;
   minLength?: number;
   inlineResults?: boolean;
+  resultIcon?: ReactNode;
 }
 
 async function defaultSearch(query: string, signal: AbortSignal) {
@@ -52,6 +53,7 @@ export default function UserSearch({
   search = defaultSearch,
   minLength = 2,
   inlineResults = false,
+  resultIcon,
 }: UserSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchItem[]>([]);
@@ -116,13 +118,15 @@ export default function UserSearch({
                 setResults([]);
               }}
             >
-              <UserAvatar
-                name={user.name}
-                image={user.image}
-                size={32}
-                imageClassName={styles.avatar}
-                fallbackClassName={styles.avatarFallback}
-              />
+              {resultIcon ?? (
+                <UserAvatar
+                  name={user.name}
+                  image={user.image}
+                  size={32}
+                  imageClassName={styles.avatar}
+                  fallbackClassName={styles.avatarFallback}
+                />
+              )}
               <span className={styles.identity}>
                 <strong>{user.name}</strong>
                 {user.secondary && <small>{user.secondary}</small>}

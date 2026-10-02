@@ -1,6 +1,6 @@
 /**
  * GET    /api/files/[id]  - serve / stream a file to the client
- * PATCH  /api/files/[id]  - update file metadata / permissions
+ * PATCH  /api/files/[id]  - update file metadata
  * DELETE /api/files/[id]  - delete a file (disk + metadata)
  */
 
@@ -16,6 +16,11 @@ import { canAccessFile, canManageFile } from "@/lib/access/files";
 import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeFile } from "@/lib/audit/summary";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
+import {
+  fileErrorResponse,
+  fileFailure,
+  memberGroupIds,
+} from "@/lib/files/server";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
   jsonObjectSchema,
@@ -72,8 +77,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const { user, managedModules, roles } = auth_;
+    const groupIds = await memberGroupIds(user.id);
     if (
-      !canAccessFile(user.id, user.access, managedModules, roles, file as any)
+      !canAccessFile(
+        user.id,
+        user.access,
+        managedModules,
+        roles,
+        file as any,
+        groupIds,
+      )
     ) {
       return jsonError("FORBIDDEN", "Forbidden.");
     }
@@ -176,14 +189,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (!parsedBody.ok) return jsonResult(parsedBody);
     const body = parsedBody.data;
 
-    // Whitelist of editable fields (are immutable)
-    const EDITABLE = [
-      "title",
-      "description",
-      "tags",
-      "isDownloadable",
-      "accessControl",
-    ] as const;
+    if ("accessControl" in body || "isDownloadable" in body)
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Use Share to change access or download permissions.",
+      );
+
+    const EDITABLE = ["title", "description", "tags"] as const;
 
     const update: Record<string, any> = {};
     for (const key of EDITABLE) {
@@ -226,25 +238,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       update.tags = parsedTags.tags;
     }
 
-    // Validate isDownloadable
-    if (
-      update.isDownloadable !== undefined &&
-      typeof update.isDownloadable !== "boolean"
-    ) {
-      return jsonError("VALIDATION_ERROR", "isDownloadable must be a boolean.");
-    }
-
-    // Validate accessControl structure
-    if (update.accessControl !== undefined) {
-      const acl = update.accessControl;
-      if (typeof acl !== "object" || acl === null || Array.isArray(acl)) {
-        return jsonError(
-          "VALIDATION_ERROR",
-          "accessControl must be an object.",
-        );
-      }
-    }
-
     const dbSession = await mongoose.startSession();
     let updated;
     try {
@@ -252,6 +245,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         const before = await FileEntry.findById(id).session(transaction).lean();
         if (!before)
           throw new Error("File disappeared during metadata update.");
+        if (!canManageFile(user.id, user.access, managedModules, before as any))
+          fileFailure("FORBIDDEN", "You cannot manage this file.");
+        if (
+          before.updatedAt.getTime() !== file.updatedAt.getTime() ||
+          (body.updatedAt !== undefined &&
+            body.updatedAt !== before.updatedAt.toISOString())
+        )
+          fileFailure(
+            "CONFLICT",
+            "This file has changed. Refresh the page before saving.",
+          );
         const result = await FileEntry.findByIdAndUpdate(id, update, {
           returnDocument: "after",
           runValidators: true,
@@ -287,8 +291,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     });
     return jsonOk({ file: updated });
   } catch (err) {
-    logger.error("[Files] PATCH /api/files/[id] error:", err);
-    return jsonError("INTERNAL_ERROR", "Internal server error.");
+    return fileErrorResponse("files.metadata.update", err, request);
   }
 }
 

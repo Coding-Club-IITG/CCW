@@ -39,6 +39,7 @@ vi.mock("@/lib/auth/server", () => ({
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 describe("files collection route", () => {
   let uploadDirectory: string;

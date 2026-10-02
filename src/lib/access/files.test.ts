@@ -24,6 +24,44 @@ function file(accessControl: Partial<IFileEntry["accessControl"]> = {}) {
   } as IFileEntry;
 }
 describe("file access", () => {
+  it("accepts live group membership without granting management", () => {
+    const groupId = new Types.ObjectId();
+    const shared = file({ allowedGroups: [groupId] });
+    expect(
+      canAccessFile(memberId.toString(), "Member", [], [], shared, [
+        String(groupId),
+      ]),
+    ).toBe(true);
+    expect(
+      canAccessFile(memberId.toString(), "Member", [], [], shared, []),
+    ).toBe(false);
+    expect(canManageFile(memberId.toString(), "Member", [], shared)).toBe(
+      false,
+    );
+    expect(
+      buildAccessFilter(memberId.toString(), "Member", [], [], [groupId]),
+    ).toMatchObject({
+      $or: expect.arrayContaining([
+        { "accessControl.allowedGroups": { $in: [groupId] } },
+      ]),
+    });
+  });
+
+  it("retains independent direct grants after group membership is removed", () => {
+    expect(
+      canAccessFile(
+        memberId.toString(),
+        "Member",
+        [],
+        [],
+        file({
+          allowedUsers: [memberId],
+          allowedGroups: [new Types.ObjectId()],
+        }),
+        [],
+      ),
+    ).toBe(true);
+  });
   it("uses Access for management", () => {
     expect(canUploadFiles("Head")).toBe(true);
     expect(canUploadFiles("Admin")).toBe(true);

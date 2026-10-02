@@ -1,12 +1,5 @@
 import type { AccessControl } from "./types";
-
-export const EMPTY_ACL: AccessControl = {
-  allMembers: false,
-  allowedModules: [],
-  allowedClubPositions: [],
-  allowedModulePositions: [],
-  allowedUsers: [],
-};
+export { EMPTY_ACL } from "@/lib/files/accessControl";
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -26,15 +19,26 @@ export function isPreviewable(mimeType: string): boolean {
   );
 }
 
-export function aclSummary(acl: AccessControl): string {
+export function aclSummary(
+  acl: AccessControl,
+  groups: Record<string, string> = {},
+): string {
   if (acl.allMembers) return "All Members";
   const parts: string[] = [];
+  if (acl.allowedGroups?.length) {
+    parts.push(
+      acl.allowedGroups.map((id) => groups[id] ?? "Sharing group").join(", "),
+    );
+  }
   if (acl.allowedModules.length)
     parts.push(`${acl.allowedModules.length} module(s)`);
   if (acl.allowedClubPositions.length)
     parts.push(`${acl.allowedClubPositions.length} role(s)`);
   if (acl.allowedModulePositions.length)
     parts.push(`${acl.allowedModulePositions.length} module position(s)`);
-  if (acl.allowedUsers.length) parts.push(`${acl.allowedUsers.length} user(s)`);
-  return parts.length ? parts.join(", ") : "Restricted";
+  if (acl.allowedUsers.length)
+    parts.push(
+      `${acl.allowedUsers.length} ${acl.allowedUsers.length === 1 ? "person" : "people"}`,
+    );
+  return parts.length ? parts.join(" + ") : "File managers only";
 }

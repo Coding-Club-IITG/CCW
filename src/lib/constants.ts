@@ -12,6 +12,8 @@ export const MODULES = [
 
 export type ModuleName = (typeof MODULES)[number];
 
+export const FILE_SHARING_LIMIT = 100;
+
 export const CURRENT_TENURE = "2026-27";
 
 export const APP_TIME_ZONE = "Asia/Kolkata";
@@ -289,6 +291,7 @@ export const NOTIFICATION_TYPES = [
   "potd_reminder",
   "announcement",
   "calendar_reminder",
+  "file_shared",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
