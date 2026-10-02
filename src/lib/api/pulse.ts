@@ -163,63 +163,93 @@ export async function linkHostAssignmentsForUser(params: {
     throw new Error("User not found");
   }
 
-  // Find all unlinked host assignments matching the normalized email
-  // Unlinked means userId is null
-  const unlinkedAssignments = await PulseHostAssignment.find({
-    email: normalizedEmail,
-    userId: null,
+  // Find all quizzes that have host assignments matching the normalized email
+  // where the assignment is not yet linked to a user (userId is null)
+  const quizzes = await PulseQuiz.find({
+    "hostAssignments.email": normalizedEmail,
+    "hostAssignments.userId": null,
   });
 
-  if (unlinkedAssignments.length === 0) {
+  if (quizzes.length === 0) {
     return { linkedCount: 0 };
   }
 
-  // Track which quizzes we need to update to avoid duplicate updates
-  const quizUpdates: Map<string, { ownerId: string | null; coHostIds: string[] }> = new Map();
+  let linkedCount = 0;
 
-  // Process each assignment
-  const linkedAssignments = await Promise.all(
-    unlinkedAssignments.map(async (assignment) => {
-      // Set userId and linkedAt
-      assignment.userId = params.userId;
-      assignment.linkedAt = new Date();
+  // Process each quiz
+  for (const quiz of quizzes) {
+    // We need to update the quiz document
+    let isModified = false;
 
-      // Save the assignment
-      await assignment.save();
+    // Process each host assignment in the quiz
+    const updatedHostAssignments = quiz.hostAssignments.map((assignment: any) => {
+      // Check if this assignment matches the email and is not yet linked
+      if (
+        assignment.email === normalizedEmail &&
+        (!assignment.userId || assignment.userId.toString() === "null")
+      ) {
+        linkedCount++;
+        isModified = true;
 
-      // Prepare quiz update
-      const quizId = assignment.quizId.toString();
-      if (!quizUpdates.has(quizId)) {
-        quizUpdates.set(quizId, { ownerId: null, coHostIds: [] });
+        // Create updated assignment with linking info
+        const updatedAssignment = {
+          ...assignment,
+          userId: user._id,
+          linkedAt: new Date()
+        };
+
+        // If this is an owner assignment, we'll need to update the quiz's ownerId
+        // If this is a cohost assignment, we'll need to add to coHostIds
+        // We'll handle those updates separately below
+        return updatedAssignment;
       }
-
-      const quizUpdate = quizUpdates.get(quizId)!;
-      if (assignment.assignmentType === "owner") {
-        quizUpdate.ownerId = params.userId;
-      } else if (assignment.assignmentType === "co-host") {
-        quizUpdate.coHostIds.push(params.userId);
-      }
-
       return assignment;
-    })
-  );
+    });
 
-  // Update quizzes with the new host assignments
-  for (const [quizId, update] of quizUpdates.entries()) {
-    const quizUpdateObj: any = {};
-    if (update.ownerId !== null) {
-      quizUpdateObj.ownerId = update.ownerId;
-    }
-    if (update.coHostIds.length > 0) {
-      quizUpdateObj.coHostIds = update.coHostIds;
-    }
+    // Only proceed if we actually linked something
+    if (isModified) {
+      // Determine what updates we need to make to the quiz
+      const updateObj: any = {
+        hostAssignments: updatedHostAssignments
+      };
 
-    await PulseQuiz.findByIdAndUpdate(quizId, quizUpdateObj, { new: true });
+      // Check if we need to update ownerId (for owner role assignments)
+      const hasOwnerAssignment = quiz.hostAssignments.some(
+        (assignment: any) =>
+          assignment.email === normalizedEmail &&
+          assignment.role === "owner" &&
+          (!assignment.userId || assignment.userId.toString() === "null")
+      );
+
+      if (hasOwnerAssignment) {
+        updateObj.ownerId = user._id;
+      }
+
+      // Check if we need to add to coHostIds (for cohost role assignments)
+      const hasCohostAssignment = quiz.hostAssignments.some(
+        (assignment: any) =>
+          assignment.email === normalizedEmail &&
+          assignment.role === "cohost" &&
+          (!assignment.userId || assignment.userId.toString() === "null")
+      );
+
+      if (hasCohostAssignment) {
+        // Get current coHostIds and add the new user, avoiding duplicates
+        const currentCoHostIds = quiz.coHostIds || [];
+        const userIdString = user._id.toString();
+        if (!currentCoHostIds.some((id: any) => id.toString() === userIdString)) {
+          updateObj.coHostIds = [...currentCoHostIds, user._id];
+        }
+      }
+
+      // Save the updated quiz
+      await quiz.save();
+    }
   }
 
   // TODO: Write host.linked audit entries
   // This would involve creating PulseAuditEvent records for each linked assignment
   // For now, we'll skip this as the audit system might need to be extended
 
-  return { linkedCount: linkedAssignments.length };
+  return { linkedCount: linkedCount };
 }

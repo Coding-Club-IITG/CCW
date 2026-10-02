@@ -11,6 +11,7 @@ import { type AuthProvider } from "@/lib/constants";
 import { webEnv } from "@/lib/env/web";
 import { logger } from "@/lib/utils";
 import User from "@/models/User";
+import { linkHostAssignmentsForUser } from "@/lib/api/pulse";
 
 export function authFailure(
   code: "incorrect_provider" | "unapproved" | "temporary",
@@ -146,6 +147,25 @@ export const authDatabaseHooks: NonNullable<
             message: "Use your current sign-in method.",
           });
         return { data: { ...session, authProvider: provider } };
+      },
+      after: async (session, ctx) => {
+        // Link host assignments for the user on session creation (best effort)
+        try {
+          const user = await User.findById(session.userId).select("email").lean();
+          if (user?.email) {
+            const normalizedEmail = normalizeEmail(user.email);
+            await linkHostAssignmentsForUser({
+              userId: session.userId,
+              email: normalizedEmail,
+            });
+          }
+        } catch (error) {
+          // Log but don't fail - linking is best-effort
+          logger.warn("Failed to link host assignments in session.create.after hook", {
+            userId: session.userId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       },
     },
   },
