@@ -98,9 +98,10 @@
   points so environment variables are loaded before dependent modules execute.
 - Never commit credentials, production secrets, local `.env*` files, or
   sensitive user data.
-- Document rollout and compatibility effects when changing schemas,
-  environment variables, cache keys, background-job contracts, or API
-  responses. Provide a migration or safe fallback where needed.
+- Remove obsolete application code when replacing data models or APIs. Do not
+  retain legacy readers, compatibility branches, lazy backfills, or fallback
+  models unless backward compatibility is explicitly required for the task.
+- Keep required one-time migration or reset work in an ignored local script.
 
 ## Documentation and Verification
 

@@ -220,7 +220,10 @@ export default function PresetManager({
                 ...s,
                 problemId: s.problemId || undefined,
                 points: s.points || undefined,
-                timeLimitMinutes: s.timeLimitMinutes || undefined,
+                timeLimitMinutes:
+                  mode === "blitz"
+                    ? s.timeLimitMinutes || undefined
+                    : undefined,
               })),
             }),
       };
@@ -228,7 +231,7 @@ export default function PresetManager({
       if (overallDurationMinutes)
         payload.overallDurationMinutes = overallDurationMinutes;
 
-      if (perProblemDurationMinutes)
+      if (mode === "blitz" && perProblemDurationMinutes)
         payload.perProblemDurationMinutes = perProblemDurationMinutes;
 
       if (isAdmin) payload.isGlobal = isGlobal;
@@ -697,23 +700,27 @@ export default function PresetManager({
                     />
                   </div>
                 )}
-                <div className={styles.field}>
-                  <label htmlFor="preset-perProblemDurationMinutes">
-                    Per Problem (Mins)
-                    <span className={styles.hint}>
-                      Optional Blitz deadline, unused in Arena
-                    </span>
-                  </label>
-                  <input
-                    id="preset-perProblemDurationMinutes"
-                    type="number"
-                    value={perProblemDurationMinutes}
-                    onChange={(e) =>
-                      setPerProblemDurationMinutes(Number(e.target.value) || "")
-                    }
-                    placeholder="Optional"
-                  />
-                </div>
+                {mode === "blitz" && (
+                  <div className={styles.field}>
+                    <label htmlFor="preset-perProblemDurationMinutes">
+                      Per Problem (Mins)
+                      <span className={styles.hint}>
+                        Optional deadline for each Blitz problem
+                      </span>
+                    </label>
+                    <input
+                      id="preset-perProblemDurationMinutes"
+                      type="number"
+                      value={perProblemDurationMinutes}
+                      onChange={(e) =>
+                        setPerProblemDurationMinutes(
+                          Number(e.target.value) || "",
+                        )
+                      }
+                      placeholder="Optional"
+                    />
+                  </div>
+                )}
               </div>
             </fieldset>
 

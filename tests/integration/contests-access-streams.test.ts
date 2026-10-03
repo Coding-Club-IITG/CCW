@@ -593,14 +593,14 @@ describe("isolated live events and connection presence", () => {
       finalScores: { team: 42 },
     });
     await publishContest(other.contestId, {
-      type: "contest.status_change",
-      status: "completed",
+      type: "contest.round_complete",
+      roundNumber: 2,
     });
     await publishContest(f.contestId, {
-      type: "contest.status_change",
-      status: "active",
+      type: "contest.round_complete",
+      roundNumber: 1,
     });
-    expect((await stream.wait("contest.status_change")).status).toBe("active");
+    expect((await stream.wait("contest.round_complete")).roundNumber).toBe(1);
     expect(stream.events.some((e) => e.data.payload?.type === "room.end")).toBe(
       false,
     );

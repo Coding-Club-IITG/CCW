@@ -403,7 +403,7 @@ describe("persisted bracket topology and advancement", () => {
     expect(await ContestMatch.findById(contest._id)).toMatchObject({
       status: "completed",
       cancellationReason:
-        "Registration closed with 3 complete entrants; 4 required.",
+        "Registration closed with 3 complete entrants (4 required).",
     });
     expect(await ContestRoom.countDocuments()).toBe(0);
   });

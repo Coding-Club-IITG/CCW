@@ -317,7 +317,12 @@ export default function ContestProblemConfiguration({
 
             <div className={styles.fineTunedList}>
               {form.fineTunedProblems.map((problem, index) => (
-                <div key={index} className={styles.grid3}>
+                <div
+                  key={index}
+                  className={
+                    form.mode === "blitz" ? styles.grid3 : styles.grid2
+                  }
+                >
                   <div className={styles.field}>
                     <label
                       className={styles.label}
@@ -389,34 +394,36 @@ export default function ContestProblemConfiguration({
                         </span>
                       )}
                   </div>
-                  <div className={styles.field}>
-                    <label
-                      className={styles.label}
-                      htmlFor={`timelimit-${index}`}
-                    >
-                      Time Limit (Mins)
-                    </label>
-                    <input
-                      id={`timelimit-${index}`}
-                      type="number"
-                      min={1}
-                      placeholder="Optional"
-                      value={form.fineTunedProblemTimeLimits?.[index] ?? ""}
-                      onChange={(event) => {
-                        const fineTunedProblemTimeLimits = [
-                          ...(form.fineTunedProblemTimeLimits || []),
-                        ];
-                        const val = parseInt(event.target.value, 10);
+                  {form.mode === "blitz" && (
+                    <div className={styles.field}>
+                      <label
+                        className={styles.label}
+                        htmlFor={`timelimit-${index}`}
+                      >
+                        Time Limit (Mins)
+                      </label>
+                      <input
+                        id={`timelimit-${index}`}
+                        type="number"
+                        min={1}
+                        placeholder="Optional"
+                        value={form.fineTunedProblemTimeLimits?.[index] ?? ""}
+                        onChange={(event) => {
+                          const fineTunedProblemTimeLimits = [
+                            ...(form.fineTunedProblemTimeLimits || []),
+                          ];
+                          const val = parseInt(event.target.value, 10);
 
-                        fineTunedProblemTimeLimits[index] = isNaN(val)
-                          ? (undefined as unknown as number)
-                          : val;
-                        updateForm({ fineTunedProblemTimeLimits });
-                      }}
-                      disabled={presetLocked}
-                      className={styles.formInput}
-                    />
-                  </div>
+                          fineTunedProblemTimeLimits[index] = isNaN(val)
+                            ? (undefined as unknown as number)
+                            : val;
+                          updateForm({ fineTunedProblemTimeLimits });
+                        }}
+                        disabled={presetLocked}
+                        className={styles.formInput}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

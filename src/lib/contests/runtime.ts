@@ -163,7 +163,6 @@ export const contestEventSchema = z
       "contest.bracket_update",
       "contest.round_complete",
       "contest.standing_update",
-      "contest.status_change",
     ]),
   })
   .passthrough();

@@ -225,6 +225,7 @@ export default function CreateRoomModal({
         : contestDefaultMatchMinutes;
 
     const perProblemDurationMinutes =
+      formData.mode === "blitz" &&
       typeof formData.perProblemDurationMinutes === "number" &&
       !Number.isNaN(formData.perProblemDurationMinutes)
         ? formData.perProblemDurationMinutes
@@ -445,7 +446,10 @@ export default function CreateRoomModal({
               platform: "codeforces",
               problemId: pid.trim(),
               points: rawPoints as number,
-              timeLimitMinutes: formData.fineTunedProblemTimeLimits?.[idx],
+              timeLimitMinutes:
+                formData.mode === "blitz"
+                  ? formData.fineTunedProblemTimeLimits?.[idx]
+                  : undefined,
             };
           })
         : undefined;
@@ -826,8 +830,8 @@ export default function CreateRoomModal({
                 </div>
 
                 <p className={styles.hintMuted}>
-                  Seeds use Codeforces ratings frozen at bracket generation,
-                  averaged for teams. Highest seeds receive byes.
+                  Seeds use Codeforces ratings, averaged for teams. Highest
+                  seeds receive byes.
                 </p>
               </div>
 

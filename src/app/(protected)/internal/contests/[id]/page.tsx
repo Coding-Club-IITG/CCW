@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
 
 import { CONTEST_TIMING } from "@/lib/constants";
 
@@ -31,6 +30,8 @@ import CPUser from "@/models/CPUser";
 import BlitzRoomClient from "@/components/contests/BlitzRoomClient";
 import ArenaRoomClient from "@/components/contests/ArenaRoomClient";
 import BracketRoomClient from "@/components/contests/BracketRoomClient";
+import BackLink from "@/components/shared/BackLink";
+import EmptyState from "@/components/shared/EmptyState";
 
 import styles from "./page.module.scss";
 
@@ -67,16 +68,11 @@ export default async function ContestRoomPage({
 
   if (viewAccess.data.contest.cancellationReason)
     return (
-      <div className={styles.stateWrap}>
-        <CalendarX
-          className={`${styles.stateIcon} ${styles.iconError}`}
-          size={60}
-        />
-        <h1 className={styles.stateTitle}>Contest Cancelled</h1>
-        <p className={styles.stateText}>
-          {viewAccess.data.contest.cancellationReason}
-        </p>
-      </div>
+      <ContestRoomState
+        name={contest.name}
+        title="Contest Cancelled"
+        message={viewAccess.data.contest.cancellationReason}
+      />
     );
 
   const admin = isHead(session.user.access);
@@ -165,50 +161,31 @@ export default async function ContestRoomPage({
           redirect(`/internal/contests/rooms/${anyRoom._id.toString()}/result`);
         }
 
-        // No rooms at all - contest was cancelled before provisioning
         return (
-          <div className={styles.stateWrap}>
-            <CalendarX
-              className={`${styles.stateIcon} ${styles.iconError}`}
-              size={60}
-            />
-            <h1 className={styles.stateTitle}>Contest Cancelled</h1>
-            <p className={styles.stateText}>
-              This contest was cancelled (likely due to not enough players).
-            </p>
-          </div>
+          <ContestRoomState
+            name={contest.name}
+            title="No Results Available"
+            message="There are no match results available for this contest."
+          />
         );
       } else if (
         ["draft", "registration", "provisioning"].includes(contest.status)
       ) {
         return (
-          <div className={styles.stateWrap}>
-            <Hourglass
-              className={`${styles.stateIcon} ${styles.iconPrimary} ${styles.spin}`}
-              size={60}
-            />
-            <h1 className={styles.stateTitle}>Match is Preparing</h1>
-            <p className={styles.stateText}>
-              The rooms are currently being provisioned. Please wait...
-            </p>
-            <meta
-              httpEquiv="refresh"
-              content={String(CONTEST_TIMING.preparationRefreshSeconds)}
-            />
-          </div>
+          <ContestRoomState
+            name={contest.name}
+            title="Match is Preparing"
+            message="The rooms are currently being provisioned. Please wait..."
+            refresh
+          />
         );
       } else {
         return (
-          <div className={styles.stateWrap}>
-            <CircleAlert
-              className={`${styles.stateIcon} ${styles.iconError}`}
-              size={60}
-            />
-            <h1 className={styles.stateTitle}>No Room Found</h1>
-            <p className={styles.stateText}>
-              You have not been assigned to a match room for this contest yet.
-            </p>
-          </div>
+          <ContestRoomState
+            name={contest.name}
+            title="No Room Found"
+            message="You have not been assigned to a match room for this contest yet."
+          />
         );
       }
     }
@@ -364,4 +341,35 @@ export default async function ContestRoomPage({
 
   // Other formats are not fully implemented yet
   notFound();
+}
+
+function ContestRoomState({
+  name,
+  title,
+  message,
+  refresh = false,
+}: {
+  name: string;
+  title: string;
+  message: string;
+  refresh?: boolean;
+}) {
+  return (
+    <div className={styles.stateWrap}>
+      <BackLink href="/internal/contests" label="Back to Contests" />
+
+      <header className={styles.stateHeader}>
+        <h1>{name}</h1>
+      </header>
+
+      <EmptyState title={title} hint={message} />
+
+      {refresh && (
+        <meta
+          httpEquiv="refresh"
+          content={String(CONTEST_TIMING.preparationRefreshSeconds)}
+        />
+      )}
+    </div>
+  );
 }

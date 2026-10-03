@@ -204,7 +204,10 @@ describe("Spectator Mode", () => {
 
       getSession.mockResolvedValue(null);
       res = await getContestListing();
-      expect(((res as any).data as any).active[0].canSpectate).toBe(false);
+      expect(res).toMatchObject({
+        ok: false,
+        error: { code: "UNAUTHENTICATED" },
+      });
     });
 
     it("should return canSpectate = true for club_members, admins, or creator when restriction is club_members", async () => {

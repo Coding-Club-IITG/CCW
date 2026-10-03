@@ -268,7 +268,7 @@ export async function generateBracket(
     if (groups.length < minimumBracketEntrants(type)) {
       contest.status = "completed";
       contest.winnerName = "No Winner";
-      contest.cancellationReason = `Registration closed with ${groups.length} complete entrants; ${minimumBracketEntrants(type)} required.`;
+      contest.cancellationReason = `Registration closed with ${groups.length} complete entrants (${minimumBracketEntrants(type)} required).`;
       contest.grandFinalState = "complete";
       await contest.save();
 

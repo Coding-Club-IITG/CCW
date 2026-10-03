@@ -18,10 +18,6 @@ export const createContestRoomSchema = z.object({
     .min(2),
 });
 
-export const contestStatusSchema = z.object({
-  action: z.enum(["publish", "start", "complete"]),
-});
-
 export const contestSyncSchema = z.object({
   roomId: objectIdStringSchema,
   teamId: objectIdStringSchema.optional(),

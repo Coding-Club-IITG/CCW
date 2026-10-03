@@ -8,7 +8,10 @@ import { headers } from "next/headers";
 
 import { err as appError, ok, validationError } from "@/lib/api/result";
 import { defineAction } from "@/lib/actions/defineAction";
-import { canSpectateContest } from "@/lib/access/contests";
+import {
+  authorizeContestView,
+  canSpectateContest,
+} from "@/lib/access/contests";
 import { isHead } from "@/lib/access/roles";
 import {
   contestRegistrationTiming,
@@ -157,7 +160,10 @@ export type ContestListingItem = {
 
 async function getContestListingAction() {
   const session = await auth.api.getSession({ headers: await headers() });
-  const userId = session?.user?.id;
+
+  if (!session?.user?.id) return appError("UNAUTHENTICATED", "Unauthorized");
+
+  const userId = session.user.id;
 
   await connectMongoDB();
 
@@ -327,24 +333,17 @@ async function getContestListingAction() {
 
 async function getContestByIdAction(id: string) {
   const session = await auth.api.getSession({ headers: await headers() });
-  const userId = session?.user?.id;
 
-  await connectMongoDB();
+  if (!session?.user?.id) return appError("UNAUTHENTICATED", "Unauthorized");
 
-  let cpUserId = null;
-
-  if (userId) {
-    const cpUser = await CPUser.findOne({ userId }).lean();
-
-    if (cpUser) {
-      cpUserId = cpUser._id.toString();
-    }
-  }
+  const userId = session.user.id;
 
   try {
-    const contest = await ContestMatch.findById(id).lean();
+    const access = await authorizeContestView(id, session.user);
 
-    if (!contest) return appError("NOT_FOUND", "Contest not found");
+    if (!access.ok) return access;
+
+    const contest = access.data.contest;
 
     const isRegistered = userId
       ? (contest.registrations || []).some(
