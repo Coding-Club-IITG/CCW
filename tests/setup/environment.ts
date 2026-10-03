@@ -8,5 +8,7 @@ Object.assign(process.env, {
   AZURE_TENANT_ID: "test-tenant-id",
 });
 process.env.REDIS_URL ??= "redis://127.0.0.1:6379/15";
-process.env.MONGODB_TEST_URI ??= "mongodb://127.0.0.1:27017";
-process.env.MONGODB_URI ??= "mongodb://127.0.0.1:27017/ccw-test";
+process.env.MONGODB_TEST_URI ??=
+  "mongodb://localhost:27017/?replicaSet=rs0&retryWrites=false";
+process.env.MONGODB_URI ??=
+  "mongodb://localhost:27017/ccw-test?replicaSet=rs0&retryWrites=false";

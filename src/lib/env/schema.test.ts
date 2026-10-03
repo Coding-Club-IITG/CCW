@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+
 import {
   parseBrowserEnv,
   parseCliEnv,
+  parseSharedServerEnv,
   parseTestEnv,
   parseWebEnv,
   parseWorkerEnv,
@@ -20,6 +22,53 @@ const required = {
 };
 
 describe("runtime environment schemas", () => {
+  it.each([parseWebEnv, parseWorkerEnv, parseCliEnv])(
+    "validates key contest timing defaults and bounds",
+    (parse) => {
+      const policies = [
+        ["REGISTRATION_DEADLINE_MINUTES", 3, 1, 1440],
+        ["ROOM_PRE_START_SECONDS", 5, 0, 3600],
+        ["ROOM_READY_TIMEOUT_MINUTES", 2, 1, 1440],
+        ["CONTEST_DEFAULT_MATCH_MINUTES", 60, 1, 1440],
+        ["CONTEST_DEFAULT_BLITZ_PROBLEM_MINUTES", 15, 1, 120],
+        ["CONTEST_JUDGING_GRACE_SECONDS", 120, 0, 600],
+        ["SYNC_COOLDOWN", 60, 0, 3600],
+      ] as const;
+
+      for (const [key, fallback, min, max] of policies) {
+        expect(parse(required)[key]).toBe(fallback);
+        expect(parse({ ...required, [key]: String(min) })[key]).toBe(min);
+        expect(parse({ ...required, [key]: String(max) })[key]).toBe(max);
+
+        for (const invalid of [min - 1, max + 1, 1.5]) {
+          expect(() => parse({ ...required, [key]: String(invalid) })).toThrow(
+            key,
+          );
+        }
+      }
+    },
+  );
+
+  it.each([
+    ["shared server", parseSharedServerEnv],
+    ["web", parseWebEnv],
+    ["worker", parseWorkerEnv],
+    ["CLI", parseCliEnv],
+  ])(
+    "keeps shared Codeforces mocks development-only in the %s profile",
+    (_name, parse) => {
+      expect(parse(required).DEV_MOCK_CF_SUBMISSIONS).toBe(false);
+      expect(
+        parse({ ...required, DEV_MOCK_CF_SUBMISSIONS: "true" })
+          .DEV_MOCK_CF_SUBMISSIONS,
+      ).toBe(true);
+      for (const NODE_ENV of ["test", "production"]) {
+        expect(() =>
+          parse({ ...required, NODE_ENV, DEV_MOCK_CF_SUBMISSIONS: "true" }),
+        ).toThrow(/DEV_MOCK_CF_SUBMISSIONS/);
+      }
+    },
+  );
   it("requires paired Google credentials only for the web process", () => {
     expect(() =>
       parseWebEnv({ ...required, GOOGLE_CLIENT_ID: "google-client" }),
@@ -44,7 +93,7 @@ describe("runtime environment schemas", () => {
       TRUSTED_ORIGINS: ["http://localhost:3000", "https://ccw.example.com"],
       REGISTRATION_DEADLINE_MINUTES: 3,
       ROOM_PRE_START_SECONDS: 5,
-      DISCONNECT_FORFEIT_TIMEOUT_SECONDS: 90,
+      CONTEST_DEFAULT_MATCH_MINUTES: 60,
       ROOM_READY_TIMEOUT_MINUTES: 2,
       SYNC_COOLDOWN: 60,
       FILE_UPLOAD_DIR: "uploads/files",

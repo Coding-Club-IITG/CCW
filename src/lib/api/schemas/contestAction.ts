@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { problemAllocationError } from "@/lib/contests/problemAllocation";
+
+import { minimumBracketEntrants } from "@/lib/contests/bracketTopology";
 import { objectIdStringSchema } from "@/lib/api/schemas/contestRoute";
 
 export const contestModeSchema = z.enum(["blitz", "arena"]);
@@ -10,8 +13,11 @@ export const contestFormatSchema = z.enum([
   "bracket",
 ]);
 export const contestRegistrationTypeSchema = z.enum(["open", "closed"]);
-export const contestProblemSelectionModeSchema = z.enum(["bulk", "fine-tuned"]);
-export const contestSeedingMethodSchema = z.enum(["cf_rating", "manual"]);
+export const contestProblemSelectionModeSchema = z.enum([
+  "test",
+  "bulk",
+  "fine-tuned",
+]);
 
 const dateStringSchema = z
   .string()
@@ -30,6 +36,13 @@ export const contestProblemSlotSchema = z.object({
   platform: z.string().trim().min(1).max(50),
   problemId: z.string().trim().min(1).max(100),
   roundNumber: z.number().int().min(1).optional(),
+  points: z
+    .number()
+    .int()
+    .min(80, "Points must be at least 80")
+    .max(10000)
+    .optional(),
+  timeLimitMinutes: z.number().int().min(1).max(300).optional(),
 });
 
 const contestCreationFields = {
@@ -39,6 +52,7 @@ const contestCreationFields = {
   format: contestFormatSchema.default("bracket"),
   teamSize: z.union([z.literal(1), z.literal(3)]),
   maxParticipants: z.number().int().min(2),
+  entrantCapacity: z.number().int().min(2).max(256).optional(),
   startTime: dateStringSchema,
   registrationType: contestRegistrationTypeSchema,
   registrationStartTime: dateStringSchema.optional(),
@@ -49,17 +63,66 @@ const contestCreationFields = {
   bulkProblemCount: z.number().int().min(1).max(100).optional(),
   bulkMinContestId: z.number().int().min(0).optional(),
   fineTunedProblems: z.array(z.string().trim().min(1).max(100)).optional(),
-  problemSlots: z.array(contestProblemSlotSchema).max(100).default([]),
+  problemSlots: z.array(contestProblemSlotSchema).max(51_200).default([]),
   presetId: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.union([objectIdStringSchema, z.literal("custom")]).optional(),
   ),
-  thirdPlacePlayoff: z.boolean().default(false),
-  seedingMethod: contestSeedingMethodSchema.default("cf_rating"),
-  registeredUsers: z.array(contestRegisteredUserSchema).max(256).default([]),
+  bracketType: z
+    .enum(["single_elimination", "double_elimination"])
+    .default("single_elimination"),
+  overallDurationMinutes: z.number().int().min(1).max(1440).optional(),
+  perProblemDurationMinutes: z.number().int().min(1).max(120).optional(),
+
+  registeredUsers: z.array(contestRegisteredUserSchema).max(768).default([]),
+  spectatorRestriction: z
+    .enum(["none", "all", "admin_creator", "club_members"])
+    .default("none"),
 };
 
-export const contestCreationPayloadSchema = z.object(contestCreationFields);
+export const contestCreationPayloadSchema = z
+  .object(contestCreationFields)
+  .superRefine((data, ctx) => {
+    if (!data.presetId || data.presetId === "custom") {
+      const error = problemAllocationError(data);
+
+      if (error)
+        ctx.addIssue({
+          code: "custom",
+          message: error,
+          path: ["problemSlots"],
+        });
+    }
+
+    if (
+      data.problemSelectionMode === "fine-tuned" &&
+      data.format !== "bracket"
+    ) {
+      if (!data.problemSlots || data.problemSlots.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Problem slots are required for fine-tuned mode.",
+          path: ["problemSlots"],
+        });
+      } else {
+        data.problemSlots.forEach((slot, idx) => {
+          if (slot.points === undefined || slot.points === null) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Problem ${idx + 1} (${slot.problemId}): points are mandatory in fine-tuned mode.`,
+              path: ["problemSlots", idx, "points"],
+            });
+          } else if (slot.points < 80) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Problem ${idx + 1} (${slot.problemId}): points must be at least 80.`,
+              path: ["problemSlots", idx, "points"],
+            });
+          }
+        });
+      }
+    }
+  });
 export const contestCreationDraftSchema = z
   .object({
     ...contestCreationFields,
@@ -80,7 +143,8 @@ export type BracketContestInput = Pick<
   | "maxParticipants"
   | "registrationType"
   | "registeredUsers"
-  | "seedingMethod"
+  | "entrantCapacity"
+  | "bracketType"
 >;
 
 export type BracketInputValidationResult =
@@ -89,7 +153,19 @@ export type BracketInputValidationResult =
 export function validateBracketContestInput(
   data: BracketContestInput,
 ): BracketInputValidationResult {
-  const { teamSize, maxParticipants, registrationType, seedingMethod } = data;
+  const { teamSize, maxParticipants, registrationType } = data;
+  const minimum = minimumBracketEntrants(data.bracketType);
+  if (!data.entrantCapacity || data.entrantCapacity < minimum)
+    return {
+      success: false,
+      error: `This bracket requires capacity for at least ${minimum} entrants.`,
+    };
+  if (maxParticipants !== data.entrantCapacity * teamSize)
+    return {
+      success: false,
+      error:
+        "Participant capacity must equal entrant capacity times team size.",
+    };
 
   if (teamSize === 3 && maxParticipants < teamSize * 2) {
     return {
@@ -121,13 +197,13 @@ export function validateBracketContestInput(
   }
 
   if (registrationType === "closed") {
-    if (registeredUsers.length < teamSize * 2) {
+    if (registeredUsers.length < teamSize * minimum) {
       return {
         success: false,
         error:
           teamSize === 1
-            ? "Closed brackets require at least 2 participants."
-            : "Closed team brackets require at least two complete teams.",
+            ? `Closed brackets require at least ${minimum} entrants.`
+            : `Closed team brackets require at least ${minimum} complete teams.`,
       };
     }
 
@@ -154,13 +230,6 @@ export function validateBracketContestInput(
     return {
       success: false,
       error: "Open brackets cannot include pre-registered users.",
-    };
-  }
-
-  if (seedingMethod !== "cf_rating" && seedingMethod !== "manual") {
-    return {
-      success: false,
-      error: "Seeding method must be either 'cf_rating' or 'manual'.",
     };
   }
 

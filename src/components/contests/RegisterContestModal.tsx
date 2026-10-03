@@ -15,8 +15,12 @@ import {
   getAvailableTeamsForContest,
   getContestRegistrations,
   unregisterFromContest,
+  requestToJoinContestTeam,
 } from "@/lib/actions/contests";
-import type { ContestRegistrationDto } from "@/lib/contests/dtos";
+import type {
+  ContestRegistrationDto,
+  ContestAvailableTeamDto,
+} from "@/lib/contests/dtos";
 
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import Modal from "@/components/shared/Modal";
@@ -47,11 +51,11 @@ export default function RegisterContestModal({
     teamSize === 1 ? "solo" : "new",
   );
   const [teamName, setTeamName] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
   const [availableTeams, setAvailableTeams] = useState<
-    { teamName: string; memberCount: number; maxCapacity: number }[]
+    ContestAvailableTeamDto[]
   >([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
-
   const [registrations, setRegistrations] = useState<ContestRegistrationDto[]>(
     [],
   );
@@ -72,6 +76,7 @@ export default function RegisterContestModal({
       getAvailableTeamsForContest(contestId)
         .then((result) => {
           if (result.ok) setAvailableTeams(result.data);
+
           setLoadingTeams(false);
         })
         .catch(() => {
@@ -83,21 +88,16 @@ export default function RegisterContestModal({
   useEffect(() => {
     if (isOpen) {
       setLoadingRegistrations(true);
-      Promise.resolve()
-        .then(() => {
-          getContestRegistrations(contestId)
-            .then((res) => {
-              if (res.ok) {
-                setRegistrations(res.data.registrations || []);
-                setFormat(res.data.format || "unknown");
-                setIsDeadlinePassed(res.data.isDeadlinePassed || false);
-                setRegistrationType(res.data.registrationType || "open");
-              }
-              setLoadingRegistrations(false);
-            })
-            .catch(() => {
-              setLoadingRegistrations(false);
-            });
+      getContestRegistrations(contestId)
+        .then((res) => {
+          if (res.ok) {
+            setRegistrations(res.data.registrations || []);
+            setFormat(res.data.format || "unknown");
+            setIsDeadlinePassed(res.data.isDeadlinePassed || false);
+            setRegistrationType(res.data.registrationType || "open");
+          }
+
+          setLoadingRegistrations(false);
         })
         .catch(() => {
           setLoadingRegistrations(false);
@@ -107,17 +107,39 @@ export default function RegisterContestModal({
 
   if (!isOpen) return null;
 
+  const selectedTeamInfo =
+    mode === "existing"
+      ? availableTeams.find((t) => t.teamName === teamName)
+      : undefined;
+  const isPrivateTeamSelected = selectedTeamInfo?.isPublic === false;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isSoloFormat = ["1v1", "solo-tournament"].includes(format);
+
+    if (isPrivateTeamSelected) {
+      await handleRequestToJoin();
+
+      return;
+    }
+
+    const isSoloFormat =
+      ["1v1", "solo-tournament"].includes(format) || teamSize === 1;
+
     if (!isSoloFormat && !teamName.trim()) {
       toast.error("Please provide a team name.");
+
       return;
     }
 
     setLoading(true);
+
     try {
-      const res = await registerForContest(contestId, teamName);
+      const res = await registerForContest(
+        contestId,
+        teamName,
+        mode === "new" ? isPublic : undefined,
+      );
+
       if (res.ok) {
         toast.success("Registered successfully!");
         onClose();
@@ -132,6 +154,30 @@ export default function RegisterContestModal({
     }
   };
 
+  const handleRequestToJoin = async () => {
+    if (!selectedTeamInfo?.teamId) return;
+
+    setLoading(true);
+
+    try {
+      const res = await requestToJoinContestTeam(
+        contestId,
+        selectedTeamInfo.teamId,
+      );
+
+      if (res.ok) {
+        toast.success("Join request sent! The team leader will review it.");
+        onClose();
+      } else {
+        toast.error(res.error.message);
+      }
+    } catch {
+      toast.error("Error sending request");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleUnregister = async () => {
     const confirmed = await confirm({
       title: "Leave this contest?",
@@ -139,10 +185,14 @@ export default function RegisterContestModal({
         "Your registration will be withdrawn. You can register again while registration stays open.",
       confirmLabel: "Leave contest",
     });
+
     if (!confirmed) return;
+
     setLoading(true);
+
     try {
       const res = await unregisterFromContest(contestId);
+
       if (res.ok) {
         toast.success("Successfully unregistered!");
         onClose();
@@ -165,6 +215,7 @@ export default function RegisterContestModal({
           Loading registrations...
         </div>
       );
+
     if (registrations.length === 0)
       return (
         <div className={styles.regEmpty}>
@@ -191,10 +242,13 @@ export default function RegisterContestModal({
       );
     } else {
       const teams: Record<string, ContestRegistrationDto[]> = {};
+
       registrations.forEach((r) => {
         if (!teams[r.teamName]) teams[r.teamName] = [];
+
         teams[r.teamName].push(r);
       });
+
       return (
         <div className={`${styles.regList} ${styles.teamList}`}>
           {Object.entries(teams).map(([tName, members], i) => (
@@ -236,6 +290,12 @@ export default function RegisterContestModal({
     }
   };
 
+  const registerLabel = loading
+    ? "Submitting..."
+    : isPrivateTeamSelected
+      ? "Request to Join"
+      : "Register";
+
   const footer = viewOnly ? (
     <>
       {!isDeadlinePassed && registrationType !== "closed" && (
@@ -273,7 +333,7 @@ export default function RegisterContestModal({
         form="register-contest-form"
         disabled={loading}
       >
-        {loading ? "Registering..." : "Register"}
+        {registerLabel}
       </button>
     </>
   );
@@ -311,7 +371,6 @@ export default function RegisterContestModal({
                 <div className={styles.field}>
                   <span className={styles.fieldLabel}>Registration Mode</span>
                   <div className={styles.radioGroup}>
-                    {/* Option: Create New Team */}
                     <label className={styles.radioLabel}>
                       <input
                         className={styles.radio}
@@ -324,8 +383,6 @@ export default function RegisterContestModal({
                       <div className={styles.radioDot}></div>
                       <span className={styles.radioText}>Create New Team</span>
                     </label>
-
-                    {/* Option: Join Existing */}
                     <label className={styles.radioLabel}>
                       <input
                         className={styles.radio}
@@ -346,8 +403,8 @@ export default function RegisterContestModal({
                 </div>
               )}
 
-              {/* Team Name Text Input */}
-              {!["1v1", "solo-tournament"].includes(format) && (
+              {/* Team Name Input */}
+              {teamSize > 1 && (
                 <div className={styles.field}>
                   <label className={styles.fieldLabel} htmlFor="team_name">
                     {mode === "existing"
@@ -385,7 +442,7 @@ export default function RegisterContestModal({
                             availableTeams.map((t) => (
                               <option key={t.teamName} value={t.teamName}>
                                 {t.teamName} ({t.memberCount}/{t.maxCapacity}{" "}
-                                members)
+                                members){!t.isPublic ? " · Private" : ""}
                               </option>
                             ))
                           )}
@@ -415,6 +472,37 @@ export default function RegisterContestModal({
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* Privacy for new teams */}
+              {mode === "new" && teamSize > 1 && (
+                <div className={styles.field}>
+                  <label className={styles.fieldLabel}>Team Privacy</label>
+                  <div className={styles.checkboxRow}>
+                    <input
+                      type="checkbox"
+                      id="is_public"
+                      checked={isPublic}
+                      onChange={(e) => setIsPublic(e.target.checked)}
+                    />
+                    <label htmlFor="is_public" className={styles.checkboxLabel}>
+                      Make team public (anyone can join directly)
+                    </label>
+                  </div>
+                  {!isPublic && (
+                    <p className={styles.soloNote}>
+                      Members can join through invitations or requests approved
+                      by the team leader.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {isPrivateTeamSelected && (
+                <p className={styles.soloNote}>
+                  This is a private team. Submit a request for its leader to
+                  review.
+                </p>
               )}
             </form>
           )}

@@ -1,309 +1,372 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 
-import { jsonError, jsonResult } from "@/lib/api/result.server";
-import { auth } from "@/lib/auth/server";
-import { webEnv } from "@/lib/env/web";
-import { getRedis } from "@/lib/db/redis";
-import { logger } from "@/lib/telemetry/logger";
-import { connectMongoDB } from "@/lib/db/mongodb";
-import { publishRoom, publishUser } from "@/lib/contests/events";
-import { reconciliationQueue } from "@/lib/contests/queues";
-import {
-  contestRoomStateSchema,
-  parseContestRoomProblems,
-} from "@/lib/contests/runtime";
-import { parseSearchParams } from "@/lib/api/result";
-import { contestStreamQuerySchema } from "@/lib/api/schemas/contestRoute";
+import { CONTEST_TIMING } from "@/lib/constants";
 
+import { authorizeContestView, authorizeRoomView } from "@/lib/access/contests";
+import { parseSearchParams } from "@/lib/api/result";
+import {
+  boundaryErrorResponse,
+  jsonError,
+  jsonResult,
+} from "@/lib/api/result.server";
+import { contestStreamQuerySchema } from "@/lib/api/schemas/contestRoute";
+import { auth } from "@/lib/auth/server";
+import { publishRoom } from "@/lib/contests/events";
+import {
+  getRoomOnlineUserIds,
+  updateRoomPresence,
+} from "@/lib/contests/presence";
+import { roomActivitySchema } from "@/lib/contests/runtime";
+import { getRedis } from "@/lib/db/redis";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
+import { roomGameplaySnapshot } from "@/lib/contests/roomSnapshot";
+import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestRoom from "@/models/ContestRoom";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session?.user) {
-    return jsonError("UNAUTHENTICATED", "Unauthorized");
-  }
-  const userId = session.user.id;
+  try {
+    const session = await auth.api.getSession({ headers: request.headers });
 
-  const query = parseSearchParams(
-    request.nextUrl.searchParams,
-    contestStreamQuerySchema,
-  );
-  if (!query.ok) return jsonResult(query);
-
-  await connectMongoDB();
-
-  const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
-  const activeRooms = isValidObjectId
-    ? await ContestRoom.find({
-        participants: userId,
-        status: { $in: ["waiting", "active"] },
-      }).lean()
-    : [];
-
-  const redis = await getRedis();
-
-  for (const room of activeRooms) {
-    const roomId = room._id.toString();
-    const presenceKey = `room:${roomId}:presence:${userId}`;
-    await redis.set(presenceKey, "online");
-    await redis.persist(presenceKey);
-
-    const stateObj = contestRoomStateSchema.parse(
-      await redis.hGetAll(`room:${roomId}:state`),
-    );
-    const currentStatus = stateObj?.status || "unknown";
-
-    let cancelled = false;
-
-    if (currentStatus === "active") {
-      const allTeams = await redis.sMembers(`room:${roomId}:teams`);
-      let activeTeamsCount = 0;
-
-      for (const tId of allTeams) {
-        const members = await redis.sMembers(`team:${tId}:users`);
-        let isTeamActive = false;
-        for (const mId of members) {
-          const isOnline = await redis.exists(`room:${roomId}:presence:${mId}`);
-          if (isOnline) {
-            isTeamActive = true;
-            break;
-          }
-        }
-        if (isTeamActive) {
-          activeTeamsCount++;
-        }
-      }
-
-      if (activeTeamsCount > 1) {
-        const { Job } = await import("bullmq");
-        const job = await Job.fromId(
-          reconciliationQueue,
-          `disconnect-timeout-${roomId}`,
-        );
-        if (job) {
-          await job.remove();
-          cancelled = true;
-        }
-      }
+    if (!session?.user) {
+      return jsonError("UNAUTHENTICATED", "Authentication required.");
     }
 
-    // Publish online status
-    await publishRoom(roomId, {
-      type: "presence.online",
-      userId,
-      cancelledForfeit: cancelled,
+    const query = parseSearchParams(
+      request.nextUrl.searchParams,
+      contestStreamQuerySchema,
+    );
+
+    if (!query.ok) {
+      return jsonResult(query);
+    }
+
+    const { contestId } = query.data;
+    const { roomId } = query.data;
+    const access = roomId
+      ? await authorizeRoomView(roomId, session.user, contestId)
+      : await authorizeContestView(contestId!, session.user);
+
+    if (!access.ok) {
+      return jsonResult(access);
+    }
+
+    const roomAccess = "room" in access.data ? access.data : null;
+    const userId = session.user.id;
+    const channel = roomId
+      ? `events:room:${roomId}`
+      : `events:contest:${contestId}`;
+    const userChannel = `events:user:${userId}`;
+    const channels = [
+      channel,
+      ...(roomAccess?.isParticipant ? [userChannel] : []),
+    ];
+    const redis = await getRedis();
+    const subscriber = redis.duplicate();
+
+    subscriber.on("error", (error) => {
+      if (closed) {
+        return;
+      }
+
+      logger.error("Contest stream subscriber failed", {
+        operation: "subscribe",
+        ...errorToLogMetadata(error),
+      });
+      void cleanup();
     });
 
-    // Send a full state resync directly to the reconnecting user so they catch up on any
-    // changes that happened while they were disconnected (missed SSE events).
-    if (currentStatus === "active" || currentStatus === "waiting") {
-      try {
-        const problemsRaw = await redis.lRange(
-          `room:${roomId}:problems`,
-          0,
-          -1,
+    let closed = false;
+    let interval: ReturnType<typeof setInterval> | undefined;
+    let controller: ReadableStreamDefaultController<Uint8Array>;
+    let pending = Promise.resolve();
+    let closing: Promise<void> | undefined;
+    let present = false;
+    const connection = {
+      userId,
+      id: randomUUID(),
+      expirySeconds: CONTEST_TIMING.presenceExpirySeconds,
+    };
+    const encoder = new TextEncoder();
+
+    function send(event: string, data: unknown) {
+      if (!closed) {
+        controller.enqueue(
+          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
         );
-        const problems = parseContestRoomProblems(problemsRaw);
+      }
+    }
 
-        const allTeams = await redis.sMembers(`room:${roomId}:teams`);
-        const scores: Record<string, number> = {};
-        for (const tId of allTeams) {
-          const s = await redis.zScore(`room:${roomId}:scores`, tId);
-          scores[tId] = s ? parseFloat(s.toString()) : 0;
-        }
+    function enqueue(operation: () => Promise<void>) {
+      // Serialize setup and heartbeats so cleanup can wait for in-flight presence work
+      pending = pending
+        .then(async () => {
+          if (!closed) {
+            await operation();
+          }
+        })
+        .catch((error) => {
+          if (closed) {
+            return;
+          }
 
-        const locks =
-          stateObj.type === "arena"
-            ? await redis.hGetAll(`room:${roomId}:locks`)
-            : {};
-
-        await publishUser(userId, {
-          type: "room.state_sync",
-          roomId,
-          state: stateObj,
-          problems,
-          scores,
-          locks,
+          logger.error("Contest stream operation failed", {
+            operation: "stream",
+            ...errorToLogMetadata(error),
+          });
+          void cleanup();
         });
-      } catch (syncErr) {
-        logger.error("[SSE] Failed to send reconnect state_sync:", syncErr);
-      }
-    }
-  }
-
-  const channels = [`events:user:${userId}`];
-  for (const room of activeRooms) {
-    const roomId = room._id.toString();
-    const contestId = room.contestId.toString();
-    channels.push(`events:room:${roomId}`);
-    channels.push(`events:contest:${contestId}`);
-  }
-
-  const contestIdFromQuery = query.data.contestId;
-  if (contestIdFromQuery) {
-    const contestChannel = `events:contest:${contestIdFromQuery}`;
-    if (!channels.includes(contestChannel)) {
-      channels.push(contestChannel);
-    }
-  }
-
-  const roomIdFromQuery = query.data.roomId ?? query.data.rooms;
-  if (roomIdFromQuery) {
-    const roomChannel = `events:room:${roomIdFromQuery}`;
-    if (!channels.includes(roomChannel)) {
-      channels.push(roomChannel);
-    }
-  }
-
-  const subscriber = redis.duplicate();
-  await subscriber.connect();
-
-  let isClosed = false;
-
-  let intervalId: NodeJS.Timeout | null = null;
-
-  const cleanup = async () => {
-    if (isClosed) return;
-    isClosed = true;
-    if (intervalId) clearInterval(intervalId);
-
-    try {
-      await subscriber.unsubscribe();
-      await subscriber.disconnect();
-    } catch (err) {
-      logger.error("[SSE] Error disconnecting subscriber client:", err);
     }
 
-    try {
-      for (const room of activeRooms) {
-        const roomId = room._id.toString();
-        const presenceKey = `room:${roomId}:presence:${userId}`;
+    // Recheck live permissions
+    async function stillAllowed() {
+      const current = await auth.api.getSession({ headers: request.headers });
 
-        // Delete presence immediately instead of setting an expiration
-        await redis.del(presenceKey);
-
-        const stateObj = await redis.hGetAll(`room:${roomId}:state`);
-        const currentStatus = stateObj?.status || "unknown";
-
-        if (currentStatus === "active") {
-          const allTeams = await redis.sMembers(`room:${roomId}:teams`);
-          let activeTeamsCount = 0;
-
-          for (const tId of allTeams) {
-            const members = await redis.sMembers(`team:${tId}:users`);
-            let isTeamActive = false;
-            for (const mId of members) {
-              const isOnline = await redis.exists(
-                `room:${roomId}:presence:${mId}`,
-              );
-              if (isOnline) {
-                isTeamActive = true;
-                break;
-              }
-            }
-            if (isTeamActive) {
-              activeTeamsCount++;
-            }
-          }
-
-          if (activeTeamsCount <= 1) {
-            const timeoutSeconds = webEnv.DISCONNECT_FORFEIT_TIMEOUT_SECONDS;
-
-            // Publish offline status with timeout warning
-            await publishRoom(roomId, {
-              type: "presence.offline",
-              userId,
-              forfeitTimeout: timeoutSeconds,
-            });
-
-            await reconciliationQueue.add(
-              "mid_match_disconnect_timeout",
-              {
-                roomId,
-                userId,
-                contestId: room.contestId.toString(),
-                trigger: "disconnect",
-              },
-              {
-                delay: timeoutSeconds * 1000,
-                jobId: `disconnect-timeout-${roomId}`,
-              },
-            );
-          } else {
-            // Publish offline status without scheduling forfeit
-            await publishRoom(roomId, { type: "presence.offline", userId });
-          }
-        } else {
-          // If room is not active (Eg. waiting), just publish offline status normally
-          await publishRoom(roomId, { type: "presence.offline", userId });
-        }
-      }
-    } catch (err) {
-      logger.error("[SSE] Error processing disconnect logic:", err);
-    }
-  };
-
-  request.signal.addEventListener("abort", () => {
-    cleanup();
-  });
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      const sendEvent = (event: string, data: unknown) => {
-        if (isClosed) return;
-        try {
-          const formatted = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-          controller.enqueue(new TextEncoder().encode(formatted));
-        } catch (e) {
-          cleanup();
-        }
-      };
-
-      if (!isClosed) {
-        intervalId = setInterval(() => {
-          sendEvent("ping", { time: Date.now() });
-        }, 15000);
+      if (current?.user.id !== userId) {
+        return false;
       }
 
-      sendEvent("connected", {
-        userId,
-        subscribedChannels: channels,
-      });
+      const result = roomId
+        ? await authorizeRoomView(roomId, current.user, contestId)
+        : await authorizeContestView(contestId!, current.user);
 
-      logger.info("Contest SSE client connected", {
-        route: "GET /api/contests/stream",
-        operation: "subscribe",
-        contestId: contestIdFromQuery ?? undefined,
-        channelCount: channels.length,
-      });
+      if (!result.ok) {
+        return false;
+      }
+
+      return (
+        !roomAccess ||
+        ("isSpectator" in result.data &&
+          result.data.isSpectator === roomAccess.isSpectator)
+      );
+    }
+
+    async function presence(operation: "refresh" | "remove") {
+      if (!roomId || !roomAccess) {
+        return;
+      }
+
+      const changes = await updateRoomPresence(
+        roomId,
+        roomAccess.isParticipant ? operation : "prune",
+        roomAccess.isParticipant ? connection : undefined,
+      );
+
+      for (const joined of changes.joinedUserIds) {
+        await publishRoom(roomId, { type: "presence.online", userId: joined });
+      }
+
+      for (const left of changes.leftUserIds) {
+        await publishRoom(roomId, { type: "presence.offline", userId: left });
+      }
+
+      return changes.onlineUserIds;
+    }
+
+    function cleanup(): Promise<void> {
+      if (closing) {
+        return closing;
+      }
+
+      closed = true;
+
+      if (interval) {
+        clearInterval(interval);
+      }
+
+      request.signal.removeEventListener("abort", abort);
 
       try {
-        await subscriber.subscribe(channels, (message, channel) => {
-          let parsed = message;
-          try {
-            parsed = JSON.parse(message);
-          } catch (e) {}
-          sendEvent("message", { channel, payload: parsed });
-        });
-      } catch (err) {
-        logger.error("[SSE] Failed to subscribe to Redis channels:", err);
-        controller.error(err);
-        await cleanup();
+        controller?.close();
+      } catch {
+        /* The reader may already have cancelled */
       }
-    },
-    async cancel() {
-      await cleanup();
-    },
-  });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    },
-  });
+      closing = (async () => {
+        // Stop setup/reconnect attempts even if initialization is pending
+        if (subscriber.isOpen) {
+          subscriber.destroy();
+        }
+
+        await pending;
+
+        try {
+          if (present) {
+            await presence("remove");
+          }
+        } catch (error) {
+          logger.error("Contest presence cleanup failed", {
+            operation: "disconnect",
+            ...errorToLogMetadata(error),
+          });
+        }
+      })();
+
+      return closing;
+    }
+
+    function abort() {
+      void cleanup();
+    }
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(streamController) {
+        controller = streamController;
+        request.signal.addEventListener("abort", abort, { once: true });
+
+        if (request.signal.aborted) {
+          void cleanup();
+
+          return;
+        }
+
+        enqueue(async () => {
+          await subscriber.connect();
+
+          if (closed) {
+            return;
+          }
+
+          await subscriber.subscribe(channels, (message, receivedChannel) => {
+            enqueue(async () => {
+              let payload: unknown;
+
+              try {
+                payload = JSON.parse(message);
+              } catch {
+                return;
+              }
+
+              if (
+                receivedChannel === userChannel &&
+                (!payload ||
+                  typeof payload !== "object" ||
+                  !("roomId" in payload) ||
+                  payload.roomId !== roomId)
+              ) {
+                return;
+              }
+
+              if (!(await stillAllowed())) {
+                void cleanup();
+
+                return;
+              }
+
+              send("message", { channel: receivedChannel, payload });
+            });
+          });
+
+          if (closed) {
+            return;
+          }
+
+          if (!(await stillAllowed())) {
+            void cleanup();
+
+            return;
+          }
+
+          send("connected", { userId, subscribedChannels: channels });
+
+          if (roomAccess && roomId) {
+            present = roomAccess.isParticipant;
+            await presence("refresh");
+
+            const currentRoom = await ContestRoom.findById(roomId).lean();
+
+            if (!currentRoom) {
+              void cleanup();
+              return;
+            }
+
+            const problemSet = await ContestProblemSet.findOne({
+              roomId,
+            }).lean();
+            const { state, scores, locks, problems } = roomGameplaySnapshot(
+              currentRoom,
+              roomAccess.contest.mode,
+              problemSet?.problems ?? [],
+            );
+
+            const activityLogs = (
+              await redis.lRange(`room:${roomId}:activity_logs`, 0, -1)
+            ).flatMap((raw) => {
+              try {
+                const parsed = roomActivitySchema.safeParse(JSON.parse(raw));
+
+                return parsed.success ? [parsed.data] : [];
+              } catch {
+                return [];
+              }
+            });
+            // Send reconnect state only to this connection
+            send("message", {
+              channel,
+              payload: {
+                type: "room.state_sync",
+                roomId,
+                state,
+                scores,
+                activityLogs,
+                admittedUserIds: currentRoom.admissions.map((admission) =>
+                  String(admission.userId),
+                ),
+                problems:
+                  state.status === "active" || state.status === "completed"
+                    ? problems
+                    : [],
+                locks,
+                readyUserIds: currentRoom.readyUserIds.map(String),
+                onlineUserIds: await getRoomOnlineUserIds(roomId),
+              },
+            });
+          } else {
+            send("message", {
+              channel,
+              payload: { type: "contest.bracket_update" },
+            });
+          }
+
+          if (!closed) {
+            interval = setInterval(() => {
+              enqueue(async () => {
+                if (!(await stillAllowed())) {
+                  void cleanup();
+
+                  return;
+                }
+
+                const onlineUserIds = await presence("refresh");
+
+                if (roomId) {
+                  send("message", {
+                    channel,
+                    payload: { type: "presence.sync", roomId, onlineUserIds },
+                  });
+                }
+
+                send("ping", { time: Date.now() });
+              });
+            }, CONTEST_TIMING.heartbeatSeconds * 1000);
+          }
+        });
+      },
+      cancel: cleanup,
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  } catch (error) {
+    return boundaryErrorResponse("GET /api/contests/stream", error, request);
+  }
 }

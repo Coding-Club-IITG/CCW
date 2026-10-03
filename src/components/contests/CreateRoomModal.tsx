@@ -1,32 +1,34 @@
 "use client";
 
-import {
-  GripVertical,
-  Lock,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Lock, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { formatDateTimeInput, parseDateTimeInput } from "@/lib/shared/dates";
+import { CONTEST_TIMING } from "@/lib/constants";
+import { problemAllocationError } from "@/lib/contests/problemAllocation";
+import { bracketProblemRequirements } from "@/lib/contests/bracketTopology";
 import {
   createRoomContest,
   searchVerifiedUsers,
   createBracketContest,
 } from "@/lib/actions/contests";
 import { getDisplayName } from "@/lib/users/identity";
+import {
+  contestStartTimeError,
+  type ContestRegistrationTiming,
+} from "@/lib/contests/registrationTiming";
 
+import { useRuntimeConfig } from "@/components/layout/Providers";
 import ContestProblemConfiguration from "@/components/contests/ContestProblemConfiguration";
 import {
   applyContestFormatDefaults,
   applyContestPreset,
   createInitialContestForm,
   getMaxParticipantsError,
-  reorderContestEntries,
   type ContestCreationPreset,
+  type ContestCreationForm,
   type ContestParticipant,
 } from "@/components/contests/contestCreationForm";
 import CompatibleImage from "@/components/shared/CompatibleImage";
@@ -41,14 +43,17 @@ export default function CreateRoomModal({
   onClose,
   isHead = false,
   presets = [],
-  deadlineMinutes = 1,
+  registrationTiming,
 }: {
   isOpen: boolean;
   onClose: () => void;
   isHead?: boolean;
   presets?: ContestCreationPreset[];
-  deadlineMinutes?: number;
+  registrationTiming: ContestRegistrationTiming;
 }) {
+  const { deadlineMinutes } = registrationTiming;
+  const { contestDefaultMatchMinutes, contestDefaultBlitzProblemMinutes } =
+    useRuntimeConfig();
   const router = useRouter();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
@@ -65,7 +70,12 @@ export default function CreateRoomModal({
     return styles.ratingRed;
   };
 
-  const [formData, setFormData] = useState(createInitialContestForm);
+  const [formData, setFormData] = useState(() =>
+    createInitialContestForm(isHead, {
+      overallMinutes: contestDefaultMatchMinutes,
+      problemMinutes: contestDefaultBlitzProblemMinutes,
+    }),
+  );
 
   const [registeredUsers, setRegisteredUsers] = useState<ContestParticipant[]>(
     [],
@@ -84,23 +94,24 @@ export default function CreateRoomModal({
   const [searchResults, setSearchResults] = useState<ContestParticipant[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedUserIndex, setSelectedUserIndex] = useState(0);
-  const [draggedUserIndex, setDraggedUserIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [draggedTeamIndex, setDraggedTeamIndex] = useState<number | null>(null);
-  const [dragOverTeamIndex, setDragOverTeamIndex] = useState<number | null>(
-    null,
-  );
 
   useEffect(() => {
+    let cancelled = false;
+    setIsSearching(false);
+
     if (searchQuery.length < 2) {
       setSearchResults([]);
+
       return;
     }
+
     const timer = setTimeout(async () => {
       setIsSearching(true);
+
       try {
         const res = await searchVerifiedUsers(searchQuery);
-        if (res.ok && res.data.users) {
+
+        if (!cancelled && res.ok && res.data.users) {
           const isUserInAnyTeam = (id: string) =>
             manualTeams.some((t) => t.members.some((m) => m.id === id));
           const filtered = res.data.users.filter(
@@ -108,29 +119,36 @@ export default function CreateRoomModal({
               !registeredUsers.some((invitee) => invitee.id === user.id) &&
               !isUserInAnyTeam(user.id),
           );
+
           setSearchResults(filtered);
           setSelectedUserIndex(0);
         }
       } catch {
-        setSearchResults([]);
+        if (!cancelled) setSearchResults([]);
       } finally {
-        setIsSearching(false);
+        if (!cancelled) setIsSearching(false);
       }
-    }, 300);
-    return () => clearTimeout(timer);
+    }, CONTEST_TIMING.searchDebounceMs);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [manualTeams, registeredUsers, searchQuery]);
 
   useEffect(() => {
     setFormData(applyContestFormatDefaults);
-  }, [formData.format]);
+  }, [formData.format, formData.teamSize, formData.entrantCapacity]);
 
   const handleTopPresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;
+
     setTopPresetId(id);
 
     if (!id) return;
 
     const preset = presets.find((p) => p._id === id);
+
     if (preset) {
       setFormData((prev) => applyContestPreset(prev, preset));
     }
@@ -138,9 +156,12 @@ export default function CreateRoomModal({
 
   const [maxPartError, setMaxPartError] = useState("");
   const [fineTunedCountError, setFineTunedCountError] = useState("");
+
   useEffect(() => {
-    setMaxPartError(getMaxParticipantsError(formData, manualTeams.length));
-  }, [formData, manualTeams.length]);
+    setMaxPartError(
+      getMaxParticipantsError(formData, manualTeams.length, isHead),
+    );
+  }, [formData, manualTeams.length, isHead]);
 
   if (!isOpen) return null;
 
@@ -159,14 +180,34 @@ export default function CreateRoomModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const start = new Date(formData.startTime);
-    // Dynamic check based on variable passed down from server
-    // Eg. if deadlineMinutes is 1, minimum wait is (1 + 1) = 2 mins
-    const requiredBufferMinutes = deadlineMinutes + 1;
-    if (start.getTime() < Date.now() + requiredBufferMinutes * 60000 - 5000) {
+    const start = parseDateTimeInput(formData.startTime);
+    if (!start) {
+      toast.error("A valid start time is required.");
+      return;
+    }
+    const isCasual1v1 =
+      formData.format === "1v1" && formData.registrationType === "closed";
+    const startError = contestStartTimeError(
+      start.toISOString(),
+      isCasual1v1,
+      registrationTiming,
+    );
+
+    if (startError) {
+      toast.error(startError);
+
+      return;
+    }
+
+    if (
+      !isHead &&
+      formData.format === "bracket" &&
+      Number(formData.entrantCapacity) > 8
+    ) {
       toast.error(
-        `Start time (Deadline) must be at least ${requiredBufferMinutes} minutes ahead of the current time (to allow for the ${deadlineMinutes}-minute registration deadline plus a 1-minute buffer).`,
+        "Non-admin users cannot create a knockout tournament with more than 8 entrants.",
       );
+
       return;
     }
 
@@ -177,33 +218,55 @@ export default function CreateRoomModal({
       return;
     }
 
+    const overallDurationMinutes =
+      typeof formData.overallDurationMinutes === "number" &&
+      !Number.isNaN(formData.overallDurationMinutes)
+        ? formData.overallDurationMinutes
+        : contestDefaultMatchMinutes;
+
+    const perProblemDurationMinutes =
+      formData.mode === "blitz" &&
+      typeof formData.perProblemDurationMinutes === "number" &&
+      !Number.isNaN(formData.perProblemDurationMinutes)
+        ? formData.perProblemDurationMinutes
+        : undefined;
+
     if (
       formData.format !== "bracket" &&
       formData.problemSelectionMode === "fine-tuned"
     ) {
       const emptyIndex = formData.fineTunedProblems.findIndex((p) => !p.trim());
+
       if (emptyIndex !== -1) {
         toast.error(`Please enter a Problem ID for Problem ${emptyIndex + 1}.`);
+
         return;
       }
     }
 
     let regStartIso = undefined;
+
     if (formData.registrationStartMode === "schedule") {
-      const rStart = new Date(formData.registrationStartTime);
-      if (isNaN(rStart.getTime()) || rStart.getTime() <= Date.now()) {
+      const rStart = parseDateTimeInput(formData.registrationStartTime);
+
+      if (!rStart || rStart.getTime() <= Date.now()) {
         toast.error("Scheduled registration start time must be in the future.");
+
         return;
       }
+
       if (rStart.getTime() >= start.getTime()) {
         toast.error("Registration must start before the contest deadline.");
+
         return;
       }
+
       regStartIso = rStart.toISOString();
     }
 
     let finalRegisteredUsers =
       formData.registrationType === "closed" ? registeredUsers : [];
+
     if (formData.registrationType === "closed") {
       if (useTeamsUI) {
         for (const team of manualTeams) {
@@ -211,9 +274,11 @@ export default function CreateRoomModal({
             toast.error(
               `Team "${team.name}" does not have exactly ${membersPerTeamLimit} member(s).`,
             );
+
             return;
           }
         }
+
         finalRegisteredUsers = manualTeams.flatMap((team) =>
           team.members.map((member) => ({ ...member, teamName: team.name })),
         );
@@ -221,9 +286,11 @@ export default function CreateRoomModal({
         if (formData.format === "1v1") {
           if (registeredUsers.length !== 2) {
             toast.error("1v1 format requires exactly 2 participants.");
+
             return;
           }
         }
+
         finalRegisteredUsers = registeredUsers.map((member) => ({
           ...member,
           teamName: member.name || member.cfHandle,
@@ -232,8 +299,12 @@ export default function CreateRoomModal({
     }
 
     if (formData.format === "bracket") {
-      if (!formData.presetId) {
+      // If we are creating manually (no topPresetId), it's a custom bracket configuration
+      const effectivePresetId = topPresetId ? formData.presetId : "custom";
+
+      if (!effectivePresetId) {
         toast.error("Please select a match preset for the bracket.");
+
         return;
       }
 
@@ -243,15 +314,33 @@ export default function CreateRoomModal({
         problemId: string;
         roundNumber: number;
       }[] = [];
+
       if (formData.problemSelectionMode === "fine-tuned") {
-        for (const rnd of bracketRoundProblems) {
+        for (const requirement of bracketProblemRequirements(
+          formData.entrantCapacity,
+          formData.bracketType || "single_elimination",
+          formData.bulkProblemCount || 3,
+        )) {
+          const rnd = {
+            roundNumber: requirement.roundNumber,
+            problemIds: Array.from(
+              { length: requirement.problemCount },
+              (_, index) =>
+                bracketRoundProblems.find(
+                  (round) => round.roundNumber === requirement.roundNumber,
+                )?.problemIds[index] ?? "",
+            ),
+          };
+
           for (const pid of rnd.problemIds) {
             if (!pid.trim()) {
               toast.error(
                 `Round ${rnd.roundNumber}: all problem IDs must be filled in.`,
               );
+
               return;
             }
+
             bracketProblemSlots.push({
               platform: "codeforces",
               problemId: pid.trim(),
@@ -261,20 +350,38 @@ export default function CreateRoomModal({
         }
       }
 
+      const allocationError = problemAllocationError({
+        ...formData,
+        problemSlots: bracketProblemSlots,
+      });
+
+      if (allocationError) {
+        toast.error(allocationError);
+        return;
+      }
+
       setLoading(true);
+
       try {
         const res = await createBracketContest({
           ...formData,
+          presetId: effectivePresetId,
+          overallDurationMinutes,
+          perProblemDurationMinutes,
           deadline: start.toISOString(),
           registrationStartTime: regStartIso,
           registeredUsers: finalRegisteredUsers,
+          fineTunedProblems:
+            formData.problemSelectionMode === "fine-tuned"
+              ? bracketProblemSlots.map((s) => s.problemId)
+              : formData.fineTunedProblems.filter((p) => p.trim() !== ""),
           ...(formData.problemSelectionMode === "fine-tuned"
             ? {
-                fineTunedProblems: bracketProblemSlots.map((s) => s.problemId),
                 problemSlots: bracketProblemSlots,
               }
             : {}),
         });
+
         if (!res.ok) {
           toast.error(res.error.message);
         } else {
@@ -286,17 +393,83 @@ export default function CreateRoomModal({
       } finally {
         setLoading(false);
       }
+
       return;
     }
 
+    if (formData.problemSelectionMode === "fine-tuned") {
+      const pids = formData.fineTunedProblems;
+
+      if (!pids || pids.length === 0) {
+        toast.error("Please specify at least one problem.");
+
+        return;
+      }
+
+      for (let i = 0; i < pids.length; i++) {
+        const pid = pids[i]?.trim();
+
+        if (!pid) {
+          toast.error(`Problem ${i + 1} ID is required.`);
+
+          return;
+        }
+
+        const pts = formData.fineTunedProblemPoints?.[i];
+
+        if (
+          pts === undefined ||
+          pts === null ||
+          Number.isNaN(pts) ||
+          typeof pts !== "number"
+        ) {
+          toast.error(`Problem ${i + 1} points are mandatory.`);
+
+          return;
+        }
+
+        if (pts < 80) {
+          toast.error(`Problem ${i + 1} points must be at least 80.`);
+
+          return;
+        }
+      }
+    }
+
+    const fineTunedSlots =
+      formData.problemSelectionMode === "fine-tuned" &&
+      formData.fineTunedProblems.length > 0
+        ? formData.fineTunedProblems.map((pid, idx) => {
+            const rawPoints = formData.fineTunedProblemPoints?.[idx];
+
+            return {
+              platform: "codeforces",
+              problemId: pid.trim(),
+              points: rawPoints as number,
+              timeLimitMinutes:
+                formData.mode === "blitz"
+                  ? formData.fineTunedProblemTimeLimits?.[idx]
+                  : undefined,
+            };
+          })
+        : undefined;
+
     setLoading(true);
+
     try {
       const res = await createRoomContest({
         ...formData,
+        overallDurationMinutes,
+        perProblemDurationMinutes,
         startTime: start.toISOString(),
         registrationStartTime: regStartIso,
         registeredUsers: finalRegisteredUsers,
+        problemSlots: fineTunedSlots,
+        fineTunedProblems: formData.fineTunedProblems.filter(
+          (p) => p.trim() !== "",
+        ),
       });
+
       if (!res.ok) {
         toast.error(res.error.message);
       } else {
@@ -312,112 +485,23 @@ export default function CreateRoomModal({
 
   const handleTimeAdd = (mins: number) => {
     const date = new Date();
+
     date.setMinutes(date.getMinutes() + mins);
-    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-    setFormData({ ...formData, startTime: date.toISOString().slice(0, 16) });
+    setFormData({ ...formData, startTime: formatDateTimeInput(date) });
   };
 
   const handleRegTimeAdd = (mins: number) => {
     const date = new Date();
+
     date.setMinutes(date.getMinutes() + mins);
-    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     setFormData({
       ...formData,
-      registrationStartTime: date.toISOString().slice(0, 16),
+      registrationStartTime: formatDateTimeInput(date),
     });
-  };
-
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedUserIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-    // Required for Firefox
-    e.dataTransfer.setData("text/html", e.currentTarget.innerHTML);
-    e.dataTransfer.setData("text/plain", index.toString());
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (draggedUserIndex !== null && draggedUserIndex !== index) {
-      setDragOverIndex(index);
-    }
-  };
-
-  const handleDragLeave = () => {
-    setDragOverIndex(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedUserIndex(null);
-    setDragOverIndex(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    const draggedIdxStr = e.dataTransfer.getData("text/plain");
-    if (!draggedIdxStr) {
-      handleDragEnd();
-      return;
-    }
-    const draggedIdx = parseInt(draggedIdxStr, 10);
-    if (draggedIdx === index) {
-      handleDragEnd();
-      return;
-    }
-
-    setRegisteredUsers((prev) => {
-      return reorderContestEntries(prev, draggedIdx, index);
-    });
-
-    handleDragEnd();
   };
 
   const removeUser = (id: string) => {
     setRegisteredUsers((prev) => prev.filter((u) => u.id !== id));
-  };
-
-  const handleTeamDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedTeamIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/html", e.currentTarget.innerHTML);
-    e.dataTransfer.setData("text/plain", index.toString());
-  };
-
-  const handleTeamDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (draggedTeamIndex !== null && draggedTeamIndex !== index) {
-      setDragOverTeamIndex(index);
-    }
-  };
-
-  const handleTeamDragLeave = () => {
-    setDragOverTeamIndex(null);
-  };
-
-  const handleTeamDragEnd = () => {
-    setDraggedTeamIndex(null);
-    setDragOverTeamIndex(null);
-  };
-
-  const handleTeamDrop = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    const draggedIdxStr = e.dataTransfer.getData("text/plain");
-    if (!draggedIdxStr) {
-      handleTeamDragEnd();
-      return;
-    }
-    const draggedIdx = parseInt(draggedIdxStr, 10);
-    if (draggedIdx === index) {
-      handleTeamDragEnd();
-      return;
-    }
-
-    setManualTeams((prev) => {
-      return reorderContestEntries(prev, draggedIdx, index);
-    });
-
-    handleTeamDragEnd();
   };
 
   const renderProblemConfiguration = () => (
@@ -473,30 +557,54 @@ export default function CreateRoomModal({
           className={styles.form}
           spellCheck={false}
         >
-          {isHead && (
-            <div className={styles.templateBox}>
+          <div className={styles.templateBox}>
+            <div className={styles.templateHeader}>
               <label className={styles.templateLabel} htmlFor="top-preset-id">
                 Load from Template (Optional)
               </label>
-              <select
-                id="top-preset-id"
-                value={topPresetId}
-                onChange={handleTopPresetChange}
-                className={`${styles.formInput} ${styles.formSelect}`}
+              <Link
+                href="/internal/contests/presets"
+                target="_blank"
+                className={styles.managePresetsLink}
               >
-                <option value="">No template (Manual setup)</option>
-                {presets.map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <span className={styles.hintMuted}>
-                Selecting a template will auto-fill and lock the configuration
-                below.
-              </span>
+                Manage Presets
+              </Link>
             </div>
-          )}
+            {presets.length > 0 ? (
+              <>
+                <select
+                  id="top-preset-id"
+                  value={topPresetId}
+                  onChange={handleTopPresetChange}
+                  className={`${styles.formInput} ${styles.formSelect}`}
+                >
+                  <option value="">No template (Manual setup)</option>
+                  {presets.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <span className={styles.hintMuted}>
+                  Selecting a template will auto-fill and lock the configuration
+                  below.
+                </span>
+              </>
+            ) : (
+              <>
+                <select
+                  className={`${styles.formInput} ${styles.formSelect}`}
+                  disabled
+                >
+                  <option>No templates available</option>
+                </select>
+                <span className={styles.emptyPresetsHint}>
+                  You don&apos;t have any templates yet. Create one to quickly
+                  load settings.
+                </span>
+              </>
+            )}
+          </div>
 
           <div className={styles.field}>
             <label className={styles.label} htmlFor="room-name">
@@ -542,7 +650,10 @@ export default function CreateRoomModal({
                 id="room-mode"
                 value={formData.mode}
                 onChange={(e) =>
-                  setFormData({ ...formData, mode: e.target.value })
+                  setFormData({
+                    ...formData,
+                    mode: e.target.value as ContestCreationForm["mode"],
+                  })
                 }
                 disabled={!!topPresetId}
                 className={`${styles.formInput} ${styles.formSelect}`}
@@ -558,16 +669,21 @@ export default function CreateRoomModal({
               <select
                 id="room-format"
                 value={formData.format}
-                onChange={(e) =>
-                  setFormData({ ...formData, format: e.target.value })
-                }
+                onChange={(e) => {
+                  const nextFormat = e.target
+                    .value as ContestCreationForm["format"];
+
+                  setFormData((prev) =>
+                    applyContestFormatDefaults({ ...prev, format: nextFormat }),
+                  );
+                }}
                 disabled={!!topPresetId}
                 className={`${styles.formInput} ${styles.formSelect}`}
               >
                 <option value="1v1">1v1</option>
                 <option value="solo-tournament">Solo Tournament</option>
                 <option value="team-tournament">Team Battle</option>
-                <option value="bracket">Bracket (Knockout)</option>
+                <option value="bracket">Bracket</option>
               </select>
             </div>
           </div>
@@ -595,7 +711,9 @@ export default function CreateRoomModal({
             </div>
             <div className={styles.field}>
               <label className={styles.label} htmlFor="max-participants">
-                Max Participants
+                {formData.format === "bracket"
+                  ? "Max Entrants (players or teams)"
+                  : "Max Participants"}
               </label>
               <input
                 required
@@ -604,14 +722,26 @@ export default function CreateRoomModal({
                 min={formData.format === "team-tournament" ? 6 : 2}
                 step={formData.format === "team-tournament" ? 3 : 1}
                 value={
-                  Number.isNaN(formData.maxParticipants)
+                  Number.isNaN(
+                    formData.format === "bracket"
+                      ? formData.entrantCapacity
+                      : formData.maxParticipants,
+                  )
                     ? ""
-                    : formData.maxParticipants
+                    : formData.format === "bracket"
+                      ? formData.entrantCapacity
+                      : formData.maxParticipants
                 }
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    maxParticipants: parseInt(e.target.value),
+                    ...(formData.format === "bracket"
+                      ? {
+                          entrantCapacity: parseInt(e.target.value),
+                          maxParticipants:
+                            parseInt(e.target.value) * formData.teamSize,
+                        }
+                      : { maxParticipants: parseInt(e.target.value) }),
                   })
                 }
                 disabled={isMaxPartLocked}
@@ -639,45 +769,16 @@ export default function CreateRoomModal({
                 )}
               </div>
 
-              <div
-                className={`${styles.field} ${
-                  topPresetId ? styles.locked : ""
-                }`}
-              >
-                <label className={styles.label} htmlFor="preset-id">
-                  Match Preset
-                </label>
-                <select
-                  id="preset-id"
-                  value={formData.presetId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, presetId: e.target.value })
-                  }
-                  disabled={!!topPresetId}
-                  className={`${styles.formInput} ${styles.formSelect}`}
-                >
-                  <option value="" disabled>
-                    Select a preset...
-                  </option>
-                  <option value="custom">Custom (Manual Configuration)</option>
-                  {presets.map((p) => (
-                    <option key={p._id} value={p._id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <span className={styles.hint}>
-                  Bracket tournaments use presets to define the problem criteria
-                  for all rounds.
-                </span>
-                {(() => {
+              {!!topPresetId &&
+                (() => {
                   const selectedMatchPreset = presets.find(
                     (p) => p._id === formData.presetId,
                   );
+
                   return selectedMatchPreset ? (
                     <div className={styles.presetInfo}>
                       <span className={styles.presetInfoName}>
-                        {selectedMatchPreset.name}
+                        Preset: {selectedMatchPreset.name}
                       </span>
                       {selectedMatchPreset.description && (
                         <span>{selectedMatchPreset.description}</span>
@@ -700,56 +801,41 @@ export default function CreateRoomModal({
                     </div>
                   ) : null;
                 })()}
-              </div>
-
-              {formData.presetId === "custom" && renderProblemConfiguration()}
 
               <div className={styles.grid2}>
                 <div className={styles.field}>
-                  <label className={styles.label} htmlFor="seeding-method">
-                    Seeding Method
+                  <label className={styles.label} htmlFor="bracket-type">
+                    Elimination Type
                   </label>
                   <select
-                    id="seeding-method"
-                    value={formData.seedingMethod}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === "manual") {
-                        setFormData({
-                          ...formData,
-                          seedingMethod: val,
-                          registrationType: "closed",
-                        });
-                      } else {
-                        setFormData({ ...formData, seedingMethod: val });
-                      }
-                    }}
+                    id="bracket-type"
+                    value={formData.bracketType || "single_elimination"}
+                    disabled={!!topPresetId}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bracketType: e.target.value as
+                          "single_elimination" | "double_elimination",
+                      })
+                    }
                     className={`${styles.formInput} ${styles.formSelect}`}
                   >
-                    <option value="cf_rating">
-                      Codeforces Rating (Average)
+                    <option value="single_elimination">
+                      Single Elimination
                     </option>
-                    <option value="manual">Manual Seeding</option>
+                    <option value="double_elimination">
+                      Double Elimination
+                    </option>
                   </select>
                 </div>
 
-                <div className={styles.field}>
-                  <label className={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={formData.thirdPlacePlayoff}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          thirdPlacePlayoff: e.target.checked,
-                        })
-                      }
-                      className={styles.checkbox}
-                    />
-                    <span>Third Place Playoff</span>
-                  </label>
-                </div>
+                <p className={styles.hintMuted}>
+                  Seeds use Codeforces ratings, averaged for teams. Highest
+                  seeds receive byes.
+                </p>
               </div>
+
+              {!topPresetId && renderProblemConfiguration()}
             </div>
           )}
 
@@ -765,12 +851,9 @@ export default function CreateRoomModal({
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      registrationType: e.target.value,
+                      registrationType: e.target
+                        .value as ContestCreationForm["registrationType"],
                     })
-                  }
-                  disabled={
-                    formData.format === "bracket" &&
-                    formData.seedingMethod === "manual"
                   }
                   className={`${styles.formInput} ${styles.formSelect}`}
                 >
@@ -779,31 +862,51 @@ export default function CreateRoomModal({
                 </select>
               </div>
 
-              {formData.registrationType !== "closed" && (
-                <div className={styles.field}>
-                  <label className={styles.label}>Registration Starts</label>
-                  <select
-                    value={formData.registrationStartMode}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        registrationStartMode: e.target.value,
-                      })
-                    }
-                    className={`${styles.formInput} ${styles.formSelect}`}
-                  >
-                    <option value="immediate">Immediately</option>
-                    <option value="schedule">Schedule Start</option>
-                  </select>
-                </div>
-              )}
+              <div className={styles.field}>
+                <label className={styles.label}>Spectator Access</label>
+                <select
+                  value={formData.spectatorRestriction}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      spectatorRestriction: e.target
+                        .value as ContestCreationForm["spectatorRestriction"],
+                    })
+                  }
+                  className={`${styles.formInput} ${styles.formSelect}`}
+                >
+                  <option value="none">No Spectators</option>
+                  <option value="all">Any Authenticated User</option>
+                  <option value="club_members">Club / Module Members</option>
+                  <option value="admin_creator">Admins & Creator Only</option>
+                </select>
+              </div>
             </div>
+
+            {formData.registrationType !== "closed" && (
+              <div className={styles.field}>
+                <label className={styles.label}>Registration Starts</label>
+                <select
+                  value={formData.registrationStartMode}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      registrationStartMode: e.target.value,
+                    })
+                  }
+                  className={`${styles.formInput} ${styles.formSelect}`}
+                >
+                  <option value="immediate">Immediately</option>
+                  <option value="schedule">Schedule Start</option>
+                </select>
+              </div>
+            )}
 
             {formData.registrationType !== "closed" &&
               formData.registrationStartMode === "schedule" && (
                 <div className={styles.regSub}>
                   <label className={styles.label}>
-                    Registration Start Time
+                    Registration Start Time (IST)
                   </label>
                   <div className={styles.field}>
                     <input
@@ -854,44 +957,15 @@ export default function CreateRoomModal({
                 {useTeamsUI ? (
                   <div className={styles.teamsList}>
                     {manualTeams.map((team, teamIndex) => (
-                      <div
-                        key={team.id}
-                        draggable={formData.seedingMethod === "manual"}
-                        onDragStart={(e) => handleTeamDragStart(e, teamIndex)}
-                        onDragOver={(e) => handleTeamDragOver(e, teamIndex)}
-                        onDragLeave={handleTeamDragLeave}
-                        onDragEnd={handleTeamDragEnd}
-                        onDrop={(e) => handleTeamDrop(e, teamIndex)}
-                        className={`${styles.teamCard} ${
-                          formData.seedingMethod === "manual"
-                            ? styles.teamCardDraggable
-                            : ""
-                        } ${
-                          draggedTeamIndex === teamIndex
-                            ? styles.dragging
-                            : dragOverTeamIndex === teamIndex
-                              ? styles.dragOver
-                              : ""
-                        }`}
-                      >
+                      <div key={team.id} className={styles.teamCard}>
                         <div className={styles.teamCardHeader}>
                           <div className={styles.teamNameWrap}>
-                            {formData.seedingMethod === "manual" && (
-                              <>
-                                <GripVertical
-                                  className={styles.dragHandle}
-                                  size={18}
-                                />
-                                <span className={styles.seedNum}>
-                                  #{teamIndex + 1}
-                                </span>
-                              </>
-                            )}
                             <input
                               type="text"
                               value={team.name}
                               onChange={(e) => {
                                 const newTeams = [...manualTeams];
+
                                 newTeams[teamIndex].name = e.target.value;
                                 setManualTeams(newTeams);
                               }}
@@ -941,6 +1015,7 @@ export default function CreateRoomModal({
                                 type="button"
                                 onClick={() => {
                                   const newTeams = [...manualTeams];
+
                                   newTeams[teamIndex].members = newTeams[
                                     teamIndex
                                   ].members.filter((m) => m.id !== member.id);
@@ -987,12 +1062,14 @@ export default function CreateRoomModal({
                                     );
                                   } else if (e.key === "Enter") {
                                     e.preventDefault();
+
                                     if (
                                       searchResults.length > 0 &&
                                       selectedUserIndex >= 0 &&
                                       selectedUserIndex < searchResults.length
                                     ) {
                                       const newTeams = [...manualTeams];
+
                                       newTeams[teamIndex].members.push(
                                         searchResults[selectedUserIndex],
                                       );
@@ -1026,6 +1103,7 @@ export default function CreateRoomModal({
                                         }`}
                                         onClick={() => {
                                           const newTeams = [...manualTeams];
+
                                           newTeams[teamIndex].members.push(
                                             user,
                                           );
@@ -1144,6 +1222,7 @@ export default function CreateRoomModal({
                               );
                             } else if (e.key === "Enter") {
                               e.preventDefault();
+
                               if (
                                 searchResults.length > 0 &&
                                 selectedUserIndex >= 0 &&
@@ -1228,104 +1307,33 @@ export default function CreateRoomModal({
 
                 {formData.teamSize === 1 && registeredUsers.length > 0 && (
                   <>
-                    {formData.seedingMethod === "manual" ? (
-                      <div className={styles.soloList}>
-                        {registeredUsers.map((u, index) => (
-                          <div
-                            key={u.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, index)}
-                            onDragOver={(e) => handleDragOver(e, index)}
-                            onDragLeave={handleDragLeave}
-                            onDragEnd={handleDragEnd}
-                            onDrop={(e) => handleDrop(e, index)}
-                            className={`${styles.soloRow} ${
-                              draggedUserIndex === index
-                                ? styles.dragging
-                                : dragOverIndex === index
-                                  ? styles.dragOver
-                                  : ""
-                            }`}
-                          >
-                            <div className={styles.soloInfo}>
-                              <GripVertical
-                                className={styles.dragHandle}
-                                size={18}
-                              />
-                              <span className={styles.seedNum}>
-                                #{index + 1}
-                              </span>
-                              <UserAvatar
-                                name={u.name}
-                                image={u.image}
-                                size={32}
-                              />
-                              <div className={styles.soloUserCol}>
-                                <div className={styles.searchUserTop}>
-                                  <span className={styles.searchUserName}>
-                                    {getDisplayName(u.name, u.pizza_count)}
-                                  </span>
-                                  <span className={styles.searchSepInline}>
-                                    |
-                                  </span>
-                                  <span
-                                    className={`${styles.searchUserRating} ${getRatingClass(
-                                      u.cfRating,
-                                    )}`}
-                                  >
-                                    {u.cfRating || "Unrated"}
-                                  </span>
-                                </div>
-                                <span className={styles.searchUserHandle}>
-                                  {u.cfHandle}
-                                </span>
-                              </div>
-                            </div>
-                            <div className={styles.memberInfo}>
-                              <button
-                                type="button"
-                                onClick={() => removeUser(u.id)}
-                                className={styles.iconBtnMuted}
-                              >
-                                <X className={styles.icon18} size={18} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className={styles.chipList}>
-                        {registeredUsers.map((u) => (
-                          <div key={u.id} className={styles.chip}>
-                            <UserAvatar
-                              name={u.name}
-                              image={u.image}
-                              size={24}
-                            />
-                            <div className={styles.chipBody}>
-                              <span className={styles.memberName}>
-                                {getDisplayName(u.name, u.pizza_count)}
-                              </span>
-                              <span className={styles.sep}>|</span>
-                              <span
-                                className={`${styles.ratingValue} ${getRatingClass(
-                                  u.cfRating,
-                                )}`}
-                              >
-                                {u.cfRating || "Unrated"}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeUser(u.id)}
-                              className={styles.iconBtnChip}
+                    <div className={styles.chipList}>
+                      {registeredUsers.map((u) => (
+                        <div key={u.id} className={styles.chip}>
+                          <UserAvatar name={u.name} image={u.image} size={24} />
+                          <div className={styles.chipBody}>
+                            <span className={styles.memberName}>
+                              {getDisplayName(u.name, u.pizza_count)}
+                            </span>
+                            <span className={styles.sep}>|</span>
+                            <span
+                              className={`${styles.ratingValue} ${getRatingClass(
+                                u.cfRating,
+                              )}`}
                             >
-                              <X className={styles.icon16} size={16} />
-                            </button>
+                              {u.cfRating || "Unrated"}
+                            </span>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          <button
+                            type="button"
+                            onClick={() => removeUser(u.id)}
+                            className={styles.iconBtnChip}
+                          >
+                            <X className={styles.icon16} size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </>
                 )}
 
@@ -1339,7 +1347,7 @@ export default function CreateRoomModal({
 
           <div className={styles.startTimeBlock}>
             <label className={styles.label} htmlFor="start-time">
-              Match Start Time
+              Match Start Time (IST)
             </label>
             <div className={styles.field}>
               <input
@@ -1352,22 +1360,35 @@ export default function CreateRoomModal({
                 }
                 className={`${styles.formInput} ${styles.dateInput}`}
               />
-              <div className={styles.timeAddRow}>
-                {[3, 5, 10, 15].map((mins) => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => handleTimeAdd(mins)}
-                    className={styles.timeAddBtn}
-                  >
-                    +{mins} min{mins > 1 ? "s" : ""}
-                  </button>
-                ))}
-              </div>
+              {(() => {
+                const isCasual1v1 =
+                  formData.format === "1v1" &&
+                  formData.registrationType === "closed";
+                const quickAddMins = isCasual1v1
+                  ? [2, 3, 5, 10]
+                  : [deadlineMinutes + 2, deadlineMinutes + 3, 10, 15];
+
+                return (
+                  <div className={styles.timeAddRow}>
+                    {quickAddMins.map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => handleTimeAdd(mins)}
+                        className={styles.timeAddBtn}
+                      >
+                        +{mins} min{mins > 1 ? "s" : ""}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <span className={styles.hint}>
-              Scheduled rooms start automatically. Registration deadline will be
-              exactly 1 minute before the start time for all users.
+              {formData.format === "1v1" &&
+              formData.registrationType === "closed"
+                ? "Casual 1v1 matches can start as soon as 2 minutes from now."
+                : `Scheduled tournaments start automatically. Registration deadline is ${deadlineMinutes} minute${deadlineMinutes > 1 ? "s" : ""} before the start time.`}
             </span>
           </div>
         </form>

@@ -1,30 +1,35 @@
 import { NextRequest } from "next/server";
-import mongoose from "mongoose";
 
+import {
+  createProvisionedRoom,
+  provisionProblems,
+  ProblemAllocationError,
+} from "@/lib/contests/provisioning";
+import { synchronizeRoomRuntime } from "@/lib/contests/roomRuntime";
+
+import { canManageContest } from "@/lib/access/contests";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { connectMongoDB } from "@/lib/db/mongodb";
-import { getRedis } from "@/lib/db/redis";
 import { auth } from "@/lib/auth/server";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 import { parseJson } from "@/lib/api/result";
 import { createContestRoomSchema } from "@/lib/api/schemas/contestRoute";
 
 import ContestMatch from "@/models/ContestMatch";
-import ContestRoom from "@/models/ContestRoom";
-import ContestProblemSet from "@/models/ContestProblemSet";
-import ContestTeam from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
-import ContestQuestion from "@/models/ContestQuestion";
 
 export async function POST(req: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
+
     if (!session || !session.user) {
       return jsonError("UNAUTHENTICATED", "Unauthorized");
     }
 
     const body = await parseJson(req, createContestRoomSchema);
+
     if (!body.ok) return jsonResult(body);
+
     const { contestId, teams } = body.data;
 
     // Validate team sizes: each team must have 1 or 3 members
@@ -41,15 +46,29 @@ export async function POST(req: NextRequest) {
     }
 
     await connectMongoDB();
+
     const contest = await ContestMatch.findById(contestId);
+
     if (!contest) {
       return jsonError("NOT_FOUND", "Contest not found");
     }
 
-    const problemCount = contest.bulkProblemCount || 3;
-    const minRating = contest.bulkRatingMin || 800;
-    const maxRating = contest.bulkRatingMax || 1200;
-    const minContestId = contest.bulkMinContestId || 0;
+    const creatorProfile = await CPUser.findOne({ userId: session.user.id })
+      .select("_id")
+      .lean();
+
+    if (
+      !canManageContest(contest, session.user, creatorProfile?._id.toString())
+    ) {
+      return jsonError(
+        "FORBIDDEN",
+        "Only the creator or an administrator can create contest rooms.",
+      );
+    }
+
+    if (contest.format === "bracket" || contest.status === "completed") {
+      return jsonError("CONFLICT", "This contest cannot open a direct room.");
+    }
 
     // Collect all user IDs and fetch them to get solved problems
     const allUserIds = teams.flatMap((t) => t.members);
@@ -57,6 +76,7 @@ export async function POST(req: NextRequest) {
 
     // Collect all solved problem IDs
     const solvedProblemIds = new Set<string>();
+
     for (const user of users) {
       if (user.solvedProblems) {
         for (const sp of user.solvedProblems) {
@@ -65,124 +85,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Query MongoDB problem pool
-    const availableProblems = await ContestQuestion.aggregate([
-      {
-        $match: {
-          rating: { $gte: minRating, $lte: maxRating },
-          ...(minContestId > 0 ? { contestId: { $gte: minContestId } } : {}),
-          problemId: { $nin: Array.from(solvedProblemIds) },
-        },
-      },
-      { $sample: { size: problemCount } },
-      { $sort: { rating: 1 } },
-    ]);
-
-    if (availableProblems.length < problemCount) {
-      return jsonError("VALIDATION_ERROR", "insufficient_problems");
-    }
-
-    // Write stub ContestRoom to MongoDB
-    const room = new ContestRoom({
-      contestId: contest._id,
-      name: `Room for ${contest.name}`,
-      status: "waiting",
-      participants: allUserIds,
-      currentProblemIndex: 0,
-      firstSolvers: [],
-    });
-
-    // Write stub ContestProblemSet
-    const problemSet = new ContestProblemSet({
-      contestId: contest._id,
-      roomId: room._id,
-      problems: availableProblems.map((p) => ({
-        platform: "codeforces",
-        problemId: p.problemId,
-        name: p.name,
-        rating: p.rating,
-        points: Math.floor((p.rating || 1000) / 10),
-      })),
-    });
-
-    // Create teams in MongoDB
-    const teamSize = teamSizes[0]; // Already validated that all sizes are equal
-    const createdTeams = [];
-    for (const t of teams) {
-      const team = new ContestTeam({
-        roomId: room._id,
-        name: t.name,
-        members: t.members,
-        teamSize,
-        score: 0,
-      });
-      await team.save();
-      createdTeams.push(team);
-    }
-    room.teams = createdTeams.map((t) => t._id);
-
-    await room.save();
-    await problemSet.save();
+    const allocation = await provisionProblems(contest, solvedProblemIds);
+    const room = await createProvisionedRoom(
+      contestId,
+      teams,
+      allocation.get("room")!,
+      "waiting",
+    );
 
     const roomId = room._id.toString();
 
-    const redis = await getRedis();
-
-    // Write ordered problem array to room:<id>:problems
-    const redisProblems = availableProblems.map((p) =>
-      JSON.stringify({
-        problemId: p.problemId,
-        name: p.name,
-        rating: p.rating,
-        points: Math.floor((p.rating || 1000) / 10),
-        revealedAt: null,
-      }),
-    );
-    await redis.del(`room:${roomId}:problems`);
-    if (redisProblems.length > 0) {
-      await redis.rPush(`room:${roomId}:problems`, redisProblems);
-    }
-
-    // Set room:<id>:state Hash
-    const stateObj: Record<string, string | number> = {
-      status: "waiting",
-      type: contest.mode || "blitz",
-      startTime: "",
-      timeLimit: (contest.durationSeconds ?? 3600).toString(),
-      contestId: contestId.toString(),
-      readyCount: 0,
-    };
-    if (contest.mode !== "arena") {
-      stateObj.currentProblem = 0;
-    }
-    await redis.hSet(`room:${roomId}:state`, stateObj);
-
-    // Write room:<id>:teams Set
-    await redis.sAdd(
-      `room:${roomId}:teams`,
-      createdTeams.map((t) => t._id.toString()),
-    );
-
-    // Write team:<teamId>:meta and team:<teamId>:users
-    for (const t of createdTeams) {
-      const tId = t._id.toString();
-      await redis.hSet(`team:${tId}:meta`, { name: t.name, score: 0 });
-      await redis.sAdd(
-        `team:${tId}:users`,
-        t.members.map((member) => member.toString()),
-      );
-    }
-
-    // Add roomId to contest:<contestId>:rooms Set
-    await redis.sAdd(`contest:${contestId}:rooms`, roomId);
+    await synchronizeRoomRuntime(roomId);
 
     return jsonOk({ roomId });
   } catch (error) {
+    if (error instanceof ProblemAllocationError)
+      return jsonError("VALIDATION_ERROR", error.message);
+
     logger.error("Contest room creation failed", {
       route: "POST /api/contests/rooms",
       operation: "create_room",
       ...errorToLogMetadata(error),
     });
+
     return jsonError("INTERNAL_ERROR", "Internal server error");
   }
 }

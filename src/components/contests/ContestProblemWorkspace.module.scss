@@ -1,0 +1,78 @@
+@use "../../styles/mixins" as *;
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--background);
+  &[hidden] {
+    display: none;
+  }
+}
+.matchBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  @include metadata($text-xs);
+}
+.scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-right: auto;
+  strong {
+    color: var(--primary);
+  }
+}
+.timing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.primary {
+  @include btn-primary(0.375rem 0.75rem);
+}
+.secondary {
+  @include btn-secondary(0.375rem 0.75rem);
+  text-decoration: none;
+}
+.problemTitle {
+  margin: 0;
+  @include micro-label($text-xs, 0.1em, var(--foreground-strong));
+}
+.problemSelect {
+  max-width: min(100%, 32rem);
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground-strong);
+  font: inherit;
+  font-size: $text-sm;
+}
+.notice {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-secondary);
+  font-size: $text-xs;
+  line-height: 1.6;
+}
+
+.noticeAction {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}

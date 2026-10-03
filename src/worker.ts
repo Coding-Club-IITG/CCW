@@ -1,6 +1,8 @@
 import "@/lib/env/load";
 
-import { cfSyncQueue } from "@/lib/contests/queues";
+import { CONTEST_TIMING } from "@/lib/constants";
+
+import { cfSyncQueue, reconciliationQueue } from "@/lib/contests/queues";
 import { workerEnv } from "@/lib/env/worker";
 import { agenda } from "@/lib/jobs/agenda";
 import { syncAtCoderRatings } from "@/lib/jobs/atcoderRatings";
@@ -49,6 +51,16 @@ async function run() {
 
   // Ensure DB is connected
   await connectMongoDB();
+
+  await reconciliationQueue.upsertJobScheduler(
+    "recover_participation",
+    { every: CONTEST_TIMING.recoveryIntervalMs },
+    {
+      name: "recover_participation",
+      data: {},
+      opts: { removeOnComplete: true },
+    },
+  );
 
   // BullMq sync runs at 2
   await cfSyncQueue.upsertJobScheduler(

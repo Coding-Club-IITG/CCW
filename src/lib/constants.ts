@@ -460,3 +460,60 @@ export const ATLAS_RESULT_KINDS = [
 ] as const;
 
 export type AtlasResultKind = (typeof ATLAS_RESULT_KINDS)[number];
+
+/* Contests */
+
+export const CONTEST_RESULT_METHODS = [
+  "score",
+  "draw",
+  "solve_time",
+  "wrong_submissions",
+  "penalty_time",
+  "last_solve",
+  "seed",
+  "no_show",
+  "admin",
+  "bye",
+  "empty",
+] as const;
+export type ContestResultMethod = (typeof CONTEST_RESULT_METHODS)[number];
+export const CONTEST_RESULT_LABELS: Record<ContestResultMethod, string> = {
+  score: "Decided by score",
+  draw: "Draw",
+  solve_time: "Tie decided by cumulative solve time",
+  wrong_submissions: "Tie decided by fewer wrong submissions",
+  penalty_time: "Tie decided by penalty time",
+  last_solve: "Tie decided by last solve time",
+  seed: "Tie decided by frozen seed",
+  no_show: "Decided by readiness",
+  admin: "Administrative override",
+  bye: "Advanced by bye",
+  empty: "No winner",
+};
+
+export const CONTEST_ABSENCE_LABELS: Record<string, string> = {
+  opponent_absent:
+    "Match awarded because the opposing team missed the ready deadline",
+  both_absent: "Both teams missed the ready deadline and were eliminated",
+};
+
+export const CONTEST_TIMING = {
+  startBufferSeconds: 60,
+  startToleranceSeconds: 5,
+  transitionLockSeconds: 5,
+  heartbeatSeconds: 15,
+  presenceExpirySeconds: 45,
+  preparationRefreshSeconds: 5,
+  cfRetryDelayMs: 5000,
+  judgingPollMs: 5000,
+  arenaWrongPenaltyMinutes: 20,
+  cfRateWindowMs: 1000,
+  syncRetentionSeconds: 3600,
+  resultRedirectMs: 2000,
+  workerLockMs: 600000,
+  reconciliationRetryDelayMs: 2000,
+  recoveryIntervalMs: 30000,
+  displayRefreshMs: 1000,
+  searchDebounceMs: 300,
+  listingRefreshMs: 5000,
+} as const;

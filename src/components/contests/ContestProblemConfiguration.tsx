@@ -3,8 +3,13 @@
 import { Lock } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 
-import type { ContestCreationForm } from "@/components/contests/contestCreationForm";
+import {
+  bracketProblemRequirements,
+  minimumBracketEntrants,
+} from "@/lib/contests/bracketTopology";
 import { CF_CONTEST_YEAR_OPTIONS } from "@/lib/constants";
+
+import type { ContestCreationForm } from "@/components/contests/contestCreationForm";
 
 import styles from "./CreateRoomModal.module.scss";
 
@@ -36,38 +41,32 @@ export default function ContestProblemConfiguration({
     setForm((current) => ({ ...current, ...updates }));
   };
 
-  const bracketParticipantCount = Math.max(2, form.maxParticipants || 2);
-  const bracketRoundCount = Math.ceil(Math.log2(bracketParticipantCount));
   const problemsPerMatch = form.bulkProblemCount || 3;
-
-  const syncedBracketRounds: BracketRoundProblems[] = [];
-  if (form.problemSelectionMode === "fine-tuned" && form.format === "bracket") {
-    for (let roundNumber = 1; roundNumber <= bracketRoundCount; roundNumber++) {
-      const matchCount = Math.pow(2, bracketRoundCount - roundNumber);
-      const requiredProblemCount = matchCount * problemsPerMatch;
-      const existing = bracketRoundProblems.find(
-        (round) => round.roundNumber === roundNumber,
-      );
-      const problemIds = existing ? [...existing.problemIds] : [];
-      while (problemIds.length < requiredProblemCount) problemIds.push("");
-      while (problemIds.length > requiredProblemCount) problemIds.pop();
-      syncedBracketRounds.push({ roundNumber, problemIds });
-    }
-
-    if (
-      JSON.stringify(syncedBracketRounds) !==
-      JSON.stringify(bracketRoundProblems)
-    ) {
-      setTimeout(() => setBracketRoundProblems(syncedBracketRounds), 0);
-    }
-  }
-
-  const getRoundLabel = (roundNumber: number) => {
-    if (roundNumber === bracketRoundCount) return "Final";
-    if (roundNumber === bracketRoundCount - 1) return "Semi-Finals";
-    if (roundNumber === bracketRoundCount - 2) return "Quarter-Finals";
-    return `Round ${roundNumber}`;
-  };
+  const type = form.bracketType || "single_elimination";
+  const capacity = Math.min(
+    256,
+    Math.max(
+      minimumBracketEntrants(type),
+      Math.floor(form.entrantCapacity || minimumBracketEntrants(type)),
+    ),
+  );
+  const requirements = bracketProblemRequirements(
+    capacity,
+    type,
+    problemsPerMatch,
+  );
+  const syncedBracketRounds = requirements.map((round) => ({
+    roundNumber: round.roundNumber,
+    problemIds: Array.from(
+      { length: round.problemCount },
+      (_, index) =>
+        bracketRoundProblems.find(
+          (existing) => existing.roundNumber === round.roundNumber,
+        )?.problemIds[index] ?? "",
+    ),
+  }));
+  const getRoundLabel = (roundNumber: number) =>
+    requirements.find((round) => round.roundNumber === roundNumber)?.name;
 
   return (
     <div
@@ -83,6 +82,72 @@ export default function ContestProblemConfiguration({
         )}
       </div>
 
+      {
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="match-duration">
+            Match Duration (Minutes)
+          </label>
+          <input
+            id="match-duration"
+            type="number"
+            min={1}
+            max={1440}
+            value={
+              form.overallDurationMinutes === undefined ||
+              Number.isNaN(form.overallDurationMinutes)
+                ? ""
+                : form.overallDurationMinutes
+            }
+            onChange={(event) =>
+              updateForm({
+                overallDurationMinutes:
+                  event.target.value === ""
+                    ? undefined
+                    : parseInt(event.target.value, 10),
+              })
+            }
+            disabled={presetLocked}
+            className={styles.formInput}
+          />
+          <span className={styles.hintMuted}>
+            Required overall limit for every match (1-1440 minutes).
+          </span>
+        </div>
+      }
+      {form.mode === "blitz" && (
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="problem-duration">
+            Optional Problem Limit (Minutes)
+          </label>
+          <input
+            id="problem-duration"
+            type="number"
+            min={1}
+            max={120}
+            value={
+              form.perProblemDurationMinutes === undefined ||
+              Number.isNaN(form.perProblemDurationMinutes)
+                ? ""
+                : form.perProblemDurationMinutes
+            }
+            onChange={(event) =>
+              updateForm({
+                perProblemDurationMinutes:
+                  event.target.value === ""
+                    ? ("" as unknown as number)
+                    : parseInt(event.target.value, 10),
+              })
+            }
+            disabled={presetLocked}
+            className={styles.formInput}
+          />
+          <span className={styles.hintMuted}>
+            Leave blank for no default problem timer. A specific problem limit
+            overrides this value.
+          </span>
+        </div>
+      )}
+
       <div className={styles.field}>
         <label className={styles.label} htmlFor="problem-selection-mode">
           Selection Mode
@@ -91,21 +156,17 @@ export default function ContestProblemConfiguration({
           id="problem-selection-mode"
           value={form.problemSelectionMode}
           onChange={(event) =>
-            updateForm({ problemSelectionMode: event.target.value })
+            updateForm({
+              problemSelectionMode: event.target
+                .value as ContestCreationForm["problemSelectionMode"],
+            })
           }
           disabled={presetLocked}
           className={`${styles.formInput} ${styles.formSelect}`}
         >
-          <option value="test">Test</option>
           <option value="bulk">Bulk</option>
           <option value="fine-tuned">Fine-Tuned</option>
         </select>
-        {form.problemSelectionMode === "test" && (
-          <span className={styles.hint}>
-            A pre-selected test problem will be assigned to verify the room
-            mechanics.
-          </span>
-        )}
         {form.problemSelectionMode === "bulk" && (
           <span className={styles.hint}>
             Automatically fetch problems unsolved by all registered players,
@@ -220,13 +281,17 @@ export default function ContestProblemConfiguration({
 
                   if (validInteger && count >= 1 && count <= 10) {
                     setFineTunedCountError("");
+
                     const fineTunedProblems = [...form.fineTunedProblems];
+
                     while (fineTunedProblems.length < count) {
                       fineTunedProblems.push("");
                     }
+
                     while (fineTunedProblems.length > count) {
                       fineTunedProblems.pop();
                     }
+
                     updateForm({
                       fineTunedProblemCount: value,
                       fineTunedProblems,
@@ -250,26 +315,115 @@ export default function ContestProblemConfiguration({
               )}
             </div>
 
-            <div className={styles.grid23}>
+            <div className={styles.fineTunedList}>
               {form.fineTunedProblems.map((problem, index) => (
-                <div key={index} className={styles.field}>
-                  <label className={styles.label} htmlFor={`problem-${index}`}>
-                    Problem {index + 1}
-                  </label>
-                  <input
-                    required
-                    id={`problem-${index}`}
-                    type="text"
-                    placeholder="Eg. 4A"
-                    value={problem}
-                    onChange={(event) => {
-                      const fineTunedProblems = [...form.fineTunedProblems];
-                      fineTunedProblems[index] = event.target.value;
-                      updateForm({ fineTunedProblems });
-                    }}
-                    disabled={presetLocked}
-                    className={styles.formInput}
-                  />
+                <div
+                  key={index}
+                  className={
+                    form.mode === "blitz" ? styles.grid3 : styles.grid2
+                  }
+                >
+                  <div className={styles.field}>
+                    <label
+                      className={styles.label}
+                      htmlFor={`problem-${index}`}
+                    >
+                      Problem {index + 1} ID
+                    </label>
+                    <input
+                      required
+                      id={`problem-${index}`}
+                      type="text"
+                      placeholder="Eg. 4A"
+                      value={problem}
+                      onChange={(event) => {
+                        const fineTunedProblems = [...form.fineTunedProblems];
+
+                        fineTunedProblems[index] = event.target.value;
+                        updateForm({ fineTunedProblems });
+                      }}
+                      disabled={presetLocked}
+                      className={styles.formInput}
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.label} htmlFor={`points-${index}`}>
+                      Points <span className={styles.requiredAsterisk}>*</span>
+                    </label>
+                    <input
+                      required
+                      id={`points-${index}`}
+                      type="number"
+                      min={80}
+                      placeholder="Min 80"
+                      value={
+                        form.fineTunedProblemPoints?.[index] === undefined ||
+                        Number.isNaN(form.fineTunedProblemPoints[index])
+                          ? ""
+                          : form.fineTunedProblemPoints[index]
+                      }
+                      onChange={(event) => {
+                        const fineTunedProblemPoints = [
+                          ...(form.fineTunedProblemPoints || []),
+                        ];
+
+                        fineTunedProblemPoints[index] =
+                          event.target.value === ""
+                            ? ("" as unknown as number)
+                            : parseInt(event.target.value, 10);
+                        updateForm({ fineTunedProblemPoints });
+                      }}
+                      disabled={presetLocked}
+                      className={`${styles.formInput} ${
+                        form.fineTunedProblemPoints?.[index] !== undefined &&
+                        form.fineTunedProblemPoints?.[index] !==
+                          ("" as unknown) &&
+                        !Number.isNaN(form.fineTunedProblemPoints[index]) &&
+                        form.fineTunedProblemPoints[index] < 80
+                          ? styles.inputError
+                          : ""
+                      }`}
+                    />
+                    {form.fineTunedProblemPoints?.[index] !== undefined &&
+                      form.fineTunedProblemPoints?.[index] !==
+                        ("" as unknown) &&
+                      !Number.isNaN(form.fineTunedProblemPoints[index]) &&
+                      form.fineTunedProblemPoints[index] < 80 && (
+                        <span className={styles.errorText}>
+                          Points must be at least 80.
+                        </span>
+                      )}
+                  </div>
+                  {form.mode === "blitz" && (
+                    <div className={styles.field}>
+                      <label
+                        className={styles.label}
+                        htmlFor={`timelimit-${index}`}
+                      >
+                        Time Limit (Mins)
+                      </label>
+                      <input
+                        id={`timelimit-${index}`}
+                        type="number"
+                        min={1}
+                        placeholder="Optional"
+                        value={form.fineTunedProblemTimeLimits?.[index] ?? ""}
+                        onChange={(event) => {
+                          const fineTunedProblemTimeLimits = [
+                            ...(form.fineTunedProblemTimeLimits || []),
+                          ];
+                          const val = parseInt(event.target.value, 10);
+
+                          fineTunedProblemTimeLimits[index] = isNaN(val)
+                            ? (undefined as unknown as number)
+                            : val;
+                          updateForm({ fineTunedProblemTimeLimits });
+                        }}
+                        disabled={presetLocked}
+                        className={styles.formInput}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -280,10 +434,10 @@ export default function ContestProblemConfiguration({
         form.format === "bracket" && (
           <div className={styles.roundsList}>
             {syncedBracketRounds.map((round) => {
-              const matchCount = Math.pow(
-                2,
-                bracketRoundCount - round.roundNumber,
-              );
+              const matchCount = requirements.find(
+                (entry) => entry.roundNumber === round.roundNumber,
+              )!.positions.length;
+
               return (
                 <div key={round.roundNumber} className={styles.roundCard}>
                   <div className={styles.roundHeader}>
@@ -323,6 +477,7 @@ export default function ContestProblemConfiguration({
                                     }
                                   : candidate,
                             );
+
                             setBracketRoundProblems(updated);
                           }}
                           className={styles.formInput}

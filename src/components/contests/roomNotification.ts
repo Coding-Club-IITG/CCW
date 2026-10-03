@@ -1,38 +1,23 @@
-import {
-  CircleAlert as IconWarning,
-  CircleCheck as IconCheckCircle,
-  Gavel as IconGavel,
-  Info as IconInfoCircle,
-  Lock as IconLock,
-  RefreshCw as IconSwitchView,
-  User as IconUsers,
-  UserX as IconPersonOff,
-} from "lucide-react";
-import React, { createElement } from "react";
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-/* Icons for browser desktop notifications matching activity feed */
-const NOTIFICATION_ICON_MAP: Record<
-  string,
-  { component: React.FC<React.SVGProps<SVGSVGElement>>; color: string }
-> = {
-  info: { component: IconInfoCircle, color: "#8b5cf6" },
-  gavel: { component: IconGavel, color: "#ef4444" },
-  lock: { component: IconLock, color: "#8b5cf6" },
-  sync: { component: IconSwitchView, color: "#06b6d4" },
-  check_circle: { component: IconCheckCircle, color: "#22c55e" },
-  error: { component: IconWarning, color: "#ef4444" },
-  person: { component: IconUsers, color: "#06b6d4" },
-  person_off: { component: IconPersonOff, color: "#ef4444" },
-};
+import { ROOM_ACTIVITY_ICONS } from "./roomActivityIcons";
 
 function getNotificationIconUri(icon: string): string {
-  const entry = NOTIFICATION_ICON_MAP[icon] ?? NOTIFICATION_ICON_MAP.info;
+  const component = ROOM_ACTIVITY_ICONS[icon] ?? ROOM_ACTIVITY_ICONS.info;
+  const token = ["gavel", "error", "person_off"].includes(icon)
+    ? "--danger"
+    : icon === "check_circle"
+      ? "--success"
+      : "--primary";
+  const color = getComputedStyle(document.documentElement)
+    .getPropertyValue(token)
+    .trim();
   const svg = renderToStaticMarkup(
-    createElement(entry.component, {
+    createElement(component, {
       width: 24,
       height: 24,
-      stroke: entry.color,
+      stroke: color,
     }),
   );
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
@@ -51,5 +36,7 @@ export function sendBrowserNotification(icon: string, text: string) {
       icon: getNotificationIconUri(icon),
       silent: true,
     });
-  } catch (_) {}
+  } catch {
+    // Browsers can reject notifications after permission changes
+  }
 }

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+
 import type { RoomEventPayloadDto } from "@/lib/contests/dtos";
-import { roomStreamEventSchema } from "@/lib/contests/runtime";
+import { parseRoomStreamMessage } from "@/lib/contests/roomStream";
 
 export function useRoomEventSource(
   roomId: string,
+  userId: string,
   onEvent: (payload: RoomEventPayloadDto) => void,
 ) {
   const onEventRef = useRef(onEvent);
@@ -15,6 +17,8 @@ export function useRoomEventSource(
   }, [onEvent]);
 
   useEffect(() => {
+    let latestRevision = -1;
+    const seenEventIds = new Set<string>();
     const eventSource = new EventSource(
       `/api/contests/stream?roomId=${roomId}`,
     );
@@ -22,17 +26,33 @@ export function useRoomEventSource(
     eventSource.onmessage = (event) => {
       try {
         const data: unknown = JSON.parse(event.data);
-        if (data && typeof data === "object" && "payload" in data) {
-          const result = roomStreamEventSchema.safeParse(data.payload);
-          if (result.success) {
-            onEventRef.current(result.data);
+        const payload = parseRoomStreamMessage(data, roomId, userId);
+
+        if (payload?.type === "room.state_sync") {
+          const revision = Number(payload.state.participationRevision);
+
+          if (revision < latestRevision) return;
+
+          latestRevision = revision;
+        }
+
+        if (payload && payload.type !== "room.state_sync") {
+          const eventId =
+            event.lastEventId ||
+            (typeof payload.id === "string" || typeof payload.id === "number"
+              ? String(payload.id)
+              : "");
+          if (eventId) {
+            if (seenEventIds.has(eventId)) return;
+            seenEventIds.add(eventId);
           }
         }
+        if (payload) onEventRef.current(payload);
       } catch {
-        // Ignore malformed events and keep the stream connected.
+        // Ignore malformed events and keep the stream connected
       }
     };
 
     return () => eventSource.close();
-  }, [roomId]);
+  }, [roomId, userId]);
 }

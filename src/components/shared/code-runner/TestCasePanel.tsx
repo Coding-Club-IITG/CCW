@@ -9,12 +9,9 @@ import {
 } from "lucide-react";
 
 import type { TestCase, TestResult } from "@/lib/codeRunner/types";
-import type { CodeRunnerLanguage } from "@/lib/constants";
-import { executeCode } from "@/lib/codeRunner/executor";
+import type { RunPhase } from "./execution";
 
 import styles from "./CodeRunner.module.scss";
-
-type RunPhase = "downloading" | "running" | null;
 
 function AnimatedDots() {
   const [dots, setDots] = useState(".");
@@ -37,8 +34,10 @@ type Props = {
   onTestCasesChange: (testCases: TestCase[]) => void;
   activeTestCaseId: string | null;
   onSelectTestCase: (id: string) => void;
-  code: string;
-  language: CodeRunnerLanguage;
+  runPhase: RunPhase;
+  results: TestResult[];
+  onRun: () => void;
+  busy: boolean;
 };
 
 export default function TestCasePanel({
@@ -46,72 +45,14 @@ export default function TestCasePanel({
   onTestCasesChange,
   activeTestCaseId,
   onSelectTestCase,
-  code,
-  language,
+  runPhase,
+  results,
+  onRun,
+  busy,
 }: Props) {
-  const [runPhase, setRunPhase] = useState<RunPhase>(null);
-  const [results, setResults] = useState<TestResult[]>([]);
-  const runtimeLoaded = useRef<Record<string, boolean>>({});
-
-  const handleRunAll = async () => {
-    if (testCases.length === 0) return;
-    setResults([]);
-
-    // Show "Downloading" if runtime not yet loaded
-    if (!runtimeLoaded.current[language]) {
-      setRunPhase("downloading");
-    } else {
-      setRunPhase("running");
-    }
-
-    const newResults: TestResult[] = [];
-
-    for (let i = 0; i < testCases.length; i++) {
-      const tc = testCases[i];
-      try {
-        const result = await executeCode(language, code, tc.input, () => {
-          runtimeLoaded.current[language] = true;
-          setRunPhase("running");
-        });
-
-        const actualTrimmed = result.stdout.trim();
-        const expectedTrimmed = tc.expectedOutput.trim();
-
-        let status: TestResult["status"];
-        if (result.timedOut) {
-          status = "tle";
-        } else if (result.exitCode !== 0 || result.stderr) {
-          status = "error";
-        } else if (actualTrimmed === expectedTrimmed) {
-          status = "pass";
-        } else {
-          status = "fail";
-        }
-
-        newResults.push({
-          testCaseId: tc.id,
-          status,
-          actualOutput: result.stdout,
-          error: result.stderr || undefined,
-          executionTimeMs: result.executionTimeMs,
-        });
-      } catch (err) {
-        newResults.push({
-          testCaseId: tc.id,
-          status: "error",
-          actualOutput: "",
-          error: err instanceof Error ? err.message : "Unknown error",
-        });
-      }
-    }
-
-    setResults(newResults);
-    setRunPhase(null);
-  };
-
   const handleAddTestCase = () => {
     const newCase: TestCase = {
-      id: `custom-${Date.now()}`,
+      id: `custom-${crypto.randomUUID()}`,
       input: "",
       expectedOutput: "",
       isCustom: true,
@@ -155,8 +96,8 @@ export default function TestCasePanel({
       <div className={styles.runnerHeader}>
         <button
           className={styles.runBtn}
-          onClick={handleRunAll}
-          disabled={runPhase !== null || testCases.length === 0}
+          onClick={onRun}
+          disabled={busy || testCases.length === 0}
           type="button"
         >
           {runPhase === null && (
@@ -192,38 +133,42 @@ export default function TestCasePanel({
         {testCases.map((tc, idx) => {
           const result = getResultForTestCase(tc.id);
           return (
-            <button
-              key={tc.id}
-              className={`${styles.testCaseTab} ${activeTestCaseId === tc.id ? styles.testCaseTabActive : ""}`}
-              onClick={() => onSelectTestCase(tc.id)}
-              type="button"
-            >
-              {result && (
-                <span className={styles.testCaseStatusIcon}>
-                  {result.status === "pass" ? (
-                    <IconCheck
-                      width="12"
-                      height="12"
-                      className={styles.passIcon}
-                    />
-                  ) : (
-                    <IconX width="12" height="12" className={styles.failIcon} />
-                  )}
-                </span>
-              )}
-              Test {idx + 1}
+            <div key={tc.id} className={styles.testTabGroup}>
+              <button
+                className={`${styles.testCaseTab} ${activeTestCaseId === tc.id ? styles.testCaseTabActive : ""}`}
+                onClick={() => onSelectTestCase(tc.id)}
+                type="button"
+              >
+                {result && (
+                  <span className={styles.testCaseStatusIcon}>
+                    {result.status === "pass" ? (
+                      <IconCheck
+                        width="12"
+                        height="12"
+                        className={styles.passIcon}
+                      />
+                    ) : (
+                      <IconX
+                        width="12"
+                        height="12"
+                        className={styles.failIcon}
+                      />
+                    )}
+                  </span>
+                )}
+                Test {idx + 1}
+              </button>
               {tc.isCustom && (
-                <span
+                <button
+                  type="button"
                   className={styles.removeTestCase}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRemoveTestCase(tc.id);
-                  }}
+                  aria-label={`Remove test ${idx + 1}`}
+                  onClick={() => handleRemoveTestCase(tc.id)}
                 >
-                  <IconX width="10" height="10" />
-                </span>
+                  <IconX width="12" height="12" />
+                </button>
               )}
-            </button>
+            </div>
           );
         })}
         <button
@@ -240,8 +185,9 @@ export default function TestCasePanel({
       {activeTestCase && (
         <div className={styles.testCaseContent}>
           <div className={styles.testCaseField}>
-            <label>Input</label>
+            <label htmlFor="runner-test-input">Input</label>
             <textarea
+              id="runner-test-input"
               value={activeTestCase.input}
               onChange={(e) =>
                 handleUpdateTestCase(activeTestCase.id, "input", e.target.value)
@@ -251,8 +197,9 @@ export default function TestCasePanel({
             />
           </div>
           <div className={styles.testCaseField}>
-            <label>Expected Output</label>
+            <label htmlFor="runner-test-expected">Expected Output</label>
             <textarea
+              id="runner-test-expected"
               value={activeTestCase.expectedOutput}
               onChange={(e) =>
                 handleUpdateTestCase(

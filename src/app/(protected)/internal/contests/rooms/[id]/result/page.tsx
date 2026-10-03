@@ -5,10 +5,9 @@ import { redirect } from "next/navigation";
 import { getContestById } from "@/lib/actions/contests";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { auth } from "@/lib/auth/server";
-import { isHead } from "@/lib/access/roles";
+import { authorizeRoomView } from "@/lib/access/contests";
 import { normalizeAvatar } from "@/lib/users/identity";
 
-import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestSubmission from "@/models/ContestSubmission";
@@ -26,27 +25,29 @@ export default async function PostMatchResultPage({
   const unwrappedParams = await params;
   const unwrappedSearch = await searchParams;
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/");
 
-  const userRole = session?.user?.access as string | undefined;
-  const admin = isHead(userRole);
+  if (!session) redirect("/");
 
   const currentUserId = session?.user?.id || "";
 
   await connectMongoDB();
+
   const roomId = unwrappedParams.id;
 
-  let room = await ContestRoom.findById(roomId).lean();
-  if (!room) {
-    notFound();
-  }
+  const roomAccess = await authorizeRoomView(roomId, session.user);
+
+  if (!roomAccess.ok) notFound();
+
+  const { room } = roomAccess.data;
 
   const isProcessing = room.status !== "ended";
 
   const contestResult = await getContestById(room.contestId.toString());
+
   if (!contestResult.ok || !contestResult.data) {
     notFound();
   }
+
   const contest = contestResult.data;
 
   // 2. Fetch all match data
@@ -55,6 +56,7 @@ export default async function PostMatchResultPage({
   const submissions = await ContestSubmission.find({
     roomId,
     verdict: "OK",
+    points: { $gt: 0 },
   }).lean();
 
   const userIds = teams.flatMap((t) => t.members || []);
@@ -65,17 +67,21 @@ export default async function PostMatchResultPage({
 
   // 3. Process problems first to calculate user contributions
   let processedProblems: any[] = [];
+
   if (problemSet && problemSet.problems) {
     processedProblems = problemSet.problems.map((p: any) => {
       const subsForProb = submissions.filter(
         (s) => s.problemId === p.problemId,
       );
+
       subsForProb.sort(
         (a, b) => (a.solveMs || Infinity) - (b.solveMs || Infinity),
       );
+
       const firstSub = subsForProb[0];
 
       let solverDetails = null;
+
       if (firstSub) {
         const solverTeamId = firstSub.teamId?.toString();
         const solverUserId = firstSub.userId?.toString();
@@ -85,6 +91,7 @@ export default async function PostMatchResultPage({
 
         if (t && u) {
           const avatarUrl = normalizeAvatar(u.image);
+
           solverDetails = {
             userId: u._id.toString(),
             userName: cp?.cfHandle || u.name,
@@ -110,6 +117,7 @@ export default async function PostMatchResultPage({
 
   // 4. Calculate user scores
   const userScores: Record<string, number> = {};
+
   for (const prob of processedProblems) {
     if (prob.solved && prob.solver) {
       userScores[prob.solver.userId] =
@@ -122,7 +130,7 @@ export default async function PostMatchResultPage({
     return {
       id: t._id.toString(),
       name: t.name || "Unknown Team",
-      score: t.score || 0,
+      score: Math.max(t.score || 0, 0),
       members: users
         .filter((u) =>
           t.members?.some((m: any) => m.toString() === u._id.toString()),
@@ -145,11 +153,25 @@ export default async function PostMatchResultPage({
     };
   });
 
-  processedTeams.sort((a, b) => b.score - a.score);
+  // Determine winner team
+  const winnerTeamId: string | null = room.winnerTeamId
+    ? room.winnerTeamId.toString()
+    : null;
+
+  processedTeams.sort((a, b) => {
+    if (winnerTeamId) {
+      if (a.id === winnerTeamId) return -1;
+
+      if (b.id === winnerTeamId) return 1;
+    }
+
+    return b.score - a.score;
+  });
 
   // 6. Unique MVP
   let mvp = null;
   let maxUserScore = 0;
+
   for (const [userId, score] of Object.entries(userScores)) {
     if (score > maxUserScore) {
       maxUserScore = score;
@@ -158,11 +180,13 @@ export default async function PostMatchResultPage({
   }
 
   let mvpDetails = null;
+
   if (mvp) {
     const mvpUser = users.find((u) => u._id.toString() === mvp);
     const mvpTeam = processedTeams.find((t) =>
       t.members.some((m) => m.id === mvp),
     );
+
     if (mvpUser && mvpTeam) {
       const cpUser = cpUsers.find((cp) => cp.userId?.toString() === mvp);
       const mvpAvatar = normalizeAvatar(mvpUser.image);
@@ -179,24 +203,15 @@ export default async function PostMatchResultPage({
   }
 
   let durationStr = "0m 0s";
-  if (contest.startTime && contest.endTime) {
-    const diffMs =
-      new Date(contest.endTime).getTime() -
-      new Date(contest.startTime).getTime();
-    if (diffMs > 0) {
-      const totalSeconds = Math.floor(diffMs / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      durationStr = `${minutes}m ${seconds}s`;
-    }
-  } else if (submissions.length > 0) {
-    const maxSolveMs = Math.max(...submissions.map((s) => s.solveMs || 0));
-    if (maxSolveMs > 0) {
-      const totalSeconds = Math.floor(maxSolveMs / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      durationStr = `${minutes}m ${seconds}s`;
-    }
+
+  if (room.actualStartTime && (room.gameplayEndedAt || room.actualEndTime)) {
+    const end = room.gameplayEndedAt ?? room.actualEndTime!;
+    const seconds = Math.max(
+      0,
+      Math.floor((end.getTime() - room.actualStartTime.getTime()) / 1000),
+    );
+
+    durationStr = Math.floor(seconds / 60) + "m " + (seconds % 60) + "s";
   }
 
   const matchData = {
@@ -204,11 +219,13 @@ export default async function PostMatchResultPage({
     roomType: contest.mode === "arena" ? "Arena Format" : "Blitz Format",
     duration: durationStr,
     teams: processedTeams,
+    winnerTeamId,
     problems: processedProblems,
     mvp: mvpDetails,
     isKnockout: contest.format === "bracket",
     contestId: contest._id.toString(),
     terminationReason: room.terminationReason,
+    resultMethod: room.resultMethod,
     format: contest.format,
     isProcessing,
   };

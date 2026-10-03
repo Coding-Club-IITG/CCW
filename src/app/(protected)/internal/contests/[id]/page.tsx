@@ -1,23 +1,27 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { CalendarX, CircleAlert, Hourglass } from "lucide-react";
+
+import { CONTEST_TIMING } from "@/lib/constants";
 
 import { getContestById } from "@/lib/actions/contests";
+import { objectIdStringSchema } from "@/lib/api/schemas/contestRoute";
 import { webEnv } from "@/lib/env/web";
 import { userRateLimitsEnabled } from "@/lib/users/rateLimit";
-import {
-  contestRoomStateSchema,
-  parseContestRoomProblems,
-} from "@/lib/contests/runtime";
-import type { ContestRoomProblemDto } from "@/lib/contests/dtos";
+import { roomGameplaySnapshot } from "@/lib/contests/roomSnapshot";
+import type {
+  ContestRoomProblemDto,
+  RoomActivityDto,
+} from "@/lib/contests/dtos";
 import { normalizeAvatar } from "@/lib/users/identity";
 import { auth } from "@/lib/auth/server";
-import { connectMongoDB } from "@/lib/db/mongodb";
 import { getRedis } from "@/lib/db/redis";
 import { getBracketSnapshot } from "@/lib/contests/bracket";
 import { isHead } from "@/lib/access/roles";
+import { authorizeContestView, authorizeRoomView } from "@/lib/access/contests";
+import { getRoomOnlineUserIds } from "@/lib/contests/presence";
 
+import ContestProblemSet from "@/models/ContestProblemSet";
 import ContestRoom from "@/models/ContestRoom";
 import ContestTeam from "@/models/ContestTeam";
 import User from "@/models/User";
@@ -26,6 +30,8 @@ import CPUser from "@/models/CPUser";
 import BlitzRoomClient from "@/components/contests/BlitzRoomClient";
 import ArenaRoomClient from "@/components/contests/ArenaRoomClient";
 import BracketRoomClient from "@/components/contests/BracketRoomClient";
+import BackLink from "@/components/shared/BackLink";
+import EmptyState from "@/components/shared/EmptyState";
 
 import styles from "./page.module.scss";
 
@@ -40,139 +46,150 @@ export default async function ContestRoomPage({
 }) {
   const { id } = await params;
   const { from, matchRoomId } = await searchParams;
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!session?.user) redirect("/");
+
+  if (
+    matchRoomId !== undefined &&
+    !objectIdStringSchema.safeParse(matchRoomId).success
+  )
+    notFound();
+
+  const viewAccess = await authorizeContestView(id, session.user);
+
+  if (!viewAccess.ok) notFound();
+
   const contestResult = await getContestById(id);
 
-  if (!contestResult.ok || !contestResult.data) {
-    notFound();
-  }
+  if (!contestResult.ok) notFound();
+
   const contest = contestResult.data;
 
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  if (viewAccess.data.contest.cancellationReason)
+    return (
+      <ContestRoomState
+        name={contest.name}
+        title="Contest Cancelled"
+        message={viewAccess.data.contest.cancellationReason}
+      />
+    );
 
-  if (!session || !session.user) {
-    return <div>Unauthorized</div>;
-  }
-
-  const userRole = session.user.access as string | undefined;
-  const admin = isHead(userRole);
-
+  const admin = isHead(session.user.access);
   const userId = session.user.id;
-  await connectMongoDB();
+  let isSpectator = false;
 
-  // If matchRoomId is specified (bracket "Enter Room"), load that specific room
-  const roomQuery = matchRoomId
-    ? { _id: matchRoomId, contestId: contest._id }
-    : { contestId: contest._id, participants: userId };
-
-  // Find the active/waiting room for this user in this contest
   // Bracket format: show bracket viewer (unless entering a specific match room)
-  if (
-    (contest.format === "bracket" || contest.mode === "knockout") &&
-    !matchRoomId
-  ) {
+  if (contest.format === "bracket" && !matchRoomId) {
     const bracketSnapshot = await getBracketSnapshot(contest._id.toString());
-    const userTeam = await ContestTeam.findOne({
+    const userTeams = await ContestTeam.find({
       contestId: contest._id,
       members: userId,
     }).lean();
+    const userTeamIds = userTeams.map((t) => t._id.toString());
+
     return (
       <BracketRoomClient
         contest={contest}
         initialSnapshot={bracketSnapshot}
         userId={userId}
-        currentUserTeamId={userTeam ? userTeam._id.toString() : null}
+        currentUserTeamIds={userTeamIds}
+        canSpectate={viewAccess.data.canSpectate}
+        isAdmin={admin}
       />
     );
   }
 
-  const room = await ContestRoom.findOne(roomQuery).lean();
+  const roomQuery = matchRoomId
+    ? { _id: matchRoomId, contestId: contest._id }
+    : { contestId: contest._id, participants: userId };
+
+  let room = await ContestRoom.findOne(roomQuery).lean();
+
+  if (!room && !matchRoomId && viewAccess.data.canSpectate) {
+    room = await ContestRoom.findOne({ contestId: contest._id }).lean();
+  }
 
   let teamId = null;
   let roomId = null;
   let roomName = null;
 
+  if (matchRoomId && !room) notFound();
+
   if (room) {
-    if (room.status === "ended" || room.status === "completed") {
+    const roomAccess = await authorizeRoomView(
+      String(room._id),
+      session.user,
+      id,
+    );
+
+    if (!roomAccess.ok) notFound();
+
+    isSpectator = roomAccess.data.isSpectator;
+    teamId = roomAccess.data.teamId;
+
+    if (room.status === "ended") {
       // For bracket, ended rooms go back to bracket viewer
-      if (
-        matchRoomId &&
-        (contest.format === "bracket" || contest.mode === "knockout")
-      ) {
+      if (matchRoomId && contest.format === "bracket") {
         const { redirect } = await import("next/navigation");
+
         redirect(`/internal/contests/${id}`);
       }
+
       const { redirect } = await import("next/navigation");
+
       redirect(
         `/internal/contests/rooms/${room._id.toString()}/result${from ? `?from=${from}` : ""}`,
       );
     }
+
     roomId = room._id.toString();
     roomName = room.name;
-    const team = await ContestTeam.findOne({
-      roomId: room._id,
-      members: userId,
-    }).lean();
-    if (team) {
-      teamId = team._id.toString();
-    }
   }
 
   if (contest.mode === "blitz" || contest.mode === "arena") {
-    if (!room || !teamId) {
+    if (!room || (!teamId && !isSpectator)) {
       if (contest.status === "completed") {
         // Non-participant or unassigned user: try to redirect to any room
-        const anyRoom = await ContestRoom.findOne({
-          contestId: contest._id,
-        }).lean();
+        const anyRoom = viewAccess.data.canSpectate
+          ? await ContestRoom.findOne({
+              contestId: contest._id,
+            }).lean()
+          : null;
+
         if (anyRoom) {
           redirect(`/internal/contests/rooms/${anyRoom._id.toString()}/result`);
         }
-        // No rooms at all - contest was cancelled before provisioning
+
         return (
-          <div className={styles.stateWrap}>
-            <CalendarX
-              className={`${styles.stateIcon} ${styles.iconError}`}
-              size={60}
-            />
-            <h1 className={styles.stateTitle}>Contest Cancelled</h1>
-            <p className={styles.stateText}>
-              This contest was cancelled (likely due to not enough players).
-            </p>
-          </div>
+          <ContestRoomState
+            name={contest.name}
+            title="No Results Available"
+            message="There are no match results available for this contest."
+          />
         );
       } else if (
         ["draft", "registration", "provisioning"].includes(contest.status)
       ) {
         return (
-          <div className={styles.stateWrap}>
-            <Hourglass
-              className={`${styles.stateIcon} ${styles.iconPrimary} ${styles.spin}`}
-              size={60}
-            />
-            <h1 className={styles.stateTitle}>Match is Preparing</h1>
-            <p className={styles.stateText}>
-              The rooms are currently being provisioned. Please wait...
-            </p>
-            <meta httpEquiv="refresh" content="5" />
-          </div>
+          <ContestRoomState
+            name={contest.name}
+            title="Match is Preparing"
+            message="The rooms are currently being provisioned. Please wait..."
+            refresh
+          />
         );
       } else {
         return (
-          <div className={styles.stateWrap}>
-            <CircleAlert
-              className={`${styles.stateIcon} ${styles.iconError}`}
-              size={60}
-            />
-            <h1 className={styles.stateTitle}>No Room Found</h1>
-            <p className={styles.stateText}>
-              You have not been assigned to a match room for this contest yet.
-            </p>
-          </div>
+          <ContestRoomState
+            name={contest.name}
+            title="No Room Found"
+            message="You have not been assigned to a match room for this contest yet."
+          />
         );
       }
     }
+
     const teams = await ContestTeam.find({ roomId: room._id }).lean();
     const allMemberIds = teams.flatMap((t) => t.members);
     const users = await User.find(
@@ -187,10 +204,11 @@ export default async function ContestRoomPage({
     const populatedTeams = teams.map((t) => ({
       _id: t._id.toString(),
       name: t.name,
-      score: t.score || 0,
+      score: Math.max(t.score || 0, 0),
       members: t.members.map((memberId) => {
         const u = userMap.get(memberId.toString());
         const cp = cpUserMap.get(memberId.toString());
+
         return {
           id: memberId.toString(),
           name: u?.name || "Unknown Player",
@@ -202,34 +220,17 @@ export default async function ContestRoomPage({
     }));
 
     const redis = await getRedis();
-    const readyUserIds = await redis.sMembers(`room:${roomId}:ready_users`);
+    const readyUserIds = room.readyUserIds.map(String);
 
-    // Check online presence for all members
-    const initialOnlineUserIds = [userId];
-    const presenceKeysToFetch: string[] = [];
-    const membersToFetch: string[] = [];
+    const initialOnlineUserIds = await getRoomOnlineUserIds(roomId!);
 
-    for (const mId of allMemberIds) {
-      const idStr = mId.toString();
-      if (idStr !== userId) {
-        presenceKeysToFetch.push(`room:${roomId}:presence:${idStr}`);
-        membersToFetch.push(idStr);
-      }
-    }
-
-    if (presenceKeysToFetch.length > 0) {
-      const presenceResults = await redis.mGet(presenceKeysToFetch);
-      for (let i = 0; i < presenceResults.length; i++) {
-        if (presenceResults[i]) {
-          initialOnlineUserIds.push(membersToFetch[i]);
-        }
-      }
-    }
-
-    // Fetch current state from Redis
-    const stateObj = contestRoomStateSchema.parse(
-      await redis.hGetAll(`room:${roomId}:state`),
+    const problemSet = await ContestProblemSet.findOne({ roomId }).lean();
+    const snapshot = roomGameplaySnapshot(
+      room,
+      contest.mode,
+      problemSet?.problems ?? [],
     );
+    const stateObj = snapshot.state;
     const rawStatus = stateObj.status || room.status;
     const status =
       rawStatus === "active"
@@ -241,24 +242,25 @@ export default async function ContestRoomPage({
     let initialProblems: ContestRoomProblemDto[] = [];
     let initialScores: Record<string, number> = {};
     let initialLocks: Record<string, string> = {};
+    let initialActivityFeed: RoomActivityDto[] = [];
 
     if (status === "active" || status === "completed") {
-      const problemsRaw = await redis.lRange(`room:${roomId}:problems`, 0, -1);
-      initialProblems = parseContestRoomProblems(problemsRaw);
+      initialProblems = snapshot.problems;
+      initialScores = snapshot.scores;
+      initialLocks = snapshot.locks;
 
-      for (const t of populatedTeams) {
-        const s = await redis.zScore(`room:${roomId}:scores`, t._id);
-        initialScores[t._id] = s ? parseFloat(s.toString()) : 0;
-      }
+      const activityLogsRaw = await redis.lRange(
+        `room:${roomId}:activity_logs`,
+        0,
+        -1,
+      );
 
-      if (contest.mode === "arena") {
-        initialLocks = await redis.hGetAll(`room:${roomId}:locks`);
-      }
+      initialActivityFeed = activityLogsRaw.map((l) => JSON.parse(l));
     }
 
     const cpUser = cpUserMap.get(userId);
     const userDoc = userMap.get(userId);
-    const cfHandle = cpUser?.cfHandle || userDoc?.codeforcesId || "dummy0";
+    const cfHandle = cpUser?.cfHandle || userDoc?.codeforcesId || "";
 
     const syncCooldown = userRateLimitsEnabled ? webEnv.SYNC_COOLDOWN : 0;
 
@@ -288,8 +290,16 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
+          initialJudgingDeadline={room.judgingDeadline?.getTime()}
+          initialReadyDeadline={room.readyDeadline?.getTime()}
+          initialReadyOpensAt={room.readyOpensAt?.getTime()}
+          initialAdmittedUserIds={room.admissions.map((admission) =>
+            String(admission.userId),
+          )}
+          initialActivityFeed={initialActivityFeed}
           from={from}
           syncCooldownSeconds={syncCooldown}
+          isSpectator={isSpectator}
         />
       );
     } else if (contest.mode === "arena") {
@@ -314,8 +324,16 @@ export default async function ContestRoomPage({
           initialTimeLimit={
             stateObj?.timeLimit ? parseInt(stateObj.timeLimit) : undefined
           }
+          initialJudgingDeadline={room.judgingDeadline?.getTime()}
+          initialReadyDeadline={room.readyDeadline?.getTime()}
+          initialReadyOpensAt={room.readyOpensAt?.getTime()}
+          initialAdmittedUserIds={room.admissions.map((admission) =>
+            String(admission.userId),
+          )}
+          initialActivityFeed={initialActivityFeed}
           from={from}
           syncCooldownSeconds={syncCooldown}
+          isSpectator={isSpectator}
         />
       );
     }
@@ -323,4 +341,35 @@ export default async function ContestRoomPage({
 
   // Other formats are not fully implemented yet
   notFound();
+}
+
+function ContestRoomState({
+  name,
+  title,
+  message,
+  refresh = false,
+}: {
+  name: string;
+  title: string;
+  message: string;
+  refresh?: boolean;
+}) {
+  return (
+    <div className={styles.stateWrap}>
+      <BackLink href="/internal/contests" label="Back to Contests" />
+
+      <header className={styles.stateHeader}>
+        <h1>{name}</h1>
+      </header>
+
+      <EmptyState title={title} hint={message} />
+
+      {refresh && (
+        <meta
+          httpEquiv="refresh"
+          content={String(CONTEST_TIMING.preparationRefreshSeconds)}
+        />
+      )}
+    </div>
+  );
 }

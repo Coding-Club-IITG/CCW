@@ -30,7 +30,7 @@ const ContestSubmissionSchema = new Schema<IContestSubmission>(
       required: true,
       index: true,
     },
-    userId: { type: Schema.Types.ObjectId, ref: "CPUser", required: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     teamId: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     problemId: { type: String, required: true },
     platform: { type: String, required: true },
@@ -45,9 +45,12 @@ const ContestSubmissionSchema = new Schema<IContestSubmission>(
 
 ContestSubmissionSchema.index({ roomId: 1, userId: 1 });
 ContestSubmissionSchema.index({ contestId: 1, problemId: 1 });
+// The upstream submission ID keeps retried verdict delivery idempotent
+ContestSubmissionSchema.index({ roomId: 1, submissionId: 1 }, { unique: true });
 
 const ContestSubmission =
-  mongoose.models.ContestSubmission ||
+  (mongoose.models.ContestSubmission as
+    mongoose.Model<IContestSubmission> | undefined) ||
   mongoose.model<IContestSubmission>(
     "ContestSubmission",
     ContestSubmissionSchema,

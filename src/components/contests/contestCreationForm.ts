@@ -1,36 +1,51 @@
+import type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
+
 export interface ContestCreationForm {
   name: string;
   description: string;
-  mode: string;
-  format: string;
+  mode: NonNullable<ContestCreationPreset["mode"]>;
+  format: NonNullable<ContestCreationPreset["format"]>;
   teamSize: number;
   maxParticipants: number;
+  entrantCapacity: number;
   startTime: string;
-  problemSelectionMode: string;
+  problemSelectionMode: NonNullable<
+    ContestCreationPreset["problemSelectionMode"]
+  >;
   bulkRatingMin: number;
   bulkRatingMax: number;
   bulkProblemCount: number;
   bulkMinContestId: number;
   fineTunedProblemCount: string | number;
   fineTunedProblems: string[];
+  fineTunedProblemPoints?: number[];
+  fineTunedProblemTimeLimits?: Array<number | undefined>;
   presetId: string;
-  thirdPlacePlayoff: boolean;
-  seedingMethod: string;
+
+  bracketType?: "single_elimination" | "double_elimination";
   registrationStartMode: string;
   registrationStartTime: string;
-  registrationType: string;
+  registrationType: NonNullable<
+    ContestCreationPreset["registrationSettings"]
+  >["type"];
+  overallDurationMinutes?: number;
+  perProblemDurationMinutes?: number;
+  spectatorRestriction: NonNullable<
+    ContestCreationPreset["spectatorRestriction"]
+  >;
 }
 
 export type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
-import type { ContestPresetDto as ContestCreationPreset } from "@/lib/contests/dtos";
 
-export interface AdminContestWizardForm {
+export interface ContestWizardForm {
   name: string;
   description: string;
   mode: "blitz" | "arena";
   format: "bracket";
+  bracketType?: "single_elimination" | "double_elimination";
   teamSize: 1 | 3;
   maxParticipants: number;
+  entrantCapacity: number;
   startTime: string;
   registrationType: "open" | "closed";
   presetId: string;
@@ -39,10 +54,14 @@ export interface AdminContestWizardForm {
     platform: string;
     problemId: string;
     roundNumber: number;
+    points?: number;
+    timeLimitMinutes?: number;
   }>;
   bulkProblemCount?: number;
-  thirdPlacePlayoff: boolean;
-  seedingMethod: "cf_rating" | "manual";
+
+  overallDurationMinutes?: number;
+  perProblemDurationMinutes?: number;
+  spectatorRestriction: ContestCreationForm["spectatorRestriction"];
 }
 
 export interface ContestParticipant {
@@ -55,14 +74,18 @@ export interface ContestParticipant {
   teamName?: string;
 }
 
-export function createInitialContestForm(): ContestCreationForm {
+export function createInitialContestForm(
+  isHead: boolean,
+  timing: { overallMinutes: number; problemMinutes: number },
+): ContestCreationForm {
   return {
     name: "",
     description: "",
     mode: "blitz",
-    format: "solo-tournament",
+    format: isHead ? "solo-tournament" : "1v1",
     teamSize: 1,
-    maxParticipants: 16,
+    maxParticipants: isHead ? 16 : 2,
+    entrantCapacity: 8,
     startTime: "",
     problemSelectionMode: "bulk",
     bulkRatingMin: 800,
@@ -71,12 +94,17 @@ export function createInitialContestForm(): ContestCreationForm {
     bulkMinContestId: 0,
     fineTunedProblemCount: 1,
     fineTunedProblems: [""],
+    fineTunedProblemPoints: [100],
+    fineTunedProblemTimeLimits: [],
     presetId: "",
-    thirdPlacePlayoff: false,
-    seedingMethod: "cf_rating",
+
+    bracketType: "single_elimination",
     registrationStartMode: "immediate",
     registrationStartTime: "",
-    registrationType: "open",
+    registrationType: isHead ? "open" : "closed",
+    overallDurationMinutes: timing.overallMinutes,
+    perProblemDurationMinutes: timing.problemMinutes,
+    spectatorRestriction: "none",
   };
 }
 
@@ -86,15 +114,19 @@ export function applyContestFormatDefaults(
   if (form.format === "1v1") {
     return { ...form, teamSize: 1, maxParticipants: 2 };
   }
+
   if (form.format === "solo-tournament") {
     return { ...form, teamSize: 1, maxParticipants: 16 };
   }
+
   if (form.format === "team-tournament") {
     return { ...form, teamSize: 3, maxParticipants: 15 };
   }
-  if (form.format === "bracket" && form.maxParticipants < 2) {
-    return { ...form, maxParticipants: 16 };
+
+  if (form.format === "bracket") {
+    return { ...form, maxParticipants: form.entrantCapacity * form.teamSize };
   }
+
   return form;
 }
 
@@ -103,13 +135,31 @@ export function applyContestPreset(
   preset: ContestCreationPreset,
 ): ContestCreationForm {
   const problemIds = preset.problemSlots?.map((slot) => slot.problemId || "");
+  const points = preset.problemSlots?.map((slot) => slot.points ?? 100);
+  const timeLimits = preset.problemSlots?.map((slot) => slot.timeLimitMinutes);
 
   return {
     ...form,
-    name: preset.name || form.name,
-    description: preset.description || form.description,
+    // Do not overwrite user's custom name or description
+    name: form.name || preset.name || "",
+    description: form.description || preset.description || "",
     mode: preset.mode || form.mode,
     format: preset.format || form.format,
+    teamSize: preset.teamSize || form.teamSize,
+    overallDurationMinutes:
+      preset.overallDurationMinutes ?? form.overallDurationMinutes,
+    perProblemDurationMinutes:
+      preset.perProblemDurationMinutes ?? form.perProblemDurationMinutes,
+    spectatorRestriction:
+      preset.spectatorRestriction || form.spectatorRestriction,
+    registrationType:
+      preset.registrationSettings?.type || form.registrationType,
+    maxParticipants:
+      preset.registrationSettings?.maxParticipants || form.maxParticipants,
+    bracketType: preset.bracketSettings?.type || form.bracketType,
+    entrantCapacity:
+      preset.registrationSettings?.entrantCapacity ?? form.entrantCapacity,
+
     problemSelectionMode:
       preset.problemSelectionMode || form.problemSelectionMode,
     bulkRatingMin: preset.bulkRatingMin || form.bulkRatingMin,
@@ -118,6 +168,12 @@ export function applyContestPreset(
     bulkMinContestId: preset.bulkMinContestId ?? form.bulkMinContestId,
     fineTunedProblems:
       problemIds && problemIds.length > 0 ? problemIds : form.fineTunedProblems,
+    fineTunedProblemPoints:
+      points && points.length > 0 ? points : form.fineTunedProblemPoints,
+    fineTunedProblemTimeLimits:
+      timeLimits && timeLimits.length > 0
+        ? timeLimits
+        : form.fineTunedProblemTimeLimits,
     fineTunedProblemCount:
       problemIds && problemIds.length > 0
         ? problemIds.length
@@ -129,19 +185,34 @@ export function applyContestPreset(
 export function getMaxParticipantsError(
   form: ContestCreationForm,
   manualTeamCount: number,
+  isHead = true,
 ): string {
   if (Number.isNaN(form.maxParticipants)) return "Must be a valid number.";
+
   if (form.format === "solo-tournament" && form.maxParticipants < 2) {
     return "At least 2 participants required.";
   }
+
   if (form.format === "team-tournament" && form.maxParticipants < 6) {
     return "At least 6 participants required (2 teams).";
   }
-  if (form.format === "bracket" && form.maxParticipants < 2) {
-    return "At least 2 participants required.";
+
+  if (form.format === "bracket") {
+    const minimum = form.bracketType === "double_elimination" ? 4 : 2;
+
+    if (
+      !Number.isInteger(form.entrantCapacity) ||
+      form.entrantCapacity < minimum ||
+      form.entrantCapacity > 256
+    )
+      return `Choose ${minimum}-256 entrants.`;
+
+    if (!isHead && form.entrantCapacity > 8)
+      return "Members may create brackets with at most 8 entrants.";
   }
 
   const maxTeamsAllowed = Math.floor(form.maxParticipants / form.teamSize);
+
   if (manualTeamCount > maxTeamsAllowed) {
     return `Cannot be less than currently registered teams (${manualTeamCount}).`;
   }
@@ -156,6 +227,8 @@ export function reorderContestEntries<T>(
 ): T[] {
   const reordered = [...entries];
   const [entry] = reordered.splice(fromIndex, 1);
+
   reordered.splice(toIndex, 0, entry);
+
   return reordered;
 }

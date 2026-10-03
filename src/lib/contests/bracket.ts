@@ -1,87 +1,195 @@
+import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 
+import { CONTEST_TIMING } from "@/lib/constants";
+
+import { parseBracketPosition } from "@/lib/contests/bracketLayout";
+import {
+  buildBracketTopology,
+  minimumBracketEntrants,
+} from "@/lib/contests/bracketTopology";
+import { provisionProblems } from "@/lib/contests/provisioning";
+import { configureRoomTiming } from "@/lib/contests/roomTiming";
+import { synchronizeRoomRuntime } from "@/lib/contests/roomRuntime";
 import { publishContest } from "@/lib/contests/events";
+import type { BracketNode, BracketSnapshot } from "@/lib/contests/types";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { getRedis } from "@/lib/db/redis";
-import { logger } from "@/lib/telemetry/logger";
-import type { BracketNode, BracketSnapshot } from "@/lib/contests/types";
-import {
-  getRoundName,
-  snakeSeed,
-  nextPowerOf2,
-} from "@/lib/contests/bracketLayout";
 
-import ContestMatch, { type IProblemSlot } from "@/models/ContestMatch";
+import ContestMatch, {
+  type IBracketEntrant,
+  type IContestMatch,
+  type IRegistration,
+} from "@/models/ContestMatch";
+import ContestParticipation from "@/models/ContestParticipation";
 import ContestProblemSet from "@/models/ContestProblemSet";
-import ContestQuestion from "@/models/ContestQuestion";
-import ContestRound, { type IContestRound } from "@/models/ContestRound";
-import ContestRoom from "@/models/ContestRoom";
-import ContestTeam from "@/models/ContestTeam";
+import ContestRound from "@/models/ContestRound";
+import ContestRoom, {
+  type IBracketDestination,
+  type IContestRoom,
+} from "@/models/ContestRoom";
+import ContestTeam, { type IContestTeam } from "@/models/ContestTeam";
 import CPUser from "@/models/CPUser";
-import User, { type UserRecord } from "@/models/User";
-
-type BracketProblem = {
-  problemId: string;
-  name?: string;
-  rating?: number;
-};
+import User from "@/models/User";
 
 export type DeferredBracketEffect = () => Promise<void>;
 
-async function runOrDeferEffect(
-  deferredEffects: DeferredBracketEffect[] | undefined,
-  effect: DeferredBracketEffect,
+export function groupBracketRegistrations(
+  registrations: IRegistration[],
+  teamSize: number,
 ) {
+  const groups = new Map<
+    string,
+    { name: string; members: mongoose.Types.ObjectId[] }
+  >();
+  const seen = new Set<string>();
+
+  for (const registration of registrations) {
+    const member = String(registration.userId);
+
+    if (seen.has(member)) {
+      throw new Error("Duplicate bracket registration.");
+    }
+
+    seen.add(member);
+
+    const name = registration.teamName?.trim() || registration.cfHandle;
+    const key = teamSize === 1 ? member : name.toLowerCase();
+    const group = groups.get(key) ?? { name, members: [] };
+
+    group.members.push(registration.userId);
+    groups.set(key, group);
+  }
+
+  return [...groups.values()].filter(
+    (group) => group.members.length === teamSize,
+  );
+}
+
+async function mutateBracket<T>(
+  contestId: string,
+  deferredEffects: DeferredBracketEffect[] | undefined,
+  mutation: (contest: IContestMatch) => Promise<T>,
+): Promise<T> {
+  await connectMongoDB();
+
+  const run = async (effects: DeferredBracketEffect[]) => {
+    // A parent write serializes simultaneous results from different matches
+    const contest = await ContestMatch.findOneAndUpdate(
+      { _id: contestId, format: "bracket" },
+      { $inc: { bracketRevision: 1 } },
+      { returnDocument: "after" },
+    );
+
+    if (!contest) {
+      throw new Error("Bracket contest not found.");
+    }
+
+    const result = await mutation(contest);
+
+    effects.push(() => synchronizeBracketRuntime(contestId));
+
+    return result;
+  };
+
   if (deferredEffects) {
-    deferredEffects.push(effect);
+    // Admin callers already own the surrounding audit transaction
+    return run(deferredEffects);
+  }
+
+  const committed = await mongoose.connection.transaction(async () => {
+    const effects: DeferredBracketEffect[] = [];
+
+    return { result: await run(effects), effects };
+  });
+
+  for (const effect of committed.effects) {
+    await effect();
+  }
+
+  return committed.result;
+}
+
+// Replays restore runtime state without resetting an active match
+export async function synchronizeBracketRuntime(contestId: string) {
+  const redis = await getRedis();
+  const lockKey = `contest:${contestId}:transition_lock`;
+  const token = randomUUID();
+
+  if (
+    !(await redis.set(lockKey, token, {
+      NX: true,
+      EX: CONTEST_TIMING.transitionLockSeconds,
+    }))
+  ) {
+    const { reconciliationQueue } = await import("@/lib/contests/queues");
+
+    // A busy lease must delay recovery rather than discard the committed change
+    await reconciliationQueue.add(
+      "bracket_transition",
+      { contestId },
+      {
+        delay: CONTEST_TIMING.transitionLockSeconds * 1000,
+        jobId: `bracket-transition-${contestId}-${token}`,
+        removeOnComplete: true,
+      },
+    );
+
     return;
   }
 
-  await effect();
-}
+  try {
+    const contest = await ContestMatch.findById(contestId).lean();
 
-function toStr(id: mongoose.Types.ObjectId | string): string {
-  return typeof id === "string" ? id : id.toString();
-}
-
-/**
- * Initialise all Redis keys for a bracket match room that is transitioning to `waiting`.
- * Mirrors the key structure used by non-bracket rooms so the ready route, SSE presence,
- * and sync worker can all locate the room correctly.
- */
-async function initBracketRoomRedis(
-  redis: Awaited<ReturnType<typeof getRedis>>,
-  roomId: string,
-  mode: string,
-  teamDocs: {
-    _id: mongoose.Types.ObjectId;
-    name: string;
-    members: mongoose.Types.ObjectId[];
-    score: number;
-  }[],
-  durationSeconds = 3600,
-  contestId: string,
-) {
-  await redis.hSet(`room:${roomId}:state`, {
-    status: "waiting",
-    type: mode,
-    startTime: "",
-    timeLimit: durationSeconds.toString(),
-    readyCount: "0",
-    contestId: contestId,
-  });
-  const teamIds = teamDocs.map((t) => toStr(t._id));
-  if (teamIds.length > 0) {
-    await redis.sAdd(`room:${roomId}:teams`, teamIds);
-  }
-  for (const team of teamDocs) {
-    const tId = toStr(team._id);
-    await redis.hSet(`team:${tId}:meta`, { name: team.name, score: "0" });
-    const memberStrs = team.members.map((m) => toStr(m));
-    if (memberStrs.length > 0) {
-      await redis.sAdd(`team:${tId}:users`, memberStrs);
+    if (!contest) {
+      return;
     }
+
+    const rooms = await ContestRoom.find({ contestId }).lean();
+    for (const room of rooms) {
+      await synchronizeRoomRuntime(String(room._id));
+    }
+
+    const snapshot = await getBracketSnapshot(contestId);
+
+    await redis.hSet(`contest:${contestId}:meta`, {
+      format: "bracket",
+      status: contest.status,
+      currentRound: String(snapshot.currentRound),
+    });
+    await publishContest(contestId, {
+      type: "contest.bracket_update",
+      ...snapshot,
+    });
+  } finally {
+    // An expired owner must not release a replacement lease
+    await redis.eval(
+      "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0",
+      { keys: [lockKey], arguments: [token] },
+    );
   }
+}
+
+async function createRoomTeam(
+  room: IContestRoom,
+  entrant: IBracketEntrant,
+  losses = 0,
+) {
+  const team = await ContestTeam.create({
+    roomId: room._id,
+    contestId: room.contestId,
+    roundId: room.currentRoundId,
+    name: entrant.name,
+    members: entrant.members,
+    teamSize: entrant.members.length,
+    score: 0,
+    entrantId: entrant.entrantId,
+    seed: entrant.seed,
+    frozenRating: entrant.rating,
+    bracketLosses: losses,
+  });
+
+  return team._id;
 }
 
 export async function generateBracket(
@@ -90,426 +198,455 @@ export async function generateBracket(
   deferredEffects?: DeferredBracketEffect[],
 ) {
   await connectMongoDB();
-  const contest = await ContestMatch.findById(contestId);
-  if (!contest) throw new Error("Contest not found");
-  if (contest.format !== "bracket")
-    throw new Error("Contest is not a bracket format");
-  if (contest.status !== "provisioning")
-    throw new Error(
-      "Contest must be in 'provisioning' status to generate bracket",
-    );
 
-  const existingRooms = await ContestRoom.countDocuments({ contestId });
-  if (existingRooms > 0)
-    throw new Error("Bracket already generated for this contest");
-
-  const teamSize = contest.teamSize || 1;
-  const mode = contest.mode || "blitz";
-
-  const groupedTeams = groupRegistrationsIntoTeams(
-    contest.registrations ?? [],
-    teamSize,
-  );
-
-  const cpUsers = await CPUser.find({
-    userId: { $in: groupedTeams.flatMap((t) => t.memberIds) },
-  }).lean();
-  const ratingMap = new Map<string, number>();
-  for (const u of cpUsers) {
-    ratingMap.set(toStr(u.userId), u.cfRating || 0);
-  }
-
-  const seededTeams = groupedTeams.map((team) => {
-    const avgRating =
-      team.memberIds.reduce((sum, id) => sum + (ratingMap.get(id) || 0), 0) /
-      team.memberIds.length;
-    return { ...team, rating: avgRating };
+  const preparedContest = await ContestMatch.findOne({
+    _id: contestId,
+    format: "bracket",
   });
-  seededTeams.sort((a, b) => b.rating - a.rating);
+  let allocations: Awaited<ReturnType<typeof provisionProblems>> | undefined;
 
-  const bracketSize = nextPowerOf2(seededTeams.length);
-  const totalRounds = Math.log2(bracketSize);
+  if (
+    preparedContest?.status === "provisioning" &&
+    !preparedContest.bracketGeneratedAt &&
+    !preparedContest.cancellationReason
+  ) {
+    const groups = groupBracketRegistrations(
+      preparedContest.registrations ?? [],
+      preparedContest.teamSize || 1,
+    );
+    const type = preparedContest.bracketSettings?.type || "single_elimination";
+    const capacity = preparedContest.registrationSettings?.entrantCapacity;
 
-  const seededOrder = snakeSeed(
-    seededTeams.map((t, i) => ({ teamId: t.teamName, seed: i + 1 })),
-  );
-
-  const matchAssignments: ((typeof seededTeams)[0] | null)[] = [];
-  for (let i = 0; i < bracketSize; i++) {
-    if (i < seededOrder.length) {
-      const matchTeam = seededTeams.find(
-        (t) => t.teamName === seededOrder[i].teamId,
+    if (
+      capacity &&
+      groups.length >= minimumBracketEntrants(type) &&
+      groups.length <= capacity
+    ) {
+      // Fetch external content before holding the bracket transaction open
+      allocations = await provisionProblems(
+        preparedContest,
+        solvedProblemIds ?? new Set(),
+        buildBracketTopology(groups.length, type),
       );
-      matchAssignments.push(matchTeam || null);
-    } else {
-      matchAssignments.push(null);
     }
   }
 
-  const rounds: (typeof ContestRound.prototype)[] = [];
-  for (let r = 0; r < totalRounds; r++) {
-    const roundNum = r + 1;
-    const round = await ContestRound.create({
-      contestId: contest._id,
-      roundNumber: roundNum,
-      name: getRoundName(roundNum, totalRounds),
-      status: r === 0 ? ("active" as const) : ("pending" as const),
-      rooms: [],
-      bracketLevel: r === 0 ? "round1" : `round${r + 1}`,
+  return mutateBracket(contestId, deferredEffects, async (contest) => {
+    if (contest.cancellationReason) {
+      return getBracketSnapshot(contestId);
+    }
+
+    if (contest.bracketGeneratedAt) {
+      return getBracketSnapshot(contestId);
+    }
+
+    if (contest.status !== "provisioning") {
+      throw new Error("Contest must be provisioning to generate a bracket.");
+    }
+
+    if (await ContestRoom.exists({ contestId })) {
+      throw new Error(
+        "Bracket rooms already exist without a completed generation.",
+      );
+    }
+
+    const type = contest.bracketSettings?.type || "single_elimination";
+    const groups = groupBracketRegistrations(
+      contest.registrations ?? [],
+      contest.teamSize || 1,
+    );
+    const capacity = contest.registrationSettings?.entrantCapacity;
+
+    if (!capacity) {
+      throw new Error("Bracket entrant capacity is required.");
+    }
+
+    if (groups.length > capacity) {
+      throw new Error("Bracket entrant capacity exceeded.");
+    }
+
+    if (groups.length < minimumBracketEntrants(type)) {
+      contest.status = "completed";
+      contest.winnerName = "No Winner";
+      contest.cancellationReason = `Registration closed with ${groups.length} complete entrants (${minimumBracketEntrants(type)} required).`;
+      contest.grandFinalState = "complete";
+      await contest.save();
+
+      return getBracketSnapshot(contestId);
+    }
+
+    if (!allocations || preparedContest?.get("__v") !== contest.get("__v")) {
+      throw new Error(
+        "Bracket registrations changed during provisioning. Retry generation.",
+      );
+    }
+
+    // Snapshot team averages once so later rating changes cannot reorder seeds
+    const profiles = await CPUser.find({
+      userId: { $in: groups.flatMap((group) => group.members) },
+    }).lean();
+    const ratings = new Map(
+      profiles.map((profile) => [
+        String(profile.userId),
+        profile.cfRating || 0,
+      ]),
+    );
+    const entrants = groups
+      .map((group) => ({
+        entrantId: new mongoose.Types.ObjectId(),
+        ...group,
+        seed: 0,
+        rating:
+          group.members.reduce(
+            (sum, member) => sum + (ratings.get(String(member)) ?? 0),
+            0,
+          ) / group.members.length,
+      }))
+      .sort(
+        (a, b) =>
+          b.rating - a.rating ||
+          a.members
+            .map(String)
+            .sort()
+            .join()
+            .localeCompare(b.members.map(String).sort().join()),
+      );
+
+    entrants.forEach((entrant, index) => {
+      entrant.seed = index + 1;
     });
-    rounds.push(round);
-  }
+    contest.bracketEntrants = entrants;
+    contest.bracketGeneratedAt = new Date();
 
-  const allRoomIds: string[] = [];
-  let roundIndex = 0;
+    const topology = buildBracketTopology(entrants.length, type);
+    // Allocate every destination before resolving any seeded byes
+    const roomIds = new Map(
+      topology.matches.map((match) => [
+        match.position,
+        new mongoose.Types.ObjectId(),
+      ]),
+    );
+    const rounds = new Map<number, mongoose.Types.ObjectId>();
 
-  const problemCount = contest.bulkProblemCount || 3;
-  const minRating = contest.bulkRatingMin || 800;
-  const maxRating = contest.bulkRatingMax || 1200;
-  const minContestId = contest.bulkMinContestId || 0;
+    for (const match of topology.matches) {
+      if (!rounds.has(match.roundNumber)) {
+        const round = await ContestRound.create({
+          contestId,
+          roundNumber: match.roundNumber,
+          name: match.roundName,
+          status: "pending",
+          bracketType: match.stage,
+          bracketRoundNumber: match.roundIndex + 1,
+          rooms: topology.matches
+            .filter((other) => other.roundNumber === match.roundNumber)
+            .map((other) => roomIds.get(other.position)!),
+        });
 
-  let bulkProblemPool: BracketProblem[] = [];
-  if (contest.problemSelectionMode === "bulk") {
-    const totalRooms = bracketSize - 1;
-    const totalProblemsNeeded = totalRooms * problemCount;
-    const excludeIds = solvedProblemIds ? Array.from(solvedProblemIds) : [];
-    bulkProblemPool = await ContestQuestion.aggregate<BracketProblem>([
-      {
-        $match: {
-          rating: { $gte: minRating, $lte: maxRating },
-          ...(minContestId > 0 ? { contestId: { $gte: minContestId } } : {}),
-          ...(excludeIds.length > 0 ? { problemId: { $nin: excludeIds } } : {}),
-        },
-      },
-      { $sample: { size: totalProblemsNeeded } },
-      { $sort: { rating: 1 } },
-    ]);
-  }
-  const fineTunedPool = (contest.problemSlots || []).filter(
-    (slot): slot is IProblemSlot & { problemId: string } =>
-      Boolean(slot.problemId),
-  );
+        rounds.set(match.roundNumber, round._id);
+      }
 
-  for (const round of rounds) {
-    const matchesInRound = Math.pow(2, totalRounds - roundIndex - 1);
-    const roundRooms: mongoose.Types.ObjectId[] = [];
-
-    for (let m = 0; m < matchesInRound; m++) {
-      const bracketPos = `${roundIndex}-${m}`;
-      const leftTeamId =
-        roundIndex === 0 ? getTeamByMatchIndex(matchAssignments, m * 2) : null;
-      const rightTeamId =
-        roundIndex === 0
-          ? getTeamByMatchIndex(matchAssignments, m * 2 + 1)
-          : null;
-
-      const hasNoTeams = !leftTeamId && !rightTeamId;
-      const isBye = !hasNoTeams && (!leftTeamId || !rightTeamId);
-      const roomStatus = hasNoTeams
-        ? ("pending" as const)
-        : isBye
-          ? ("ended" as const)
-          : ("waiting" as const);
-
+      const destination = (target: typeof match.winnerTo) =>
+        target
+          ? { roomId: roomIds.get(target.position), slot: target.slot }
+          : undefined;
       const room = await ContestRoom.create({
-        contestId: contest._id,
-        name: `${round.name} - Match ${m + 1}`,
-        status: roomStatus,
-        participants: [],
+        _id: roomIds.get(match.position),
+        contestId,
+        name: `${match.roundName} - Match ${match.matchIndex + 1}`,
+        currentRoundId: rounds.get(match.roundNumber),
+        status: "pending",
         teams: [],
-        currentRoundId: round._id,
-        currentProblemIndex: 0,
-        firstSolvers: [],
-        bracketPosition: bracketPos,
+        participants: [],
+        bracketPosition: match.position,
+        bracketPlayable: match.playable,
+        bracketConditional: match.conditional,
+        winnerDestination: destination(match.winnerTo),
+        loserDestination: destination(match.loserTo),
+        bracketSlots: match.sources.map((source) => ({
+          source:
+            source.kind === "seed"
+              ? source
+              : { kind: source.kind, roomId: roomIds.get(source.position) },
+          resolved: source.kind === "seed",
+        })),
       });
 
-      const teamIds: (mongoose.Types.ObjectId | null)[] = [null, null];
+      for (let slot = 0; slot < 2; slot++) {
+        const source = match.sources[slot];
 
-      if (leftTeamId) {
-        const team = await ContestTeam.create({
-          roomId: room._id,
-          name: leftTeamId.teamName,
-          members: leftTeamId.memberIds.map(
-            (id) => new mongoose.Types.ObjectId(id),
-          ),
-          teamSize,
-          score: 0,
-          contestId: contest._id,
-          roundId: round._id,
-        });
-        teamIds[0] = team._id;
-      }
-      if (rightTeamId) {
-        const team = await ContestTeam.create({
-          roomId: room._id,
-          name: rightTeamId.teamName,
-          members: rightTeamId.memberIds.map(
-            (id) => new mongoose.Types.ObjectId(id),
-          ),
-          teamSize,
-          score: 0,
-          contestId: contest._id,
-          roundId: round._id,
-        });
-        teamIds[1] = team._id;
-      }
-
-      room.teams = teamIds.filter(Boolean) as mongoose.Types.ObjectId[];
-
-      // Populate participants for waiting rooms so the SSE presence system can find them
-      if (roomStatus === "waiting" && leftTeamId && rightTeamId) {
-        room.participants = [
-          ...leftTeamId.memberIds,
-          ...rightTeamId.memberIds,
-        ].map((id) => new mongoose.Types.ObjectId(id));
-      }
-
-      await room.save();
-
-      let assignedProblems: BracketProblem[] = [];
-      if (contest.problemSelectionMode === "fine-tuned") {
-        const roundSlots = fineTunedPool.filter(
-          (problem) => problem.roundNumber === roundIndex + 1,
-        );
-        const toAssign = roundSlots.slice(0, problemCount);
-        assignedProblems = toAssign;
-        // Remove used problems from the pool
-        toAssign.forEach((a) => {
-          const idx = fineTunedPool.findIndex(
-            (p) => p.problemId === a.problemId,
+        if (source.kind === "seed" && source.seed <= entrants.length) {
+          room.bracketSlots![slot].teamId = await createRoomTeam(
+            room,
+            entrants[source.seed - 1],
           );
-          if (idx !== -1) fineTunedPool.splice(idx, 1);
-        });
-      } else if (contest.problemSelectionMode === "bulk") {
-        assignedProblems = bulkProblemPool.splice(0, problemCount);
-      } else if (contest.problemSelectionMode === "test") {
-        assignedProblems = [
-          { problemId: "4A", name: "Watermelon", rating: 800 },
-          { problemId: "1A", name: "Theatre Square", rating: 1000 },
-          { problemId: "158A", name: "Next Round", rating: 800 },
-        ].slice(0, problemCount);
-      }
-
-      if (assignedProblems.length > 0) {
-        const problemSet = new ContestProblemSet({
-          contestId: contest._id,
-          roomId: room._id,
-          problems: assignedProblems.map((problem) => ({
-            platform: "codeforces",
-            problemId: problem.problemId,
-            name: problem.name || problem.problemId,
-            rating: problem.rating || 0,
-            points: Math.floor((problem.rating || 1000) / 10),
-          })),
-        });
-        await problemSet.save();
-
-        const redisProblems = assignedProblems.map((problem) =>
-          JSON.stringify({
-            problemId: problem.problemId,
-            name: problem.name || problem.problemId,
-            rating: problem.rating || 0,
-            points: Math.floor((problem.rating || 1000) / 10),
-            revealedAt: null,
-          }),
-        );
-        const roomId = toStr(room._id);
-        await runOrDeferEffect(deferredEffects, async () => {
-          const redis = await getRedis();
-          await redis.del(`room:${roomId}:problems`);
-          await redis.rPush(`room:${roomId}:problems`, redisProblems);
-        });
-      }
-
-      if (roundIndex === 0 && roomStatus === "waiting") {
-        const round1TeamDocs = await ContestTeam.find({
-          roomId: room._id,
-        }).lean();
-        const roomId = toStr(room._id);
-        const durationSeconds = contest.durationSeconds || 3600;
-        const bracketContestId = toStr(contest._id);
-        await runOrDeferEffect(deferredEffects, async () => {
-          await initBracketRoomRedis(
-            await getRedis(),
-            roomId,
-            mode,
-            round1TeamDocs,
-            durationSeconds,
-            bracketContestId,
-          );
-        });
-      }
-
-      roundRooms.push(room._id);
-      allRoomIds.push(toStr(room._id));
-
-      if (isBye && !hasNoTeams) {
-        const winnerTeam = teamIds[0] || teamIds[1];
-        if (winnerTeam) {
-          await ContestTeam.findByIdAndUpdate(winnerTeam, { score: 1 });
-          const nextRoundIdx = roundIndex + 1;
-          if (nextRoundIdx < rounds.length) {
-            const matchIdx = Math.floor(m / 2);
-            await seedTeamToRound(
-              rounds[nextRoundIdx]._id,
-              winnerTeam,
-              matchIdx,
-              contest._id,
-              deferredEffects,
-            );
-          } else {
-            contest.winner = winnerTeam;
-            contest.status = "completed";
-            await contest.save();
-          }
         }
       }
-    }
 
-    round.rooms = roundRooms;
-    await round.save();
-    roundIndex++;
-  }
-
-  await runOrDeferEffect(deferredEffects, async () => {
-    const redis = await getRedis();
-    await redis.hSet(`contest:${contestId}:meta`, {
-      format: "knockout",
-      currentRound: "1",
-      status: "provisioning",
-    });
-    if (allRoomIds.length > 0) {
-      await redis.sAdd(`contest:${contestId}:rooms`, allRoomIds);
-    }
-  });
-
-  const snapshot = await getBracketSnapshot(contestId);
-  await runOrDeferEffect(deferredEffects, async () => {
-    const committedSnapshot = await getBracketSnapshot(contestId);
-    await publishContest(contestId, {
-      type: "contest.bracket_update",
-      ...committedSnapshot,
-    });
-  });
-
-  logger.info(
-    `[Bracket] Generated bracket for contest ${contestId}: ${allRoomIds.length} rooms across ${totalRounds} rounds`,
-  );
-  return snapshot;
-}
-
-function groupRegistrationsIntoTeams(
-  registrations: {
-    userId: mongoose.Types.ObjectId;
-    cfHandle: string;
-    teamName?: string;
-    registeredAt: Date;
-  }[],
-  teamSize: number,
-): { teamName: string; memberIds: string[] }[] {
-  if (teamSize === 1) {
-    return registrations.map((r) => ({
-      teamName: r.cfHandle || toStr(r.userId).slice(-6),
-      memberIds: [toStr(r.userId)],
-    }));
-  }
-
-  const groups = new Map<string, { teamName: string; memberIds: string[] }>();
-  for (const reg of registrations) {
-    const key = reg.teamName || `team-${toStr(reg.userId).slice(-6)}`;
-    if (!groups.has(key)) {
-      groups.set(key, { teamName: key, memberIds: [] });
-    }
-    groups.get(key)!.memberIds.push(toStr(reg.userId));
-  }
-
-  const valid: { teamName: string; memberIds: string[] }[] = [];
-  for (const [, group] of groups) {
-    if (group.memberIds.length === teamSize) {
-      valid.push(group);
-    } else {
-      logger.warn(
-        `[Bracket] Team "${group.teamName}" has ${group.memberIds.length} members, expected ${teamSize}. Skipping.`,
+      room.teams = room.bracketSlots!.flatMap((slot) =>
+        slot.teamId ? [slot.teamId] : [],
       );
+      await room.save();
     }
-  }
-  return valid;
+
+    for (const [position, problems] of allocations) {
+      await ContestProblemSet.create({
+        contestId: contest._id,
+        roomId: roomIds.get(position),
+        problems,
+      });
+    }
+    await contest.save();
+    await settleRooms(contest);
+
+    return getBracketSnapshot(contestId);
+  });
 }
 
-function getTeamByMatchIndex(
-  assignments: ({
-    teamName: string;
-    memberIds: string[];
-    rating: number;
-  } | null)[],
-  index: number,
-): { teamName: string; memberIds: string[]; rating: number } | null {
-  if (index < 0 || index >= assignments.length) return null;
-  return assignments[index];
-}
-
-async function seedTeamToRound(
-  roundId: mongoose.Types.ObjectId,
-  teamId: mongoose.Types.ObjectId,
-  matchIndex: number,
-  contestId: mongoose.Types.ObjectId,
-  deferredEffects?: DeferredBracketEffect[],
+async function resolveDestination(
+  contest: IContestMatch,
+  sourceRoom: IContestRoom,
+  destination: IBracketDestination | undefined,
+  outcome: "winner" | "loser",
+  team: IContestTeam | null,
 ) {
-  const round = await ContestRound.findById(roundId);
-  if (!round) return;
+  if (!destination) {
+    return;
+  }
 
-  const rooms = await ContestRoom.find({ _id: { $in: round.rooms } }).sort({
-    createdAt: 1,
+  const target = await ContestRoom.findOne({
+    _id: destination.roomId,
+    contestId: contest._id,
   });
-  const targetRoom = rooms[matchIndex];
-  if (!targetRoom) return;
+  const slot = target?.bracketSlots?.[destination.slot];
 
-  const oldTeam = await ContestTeam.findById(teamId);
-  if (!oldTeam) return;
+  if (
+    !target ||
+    !slot ||
+    String(slot.source.roomId) !== String(sourceRoom._id) ||
+    slot.source.kind !== outcome
+  ) {
+    throw new Error("Bracket destination does not match its source.");
+  }
 
-  const newTeam = await ContestTeam.create({
-    roomId: targetRoom._id,
-    name: oldTeam.name,
-    members: oldTeam.members,
-    teamSize: oldTeam.teamSize,
-    score: 0,
-    contestId: contestId,
-    roundId: roundId,
+  // Each destination slot accepts exactly one outcome from its recorded source
+  if (slot.resolved) {
+    throw new Error(
+      "Bracket destination already resolved by another transition.",
+    );
+  }
+
+  slot.resolved = true;
+
+  if (team && !team.isNull) {
+    if (!team.entrantId || !team.seed || team.frozenRating === undefined) {
+      throw new Error("Frozen entrant data is missing.");
+    }
+
+    slot.teamId = await createRoomTeam(
+      target,
+      {
+        entrantId: team.entrantId,
+        name: team.name,
+        members: team.members,
+        seed: team.seed,
+        rating: team.frozenRating,
+      },
+      (team.bracketLosses ?? 0) + (outcome === "loser" ? 1 : 0),
+    );
+  }
+
+  target.teams = target.bracketSlots!.flatMap((entry) =>
+    entry.teamId ? [entry.teamId] : [],
+  );
+  await target.save();
+}
+
+async function resolveMatch(
+  contest: IContestMatch,
+  room: IContestRoom,
+  winnerId: string | null,
+  reason?: string,
+) {
+  if (!room.bracketSlots || room.bracketSlots.length !== 2) {
+    throw new Error("Bracket match must have two source slots.");
+  }
+
+  // Retried delivery is harmless only when the recorded winner agrees
+  if (room.advancementCompletedAt) {
+    if ((room.winnerTeamId ? String(room.winnerTeamId) : null) !== winnerId) {
+      throw new Error("Match already advanced with a different outcome.");
+    }
+
+    return;
+  }
+
+  if (
+    !room.bracketSlots.every((slot) => slot.resolved) ||
+    room.bracketConditional
+  ) {
+    throw new Error("Match entrants are not resolved.");
+  }
+
+  const teams = await ContestTeam.find({
+    _id: { $in: room.teams },
+    roomId: room._id,
+    contestId: contest._id,
   });
+  const winner = winnerId
+    ? teams.find((team) => String(team._id) === winnerId && !team.isNull)
+    : null;
 
-  await ContestRoom.findByIdAndUpdate(targetRoom._id, {
-    $addToSet: { teams: newTeam._id },
-  });
+  if (winnerId && !winner) {
+    throw new Error("Winner is not an eligible team in this match.");
+  }
 
-  const updatedRoom = await ContestRoom.findById(targetRoom._id);
-  if (updatedRoom && updatedRoom.teams.length === 2) {
-    // Populate participants for SSE presence tracking
-    const allTeamDocs = await ContestTeam.find({
-      roomId: targetRoom._id,
-    }).lean();
-    const allMemberIds = allTeamDocs.flatMap((t) => t.members);
-    updatedRoom.participants = allMemberIds;
-    updatedRoom.status = "waiting";
-    await updatedRoom.save();
+  if (room.winnerTeamId && String(room.winnerTeamId) !== winnerId) {
+    throw new Error("Winner conflicts with the recorded match outcome.");
+  }
 
-    // Initialise Redis state so the ready route can find the room
-    const contest = await ContestMatch.findById(contestId).lean();
-    const targetRoomId = toStr(targetRoom._id);
-    const contestMode = contest?.mode || "blitz";
-    const durationSeconds = contest?.durationSeconds || 3600;
-    const bracketContestId = toStr(contestId);
-    await runOrDeferEffect(deferredEffects, async () => {
-      await initBracketRoomRedis(
-        await getRedis(),
-        targetRoomId,
-        contestMode,
-        allTeamDocs,
-        durationSeconds,
-        bracketContestId,
+  const loser = winner
+    ? (teams.find((team) => String(team._id) !== winnerId) ?? null)
+    : null;
+
+  room.status = "ended";
+  room.finalizedAt ??= new Date();
+  room.resultMethod ??=
+    reason === "walkover" || reason === "admin_nullify"
+      ? "admin"
+      : reason === "bye"
+        ? "bye"
+        : reason === "empty_slots"
+          ? "empty"
+          : "no_show";
+  room.actualEndTime ??= new Date();
+  room.winnerTeamId = winner?._id;
+  room.terminationReason = reason ?? room.terminationReason;
+  room.advancementCompletedAt = new Date();
+  room.participationRevision += 1;
+  room.runtimeSyncPending = true;
+  await room.save();
+  await ContestParticipation.deleteMany({ roomId: room._id });
+
+  const stage = parseBracketPosition(room.bracketPosition!).stage;
+
+  if (stage === "grand_final") {
+    // The upper finalist occupies slot zero regardless of arrival order
+    const upperId = room.bracketSlots[0].teamId;
+    const resetNeeded =
+      winner && loser && !loser.isNull && String(upperId) !== winnerId;
+
+    if (resetNeeded) {
+      const reset = await ContestRoom.findOne({
+        _id: room.winnerDestination?.roomId,
+        contestId: contest._id,
+      });
+
+      if (!reset) {
+        throw new Error("Grand-final reset is missing.");
+      }
+
+      reset.bracketConditional = false;
+      await reset.save();
+      contest.grandFinalState = "reset_in_progress";
+    } else {
+      await ContestRoom.updateMany(
+        { contestId: contest._id, bracketConditional: true },
+        {
+          $set: {
+            status: "ended",
+            terminationReason: "reset_not_needed",
+            advancementCompletedAt: new Date(),
+          },
+        },
       );
+      await completeContest(contest, winner ?? null);
+
+      return;
+    }
+  }
+
+  await resolveDestination(
+    contest,
+    room,
+    room.winnerDestination,
+    "winner",
+    winner ?? null,
+  );
+  await resolveDestination(
+    contest,
+    room,
+    room.loserDestination,
+    "loser",
+    loser,
+  );
+
+  if (!room.winnerDestination) {
+    await completeContest(contest, winner ?? null);
+  } else {
+    await contest.save();
+  }
+}
+
+async function completeContest(
+  contest: IContestMatch,
+  winner: IContestTeam | null,
+) {
+  contest.winner = winner?._id;
+  contest.winnerName = winner?.name || "No Winner";
+  contest.status = "completed";
+  contest.grandFinalState = "complete";
+  await contest.save();
+}
+
+async function settleRooms(contest: IContestMatch) {
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    const rooms = await ContestRoom.find({
+      contestId: contest._id,
+      status: "pending",
+      bracketConditional: { $ne: true },
     });
 
-    logger.info(`[Bracket] Room ${targetRoom._id} is now ready with 2 teams`);
+    for (const room of rooms) {
+      if (!room.bracketSlots?.every((slot) => slot.resolved)) {
+        continue;
+      }
+
+      const teams = await ContestTeam.find({
+        _id: { $in: room.teams },
+        isNull: { $ne: true },
+      });
+
+      if (teams.length < 2) {
+        // Resolved empty slots propagate without creating placeholder teams
+        await resolveMatch(
+          contest,
+          room,
+          teams[0] ? String(teams[0]._id) : null,
+          teams.length ? "bye" : "empty_slots",
+        );
+        changed = true;
+      } else {
+        room.status = "waiting";
+        room.participants = teams.flatMap((team) => team.members);
+        configureRoomTiming(room, contest);
+        await room.save();
+      }
+    }
+  }
+
+  for (const round of await ContestRound.find({ contestId: contest._id })) {
+    const rooms = await ContestRoom.find({ _id: { $in: round.rooms } });
+
+    round.status = rooms.every((room) => room.status === "ended")
+      ? "completed"
+      : rooms.some((room) => room.status !== "pending")
+        ? "active"
+        : "pending";
+    await round.save();
   }
 }
 
@@ -520,397 +657,211 @@ export async function advanceWinner(
   deferredEffects?: DeferredBracketEffect[],
 ) {
   if (!winnerTeamId) {
-    logger.warn(
-      `[Bracket] advanceWinner called for room ${roomId} with null winner`,
+    return;
+  }
+
+  return mutateBracket(contestId, deferredEffects, async (contest) => {
+    const room = await ContestRoom.findOne({ _id: roomId, contestId });
+
+    if (!room) {
+      throw new Error("Match does not belong to this contest.");
+    }
+
+    await resolveMatch(contest, room, winnerTeamId);
+    await settleRooms(contest);
+  });
+}
+
+export async function advanceNullPlayer(
+  contestId: string,
+  roomId: string,
+  deferredEffects?: DeferredBracketEffect[],
+) {
+  return mutateBracket(contestId, deferredEffects, async (contest) => {
+    const room = await ContestRoom.findOne({ _id: roomId, contestId });
+
+    if (!room) {
+      throw new Error("Match does not belong to this contest.");
+    }
+
+    await resolveMatch(
+      contest,
+      room,
+      null,
+      room.terminationReason || "both_absent",
     );
-    return;
-  }
-
-  await connectMongoDB();
-  const room = await ContestRoom.findById(roomId).populate<{
-    currentRoundId: IContestRound;
-  }>("currentRoundId");
-  if (!room) {
-    logger.warn(`[Bracket] Room ${roomId} not found for advancement`);
-    return;
-  }
-
-  const contest = await ContestMatch.findById(contestId);
-  if (!contest || contest.format !== "bracket") return;
-
-  const currentRound = room.currentRoundId;
-
-  if (!currentRound) return;
-
-  const bracketPos = room.bracketPosition;
-  if (!bracketPos) return;
-
-  const matchIndex = parseInt(bracketPos.split("-")[1], 10);
-
-  const nextRound = await ContestRound.findOne({
-    contestId,
-    roundNumber: currentRound.roundNumber + 1,
+    await settleRooms(contest);
   });
-  if (!nextRound) {
-    contest.winner = new mongoose.Types.ObjectId(winnerTeamId);
-    contest.status = "completed";
-    const winnerTeamDoc = await ContestTeam.findById(winnerTeamId);
-    contest.winnerName = winnerTeamDoc?.name || "";
-    await contest.save();
-    logger.info(
-      `[Bracket] Contest ${contestId} completed. Winner: ${winnerTeamId}`,
-    );
-
-    await runOrDeferEffect(deferredEffects, async () => {
-      const finalSnapshot = await getBracketSnapshot(contestId);
-      await publishContest(contestId, {
-        type: "contest.bracket_update",
-        ...finalSnapshot,
-      });
-    });
-    const completedRoundNumber = currentRound.roundNumber;
-    await runOrDeferEffect(deferredEffects, async () => {
-      await publishContest(contestId, {
-        type: "contest.round_complete",
-        roundNumber: completedRoundNumber,
-        advancingTeams: [winnerTeamId],
-      });
-    });
-
-    await runOrDeferEffect(deferredEffects, async () => {
-      const redis = await getRedis();
-      const keys = await redis.keys(`contest:${contestId}:*`);
-      if (keys.length > 0) await redis.del(keys);
-    });
-    return;
-  }
-
-  const nextMatchIndex = Math.floor(matchIndex / 2);
-  const nextRooms = await ContestRoom.find({
-    _id: { $in: nextRound.rooms },
-  }).sort({ createdAt: 1 });
-  const nextRoom = nextRooms[nextMatchIndex];
-  if (!nextRoom) {
-    logger.warn(
-      `[Bracket] No next room found for match ${nextMatchIndex} in round ${nextRound.roundNumber}`,
-    );
-    return;
-  }
-
-  const winnerTeamDoc = await ContestTeam.findById(winnerTeamId);
-  if (!winnerTeamDoc) {
-    logger.warn(`[Bracket] Winner team ${winnerTeamId} not found`);
-    return;
-  }
-
-  const newTeam = await ContestTeam.create({
-    roomId: nextRoom._id,
-    name: winnerTeamDoc.name,
-    members: winnerTeamDoc.members,
-    teamSize: winnerTeamDoc.teamSize,
-    score: 0,
-    contestId: contest._id,
-    roundId: nextRound._id,
-  });
-
-  await ContestRoom.findByIdAndUpdate(nextRoom._id, {
-    $addToSet: { teams: newTeam._id },
-  });
-
-  const updatedRoom = await ContestRoom.findById(nextRoom._id);
-  if (updatedRoom && updatedRoom.teams.length === 2) {
-    // Populate participants so SSE presence system can track the room
-    const allAdvancedTeamDocs = await ContestTeam.find({
-      roomId: nextRoom._id,
-    }).lean();
-    const allAdvancedMemberIds = allAdvancedTeamDocs.flatMap((t) => t.members);
-    updatedRoom.participants = allAdvancedMemberIds;
-    updatedRoom.status = "waiting";
-    await updatedRoom.save();
-
-    // Initialise Redis state for the next round room
-    const nextRoomId = toStr(nextRoom._id);
-    const contestMode = contest.mode || "blitz";
-    const durationSeconds = contest.durationSeconds || 3600;
-    await runOrDeferEffect(deferredEffects, async () => {
-      await initBracketRoomRedis(
-        await getRedis(),
-        nextRoomId,
-        contestMode,
-        allAdvancedTeamDocs,
-        durationSeconds,
-        contestId,
-      );
-    });
-
-    logger.info(
-      `[Bracket] Next room ${nextRoom._id} is now ready with 2 teams`,
-    );
-  }
-
-  await runOrDeferEffect(deferredEffects, async () => {
-    await publishContest(contestId, {
-      type: "contest.standing_update",
-      teamId: winnerTeamId,
-      contestId,
-    });
-  });
-
-  await runOrDeferEffect(deferredEffects, async () => {
-    const snapshot = await getBracketSnapshot(contestId);
-    await publishContest(contestId, {
-      type: "contest.bracket_update",
-      ...snapshot,
-    });
-  });
-
-  logger.info(
-    `[Bracket] Advanced team ${winnerTeamId} to room ${nextRoom._id}`,
-  );
 }
 
 export async function checkRoundCompletion(
   contestId: string,
-  roundNumber: number,
+  _roundNumber: number,
   deferredEffects?: DeferredBracketEffect[],
 ) {
-  await connectMongoDB();
-  const lockKey = `contest:${contestId}:round:${roundNumber}:check_lock`;
-  let redis: Awaited<ReturnType<typeof getRedis>> | undefined;
-  let lockAcquired = false;
-
-  if (!deferredEffects) {
-    redis = await getRedis();
-    lockAcquired = Boolean(await redis.set(lockKey, "1", { NX: true, EX: 5 }));
-    if (!lockAcquired) {
-      logger.info(
-        `[Bracket] Round ${roundNumber} check already in progress for contest ${contestId}`,
-      );
-      return;
-    }
-  }
-
-  try {
-    const contest = await ContestMatch.findById(contestId);
-    if (!contest || contest.format !== "bracket") return;
-
-    const round = await ContestRound.findOne({ contestId, roundNumber });
-    if (!round) return;
-
-    const rooms = await ContestRoom.find({ _id: { $in: round.rooms } });
-    const allCompleted = rooms.every((r) => r.status === "ended");
-    if (!allCompleted) return;
-
-    const advancingTeams: string[] = [];
-    for (const room of rooms) {
-      if (room.teams.length === 2) {
-        const teamScores = [];
-        for (const teamId of room.teams) {
-          teamScores.push(await ContestTeam.findById(teamId));
-        }
-        const winner = teamScores.reduce(
-          (best, t) => (t && (!best || t.score > best.score) ? t : best),
-          null as (typeof teamScores)[0],
-        );
-        if (winner) advancingTeams.push(toStr(winner._id));
-      } else if (room.teams.length === 1) {
-        advancingTeams.push(toStr(room.teams[0]));
-      }
-    }
-
-    round.status = "completed";
-    await round.save();
-
-    await runOrDeferEffect(deferredEffects, async () => {
-      await (
-        await getRedis()
-      ).hSet(`contest:${contestId}:meta`, {
-        currentRound: String(roundNumber + 1),
-      });
-    });
-
-    await runOrDeferEffect(deferredEffects, async () => {
-      await publishContest(contestId, {
-        type: "contest.round_complete",
-        roundNumber,
-        advancingTeams,
-      });
-    });
-
-    await runOrDeferEffect(deferredEffects, async () => {
-      const snapshot = await getBracketSnapshot(contestId);
-      await publishContest(contestId, {
-        type: "contest.bracket_update",
-        ...snapshot,
-      });
-    });
-
-    const nextRound = await ContestRound.findOne({
-      contestId,
-      roundNumber: roundNumber + 1,
-    });
-    if (nextRound) {
-      nextRound.status = "active";
-      await nextRound.save();
-      logger.info(
-        `[Bracket] Round ${roundNumber} complete. Advancing to round ${roundNumber + 1}`,
-      );
-    } else {
-      logger.info(`[Bracket] Contest ${contestId} fully completed.`);
-      await runOrDeferEffect(deferredEffects, async () => {
-        const redisClient = await getRedis();
-        const keys = await redisClient.keys(`contest:${contestId}:*`);
-        if (keys.length > 0) await redisClient.del(keys);
-      });
-    }
-  } finally {
-    if (redis && lockAcquired) await redis.del(lockKey);
-  }
+  return mutateBracket(contestId, deferredEffects, async (contest) => {
+    await settleRooms(contest);
+  });
 }
 
 export async function getBracketSnapshot(
   contestId: string,
 ): Promise<BracketSnapshot> {
   await connectMongoDB();
-  const contest = await ContestMatch.findById(contestId);
-  if (!contest) throw new Error("Contest not found");
 
-  const rounds = await ContestRound.find({ contestId }).sort({
-    roundNumber: 1,
-  });
-  const totalRounds = rounds.length;
-  const currentRound = parseInt(
-    (await (
-      await getRedis()
-    ).hGet(`contest:${contestId}:meta`, "currentRound")) || "1",
-    10,
-  );
+  const contest = await ContestMatch.findById(contestId).lean();
 
+  if (!contest) {
+    throw new Error("Contest not found.");
+  }
+
+  const rounds = await ContestRound.find({ contestId })
+    .sort({ roundNumber: 1 })
+    .lean();
+  const rooms = await ContestRoom.find({ contestId }).lean();
+  const teams = await ContestTeam.find({
+    _id: { $in: rooms.flatMap((room) => room.teams) },
+  }).lean();
+  const teamMap = new Map(teams.map((team) => [String(team._id), team]));
+  const users = await User.find({
+    _id: { $in: teams.flatMap((team) => team.members) },
+  })
+    .select("image")
+    .lean();
+  const images = new Map(users.map((user) => [String(user._id), user.image]));
   const nodes: BracketNode[] = [];
 
   for (const round of rounds) {
-    const rooms = await ContestRoom.find({ _id: { $in: round.rooms } }).sort({
-      createdAt: 1,
-    });
-    for (const room of rooms) {
-      const teams = [];
-      for (const teamId of room.teams) {
-        teams.push(
-          await ContestTeam.findById(teamId).populate<{
-            members: UserRecord[];
-          }>({
-            path: "members",
-            model: User,
-            select: "image",
-          }),
-        );
-      }
-      const teamIds: [string | null, string | null] = [null, null];
-      const teamNames: [string | null, string | null] = [null, null];
-      const teamImages: [string | null, string | null] = [null, null];
-      const scores: [number, number] = [0, 0];
-
-      for (let i = 0; i < Math.min(teams.length, 2); i++) {
-        if (teams[i]) {
-          teamIds[i] = toStr(teams[i]!._id);
-          teamNames[i] = teams[i]!.name || null;
-          scores[i] = teams[i]!.score;
-
-          const firstMember = teams[i]!.members[0];
-          teamImages[i] = firstMember?.image || null;
-        }
+    for (const room of rooms
+      .filter((room) => String(room.currentRoundId) === String(round._id))
+      .sort(
+        (a, b) =>
+          parseBracketPosition(a.bracketPosition!).matchIndex -
+          parseBracketPosition(b.bracketPosition!).matchIndex,
+      )) {
+      if (room.terminationReason === "reset_not_needed") {
+        continue;
       }
 
-      let winner: string | null = null;
-      if (room.status === "ended") {
-        if (scores[0] > scores[1]) winner = teamIds[0];
-        else if (scores[1] > scores[0]) winner = teamIds[1];
-        else if (teamIds[0] && !teamIds[1]) winner = teamIds[0];
-      }
-
-      let status: BracketNode["status"] = "pending";
-      if (room.status === "ended") {
-        if (
-          (teamIds[0] === null || teamIds[1] === null) &&
-          scores[0] === 0 &&
-          scores[1] === 0
-        ) {
-          status = "bye";
-        } else {
-          status = "completed";
-        }
-      } else if (room.status === "active") {
-        status = "active";
-      } else if (room.status === "waiting") {
-        status = "waiting";
-      }
+      const ids = room.bracketSlots!.map((slot) => slot.teamId);
+      const pair = [0, 1].map((index) =>
+        ids[index] ? teamMap.get(String(ids[index])) : undefined,
+      );
+      const destination = (value: typeof room.winnerDestination) =>
+        value ? { roomId: String(value.roomId), slot: value.slot } : undefined;
 
       nodes.push({
-        roomId: toStr(room._id),
+        winnerDestination: destination(room.winnerDestination),
+        loserDestination: destination(room.loserDestination),
+        roomId: String(room._id),
         roundNumber: round.roundNumber,
-        matchIndex: rooms.indexOf(room),
-        teams: teamIds,
-        teamNames,
-        teamImages,
-        scores,
-        status,
-        winner,
-        bracketPosition: room.bracketPosition || "",
+        roundName: round.name,
+        matchIndex: parseBracketPosition(room.bracketPosition!).matchIndex,
+        bracketType: parseBracketPosition(room.bracketPosition!).stage,
+        bracketPosition: room.bracketPosition!,
+        teams: [
+          pair[0] ? String(pair[0]._id) : null,
+          pair[1] ? String(pair[1]._id) : null,
+        ],
+        teamNames: [pair[0]?.name ?? null, pair[1]?.name ?? null],
+        teamImages: [
+          images.get(String(pair[0]?.members[0])) ?? null,
+          images.get(String(pair[1]?.members[0])) ?? null,
+        ],
+        teamIsNull: [Boolean(pair[0]?.isNull), Boolean(pair[1]?.isNull)],
+        scores: [pair[0]?.score ?? 0, pair[1]?.score ?? 0],
+        seeds: [pair[0]?.seed ?? null, pair[1]?.seed ?? null],
+        slotsResolved: [
+          room.bracketSlots![0].resolved,
+          room.bracketSlots![1].resolved,
+        ],
+        winner: room.winnerTeamId ? String(room.winnerTeamId) : null,
+        status:
+          room.status === "ended"
+            ? room.terminationReason === "bye"
+              ? "bye"
+              : "completed"
+            : room.status === "active"
+              ? "active"
+              : room.status === "waiting"
+                ? "waiting"
+                : "pending",
+        walkover: room.terminationReason === "walkover",
+        terminationReason: room.terminationReason,
       });
     }
   }
 
-  return { contestId, currentRound, totalRounds, nodes };
+  return {
+    contestId,
+    bracketType: contest.bracketSettings?.type || "single_elimination",
+    grandFinalState: contest.grandFinalState,
+    currentRound:
+      rounds.find((round) => round.status !== "completed")?.roundNumber ??
+      rounds.length,
+    currentRoundName:
+      rounds.find((round) => round.status !== "completed")?.name ??
+      rounds.at(-1)?.name,
+    totalRounds: rounds.length,
+    upperRounds: rounds.filter((round) => round.bracketType === "upper").length,
+    lowerRounds: rounds.filter((round) => round.bracketType === "lower").length,
+    nodes,
+  };
 }
 
 export async function processWalkover(
   roomId: string,
   winnerTeamId: string,
-  note: string,
-  adminUserId: string,
+  _note: string,
+  _adminUserId: string,
   deferredEffects?: DeferredBracketEffect[],
 ) {
   await connectMongoDB();
+
   const room = await ContestRoom.findById(roomId);
-  if (!room) throw new Error("Room not found");
 
-  const contest = await ContestMatch.findById(room.contestId);
-  if (!contest || contest.format !== "bracket")
-    throw new Error("Room is not part of a bracket contest");
-
-  room.status = "ended";
-  await room.save();
-
-  const winnerTeam = await ContestTeam.findById(winnerTeamId);
-  if (winnerTeam) {
-    winnerTeam.score = (winnerTeam.score || 0) + 1;
-    await winnerTeam.save();
+  if (!room) {
+    throw new Error("Room not found.");
   }
 
-  logger.info("Bracket walkover recorded", {
-    operation: "process_walkover",
-    roomId,
-    winnerTeamId,
-  });
-
-  await advanceWinner(
-    roomId,
-    toStr(contest._id),
-    winnerTeamId,
+  return mutateBracket(
+    String(room.contestId),
     deferredEffects,
-  );
+    async (contest) => {
+      const current = await ContestRoom.findById(roomId);
 
-  if (room.currentRoundId) {
-    const round = await ContestRound.findById(room.currentRoundId);
-    if (round) {
-      await checkRoundCompletion(
-        toStr(contest._id),
-        round.roundNumber,
-        deferredEffects,
-      );
-    }
+      await resolveMatch(contest, current!, winnerTeamId, "walkover");
+      await settleRooms(contest);
+
+      return getBracketSnapshot(String(contest._id));
+    },
+  );
+}
+
+export async function processNullifyMatch(
+  roomId: string,
+  _note: string,
+  _adminUserId: string,
+  deferredEffects?: DeferredBracketEffect[],
+) {
+  await connectMongoDB();
+
+  const room = await ContestRoom.findById(roomId);
+
+  if (!room) {
+    throw new Error("Room not found.");
   }
 
-  const snapshot = await getBracketSnapshot(toStr(contest._id));
-  return snapshot;
+  return mutateBracket(
+    String(room.contestId),
+    deferredEffects,
+    async (contest) => {
+      const current = await ContestRoom.findById(roomId);
+
+      await resolveMatch(contest, current!, null, "admin_nullify");
+      await settleRooms(contest);
+
+      return getBracketSnapshot(String(contest._id));
+    },
+  );
 }

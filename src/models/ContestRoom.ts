@@ -1,30 +1,105 @@
 import mongoose, { Schema, type Document } from "mongoose";
 
+import {
+  CONTEST_RESULT_METHODS,
+  type ContestResultMethod,
+} from "@/lib/constants";
+
 export interface IFirstSolver {
   problemId: string;
   userId: mongoose.Types.ObjectId;
   solvedAt: Date;
 }
 
+export interface IBracketSlot {
+  source: {
+    kind: "seed" | "winner" | "loser";
+    seed?: number;
+    roomId?: mongoose.Types.ObjectId;
+  };
+  resolved: boolean;
+  teamId?: mongoose.Types.ObjectId;
+}
+export interface IBracketDestination {
+  roomId: mongoose.Types.ObjectId;
+  slot: 0 | 1;
+}
+
+export interface IRoomAdmission {
+  userId: mongoose.Types.ObjectId;
+  teamId: mongoose.Types.ObjectId;
+  admittedAt: Date;
+}
+
+export interface IRoomProblemState {
+  problemId: string;
+  revealedAt?: number;
+  deadlineAt?: number;
+  closedAt?: number;
+  closeReason?: "solved" | "expired" | "match_end";
+  claim?: {
+    userId: string;
+    teamId: string;
+    submissionId: string;
+    submittedAt: number;
+  };
+}
+
+export interface IRoomScore {
+  teamId: string;
+  score: number;
+  solveTimeMs: number;
+  wrongSubmissions: number;
+  penaltyTimeMs: number;
+  lastSolveAt: number;
+  seed?: number;
+}
+
 export interface IContestRoom extends Document {
   contestId: mongoose.Types.ObjectId;
   name: string;
-  status: "waiting" | "active" | "ended" | "pending" | "completed";
+  status: "waiting" | "active" | "ended" | "pending";
   participants: mongoose.Types.ObjectId[];
   teams: mongoose.Types.ObjectId[];
   currentRoundId?: mongoose.Types.ObjectId;
   currentProblemIndex: number;
   firstSolvers: IFirstSolver[];
   bracketPosition?: string | null;
+  bracketSlots?: IBracketSlot[];
+  winnerDestination?: IBracketDestination;
+  loserDestination?: IBracketDestination;
+  bracketPlayable?: boolean;
+  bracketConditional?: boolean;
+  advancementCompletedAt?: Date;
+  readyOpensAt?: Date;
+  readyDeadline?: Date;
+  readyUserIds: mongoose.Types.ObjectId[];
+  admissions: IRoomAdmission[];
+  playingTeamIds: mongoose.Types.ObjectId[];
+  participationRevision: number;
+  runtimeSyncPending: boolean;
+  durationSeconds?: number;
+  judgingGraceSeconds?: number;
+  problemDurationSeconds?: number;
+  matchDeadline?: Date;
+  problemStates: IRoomProblemState[];
+  scoreStats: IRoomScore[];
+  arenaWrongPenaltySeconds?: number;
+  gameplayEndedAt?: Date;
+  judgingDeadline?: Date;
+  finalizedAt?: Date;
+  resultMethod?: ContestResultMethod;
   terminationReason?: string;
+  winnerTeamId?: mongoose.Types.ObjectId;
   actualStartTime?: Date;
+  actualEndTime?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const FirstSolverSchema = new Schema<IFirstSolver>({
   problemId: { type: String, required: true },
-  userId: { type: Schema.Types.ObjectId, ref: "CPUser", required: true },
+  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   solvedAt: { type: Date, required: true },
 });
 
@@ -42,20 +117,156 @@ const ContestRoomSchema = new Schema<IContestRoom>(
       enum: ["waiting", "active", "ended", "pending"],
       default: "waiting",
     },
-    participants: [{ type: Schema.Types.ObjectId, ref: "CPUser" }],
+    participants: [{ type: Schema.Types.ObjectId, ref: "User" }],
     teams: [{ type: Schema.Types.ObjectId, ref: "ContestTeam" }],
     currentRoundId: { type: Schema.Types.ObjectId, ref: "ContestRound" },
     currentProblemIndex: { type: Number, required: true, default: 0 },
     firstSolvers: { type: [FirstSolverSchema], default: [] },
     bracketPosition: { type: String, default: null },
+    bracketSlots: {
+      type: [
+        new Schema<IBracketSlot>(
+          {
+            source: {
+              kind: {
+                type: String,
+                enum: ["seed", "winner", "loser"],
+                required: true,
+              },
+              seed: Number,
+              roomId: { type: Schema.Types.ObjectId, ref: "ContestRoom" },
+            },
+            resolved: { type: Boolean, required: true },
+            teamId: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
+          },
+          { _id: false },
+        ),
+      ],
+      default: undefined,
+    },
+    winnerDestination: {
+      type: new Schema<IBracketDestination>(
+        {
+          roomId: {
+            type: Schema.Types.ObjectId,
+            ref: "ContestRoom",
+            required: true,
+          },
+          slot: { type: Number, enum: [0, 1], required: true },
+        },
+        { _id: false },
+      ),
+    },
+    loserDestination: {
+      type: new Schema<IBracketDestination>(
+        {
+          roomId: {
+            type: Schema.Types.ObjectId,
+            ref: "ContestRoom",
+            required: true,
+          },
+          slot: { type: Number, enum: [0, 1], required: true },
+        },
+        { _id: false },
+      ),
+    },
+    bracketPlayable: Boolean,
+    bracketConditional: Boolean,
+    advancementCompletedAt: Date,
+    readyOpensAt: Date,
+    readyDeadline: Date,
+    readyUserIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    admissions: {
+      type: [
+        new Schema<IRoomAdmission>(
+          {
+            userId: {
+              type: Schema.Types.ObjectId,
+              ref: "User",
+              required: true,
+            },
+            teamId: {
+              type: Schema.Types.ObjectId,
+              ref: "ContestTeam",
+              required: true,
+            },
+            admittedAt: { type: Date, required: true },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+    playingTeamIds: [{ type: Schema.Types.ObjectId, ref: "ContestTeam" }],
+    participationRevision: { type: Number, default: 0 },
+    runtimeSyncPending: { type: Boolean, default: true },
+    durationSeconds: { type: Number, min: 1 },
+    judgingGraceSeconds: { type: Number, min: 0 },
+    problemDurationSeconds: { type: Number, min: 1 },
+    matchDeadline: Date,
+    problemStates: {
+      type: [
+        new Schema<IRoomProblemState>(
+          {
+            problemId: { type: String, required: true },
+            revealedAt: Number,
+            deadlineAt: Number,
+            closedAt: Number,
+            closeReason: {
+              type: String,
+              enum: ["solved", "expired", "match_end"],
+            },
+            claim: {
+              type: new Schema(
+                {
+                  userId: { type: String, required: true },
+                  teamId: { type: String, required: true },
+                  submissionId: { type: String, required: true },
+                  submittedAt: { type: Number, required: true },
+                },
+                { _id: false },
+              ),
+            },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+    scoreStats: {
+      type: [
+        new Schema<IRoomScore>(
+          {
+            teamId: { type: String, required: true },
+            score: { type: Number, required: true },
+            solveTimeMs: { type: Number, required: true },
+            wrongSubmissions: { type: Number, required: true },
+            penaltyTimeMs: { type: Number, required: true },
+            lastSolveAt: { type: Number, required: true },
+            seed: Number,
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+    arenaWrongPenaltySeconds: { type: Number, min: 0 },
+    gameplayEndedAt: Date,
+    judgingDeadline: Date,
+    finalizedAt: Date,
+    resultMethod: { type: String, enum: CONTEST_RESULT_METHODS },
     terminationReason: { type: String },
+    winnerTeamId: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     actualStartTime: { type: Date },
+    actualEndTime: { type: Date },
   },
   { timestamps: true },
 );
 
 ContestRoomSchema.index({ contestId: 1, status: 1 });
 ContestRoomSchema.index({ participants: 1, status: 1 });
+ContestRoomSchema.index({ status: 1, runtimeSyncPending: 1, readyOpensAt: 1 });
+ContestRoomSchema.index({ "admissions.userId": 1, actualEndTime: 1 });
 
 const ContestRoom =
   (mongoose.models.ContestRoom as mongoose.Model<IContestRoom> | undefined) ||

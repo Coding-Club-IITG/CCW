@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CalendarDays,
-  CalendarX,
   CircleCheck,
   Clock,
   History,
@@ -14,17 +13,30 @@ import {
   Timer,
   TimerOff,
   Users,
+  Eye,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { type ContestListingItem } from "@/lib/actions/contests";
+import {
+  type ContestListingItem,
+  getMyContestInvites,
+  getMyTeamJoinRequests,
+  respondToContestTeamRequest,
+} from "@/lib/actions/contests";
+import { CONTEST_TIMING } from "@/lib/constants";
 import { formatDayTime, formatShortDate } from "@/lib/shared/dates";
+import type { ContestRegistrationTiming } from "@/lib/contests/registrationTiming";
 
 import type { ContestCreationPreset } from "@/components/contests/contestCreationForm";
+import Button from "@/components/shared/Button";
+import EmptyState from "@/components/shared/EmptyState";
+import { useToast } from "@/components/shared/Toast";
 import SegmentedControl from "@/components/shared/SegmentedControl";
 
+import { formatRemainingTime } from "./roomPresentation";
 import CreateRoomModal from "./CreateRoomModal";
 import RegisterContestModal from "./RegisterContestModal";
+import ManageTeamModal from "./ManageTeamModal";
 import styles from "./ContestListingClient.module.scss";
 
 function RegisterButton({
@@ -53,49 +65,6 @@ function RegisterButton({
   );
 }
 
-function CountdownTimer({
-  startTime,
-  durationSeconds,
-}: {
-  startTime: Date | null;
-  durationSeconds: number | null;
-}) {
-  const [timeLeft, setTimeLeft] = useState("--:--:--");
-
-  useEffect(() => {
-    if (!startTime || !durationSeconds) {
-      setTimeLeft("--:--:--");
-      return;
-    }
-
-    const endTime = new Date(startTime).getTime() + durationSeconds * 1000;
-
-    const updateTimer = () => {
-      const now = new Date().getTime();
-      const diff = endTime - now;
-
-      if (diff <= 0) {
-        setTimeLeft("00:00:00");
-        return;
-      }
-
-      const h = Math.floor(diff / (1000 * 60 * 60));
-      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const s = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeLeft(
-        `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`,
-      );
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [startTime, durationSeconds]);
-
-  return <div className={styles.timer}>{timeLeft}</div>;
-}
-
 type FormatFilter = "all" | "blitz" | "arena" | "bracket";
 
 export default function ContestListingClient({
@@ -104,16 +73,17 @@ export default function ContestListingClient({
   completed: initialCompleted,
   isHead = false,
   presets = [],
-  deadlineMinutes = 1,
+  registrationTiming,
 }: {
   active: ContestListingItem[];
   upcoming: ContestListingItem[];
   completed: ContestListingItem[];
   isHead?: boolean;
   presets?: ContestCreationPreset[];
-  deadlineMinutes?: number;
+  registrationTiming: ContestRegistrationTiming;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [registerModalData, setRegisterModalData] = useState<{
@@ -122,6 +92,70 @@ export default function ContestListingClient({
     teamSize: number;
     viewOnly: boolean;
   }>({ isOpen: false, contestId: "", teamSize: 1, viewOnly: false });
+  const [manageTeamData, setManageTeamData] = useState<{
+    isOpen: boolean;
+    contestId: string;
+    teamId: string;
+    teamName: string;
+    isLeader: boolean;
+  }>({
+    isOpen: false,
+    contestId: "",
+    teamId: "",
+    teamName: "",
+    isLeader: false,
+  });
+  const [myInvites, setMyInvites] = useState<
+    Extract<
+      Awaited<ReturnType<typeof getMyContestInvites>>,
+      { ok: true }
+    >["data"]
+  >([]);
+  const [myJoinRequests, setMyJoinRequests] = useState<
+    Extract<
+      Awaited<ReturnType<typeof getMyTeamJoinRequests>>,
+      { ok: true }
+    >["data"]
+  >([]);
+  const [inviteActionLoading, setInviteActionLoading] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    getMyContestInvites().then((res) => {
+      if (res.ok) setMyInvites(res.data);
+    });
+    getMyTeamJoinRequests().then((res) => {
+      if (res.ok) setMyJoinRequests(res.data);
+    });
+  }, []);
+
+  const handleRequestRespond = async (
+    requestId: string,
+    action: "accept" | "reject",
+  ) => {
+    setInviteActionLoading(requestId);
+
+    try {
+      const res = await respondToContestTeamRequest(requestId, action);
+      if (res.ok) {
+        setMyInvites((prev) =>
+          prev.filter((request) => request._id !== requestId),
+        );
+        setMyJoinRequests((prev) =>
+          prev.filter((request) => request._id !== requestId),
+        );
+        router.refresh();
+      } else {
+        toast.error(res.error.message);
+      }
+    } catch {
+      toast.error("Unable to respond to the team request");
+    } finally {
+      setInviteActionLoading(null);
+    }
+  };
+
   const handleRegisterClick = (
     id: string,
     size: number,
@@ -134,86 +168,53 @@ export default function ContestListingClient({
       viewOnly,
     });
 
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState<number | null>(null);
+
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    setNow(Date.now());
+    const timer = setInterval(
+      () => setNow(Date.now()),
+      CONTEST_TIMING.displayRefreshMs,
+    );
     return () => clearInterval(timer);
   }, []);
 
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => setIsMounted(true), []);
-
-  const isPastDeadline = (deadline?: Date | string | null) => {
-    if (!isMounted || !deadline) return false;
-    return now > new Date(deadline).getTime();
-  };
-
-  const [localActive, setLocalActive] =
-    useState<ContestListingItem[]>(initialActive);
-  const [localUpcoming, setLocalUpcoming] =
-    useState<ContestListingItem[]>(initialUpcoming);
-
+  // Refresh from the server once scheduled contests are due to start
   useEffect(() => {
-    setLocalActive(initialActive);
-    setLocalUpcoming(initialUpcoming);
-  }, [initialActive, initialUpcoming]);
-
-  useEffect(() => {
-    if (localUpcoming.length === 0) return;
+    if (initialUpcoming.length === 0) return;
 
     const timer = setInterval(() => {
-      const now = Date.now();
-
-      setLocalUpcoming((prevUpcoming) => {
-        const transferring = prevUpcoming.filter((c) => {
-          const transitionTime = c.startTime;
-          return transitionTime && new Date(transitionTime).getTime() <= now;
-        });
-        if (transferring.length > 0) {
-          // Safe to call another state setter here because we are in an effect callback,
-          // BUT React 18 strict mode might execute updaters twice.
-          // To be safe, we schedule it out of the pure function using setTimeout
-          setTimeout(() => {
-            setLocalActive((prevActive) => {
-              const newActive: ContestListingItem[] = [...transferring].map(
-                (c) => ({
-                  ...c,
-                  status: "active",
-                  roomStatus: "waiting",
-                }),
-              );
-              for (const item of prevActive) {
-                if (!newActive.some((x) => x._id === item._id)) {
-                  newActive.push(item);
-                }
-              }
-              return newActive;
-            });
-          }, 0);
-
-          return prevUpcoming.filter(
-            (c) => !transferring.some((t) => t._id === c._id),
-          );
-        }
-        return prevUpcoming;
-      });
-    }, 1000);
+      if (
+        initialUpcoming.some(
+          (contest) =>
+            contest.startTime &&
+            new Date(contest.startTime).getTime() <= Date.now(),
+        )
+      ) {
+        router.refresh();
+      }
+    }, CONTEST_TIMING.listingRefreshMs);
 
     return () => clearInterval(timer);
-  }, [localUpcoming.length]);
+  }, [initialUpcoming, router]);
+
+  const isPastDeadline = (deadline?: Date | string | null) =>
+    now !== null && Boolean(deadline) && now > new Date(deadline!).getTime();
 
   const filterByFormat = (contest: ContestListingItem) => {
     if (formatFilter === "all") return true;
+
     if (formatFilter === "bracket") return contest.format === "bracket";
+
     return contest.mode === formatFilter && contest.format !== "bracket";
   };
 
-  const active = localActive.filter(filterByFormat);
-  const upcoming = localUpcoming.filter(filterByFormat);
+  const active = initialActive.filter(filterByFormat);
+  const upcoming = initialUpcoming.filter(filterByFormat);
   const completed = initialCompleted.filter(filterByFormat);
 
-  const getFormatDisplay = (format?: string) => {
-    switch (format) {
+  const getFormatDisplay = (contest: ContestListingItem) => {
+    switch (contest.format) {
       case "1v1":
         return "1v1 Match";
       case "solo-tournament":
@@ -221,9 +222,11 @@ export default function ContestListingClient({
       case "team-tournament":
         return "Team Tournament";
       case "bracket":
-        return "Knockout Bracket";
+        return contest.bracketSettings?.type === "double_elimination"
+          ? "Double Elim Bracket"
+          : "Knockout Bracket";
       default:
-        return format ? format.replace("-", " ") : "Standard";
+        return contest.format ? contest.format.replace("-", " ") : "Standard";
     }
   };
 
@@ -235,7 +238,7 @@ export default function ContestListingClient({
           onClose={() => setShowCreateModal(false)}
           isHead={isHead}
           presets={presets}
-          deadlineMinutes={deadlineMinutes}
+          registrationTiming={registrationTiming}
         />
       )}
       <main className={styles.main}>
@@ -286,6 +289,83 @@ export default function ContestListingClient({
             </div>
           </div>
 
+          {[
+            {
+              title: "Pending Team Invites",
+              requests: myInvites,
+              invite: true,
+            },
+            {
+              title: "Team Join Requests",
+              requests: myJoinRequests,
+              invite: false,
+            },
+          ].map(
+            ({ title, requests, invite }) =>
+              requests.length > 0 && (
+                <section className={styles.section} key={title}>
+                  <div className={styles.sectionHead}>
+                    <Users size={20} />
+                    <h2 className={styles.sectionTitle}>{title}</h2>
+                  </div>
+                  <div className={styles.cardGrid}>
+                    {requests.map((request) => (
+                      <div key={request._id} className={styles.contestCard}>
+                        <div className={styles.cardTop}>
+                          <div className={styles.cardTopInfo}>
+                            <span className={styles.cardBadge}>
+                              {invite ? "Invite" : "Request"}
+                            </span>
+                            <h3 className={styles.cardTitle}>
+                              {request.teamName}
+                            </h3>
+                            <p className={styles.cardDesc}>
+                              Contest: {request.contestName}
+                            </p>
+                            <p className={styles.cardDesc}>
+                              {"invitedByHandle" in request ? (
+                                <>
+                                  Invited by{" "}
+                                  <strong>{request.invitedByHandle}</strong>
+                                </>
+                              ) : (
+                                <>
+                                  <strong>{request.fromUserHandle}</strong>{" "}
+                                  wants to join
+                                </>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={styles.requestActions}>
+                          <Button
+                            variant="primary"
+                            size="small"
+                            onClick={() =>
+                              handleRequestRespond(request._id, "accept")
+                            }
+                            disabled={inviteActionLoading !== null}
+                          >
+                            {invite ? "Accept" : "Approve"}
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="small"
+                            onClick={() =>
+                              handleRequestRespond(request._id, "reject")
+                            }
+                            disabled={inviteActionLoading !== null}
+                          >
+                            {invite ? "Decline" : "Deny"}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ),
+          )}
+
           {/* Active Contests */}
           {active.length > 0 && (
             <section className={styles.section}>
@@ -303,8 +383,7 @@ export default function ContestListingClient({
                     <div className={styles.cardTop}>
                       <div className={styles.cardTopInfo}>
                         <span className={styles.cardBadge}>
-                          {contest.mode} Mode •{" "}
-                          {getFormatDisplay(contest.format)}
+                          {contest.mode} Mode • {getFormatDisplay(contest)}
                         </span>
                         <h3 className={styles.cardTitle}>{contest.name}</h3>
                         <p className={styles.cardDesc}>
@@ -326,6 +405,7 @@ export default function ContestListingClient({
                         ) : (
                           <>
                             <CountdownTimer
+                              now={now}
                               startTime={
                                 contest.actualStartTime || contest.startTime
                               }
@@ -341,10 +421,6 @@ export default function ContestListingClient({
                         <Users className={styles.icon16} size={16} />{" "}
                         {contest.participantsCount || 0} Registered
                       </div>
-                      <div className={styles.cardMetaItem}>
-                        <Medal className={styles.icon16} size={16} /> 5000 Pts
-                        Pool
-                      </div>
                     </div>
                     <div className={styles.cardFooter}>
                       {contest.isRegistered ? (
@@ -353,10 +429,23 @@ export default function ContestListingClient({
                             <CircleCheck className={styles.icon18} size={18} />
                             Registered
                           </div>
-                          <Link href={`/internal/contests/${contest._id}`}>
-                            <button className={styles.joinBtn}>
-                              Join room
-                            </button>
+                          <Link
+                            href={`/internal/contests/${contest._id}`}
+                            className={styles.joinBtn}
+                          >
+                            Join room
+                          </Link>
+                        </>
+                      ) : contest.canSpectate ? (
+                        <>
+                          <div className={styles.notRegistered}>
+                            Not registered
+                          </div>
+                          <Link
+                            href={`/internal/contests/${contest._id}`}
+                            className={styles.joinBtn}
+                          >
+                            <Eye className={styles.icon18} size={18} /> Spectate
                           </Link>
                         </>
                       ) : (
@@ -391,7 +480,7 @@ export default function ContestListingClient({
                   >
                     <div className={styles.cardTagRow}>
                       <span className={styles.cardBadgeNeutral}>
-                        {contest.mode} Mode • {getFormatDisplay(contest.format)}
+                        {contest.mode} Mode • {getFormatDisplay(contest)}
                       </span>
                       <span className={styles.cardDateBadge}>
                         {contest.startTime
@@ -413,7 +502,8 @@ export default function ContestListingClient({
                           </span>
                         </span>
                         <div className={styles.regInfoCol}>
-                          {contest.registrationStartTime &&
+                          {now !== null &&
+                            contest.registrationStartTime &&
                             new Date(contest.registrationStartTime).getTime() >
                               now && (
                               <span className={styles.regStart}>
@@ -442,6 +532,7 @@ export default function ContestListingClient({
                             </span>
                           )}
                           <UpcomingCountdownTimer
+                            now={now}
                             startTime={contest.startTime || null}
                           />
                         </div>
@@ -484,6 +575,28 @@ export default function ContestListingClient({
                                 Registered
                               </span>
                             </div>
+
+                            {contest.teamSize &&
+                              contest.teamSize > 1 &&
+                              contest.isTeamLeader &&
+                              contest.registeredTeamId && (
+                                <button
+                                  className={`${styles.miniBtn} ${styles.miniBtnPrimary}`}
+
+                                  onClick={() => {
+                                    setManageTeamData({
+                                      isOpen: true,
+                                      contestId: contest._id,
+                                      teamId: contest.registeredTeamId!,
+                                      teamName: contest.registeredTeamName!,
+                                      isLeader: true,
+                                    });
+                                  }}
+                                >
+                                  Manage Team
+                                </button>
+                              )}
+
                             <button
                               onClick={() =>
                                 handleRegisterClick(
@@ -492,9 +605,9 @@ export default function ContestListingClient({
                                   true,
                                 )
                               }
-                              className={`${styles.miniBtn} ${styles.miniBtnPrimary}`}
+                              className={`${styles.miniBtn} ${styles.miniBtnGhost}`}
                             >
-                              View / Modify
+                              View/Leave
                             </button>
                           </div>
                         )
@@ -508,6 +621,7 @@ export default function ContestListingClient({
                               onRegisterClick={handleRegisterClick}
                               disabledOverride={true}
                               label={
+                                now !== null &&
                                 contest.registrationStartTime &&
                                 new Date(
                                   contest.registrationStartTime,
@@ -567,11 +681,12 @@ export default function ContestListingClient({
             <section>
               <div className={styles.sectionHeadBordered}>
                 <h2 className={styles.sectionTitle}>Completed</h2>
-                <Link href="/internal/contests/history">
-                  <button className={styles.pillBtn}>
-                    <History className={styles.icon18} size={18} />
-                    View History
-                  </button>
+                <Link
+                  href="/internal/contests/history"
+                  className={styles.pillBtn}
+                >
+                  <History className={styles.icon18} size={18} />
+                  View History
                 </Link>
               </div>
               <div className={styles.completedCard}>
@@ -587,20 +702,14 @@ export default function ContestListingClient({
                     </thead>
                     <tbody>
                       {completed.map((contest) => (
-                        <tr
-                          key={contest._id}
-                          onClick={() =>
-                            router.push(
-                              `/internal/contests/${contest._id}?from=listing`,
-                            )
-                          }
-                          className={styles.tableRow}
-                          role="button"
-                        >
+                        <tr key={contest._id} className={styles.tableRow}>
                           <td>
-                            <span className={styles.tableName}>
+                            <Link
+                              href={`/internal/contests/${contest._id}?from=listing`}
+                              className={styles.tableName}
+                            >
                               {contest.name}
-                            </span>
+                            </Link>
                           </td>
                           <td>
                             {contest.startTime
@@ -609,7 +718,7 @@ export default function ContestListingClient({
                           </td>
                           <td>
                             <span className={styles.tableBadge}>
-                              {getFormatDisplay(contest.format)}
+                              {getFormatDisplay(contest)}
                             </span>
                           </td>
                           <td>{contest.participantsCount || 0}</td>
@@ -626,13 +735,10 @@ export default function ContestListingClient({
           {active.length === 0 &&
             upcoming.length === 0 &&
             completed.length === 0 && (
-              <div className={styles.empty}>
-                <CalendarX className={styles.emptyIcon} size={64} />
-                <h3 className={styles.emptyTitle}>No contests found</h3>
-                <p className={styles.emptyText}>
-                  There are no contests matching your selected format.
-                </p>
-              </div>
+              <EmptyState
+                title="No contests found"
+                hint="There are no contests matching your selected format."
+              />
             )}
         </div>
 
@@ -645,59 +751,62 @@ export default function ContestListingClient({
           teamSize={registerModalData.teamSize}
           viewOnly={registerModalData.viewOnly}
         />
+
+        <ManageTeamModal
+          isOpen={manageTeamData.isOpen}
+          onClose={() =>
+            setManageTeamData({ ...manageTeamData, isOpen: false })
+          }
+          contestId={manageTeamData.contestId}
+          teamId={manageTeamData.teamId}
+          teamName={manageTeamData.teamName}
+          isLeader={manageTeamData.isLeader}
+        />
       </main>
+    </div>
+  );
+}
+
+function CountdownTimer({
+  startTime,
+  durationSeconds,
+  now,
+}: {
+  startTime: Date | string | null;
+  durationSeconds: number | null;
+  now: number | null;
+}) {
+  const seconds =
+    startTime && durationSeconds && now !== null
+      ? (new Date(startTime).getTime() + durationSeconds * 1000 - now) / 1000
+      : null;
+
+  return (
+    <div className={styles.timer}>
+      {seconds === null ? "--:--:--" : formatRemainingTime(seconds, true)}
     </div>
   );
 }
 
 function UpcomingCountdownTimer({
   startTime,
+  now,
 }: {
   startTime: Date | string | null;
+  now: number | null;
 }) {
-  const [timeLeft, setTimeLeft] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!startTime) {
-      setTimeLeft(null);
-      return;
-    }
-
-    const start = new Date(startTime).getTime();
-
-    const updateTimer = () => {
-      const now = new Date().getTime();
-      const diff = start - now;
-
-      if (diff <= 0) {
-        setTimeLeft("Starts soon");
-        return;
-      }
-
-      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const s = Math.floor((diff % (1000 * 60)) / 1000);
-
-      if (d > 0) {
-        setTimeLeft(`in ${d}d ${h}h ${m}m`);
-      } else if (h > 0) {
-        setTimeLeft(`in ${h}h ${m}m ${s}s`);
-      } else {
-        setTimeLeft(`in ${m}m ${s}s`);
-      }
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [startTime]);
-
-  if (!startTime || !timeLeft) return null;
+  if (!startTime || now === null) return null;
+  const seconds = Math.max(
+    0,
+    Math.ceil((new Date(startTime).getTime() - now) / 1000),
+  );
 
   return (
     <span className={styles.startsBadge}>
-      Starts <Clock className={styles.icon12} size={12} /> {timeLeft}
+      <Clock size={12} />{" "}
+      {seconds === 0
+        ? "Starts soon"
+        : `Starts in ${formatRemainingTime(seconds, true)}`}
     </span>
   );
 }

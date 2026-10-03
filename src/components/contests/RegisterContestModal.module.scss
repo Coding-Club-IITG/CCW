@@ -332,3 +332,13 @@
 .teamHeaderName {
   font-family: var(--font-hanken-grotesk), sans-serif;
 }
+
+.checkboxRow {
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.checkboxLabel {
+  font-size: 0.875rem;
+}

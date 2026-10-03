@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/schemas/contestRoute";
 import {
   processWalkover,
+  processNullifyMatch,
   type DeferredBracketEffect,
 } from "@/lib/contests/bracket";
 import { connectMongoDB } from "@/lib/db/mongodb";
@@ -36,25 +37,36 @@ export async function POST(
 
     const body = await parseJson(request, contestWalkoverSchema);
     if (!body.ok) return jsonResult(body);
-    const { winnerTeamId, note } = body.data;
+    const { winnerTeamId, note, action = "walkover" } = body.data;
+
+    if (action === "walkover" && !winnerTeamId) {
+      return jsonError(
+        "VALIDATION_ERROR",
+        "Winner team ID is required for a walkover.",
+      );
+    }
 
     await connectMongoDB();
     const { snapshot, deferredEffects } = await mongoose.connection.transaction(
       async (transaction) => {
         const effects: DeferredBracketEffect[] = [];
-        const processed = await processWalkover(
-          roomId,
-          winnerTeamId,
-          note,
-          adminUserId,
-          effects,
-        );
+        const processed =
+          action === "nullify"
+            ? await processNullifyMatch(roomId, note, adminUserId, effects)
+            : await processWalkover(
+                roomId,
+                winnerTeamId!,
+                note,
+                adminUserId,
+                effects,
+              );
         await insertAuditEvent(
           {
             actor: auditActor(actor),
             category: "contests" as const,
             action: "walkover" as const,
-            operation: "contests.walkover",
+            operation:
+              action === "nullify" ? "contests.nullify" : "contests.walkover",
             target: {
               type: "contest-room",
               id: roomId,

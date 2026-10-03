@@ -12,7 +12,7 @@ import {
 } from "vitest";
 
 import AuditLog from "@/models/AuditLog";
-import ContestMatch, { type IContestMatch } from "@/models/ContestMatch";
+import ContestMatch from "@/models/ContestMatch";
 
 import {
   clearTestMongo,
@@ -23,14 +23,10 @@ import {
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   postCommitEffect: vi.fn(async () => undefined),
-  publishContest: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession: mocks.getSession } },
-}));
-vi.mock("@/lib/contests/events", () => ({
-  publishContest: mocks.publishContest,
 }));
 vi.mock("@/lib/contests/bracket", () => ({
   generateBracket: vi.fn(
@@ -127,31 +123,9 @@ describe("contest administrative audit", () => {
     expect(serialized).not.toContain("Private administrative rationale");
     expect(serialized).not.toContain(winnerTeamId);
   });
-
-  it("audits a lifecycle change and publishes it only after commit", async () => {
-    const contest = await ContestMatch.create(
-      contestRecord({ status: "draft" }),
-    );
-    const { PATCH } = await import("@/app/api/contests/[id]/status/route");
-
-    const response = await PATCH(
-      jsonRequest(`/api/contests/${contest._id}/status`, { action: "publish" }),
-      { params: Promise.resolve({ id: contest._id.toString() }) },
-    );
-
-    expect(response.status).toBe(200);
-    expect(mocks.publishContest).toHaveBeenCalledOnce();
-    expect(await AuditLog.findOne()).toMatchObject({
-      category: "contests",
-      action: "status_change",
-      operation: "contests.status.publish",
-      before: { status: "draft" },
-      after: { status: "registration" },
-    });
-  });
 });
 
-function contestRecord(overrides: Partial<Pick<IContestMatch, "status">> = {}) {
+function contestRecord() {
   return {
     name: "Audit tournament",
     creatorId: new mongoose.Types.ObjectId(),
@@ -160,7 +134,6 @@ function contestRecord(overrides: Partial<Pick<IContestMatch, "status">> = {}) {
     status: "provisioning",
     teamSize: 1,
     problemSelectionMode: "test",
-    ...overrides,
   } as const;
 }
 
@@ -180,7 +153,7 @@ function snapshot(contestId: string) {
         scores: [0, 0] as [number, number],
         status: "pending" as const,
         winner: null,
-        bracketPosition: "0-0",
+        bracketPosition: "upper-0-0",
       },
     ],
   };
@@ -193,3 +166,15 @@ function jsonRequest(path: string, body: unknown) {
     body: JSON.stringify(body),
   });
 }
+
+vi.mock("@/lib/platforms/problemContent", async (original) => ({
+  ...(await original<typeof import("@/lib/platforms/problemContent")>()),
+  fetchProblemContentForScheduling: vi.fn(async () => ({
+    title: "Fixture problem",
+    statementHtml: "<p>Fixture statement</p>",
+    inputSpecificationHtml: "",
+    outputSpecificationHtml: "",
+    samples: [],
+    sourceUrl: "https://codeforces.com",
+  })),
+}));

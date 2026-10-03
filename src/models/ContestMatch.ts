@@ -5,6 +5,8 @@ export interface IProblemSlot {
   rating?: number;
   problemId?: string;
   roundNumber?: number;
+  points?: number;
+  timeLimitMinutes?: number;
 }
 
 export interface IRegistration {
@@ -19,11 +21,19 @@ export interface IRegistrationSettings {
   startTime?: Date;
   deadline: Date;
   maxParticipants: number;
+  entrantCapacity?: number;
 }
 
 export interface IBracketSettings {
-  thirdPlacePlayoff: boolean;
-  seedingMethod: "cf_rating" | "manual";
+  type?: "single_elimination" | "double_elimination";
+}
+
+export interface IBracketEntrant {
+  entrantId: mongoose.Types.ObjectId;
+  name: string;
+  members: mongoose.Types.ObjectId[];
+  seed: number;
+  rating: number;
 }
 
 export interface IContestMatch extends Document {
@@ -33,8 +43,10 @@ export interface IContestMatch extends Document {
   startTime?: Date;
   endTime?: Date;
   durationSeconds?: number;
+  overallDurationMinutes?: number;
+  perProblemDurationMinutes?: number;
   format: "1v1" | "solo-tournament" | "team-tournament" | "bracket";
-  mode: "blitz" | "arena" | "knockout";
+  mode: "blitz" | "arena";
   status: "draft" | "registration" | "provisioning" | "active" | "completed";
   teamSize?: number;
   presetId?: mongoose.Types.ObjectId;
@@ -51,8 +63,15 @@ export interface IContestMatch extends Document {
   registrations?: IRegistration[];
   registrationSettings?: IRegistrationSettings;
   bracketSettings?: IBracketSettings;
+  spectatorRestriction: "none" | "all" | "admin_creator" | "club_members";
+  grandFinalState?:
+    "pending" | "awaiting_reset" | "reset_in_progress" | "complete";
   winner?: mongoose.Types.ObjectId;
   winnerName?: string;
+  bracketRevision?: number;
+  bracketGeneratedAt?: Date;
+  cancellationReason?: string;
+  bracketEntrants?: IBracketEntrant[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,6 +81,8 @@ const ProblemSlotSchema = new Schema<IProblemSlot>({
   rating: { type: Number },
   problemId: { type: String },
   roundNumber: { type: Number },
+  points: { type: Number, default: 100 },
+  timeLimitMinutes: { type: Number },
 });
 
 const RegistrationSchema = new Schema<IRegistration>({
@@ -76,14 +97,14 @@ const RegistrationSettingsSchema = new Schema<IRegistrationSettings>({
   startTime: { type: Date },
   deadline: { type: Date, required: true },
   maxParticipants: { type: Number, required: true, min: 2 },
+  entrantCapacity: { type: Number, min: 2, max: 256 },
 });
 
 const BracketSettingsSchema = new Schema<IBracketSettings>({
-  thirdPlacePlayoff: { type: Boolean, default: false },
-  seedingMethod: {
+  type: {
     type: String,
-    enum: ["cf_rating", "manual"],
-    required: true,
+    enum: ["single_elimination", "double_elimination"],
+    default: "single_elimination",
   },
 });
 
@@ -100,6 +121,8 @@ const ContestMatchSchema = new Schema<IContestMatch>(
     startTime: { type: Date },
     endTime: { type: Date },
     durationSeconds: { type: Number },
+    overallDurationMinutes: { type: Number },
+    perProblemDurationMinutes: { type: Number },
     format: {
       type: String,
       required: true,
@@ -139,8 +162,36 @@ const ContestMatchSchema = new Schema<IContestMatch>(
     registrations: [RegistrationSchema],
     registrationSettings: RegistrationSettingsSchema,
     bracketSettings: BracketSettingsSchema,
+    spectatorRestriction: {
+      type: String,
+      enum: ["none", "all", "admin_creator", "club_members"],
+      default: "none",
+    },
+    grandFinalState: {
+      type: String,
+      enum: ["pending", "awaiting_reset", "reset_in_progress", "complete"],
+      default: "pending",
+    },
     winner: { type: Schema.Types.ObjectId, ref: "ContestTeam" },
     winnerName: { type: String },
+    bracketRevision: { type: Number, default: 0 },
+    bracketGeneratedAt: Date,
+    cancellationReason: String,
+    bracketEntrants: {
+      type: [
+        new Schema<IBracketEntrant>(
+          {
+            entrantId: { type: Schema.Types.ObjectId, required: true },
+            name: { type: String, required: true },
+            members: [{ type: Schema.Types.ObjectId, ref: "User" }],
+            seed: { type: Number, required: true },
+            rating: { type: Number, required: true },
+          },
+          { _id: false },
+        ),
+      ],
+      default: undefined,
+    },
   },
   { timestamps: true },
 );

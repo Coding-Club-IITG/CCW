@@ -14,11 +14,18 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 
+import {
+  CONTEST_TIMING,
+  CONTEST_ABSENCE_LABELS,
+  CONTEST_RESULT_LABELS,
+  type ContestResultMethod,
+} from "@/lib/constants";
 import { getDisplayName } from "@/lib/users/identity";
 
 import BackLink from "@/components/shared/BackLink";
 import UserAvatar from "@/components/shared/UserAvatar";
 
+import { getCodeforcesProblemUrl } from "./roomPresentation";
 import styles from "./PostMatchResultClient.module.scss";
 
 export type MatchData = {
@@ -64,6 +71,8 @@ export type MatchData = {
   isKnockout: boolean;
   contestId?: string;
   terminationReason?: string;
+  resultMethod?: ContestResultMethod;
+  winnerTeamId?: string | null;
   format?: string;
   isProcessing?: boolean;
 };
@@ -94,7 +103,7 @@ export default function PostMatchResultClient({
     if (matchData.isProcessing) {
       const interval = setInterval(() => {
         router.refresh();
-      }, 1000);
+      }, CONTEST_TIMING.displayRefreshMs);
       return () => clearInterval(interval);
     }
   }, [matchData.isProcessing, router]);
@@ -111,14 +120,6 @@ export default function PostMatchResultClient({
   const currentUserTeam = matchData.teams.find((t) =>
     t.members.some((m) => m.id === currentUserId),
   );
-
-  const getProblemUrl = (problemId: string) => {
-    const match = problemId.match(/^(\d+)([A-Za-z].*)$/);
-    if (match) {
-      return `https://codeforces.com/problemset/problem/${match[1]}/${match[2]}`;
-    }
-    return `https://codeforces.com/problemset/problem/${problemId}`; // fallback
-  };
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(
     matchData.format || "",
@@ -143,17 +144,18 @@ export default function PostMatchResultClient({
         <section className={styles.hero}>
           <div className={styles.heroTeams}>
             {matchData.teams.slice(0, 3).map((team, index) => {
-              const isWinner =
-                index === 0 &&
-                matchData.teams.length > 0 &&
-                (matchData.teams.length === 1 ||
-                  team.score > matchData.teams[1].score);
+              const isWinner = team.id === matchData.winnerTeamId;
+
               return (
                 <div key={team.id} className={styles.teamBlock}>
                   {index > 0 && <span className={styles.vsDash}>-</span>}
                   <div
                     className={`${styles.teamResult} ${
-                      isWinner ? styles.winner : styles.loser
+                      isWinner
+                        ? styles.winner
+                        : matchData.resultMethod === "draw"
+                          ? ""
+                          : styles.loser
                     }`}
                   >
                     {isWinner && (
@@ -188,15 +190,21 @@ export default function PostMatchResultClient({
           <p className={styles.heroMeta}>
             {matchData.roomType} • <strong>{matchData.duration}</strong>
           </p>
+          {matchData.resultMethod && (
+            <p className={styles.heroMeta}>
+              {CONTEST_RESULT_LABELS[matchData.resultMethod]}
+            </p>
+          )}
         </section>
 
         {/* Termination Reason Banner */}
-        {matchData.terminationReason === "disconnect" && (
-          <div className={styles.terminationBanner}>
-            <UserX size={16} />
-            <span>Match concluded early: A user disconnected</span>
-          </div>
-        )}
+        {matchData.terminationReason &&
+          CONTEST_ABSENCE_LABELS[matchData.terminationReason] && (
+            <div className={styles.terminationBanner}>
+              <UserX size={16} />
+              <span>{CONTEST_ABSENCE_LABELS[matchData.terminationReason]}</span>
+            </div>
+          )}
 
         {/* Advancement Banner */}
         {matchData.isKnockout && (
@@ -322,7 +330,7 @@ export default function PostMatchResultClient({
             <h4 className={styles.sectionHeading}>Problem Matrix</h4>
             <div className={styles.problemGrid}>
               {matchData.problems.length > 0 ? (
-                matchData.problems.map((prob) => {
+                matchData.problems.map((prob, idx) => {
                   let isUserTeam = false;
                   if (prob.solved && currentUserTeam) {
                     isUserTeam = prob.solver?.teamId === currentUserTeam.id;
@@ -330,8 +338,8 @@ export default function PostMatchResultClient({
 
                   return (
                     <a
-                      key={prob.id}
-                      href={getProblemUrl(prob.id)}
+                      key={`${prob.id}-${idx}`}
+                      href={getCodeforcesProblemUrl(prob.id) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`${styles.problemCard} ${

@@ -14,9 +14,11 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { CONTEST_TIMING } from "@/lib/constants";
 import type { ContestListingItem } from "@/lib/actions/contests";
 import { readAppResult } from "@/lib/api/result";
 import type {
@@ -29,15 +31,21 @@ import { getDisplayName } from "@/lib/users/identity";
 
 import {
   getContestRoomResultsPath,
+  getCodeforcesProblemUrl,
   getDisplayTeamName,
 } from "@/components/contests/roomPresentation";
 import RoomActivityFeed from "@/components/contests/RoomActivityFeed";
 import { useSyncCooldown } from "@/components/contests/useSyncCooldown";
-import { sendBrowserNotification } from "@/components/contests/roomNotification";
+import { useContestWorkspace } from "./useContestWorkspace";
+import { useRoomActivity } from "./useRoomActivity";
 import { useRoomCountdown } from "@/components/contests/useRoomCountdown";
 import { useRoomEventSource } from "@/components/contests/useRoomEventSource";
 import UserAvatar from "@/components/shared/UserAvatar";
 import BackLink from "@/components/shared/BackLink";
+import ContestProblemWorkspace from "@/components/contests/ContestProblemWorkspace";
+import { useRoomParticipation } from "@/components/contests/useRoomParticipation";
+import { useMatchNavigationWarning } from "@/components/contests/useMatchNavigationWarning";
+import Button from "@/components/shared/Button";
 
 import styles from "./BlitzRoomClient.module.scss";
 
@@ -57,13 +65,19 @@ export default function BlitzRoomClient({
   initialProblemIndex = 0,
   initialStartTime,
   initialTimeLimit,
+  initialJudgingDeadline,
   from,
-  syncCooldownSeconds = 60,
+  syncCooldownSeconds,
+  isSpectator = false,
+  initialActivityFeed = [],
+  initialReadyDeadline,
+  initialReadyOpensAt,
+  initialAdmittedUserIds = [],
 }: {
   contest: ContestListingItem;
   roomId: string;
   roomName: string;
-  teamId: string;
+  teamId: string | null;
   userId: string;
   cfHandle?: string;
   teams?: ContestRoomTeamDto[];
@@ -75,32 +89,69 @@ export default function BlitzRoomClient({
   initialProblemIndex?: number;
   initialStartTime?: number;
   initialTimeLimit?: number;
+  initialJudgingDeadline?: number;
+  initialReadyDeadline?: number;
+  initialReadyOpensAt?: number;
+  initialAdmittedUserIds?: string[];
   from?: string;
-  syncCooldownSeconds?: number;
+  syncCooldownSeconds: number;
+  isSpectator?: boolean;
+  initialActivityFeed?: RoomActivityDto[];
 }) {
   const router = useRouter();
+  const { launcherRef, matchViewRef, ...workspace } = useContestWorkspace(
+    roomId,
+    userId,
+  );
+  const activity = useRoomActivity(initialActivityFeed, workspace.isOpen);
+  const activityFeed = activity.entries;
+  const addActivity = activity.add;
 
   const [matchState, setMatchState] = useState<
     "waiting" | "active" | "completed"
   >(initialMatchState);
-  const matchStateRef = useRef(initialMatchState);
   const [showMatchStartedModal, setShowMatchStartedModal] = useState(false);
   const [matchOverDismissed, setMatchOverDismissed] = useState(false);
   const [problems, setProblems] =
     useState<ContestRoomProblemDto[]>(initialProblems);
+  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
+    null,
+  );
   const [currentProblemIndex, setCurrentProblemIndex] =
     useState(initialProblemIndex);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
-  const [readyUserIds, setReadyUserIds] = useState<Set<string>>(
-    new Set(initialReadyUserIds),
-  );
+
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(
     new Set(initialOnlineUserIds || [userId]),
   );
+
   const onlineUserIdsRef = useRef<Set<string>>(
     new Set(initialOnlineUserIds || [userId]),
   );
-  const [isReady, setIsReady] = useState(initialReadyUserIds.includes(userId));
+  const {
+    readyUserIds,
+    admittedUserIds,
+    syncParticipation,
+    handleReady,
+    isReady,
+    isAdmitted,
+    readySecondsLeft,
+    opensInSeconds,
+    entering,
+    entryError,
+  } = useRoomParticipation({
+    roomId,
+    userId,
+    matchState,
+    initialReadyUserIds,
+    initialAdmittedUserIds,
+    initialReadyDeadline,
+    initialReadyOpensAt,
+  });
+
+  useMatchNavigationWarning(
+    matchState === "active" && isAdmitted && !isSpectator,
+  );
   const [syncing, setSyncing] = useState(false);
   const { cooldown: syncCooldown, begin: beginSync } = useSyncCooldown(
     roomId,
@@ -114,32 +165,33 @@ export default function BlitzRoomClient({
   const [timeLimit, setTimeLimit] = useState<number | undefined>(
     initialTimeLimit,
   );
+  const [judgingDeadline, setJudgingDeadline] = useState(
+    initialJudgingDeadline,
+  );
   const timeLeft = useRoomCountdown(matchState, startTime, timeLimit);
 
   const isSoloFormat = ["1v1", "solo-tournament"].includes(contest?.format);
   const displayTeamName = (team?: ContestRoomTeamDto) =>
     getDisplayTeamName(team, contest?.format);
 
-  const [activityFeed, setActivityFeed] = useState<RoomActivityDto[]>([]);
-  const [animationKey, setAnimationKey] = useState(0); // For triggering CSS animations
-
-  // Redirect to results page immediately ONLY if the match was already completed on initial load (i.e. refresh)
+  // Redirect to results page immediately ONLY if the match was already completed on initial load
   useEffect(() => {
     if (initialMatchState === "completed") {
-      router.replace(
-        getContestRoomResultsPath(roomId, contest.format, contest.mode),
-      );
+      router.replace(getContestRoomResultsPath(roomId, contest.format));
     }
-  }, [initialMatchState, roomId, router, contest.format, contest.mode]);
+  }, [initialMatchState, roomId, router, contest.format]);
 
   // Also redirect dynamically if the match completes while connected
   useEffect(() => {
-    if (matchState === "completed" && initialMatchState !== "completed") {
+    if (
+      matchState === "completed" &&
+      initialMatchState !== "completed" &&
+      !workspace.isOpen
+    ) {
       const t = setTimeout(() => {
-        router.replace(
-          getContestRoomResultsPath(roomId, contest.format, contest.mode),
-        );
-      }, 2000);
+        router.replace(getContestRoomResultsPath(roomId, contest.format));
+      }, CONTEST_TIMING.resultRedirectMs);
+
       return () => clearTimeout(t);
     }
   }, [
@@ -149,6 +201,7 @@ export default function BlitzRoomClient({
     router,
     contest.format,
     contest.mode,
+    workspace.isOpen,
   ]);
 
   const handleEvent = (payload: RoomEventPayloadDto) => {
@@ -162,63 +215,39 @@ export default function BlitzRoomClient({
         ) {
           break;
         }
-        matchStateRef.current = nextStatus;
         setMatchState((prev) => {
           if (prev !== "active" && nextStatus === "active") {
             setShowMatchStartedModal(true);
           }
+
           return nextStatus;
         });
         if (payload.state.startTime)
           setStartTime(parseInt(payload.state.startTime));
+        setJudgingDeadline(
+          payload.state.judgingDeadline
+            ? Number(payload.state.judgingDeadline)
+            : undefined,
+        );
         if (payload.state.timeLimit)
           setTimeLimit(parseInt(payload.state.timeLimit));
+        if (payload.onlineUserIds) {
+          onlineUserIdsRef.current = new Set(payload.onlineUserIds);
+          setOnlineUserIds(new Set(payload.onlineUserIds));
+        }
+        syncParticipation(payload);
+        if (payload.state.currentProblem) {
+          if (Number(payload.state.currentProblem) !== currentProblemIndex)
+            setSelectedProblemId(null);
+          setCurrentProblemIndex(Number(payload.state.currentProblem));
+        }
         if (payload.problems) setProblems(payload.problems);
         if (payload.scores) setScores(payload.scores);
-        if (nextStatus === "active") {
-          addActivity("info", "Match started! Good luck.");
-        }
+        if (payload.activityLogs) activity.snapshot(payload.activityLogs);
         break;
-      case "room.advance":
-        setCurrentProblemIndex(payload.problemIndex);
-        setProblems((prev) => {
-          const arr = [...prev];
-          arr[payload.problemIndex] = payload.nextProblem;
-          return arr;
-        });
-        setAnimationKey((k) => k + 1);
-        const solverName = getMemberName(payload.solvedBy.userId);
-        addActivity(
-          "check_circle",
-          `${solverName} solved a problem!`,
-          "text-primary",
-        );
-        break;
-      case "room.score":
-        setScores(payload.scores);
-        break;
-      case "room.reclaimed": {
-        const team = teams?.find((item) => item._id === payload.teamId);
-        const tName = displayTeamName(team);
-        addActivity(
-          "gavel",
-          `CRITICAL: ${tName} RECLAIMED points for an earlier solve!`,
-          "text-error",
-        );
-        break;
-      }
       case "room.end":
-        matchStateRef.current = "completed";
         setMatchState("completed");
         if (payload.finalScores) setScores(payload.finalScores);
-        if (payload.lastSolvedBy) {
-          const solverName = getMemberName(payload.lastSolvedBy.userId);
-          addActivity(
-            "check_circle",
-            `${solverName} solved the final problem!`,
-            "text-primary",
-          );
-        }
         break;
       case "sync.queued":
         setSyncing(true);
@@ -233,33 +262,29 @@ export default function BlitzRoomClient({
         if (payload.verdict === "OK") {
           addActivity(
             "check_circle",
-            `Valid AC detected! +${payload.pointsAwarded || 100} pts`,
+            `Verdict: Accepted (OK) on ${payload.problemId || "problem"}!`,
             "text-primary",
           );
         } else {
           addActivity(
             "error",
-            `Submission failed: ${payload.verdict}`,
+            `Submission verdict: ${payload.verdict}`,
             "text-error",
           );
         }
         break;
-      case "room.user_ready":
-        setReadyUserIds((prev) => {
-          const newSet = new Set(prev);
-          newSet.add(payload.userId);
-          return newSet;
-        });
-        if (payload.userId === userId) {
-          setIsReady(true);
-        }
-        break;
       case "sync.failed":
         setSyncing(false);
-        if (payload.verdict) {
+        if (payload.verdict === "not_found") {
           addActivity(
             "error",
-            `Sync succeeded, but verdict is ${payload.verdict}`,
+            `No recent submission found on Codeforces for ${payload.problemId || "problem"}.`,
+            "text-error",
+          );
+        } else if (payload.verdict) {
+          addActivity(
+            "error",
+            `Submission verdict: ${payload.verdict}`,
             "text-error",
           );
         } else {
@@ -270,411 +295,586 @@ export default function BlitzRoomClient({
           );
         }
         break;
+      case "presence.sync":
+        onlineUserIdsRef.current = new Set(payload.onlineUserIds);
+        setOnlineUserIds(new Set(payload.onlineUserIds));
+        break;
       case "presence.online": {
-        const uName = getMemberName(payload.userId);
         const wasOffline = !onlineUserIdsRef.current.has(payload.userId);
 
         if (wasOffline) {
           onlineUserIdsRef.current.add(payload.userId);
           setOnlineUserIds(new Set(onlineUserIdsRef.current));
-
-          if (payload.cancelledForfeit) {
-            addActivity(
-              "person",
-              `${uName} reconnected. Forfeiture cancelled.`,
-              "text-secondary",
-            );
-          } else {
-            addActivity(
-              "person",
-              `${uName} connected${matchStateRef.current === "waiting" ? " (Not Ready)" : ""}.`,
-              "text-secondary",
-            );
-          }
         }
+
         break;
       }
       case "presence.offline": {
-        const uName = getMemberName(payload.userId);
         onlineUserIdsRef.current.delete(payload.userId);
         setOnlineUserIds(new Set(onlineUserIdsRef.current));
-
-        setReadyUserIds((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(payload.userId);
-          return newSet;
-        });
-        const text = payload.forfeitTimeout
-          ? `${uName} disconnected. Match will be forfeited in ${payload.forfeitTimeout}s.`
-          : `${uName} disconnected.`;
-        addActivity("person_off", text, "text-error");
         break;
       }
+      case "room.activity":
+        activity.receive(payload.activity);
+        break;
     }
   };
 
-  useRoomEventSource(roomId, handleEvent);
+  useRoomEventSource(roomId, userId, handleEvent);
 
-  const getMemberName = (uid: string) => {
-    if (!teams) return "Unknown";
-    for (const t of teams) {
-      for (const m of t.members) {
-        if (m.id === uid) return getDisplayName(m.name, m.pizza_count);
-      }
-    }
-    return uid === userId ? "You" : "Unknown";
-  };
+  const handleSync = async (problemId: string) => {
+    if (
+      !cfHandle ||
+      !problemId ||
+      !isAdmitted ||
+      isSpectator ||
+      syncing ||
+      matchState !== "active" ||
+      syncCooldown > 0
+    )
+      return;
 
-  const addActivity = (
-    icon: string,
-    text: string,
-    color: string = "text-on-surface",
-  ) => {
-    setActivityFeed((prev) =>
-      [
-        {
-          icon,
-          text,
-          timestamp: Date.now(),
-          color,
-          id: Date.now() + Math.random(),
-        },
-        ...prev,
-      ].slice(0, 10),
-    );
-    // Fire a matching desktop notification
-    sendBrowserNotification(icon, text);
-  };
-
-  const handleReady = async () => {
-    setIsReady(true);
-    const response = await fetch(`/api/contests/rooms/${roomId}/ready`, {
-      method: "POST",
-    });
-    if (!(await readAppResult(response)).ok) setIsReady(false);
-  };
-
-  const handleSync = async () => {
-    if (syncing || matchState !== "active" || syncCooldown > 0) return;
     setSyncing(true);
-    const activeProblem = problems[currentProblemIndex];
-    if (!activeProblem) return;
 
-    const res = await fetch("/api/contests/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roomId,
-        teamId,
-        cfHandle: cfHandle || "dummy0", // Use real handle if available, otherwise fallback
-        problemId: activeProblem.problemId,
-      }),
-    });
+    try {
+      const res = await fetch("/api/contests/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId,
+          teamId,
+          cfHandle: cfHandle || "", // Use real handle if available
+          problemId,
+        }),
+      });
 
-    beginSync();
+      const syncRes = await readAppResult(res);
 
-    if (!(await readAppResult(res)).ok) {
-      // If it failed immediately (Eg. 429), turn off syncing spinner since SSE won't fire
+      if (!syncRes.ok) {
+        // If it failed immediately (Eg. 429), turn off syncing spinner since SSE won't fire
+        setSyncing(false);
+        addActivity(
+          "error",
+          `Sync failed: ${syncRes.error.message || "Failed to initiate sync"}`,
+          "text-error",
+        );
+      }
+    } catch {
       setSyncing(false);
+      addActivity(
+        "error",
+        "Sync failed: connection unavailable. Try again.",
+        "text-error",
+      );
+    } finally {
+      beginSync();
     }
   };
 
-  const activeProblem = problems[currentProblemIndex] || {
-    name: "Loading...",
-    rating: 0,
-  };
-  const totalProblems = problems.length || 5;
+  const revealedProblems = problems.filter(
+    (problem) => problem.revealedAt != null,
+  );
+  const activeProblem = revealedProblems.find(
+    (problem) => problem.problemId === selectedProblemId,
+  ) ??
+    problems[currentProblemIndex] ??
+    revealedProblems.at(-1) ?? {
+      name: "Loading...",
+      rating: 0,
+    };
+  const currentProblem =
+    problems[currentProblemIndex] ?? revealedProblems.at(-1);
+  const runnerProblem = revealedProblems.find(
+    (problem) => problem.problemId === workspace.problemId,
+  );
+  const totalProblems = problems.length;
+  const problemTimeLeft = useRoomCountdown(
+    matchState,
+    activeProblem.revealedAt ?? undefined,
+    activeProblem.deadlineAt && activeProblem.revealedAt
+      ? (activeProblem.deadlineAt - activeProblem.revealedAt) / 1000
+      : undefined,
+  );
 
   return (
     <div className={styles.page}>
       <div className={styles.bgPattern} aria-hidden="true"></div>
 
-      <main className={styles.main}>
-        <div>
-          <BackLink
-            href={
-              from === "bracket"
-                ? `/internal/contests/${contest._id}`
-                : "/internal/contests"
-            }
-            label={
-              from === "bracket" ? "Back to Bracket Canvas" : "Back to Contests"
-            }
-          />
-        </div>
-
-        {/* Compact HUD */}
-        <header className={styles.hud}>
-          <div className={styles.hudLeft}>
-            <h1 className={styles.hudTitle}>{contest.name}</h1>
-            <div
-              className={`${styles.statusBadge} ${
-                matchState === "active" ? styles.statusBadgeActive : ""
-              }`}
-            >
-              {matchState === "active" && (
-                <span className={styles.statusDot}></span>
-              )}
-              {matchState === "active"
-                ? "LIVE MATCH"
-                : matchState === "completed"
-                  ? "MATCH OVER"
-                  : "WAITING FOR PLAYERS"}
-            </div>
+      <main
+        className={`${styles.main} ${workspace.isOpen ? styles.mainWorkspace : ""}`}
+      >
+        <div
+          ref={matchViewRef}
+          className={styles.matchView}
+          hidden={workspace.isOpen}
+        >
+          <div className={styles.backNav}>
+            <BackLink
+              href={
+                from === "bracket"
+                  ? `/internal/contests/${contest._id}`
+                  : "/internal/contests"
+              }
+              label={
+                from === "bracket"
+                  ? "Back to Bracket Canvas"
+                  : "Back to Contests"
+              }
+            />
           </div>
-          <div className={styles.scoreRow}>
-            {teams && teams.length >= 2 ? (
-              <>
-                <span
-                  className={
-                    teams[0]._id === teamId
-                      ? styles.teamNameActive
-                      : styles.teamName
-                  }
+
+          {/* Compact HUD */}
+          <header className={styles.hud}>
+            <div className={styles.hudLeft}>
+              <h1 className={styles.hudTitle}>{contest.name}</h1>
+              <div
+                className={`${styles.statusBadge} ${
+                  matchState === "active" ? styles.statusBadgeActive : ""
+                }`}
+              >
+                {matchState === "active" && (
+                  <span className={styles.statusDot}></span>
+                )}
+                {matchState === "active"
+                  ? judgingDeadline
+                    ? "JUDGING"
+                    : "LIVE MATCH"
+                  : matchState === "completed"
+                    ? "MATCH OVER"
+                    : "WAITING FOR PLAYERS"}
+              </div>
+              {isSpectator && (
+                <div
+                  className={`${styles.statusBadge} ${styles.spectatorBadge}`}
                 >
-                  {displayTeamName(teams[0])}
-                </span>
-                <span className={styles.scoreVal}>
-                  {scores[teams[0]._id] || 0} pts
-                </span>
-                <span className={styles.vs}>VS</span>
-                <span className={styles.scoreVal}>
-                  {scores[teams[1]._id] || 0} pts
-                </span>
-                <span
-                  className={
-                    teams[1]._id === teamId
-                      ? styles.teamNameActive
-                      : styles.teamName
-                  }
-                >
-                  {displayTeamName(teams[1])}
-                </span>
-              </>
-            ) : (
-              teams?.map((t, idx) => (
-                <span key={t._id} className={styles.teamScoreGroup}>
+                  <Eye size={14} aria-hidden="true" /> Spectator Mode
+                </div>
+              )}
+            </div>
+            <div className={styles.scoreRow}>
+              {teams && teams.length >= 2 ? (
+                <>
                   <span
                     className={
-                      t._id === teamId ? styles.teamNameActive : styles.teamName
+                      teams[0]._id === teamId
+                        ? styles.teamNameActive
+                        : styles.teamName
                     }
                   >
-                    {displayTeamName(t)}
+                    {displayTeamName(teams[0])}
                   </span>
                   <span className={styles.scoreVal}>
-                    {scores[t._id] || 0} pts
+                    {scores[teams[0]._id] || 0} pts
                   </span>
-                  {idx < teams.length - 1 && (
-                    <span className={styles.vsInline}>VS</span>
-                  )}
-                </span>
-              ))
-            )}
-          </div>
-          {/* Countdown Timer */}
-          <div className={styles.timerBox}>
-            <Timer className={styles.timerIcon} size={18} />
-            <span className={styles.timerText}>
-              {timeLeft} <span className={styles.timerSub}>remaining</span>
-            </span>
-          </div>
-        </header>
-
-        {/* 3-Column Layout */}
-        <div className={styles.grid}>
-          {/* Left Sidebar (Roster) */}
-          <div className={styles.sideCol}>
-            <div className={styles.panel}>
-              <h2 className={styles.panelTitle}>Active Roster</h2>
-
-              {teams?.map((team) => (
-                <div key={team._id} className={styles.rosterTeam}>
-                  {!isSoloFormat && (
-                    <span
-                      className={`${styles.rosterTeamName} ${
-                        team._id === teamId ? styles.rosterTeamNameOwn : ""
-                      }`}
-                    >
-                      {team.name}
-                    </span>
-                  )}
-                  {team.members.map((member) => {
-                    const memberIsReady = readyUserIds.has(member.id);
-                    const memberIsOnline = onlineUserIds.has(member.id);
-
-                    const borderClass = !memberIsOnline
-                      ? styles.borderError
-                      : memberIsReady || matchState !== "waiting"
-                        ? styles.borderPrimary
-                        : styles.borderNone;
-                    const dotClass = !memberIsOnline
-                      ? styles.dotError
-                      : matchState === "waiting" && !memberIsReady
-                        ? styles.dotMuted
-                        : styles.dotPrimary;
-
-                    return (
-                      <div
-                        key={member.id}
-                        className={`${styles.memberRow} ${borderClass}`}
-                      >
-                        <UserAvatar
-                          name={member.name}
-                          image={member.avatar}
-                          size={24}
-                          imageClassName={
-                            memberIsOnline ? "" : styles.memberAvatarOffline
-                          }
-                          fallbackClassName={
-                            memberIsOnline ? "" : styles.memberAvatarOffline
-                          }
-                        />
-                        <span className={styles.memberName}>
-                          {getDisplayName(member.name, member.pizza_count)}{" "}
-                          {member.id === userId && "(You)"}
-                        </span>
-                        <div
-                          className={`${styles.statusDotSm} ${dotClass}`}
-                        ></div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Center Stage - Active Problem */}
-          <div className={styles.centerCol}>
-            <div className={`${styles.panel} ${styles.panelStage}`}>
-              {/* Center Stage - Active Problem / Waiting Room */}
-              {matchState === "waiting" ? (
-                <div className={styles.waiting}>
-                  <div className={styles.waitingIcon}>
-                    <Users size={48} />
-                  </div>
-                  <h2 className={styles.waitingTitle}>Waiting for Players</h2>
-                  <p className={styles.waitingText}>
-                    The arena is being prepared. Review your strategy-the match
-                    begins when all teams are ready.
-                  </p>
-                  <button
-                    onClick={handleReady}
-                    disabled={isReady}
-                    className={styles.readyBtn}
+                  <span className={styles.vs}>VS</span>
+                  <span className={styles.scoreVal}>
+                    {scores[teams[1]._id] || 0} pts
+                  </span>
+                  <span
+                    className={
+                      teams[1]._id === teamId
+                        ? styles.teamNameActive
+                        : styles.teamName
+                    }
                   >
-                    {isReady ? (
-                      <span className={styles.animatedDots}>
-                        Ready! Waiting on others
-                      </span>
-                    ) : (
-                      "I am Ready"
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className={styles.problemHead}>
-                    <div className={styles.problemCount}>
-                      <Target
-                        className={`${styles.problemCountText} ${styles.icon16}`}
-                        size={16}
-                      />
-                      <span className={styles.problemCountText}>
-                        Problem {currentProblemIndex + 1} of {totalProblems}
-                      </span>
-                    </div>
-                    <div className={styles.progressBars}>
-                      {Array.from({ length: totalProblems }).map((_, i) => (
-                        <div
-                          key={i}
-                          className={`${styles.progressBar} ${
-                            i < currentProblemIndex
-                              ? styles.progressBarDone
-                              : i === currentProblemIndex
-                                ? styles.progressBarCurrent
-                                : ""
-                          }`}
-                        ></div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div key={animationKey} className={styles.problemCard}>
-                    <div className={styles.problemWatermark}>
-                      <Code size={96} />
-                    </div>
-                    <div className={styles.problemBody}>
-                      <h1 className={styles.problemTitle}>
-                        {activeProblem.problemId
-                          ? `${activeProblem.problemId} - `
-                          : ""}
-                        {activeProblem.name}
-                      </h1>
-                      <div className={styles.problemMeta}>
-                        <span className={styles.metaChip}>
-                          <BarChart3 className={styles.icon16} size={16} />
-                          Rating: {activeProblem.rating}
-                        </span>
-                        <span className={styles.metaPoints}>
-                          <Sparkles className={styles.icon16} size={16} />
-                          Points: {activeProblem.points || 100}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className={styles.problemActions}>
-                      <a
-                        href={`https://codeforces.com/contest/${activeProblem.problemId?.replace(/[^0-9]/g, "")}/problem/${activeProblem.problemId?.replace(/[0-9]/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={styles.cfLink}
-                      >
-                        <ExternalLink size={16} />
-                        Open in Codeforces
-                      </a>
-                      <button
-                        onClick={handleSync}
-                        disabled={
-                          syncing || matchState !== "active" || syncCooldown > 0
-                        }
-                        className={styles.syncBtn}
-                      >
-                        {syncCooldown > 0 && !syncing ? (
-                          <Hourglass size={16} />
-                        ) : (
-                          <RefreshCw
-                            className={syncing ? styles.spin : ""}
-                            size={16}
-                          />
-                        )}
-                        {syncing
-                          ? "Syncing..."
-                          : syncCooldown > 0
-                            ? `Wait ${syncCooldown}s`
-                            : "Sync Submission"}
-                      </button>
-                    </div>
-                  </div>
+                    {displayTeamName(teams[1])}
+                  </span>
                 </>
+              ) : (
+                teams?.map((t, idx) => (
+                  <span key={t._id} className={styles.teamScoreGroup}>
+                    <span
+                      className={
+                        t._id === teamId
+                          ? styles.teamNameActive
+                          : styles.teamName
+                      }
+                    >
+                      {displayTeamName(t)}
+                    </span>
+                    <span className={styles.scoreVal}>
+                      {scores[t._id] || 0} pts
+                    </span>
+                    {idx < teams.length - 1 && (
+                      <span className={styles.vsInline}>VS</span>
+                    )}
+                  </span>
+                ))
               )}
             </div>
-          </div>
+            {/* Countdown Timer */}
+            <div className={styles.timerBox}>
+              <Timer className={styles.timerIcon} size={18} />
+              <span className={styles.timerText}>
+                {judgingDeadline ? (
+                  "Play ended"
+                ) : (
+                  <>
+                    {timeLeft}{" "}
+                    <span className={styles.timerSub}>remaining</span>
+                  </>
+                )}
+              </span>
+            </div>
+          </header>
 
-          {/* Right Sidebar (Activity Log) */}
-          <div className={styles.sideCol}>
-            <div className={`${styles.panel} ${styles.panelStage}`}>
-              <RoomActivityFeed
-                entries={activityFeed}
-                subtitle="Logs since last refresh. May disappear on reload."
-              />
+          {judgingDeadline && matchState === "active" && (
+            <p role="status" className={styles.entryNotice}>
+              Play has ended. On-time submissions can still be synced while
+              judging finishes.
+            </p>
+          )}
+
+          {/* 3-Column Layout */}
+          <div className={styles.grid}>
+            {/* Left Sidebar (Roster) */}
+            <div className={styles.sideCol}>
+              <div className={styles.panel}>
+                <h2 className={styles.panelTitle}>Team Roster</h2>
+
+                {teams?.map((team) => (
+                  <div key={team._id} className={styles.rosterTeam}>
+                    {!isSoloFormat && (
+                      <span
+                        className={`${styles.rosterTeamName} ${
+                          team._id === teamId ? styles.rosterTeamNameOwn : ""
+                        }`}
+                      >
+                        {team.name}
+                      </span>
+                    )}
+                    {team.members.map((member) => {
+                      const memberIsReady =
+                        matchState === "active"
+                          ? admittedUserIds.has(member.id)
+                          : readyUserIds.has(member.id);
+                      const memberIsOnline = onlineUserIds.has(member.id);
+
+                      const borderClass = !memberIsOnline
+                        ? styles.borderError
+                        : memberIsReady
+                          ? styles.borderPrimary
+                          : styles.borderNone;
+                      const dotClass = !memberIsOnline
+                        ? styles.dotError
+                        : !memberIsReady
+                          ? styles.dotMuted
+                          : styles.dotPrimary;
+
+                      return (
+                        <div
+                          key={member.id}
+                          className={`${styles.memberRow} ${borderClass}`}
+                        >
+                          <UserAvatar
+                            name={member.name}
+                            image={member.avatar}
+                            size={24}
+                            imageClassName={
+                              memberIsOnline ? "" : styles.memberAvatarOffline
+                            }
+                            fallbackClassName={
+                              memberIsOnline ? "" : styles.memberAvatarOffline
+                            }
+                          />
+                          <div className={styles.memberDetails}>
+                            <span className={styles.memberName}>
+                              {getDisplayName(member.name, member.pizza_count)}{" "}
+                              {member.id === userId && "(You)"}
+                            </span>
+                          </div>
+                          <div
+                            className={`${styles.statusDotSm} ${dotClass}`}
+                            title={
+                              memberIsReady
+                                ? memberIsOnline
+                                  ? "Ready to play"
+                                  : "Playing while offline"
+                                : "Not ready to play"
+                            }
+                          ></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Center Stage - Active Problem */}
+            <div className={styles.centerCol}>
+              <div className={`${styles.panel} ${styles.panelStage}`}>
+                <div className={styles.workspaceScroll}>
+                  {/* Center Stage - Active Problem / Waiting Room */}
+                  {matchState === "waiting" ? (
+                    <div className={styles.waiting}>
+                      <div className={styles.waitingIcon}>
+                        <Users size={48} />
+                      </div>
+                      <h2 className={styles.waitingTitle}>
+                        Waiting for Players
+                      </h2>
+                      <p className={styles.waitingText}>
+                        The arena is being prepared. Review your strategy-the
+                        match starts as soon as everyone is ready. At the
+                        deadline, each team needs at least one ready member.
+                      </p>
+                      {readySecondsLeft !== null && readySecondsLeft > 0 && (
+                        <div className={styles.readyCountdown}>
+                          <Hourglass size={16} />
+                          <span>
+                            {opensInSeconds > 0
+                              ? `Readiness opens in ${opensInSeconds}s`
+                              : `Ready phase: ${readySecondsLeft}s remaining`}
+                          </span>
+                        </div>
+                      )}
+                      {!isSpectator && (
+                        <button
+                          onClick={handleReady}
+                          disabled={
+                            isReady ||
+                            entering ||
+                            opensInSeconds > 0 ||
+                            readySecondsLeft === 0
+                          }
+                          className={styles.readyBtn}
+                        >
+                          {isReady ? (
+                            <span className={styles.animatedDots}>
+                              Ready! Waiting on others
+                            </span>
+                          ) : (
+                            "I am Ready"
+                          )}
+                        </button>
+                      )}
+                      {entryError && <p role="alert">{entryError}</p>}
+                    </div>
+                  ) : (
+                    <>
+                      {!isSpectator &&
+                        !isAdmitted &&
+                        matchState === "active" && (
+                          <div className={styles.entryNotice}>
+                            <p>
+                              Your team can keep playing while you are away.
+                              Enter this match to participate.
+                            </p>
+                            <Button
+                              variant="primary"
+                              disabled={entering}
+                              onClick={handleReady}
+                            >
+                              Enter match
+                            </Button>
+                            {entryError && <p role="alert">{entryError}</p>}
+                          </div>
+                        )}
+                      <div className={styles.problemHead}>
+                        <div className={styles.problemCount}>
+                          <Target
+                            className={`${styles.problemCountText} ${styles.icon16}`}
+                            size={16}
+                          />
+                          <span className={styles.problemCountText}>
+                            Problem{" "}
+                            {Math.min(currentProblemIndex + 1, totalProblems)}{" "}
+                            of {totalProblems}
+                          </span>
+                        </div>
+                        <div className={styles.progressBars}>
+                          {Array.from({ length: totalProblems }).map((_, i) => (
+                            <div
+                              key={i}
+                              className={`${styles.progressBar} ${
+                                i < currentProblemIndex
+                                  ? styles.progressBarDone
+                                  : i === currentProblemIndex
+                                    ? styles.progressBarCurrent
+                                    : ""
+                              }`}
+                            ></div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {revealedProblems.length > 1 && (
+                        <label className={styles.entryNotice}>
+                          Review or sync a revealed problem
+                          <select
+                            value={activeProblem.problemId ?? ""}
+                            onChange={(event) =>
+                              setSelectedProblemId(event.target.value)
+                            }
+                          >
+                            {revealedProblems.map((problem) => (
+                              <option
+                                key={problem.problemId}
+                                value={problem.problemId}
+                              >
+                                {problem.problemId}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      <p className={styles.problemTiming}>
+                        {activeProblem.closedAt
+                          ? "Problem closed, on-time submissions remain eligible during judging"
+                          : activeProblem.deadlineAt
+                            ? "Problem time remaining: " + problemTimeLeft
+                            : "No problem timer"}
+                      </p>
+
+                      <div className={styles.problemCard}>
+                        <div className={styles.problemWatermark}>
+                          <Code size={96} />
+                        </div>
+                        <div className={styles.problemBody}>
+                          <h1 className={styles.problemTitle}>
+                            {activeProblem.problemId
+                              ? `${activeProblem.problemId} - `
+                              : ""}
+                            {activeProblem.name}
+                          </h1>
+                          <div className={styles.problemMeta}>
+                            <span className={styles.metaChip}>
+                              <BarChart3 className={styles.icon16} size={16} />
+                              Rating: {activeProblem.rating}
+                            </span>
+                            <span className={styles.metaPoints}>
+                              <Sparkles className={styles.icon16} size={16} />
+                              Points: {activeProblem.points || 100}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className={styles.problemActions}>
+                          <a
+                            href={
+                              getCodeforcesProblemUrl(
+                                activeProblem.problemId || "",
+                              ) || "#"
+                            }
+                            target="_blank"
+                            rel="noreferrer"
+                            className={styles.cfLink}
+                          >
+                            <ExternalLink size={16} />
+                            Open in Codeforces
+                          </a>
+                          {!isSpectator && isAdmitted && (
+                            <button
+                              onClick={() =>
+                                handleSync(activeProblem.problemId || "")
+                              }
+                              disabled={
+                                !cfHandle ||
+                                syncing ||
+                                matchState !== "active" ||
+                                syncCooldown > 0
+                              }
+                              className={styles.syncBtn}
+                              title={
+                                !cfHandle
+                                  ? "Please link your Codeforces account to sync"
+                                  : ""
+                              }
+                            >
+                              {syncCooldown > 0 && !syncing ? (
+                                <Hourglass size={16} />
+                              ) : (
+                                <RefreshCw
+                                  className={syncing ? styles.spin : ""}
+                                  size={16}
+                                />
+                              )}
+                              {syncing
+                                ? "Syncing..."
+                                : syncCooldown > 0
+                                  ? `Wait ${syncCooldown}s`
+                                  : "Sync Submission"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {matchState !== "waiting" && (
+                  <div className={styles.runnerLauncher}>
+                    <Button
+                      ref={launcherRef}
+                      disabled={!currentProblem}
+                      onClick={() =>
+                        workspace.open(
+                          revealedProblems,
+                          undefined,
+                          currentProblem?.problemId,
+                        )
+                      }
+                    >
+                      {isSpectator || !isAdmitted ? (
+                        <Eye size={16} aria-hidden="true" />
+                      ) : (
+                        <Code size={16} aria-hidden="true" />
+                      )}
+                      {isSpectator || !isAdmitted
+                        ? "View Problem"
+                        : "Open Code Runner"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Sidebar (Activity Log) */}
+            <div className={styles.sideCol}>
+              <div className={`${styles.panel} ${styles.panelStage}`}>
+                <RoomActivityFeed
+                  entries={activityFeed}
+                  subtitle="Recent match activity"
+                />
+              </div>
             </div>
           </div>
         </div>
+        {workspace.hasOpened && runnerProblem && (
+          <ContestProblemWorkspace
+            mode="blitz"
+            roomId={roomId}
+            userId={userId}
+            problem={runnerProblem}
+            problems={revealedProblems}
+            currentProblem={currentProblem}
+            readOnly={isSpectator || !isAdmitted}
+            visible={workspace.isOpen}
+            storageFailed={workspace.storageFailed}
+            matchState={matchState}
+            timeLeft={timeLeft}
+            judgingDeadline={judgingDeadline}
+            scores={(teams ?? []).map((team) => ({
+              id: team._id,
+              name: displayTeamName(team),
+              score: scores[team._id] || 0,
+            }))}
+            activity={activityFeed}
+            unread={activity.unread}
+            onTabChange={activity.onTabChange}
+            onSelect={workspace.select}
+            onBack={workspace.close}
+            onSync={handleSync}
+            syncing={syncing}
+            syncCooldown={syncCooldown}
+            hasHandle={!!cfHandle}
+            resultsPath={getContestRoomResultsPath(roomId, contest.format)}
+          />
+        )}
       </main>
 
       {/* Match Started Overlay Modal */}
-      {showMatchStartedModal && (
+      {showMatchStartedModal && !workspace.isOpen && (
         <div className={styles.toast}>
           <div className={styles.toastCard}>
             <div className={styles.toastAccent}></div>
@@ -698,57 +898,53 @@ export default function BlitzRoomClient({
       )}
 
       {/* Match Over Overlay Modal */}
-      {matchState === "completed" && !matchOverDismissed && (
-        <div className={styles.toast}>
-          <div className={styles.toastCard}>
-            <div className={styles.toastAccent}></div>
-            <div className={styles.toastHeader}>
-              <div className={styles.toastHeaderLeft}>
-                <Trophy className={styles.toastIcon} size={28} />
-                <h3 className={styles.toastTitle}>Match Over!</h3>
+      {matchState === "completed" &&
+        !matchOverDismissed &&
+        !workspace.isOpen && (
+          <div className={styles.toast}>
+            <div className={styles.toastCard}>
+              <div className={styles.toastAccent}></div>
+              <div className={styles.toastHeader}>
+                <div className={styles.toastHeaderLeft}>
+                  <Trophy className={styles.toastIcon} size={28} />
+                  <h3 className={styles.toastTitle}>Match Over!</h3>
+                </div>
+                <button
+                  type="button"
+                  className={styles.toastClose}
+                  aria-label="Dismiss match results"
+                  onClick={() => setMatchOverDismissed(true)}
+                >
+                  <X size={18} />
+                </button>
               </div>
+              <p className={styles.toastText}>
+                Final Scores: <br />
+                <strong className={styles.toastScoreOwn}>
+                  {teams?.[0] ? displayTeamName(teams[0]) : "Team Alpha"}:{" "}
+                  {teams?.[0]
+                    ? scores[teams[0]._id] || 0
+                    : Object.values(scores)[0] || 0}
+                </strong>
+                <br />
+                <strong className={styles.toastScoreOther}>
+                  {teams?.[1] ? displayTeamName(teams[1]) : "Team Beta"}:{" "}
+                  {teams?.[1]
+                    ? scores[teams[1]._id] || 0
+                    : Object.values(scores)[1] || 0}
+                </strong>
+              </p>
               <button
-                type="button"
-                className={styles.toastClose}
-                aria-label="Dismiss match results"
-                onClick={() => setMatchOverDismissed(true)}
+                onClick={() =>
+                  router.push(getContestRoomResultsPath(roomId, contest.format))
+                }
+                className={styles.toastBtnSecondary}
               >
-                <X size={18} />
+                View Match Results
               </button>
             </div>
-            <p className={styles.toastText}>
-              Final Scores: <br />
-              <strong className={styles.toastScoreOwn}>
-                {teams?.[0] ? displayTeamName(teams[0]) : "Team Alpha"}:{" "}
-                {teams?.[0]
-                  ? scores[teams[0]._id] || 0
-                  : Object.values(scores)[0] || 0}
-              </strong>
-              <br />
-              <strong className={styles.toastScoreOther}>
-                {teams?.[1] ? displayTeamName(teams[1]) : "Team Beta"}:{" "}
-                {teams?.[1]
-                  ? scores[teams[1]._id] || 0
-                  : Object.values(scores)[1] || 0}
-              </strong>
-            </p>
-            <button
-              onClick={() =>
-                router.push(
-                  getContestRoomResultsPath(
-                    roomId,
-                    contest.format,
-                    contest.mode,
-                  ),
-                )
-              }
-              className={styles.toastBtnSecondary}
-            >
-              View Match Results
-            </button>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }

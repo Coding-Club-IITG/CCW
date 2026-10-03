@@ -11,12 +11,16 @@ export interface RuntimeConfig {
   developmentAuthEnabled: boolean;
   googleAuthEnabled: boolean;
   userRateLimitsEnabled: boolean;
+  contestDefaultMatchMinutes: number;
+  contestDefaultBlitzProblemMinutes: number;
 }
 
 const RuntimeConfigContext = createContext<RuntimeConfig>({
   developmentAuthEnabled: false,
   googleAuthEnabled: false,
   userRateLimitsEnabled: true,
+  contestDefaultMatchMinutes: 60,
+  contestDefaultBlitzProblemMinutes: 15,
 });
 
 export const useRuntimeConfig = () => useContext(RuntimeConfigContext);

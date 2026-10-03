@@ -2,12 +2,23 @@ import { describe, expect, it } from "vitest";
 
 import {
   cfSyncJobDataSchema,
+  reconciliationJobDataSchema,
   contestRoomStateSchema,
-  contestSubmissionEventSchema,
   roomStreamEventSchema,
 } from "@/lib/contests/runtime";
 
 describe("contest runtime boundaries", () => {
+  it("validates room and contest IDs for reconciliation jobs", () => {
+    expect(
+      reconciliationJobDataSchema.safeParse({
+        contestId: "507f1f77bcf86cd799439011",
+      }).success,
+    ).toBe(true);
+    expect(
+      reconciliationJobDataSchema.safeParse({ roomId: "invalid" }).success,
+    ).toBe(false);
+  });
+
   it("validates BullMQ sync jobs before worker use", () => {
     expect(
       cfSyncJobDataSchema.safeParse({
@@ -40,24 +51,9 @@ describe("contest runtime boundaries", () => {
   it("rejects incomplete room events", () => {
     expect(
       roomStreamEventSchema.safeParse({
-        type: "room.advance",
-        problemIndex: 1,
+        type: "room.state_sync",
+        scores: { team: 1 },
       }).success,
     ).toBe(false);
-  });
-
-  it("validates persisted submission stream records", () => {
-    expect(
-      contestSubmissionEventSchema.safeParse({
-        userId: "507f191e810c19729de860ea",
-        teamId: "507f1f77bcf86cd799439012",
-        problemId: "4A",
-        cfSubmissionId: 123,
-        verdict: "OK",
-        points: 100,
-        solveMs: 5000,
-        cfTimestamp: 1787563200000,
-      }).success,
-    ).toBe(true);
   });
 });

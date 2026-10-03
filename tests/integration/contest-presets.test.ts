@@ -24,10 +24,16 @@ vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession } },
 }));
 
-const session = (access: "Member" | "Head") => ({
-  user: { id: `${access.toLowerCase()}-1`, access },
-  session: { id: "session-1", userId: `${access.toLowerCase()}-1` },
-});
+const session = (access: "Member" | "Head") => {
+  const hexId =
+    access === "Member"
+      ? "507f191e810c19729de860ea"
+      : "507f1f77bcf86cd799439011";
+  return {
+    user: { id: hexId, access },
+    session: { id: "session-1", userId: hexId },
+  };
+};
 
 describe("contest preset routes", () => {
   beforeAll(async () => {
@@ -45,9 +51,20 @@ describe("contest preset routes", () => {
   it("lists public presets while filtering archived entries by default", async () => {
     const ContestPreset = (await import("@/models/ContestPreset")).default;
     const { GET } = await import("@/app/api/contests/presets/route");
+    const mongoose = (await import("mongoose")).default;
     await ContestPreset.create([
-      { name: "Visible preset", archived: false },
-      { name: "Archived preset", archived: true },
+      {
+        name: "Visible preset",
+        archived: false,
+        creatorId: new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"),
+        isGlobal: true,
+      },
+      {
+        name: "Archived preset",
+        archived: true,
+        creatorId: new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"),
+        isGlobal: true,
+      },
     ]);
 
     const response = await GET(
@@ -69,10 +86,13 @@ describe("contest preset routes", () => {
     });
 
     getSession.mockResolvedValueOnce(session("Member"));
-    const forbidden = await POST(createRequest({ name: "New preset" }));
-    expect(forbidden.status).toBe(403);
-    expect(await responseError(forbidden)).toMatchObject({ code: "FORBIDDEN" });
-    expect(await AuditLog.countDocuments()).toBe(0);
+    const allowed = await POST(
+      createRequest({ name: "Member preset", isGlobal: true }),
+    );
+    expect(allowed.status).toBe(201);
+    const memberPreset = await responseData<any>(allowed);
+    // Members can create presets, but they are forced to be non-global
+    expect(memberPreset.isGlobal).toBe(false);
   });
 
   it("returns a JSON AppResult error before opening an unauthenticated SSE stream", async () => {
@@ -107,7 +127,7 @@ describe("contest preset routes", () => {
       new NextRequest("http://localhost/api/contests/sync", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ roomId: "bad", cfHandle: "", problemId: "" }),
+        body: JSON.stringify({ roomId: "bad", problemId: "" }),
       }),
     );
     const error = await responseError(response);
@@ -116,7 +136,6 @@ describe("contest preset routes", () => {
     expect(error.code).toBe("VALIDATION_ERROR");
     expect(error.fields).toMatchObject({
       roomId: [expect.any(String)],
-      cfHandle: [expect.any(String)],
       problemId: [expect.any(String)],
     });
   });
@@ -125,6 +144,11 @@ describe("contest preset routes", () => {
     const { POST } = await import("@/app/api/contests/presets/route");
     const payload = {
       name: "Bracket standard",
+      registrationSettings: {
+        type: "open",
+        maxParticipants: 8,
+        entrantCapacity: 8,
+      },
       format: "bracket",
       mode: "blitz",
       durationSeconds: 300,
@@ -160,7 +184,11 @@ describe("contest preset routes", () => {
     );
     expect(invalid.status).toBe(400);
 
-    const preset = await ContestPreset.create({ name: "Archive me" });
+    const mongoose = (await import("mongoose")).default;
+    const preset = await ContestPreset.create({
+      name: "Archive me",
+      creatorId: new mongoose.Types.ObjectId(),
+    });
     const response = await PATCH(
       new NextRequest(
         `http://localhost/api/contests/presets/${preset._id.toString()}`,
@@ -182,6 +210,72 @@ describe("contest preset routes", () => {
       before: { name: "Archive me", archived: false },
       after: { name: "Archive me", archived: true },
     });
+  });
+  it("prevents non-admins from creating or updating bracket presets with more than 8 participants", async () => {
+    const { POST } = await import("@/app/api/contests/presets/route");
+    const { PUT } = await import("@/app/api/contests/presets/[id]/route");
+
+    getSession.mockResolvedValue(session("Member"));
+    const payload = {
+      name: "Big Bracket Preset",
+      format: "bracket",
+      mode: "blitz",
+      durationSeconds: 300,
+      registrationSettings: {
+        type: "open",
+        maxParticipants: 16,
+        entrantCapacity: 16,
+      },
+    };
+
+    const createRes = await POST(createRequest(payload));
+    expect(createRes.status).toBe(400);
+    expect(await responseError(createRes)).toMatchObject({
+      code: "VALIDATION_ERROR",
+      message:
+        "Non-admin users cannot create a knockout tournament preset with more than 8 entrants.",
+    });
+
+    const validPayload = {
+      ...payload,
+      name: "Small Bracket Preset",
+      registrationSettings: {
+        type: "open",
+        maxParticipants: 8,
+        entrantCapacity: 8,
+      },
+    };
+    const validRes = await POST(createRequest(validPayload));
+    expect(validRes.status).toBe(201);
+    const created = await responseData<any>(validRes);
+
+    const updateRes = await PUT(
+      new NextRequest(`http://localhost/api/contests/presets/${created._id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          registrationSettings: {
+            type: "open",
+            maxParticipants: 16,
+            entrantCapacity: 16,
+          },
+        }),
+      }),
+      { params: Promise.resolve({ id: created._id }) },
+    );
+
+    expect(updateRes.status).toBe(400);
+    expect(await responseError(updateRes)).toMatchObject({
+      code: "VALIDATION_ERROR",
+      message:
+        "Non-admin users cannot create a knockout tournament preset with more than 8 entrants.",
+    });
+
+    getSession.mockResolvedValue(session("Head"));
+    const adminRes = await POST(
+      createRequest({ ...payload, name: "Admin Big Bracket Preset" }),
+    );
+    expect(adminRes.status).toBe(201);
   });
 });
 

@@ -50,8 +50,6 @@ describe("contest creation payload", () => {
       bulkPlatform: "codeforces",
       problemSlots: [],
       registeredUsers: [],
-      thirdPlacePlayoff: false,
-      seedingMethod: "cf_rating",
     });
     expect(result).not.toHaveProperty("internalFlag");
   });
@@ -78,8 +76,10 @@ describe("bracket contest invariants", () => {
       validateBracketContestInput({
         teamSize: 1,
         maxParticipants: 2,
+        entrantCapacity: 2,
+        bracketType: "single_elimination",
         registrationType: "closed",
-        seedingMethod: "cf_rating",
+
         registeredUsers: [
           { id: USER_ONE, cfHandle: "one" },
           { id: USER_ONE, cfHandle: "one-again" },
@@ -96,13 +96,91 @@ describe("bracket contest invariants", () => {
       validateBracketContestInput({
         teamSize: 1,
         maxParticipants: 2,
+        entrantCapacity: 2,
+        bracketType: "single_elimination",
         registrationType: "closed",
-        seedingMethod: "manual",
+
         registeredUsers: [
           { id: USER_ONE, cfHandle: "one" },
           { id: USER_TWO, cfHandle: "two" },
         ],
       }),
     ).toEqual({ success: true });
+  });
+
+  it("parses double elimination bracketType, duration, and problem slot points/timeLimit", () => {
+    const payload = validPayload({
+      bracketType: "double_elimination",
+      overallDurationMinutes: 120,
+      perProblemDurationMinutes: 15,
+      problemSlots: [
+        {
+          platform: "codeforces",
+          problemId: "1000A",
+          points: 250,
+          timeLimitMinutes: 20,
+        },
+      ],
+    });
+
+    const parsed = contestCreationPayloadSchema.safeParse(payload);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.bracketType).toBe("double_elimination");
+      expect(parsed.data.overallDurationMinutes).toBe(120);
+      expect(parsed.data.perProblemDurationMinutes).toBe(15);
+      expect(parsed.data.problemSlots[0].points).toBe(250);
+      expect(parsed.data.problemSlots[0].timeLimitMinutes).toBe(20);
+    }
+  });
+
+  it("enforces mandatory points with minimum 80 in fine-tuned mode", () => {
+    // Missing problemSlots
+    expect(
+      contestCreationPayloadSchema.safeParse(
+        validPayload({
+          format: "1v1",
+          problemSelectionMode: "fine-tuned",
+          problemSlots: [],
+        }),
+      ).success,
+    ).toBe(false);
+
+    // Missing points in slot
+    expect(
+      contestCreationPayloadSchema.safeParse(
+        validPayload({
+          format: "1v1",
+          problemSelectionMode: "fine-tuned",
+          problemSlots: [{ platform: "codeforces", problemId: "4A" }],
+        }),
+      ).success,
+    ).toBe(false);
+
+    // Points below 80
+    expect(
+      contestCreationPayloadSchema.safeParse(
+        validPayload({
+          format: "1v1",
+          problemSelectionMode: "fine-tuned",
+          problemSlots: [
+            { platform: "codeforces", problemId: "4A", points: 50 },
+          ],
+        }),
+      ).success,
+    ).toBe(false);
+
+    // Valid points >= 80
+    const validResult = contestCreationPayloadSchema.safeParse(
+      validPayload({
+        format: "1v1",
+        problemSelectionMode: "fine-tuned",
+        problemSlots: [
+          { platform: "codeforces", problemId: "4A", points: 80 },
+          { platform: "codeforces", problemId: "1A", points: 120 },
+        ],
+      }),
+    );
+    expect(validResult.success).toBe(true);
   });
 });

@@ -1,0 +1,231 @@
+@use "../../styles/mixins" as *;
+
+@include kf-spin;
+
+.container {
+  padding: 0.5rem 0;
+}
+
+.header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+.addButton {
+  @include btn-primary;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.tableContainer {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  background: var(--surface-secondary);
+}
+
+.table {
+  @include table-base;
+
+  th,
+  td {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  tbody tr {
+    transition: background 0.15s ease;
+    &:hover {
+      background: var(--surface-hover);
+    }
+  }
+}
+
+.archivedRow {
+  opacity: 0.6;
+  background: var(--surface-secondary);
+}
+
+.description {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.badge {
+  @include badge-chip;
+}
+
+.badgeActive {
+  @include badge-success;
+}
+
+.badgeArchived {
+  @include badge-neutral;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.actionButton {
+  @include icon-button(28px);
+  border-color: var(--border-input);
+  color: var(--foreground);
+}
+
+.actionButton.archiveBtn:hover:not(:disabled),
+.actionButton.deleteBtn:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.actionButton.unarchiveBtn:hover:not(:disabled) {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1.25rem;
+
+  label {
+    @include micro-label($text-xs, 0.09em);
+  }
+
+  input,
+  textarea,
+  select {
+    @include form-control;
+  }
+
+  textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+}
+
+.row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  .field {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
+.bulkSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.fineTunedSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    @include micro-label($text-xs, 0.09em);
+  }
+}
+
+.slots {
+  display: grid;
+  gap: 0.75rem;
+}
+.slotRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface-secondary);
+  .field {
+    flex: 1 1 7rem;
+    min-width: 0;
+    margin: 0;
+  }
+}
+
+.removeSlotBtn {
+  @include btn-danger(0.375rem 0.625rem);
+}
+
+.addSlotBtn {
+  @include btn-base(0.375rem 0.75rem);
+  background: none;
+  border: 1px dashed var(--border-input);
+  @include micro-label($text-xs, 0.06em, var(--primary));
+  width: 100%;
+  margin-top: 0.5rem;
+
+  &:hover {
+    background: var(--surface-hover);
+  }
+}
+
+.cancelBtn {
+  @include modal-action;
+}
+
+.primaryBtn {
+  @include modal-action-primary;
+}
+
+.spinner {
+  @include spinner(1s);
+}
+
+.fieldset {
+  min-width: 0;
+  border: 1px solid var(--border);
+  padding: 1rem;
+  margin: 0 0 1.25rem;
+}
+.legend,
+.sectionLabel {
+  @include micro-label($text-xs, 0.06em);
+  padding-inline: 0.5rem;
+}
+.hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.field.checkboxLabel,
+.field .checkboxLabel {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  input {
+    width: auto;
+  }
+}
+.row .fieldWide {
+  flex: 2;
+}
+@media (max-width: 600px) {
+  .row {
+    flex-direction: column;
+    gap: 0;
+  }
+}

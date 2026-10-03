@@ -515,34 +515,6 @@
   @include badge-chip;
 }
 
-/* Empty state */
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 5rem 0;
-  text-align: center;
-}
-
-.emptyIcon {
-  font-size: 64px;
-  color: var(--muted-light);
-  margin-bottom: 1rem;
-}
-
-.emptyTitle {
-  margin: 0 0 0.5rem;
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--foreground-strong);
-}
-
-.emptyText {
-  margin: 0 0 1.5rem;
-  color: var(--muted);
-}
-
 /* Icon sizes */
 .icon12 {
   font-size: 12px;
@@ -586,4 +558,18 @@
 .cardBadgeNeutral,
 .cardDateBadge {
   @include micro-label($text-xs, 0.05em, currentcolor);
+}
+
+.requestActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  button {
+    flex: 1;
+  }
+}
+
+.miniBtnGhost {
+  @include btn-ghost-skin;
 }

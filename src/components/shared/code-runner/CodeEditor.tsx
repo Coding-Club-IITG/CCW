@@ -86,6 +86,7 @@ export default function CodeEditor({ language, value, onChange }: Props) {
         onMount={handleMount}
         theme={theme === "light" ? "vs" : "vs-dark"}
         options={{
+          ariaLabel: "Code editor",
           fontSize: 14,
           fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
           minimap: { enabled: false },

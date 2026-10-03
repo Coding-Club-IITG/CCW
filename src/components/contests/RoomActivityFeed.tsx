@@ -1,35 +1,14 @@
 "use client";
 
 import { createElement, useEffect, useState } from "react";
-import {
-  Bell,
-  CircleAlert,
-  CircleCheck,
-  Gavel,
-  Info,
-  Lock,
-  RefreshCw,
-  Rss,
-  User,
-  UserX,
-  type LucideIcon,
-} from "lucide-react";
+import { Bell, Info, Rss } from "lucide-react";
 
+import { CONTEST_TIMING } from "@/lib/constants";
 import type { RoomActivityDto } from "@/lib/contests/dtos";
 
+import { ROOM_ACTIVITY_ICONS } from "./roomActivityIcons";
 import { formatRoomActivityTime } from "./roomPresentation";
 import styles from "./RoomActivityFeed.module.scss";
-
-const ACTIVITY_ICONS: Record<string, LucideIcon> = {
-  info: Info,
-  gavel: Gavel,
-  lock: Lock,
-  sync: RefreshCw,
-  check_circle: CircleCheck,
-  error: CircleAlert,
-  person: User,
-  person_off: UserX,
-};
 
 const ACTIVITY_COLORS: Record<string, string> = {
   "text-primary": styles.actPrimary,
@@ -40,31 +19,41 @@ const ACTIVITY_COLORS: Record<string, string> = {
 export default function RoomActivityFeed({
   entries,
   subtitle,
+  inline = false,
 }: {
   entries: RoomActivityDto[];
   subtitle?: string;
+  inline?: boolean;
 }) {
-  const [notifGranted, setNotifGranted] = useState(
-    typeof Notification !== "undefined" &&
-      Notification.permission === "granted",
-  );
+  const [isMounted, setIsMounted] = useState(false);
+  const [notifGranted, setNotifGranted] = useState(true);
+
+  useEffect(() => {
+    setIsMounted(true);
+    if (typeof Notification !== "undefined") {
+      setNotifGranted(Notification.permission === "granted");
+    }
+  }, []);
 
   // Relative timestamps need a repaint every second
   const [, setTick] = useState(0);
   useEffect(() => {
-    const timer = setInterval(() => setTick((n) => n + 1), 1000);
+    const timer = setInterval(
+      () => setTick((n) => n + 1),
+      CONTEST_TIMING.displayRefreshMs,
+    );
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <div className={styles.feed}>
+    <div className={`${styles.feed} ${inline ? styles.inline : ""}`}>
       <div className={styles.head}>
         <h2 className={styles.title}>
           <Rss size={18} />
           Activity Feed
         </h2>
         {subtitle && <p className={styles.sub}>{subtitle}</p>}
-        {typeof Notification !== "undefined" && !notifGranted && (
+        {isMounted && typeof Notification !== "undefined" && !notifGranted && (
           <button
             className={styles.notifBtn}
             onClick={() =>
@@ -82,28 +71,30 @@ export default function RoomActivityFeed({
         {entries.length === 0 ? (
           <p className={styles.empty}>No activity yet.</p>
         ) : (
-          entries.map((entry) => (
-            <div key={entry.id} className={styles.item}>
-              <div className={styles.iconWrap}>
-                {createElement(ACTIVITY_ICONS[entry.icon] ?? Info, {
-                  className: `${ACTIVITY_COLORS[entry.color] ?? styles.actDefault} ${styles.icon}`,
-                  size: 16,
-                })}
+          [...entries]
+            .sort((a, b) => b.timestamp - a.timestamp)
+            .map((entry) => (
+              <div key={entry.id} className={styles.item}>
+                <div className={styles.iconWrap}>
+                  {createElement(ROOM_ACTIVITY_ICONS[entry.icon] ?? Info, {
+                    className: `${ACTIVITY_COLORS[entry.color] ?? styles.actDefault} ${styles.icon}`,
+                    size: 16,
+                  })}
+                </div>
+                <div className={styles.body}>
+                  <p
+                    className={`${styles.text} ${
+                      entry.icon === "gavel" ? styles.textCritical : ""
+                    }`}
+                  >
+                    {entry.text}
+                  </p>
+                  <span className={styles.time} suppressHydrationWarning>
+                    {formatRoomActivityTime(entry.timestamp)}
+                  </span>
+                </div>
               </div>
-              <div className={styles.body}>
-                <p
-                  className={`${styles.text} ${
-                    entry.icon === "gavel" ? styles.textCritical : ""
-                  }`}
-                >
-                  {entry.text}
-                </p>
-                <span className={styles.time}>
-                  {formatRoomActivityTime(entry.timestamp)}
-                </span>
-              </div>
-            </div>
-          ))
+            ))
         )}
       </div>
     </div>

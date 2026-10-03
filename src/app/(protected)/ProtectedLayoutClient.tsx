@@ -27,8 +27,12 @@ export default function ProtectedLayoutClient({
     pathname === "/internal/contests/history" ||
     /^\/internal\/contests\/rooms\/[^/]+\/result$/.test(pathname ?? "");
 
+  if (pathname === "/internal/solve") {
+    return <main className={styles.workspaceMain}>{children}</main>;
+  }
+
   // The contests layout requires full bleed (no max-width, no padding)
-  // because it provides its own background and layout structure.
+  // because it provides its own background and layout structure
   if (pathname?.startsWith("/internal/contests")) {
     return (
       <main

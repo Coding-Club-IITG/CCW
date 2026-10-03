@@ -19,53 +19,58 @@ export const nightlyProblemSyncJobDataSchema = z.object({
 export const reconciliationJobDataSchema = z.object({
   roomId: optionalObjectId,
   contestId: optionalObjectId,
-  trigger: z
-    .enum([
-      "start_registration",
-      "check_start",
-      "activate_bracket",
-      "start_waiting_room",
-      "timeout",
-      "completed",
-      "disconnect",
-      "forfeit",
-    ])
-    .optional()
-    .default("completed"),
-  forfeitedUserId: optionalObjectId,
-  userId: optionalObjectId,
-  teamId: optionalObjectId,
 });
 
 export const reconciliationJobNames = [
-  "team_ready_timeout",
+  "bracket_transition",
+  "recover_participation",
   "start_registration",
   "check_start",
   "activate_bracket",
   "start_waiting_room",
   "ready_timeout",
   "room_timeout",
-  "room_completed",
-  "mid_match_disconnect_timeout",
+  "problem_timeout",
+  "finalize_match",
 ] as const;
 
 export type CfSyncJobData = z.infer<typeof cfSyncJobDataSchema>;
+
 export type NightlyProblemSyncJobData = z.infer<
   typeof nightlyProblemSyncJobDataSchema
 >;
+
 export type ReconciliationJobData = z.infer<typeof reconciliationJobDataSchema>;
+
 export type ReconciliationJobInput = z.input<
   typeof reconciliationJobDataSchema
 >;
+
 export type ReconciliationJobName = (typeof reconciliationJobNames)[number];
+
 export type CfSyncJobName = "cf_sync" | "nightly-cf-problem-sync";
+
 export type CfSyncQueueData = CfSyncJobData | NightlyProblemSyncJobData;
 
 export const contestRoomProblemSchema = z
   .object({
     problemId: z.string().min(1),
+    name: z.string().optional(),
+    rating: z.number().optional(),
     points: z.number().optional(),
     revealedAt: z.number().nullable().optional(),
+    deadlineAt: z.number().nullable().optional(),
+    closedAt: z.number().nullable().optional(),
+    statementHtml: z.string().optional(),
+    inputSpecificationHtml: z.string().optional(),
+    outputSpecificationHtml: z.string().optional(),
+    constraintsHtml: z.string().optional(),
+    notesHtml: z.string().optional(),
+    samples: z
+      .array(z.object({ input: z.string(), output: z.string() }))
+      .optional(),
+    timeLimitMs: z.number().optional(),
+    memoryLimitMb: z.number().optional(),
   })
   .passthrough();
 
@@ -75,107 +80,79 @@ export const contestRoomStateSchema = z
     type: z.string().optional(),
     startTime: z.string().optional(),
     timeLimit: z.string().optional(),
+    problemTimeLimit: z.string().optional(),
     currentProblem: z.string().optional(),
     contestId: z.string().optional(),
+    readyOpensAt: z.string().optional(),
+    readyDeadline: z.string().optional(),
+    matchDeadline: z.string().optional(),
+    gameplayEndedAt: z.string().optional(),
+    judgingDeadline: z.string().optional(),
+    participationRevision: z.string().optional(),
   })
   .passthrough();
 
-export const contestSubmissionEventSchema = z.object({
-  userId: objectIdStringSchema,
-  teamId: objectIdStringSchema,
-  problemId: z.string().min(1),
-  cfSubmissionId: z.number().int(),
-  verdict: z.string().min(1),
-  points: z.number(),
-  solveMs: z.number().nonnegative(),
-  cfTimestamp: z.number().positive(),
-});
-
 export type ContestRoomProblem = z.infer<typeof contestRoomProblemSchema>;
+
 export type ContestRoomState = z.infer<typeof contestRoomStateSchema>;
-export type ContestSubmissionEvent = z.infer<
-  typeof contestSubmissionEventSchema
->;
 
 const scoreMapSchema = z.record(z.string(), z.number());
-const roomParticipantSchema = z.object({
-  userId: z.string().min(1),
-  teamId: z.string().min(1),
+
+export const roomActivitySchema = z.object({
+  id: z.number(),
+  icon: z.string(),
+  text: z.string(),
+  timestamp: z.number(),
+  color: z.string(),
 });
-const synchronizedRoomStateSchema = contestRoomStateSchema;
 
 const roomStateSyncEventSchema = z
   .object({
     type: z.literal("room.state_sync"),
-    state: synchronizedRoomStateSchema,
+    state: contestRoomStateSchema,
     problems: z.array(contestRoomProblemSchema).optional(),
     scores: scoreMapSchema.optional(),
     locks: z.record(z.string(), z.string()).optional(),
+    activityLogs: z.array(roomActivitySchema).optional(),
+    admittedUserIds: z.array(objectIdStringSchema).optional(),
+    onlineUserIds: z.array(objectIdStringSchema).optional(),
+    readyUserIds: z.array(objectIdStringSchema).optional(),
   })
   .passthrough();
 
 export const roomEventSchema = z.discriminatedUnion("type", [
   z
     .object({
-      type: z.literal("room.locked"),
-      problemId: z.string().min(1),
-      claimedBy: z.string().min(1),
-      timestamp: z.number(),
+      type: z.literal("presence.sync"),
+      onlineUserIds: z.array(objectIdStringSchema),
     })
     .passthrough(),
-  z
-    .object({
-      type: z.literal("room.score"),
-      scores: scoreMapSchema,
-    })
-    .passthrough(),
+
   z
     .object({
       type: z.literal("room.end"),
       finalScores: scoreMapSchema.optional(),
-      lastSolvedBy: roomParticipantSchema.optional(),
     })
     .passthrough(),
-  z
-    .object({
-      type: z.literal("room.advance"),
-      problemIndex: z.number().int().nonnegative(),
-      nextProblem: contestRoomProblemSchema,
-      solvedBy: roomParticipantSchema,
-    })
-    .passthrough(),
-  z
-    .object({
-      type: z.literal("room.reclaimed"),
-      teamId: z.string().min(1),
-      problemId: z.string().min(1),
-    })
-    .passthrough(),
+
   roomStateSyncEventSchema,
-  z
-    .object({
-      type: z.literal("room.user_ready"),
-      userId: z.string().min(1),
-    })
-    .passthrough(),
-  z
-    .object({
-      type: z.literal("team.withdrawn"),
-      teamId: z.string().min(1),
-    })
-    .passthrough(),
+
   z
     .object({
       type: z.literal("presence.online"),
       userId: z.string().min(1),
-      cancelledForfeit: z.boolean().optional(),
     })
     .passthrough(),
   z
     .object({
       type: z.literal("presence.offline"),
       userId: z.string().min(1),
-      forfeitTimeout: z.number().optional(),
+    })
+    .passthrough(),
+  z
+    .object({
+      type: z.literal("room.activity"),
+      activity: roomActivitySchema,
     })
     .passthrough(),
 ]);
@@ -186,12 +163,11 @@ export const contestEventSchema = z
       "contest.bracket_update",
       "contest.round_complete",
       "contest.standing_update",
-      "contest.status_change",
     ]),
   })
   .passthrough();
 
-const typedUserEventSchema = z.discriminatedUnion("type", [
+export const userEventSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("sync.queued"),
@@ -225,25 +201,18 @@ const typedUserEventSchema = z.discriminatedUnion("type", [
   roomStateSyncEventSchema,
 ]);
 
-export const userEventSchema = z.union([
-  typedUserEventSchema,
-  z
-    .object({
-      verdict: z.string(),
-      reason: z.string(),
-    })
-    .passthrough(),
-]);
-
 export type RoomEvent = z.infer<typeof roomEventSchema>;
+
 export type ContestEvent = z.infer<typeof contestEventSchema>;
+
 export type UserEvent = z.infer<typeof userEventSchema>;
+
 export type RoomStreamEvent =
-  z.infer<typeof roomEventSchema> | z.infer<typeof typedUserEventSchema>;
+  z.infer<typeof roomEventSchema> | z.infer<typeof userEventSchema>;
 
 export const roomStreamEventSchema = z.union([
   roomEventSchema,
-  typedUserEventSchema,
+  userEventSchema,
 ]);
 
 export function parseContestRoomProblems(values: readonly string[]) {

@@ -5,7 +5,8 @@
 .feed {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -61,9 +62,14 @@
   flex-direction: column;
   gap: 1rem;
   overflow-y: auto;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   font-size: 0.75rem;
-  @include scroll-hide;
+  @include scroll-visible;
+
+  @media (max-width: 1023px) {
+    max-height: 20rem;
+  }
 }
 
 .empty {
@@ -119,4 +125,15 @@
 }
 .actDefault {
   color: var(--foreground-strong);
+}
+
+.inline {
+  position: relative;
+  inset: auto;
+  overflow: visible;
+  .list {
+    flex: none;
+    overflow: visible;
+    max-height: none;
+  }
 }
