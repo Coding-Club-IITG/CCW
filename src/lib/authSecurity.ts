@@ -9,9 +9,9 @@ import { normalizeEmail, providerForEmail } from "@/lib/authPolicy";
 import { authCollections, authUserId } from "@/lib/authStore";
 import { type AuthProvider } from "@/lib/constants";
 import { webEnv } from "@/lib/env/web";
+import { linkHostAssignmentsForUser } from "@/lib/pulse/hostAssignments";
 import { logger } from "@/lib/utils";
 import User from "@/models/User";
-import { linkHostAssignmentsForUser } from "@/lib/api/pulse";
 
 export function authFailure(
   code: "incorrect_provider" | "unapproved" | "temporary",
@@ -149,7 +149,11 @@ export const authDatabaseHooks: NonNullable<
         return { data: { ...session, authProvider: provider } };
       },
       after: async (session, ctx) => {
-        // Link host assignments for the user on session creation (best effort)
+        if (
+          ctx?.params?.id !== "microsoft" ||
+          !ctx.path?.startsWith("/callback/")
+        )
+          return;
         try {
           const user = await User.findById(session.userId).select("email").lean();
           if (user?.email) {
@@ -157,13 +161,14 @@ export const authDatabaseHooks: NonNullable<
             await linkHostAssignmentsForUser({
               userId: session.userId,
               email: normalizedEmail,
+              authProvider: "microsoft",
             });
           }
         } catch (error) {
-          // Log but don't fail - linking is best-effort
-          logger.warn("Failed to link host assignments in session.create.after hook", {
-            userId: session.userId,
-            error: error instanceof Error ? error.message : String(error),
+          // Keep CCW login available; the Pulse guard retries and fails closed.
+          logger.warn("Pulse sign-in linking failed", {
+            operation: "pulse_host_link",
+            errorName: error instanceof Error ? error.name : "UnknownError",
           });
         }
       },

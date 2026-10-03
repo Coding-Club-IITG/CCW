@@ -10,6 +10,8 @@ import {
 } from "vitest";
 import User from "@/models/User";
 import LoginSwitchRequest from "@/models/LoginSwitchRequest";
+import PulseQuiz from "@/models/PulseQuiz";
+import PulseAuditEvent from "@/models/PulseAuditEvent";
 import {
   startTestMongo,
   createTestAuthIndexes,
@@ -130,6 +132,8 @@ describe("approved Better Auth identities and endpoints", () => {
     await createTestAuthIndexes();
     await User.init();
     await LoginSwitchRequest.init();
+    await PulseQuiz.init();
+    await PulseAuditEvent.init();
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
@@ -165,6 +169,29 @@ describe("approved Better Auth identities and endpoints", () => {
     delete process.env.GOOGLE_CLIENT_SECRET;
     await stopTestMongo();
   });
+
+  it.each(["microsoft", "google"] as const)(
+    "links Pulse assignments only after a verified first %s sign-in",
+    async (provider) => {
+      providerBoundary.email = provider === "microsoft" ? "member@iitg.ac.in" : "member@gmail.com";
+      const user = await User.create({ email: providerBoundary.email });
+      const rolesBefore = user.toObject().roles;
+      const quiz = await PulseQuiz.create({
+        roomCode: "A7K9P2",
+        hostAssignments: [{ email: providerBoundary.email, role: "owner", assignedBy: new mongoose.Types.ObjectId() }],
+      });
+      const response = await login(provider);
+      expect((await session(cookieHeader(response)))?.session.authProvider).toBe(provider);
+      const linked = await PulseQuiz.findById(quiz._id).lean();
+      expect(linked?.ownerId?.toString() ?? null).toBe(provider === "microsoft" ? user.id : null);
+      expect(await PulseAuditEvent.countDocuments({ quizId: quiz._id, type: "host.linked" })).toBe(provider === "microsoft" ? 1 : 0);
+      await login(provider);
+      expect(await PulseAuditEvent.countDocuments({ quizId: quiz._id, type: "host.linked" })).toBe(provider === "microsoft" ? 1 : 0);
+      const unchanged = await User.findById(user._id);
+      expect(unchanged?.access).toBe(user.access);
+      expect(unchanged?.toObject().roles).toEqual(rolesBefore);
+    },
+  );
 
   it.each(["microsoft", "google"] as const)(
     "attaches first %s login only to approved users and repeats without duplicate identities",

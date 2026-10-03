@@ -24,7 +24,8 @@ programming systems, content, administration, and background integrations.
   notifications, hackathons, contests, and recruitment.
 - **Pulse:** Live, host-run quizzes joined by room code. Durable quiz data
   lives in MongoDB (`PulseQuiz`, `PulseAuditEvent`); live session state is
-  planned for Redis.
+  planned for Redis. Phase 1 currently contains the data models and host
+  authorization/linking helpers; management APIs and pages are next.
 
 ## Stack
 
@@ -57,7 +58,7 @@ programming systems, content, administration, and background integrations.
 - `src/lib/jobs`: Agenda setup, scheduled job implementations, and their shared
   schedule configuration
 - `src/lib/pulse`: Pulse live-quiz constants, room-code generation, and audit
-  helpers
+  helpers, draft schemas, and atomic host-assignment linking
 - `src/lib/platforms`: Competitive Programming platform integration adapters
   and shared coordination
 - `src/models`: Mongoose models
@@ -135,6 +136,23 @@ Better-auth can expose `managedModules` and `roles` as JSON strings, so use
 Route protection belongs in `src/proxy.ts`; this project does not use
 `middleware.ts`.
 
+Pulse host assignments live inside `PulseQuiz`. A pending owner has one owner
+email assignment and a null `ownerId`; an existing quiz with only an `ownerId`
+continues to work. Verified Microsoft institute sign-ins bind pending assignments
+to the approved User identity, update host IDs, and write `host.linked` in one
+MongoDB transaction. The lazy Pulse guard retries linking before reading the quiz
+and fails closed on persistence errors. Google, development, and unstamped
+sessions do not bind assignments. Binding never changes CCW access or roles;
+existing approved-user sign-in restrictions remain in force.
+
+Pulse guards use `PULSE_NOT_AUTHORIZED` (403), `PULSE_NOT_HOST` (403), and
+`PULSE_QUIZ_NOT_FOUND` (404) within the shared `AppResult` envelope. Pulse
+administration uses strict `isAdmin`, independent of the existing Head routes.
+Guest participation is deferred and new quizzes default to `allowGuests: false`.
+The agreed initial realtime scope is one Socket.IO process with direct broadcasts;
+Pulse Redis Pub/Sub and custom heartbeat logic are deferred. Existing CCW realtime
+behavior is unchanged.
+
 ## Database Notes
 
 The configured MongoDB deployment uses a replica set. Confirm replica-set
@@ -148,6 +166,8 @@ before/after summary in Audit log, which operates in a fail-closed manner.
 Pull requests normally target `dev`. The live website is deployed from `prod`
 through `.github/workflows/deploy.yml`. After the maintainers consider `dev`
 stable, it is promoted to `prod`.
+
+Pulse work in this checkout is committed only to `pulse`, as explicitly requested.
 
 If this document and the implementation disagree, stop and ask a maintainer
 which behavior is intended before proceeding.

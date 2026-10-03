@@ -10,6 +10,9 @@ export const APP_ERROR_CODES = [
   "EXTERNAL_DEPENDENCY_FAILURE",
   "SERVICE_UNAVAILABLE",
   "INTERNAL_ERROR",
+  "PULSE_QUIZ_NOT_FOUND",
+  "PULSE_NOT_HOST",
+  "PULSE_NOT_AUTHORIZED",
 ] as const;
 
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number];
@@ -34,6 +37,9 @@ export const HTTP_STATUS_BY_ERROR_CODE: Record<AppErrorCode, number> = {
   EXTERNAL_DEPENDENCY_FAILURE: 502,
   SERVICE_UNAVAILABLE: 503,
   INTERNAL_ERROR: 500,
+  PULSE_QUIZ_NOT_FOUND: 404,
+  PULSE_NOT_HOST: 403,
+  PULSE_NOT_AUTHORIZED: 403,
 };
 
 export function ok<T>(data: T): AppResult<T> {
