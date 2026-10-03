@@ -24,7 +24,8 @@ programming systems, content, administration, and background integrations.
   notifications, hackathons, contests, and recruitment.
 - **Pulse:** Live, host-run quizzes joined by room code. Durable quiz data
   lives in MongoDB (`PulseQuiz`, `PulseAuditEvent`); live session state is
-  planned for Redis.
+  planned for Redis. Phase 1 currently contains the data models, host
+  authorization/linking helpers, and audited management APIs; pages are next.
 
 ## Stack
 
@@ -57,7 +58,7 @@ programming systems, content, administration, and background integrations.
 - `src/lib/jobs`: Agenda setup, scheduled job implementations, and their shared
   schedule configuration
 - `src/lib/pulse`: Pulse live-quiz constants, room-code generation, and audit
-  helpers
+  helpers, draft schemas, and atomic host-assignment linking
 - `src/lib/platforms`: Competitive Programming platform integration adapters
   and shared coordination
 - `src/models`: Mongoose models
@@ -135,6 +136,44 @@ Better-auth can expose `managedModules` and `roles` as JSON strings, so use
 Route protection belongs in `src/proxy.ts`; this project does not use
 `middleware.ts`.
 
+Pulse host assignments live inside `PulseQuiz`. A pending owner has one owner
+email assignment and a null `ownerId`; an existing quiz with only an `ownerId`
+continues to work. Verified Microsoft institute sign-ins bind pending assignments
+to the approved User identity, update host IDs, and write `host.linked` in one
+MongoDB transaction. The lazy Pulse guard retries linking before reading the quiz
+and fails closed on persistence errors. Google, development, and unstamped
+sessions do not bind assignments. Binding never changes CCW access or roles;
+existing approved-user sign-in restrictions remain in force.
+
+Heads create each quiz draft and assign its owner by IITG email. The assigned
+host prepares questions in that draft; assignment does not grant permission to
+create new quiz records. Names are display information, while verified email
+and the linked User ID establish the host's identity.
+
+Host quiz reads and lists also require a Microsoft institute session after an
+assignment is linked. Pulse admin capabilities take precedence when a CCW
+Head/Admin is also assigned as a co-host. Admin and host management writes re-read quiz membership
+inside their transaction; co-hosts can add only, while owners and admins can
+add/remove. The owner identity is permanent. Duplicate emails and known users
+already assigned to the quiz are rejected.
+
+Pulse management APIs are `/api/admin/pulse` (GET list, POST create),
+`/api/admin/pulse/[quizId]` (GET detail), `/api/pulse/host` (GET own list),
+and `/api/pulse/host/[quizId]` (GET own detail). Both detail routes have
+`/cohosts` (POST add, DELETE remove with an email JSON body). Lists support
+`page`, `limit`, and `status`. Every route uses Pulse guards, a no-store JSON
+boundary, and explicit management DTOs; writes require an allowed Origin.
+Quiz creation and assignment changes are audited in MongoDB transactions.
+
+Pulse guards use `PULSE_NOT_AUTHORIZED` (403), `PULSE_NOT_HOST` (403), and
+`PULSE_QUIZ_NOT_FOUND` (404) within the shared `AppResult` envelope. Pulse
+administration uses the existing CCW `isHead` check (Head or Admin), as clarified
+by the maintainer. Regular members gain no Pulse administrator privileges.
+Guest participation is deferred and new quizzes default to `allowGuests: false`.
+The agreed initial realtime scope is one Socket.IO process with direct broadcasts;
+Pulse Redis Pub/Sub and custom heartbeat logic are deferred. Existing CCW realtime
+behavior is unchanged.
+
 ## Database Notes
 
 The configured MongoDB deployment uses a replica set. Confirm replica-set
@@ -148,6 +187,12 @@ before/after summary in Audit log, which operates in a fail-closed manner.
 Pull requests normally target `dev`. The live website is deployed from `prod`
 through `.github/workflows/deploy.yml`. After the maintainers consider `dev`
 stable, it is promoted to `prod`.
+
+Pulse work in this checkout uses `pulse-phase-1`, branched from `pulse`.
+Commit feature changes on `pulse-phase-1` and target `pulse` with the pull request.
+The first pull request contains P1.1-P1.3 fixes and backend APIs. P1.4 pages,
+browser E2E tests, and CI updates will use a separate branch from the updated
+`pulse` after the first pull request is merged.
 
 If this document and the implementation disagree, stop and ask a maintainer
 which behavior is intended before proceeding.

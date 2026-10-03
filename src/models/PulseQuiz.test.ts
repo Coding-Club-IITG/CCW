@@ -14,6 +14,7 @@ describe("PulseQuiz", () => {
     expect(quiz.status).toBe("draft");
     expect(quiz.registration?.maxParticipants).toBe(500);
     expect(quiz.registration?.allowLateJoin).toBe(false);
+    expect(quiz.registration?.allowGuests).toBe(false);
     expect(quiz.slides).toHaveLength(0);
     expect(quiz.hostAssignments).toHaveLength(0);
     expect(quiz.participantCount).toBe(0);
@@ -38,8 +39,24 @@ describe("PulseQuiz", () => {
     await expect(minimal({ status: "finished" }).validate()).rejects.toThrow();
   });
 
-  it("requires ownerId and roomCode", async () => {
+  it("requires an owner and roomCode", async () => {
     await expect(new PulseQuiz({}).validate()).rejects.toThrow();
+    await expect(new PulseQuiz({ roomCode: "A7K9P2" }).validate()).rejects.toThrow();
+    const pending = new PulseQuiz({
+      roomCode: "A7K9P2",
+      hostAssignments: [{ email: "host@iitg.ac.in", role: "owner", assignedBy: id() }],
+    });
+    await expect(pending.validate()).resolves.toBeUndefined();
+    expect(pending.ownerId).toBeNull();
+  });
+
+  it("rejects duplicate owners, normalized host emails and mismatched linked owners", async () => {
+    const owner = { email: "host@iitg.ac.in", role: "owner", assignedBy: id() };
+    for (const hostAssignments of [
+      [owner, { ...owner, email: "other@iitg.ac.in" }],
+      [owner, { ...owner, email: " HOST@iitg.ac.in ", role: "cohost" }],
+      [{ ...owner, userId: id() }],
+    ]) await expect(minimal({ hostAssignments }).validate()).rejects.toThrow();
   });
 
   it("uppercases room codes and rejects malformed ones", async () => {

@@ -10,6 +10,7 @@ import {
   PULSE_QUIZ_STATUSES,
   PULSE_SLIDE_TYPES,
   ROOM_CODE_PATTERN,
+  type PulseQuizStatus,
 } from "@/lib/pulse/constants";
 
 const { Schema } = mongoose;
@@ -88,7 +89,7 @@ const DeliverySchema = new Schema(
 const RegistrationSchema = new Schema(
   {
     allowIITGAccounts: { type: Boolean, default: true },
-    allowGuests: { type: Boolean, default: true },
+    allowGuests: { type: Boolean, default: false },
     maxParticipants: {
       type: Number,
       min: 1,
@@ -165,7 +166,8 @@ const PulseQuizSchema = new Schema(
       match: ROOM_CODE_PATTERN,
     },
 
-    ownerId: { type: ObjectId, ref: "User", required: true },
+    // Pending email owners have no user ID until their verified first sign-in.
+    ownerId: { type: ObjectId, ref: "User", default: null },
     coHostIds: [{ type: ObjectId, ref: "User" }],
     hostAssignments: { type: [HostAssignmentSchema], default: [] },
 
@@ -184,6 +186,14 @@ const PulseQuizSchema = new Schema(
 );
 
 PulseQuizSchema.pre("validate", function () {
+  const owners = this.hostAssignments.filter((host) => host.role === "owner");
+  if (owners.length > 1 || (!this.ownerId && owners.length !== 1))
+    this.invalidate("hostAssignments", "A quiz requires one owner.");
+  const emails = this.hostAssignments.map((host) => host.email);
+  if (new Set(emails).size !== emails.length)
+    this.invalidate("hostAssignments", "Duplicate host emails are not allowed.");
+  if (owners[0]?.userId && owners[0].userId.toString() !== this.ownerId?.toString())
+    this.invalidate("ownerId", "Owner ID must match the owner assignment.");
   if (
     this.settings?.timer?.perQuestionEnabled &&
     this.delivery?.mode === "participant-paced"
@@ -203,7 +213,11 @@ PulseQuizSchema.index({ "hostAssignments.email": 1 });
 PulseQuizSchema.index({ ownerId: 1 });
 PulseQuizSchema.index({ coHostIds: 1 });
 
-export type PulseQuizRecord = mongoose.InferSchemaType<typeof PulseQuizSchema>;
+export type PulseQuizRecord = mongoose.InferSchemaType<typeof PulseQuizSchema> & {
+  status: PulseQuizStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 const PulseQuiz =
   (mongoose.models.PulseQuiz as mongoose.Model<PulseQuizRecord> | undefined) ||
