@@ -24,8 +24,8 @@ programming systems, content, administration, and background integrations.
   notifications, hackathons, contests, and recruitment.
 - **Pulse:** Live, host-run quizzes joined by room code. Durable quiz data
   lives in MongoDB (`PulseQuiz`, `PulseAuditEvent`); live session state is
-  planned for Redis. Phase 1 currently contains the data models and host
-  authorization/linking helpers; management APIs and pages are next.
+  planned for Redis. Phase 1 currently contains the data models, host
+  authorization/linking helpers, and audited management APIs; pages are next.
 
 ## Stack
 
@@ -144,6 +144,21 @@ MongoDB transaction. The lazy Pulse guard retries linking before reading the qui
 and fails closed on persistence errors. Google, development, and unstamped
 sessions do not bind assignments. Binding never changes CCW access or roles;
 existing approved-user sign-in restrictions remain in force.
+
+Host quiz reads and lists also require a Microsoft institute session after an
+assignment is linked. Admin capabilities take precedence when an Admin is also
+assigned as a co-host. Admin and host management writes re-read quiz membership
+inside their transaction; co-hosts can add only, while owners and admins can
+add/remove. The owner identity is permanent. Duplicate emails and known users
+already assigned to the quiz are rejected.
+
+Pulse management APIs are `/api/admin/pulse` (GET list, POST create),
+`/api/admin/pulse/[quizId]` (GET detail), `/api/pulse/host` (GET own list),
+and `/api/pulse/host/[quizId]` (GET own detail). Both detail routes have
+`/cohosts` (POST add, DELETE remove with an email JSON body). Lists support
+`page`, `limit`, and `status`. Every route uses Pulse guards, a no-store JSON
+boundary, and explicit management DTOs; writes require an allowed Origin.
+Quiz creation and assignment changes are audited in MongoDB transactions.
 
 Pulse guards use `PULSE_NOT_AUTHORIZED` (403), `PULSE_NOT_HOST` (403), and
 `PULSE_QUIZ_NOT_FOUND` (404) within the shared `AppResult` envelope. Pulse

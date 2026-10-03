@@ -10,6 +10,7 @@ import {
   PULSE_QUIZ_STATUSES,
   PULSE_SLIDE_TYPES,
   ROOM_CODE_PATTERN,
+  type PulseQuizStatus,
 } from "@/lib/pulse/constants";
 
 const { Schema } = mongoose;
@@ -212,7 +213,11 @@ PulseQuizSchema.index({ "hostAssignments.email": 1 });
 PulseQuizSchema.index({ ownerId: 1 });
 PulseQuizSchema.index({ coHostIds: 1 });
 
-export type PulseQuizRecord = mongoose.InferSchemaType<typeof PulseQuizSchema>;
+export type PulseQuizRecord = mongoose.InferSchemaType<typeof PulseQuizSchema> & {
+  status: PulseQuizStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 const PulseQuiz =
   (mongoose.models.PulseQuiz as mongoose.Model<PulseQuizRecord> | undefined) ||

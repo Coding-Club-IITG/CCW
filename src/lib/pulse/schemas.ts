@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { objectIdParamsSchema } from "@/lib/api/schemas/boundary";
-import { normalizeEmail } from "@/lib/authPolicy";
+import { objectIdParamsSchema, paginationQueryFields } from "@/lib/api/schemas/boundary";
+import { normalizeEmail, providerForEmail } from "@/lib/authPolicy";
 import {
   PULSE_DEFAULT_ALLOW_LATE_JOIN,
   PULSE_DEFAULT_MAX_PARTICIPANTS,
@@ -119,3 +119,16 @@ export const pulseQuizSchema = z.object({
 export type PulseQuizInput = z.input<typeof pulseQuizSchema>;
 export type PulseQuizData = z.output<typeof pulseQuizSchema>;
 export type PulseHostAssignment = z.output<typeof pulseHostAssignmentSchema>;
+
+export const pulseHostEmailSchema = z.string().transform(normalizeEmail)
+  .pipe(z.email().max(128))
+  .refine((email) => providerForEmail(email) === "microsoft", "Use an @iitg.ac.in email address.");
+export const createPulseQuizSchema = z.strictObject({
+  title: z.string().trim().min(1).max(200),
+  ownerEmail: pulseHostEmailSchema,
+});
+export const pulseCoHostSchema = z.strictObject({ email: pulseHostEmailSchema });
+export const pulseQuizQuerySchema = z.strictObject({
+  ...paginationQueryFields,
+  status: z.enum(PULSE_QUIZ_STATUSES).optional(),
+});

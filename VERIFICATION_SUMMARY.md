@@ -51,7 +51,39 @@ change only for newly created drafts; existing records are not rewritten. The
 linker uses the project's documented replica-set requirement and never falls
 back to a partially audited write on standalone MongoDB.
 
-P1.3 management APIs and P1.4 pages/E2E/CI remain separate commits. No guests,
+P1.3 management APIs are documented below; P1.4 pages/E2E/CI remain separate work. No guests,
 Pulse Pub/Sub, custom heartbeats, or realtime features were added here. An email
 assignment does not provision a new CCW account; existing account approval is
 still required before sign-in.
+
+## P1.3 management APIs (second commit)
+
+- Admin-only create/list/detail and co-host routes under `/api/admin/pulse`.
+- Host list/detail and co-host routes under `/api/pulse/host`; the host list
+  matches `ownerId` / `coHostIds` only after lazy linking.
+- Strict schemas reject invalid emails, extra ownership fields, malformed JSON,
+  and invalid query parameters. Writes require a configured trusted Origin.
+- Explicit DTOs exclude slides, answer content, settings, locks, raw assignment
+  metadata, and unrelated User fields.
+- Owners and admins add/remove co-hosts; co-hosts add only. Admin permissions
+  take precedence even when the admin is also a co-host. The transaction re-reads
+  membership before making the change.
+- Owner removal/addition as co-host, known user duplicates after email changes,
+  and concurrent duplicate assignments are rejected. Removing a linked co-host
+  also removes their ID and prevents lazy re-linking of that removed assignment.
+- Quiz creation and all assignment changes commit with their audit events.
+  Audit failure rolls back creation, additions, or removals.
+- Host access now requires Microsoft IITG authentication even for already-linked
+  IDs; strict CCW Admin access remains valid on admin management operations.
+
+The combined focused run passed **78 tests across 8 files**, including 11 new
+route integration tests against the isolated MongoDB replica set. A targeted
+TypeScript 5.9.3 check of the new production modules/routes also passed using the
+same older local dependencies and a stand-in for Better Auth's session type.
+This does not replace typechecking against the locked production libraries.
+
+Normal `pnpm typecheck`, `pnpm lint`, and `pnpm build` were attempted but could
+not start because `tsc`, `eslint`, and `next` are not installed in this checkout.
+Full CI, coverage, and the Better Auth first-sign-in tests remain unverified until
+the locked dependencies can be installed. The product dependency files were not
+changed. P1.4 UI, browser E2E, and Pulse CI wiring are next.

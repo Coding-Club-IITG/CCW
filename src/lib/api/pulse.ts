@@ -7,6 +7,8 @@ import {
   parseObjectId,
 } from "@/lib/api/result.server";
 import { linkHostAssignmentsForUser } from "@/lib/pulse/hostAssignments";
+import { providerForEmail } from "@/lib/authPolicy";
+import { webEnv } from "@/lib/env/web";
 import PulseQuiz from "@/models/PulseQuiz";
 
 export type PulseErrorCode =
@@ -27,6 +29,12 @@ export async function pulseRoute<T>(
 ) {
   const headers = { "Cache-Control": "no-store" };
   try {
+    if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      const origin = request.headers.get("origin");
+      if (!origin || ![webEnv.BASE_URL, ...webEnv.TRUSTED_ORIGINS].some(
+        (value) => new URL(value).origin === origin,
+      )) return jsonResult(err("PULSE_NOT_AUTHORIZED", "Request origin is not allowed."), { headers });
+    }
     return jsonResult(await operation(), { headers });
   } catch (error) {
     if (error instanceof PulseError)
@@ -63,6 +71,8 @@ async function requireQuizAccess(
   if (!parsedId.ok) return parsedId;
 
   const { user } = session.data;
+  const instituteSession = session.data.session.authProvider === "microsoft"
+    && providerForEmail(user.email) === "microsoft";
   // Link before reading so this request sees the newly assigned host IDs.
   await linkHostAssignmentsForUser({
     userId: user.id,
@@ -71,12 +81,12 @@ async function requireQuizAccess(
   });
   const quiz = await PulseQuiz.findById(quizId).lean();
   if (!quiz) return err("PULSE_QUIZ_NOT_FOUND", "Pulse quiz not found.");
-  if (quiz.ownerId?.toString() === user.id)
-    return ok({ quiz, role: "owner" as const });
-  if (quiz.coHostIds.some((id) => id.toString() === user.id))
-    return ok({ quiz, role: "cohost" as const });
   if (allowAdmin && isAdmin(user.access))
-    return ok({ quiz, role: "admin" as const });
+    return ok({ quiz, role: "admin" as const, userId: user.id });
+  if (instituteSession && quiz.ownerId?.toString() === user.id)
+    return ok({ quiz, role: "owner" as const, userId: user.id });
+  if (instituteSession && quiz.coHostIds.some((id) => id.toString() === user.id))
+    return ok({ quiz, role: "cohost" as const, userId: user.id });
   return err("PULSE_NOT_HOST", "No host assignment for this quiz.");
 }
 

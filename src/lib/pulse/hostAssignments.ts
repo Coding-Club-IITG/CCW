@@ -27,17 +27,20 @@ export async function linkHostAssignmentsForUser(params: {
   for (const quiz of quizzes) {
     for (const assignment of quiz.hostAssignments) {
       if (assignment.email !== email || assignment.userId) continue;
+      const { role } = assignment;
+      if (role !== "owner" && role !== "cohost") continue;
       // The conditional write and audit commit together. Concurrent calls retry
       // the transaction and see the assignment already linked.
       let linked = false;
       await mongoose.connection.transaction(async (session) => {
         linked = false;
-        const { role } = assignment;
         const result = await PulseQuiz.updateOne(
           {
             _id: quiz._id,
             hostAssignments: { $elemMatch: { ...pending, role } },
-            ...(role === "owner" ? { ownerId: { $in: [null, user._id] } } : {}),
+            ...(role === "owner"
+              ? { ownerId: { $in: [null, user._id] } }
+              : { ownerId: { $ne: user._id } }),
           },
           {
             $set: {
