@@ -1,4 +1,4 @@
-import { isAdmin } from "@/lib/access/roles";
+import { isHead } from "@/lib/access/roles";
 import { requireSession } from "@/lib/api/auth";
 import { err, ok, type AppResult } from "@/lib/api/result";
 import {
@@ -55,7 +55,7 @@ export async function getPulseSession(request: Request) {
 export async function requireAdmin(request: Request) {
   const session = await getPulseSession(request);
   if (!session.ok) return session;
-  return isAdmin(session.data.user.access)
+  return isHead(session.data.user.access)
     ? session
     : err("PULSE_NOT_AUTHORIZED", "Administrator access required.");
 }
@@ -81,7 +81,7 @@ async function requireQuizAccess(
   });
   const quiz = await PulseQuiz.findById(quizId).lean();
   if (!quiz) return err("PULSE_QUIZ_NOT_FOUND", "Pulse quiz not found.");
-  if (allowAdmin && isAdmin(user.access))
+  if (allowAdmin && isHead(user.access))
     return ok({ quiz, role: "admin" as const, userId: user.id });
   if (instituteSession && quiz.ownerId?.toString() === user.id)
     return ok({ quiz, role: "owner" as const, userId: user.id });

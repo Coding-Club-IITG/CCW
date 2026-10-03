@@ -17,7 +17,7 @@ linking tests.
 - Lazy authorization links before reading the quiz. The auth hook imports the
   auth-independent linker, preventing the previous circular import.
 - Pulse errors retain CCW's `AppResult` JSON envelope and have explicit HTTP
-  mappings. Admin authorization is strict Admin, not Head.
+  mappings. Pulse administrator authorization uses CCW's existing Head/Admin check.
 - Existing CCW approval, access, roles, and sign-up restrictions remain intact.
 
 ## Local evidence (2026-10-03)
@@ -58,7 +58,7 @@ still required before sign-in.
 
 ## P1.3 management APIs (second commit)
 
-- Admin-only create/list/detail and co-host routes under `/api/admin/pulse`.
+- CCW Head/Admin-only create/list/detail and co-host routes under `/api/admin/pulse`.
 - Host list/detail and co-host routes under `/api/pulse/host`; the host list
   matches `ownerId` / `coHostIds` only after lazy linking.
 - Strict schemas reject invalid emails, extra ownership fields, malformed JSON,
@@ -74,9 +74,9 @@ still required before sign-in.
 - Quiz creation and all assignment changes commit with their audit events.
   Audit failure rolls back creation, additions, or removals.
 - Host access now requires Microsoft IITG authentication even for already-linked
-  IDs; strict CCW Admin access remains valid on admin management operations.
+  IDs; CCW Head/Admin access remains valid on admin management operations.
 
-The combined focused run passed **78 tests across 8 files**, including 11 new
+At the P1.3 commit, the combined focused run passed **78 tests across 8 files**, including 11 new
 route integration tests against the isolated MongoDB replica set. A targeted
 TypeScript 5.9.3 check of the new production modules/routes also passed using the
 same older local dependencies and a stand-in for Better Auth's session type.
@@ -87,3 +87,20 @@ not start because `tsc`, `eslint`, and `next` are not installed in this checkout
 Full CI, coverage, and the Better Auth first-sign-in tests remain unverified until
 the locked dependencies can be installed. The product dependency files were not
 changed. P1.4 UI, browser E2E, and Pulse CI wiring are next.
+
+## Maintainer clarification before P1.4
+
+Pulse administrators are CCW Heads (and existing Admins), matching the existing
+admin area's `isHead` policy. A Head creates each draft and assigns its owner
+by IITG email. The assigned host prepares questions in that draft; regular
+hosts cannot create quiz records themselves. Display names are not identities
+or permission keys. Existing CCW account approval is still required for sign-in.
+
+The Pulse guards now reuse `isHead` without modifying CCW roles, access, or
+managed module scopes. Updated authorization/route tests passed **28 affected
+tests**, including a Head administration test that verifies their stored CCW
+permissions remain unchanged. The targeted offline TypeScript check passed
+again. These corrections and the feature-branch guidance are pending inclusion
+in the P1.1-P1.3 backend pull request on `pulse-phase-1`, targeting `pulse`.
+P1.4 pages, browser E2E tests, and CI updates will follow in a separate pull
+request after the backend pull request is merged.

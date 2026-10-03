@@ -23,8 +23,11 @@ function request(method = "GET", body?: unknown, query = "", requestOrigin: stri
   });
 }
 const context = (quizId: string) => ({ params: Promise.resolve({ quizId }) });
-async function user(email: string, access: "Admin" | "Member" = "Member") {
-  return User.create({ email, access, roles: [{ position: "OC" }] });
+async function user(email: string, access: "Admin" | "Head" | "Member" = "Member") {
+  return User.create({
+    email, access, roles: [{ position: "OC" }],
+    ...(access === "Head" ? { managedModules: ["Software Development"] } : {}),
+  });
 }
 function signIn(member: Awaited<ReturnType<typeof user>>, authProvider = "microsoft") {
   getSession.mockResolvedValue({
@@ -54,6 +57,19 @@ afterEach(async () => { getSession.mockReset(); await clearTestMongo(); });
 afterAll(stopTestMongo);
 
 describe("Pulse management routes", () => {
+  it("gives CCW Heads Pulse administrator access without changing their CCW permissions", async () => {
+    const head = await user("head@iitg.ac.in", "Head");
+    const before = await User.findById(head.id).lean();
+    signIn(head);
+    const quiz = await created();
+    const ctx = context(quiz.id);
+    expect((await adminList(request())).status).toBe(200);
+    expect((await data(await adminDetail(request(), ctx))).accessRole).toBe("admin");
+    await data(await adminAdd(request("POST", { email: "cohost@iitg.ac.in" }), ctx));
+    await data(await adminRemove(request("DELETE", { email: "cohost@iitg.ac.in" }), ctx));
+    expect(await User.findById(head.id).lean()).toEqual(before);
+  });
+
   it("allows only admins to create/list/read/manage quizzes, including an assigned member", async () => {
     getSession.mockResolvedValue(null);
     await error(await create(request("POST", { title: "Quiz", ownerEmail: "owner@iitg.ac.in" })), 403, "PULSE_NOT_AUTHORIZED");

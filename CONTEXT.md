@@ -145,9 +145,14 @@ and fails closed on persistence errors. Google, development, and unstamped
 sessions do not bind assignments. Binding never changes CCW access or roles;
 existing approved-user sign-in restrictions remain in force.
 
+Heads create each quiz draft and assign its owner by IITG email. The assigned
+host prepares questions in that draft; assignment does not grant permission to
+create new quiz records. Names are display information, while verified email
+and the linked User ID establish the host's identity.
+
 Host quiz reads and lists also require a Microsoft institute session after an
-assignment is linked. Admin capabilities take precedence when an Admin is also
-assigned as a co-host. Admin and host management writes re-read quiz membership
+assignment is linked. Pulse admin capabilities take precedence when a CCW
+Head/Admin is also assigned as a co-host. Admin and host management writes re-read quiz membership
 inside their transaction; co-hosts can add only, while owners and admins can
 add/remove. The owner identity is permanent. Duplicate emails and known users
 already assigned to the quiz are rejected.
@@ -162,7 +167,8 @@ Quiz creation and assignment changes are audited in MongoDB transactions.
 
 Pulse guards use `PULSE_NOT_AUTHORIZED` (403), `PULSE_NOT_HOST` (403), and
 `PULSE_QUIZ_NOT_FOUND` (404) within the shared `AppResult` envelope. Pulse
-administration uses strict `isAdmin`, independent of the existing Head routes.
+administration uses the existing CCW `isHead` check (Head or Admin), as clarified
+by the maintainer. Regular members gain no Pulse administrator privileges.
 Guest participation is deferred and new quizzes default to `allowGuests: false`.
 The agreed initial realtime scope is one Socket.IO process with direct broadcasts;
 Pulse Redis Pub/Sub and custom heartbeat logic are deferred. Existing CCW realtime
@@ -182,7 +188,11 @@ Pull requests normally target `dev`. The live website is deployed from `prod`
 through `.github/workflows/deploy.yml`. After the maintainers consider `dev`
 stable, it is promoted to `prod`.
 
-Pulse work in this checkout is committed only to `pulse`, as explicitly requested.
+Pulse work in this checkout uses `pulse-phase-1`, branched from `pulse`.
+Commit feature changes on `pulse-phase-1` and target `pulse` with the pull request.
+The first pull request contains P1.1-P1.3 fixes and backend APIs. P1.4 pages,
+browser E2E tests, and CI updates will use a separate branch from the updated
+`pulse` after the first pull request is merged.
 
 If this document and the implementation disagree, stop and ask a maintainer
 which behavior is intended before proceeding.

@@ -50,15 +50,16 @@ describe("Pulse authorization", () => {
     expect(await requirePulseHost(request, quiz.id)).toMatchObject({ ok: true, data: { role } });
     expect(await PulseAuditEvent.countDocuments({ quizId: quiz._id, type: "host.linked" })).toBe(1);
   });
-  it("uses strict Admin access without granting automatic host access", async () => {
+  it("uses CCW Head/Admin access without granting automatic host access", async () => {
     const quiz = await PulseQuiz.create({ ownerId: id(), roomCode: "A7K9P2" });
     signIn(await User.create({ email: "admin@iitg.ac.in", access: "Admin" }));
     expect((await requireAdmin(request)).ok).toBe(true);
     expect(await requireHostOrAdmin(request, quiz.id)).toMatchObject({ ok: true, data: { role: "admin" } });
     expect(await requirePulseHost(request, quiz.id)).toMatchObject({ error: { code: "PULSE_NOT_HOST" } });
     signIn(await User.create({ email: "head@iitg.ac.in", access: "Head", managedModules: ["Software Development"] }));
-    expect(await requireAdmin(request)).toMatchObject({ error: { code: "PULSE_NOT_AUTHORIZED" } });
-    expect(await requireHostOrAdmin(request, quiz.id)).toMatchObject({ error: { code: "PULSE_NOT_HOST" } });
+    expect((await requireAdmin(request)).ok).toBe(true);
+    expect(await requireHostOrAdmin(request, quiz.id)).toMatchObject({ ok: true, data: { role: "admin" } });
+    expect(await requirePulseHost(request, quiz.id)).toMatchObject({ error: { code: "PULSE_NOT_HOST" } });
   });
   it("returns missing-quiz and invalid-ID errors", async () => {
     signIn(await member());
