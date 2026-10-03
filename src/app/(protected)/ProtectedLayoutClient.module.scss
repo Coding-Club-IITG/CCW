@@ -6,7 +6,16 @@
   min-height: 100dvh;
 }
 
-/* Full-bleed shell for the contests area (provides its own bg + layout) */
+.workspaceMain {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  height: calc(100dvh - #{$nav-height});
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Full-bleed shell for the contests area */
 .contestMain {
   flex: 1;
   display: flex;
@@ -15,7 +24,7 @@
   overflow: hidden;
 }
 
-/* Listing/history/results scroll with the document, like standard pages. */
+/* Listing/history/results scroll with the document */
 .contestDocumentMain {
   flex: 1;
   display: flex;

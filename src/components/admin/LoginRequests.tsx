@@ -156,7 +156,7 @@ export default function LoginRequests() {
                     <td>
                       {item.submittedAt
                         ? formatShortDate(item.submittedAt)
-                        : "—"}
+                        : "-"}
                     </td>
                     <td>
                       {item.status === "pending" ? (

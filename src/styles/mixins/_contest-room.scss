@@ -9,7 +9,8 @@
     @include contest-page;
     overflow: hidden;
     width: 100%;
-    height: 100%;
+    flex: none;
+    height: calc(100dvh - #{$nav-height});
     min-height: 0;
 
     ::selection {
@@ -31,10 +32,35 @@
     overflow: hidden;
     position: relative;
     z-index: 1;
-    gap: 1.5rem;
+    gap: 1rem;
     @include contest-container;
-    padding-top: 1.5rem;
-    padding-bottom: 1.5rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+
+    @media (max-width: 1023px) {
+      overflow-y: auto;
+      @include scroll-visible;
+    }
+  }
+
+  .mainWorkspace {
+    max-width: none;
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  .backNav {
+    display: flex;
+    > a,
+    > button {
+      margin-bottom: 0;
+    }
+  }
+
+  .matchView > .entryNotice {
+    margin-bottom: 0;
   }
 
   .problemTransition {
@@ -55,6 +81,7 @@
 
   /* HUD */
   .hud {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -65,9 +92,10 @@
     border: 1px solid var(--border);
     @include contest-glow;
 
-    @media (min-width: 768px) {
+    @media (min-width: 1024px) {
       flex-direction: row;
       align-items: center;
+      flex-wrap: wrap;
     }
   }
 
@@ -75,6 +103,8 @@
     display: flex;
     align-items: center;
     gap: 1rem;
+    flex-wrap: wrap;
+    min-width: 0;
   }
 
   .hudTitle {
@@ -158,12 +188,13 @@
   }
 
   .timerIcon {
-    color: var(--primary);
+    color: var(--accent);
   }
 
   .timerText {
     @include display-type($display-sm);
-    color: var(--foreground-strong);
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
   }
 
   .timerSub {
@@ -175,12 +206,16 @@
     flex: 1;
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1.25rem;
     overflow: hidden;
     min-height: 0;
 
     @media (min-width: 1024px) {
       grid-template-columns: repeat(4, 1fr);
+    }
+    @media (max-width: 1023px) {
+      flex: none;
+      overflow: visible;
     }
   }
 
@@ -216,14 +251,28 @@
     padding: 1rem;
     background: var(--surface-secondary);
     border: 1px solid var(--border);
-    @include scroll-hide;
+    @include scroll-visible;
   }
 
   .panelStage {
     flex: 1;
     gap: 0;
-    padding: 1.5rem;
+    padding: 1.25rem;
     position: relative;
+    overflow: hidden;
+  }
+
+  .workspaceScroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    @include scroll-visible;
+
+    @media (max-width: 1023px) {
+      flex: none;
+      max-height: 65dvh;
+    }
   }
 
   .panelTitle {
@@ -241,11 +290,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    margin-top: 1rem;
-
-    &:first-of-type {
-      margin-top: 0;
-    }
   }
 
   .rosterTeamName {
@@ -329,9 +373,20 @@
     align-items: flex-start;
     gap: 0.75rem;
     padding: 1rem;
-    margin-bottom: 1rem;
+    margin: 0 0 1rem;
+    flex-shrink: 0;
     border: 1px solid var(--border);
     color: var(--foreground);
+    line-height: 1.6;
+
+    select {
+      max-width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border-input);
+      background: var(--surface);
+      color: var(--foreground-strong);
+      font: inherit;
+    }
   }
 
   /* Waiting room */
@@ -342,16 +397,16 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 2rem;
+    gap: 1rem;
+    padding: 1.5rem 0.5rem;
   }
 
   .waitingIcon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 6rem;
-    height: 6rem;
-    margin-bottom: 1.5rem;
+    width: 4rem;
+    height: 4rem;
     border-radius: 0;
     border: 1px solid var(--primary);
     background: var(--primary-alpha);
@@ -365,14 +420,14 @@
   }
 
   .waitingTitle {
-    margin: 0 0 1rem;
+    margin: 0;
     font-size: 1.75rem;
     font-weight: 700;
     color: var(--foreground-strong);
   }
 
   .waitingText {
-    margin: 0 0 2rem;
+    margin: 0;
     max-width: 28rem;
     font-size: 1rem;
     color: var(--muted);
@@ -382,7 +437,6 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    margin-bottom: 1.5rem;
     padding: 0.5rem 1rem;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -395,11 +449,26 @@
     @include btn-primary;
     width: 100%;
     max-width: 24rem;
-    padding: 1rem 2rem;
-    font-size: 1rem;
-    font-weight: 700;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.06em;
+  }
+
+  .runnerLauncher {
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+
+    @media (max-width: 600px) {
+      > button {
+        width: 100%;
+      }
+    }
   }
 
   /* Toasts */
@@ -531,10 +600,5 @@
   .readyBtn,
   .activityText {
     font-family: var(--font-jetbrains-mono), monospace;
-  }
-
-  .readyBtn {
-    font-size: 1.125rem;
-    letter-spacing: 0.1em;
   }
 }

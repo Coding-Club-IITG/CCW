@@ -1,15 +1,11 @@
-@use "../../../../styles/mixins" as *;
+@use "../../../styles/mixins" as *;
 
 .solvePage {
   display: flex;
   flex-direction: column;
-  min-height: 500px;
-  gap: 0;
-
-  // Break out of the parent's container
-  margin: -2rem calc(-50vw + 50%);
-  width: 100vw;
-  height: calc(100dvh - 56px);
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   overflow: hidden;
 }
 
@@ -18,11 +14,12 @@
   align-items: center;
   justify-content: space-between;
   min-height: 44px;
-  padding: 0 1.25rem;
+  padding: 0.5rem 1rem;
+  flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.75rem 1rem;
 
   // Override BackLink's default bottom margin inside header
   :global(.link),
@@ -54,24 +51,15 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-    overflow-y: auto;
-  }
 }
 
 .leftPanel {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-
-  @media (max-width: 768px) {
-    flex: none;
-    min-height: 300px;
-  }
 }
 
 .divider {
@@ -101,24 +89,22 @@
 .rightPanel {
   flex: none;
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   border-left: 1px solid var(--border);
   background: var(--surface);
-  padding: 0.75rem 1rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-
-  @media (max-width: 768px) {
-    flex: none;
-    width: 100% !important;
-    border-left: none;
-    border-top: 1px solid var(--border);
-  }
+  gap: 1rem;
+  overscroll-behavior: contain;
+  @include scroll-visible;
 }
 
 .panelTabs {
   display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
   gap: 0.25rem;
   border-bottom: 1px solid var(--border);
 }
@@ -195,6 +181,7 @@
 .problemLimits {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border);
   @include micro-label($text-xs, 0.06em);
@@ -205,7 +192,8 @@
   align-items: center;
   justify-content: space-between;
   min-height: 44px;
-  padding: 0 1.25rem;
+  padding: 0.5rem 1rem;
+  flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   gap: 0.75rem;
@@ -216,6 +204,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .copyBtn {
@@ -233,7 +222,7 @@
 
 .editorArea {
   flex: 1;
-  min-height: 200px;
+  min-height: 0;
   position: relative;
 }
 
@@ -254,5 +243,77 @@
   p {
     color: var(--muted);
     font-size: 0.875rem;
+  }
+}
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+.notice {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-secondary);
+  font-size: 0.8125rem;
+}
+.readOnlyPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem;
+  gap: 1rem;
+  overscroll-behavior: contain;
+  @include scroll-visible;
+}
+.divider {
+  touch-action: none;
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -1px;
+  }
+}
+.tabContent {
+  min-height: 0;
+  > [role="status"] {
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+}
+@media (max-width: 768px), (max-height: 500px) {
+  .workspace {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    @include scroll-visible;
+  }
+  .solveContainer {
+    flex: none;
+    flex-direction: column;
+    overflow: visible;
+  }
+  .leftPanel {
+    flex: none;
+    height: clamp(280px, 50dvh, 400px);
+  }
+  .divider {
+    display: none;
+  }
+  .rightPanel {
+    flex-basis: auto !important;
+    overflow: visible;
+    min-height: 300px;
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .readOnlyPanel {
+    overflow: visible;
   }
 }

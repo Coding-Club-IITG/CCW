@@ -485,6 +485,17 @@ $score-lg: 26px; // bracket drawer scores
   }
 }
 
+// Keep overflowing workspace panels discoverable
+@mixin scroll-visible {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-light) var(--surface-secondary);
+  scrollbar-gutter: stable;
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--muted-light);
+  }
+}
+
 // Opt a scroller out of the global scrollbar
 @mixin scroll-hide {
   -ms-overflow-style: none;

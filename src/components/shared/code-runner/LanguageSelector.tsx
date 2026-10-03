@@ -20,6 +20,7 @@ export default function LanguageSelector({ language, onChange }: Props) {
         <button
           key={lang}
           className={`${styles.langBtn} ${language === lang ? styles.langBtnActive : ""}`}
+          aria-pressed={language === lang}
           onClick={() => onChange(lang)}
           type="button"
         >

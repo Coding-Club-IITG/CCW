@@ -15,8 +15,8 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface-secondary);
 }
@@ -34,7 +34,6 @@
   grid-template-columns: 1fr;
   gap: 1rem;
   grid-auto-rows: max-content;
-  padding-bottom: 1rem;
 
   @media (min-width: 768px) {
     grid-template-columns: repeat(2, 1fr);
@@ -53,16 +52,10 @@
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
-  cursor: pointer;
 }
 
 .gridCardOpen:hover {
   border-color: var(--foreground-strong);
-}
-
-.gridCardOpen.gridCardSelected {
-  border-color: var(--foreground-strong);
-  box-shadow: 0 0 0 2px var(--border-input);
 }
 
 .gridCardMine {
@@ -70,17 +63,9 @@
   @include contest-glow;
 }
 
-.gridCardMine.gridCardSelected {
-  box-shadow: 0 0 0 2px var(--primary-alpha);
-}
-
 .gridCardOther {
   border-color: var(--error);
   opacity: 0.75;
-}
-
-.gridCardOther.gridCardSelected {
-  box-shadow: 0 0 0 2px var(--error-bg);
 }
 
 .lockOverlay {
@@ -252,25 +237,20 @@
 .workspaceWrapper {
   display: flex;
   flex-direction: column;
-  position: absolute;
-  inset: 1.5rem;
-  overflow: hidden;
-
-  @media (max-width: 1023px) {
-    position: static;
-  }
-}
-
-.workspaceScroll {
   flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  @include scroll-hide;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .spectatorBadge {
   background: var(--surface-hover);
   color: var(--foreground);
   gap: 0.375rem;
+}
+
+.matchView {
+  display: contents;
+  &[hidden] {
+    display: none;
+  }
 }

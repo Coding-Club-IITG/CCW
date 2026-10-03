@@ -211,7 +211,7 @@ export default function MatchHistoryClient({
                           })()
                         : contest.durationSeconds
                           ? `${Math.floor(contest.durationSeconds / 60)}m`
-                          : "—"}
+                          : "-"}
                     </span>
                   </div>
                 </div>

@@ -9,6 +9,7 @@
   justify-content: space-between;
   gap: 24px;
   height: $nav-height;
+  flex-shrink: 0;
   padding-block: 0;
   @include page-gutter;
   background: var(--nav-surface);

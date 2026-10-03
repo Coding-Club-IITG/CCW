@@ -16,7 +16,12 @@ export function useSyncCooldown(
 
   useEffect(() => {
     const restore = () => {
-      const lastSync = Number(localStorage.getItem(storageKey));
+      let lastSync = 0;
+      try {
+        lastSync = Number(localStorage.getItem(storageKey));
+      } catch {
+        /* The in-memory cooldown still applies when storage is unavailable. */
+      }
       setDeadline(
         Number.isFinite(lastSync) && lastSync > 0
           ? lastSync + cooldownSeconds * 1000
@@ -52,7 +57,11 @@ export function useSyncCooldown(
 
   const begin = useCallback(() => {
     hold();
-    localStorage.setItem(storageKey, Date.now().toString());
+    try {
+      localStorage.setItem(storageKey, Date.now().toString());
+    } catch {
+      /* Keep the in-memory deadline */
+    }
   }, [hold, storageKey]);
 
   return { cooldown, hold, begin };

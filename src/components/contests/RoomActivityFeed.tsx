@@ -19,9 +19,11 @@ const ACTIVITY_COLORS: Record<string, string> = {
 export default function RoomActivityFeed({
   entries,
   subtitle,
+  inline = false,
 }: {
   entries: RoomActivityDto[];
   subtitle?: string;
+  inline?: boolean;
 }) {
   const [isMounted, setIsMounted] = useState(false);
   const [notifGranted, setNotifGranted] = useState(true);
@@ -44,7 +46,7 @@ export default function RoomActivityFeed({
   }, []);
 
   return (
-    <div className={styles.feed}>
+    <div className={`${styles.feed} ${inline ? styles.inline : ""}`}>
       <div className={styles.head}>
         <h2 className={styles.title}>
           <Rss size={18} />
