@@ -11,6 +11,8 @@ import { connectMongoDB } from "@/lib/db/mongodb";
 import { enqueuePushNotifications } from "@/lib/notifications/service";
 import { parseManagedModules } from "@/lib/users/roles";
 
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
+
 import SharingGroup, { type SharingGroupRecord } from "@/models/SharingGroup";
 import User from "@/models/User";
 
@@ -47,12 +49,24 @@ export async function mutateFiles<T>(
         return { result: outcome, audit: outcome.audit };
       },
     );
-    if (notificationIds?.length)
-      await enqueuePushNotifications(notificationIds);
-    revalidatePath("/internal/files");
+    try {
+      if (notificationIds?.length)
+        await enqueuePushNotifications(notificationIds);
+      revalidatePath("/internal/files");
+    } catch (error) {
+      logger.warn(
+        "File mutation committed, but post-commit notification or invalidation failed",
+        { operation: "files.post_commit", ...errorToLogMetadata(error) },
+      );
+    }
     return result;
   } finally {
-    await session.endSession();
+    await session.endSession().catch((error) =>
+      logger.warn("File session cleanup failed", {
+        operation: "files.end_session",
+        ...errorToLogMetadata(error),
+      }),
+    );
   }
 }
 

@@ -4,12 +4,10 @@
 
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createReadStream, existsSync } from "fs";
-import { Readable } from "stream";
 import path from "path";
 
 import { jsonError, jsonResult } from "@/lib/api/result.server";
-import { webEnv } from "@/lib/env/web";
+import { getUploadStorage, ObjectNotFoundError } from "@/lib/files/storage";
 import {
   IMAGE_EXTENSIONS_REGEX_FRAGMENT,
   IMAGE_EXTENSION_TO_MIME,
@@ -20,8 +18,6 @@ import { parseRouteParams } from "@/lib/api/result";
 import { imageAssetParamsSchema } from "@/lib/api/schemas/boundary";
 
 export const runtime = "nodejs";
-
-const EVENT_UPLOAD_DIR = path.resolve(webEnv.EVENT_UPLOAD_DIR);
 
 const ASSET_ID_REGEX = new RegExp(
   `^[0-9a-f]+\\.(${IMAGE_EXTENSIONS_REGEX_FRAGMENT})$`,
@@ -43,14 +39,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return jsonError("VALIDATION_ERROR", "Invalid asset ID.");
     }
 
-    const filePath = path.join(EVENT_UPLOAD_DIR, id);
-    if (!existsSync(filePath)) {
-      return jsonError("NOT_FOUND", "Asset not found.");
-    }
-
     const ext = path.extname(id).toLowerCase() as ImageExtension;
-    const nodeStream = createReadStream(filePath);
-    const webStream = Readable.toWeb(nodeStream) as ReadableStream;
+    const webStream = await getUploadStorage().read(`events/${id}`);
 
     return new NextResponse(webStream, {
       headers: {
@@ -61,6 +51,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       },
     });
   } catch (err) {
+    if (err instanceof ObjectNotFoundError)
+      return jsonError("NOT_FOUND", "Asset not found.");
     logger.error("Event asset read failed", {
       route: "GET /api/events/assets/[id]",
       operation: "read_asset",

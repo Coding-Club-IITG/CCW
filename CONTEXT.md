@@ -99,10 +99,13 @@ fields?, requestId? } }`. HTTP routes derive their status from the stable
   error code. Better Auth, successful SSE streams, binary asset responses,
   redirects, and metadata retain their framework/library transport formats.
 - Runtime configuration has separate web, worker, CLI, test, and browser
-  profiles. Worker requires MongoDB and Redis, but not web-only
-  credentials or upload settings. Standalone entry points import
-  `src/lib/env/load.ts` to load dotenv before importing their validated profile.
+  profiles. Worker requires MongoDB & Redis, but not web-only credentials.
+  Standalone entry points import `src/lib/env/load.ts` to load dotenv.
 - MongoDB is the persistent application store.
+- Production uploads use a private Standard R2 bucket (`ccw-uploads`) through the
+  official S3 SDK. Local development defaults to the existing upload directories.
+  `src/lib/files/storage.ts` owns writes, metadata, streamed/range reads, deletes,
+  and paginated listing.
 - Redis supports runtime coordination, caching, and queued contest work,
   including best-effort Web Push delivery through BullMQ.
 - The standalone worker runs scheduled synchronization, reminder, cleanup, and
@@ -167,9 +170,9 @@ before/after summary in Audit log, which operates in a fail-closed manner.
 
 ## Branches and Deployment
 
-Pull requests normally target `dev`. The live website is deployed from `prod`
-through `.github/workflows/deploy.yml`. After the maintainers consider `dev`
-stable, it is promoted to `prod`.
+Pull requests normally target `dev`.
+The live website is deployed from `prod`.
+After the maintainers consider `dev` stable, it is promoted to `prod`.
 
 If this document and the implementation disagree, stop and ask a maintainer
 which behavior is intended before proceeding.

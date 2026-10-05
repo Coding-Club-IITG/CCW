@@ -227,6 +227,16 @@ export type CalendarScope = (typeof CALENDAR_SCOPES)[number];
 /* Files */
 export const FILE_SHARING_LIMIT = 100;
 
+export const UPLOAD_PREFIXES = [
+  "files/",
+  "files/recruitment/",
+  "blog/",
+  "events/",
+  "projects/",
+  "avatars/",
+] as const;
+export type UploadPrefix = (typeof UPLOAD_PREFIXES)[number];
+
 /* CP Platforms */
 
 export const PLATFORMS = ["codeforces", "atcoder"] as const;

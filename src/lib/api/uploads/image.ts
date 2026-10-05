@@ -3,8 +3,6 @@
  */
 
 import crypto from "crypto";
-import { existsSync } from "fs";
-import { mkdir, unlink, writeFile } from "fs/promises";
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import path from "path";
@@ -20,14 +18,17 @@ import {
   ALLOWED_IMAGE_EXTENSIONS,
   ALLOWED_IMAGE_MIME_TYPES,
   type AuditCategory,
+  type UploadPrefix,
 } from "@/lib/constants";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
+import { getUploadStorage, removeUpload } from "@/lib/files/storage";
+
 interface UploadOptions {
-  /** Directory to store uploaded files */
-  uploadDir: string;
-  /** Public URL prefix (Rg. "/uploads/events") */
+  /** Durable object namespace */
+  prefix: UploadPrefix;
+  /** Public URL prefix (Eg. "/uploads/events") */
   urlPrefix: string;
   /** Maximum file size in bytes (default: 5MB) */
   maxSize?: number;
@@ -54,7 +55,7 @@ interface UploadOptions {
 
 export function createImageUploadHandler(options: UploadOptions) {
   const {
-    uploadDir,
+    prefix,
     urlPrefix,
     maxSize = 5 * 1024 * 1024,
     logPrefix = "[Upload]",
@@ -109,51 +110,49 @@ export function createImageUploadHandler(options: UploadOptions) {
         );
       }
 
-      if (!existsSync(uploadDir)) {
-        await mkdir(uploadDir, { recursive: true });
-      }
-
       const ext = path.extname(file.name).toLowerCase() || ".png";
       if (!allowedExtensions.includes(ext)) {
         return jsonError("VALIDATION_ERROR", "Unsupported image file type");
       }
       const filename = `${crypto.randomBytes(16).toString("hex")}${ext}`;
       const buffer = Buffer.from(await file.arrayBuffer());
-      await writeFile(
-        path.join(/* turbopackIgnore: true */ uploadDir, filename),
-        buffer,
-      );
+      await getUploadStorage().write(`${prefix}${filename}`, buffer, file.type);
 
       if (audit) {
-        await connectMongoDB();
-        const dbSession = await mongoose.startSession();
         try {
-          await auditedTransaction(dbSession, async () => ({
-            result: undefined,
-            audit: {
-              actor: auditActor(user),
-              category: audit.category,
-              action: "upload" as const,
-              operation: audit.operation,
-              target: {
-                type: audit.targetType,
-                id: crypto.randomUUID(),
-                label: audit.label,
+          await connectMongoDB();
+          const dbSession = await mongoose.startSession();
+          try {
+            await auditedTransaction(dbSession, async () => ({
+              result: undefined,
+              audit: {
+                actor: auditActor(user),
+                category: audit.category,
+                action: "upload" as const,
+                operation: audit.operation,
+                target: {
+                  type: audit.targetType,
+                  id: crypto.randomUUID(),
+                  label: audit.label,
+                },
+                after: summarizeFile({
+                  title: audit.label,
+                  mimeType: file.type,
+                  size: file.size,
+                }),
               },
-              after: summarizeFile({
-                title: audit.label,
-                mimeType: file.type,
-                size: file.size,
+            }));
+          } finally {
+            await dbSession.endSession().catch((error) =>
+              logger.warn("Image upload session cleanup failed", {
+                operation: "end_upload_session",
+                ...errorToLogMetadata(error),
               }),
-            },
-          }));
+            );
+          }
         } catch (error) {
-          await unlink(
-            path.join(/* turbopackIgnore: true */ uploadDir, filename),
-          ).catch(() => {});
+          await removeUpload(`${prefix}${filename}`);
           throw error;
-        } finally {
-          await dbSession.endSession();
         }
       }
 

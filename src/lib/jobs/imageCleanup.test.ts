@@ -1,12 +1,16 @@
+import { S3Client } from "@aws-sdk/client-s3";
 import { mkdtemp, readdir, rm, utimes, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanupDirectory,
   extractFilenames,
   ORPHAN_IMAGE_RETENTION_MS,
 } from "./imageCleanup";
+
+import { createUploadStorage, R2UploadStorage } from "@/lib/files/storage";
+import { parseStorageEnv } from "@/lib/env/schema";
 
 const temporaryDirectories: string[] = [];
 
@@ -47,10 +51,11 @@ describe("cleanupDirectory", () => {
     );
 
     const report = await cleanupDirectory(
-      directory,
+      "blog/",
       new Set(["referenced.png"]),
       "Test",
       now,
+      createUploadStorage(parseStorageEnv({ BLOG_UPLOAD_DIR: directory })),
     );
 
     expect(report).toEqual({ deleted: 1, recentlySkipped: 1, failed: 0 });
@@ -73,4 +78,45 @@ describe("cleanupDirectory", () => {
       ),
     ).toEqual(new Set(["dead-beef.png", "cafe-babe.webp"]));
   });
+});
+
+it("paginates R2 cleanup without widening scope and retains references and the grace period", async () => {
+  const now = new Date("2026-10-05T12:00:00Z");
+  const old = new Date(now.getTime() - ORPHAN_IMAGE_RETENTION_MS);
+  const client = new S3Client({ region: "auto" });
+  const send = vi.spyOn(client, "send") as unknown as import("vitest").Mock<
+    (command: { input: Record<string, unknown> }) => Promise<unknown>
+  >;
+  send.mockResolvedValueOnce({
+    Contents: [
+      { Key: "blog/old.png", Size: 1, LastModified: old },
+      { Key: "blog/reference.png", Size: 1, LastModified: old },
+      { Key: "blog/new.png", Size: 1, LastModified: now },
+      { Key: "blog/nested/image.png", Size: 1, LastModified: old },
+      { Key: "avatars/unrelated.png", Size: 1, LastModified: old },
+      { Key: "blog/document.pdf", Size: 1, LastModified: old },
+    ],
+    IsTruncated: true,
+    NextContinuationToken: "page-two",
+  });
+  send.mockResolvedValueOnce({}); // delete old.png
+  send.mockResolvedValueOnce({
+    Contents: [{ Key: "blog/failed.png", Size: 1, LastModified: old }],
+  });
+  send.mockRejectedValueOnce(new Error("storage unavailable"));
+  expect(
+    await cleanupDirectory(
+      "blog/",
+      new Set(["reference.png"]),
+      "Blog",
+      now,
+      new R2UploadStorage(client, "test"),
+    ),
+  ).toEqual({ deleted: 1, recentlySkipped: 1, failed: 1 });
+  expect(send.mock.calls.map(([command]) => command.input)).toEqual([
+    expect.objectContaining({ Prefix: "blog/" }),
+    { Bucket: "test", Key: "blog/old.png" },
+    expect.objectContaining({ Prefix: "blog/", ContinuationToken: "page-two" }),
+    { Bucket: "test", Key: "blog/failed.png" },
+  ]);
 });

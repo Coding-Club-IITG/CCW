@@ -267,12 +267,45 @@ const operationalSchema = z.object({
 });
 
 const uploadSchema = z.object({
+  UPLOAD_STORAGE: z.enum(["local", "r2"]).default("local"),
+  R2_ENDPOINT: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    httpUrl("R2_ENDPOINT").optional(),
+  ),
+  R2_BUCKET: z.string().trim().optional(),
+  R2_ACCESS_KEY_ID: z.string().trim().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().trim().optional(),
   FILE_UPLOAD_DIR: uploadPath("uploads/files"),
   BLOG_UPLOAD_DIR: uploadPath("uploads/blog"),
   EVENT_UPLOAD_DIR: uploadPath("uploads/events"),
   PROJECT_UPLOAD_DIR: uploadPath("uploads/projects"),
   AVATAR_UPLOAD_DIR: uploadPath("uploads/avatars"),
 });
+
+function validateStorage(
+  value: z.infer<typeof uploadSchema>,
+  ctx: z.RefinementCtx,
+) {
+  if (value.UPLOAD_STORAGE !== "r2") return;
+  for (const name of [
+    "R2_ENDPOINT",
+    "R2_BUCKET",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+  ] as const) {
+    if (!value[name])
+      ctx.addIssue({
+        code: "custom",
+        path: [name],
+        message: name + " is required for R2 storage",
+      });
+  }
+}
+
+export const storageEnvSchema = uploadSchema.superRefine(validateStorage);
+export type StorageEnv = z.infer<typeof storageEnvSchema>;
+export const parseStorageEnv = (env: RuntimeEnvironment) =>
+  parseEnvironment("storage", storageEnvSchema, env);
 
 export const webEnvSchema = sharedServerSchema
   .extend({
@@ -290,6 +323,7 @@ export const webEnvSchema = sharedServerSchema
   .extend(uploadSchema.shape)
   .superRefine((value, ctx) => {
     validateSharedConfiguration(value, ctx);
+    validateStorage(value, ctx);
     if (!!value.GOOGLE_CLIENT_ID !== !!value.GOOGLE_CLIENT_SECRET) {
       ctx.addIssue({
         code: "custom",
@@ -318,12 +352,18 @@ export const webEnvSchema = sharedServerSchema
 export const workerEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
-  .superRefine(validateSharedConfiguration);
+  .superRefine((value, ctx) => {
+    validateSharedConfiguration(value, ctx);
+    validateStorage(value, ctx);
+  });
 
 export const cliEnvSchema = sharedServerSchema
   .extend(operationalSchema.shape)
   .extend(uploadSchema.shape)
-  .superRefine(validateSharedConfiguration);
+  .superRefine((value, ctx) => {
+    validateSharedConfiguration(value, ctx);
+    validateStorage(value, ctx);
+  });
 
 export const testEnvSchema = baseSchema
   .extend({

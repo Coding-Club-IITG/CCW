@@ -312,3 +312,29 @@ describe("runtime environment schemas", () => {
     ).toThrow(/BLOG_UPLOAD_DIR/);
   });
 });
+
+describe("upload storage configuration", () => {
+  it.each([parseWebEnv, parseWorkerEnv])(
+    "validates storage for each runtime",
+    (parse) => {
+      expect(parse(required).UPLOAD_STORAGE).toBe("local");
+      const r2 = {
+        ...required,
+        UPLOAD_STORAGE: "r2",
+        R2_ENDPOINT: "https://account.r2.cloudflarestorage.com",
+        R2_BUCKET: "ccw-uploads",
+        R2_ACCESS_KEY_ID: "key",
+        R2_SECRET_ACCESS_KEY: "secret",
+      };
+      expect(parse(r2).UPLOAD_STORAGE).toBe("r2");
+      for (const field of [
+        "R2_ENDPOINT",
+        "R2_BUCKET",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+      ] as const) {
+        expect(() => parse({ ...r2, [field]: "" })).toThrow(field);
+      }
+    },
+  );
+});

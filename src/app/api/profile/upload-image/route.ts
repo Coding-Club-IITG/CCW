@@ -4,13 +4,9 @@
  * Returns a public URL for use as profile image.
  */
 
-import path from "path";
-import { webEnv } from "@/lib/env/web";
 import { createImageUploadHandler } from "@/lib/api/uploads/image";
 
 export const runtime = "nodejs";
-
-const AVATAR_UPLOAD_DIR = path.resolve(webEnv.AVATAR_UPLOAD_DIR);
 
 const AVATAR_ALLOWED_MIME_TYPES = [
   "image/jpeg",
@@ -30,7 +26,7 @@ const AVATAR_ALLOWED_EXTENSIONS = [
 ] as const;
 
 export const POST = createImageUploadHandler({
-  uploadDir: AVATAR_UPLOAD_DIR,
+  prefix: "avatars/",
   urlPrefix: "/api/profile/assets",
   maxSize: 2 * 1024 * 1024,
   logPrefix: "[Avatar Upload]",

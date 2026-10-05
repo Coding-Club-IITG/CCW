@@ -1,9 +1,9 @@
 import crypto from "crypto";
-import { mkdir, writeFile } from "fs/promises";
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import path from "path";
 
+import { getUploadStorage } from "@/lib/files/storage";
 import { requireHead } from "@/lib/auth/session";
 import { parseFormData, parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
@@ -18,7 +18,6 @@ import {
   mutateRecruitment,
   recruitmentError,
   recruitmentNotFound,
-  recruitmentUploadDirectory,
   removeRecruitmentFiles,
   summarizeRecruitment,
 } from "@/lib/recruitment/service.server";
@@ -53,16 +52,10 @@ export async function POST(request: NextRequest, context: Context) {
       return jsonError("VALIDATION_ERROR", "The uploaded file is not a PDF.");
     }
     storedName = `${crypto.randomUUID()}.pdf`;
-    await mkdir(recruitmentUploadDirectory, { recursive: true });
-    await writeFile(
-      path.join(
-        /* turbopackIgnore: true */ recruitmentUploadDirectory,
-        storedName,
-      ),
+    await getUploadStorage().write(
+      `files/recruitment/${storedName}`,
       buffer,
-      {
-        flag: "wx",
-      },
+      "application/pdf",
     );
     const document = {
       _id: new mongoose.Types.ObjectId(),

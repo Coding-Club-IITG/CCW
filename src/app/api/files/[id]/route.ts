@@ -1,16 +1,11 @@
 /**
  * GET    /api/files/[id]  - serve / stream a file to the client
  * PATCH  /api/files/[id]  - update file metadata
- * DELETE /api/files/[id]  - delete a file (disk + metadata)
+ * DELETE /api/files/[id]  - delete a file (metadata + object)
  */
 
-import crypto from "crypto";
-import { createReadStream, existsSync } from "fs";
-import { rename, unlink } from "fs/promises";
 import mongoose from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import { Readable } from "stream";
 
 import { canAccessFile, canManageFile } from "@/lib/access/files";
 import { auditActor, auditedTransaction } from "@/lib/audit/index";
@@ -28,7 +23,11 @@ import {
 } from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth/server";
 import { invalidateCache } from "@/lib/cache/redis";
-import { webEnv } from "@/lib/env/web";
+import {
+  getUploadStorage,
+  removeUpload,
+  ObjectNotFoundError,
+} from "@/lib/files/storage";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { parseManagedModules, parseRoles } from "@/lib/users/roles";
 import { validateTags } from "@/lib/shared/tags";
@@ -37,8 +36,6 @@ import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 import FileEntry from "@/models/FileEntry";
 
 export const runtime = "nodejs";
-
-const UPLOAD_DIR = path.resolve(webEnv.FILE_UPLOAD_DIR);
 
 // Shared helpers
 
@@ -109,20 +106,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const filePath = path.join(UPLOAD_DIR, file.storedName);
-    if (!existsSync(filePath)) {
-      logger.warn(
-        `[Files] File missing on disk: ${file.storedName} (id: ${id})`,
-      );
-      return jsonError(
-        "NOT_FOUND",
-        "File data not found on server. Contact an admin.",
-      );
-    }
-
-    // Stream the file using the Web Streams API (Node ≥ 18 / Next.js ≥ 13)
-    const nodeStream = createReadStream(filePath);
-    const webStream = Readable.toWeb(nodeStream) as ReadableStream;
+    const webStream = await getUploadStorage().read(`files/${file.storedName}`);
 
     // For downloadable files: Content-Disposition attachment (triggers save dialog)
     // For view-only files: Content-Disposition inline (renders in browser / iframe)
@@ -154,6 +138,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return new NextResponse(webStream, { headers });
   } catch (err) {
+    if (err instanceof ObjectNotFoundError)
+      return jsonError(
+        "NOT_FOUND",
+        "File data not found on server. Contact an admin.",
+      );
     logger.error("[Files] GET /api/files/[id] error:", err);
     return jsonError("INTERNAL_ERROR", "Internal server error.");
   }
@@ -281,7 +270,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         };
       });
     } finally {
-      await dbSession.endSession();
+      await dbSession.endSession().catch((error) =>
+        logger.warn("File session cleanup failed", {
+          operation: "end_file_session",
+          ...errorToLogMetadata(error),
+        }),
+      );
     }
 
     logger.info("File metadata updated", {
@@ -321,28 +315,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return jsonError("FORBIDDEN", "Forbidden.");
     }
 
-    const filePath = path.join(UPLOAD_DIR, file.storedName);
-    const stagedPath = `${filePath}.deleting-${crypto.randomUUID()}`;
-    let staged = false;
-    try {
-      await rename(filePath, stagedPath);
-      staged = true;
-    } catch (err) {
-      if (existsSync(filePath)) {
-        logger.error("File staging for deletion failed", {
-          route: "DELETE /api/files/[id]",
-          operation: "stage_disk_file",
-          resourceId: id,
-          ...errorToLogMetadata(err),
-        });
-        return jsonError("INTERNAL_ERROR", "Unable to stage file deletion.");
-      }
-      logger.warn("File data was already missing during deletion", {
-        route: "DELETE /api/files/[id]",
-        operation: "stage_disk_file",
-        resourceId: id,
-      });
-    }
     const dbSession = await mongoose.startSession();
     try {
       await auditedTransaction(dbSession, async (transaction) => {
@@ -350,6 +322,10 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
           .session(transaction)
           .lean();
         if (!current) throw new Error("File disappeared during deletion.");
+        if (
+          !canManageFile(user.id, user.access, managedModules, current as any)
+        )
+          fileFailure("FORBIDDEN", "Forbidden.");
         await FileEntry.deleteOne({ _id: id }, { session: transaction });
         return {
           result: undefined,
@@ -365,21 +341,15 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
           },
         };
       });
-    } catch (error) {
-      if (staged) await rename(stagedPath, filePath).catch(() => {});
-      throw error;
     } finally {
-      await dbSession.endSession();
-    }
-    if (staged)
-      await unlink(stagedPath).catch((error) =>
-        logger.warn("Staged file cleanup failed", {
-          route: "DELETE /api/files/[id]",
-          operation: "delete_staged_file",
-          resourceId: id,
+      await dbSession.endSession().catch((error) =>
+        logger.warn("File session cleanup failed", {
+          operation: "end_file_session",
           ...errorToLogMetadata(error),
         }),
       );
+    }
+    await removeUpload(`files/${file.storedName}`);
     await invalidateCache("files");
 
     logger.info("File deleted", {

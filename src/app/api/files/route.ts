@@ -4,8 +4,6 @@
  */
 
 import crypto from "crypto";
-import { existsSync } from "fs";
-import { mkdir, writeFile } from "fs/promises";
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import path from "path";
@@ -35,13 +33,13 @@ import {
   paginationQueryFields,
 } from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth/server";
-import { webEnv } from "@/lib/env/web";
+import { getUploadStorage, removeUpload } from "@/lib/files/storage";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { parsePagination, paginatedResponse } from "@/lib/shared/pagination";
 import { parseManagedModules, parseRoles } from "@/lib/users/roles";
 import { prepareSearchQuery } from "@/lib/shared/search";
 import { validateTags } from "@/lib/shared/tags";
-import { logger } from "@/lib/telemetry/logger";
+import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
 import FileEntry from "@/models/FileEntry";
 import SharingGroup from "@/models/SharingGroup";
@@ -50,8 +48,6 @@ export const runtime = "nodejs";
 
 // Configuration
 
-const UPLOAD_DIR = path.resolve(webEnv.FILE_UPLOAD_DIR);
-
 const fileListQuerySchema = z.object({
   ...paginationQueryFields,
   search: optionalSearchQuerySchema,
@@ -59,13 +55,6 @@ const fileListQuerySchema = z.object({
     .union([z.string().max(1000), z.array(z.string().max(1000)).max(10)])
     .optional(),
 });
-
-async function ensureUploadDir(): Promise<void> {
-  if (!existsSync(UPLOAD_DIR)) {
-    await mkdir(UPLOAD_DIR, { recursive: true });
-    logger.info(`[Files] Created upload directory: ${UPLOAD_DIR}`);
-  }
-}
 
 // GET /api/files
 
@@ -285,22 +274,29 @@ export async function POST(request: NextRequest) {
     if (!parsedAcl.success) return jsonResult(validationError(parsedAcl.error));
     const accessControl = parsedAcl.data;
 
-    // Save to disk
+    // Store the object before committing its metadata
 
     const originalExt = path.extname(file.name).toLowerCase();
     const storedName = `${crypto.randomUUID()}${originalExt}`;
 
     try {
-      await ensureUploadDir();
       const buffer = Buffer.from(await file.arrayBuffer());
-      await writeFile(path.join(UPLOAD_DIR, storedName), buffer);
+      await getUploadStorage().write(
+        `files/${storedName}`,
+        buffer,
+        file.type || "application/octet-stream",
+      );
     } catch (err) {
-      logger.error("[Files] Disk write error:", err);
-      return jsonError("INTERNAL_ERROR", "Failed to save file to disk.");
+      logger.error("File upload failed", {
+        operation: "write_upload",
+        ...errorToLogMetadata(err),
+      });
+      return jsonError("INTERNAL_ERROR", "Failed to save file.");
     }
 
     // Persist metadata
 
+    let committed = false;
     try {
       const newFile = await mutateFiles(async (transaction) => {
         await lockSharingGroups(accessControl.allowedGroups, transaction);
@@ -348,6 +344,7 @@ export async function POST(request: NextRequest) {
         };
       });
 
+      committed = true;
       logger.info("File uploaded", {
         route: "POST /api/files",
         operation: "upload_file",
@@ -358,11 +355,7 @@ export async function POST(request: NextRequest) {
       Reflect.deleteProperty(responseFile, "storedName");
       return jsonOk({ file: responseFile }, { status: 201 });
     } catch (err) {
-      // Best-effort cleanup of the disk file if DB write fails
-      try {
-        const { unlink } = await import("fs/promises");
-        await unlink(path.join(UPLOAD_DIR, storedName));
-      } catch {}
+      if (!committed) await removeUpload(`files/${storedName}`);
 
       return fileErrorResponse("files.upload", err, request);
     }

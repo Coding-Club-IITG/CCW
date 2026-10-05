@@ -1,9 +1,8 @@
-import { readdir, stat, unlink } from "fs/promises";
-import { existsSync } from "fs";
 import path from "path";
 
 import { ALLOWED_IMAGE_EXTENSIONS } from "@/lib/constants";
-import { workerEnv } from "@/lib/env/worker";
+import { getUploadStorage, type UploadStorage } from "@/lib/files/storage";
+import type { UploadPrefix } from "@/lib/constants";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
@@ -18,12 +17,6 @@ export interface ImageCleanupReport {
   recentlySkipped: number;
   failed: number;
 }
-
-const BLOG_UPLOAD_DIR = path.resolve(workerEnv.BLOG_UPLOAD_DIR);
-
-const EVENT_UPLOAD_DIR = path.resolve(workerEnv.EVENT_UPLOAD_DIR);
-
-const PROJECT_UPLOAD_DIR = path.resolve(workerEnv.PROJECT_UPLOAD_DIR);
 
 const BLOG_ASSET_PATTERN = /\/api\/blog\/assets\/([0-9a-f-]+\.\w+)/g;
 const EVENT_ASSET_PATTERN = /\/api\/events\/assets\/([0-9a-f]+\.\w+)/g;
@@ -47,13 +40,14 @@ export function extractFilenames(
 }
 
 /**
- * Removes orphaned images from a given upload directory
+ * Removes orphaned images from a paginated upload prefix
  */
 export async function cleanupDirectory(
-  uploadDir: string,
+  prefix: Extract<UploadPrefix, "blog/" | "events/" | "projects/">,
   referencedFiles: Set<string>,
   label: string,
   now = new Date(),
+  storage: UploadStorage = getUploadStorage(),
 ): Promise<ImageCleanupReport> {
   const report: ImageCleanupReport = {
     deleted: 0,
@@ -61,71 +55,41 @@ export async function cleanupDirectory(
     failed: 0,
   };
 
-  if (!existsSync(uploadDir)) {
-    logger.info(`[ImageCleanup] ${label}: directory does not exist, skipping.`);
-    return report;
-  }
-
-  const entries = await readdir(uploadDir, { withFileTypes: true });
-  const imageFiles = entries.filter(
-    (entry) =>
-      entry.isFile() &&
-      ALLOWED_EXTENSIONS_SET.has(path.extname(entry.name).toLowerCase()),
-  );
-
-  if (imageFiles.length === 0) {
-    logger.info(`[ImageCleanup] ${label}: no image files on disk.`);
-    return report;
-  }
-
-  const orphans = imageFiles.filter(
-    (entry) => !referencedFiles.has(entry.name),
-  );
-
-  if (orphans.length === 0) {
-    logger.info(`[ImageCleanup] ${label}: no orphaned images found.`);
-    return report;
-  }
-
-  logger.info(
-    `[ImageCleanup] ${label}: evaluating ${orphans.length} orphaned image(s).`,
-  );
-
-  for (const entry of orphans) {
-    const filePath = path.join(uploadDir, entry.name);
-    let modifiedAt: number;
-
-    try {
-      modifiedAt = (await stat(filePath)).mtimeMs;
-    } catch (error) {
-      report.failed++;
-      logger.error("Image cleanup could not read file metadata", {
-        operation: "read_orphan_image_metadata",
-        uploadType: label,
-        filename: entry.name,
-        ...errorToLogMetadata(error),
-      });
-      continue;
+  let cursor: string | undefined;
+  do {
+    const page = await storage.list(prefix, cursor);
+    for (const entry of page.objects) {
+      const filename = entry.key.slice(prefix.length);
+      if (
+        !entry.key.startsWith(prefix) ||
+        !filename ||
+        filename.includes("/") ||
+        !ALLOWED_EXTENSIONS_SET.has(path.extname(filename).toLowerCase()) ||
+        referencedFiles.has(filename)
+      )
+        continue;
+      if (
+        now.getTime() - entry.modifiedAt.getTime() <
+        ORPHAN_IMAGE_RETENTION_MS
+      ) {
+        report.recentlySkipped++;
+        continue;
+      }
+      try {
+        await storage.delete(entry.key);
+        report.deleted++;
+      } catch (error) {
+        report.failed++;
+        logger.error("Image cleanup could not delete orphaned object", {
+          operation: "delete_orphan_image",
+          uploadType: label,
+          filename,
+          ...errorToLogMetadata(error),
+        });
+      }
     }
-
-    if (now.getTime() - modifiedAt < ORPHAN_IMAGE_RETENTION_MS) {
-      report.recentlySkipped++;
-      continue;
-    }
-
-    try {
-      await unlink(filePath);
-      report.deleted++;
-    } catch (error) {
-      report.failed++;
-      logger.error("Image cleanup could not delete orphaned file", {
-        operation: "delete_orphan_image",
-        uploadType: label,
-        filename: entry.name,
-        ...errorToLogMetadata(error),
-      });
-    }
-  }
+    cursor = page.cursor;
+  } while (cursor);
 
   logger.info("Image cleanup directory complete", {
     operation: "cleanup_orphan_images",
@@ -139,7 +103,7 @@ export async function cleanupDirectory(
 }
 
 /**
- * Removes orphaned images from blog, event, and project upload directories
+ * Removes orphaned images from blog, event, and project upload prefixes
  */
 export async function cleanupOrphanedImages(now = new Date()) {
   logger.info("[ImageCleanup] Starting orphaned image cleanup...");
@@ -154,7 +118,7 @@ export async function cleanupOrphanedImages(now = new Date()) {
   ]);
   const referencedBlogFiles = extractFilenames(blogSources, BLOG_ASSET_PATTERN);
   const blogReport = await cleanupDirectory(
-    BLOG_UPLOAD_DIR,
+    "blog/",
     referencedBlogFiles,
     "Blog",
     now,
@@ -171,7 +135,7 @@ export async function cleanupOrphanedImages(now = new Date()) {
     EVENT_ASSET_PATTERN,
   );
   const eventReport = await cleanupDirectory(
-    EVENT_UPLOAD_DIR,
+    "events/",
     referencedEventFiles,
     "Events",
     now,
@@ -190,7 +154,7 @@ export async function cleanupOrphanedImages(now = new Date()) {
     PROJECT_ASSET_PATTERN,
   );
   const projectReport = await cleanupDirectory(
-    PROJECT_UPLOAD_DIR,
+    "projects/",
     referencedProjectFiles,
     "Projects",
     now,

@@ -1,9 +1,7 @@
 import "server-only";
 
-import { unlink } from "fs/promises";
 import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
-import path from "path";
 
 import { AppResultError } from "@/lib/api/result";
 import { boundaryErrorResponse, jsonResult } from "@/lib/api/result.server";
@@ -16,7 +14,7 @@ import {
   invalidateCache,
 } from "@/lib/cache/redis";
 import type { AuditAction } from "@/lib/constants";
-import { webEnv } from "@/lib/env/web";
+import { removeUpload } from "@/lib/files/storage";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import {
   publicRecruitment,
@@ -26,10 +24,6 @@ import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
 import Recruitment, { type IRecruitment } from "@/models/Recruitment";
 
-export const recruitmentUploadDirectory = path.resolve(
-  webEnv.FILE_UPLOAD_DIR,
-  "recruitment",
-);
 const publicProjection =
   "-modules.resources.document.storedName -modules.task.document.storedName -createdBy";
 
@@ -125,7 +119,14 @@ export async function mutateRecruitment<T>(
       };
     });
   } finally {
-    await session.endSession();
+    await session
+      .endSession()
+      .catch((error) =>
+        logger.warn("Recruitment session cleanup failed", {
+          operation: "recruitment.end_session",
+          ...errorToLogMetadata(error),
+        }),
+      );
   }
 }
 
@@ -137,18 +138,8 @@ export async function invalidateRecruitment() {
 }
 
 export async function removeRecruitmentFiles(storedNames: string[]) {
-  for (const name of storedNames) {
-    try {
-      await unlink(path.join(recruitmentUploadDirectory, name));
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        logger.warn("Recruitment PDF cleanup failed", {
-          operation: "recruitment.cleanup",
-          ...errorToLogMetadata(error),
-        });
-      }
-    }
-  }
+  for (const name of storedNames)
+    await removeUpload(`files/recruitment/${name}`);
 }
 
 export function recruitmentError(

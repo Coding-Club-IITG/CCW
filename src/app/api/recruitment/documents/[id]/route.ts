@@ -1,9 +1,6 @@
-import { createReadStream } from "fs";
-import { stat } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import { Readable } from "stream";
 
+import { getUploadStorage, ObjectNotFoundError } from "@/lib/files/storage";
 import { parseRouteParams, parseSearchParams } from "@/lib/api/result";
 import { jsonError, jsonResult } from "@/lib/api/result.server";
 import { objectIdParamsSchema } from "@/lib/api/schemas/boundary";
@@ -11,10 +8,7 @@ import { recruitmentDocumentQuerySchema } from "@/lib/api/schemas/recruitment";
 import { RECRUITMENT_DOCUMENT_KINDS } from "@/lib/constants";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { isDocumentReleased } from "@/lib/recruitment/public";
-import {
-  recruitmentError,
-  recruitmentUploadDirectory,
-} from "@/lib/recruitment/service.server";
+import { recruitmentError } from "@/lib/recruitment/service.server";
 
 import Recruitment from "@/models/Recruitment";
 
@@ -51,8 +45,8 @@ export async function GET(
       });
     }
     const file = slot.document;
-    const filePath = path.join(recruitmentUploadDirectory, file.storedName);
-    const info = await stat(filePath);
+    const key = `files/recruitment/${file.storedName}`;
+    const info = await getUploadStorage().metadata(key);
     const headers: Record<string, string> = {
       "Content-Type": "application/pdf",
       "Content-Disposition": `${query.data.download ? "attachment" : "inline"}; filename="recruitment.pdf"; filename*=UTF-8''${encodeURIComponent(file.originalName).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16)}`)}`,
@@ -91,13 +85,13 @@ export async function GET(
       headers["Content-Range"] = `bytes ${start}-${end}/${info.size}`;
     }
     headers["Content-Length"] = String(end - start + 1);
-    const stream = createReadStream(filePath, { start, end });
-    return new NextResponse(Readable.toWeb(stream) as ReadableStream, {
+    const stream = await getUploadStorage().read(key, { start, end });
+    return new NextResponse(stream, {
       status: range ? 206 : 200,
       headers,
     });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+    if (error instanceof ObjectNotFoundError)
       return jsonError("NOT_FOUND", "PDF not found.", {
         headers: { "Cache-Control": "no-store" },
       });
