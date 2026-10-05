@@ -70,6 +70,40 @@ describe("local upload storage", () => {
     },
   );
 
+  it("keeps identical filenames separate in files and recruitment namespaces", async () => {
+    const storage = await localStorage();
+    await storage.write(
+      "files/guide.pdf",
+      Buffer.from("shared"),
+      "application/pdf",
+    );
+    await storage.write(
+      "files/recruitment/guide.pdf",
+      Buffer.from("recruitment"),
+      "application/pdf",
+    );
+
+    expect(
+      await new Response(await storage.read("files/guide.pdf")).text(),
+    ).toBe("shared");
+    expect(
+      await new Response(
+        await storage.read("files/recruitment/guide.pdf"),
+      ).text(),
+    ).toBe("recruitment");
+    expect(
+      (await storage.list("files/")).objects.map(({ key }) => key),
+    ).toEqual(["files/guide.pdf"]);
+    expect(
+      (await storage.list("files/recruitment/")).objects.map(({ key }) => key),
+    ).toEqual(["files/recruitment/guide.pdf"]);
+
+    await storage.delete("files/recruitment/guide.pdf");
+    expect(
+      await new Response(await storage.read("files/guide.pdf")).text(),
+    ).toBe("shared");
+  });
+
   it("uses stable cursors while objects from previous pages are removed", async () => {
     const storage = await localStorage();
     await Promise.all(

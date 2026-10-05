@@ -52,7 +52,8 @@ export class ObjectNotFoundError extends Error {
 }
 
 function splitKey(key: string) {
-  const prefix = UPLOAD_PREFIXES.find((candidate) => key.startsWith(candidate));
+  const directory = key.slice(0, key.lastIndexOf("/") + 1);
+  const prefix = UPLOAD_PREFIXES.find((candidate) => candidate === directory);
   const name = prefix ? key.slice(prefix.length) : "";
   if (
     !prefix ||
