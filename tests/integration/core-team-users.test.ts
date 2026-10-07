@@ -200,4 +200,67 @@ describe("Core Team access and historical assignments", () => {
     );
     expect(historical.items.map((item) => item.title)).toEqual(["Historical"]);
   });
+
+  it("excludes stored and access-derived Core Team positions from the home preview and its count", async () => {
+    await User.create([
+      {
+        name: "Secretary",
+        roles: [{ position: "Secretary" }],
+        image: "/photo.png",
+      },
+      { name: "OC", roles: [{ position: "OC" }], image: "/photo.png" },
+      {
+        name: "Head",
+        access: "Head",
+        managedModules: ["Design"],
+        image: "/photo.png",
+      },
+      {
+        name: "Stored Head",
+        roles: [{ module: "Design", position: "Head" }],
+        image: "/photo.png",
+      },
+      {
+        name: "Core",
+        access: "Core Team",
+        managedModules: ["Design"],
+        image: "/photo.png",
+      },
+      {
+        name: "Stored Core",
+        roles: [{ module: "Design", position: "Core Team" }],
+        image: "/photo.png",
+      },
+      {
+        name: "No photo",
+        access: "Head",
+        managedModules: ["Design"],
+        image: "  ",
+      },
+      {
+        name: "Alumnus",
+        tenure: "2025-26",
+        roles: [{ module: "Web Development", position: "Head" }],
+        image: "/photo.png",
+      },
+    ]);
+    const filter = {
+      ...publicTeamFilter(undefined, { includeCoreTeam: false }),
+      tenure: CURRENT_TENURE,
+    };
+    const preview = await User.find(filter).sort({ name: 1 }).lean();
+    expect(preview.map((user) => user.name)).toEqual([
+      "Head",
+      "OC",
+      "Secretary",
+      "Stored Head",
+    ]);
+    expect(await User.countDocuments(filter)).toBe(preview.length);
+    expect(
+      await User.countDocuments({
+        ...publicTeamFilter(),
+        tenure: CURRENT_TENURE,
+      }),
+    ).toBe(6);
+  });
 });

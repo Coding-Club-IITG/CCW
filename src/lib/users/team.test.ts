@@ -24,11 +24,11 @@ describe("public team roster", () => {
       access: "Core Team",
       managedModules: ["Design"],
       roles: [
-        { module: "Design", position: "Head" },
-        { module: "Design", position: "Head" },
         { module: "Design", position: "Core Team" },
-        { position: "Secretary" },
+        { module: "Design", position: "Head" },
+        { module: "Design", position: "Head" },
         { position: "OC" },
+        { position: "Secretary" },
       ],
     });
     const groups = buildTeamGroups([person, person]);
@@ -43,6 +43,60 @@ describe("public team roster", () => {
       ["Design", 1, "Head · Core Team"],
     ]);
     expect(visibleTeamMembers([person, person])).toHaveLength(1);
+  });
+  it("orders leadership by Secretary, OC, then other positions", () => {
+    const [leadership] = buildTeamGroups([
+      member({ _id: "projects", roles: [{ position: "Projects Head" }] }),
+      member({ _id: "oc", roles: [{ position: "OC" }] }),
+      member({ _id: "secretary", roles: [{ position: "Secretary" }] }),
+    ]);
+    expect(leadership.entries.map((entry) => entry.member._id)).toEqual([
+      "secretary",
+      "oc",
+      "projects",
+    ]);
+  });
+  it.each(["Design", "Web Development"] as const)(
+    "places all Heads before Core Team in %s, including people with both titles",
+    (module) => {
+      const [group] = buildTeamGroups([
+        member({
+          _id: "core",
+          tenure: "2025-26",
+          roles: [{ module, position: "Core Team" }],
+        }),
+        member({
+          _id: "both",
+          tenure: "2025-26",
+          roles: [
+            { module, position: "Core Team" },
+            { module, position: "Head" },
+          ],
+        }),
+        member({
+          _id: "head",
+          tenure: "2025-26",
+          roles: [{ module, position: "Head" }],
+        }),
+      ]);
+      expect(
+        group.entries.map((entry) => [entry.member._id, entry.position]),
+      ).toEqual([
+        ["both", "Head · Core Team"],
+        ["head", "Head"],
+        ["core", "Core Team"],
+      ]);
+    },
+  );
+  it("orders access-derived Heads before Core Team members", () => {
+    const [group] = buildTeamGroups([
+      member({ _id: "core", access: "Core Team", managedModules: ["Design"] }),
+      member({ _id: "head", access: "Head", managedModules: ["Design"] }),
+    ]);
+    expect(group.entries.map((entry) => entry.member._id)).toEqual([
+      "head",
+      "core",
+    ]);
   });
   it("includes historical leadership, development Heads and CP Core Team", () => {
     const person = member({

@@ -1,6 +1,7 @@
 import {
   MODULE_ACCENTS,
   MODULE_DESCRIPTIONS,
+  MODULE_POSITIONS,
   ROLE_CLUB_POSITIONS,
   ROLE_MODULES,
   MODULES,
@@ -64,7 +65,9 @@ export function visibleTeamMembers(
 
 export function publicTeamFilter(
   module?: RoleModuleName,
+  { includeCoreTeam = true }: { includeCoreTeam?: boolean } = {},
 ): Record<string, unknown> {
+  const positions = includeCoreTeam ? ["Head", "Core Team"] : ["Head"];
   return {
     tenure: { $type: "string" },
     image: { $type: "string", $regex: /\S/ },
@@ -86,14 +89,14 @@ export function publicTeamFilter(
         roles: {
           $elemMatch: {
             module: module ?? { $in: [...ROLE_MODULES] },
-            position: { $in: ["Head", "Core Team"] },
+            position: { $in: positions },
           },
         },
       },
       ...(!module || MODULES.includes(module as ModuleName)
         ? [
             {
-              access: { $in: ["Head", "Core Team"] },
+              access: { $in: positions },
               managedModules: module ?? { $in: [...MODULES] },
             },
           ]
@@ -122,23 +125,35 @@ export function buildTeamGroups(input: PublicTeamMember[]) {
     })),
   ];
   return groups
-    .map((group) => ({
-      ...group,
-      entries: members.flatMap((member) => {
-        const positions = teamRoles(member)
-          .filter((role) => role.module === group.module)
-          .map((role) => role.position);
-        return positions.length
-          ? [
-              {
-                member,
-                position: positions.join(" · "),
-                groupTitle: group.title,
-                accent: group.accent,
-              },
-            ]
-          : [];
-      }),
-    }))
+    .map((group) => {
+      const positionOrder = group.module
+        ? MODULE_POSITIONS
+        : ROLE_CLUB_POSITIONS;
+      const rank = (position: UserRole["position"]) =>
+        positionOrder.indexOf(position as never);
+      return {
+        ...group,
+        entries: members
+          .flatMap((member) => {
+            const positions = teamRoles(member)
+              .filter((role) => role.module === group.module)
+              .map((role) => role.position)
+              .sort((a, b) => rank(a) - rank(b));
+            return positions.length
+              ? [
+                  {
+                    member,
+                    position: positions.join(" · "),
+                    groupTitle: group.title,
+                    accent: group.accent,
+                    rank: rank(positions[0]),
+                  },
+                ]
+              : [];
+          })
+          .sort((a, b) => a.rank - b.rank)
+          .map(({ rank: _rank, ...entry }) => entry),
+      };
+    })
     .filter((group) => group.entries.length > 0);
 }

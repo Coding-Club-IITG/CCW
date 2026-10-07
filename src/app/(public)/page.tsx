@@ -130,7 +130,11 @@ const EMPTY: HomeData = {
 async function getHomeData(): Promise<HomeData> {
   await connectMongoDB();
 
-  return cachedFetch(buildCacheKey("home:v5"), CACHE_TTLS.EVENTS, async () => {
+  return cachedFetch(buildCacheKey("home:v6"), CACHE_TTLS.EVENTS, async () => {
+    const teamFilter = {
+      ...publicTeamFilter(undefined, { includeCoreTeam: false }),
+      tenure: CURRENT_TENURE,
+    };
     const [
       heads,
       ongoingProjects,
@@ -140,7 +144,7 @@ async function getHomeData(): Promise<HomeData> {
       posts,
       team,
     ] = await Promise.all([
-      User.countDocuments({ ...publicTeamFilter(), tenure: CURRENT_TENURE }),
+      User.countDocuments(teamFilter),
       Project.countDocuments({ status: "Ongoing" }),
       BlogPost.countDocuments({ status: "published" }),
       Project.find({})
@@ -163,7 +167,7 @@ async function getHomeData(): Promise<HomeData> {
         .limit(3)
         .lean(),
 
-      User.find({ ...publicTeamFilter(), tenure: CURRENT_TENURE })
+      User.find(teamFilter)
         .select("name image access managedModules roles pizza_count")
         .lean(),
     ]);
@@ -233,8 +237,11 @@ async function getHomeData(): Promise<HomeData> {
                 ROLE_CLUB_POSITIONS.includes(role.position as never),
             );
             const moduleName =
-              member.managedModules?.[0] ??
-              roles.find((role) => role.module)?.module ??
+              (member.access === "Head"
+                ? member.managedModules?.[0]
+                : undefined) ??
+              roles.find((role) => role.module && role.position === "Head")
+                ?.module ??
               undefined;
             return {
               id: String(member._id),
