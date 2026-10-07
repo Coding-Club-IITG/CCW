@@ -5,7 +5,7 @@ import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { Send as IconSend } from "lucide-react";
-import { MODULES } from "@/lib/constants";
+import { ROLE_MODULES } from "@/lib/constants";
 import styles from "./Notifications.module.scss";
 
 export default function AdminNotificationsPage() {
@@ -67,7 +67,7 @@ export default function AdminNotificationsPage() {
             className={styles.select}
           >
             <option value="all">All Members</option>
-            {MODULES.map((m) => (
+            {ROLE_MODULES.map((m) => (
               <option key={m} value={`module:${m}`}>
                 {m} Module
               </option>

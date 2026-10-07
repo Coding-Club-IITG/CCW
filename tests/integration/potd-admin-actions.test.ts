@@ -119,21 +119,31 @@ describe("POTD administration actions", () => {
     await stopTestMongo();
   });
 
-  it("forbids POTD scheduling for a regular member", async () => {
-    const { setDailyProblem } = await import("@/lib/actions/admin/potd");
-    mocks.getSession.mockResolvedValueOnce({
-      ...adminSession(adminId),
-      user: { ...adminSession(adminId).user, access: "Member", roles: "[]" },
-    });
+  it.each([
+    { roles: [] },
+    { roles: [{ module: "Competitive Programming", position: "Core Team" }] },
+  ])(
+    "forbids POTD scheduling for Members even with roles %j",
+    async ({ roles }) => {
+      const { setDailyProblem } = await import("@/lib/actions/admin/potd");
+      mocks.getSession.mockResolvedValueOnce({
+        ...adminSession(adminId),
+        user: {
+          ...adminSession(adminId).user,
+          access: "Member",
+          roles: JSON.stringify(roles),
+        },
+      });
 
-    await expect(
-      setDailyProblem("2026-07-31", "158A", "Easy"),
-    ).resolves.toEqual({
-      ok: false,
-      error: { code: "FORBIDDEN", message: "Forbidden" },
-    });
-    expect(await AuditLog.countDocuments()).toBe(0);
-  });
+      await expect(
+        setDailyProblem("2026-07-31", "158A", "Easy"),
+      ).resolves.toEqual({
+        ok: false,
+        error: { code: "FORBIDDEN", message: "Forbidden" },
+      });
+      expect(await AuditLog.countDocuments()).toBe(0);
+    },
+  );
 
   it("rejects invalid, past, and overly distant schedule dates", async () => {
     const { setDailyProblem } = await import("@/lib/actions/admin/potd");
@@ -217,7 +227,7 @@ describe("POTD administration actions", () => {
       actor: {
         userId: adminId.toString(),
         displayName: "POTD Admin",
-        access: "Member",
+        access: "Core Team",
       },
       after: {
         date: "2026-07-31",
@@ -419,7 +429,7 @@ describe("POTD administration actions", () => {
       category: "potd",
       action: "sync",
       operation: "potd.force_sync",
-      actor: { access: "Member" },
+      actor: { access: "Core Team" },
       before: {},
       after: { status: "Accepted", pointsAwarded: 100, force: true },
     });
@@ -503,7 +513,7 @@ describe("POTD administration actions", () => {
       category: "potd",
       action: "bulk_schedule",
       operation: "potd.bulk_schedule",
-      actor: { access: "Member" },
+      actor: { access: "Core Team" },
       after: { scheduledCount: 1 },
     });
     expect(await AuditLog.countDocuments()).toBe(1);
@@ -516,7 +526,7 @@ function adminSession(adminId: mongoose.Types.ObjectId) {
       id: adminId.toString(),
       name: "POTD Admin",
       email: "potd-admin@example.test",
-      access: "Member",
+      access: "Core Team",
       roles: JSON.stringify([
         { module: "Competitive Programming", position: "Core Team" },
       ]),

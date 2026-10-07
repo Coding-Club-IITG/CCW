@@ -120,31 +120,48 @@ describe("file sharing groups", () => {
     expect((await POST(request("/groups", "POST", {}))).status).toBe(403);
   });
 
-  it("validates module scope and real member IDs", async () => {
-    const { POST } = await import("@/app/api/files/groups/route");
-    expect(
-      (
-        await POST(
-          request("/groups", "POST", {
-            name: "Wrong module",
-            module: "Cybersecurity",
-            memberIds: [],
-          }),
-        )
-      ).status,
-    ).toBe(403);
-    expect(
-      (
-        await POST(
-          request("/groups", "POST", {
-            name: "Missing member",
-            memberIds: [String(new Types.ObjectId())],
-          }),
-        )
-      ).status,
-    ).toBe(400);
-    expect(await SharingGroup.countDocuments()).toBe(0);
-    expect(await AuditLog.countDocuments()).toBe(0);
+  it.each(["Head", "Core Team"])(
+    "validates %s module scope and real member IDs",
+    async (access) => {
+      getSession.mockResolvedValue(
+        fileSession({ access, managedModules: ["Design"] }),
+      );
+      const { POST } = await import("@/app/api/files/groups/route");
+      expect(
+        (
+          await POST(
+            request("/groups", "POST", {
+              name: "Wrong module",
+              module: "Cybersecurity",
+              memberIds: [],
+            }),
+          )
+        ).status,
+      ).toBe(403);
+      expect(
+        (
+          await POST(
+            request("/groups", "POST", {
+              name: "Missing member",
+              memberIds: [String(new Types.ObjectId())],
+            }),
+          )
+        ).status,
+      ).toBe(400);
+      expect(await SharingGroup.countDocuments()).toBe(0);
+      expect(await AuditLog.countDocuments()).toBe(0);
+    },
+  );
+
+  it("lets Core Team create an audited sharing group in its module", async () => {
+    getSession.mockResolvedValue(
+      fileSession({ access: "Core Team", managedModules: ["Design"] }),
+    );
+    const id = await createGroup();
+    expect(await SharingGroup.findById(id).lean()).toMatchObject({
+      module: "Design",
+    });
+    expect(await AuditLog.countDocuments()).toBe(1);
   });
 
   it("lists groups with pagination and displays members without exposing account fields", async () => {
@@ -174,65 +191,68 @@ describe("file sharing groups", () => {
     });
   });
 
-  it("allows creator, scoped heads and admins to edit but rejects ordinary members and unrelated heads", async () => {
-    const id = await createGroup();
-    const { PATCH } = await import("@/app/api/files/groups/[id]/route");
-    const body = {
-      name: "Renamed",
-      module: "Design",
-      memberIds: [String(FILE_MEMBER_ID)],
-      version: 0,
-    };
-    getSession.mockResolvedValue(fileSession());
-    expect(
-      (await PATCH(request(`/groups/${id}`, "PATCH", body), context(id)))
-        .status,
-    ).toBe(403);
-    getSession.mockResolvedValue(
-      fileSession({ access: "Head", managedModules: ["Cybersecurity"] }),
-    );
-    expect(
-      (await PATCH(request(`/groups/${id}`, "PATCH", body), context(id)))
-        .status,
-    ).toBe(403);
-    getSession.mockResolvedValue(
-      fileSession({ access: "Head", managedModules: ["Design"] }),
-    );
-    expect(
-      (await PATCH(request(`/groups/${id}`, "PATCH", body), context(id)))
-        .status,
-    ).toBe(200);
-    getSession.mockResolvedValue(fileSession({ access: "Admin" }));
-    expect(
-      (
-        await PATCH(
-          request(`/groups/${id}`, "PATCH", {
-            ...body,
-            name: "Admin edit",
-            version: 1,
-          }),
-          context(id),
-        )
-      ).status,
-    ).toBe(200);
-    getSession.mockResolvedValue(owner());
-    expect(
-      (
-        await PATCH(
-          request(`/groups/${id}`, "PATCH", {
-            ...body,
-            name: "Creator edit",
-            version: 2,
-          }),
-          context(id),
-        )
-      ).status,
-    ).toBe(200);
-    expect(
-      (await PATCH(request(`/groups/${id}`, "PATCH", body), context(id)))
-        .status,
-    ).toBe(409);
-  });
+  it.each(["Head", "Core Team"])(
+    "allows creator, scoped %s and admins but rejects members and unrelated modules",
+    async (access) => {
+      const id = await createGroup();
+      const { PATCH } = await import("@/app/api/files/groups/[id]/route");
+      const body = {
+        name: "Renamed",
+        module: "Design",
+        memberIds: [String(FILE_MEMBER_ID)],
+        version: 0,
+      };
+      getSession.mockResolvedValue(fileSession());
+      expect(
+        (await PATCH(request(`/groups/${id}`, "PATCH", body), context(id)))
+          .status,
+      ).toBe(403);
+      getSession.mockResolvedValue(
+        fileSession({ access, managedModules: ["Cybersecurity"] }),
+      );
+      expect(
+        (await PATCH(request(`/groups/${id}`, "PATCH", body), context(id)))
+          .status,
+      ).toBe(403);
+      getSession.mockResolvedValue(
+        fileSession({ access, managedModules: ["Design"] }),
+      );
+      expect(
+        (await PATCH(request(`/groups/${id}`, "PATCH", body), context(id)))
+          .status,
+      ).toBe(200);
+      getSession.mockResolvedValue(fileSession({ access: "Admin" }));
+      expect(
+        (
+          await PATCH(
+            request(`/groups/${id}`, "PATCH", {
+              ...body,
+              name: "Admin edit",
+              version: 1,
+            }),
+            context(id),
+          )
+        ).status,
+      ).toBe(200);
+      getSession.mockResolvedValue(owner());
+      expect(
+        (
+          await PATCH(
+            request(`/groups/${id}`, "PATCH", {
+              ...body,
+              name: "Creator edit",
+              version: 2,
+            }),
+            context(id),
+          )
+        ).status,
+      ).toBe(200);
+      expect(
+        (await PATCH(request(`/groups/${id}`, "PATCH", body), context(id)))
+          .status,
+      ).toBe(409);
+    },
+  );
 
   it("applies membership changes to listings, tag discovery, Atlas and file bytes immediately", async () => {
     const id = await createGroup();
@@ -602,48 +622,51 @@ describe("file sharing groups", () => {
     }
   });
 
-  it("rejects unauthorized and stale deletion without changing file references", async () => {
-    const group = await createGroup();
-    const file = await FileEntry.create(
-      fileEntry({ accessControl: { ...EMPTY_ACL, allowedGroups: [group] } }),
-    );
-    const { DELETE } = await import("@/app/api/files/groups/[id]/route");
-    getSession.mockResolvedValue(fileSession());
-    expect(
-      (
-        await DELETE(
-          request(`/groups/${group}`, "DELETE", { version: 0 }),
-          context(group),
-        )
-      ).status,
-    ).toBe(403);
-    getSession.mockResolvedValue(
-      fileSession({ access: "Head", managedModules: ["Cybersecurity"] }),
-    );
-    expect(
-      (
-        await DELETE(
-          request(`/groups/${group}`, "DELETE", { version: 0 }),
-          context(group),
-        )
-      ).status,
-    ).toBe(403);
-    getSession.mockResolvedValue(owner());
-    expect(
-      (
-        await DELETE(
-          request(`/groups/${group}`, "DELETE", { version: 1 }),
-          context(group),
-        )
-      ).status,
-    ).toBe(409);
-    expect(await SharingGroup.findById(group)).not.toBeNull();
-    expect(
-      (await FileEntry.findById(file._id)).accessControl.allowedGroups.map(
-        String,
-      ),
-    ).toEqual([group]);
-  });
+  it.each(["Head", "Core Team"])(
+    "rejects unauthorized %s and stale deletion without changing file references",
+    async (access) => {
+      const group = await createGroup();
+      const file = await FileEntry.create(
+        fileEntry({ accessControl: { ...EMPTY_ACL, allowedGroups: [group] } }),
+      );
+      const { DELETE } = await import("@/app/api/files/groups/[id]/route");
+      getSession.mockResolvedValue(fileSession());
+      expect(
+        (
+          await DELETE(
+            request(`/groups/${group}`, "DELETE", { version: 0 }),
+            context(group),
+          )
+        ).status,
+      ).toBe(403);
+      getSession.mockResolvedValue(
+        fileSession({ access: "Head", managedModules: ["Cybersecurity"] }),
+      );
+      expect(
+        (
+          await DELETE(
+            request(`/groups/${group}`, "DELETE", { version: 0 }),
+            context(group),
+          )
+        ).status,
+      ).toBe(403);
+      getSession.mockResolvedValue(owner());
+      expect(
+        (
+          await DELETE(
+            request(`/groups/${group}`, "DELETE", { version: 1 }),
+            context(group),
+          )
+        ).status,
+      ).toBe(409);
+      expect(await SharingGroup.findById(group)).not.toBeNull();
+      expect(
+        (await FileEntry.findById(file._id)).accessControl.allowedGroups.map(
+          String,
+        ),
+      ).toEqual([group]);
+    },
+  );
 
   it("leaves no dangling group references when deletion races with sharing", async () => {
     const group = await createGroup();

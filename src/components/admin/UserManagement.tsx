@@ -17,6 +17,7 @@ import {
   userQueryParams,
   type UserQuery,
 } from "@/lib/users/query";
+import { getUserRoleLabels } from "@/lib/users/roles";
 import { getDisplayName } from "@/lib/users/identity";
 import {
   type AdminUserDto as AdminUser,
@@ -33,10 +34,13 @@ import {
   ACCESS_LEVELS,
   CLUB_POSITIONS,
   CURRENT_TENURE,
+  HISTORICAL_MODULES,
+  HISTORICAL_CLUB_POSITIONS,
   MODULE_POSITIONS,
   MODULES,
   type AccessLevel,
   type ModuleName,
+  type RoleModuleName,
   type UserRole,
 } from "@/lib/constants";
 
@@ -179,26 +183,22 @@ function Members() {
 
   async function saveAccess() {
     if (!accessUser) return;
-    if (tempAccess === "Head" && tempManagedModules.length === 0) {
-      toast.error("Select at least one module for Head access.");
+    if (
+      (tempAccess === "Head" || tempAccess === "Core Team") &&
+      tempManagedModules.length === 0
+    ) {
+      toast.error(`Select at least one module for ${tempAccess} access.`);
       return;
     }
-    const changingToHead =
-      tempAccess === "Head" && accessUser.access !== "Head";
-    if (changingToHead && accessUser.roles?.length) {
-      const confirmed = await confirm({
-        title: "Clear existing custom roles?",
-        description:
-          "Head roles are generated from managed modules, so the roles currently assigned to this member will be removed.",
-        confirmLabel: "Grant Head access",
-      });
-      if (!confirmed) return;
-    }
-    if (tempAccess !== "Head" && accessUser.managedModules?.length) {
+    if (
+      tempAccess !== "Head" &&
+      tempAccess !== "Core Team" &&
+      accessUser.managedModules?.length
+    ) {
       const confirmed = await confirm({
         title: "Clear managed modules?",
         description:
-          "Changing access away from Head will remove the modules this member manages.",
+          "This removes managed modules and their titles. Save any outgoing titles as roles first if part of Team.",
         confirmLabel: "Change access",
       });
       if (!confirmed) return;
@@ -208,7 +208,9 @@ function Members() {
         updateUserAccess(
           accessUser._id,
           tempAccess,
-          tempAccess === "Head" ? tempManagedModules : [],
+          tempAccess === "Head" || tempAccess === "Core Team"
+            ? tempManagedModules
+            : [],
         ),
       )
     ) {
@@ -224,7 +226,7 @@ function Members() {
   function setRoleMode(index: number, module: string) {
     const next = [...tempRoles] as UserRole[];
     next[index] = module
-      ? { module: module as ModuleName, position: MODULE_POSITIONS[0] }
+      ? { module: module as RoleModuleName, position: MODULE_POSITIONS[0] }
       : { position: CLUB_POSITIONS[0] };
     setTempRoles(next);
   }
@@ -341,7 +343,8 @@ function Members() {
               </thead>
               <tbody>
                 {users.map((user) => {
-                  const isAccessHead = user.access === "Head";
+                  const hasModules =
+                    user.access === "Head" || user.access === "Core Team";
                   return (
                     <tr key={user._id}>
                       <td>
@@ -372,7 +375,7 @@ function Members() {
                               <option key={access}>{access}</option>
                             ))}
                           </select>
-                          {isAccessHead && (
+                          {hasModules && (
                             <button
                               type="button"
                               className={styles.inlineAction}
@@ -385,20 +388,14 @@ function Members() {
                       </td>
                       <td>
                         <div className={styles.rolesCell}>
-                          {isAccessHead ? (
-                            user.managedModules?.map((module) => (
-                              <span className={styles.roleBadge} key={module}>
-                                {module} <strong>Head</strong>
-                              </span>
-                            ))
-                          ) : user.roles?.length ? (
-                            user.roles.map((role, index) => (
-                              <span
-                                className={styles.roleBadge}
-                                key={`${role.module || "club"}-${role.position}-${index}`}
-                              >
-                                {role.module ? `${role.module} · ` : ""}
-                                <strong>{role.position}</strong>
+                          {user.roles?.length || hasModules ? (
+                            getUserRoleLabels(
+                              user.access,
+                              user.managedModules,
+                              user.roles,
+                            ).map((label) => (
+                              <span className={styles.roleBadge} key={label}>
+                                {label}
                               </span>
                             ))
                           ) : (
@@ -443,17 +440,15 @@ function Members() {
                       </td>
                       <td>
                         <div className={styles.actionMenu}>
-                          {!isAccessHead && (
-                            <button
-                              type="button"
-                              className={styles.iconButton}
-                              aria-label={`Edit roles for ${user.name || user.email}`}
-                              title="Edit roles"
-                              onClick={() => openRoleEditor(user)}
-                            >
-                              <Pencil size={15} />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            className={styles.iconButton}
+                            aria-label={`Edit roles for ${user.name || user.email}`}
+                            title="Edit roles"
+                            onClick={() => openRoleEditor(user)}
+                          >
+                            <Pencil size={15} />
+                          </button>
                           <button
                             type="button"
                             className={styles.iconButton}
@@ -520,17 +515,18 @@ function Members() {
               onChange={(event) => {
                 const access = event.target.value as AccessLevel;
                 setTempAccess(access);
-                if (access !== "Head") setTempManagedModules([]);
+                if (access !== "Head" && access !== "Core Team")
+                  setTempManagedModules([]);
               }}
             >
               {ACCESS_LEVELS.map((access) => (
                 <option key={access}>{access}</option>
               ))}
             </select>
-            {tempAccess === "Head" && (
+            {(tempAccess === "Head" || tempAccess === "Core Team") && (
               <fieldset className={styles.modulePicker}>
                 <legend>Managed modules</legend>
-                <p>Select every module this Head is allowed to manage.</p>
+                <p>Select every module this member is allowed to manage.</p>
                 {MODULES.map((module) => (
                   <label key={module}>
                     <input
@@ -583,9 +579,18 @@ function Members() {
                   onChange={(event) => setRoleMode(index, event.target.value)}
                 >
                   <option value="">Club-wide</option>
-                  {MODULES.map((module) => (
-                    <option key={module}>{module}</option>
-                  ))}
+                  <optgroup label="Current modules">
+                    {MODULES.map((module) => (
+                      <option key={module}>{module}</option>
+                    ))}
+                  </optgroup>
+                  {roleUser.tenure && roleUser.tenure !== CURRENT_TENURE && (
+                    <optgroup label="Historical modules">
+                      {HISTORICAL_MODULES.map((module) => (
+                        <option key={module}>{module}</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
                 <select
                   aria-label="Position"
@@ -599,11 +604,28 @@ function Members() {
                     setTempRoles(next);
                   }}
                 >
-                  {(role.module ? MODULE_POSITIONS : CLUB_POSITIONS).map(
-                    (position) => (
-                      <option key={position}>{position}</option>
-                    ),
-                  )}
+                  <optgroup
+                    label={
+                      role.module
+                        ? "Module positions"
+                        : "Current club positions"
+                    }
+                  >
+                    {(role.module ? MODULE_POSITIONS : CLUB_POSITIONS).map(
+                      (position) => (
+                        <option key={position}>{position}</option>
+                      ),
+                    )}
+                  </optgroup>
+                  {!role.module &&
+                    roleUser.tenure &&
+                    roleUser.tenure !== CURRENT_TENURE && (
+                      <optgroup label="Historical club positions">
+                        {HISTORICAL_CLUB_POSITIONS.map((position) => (
+                          <option key={position}>{position}</option>
+                        ))}
+                      </optgroup>
+                    )}
                 </select>
                 <button
                   className={styles.removeRoleButton}

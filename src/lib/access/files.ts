@@ -2,17 +2,18 @@
  * File Access Control utilities
  *
  * - Admins can manage every file.
- * - Heads can upload and manage their own uploads + files in their managed modules.
+ * - Heads and Core Team can upload and manage their own uploads + files in their managed modules.
  * - Members are read-only, subject to each file's ACL.
  */
 
 import type {
   ClubPosition,
   ModuleName,
+  RoleModuleName,
   ModulePosition,
   UserRole,
 } from "@/lib/constants";
-import { isHead, isAdmin, getHeadModules } from "@/lib/access/roles";
+import { isElevated, isAdmin, getModules } from "@/lib/access/roles";
 
 interface ManageableFile {
   uploadedBy: unknown;
@@ -22,7 +23,7 @@ interface ManageableFile {
 interface FileAccessControl {
   allMembers: boolean;
   allowedClubPositions: readonly ClubPosition[];
-  allowedModules: readonly ModuleName[];
+  allowedModules: readonly RoleModuleName[];
   allowedModulePositions: readonly ModulePosition[];
   allowedUsers: readonly unknown[];
   allowedGroups?: readonly unknown[];
@@ -34,7 +35,7 @@ export interface AccessibleFile extends ManageableFile {
 
 // Upload permission
 export function canUploadFiles(access: string): boolean {
-  return isHead(access);
+  return isElevated(access);
 }
 
 // Management permission
@@ -46,13 +47,13 @@ export function canManageFile(
 ): boolean {
   if (isAdmin(access)) return true;
 
-  const headModules = getHeadModules(access, managedModules);
+  const modules = isElevated(access) ? getModules(access, managedModules) : [];
 
   // Module heads
   if (
-    headModules.length > 0 &&
+    modules.length > 0 &&
     file.uploaderModule &&
-    headModules.some((module) => module === file.uploaderModule)
+    modules.some((module) => module === file.uploaderModule)
   ) {
     return true;
   }
@@ -144,7 +145,7 @@ export function buildAccessFilter(
   // Global admins see everything
   if (isAdmin(access)) return {};
 
-  const headModules = getHeadModules(access, managedModules);
+  const modules = isElevated(access) ? getModules(access, managedModules) : [];
   const userModules = roles.flatMap((role) =>
     role.module ? [role.module] : [],
   );
@@ -171,8 +172,8 @@ export function buildAccessFilter(
   }
 
   // Module heads can see files in their modules
-  if (headModules.length > 0) {
-    conditions.push({ uploaderModule: { $in: headModules } });
+  if (modules.length > 0) {
+    conditions.push({ uploaderModule: { $in: modules } });
   }
 
   // Files shared with the user's modules

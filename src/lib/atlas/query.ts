@@ -1,4 +1,4 @@
-import { MODULES, PROJECT_MODULES } from "@/lib/constants";
+import { MODULES, ROLE_MODULES } from "@/lib/constants";
 import { ATLAS_RESULT_KINDS, type AtlasResultKind } from "@/lib/constants";
 import type { AtlasResult, ParsedAtlasQuery } from "@/lib/atlas/types";
 
@@ -62,7 +62,7 @@ export function parseAtlasQuery(value: string): ParsedAtlasQuery {
             : undefined);
         if (kind && !filters.kinds.includes(kind)) filters.kinds.push(kind);
       } else if (key === "module") {
-        const selectedModule = PROJECT_MODULES.find(
+        const selectedModule = [...ROLE_MODULES, "General" as const].find(
           (item) => item.toLowerCase() === raw.toLowerCase(),
         );
         if (selectedModule) filters.module = selectedModule;

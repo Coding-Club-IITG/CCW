@@ -12,9 +12,15 @@ import type {
   AtlasSearchResponse,
   ParsedAtlasQuery,
 } from "@/lib/atlas/types";
-import { PLATFORM_PROBLEM_URLS, type UserRole } from "@/lib/constants";
+import { PLATFORM_PROBLEM_URLS } from "@/lib/constants";
 import { connectMongoDB } from "@/lib/db/mongodb";
-import { parseManagedModules, parseRoles } from "@/lib/users/roles";
+import { publicTeamFilter } from "@/lib/users/team";
+import { getDisplayName } from "@/lib/users/identity";
+import {
+  getUserRoleLabels,
+  parseManagedModules,
+  parseRoles,
+} from "@/lib/users/roles";
 import { prepareSearchQuery } from "@/lib/shared/search";
 
 import BlogPost from "@/models/BlogPost";
@@ -282,48 +288,36 @@ async function projects(query: ParsedAtlasQuery): Promise<AtlasResult[]> {
 }
 
 async function team(query: ParsedAtlasQuery): Promise<AtlasResult[]> {
-  const roleFilter: Record<string, unknown> =
-    query.filters.module && query.filters.module !== "General"
-      ? {
-          $or: [
-            { managedModules: query.filters.module },
-            { "roles.module": query.filters.module },
-          ],
-        }
-      : {};
-  const filter: Record<string, unknown> = {
+  const filter = {
     $and: [
-      roleFilter,
-      regexFilter(query, ["name", "bio", "roles.module", "roles.position"]),
-      { email: { $ne: "codingclub@iitg.ac.in" } },
-      {
-        $or: [
-          { access: "Head" },
-          {
-            "roles.position": {
-              $in: ["Secretary", "OC", "Projects Head", "Head"],
-            },
-          },
-        ],
-      },
+      publicTeamFilter(
+        query.filters.module === "General" ? undefined : query.filters.module,
+      ),
+      regexFilter(query, [
+        "name",
+        "bio",
+        "roles.module",
+        "roles.position",
+        "managedModules",
+        "access",
+      ]),
     ],
   };
   const records = (await User.find(filter)
-    .select("name bio managedModules roles tenure")
+    .select("name bio access managedModules roles tenure pizza_count")
     .sort({ name: 1 })
     .limit(PER_KIND_LIMIT)
     .lean()) as unknown as LeanRecord[];
   return records.map((record) => {
-    const roles = (
-      Array.isArray(record.roles) ? record.roles : []
-    ) as UserRole[];
-    const roleLabels = roles.map((role) =>
-      role.module ? `${role.module} · ${role.position}` : role.position,
+    const roleLabels = getUserRoleLabels(
+      record.access,
+      record.managedModules,
+      record.roles,
     );
     return baseResult({
       record,
       kind: "team",
-      title: text(record.name),
+      title: getDisplayName(text(record.name), Number(record.pizza_count) || 0),
       description:
         text(record.bio) || roleLabels.join(", ") || "Club leadership",
       href: "/team",

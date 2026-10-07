@@ -6,7 +6,8 @@ import {
   ACCESS_LEVELS,
   AUTH_PROVIDERS,
   AUTH_PROVIDER_LABELS,
-  CLUB_POSITIONS,
+  ROLE_CLUB_POSITIONS,
+  ROLE_MODULES,
   MODULE_POSITIONS,
   MODULES,
   USER_SORT_FIELDS,
@@ -120,10 +121,10 @@ export default function UserFilters({
             </label>
           </div>
           {select("position", "Position", [
-            ...CLUB_POSITIONS,
+            ...ROLE_CLUB_POSITIONS,
             ...MODULE_POSITIONS,
           ])}
-          {select("roleModule", "Role module", MODULES)}
+          {select("roleModule", "Role module", ROLE_MODULES)}
           {select("managedModule", "Managed module", MODULES)}
           {select("provider", "Sign-in method", AUTH_PROVIDERS)}
           <div className={styles.field}>

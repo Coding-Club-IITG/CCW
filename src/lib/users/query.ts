@@ -4,7 +4,8 @@ import type { PipelineStage } from "mongoose";
 import {
   ACCESS_LEVELS,
   AUTH_PROVIDERS,
-  CLUB_POSITIONS,
+  ROLE_CLUB_POSITIONS,
+  ROLE_MODULES,
   MODULE_POSITIONS,
   MODULES,
   USER_SORT_FIELDS,
@@ -31,9 +32,9 @@ export const userQuerySchema = z
       )
       .default(""),
     position: z
-      .enum(["", "unassigned", ...CLUB_POSITIONS, ...MODULE_POSITIONS])
+      .enum(["", "unassigned", ...ROLE_CLUB_POSITIONS, ...MODULE_POSITIONS])
       .default(""),
-    roleModule: z.enum(["", "unassigned", ...MODULES]).default(""),
+    roleModule: z.enum(["", "unassigned", ...ROLE_MODULES]).default(""),
     managedModule: z.enum(["", "unassigned", ...MODULES]).default(""),
     provider: z.enum(["", "unassigned", ...AUTH_PROVIDERS]).default(""),
     minPizza: optionalNumber,
@@ -203,7 +204,7 @@ export function userQueryPipeline(query: UserQuery): PipelineStage[] {
       $set: {
         _managed: {
           $cond: [
-            { $eq: ["$access", "Head"] },
+            { $in: ["$access", ["Head", "Core Team"]] },
             arrayOrEmpty("managedModules"),
             [],
           ],
@@ -238,16 +239,15 @@ export function userQueryPipeline(query: UserQuery): PipelineStage[] {
     {
       $set: {
         _roles: {
-          $cond: [
-            { $eq: ["$access", "Head"] },
+          $setUnion: [
+            arrayOrEmpty("roles"),
             {
               $map: {
                 input: "$_managed",
                 as: "module",
-                in: { module: "$$module", position: "Head" },
+                in: { module: "$$module", position: "$access" },
               },
             },
-            arrayOrEmpty("roles"),
           ],
         },
       },

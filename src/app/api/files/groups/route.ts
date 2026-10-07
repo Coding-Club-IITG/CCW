@@ -12,7 +12,7 @@ import {
 import { sharingGroupSchema } from "@/lib/api/schemas/files";
 import { auditActor } from "@/lib/audit/index";
 import { summarizeSharingGroup } from "@/lib/audit/summary";
-import { requireHead, requireSession } from "@/lib/auth/session";
+import { requireElevated, requireSession } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import {
   fileErrorResponse,
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireHead(request);
+    const auth = await requireElevated(request);
     if (!auth.ok) return jsonResult(auth);
     const parsed = await parseJson(request, sharingGroupSchema);
     if (!parsed.ok) return jsonResult(parsed);

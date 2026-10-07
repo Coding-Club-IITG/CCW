@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth/server";
 import { webEnv } from "@/lib/env/web";
 import { canUploadFiles } from "@/lib/access/files";
-import { getHeadModules, isAdmin, isHead } from "@/lib/access/roles";
+import { getModules, isAdmin, isElevated } from "@/lib/access/roles";
 import { parseManagedModules, parseRoles } from "@/lib/users/roles";
 import { getDisplayName } from "@/lib/users/identity";
 
@@ -29,8 +29,8 @@ export default async function FilesPage() {
     roles,
     canUpload: canUploadFiles(user.access),
     isAdmin: isAdmin(user.access),
-    isHead: isHead(user.access),
-    headModules: getHeadModules(user.access, managedModules),
+    isElevated: isElevated(user.access),
+    modules: getModules(user.access, managedModules),
   };
 
   return (

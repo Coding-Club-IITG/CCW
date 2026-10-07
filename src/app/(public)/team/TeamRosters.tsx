@@ -4,14 +4,10 @@ import { useState } from "react";
 import { ChevronRight, Maximize2 } from "lucide-react";
 
 import {
-  CLUB_POSITIONS,
-  MODULE_ACCENTS,
-  MODULE_DESCRIPTIONS,
-  MODULES,
-  type AccessLevel,
-  type ModuleName,
-  type UserRole,
-} from "@/lib/constants";
+  buildTeamGroups,
+  visibleTeamMembers,
+  type PublicTeamMember,
+} from "@/lib/users/team";
 import {
   githubProfileUrl,
   normalizeLinkedInUrl,
@@ -25,98 +21,9 @@ import EmptyState from "@/components/shared/EmptyState";
 
 import styles from "./Team.module.scss";
 
-export interface PublicTeamMember {
-  _id: string;
-  name: string;
-  image?: string;
-  access?: AccessLevel;
-  tenure: string;
-  managedModules?: ModuleName[];
-  roles: UserRole[];
-  bio?: string;
-  githubId?: string;
-  linkedinUrl?: string;
-  pizza_count?: number;
-}
-
-type RosterEntry = {
-  member: PublicTeamMember;
-  position?: string;
-  groupTitle: string;
-  accent: string;
-};
-
-type Group = {
-  id: string;
-  title: string;
-  accent: string;
-  blurb: string;
-  entries: RosterEntry[];
-};
-
-const LEADERSHIP_BLURB =
-  "Overall coordination, projects and everything that falls between modules.";
-
-function buildGroups(members: PublicTeamMember[]): Group[] {
-  const leadership: RosterEntry[] = CLUB_POSITIONS.flatMap((position) =>
-    members
-      .filter((member) =>
-        member.roles.some((role) => !role.module && role.position === position),
-      )
-      .map((member) => ({
-        member,
-        position,
-        groupTitle: "Leadership",
-        accent: "var(--foreground-strong)",
-      })),
-  );
-
-  const moduleGroups: Group[] = MODULES.map((moduleName) => {
-    const accent = MODULE_ACCENTS[moduleName];
-    const entries = members
-      .filter(
-        (member) =>
-          (member.access === "Head" &&
-            member.managedModules?.includes(moduleName)) ||
-          member.roles.some(
-            (role) => role.module === moduleName && role.position === "Head",
-          ),
-      )
-      .map((member) => ({
-        member,
-        position: "Module Head",
-        groupTitle: moduleName,
-        accent,
-      }));
-
-    return {
-      id: moduleName.toLowerCase().replace(/\s+/g, "-"),
-      title: moduleName,
-      accent,
-      blurb: MODULE_DESCRIPTIONS[moduleName],
-      entries,
-    };
-  }).filter((group) => group.entries.length > 0);
-
-  return [
-    ...(leadership.length > 0
-      ? [
-          {
-            id: "leadership",
-            title: "Leadership",
-            accent: "var(--foreground-strong)",
-            blurb: LEADERSHIP_BLURB,
-            entries: leadership,
-          },
-        ]
-      : []),
-    ...moduleGroups,
-  ];
-}
-
 /** Roster grids + member sheet */
 function Roster({ members }: { members: PublicTeamMember[] }) {
-  const groups = buildGroups(members);
+  const groups = buildTeamGroups(members);
   const flat = groups.flatMap((group) => group.entries);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -317,6 +224,7 @@ export default function TeamRosters({
   members: PublicTeamMember[];
   currentTenure: string;
 }) {
+  members = visibleTeamMembers(members);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const archives = [

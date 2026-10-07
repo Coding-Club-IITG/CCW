@@ -11,8 +11,8 @@ export interface CurrentUser {
   roles: UserRole[];
   canUpload: boolean;
   isAdmin: boolean;
-  isHead: boolean;
-  headModules: ModuleName[];
+  isElevated: boolean;
+  modules: ModuleName[];
 }
 
 export interface FileEntry {

@@ -51,7 +51,7 @@ export default function UploadModal({
     title: "",
     description: "",
     tags: [],
-    uploaderModule: currentUser.headModules[0] ?? "",
+    uploaderModule: currentUser.modules[0] ?? "",
     isDownloadable: true,
     accessControl: { ...EMPTY_ACL },
   });
@@ -220,7 +220,7 @@ export default function UploadModal({
         </div>
 
         <div className={styles.fieldRow}>
-          {(currentUser.isAdmin || currentUser.headModules.length > 1) && (
+          {(currentUser.isAdmin || currentUser.modules.length > 1) && (
             <div className={styles.field}>
               <label>Module context</label>
               <select
@@ -235,7 +235,7 @@ export default function UploadModal({
                 {currentUser.isAdmin && (
                   <option value="">None (Admin upload)</option>
                 )}
-                {(currentUser.isAdmin ? MODULES : currentUser.headModules).map(
+                {(currentUser.isAdmin ? MODULES : currentUser.modules).map(
                   (m) => (
                     <option key={m} value={m}>
                       {m}

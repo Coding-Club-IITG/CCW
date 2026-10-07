@@ -2,8 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth/server";
-import { canSetPOTD } from "@/lib/access/potd";
-import { parseRoles } from "@/lib/users/roles";
+import { isElevated } from "@/lib/access/roles";
 
 import SetProblemClient from "./SetProblemClient";
 
@@ -13,7 +12,7 @@ export default async function SetProblemPage() {
   });
 
   const user = session?.user;
-  if (!user || !canSetPOTD(user.access, parseRoles(user.roles))) {
+  if (!user || !isElevated(user.access)) {
     redirect("/internal/potd");
   }
 

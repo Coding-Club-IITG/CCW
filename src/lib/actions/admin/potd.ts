@@ -6,7 +6,7 @@ import type { ClientSession } from "mongoose";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
-import { canSetPOTD } from "@/lib/access/potd";
+import { isElevated } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
 import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizePOTD } from "@/lib/audit/summary";
@@ -27,7 +27,6 @@ import {
   windowStartToISTDateStr,
 } from "@/lib/potd/schedule";
 import { getRedis } from "@/lib/db/redis";
-import { parseRoles } from "@/lib/users/roles";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
 import CPUser from "@/models/CPUser";
@@ -94,7 +93,7 @@ async function checkAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
   const user = session.user;
-  if (!canSetPOTD(user.access, parseRoles(user.roles))) {
+  if (!isElevated(user.access)) {
     logger.warn("Unauthorized POTD admin access attempt", {
       action: "requirePotdAdmin",
     });

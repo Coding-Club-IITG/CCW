@@ -131,7 +131,7 @@ export default function GroupModal({
     ? MODULES
     : [
         ...new Set([
-          ...(currentUser?.headModules ?? []),
+          ...(currentUser?.modules ?? []),
           ...(group?.module ? [group.module] : []),
         ]),
       ];

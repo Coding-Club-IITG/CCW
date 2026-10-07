@@ -150,10 +150,12 @@ Public pages are available without a session, while internal and administrative
 pages are protected by `src/proxy.ts`. Authorization policies live in `src/lib/access`.
 Parsing and display formatting for role data live in `src/lib/users/roles.ts`.
 
-Each user has one permission level in `access` (`Member`, `Head`, or `Admin`),
-one `YYYY-YY` academic year in `tenure`, Head-only scope in `managedModules`,
-and an independent `roles` array of club or module positions.
-`isHead()` authorizes Head and Admin; `isAdmin()` authorizes Admin only.
+Each user has one permission level in `access` (`Member`, `Core Team`, `Head`, or
+`Admin`), one `YYYY-YY` academic year in `tenure`, and independent stored
+club/module `roles`. Head and Core Team require at least one current module in
+`managedModules`. `isElevated()` authorizes Core Team, Head and Admin.
+`isHead()` authorizes Head and Admin. `isAdmin()` authorizes Admin only.
+
 Better-auth can expose `managedModules` and `roles` as JSON strings, so use
 `parseManagedModules()` and `parseRoles()` at that boundary.
 

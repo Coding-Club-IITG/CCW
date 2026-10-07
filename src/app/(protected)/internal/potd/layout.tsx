@@ -12,8 +12,7 @@ import {
 } from "lucide-react";
 
 import { useSession } from "@/lib/auth/client";
-import { canSetPOTD } from "@/lib/access/potd";
-import { parseRoles } from "@/lib/users/roles";
+import { isElevated } from "@/lib/access/roles";
 
 import styles from "./PotdLayout.module.scss";
 
@@ -33,7 +32,7 @@ export default function PotdLayout({
 }) {
   const { data: session } = useSession();
   const user = session?.user;
-  const canSet = user ? canSetPOTD(user.access, parseRoles(user.roles)) : false;
+  const canSet = user ? isElevated(user.access) : false;
 
   const pathname = usePathname();
 

@@ -1,4 +1,8 @@
-import type { ModuleName } from "@/lib/constants";
+import { MODULES, type ModuleName } from "@/lib/constants";
+
+export function isElevated(access?: string): boolean {
+  return access === "Core Team" || access === "Head" || access === "Admin";
+}
 
 /** Whether access level grants Head-level capabilities */
 export function isHead(access?: string): boolean {
@@ -10,10 +14,16 @@ export function isAdmin(access?: string): boolean {
   return access === "Admin";
 }
 
-/** Modules a Head may administer */
-export function getHeadModules(
+/** Module Scope */
+export function getModules(
   access?: string,
   managedModules?: readonly ModuleName[],
 ): ModuleName[] {
-  return access === "Head" ? [...(managedModules ?? [])] : [];
+  return access === "Head" || access === "Core Team"
+    ? [
+        ...new Set(
+          (managedModules ?? []).filter((module) => MODULES.includes(module)),
+        ),
+      ]
+    : [];
 }

@@ -1,7 +1,8 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
 import {
-  CLUB_POSITIONS,
+  ROLE_CLUB_POSITIONS,
+  ROLE_MODULES,
   MODULES,
   MODULE_POSITIONS,
   type ModuleName,
@@ -58,8 +59,8 @@ export interface IFileEntry extends Document {
 const AccessControlSchema = new Schema<IAccessControl>(
   {
     allMembers: { type: Boolean, default: false },
-    allowedModules: [{ type: String, enum: MODULES }],
-    allowedClubPositions: [{ type: String, enum: CLUB_POSITIONS }],
+    allowedModules: [{ type: String, enum: ROLE_MODULES }],
+    allowedClubPositions: [{ type: String, enum: ROLE_CLUB_POSITIONS }],
     allowedModulePositions: [{ type: String, enum: MODULE_POSITIONS }],
     allowedUsers: [{ type: Schema.Types.ObjectId, ref: "User" }],
     allowedGroups: [{ type: Schema.Types.ObjectId, ref: "SharingGroup" }],

@@ -1,4 +1,4 @@
-import { isAdmin, isHead } from "@/lib/access/roles";
+import { getModules, isAdmin, isElevated } from "@/lib/access/roles";
 import type { ModuleName } from "@/lib/constants";
 
 export function canManageSharingGroup(
@@ -9,8 +9,11 @@ export function canManageSharingGroup(
 ): boolean {
   return (
     isAdmin(access) ||
-    (isHead(access) &&
+    (isElevated(access) &&
       (String(group.createdBy) === userId ||
-        Boolean(group.module && managedModules.includes(group.module))))
+        Boolean(
+          group.module &&
+          getModules(access, managedModules).includes(group.module),
+        )))
   );
 }

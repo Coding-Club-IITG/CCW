@@ -11,7 +11,7 @@ import {
 } from "@/lib/api/schemas/files";
 import { auditActor } from "@/lib/audit/index";
 import { summarizeSharingGroup } from "@/lib/audit/summary";
-import { requireHead, requireSession } from "@/lib/auth/session";
+import { requireElevated, requireSession } from "@/lib/auth/session";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { notifyGroupFileAccess } from "@/lib/files/notifications";
 import {
@@ -88,7 +88,7 @@ async function changeGroup(
 ) {
   const operation = deleting ? "files.groups.delete" : "files.groups.update";
   try {
-    const auth = await requireHead(request);
+    const auth = await requireElevated(request);
     if (!auth.ok) return jsonResult(auth);
     const params = parseRouteParams(await context.params, objectIdParamsSchema);
     if (!params.ok) return jsonResult(params);

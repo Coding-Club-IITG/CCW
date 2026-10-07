@@ -301,79 +301,85 @@ describe("files collection route", () => {
     expect(await AuditLog.countDocuments()).toBe(0);
   }, 30_000);
 
-  it("prevents module heads from uploading under another module", async () => {
-    const { POST } = await import("@/app/api/files/route");
-    getSession.mockResolvedValueOnce(
-      fileSession({
-        access: "Head",
-        managedModules: ["Design"],
-      }),
-    );
-
-    const response = await POST(
-      uploadRequest({ uploaderModule: "Competitive Programming" }),
-    );
-
-    expect(response.status).toBe(403);
-    expect(await listTestUploads(uploadDirectory)).toEqual([]);
-  });
-
-  it("persists valid metadata and file bytes in the isolated directory", async () => {
-    const FileEntry = (await import("@/models/FileEntry")).default;
-    const { POST } = await import("@/app/api/files/route");
-    getSession.mockResolvedValueOnce(
-      fileSession({
-        access: "Head",
-        managedModules: ["Design"],
-      }),
-    );
-
-    const response = await POST(
-      uploadRequest({
-        uploaderModule: "Design",
-        tags: [" Minutes  ", "minutes", "Meeting   Notes"],
-        accessControl: JSON.stringify({
-          ...restrictedAcl,
-          allowedModules: ["Design"],
+  it.each(["Head", "Core Team"])(
+    "prevents %s from uploading under another module",
+    async (access) => {
+      const { POST } = await import("@/app/api/files/route");
+      getSession.mockResolvedValueOnce(
+        fileSession({
+          access,
+          managedModules: ["Design"],
         }),
-      }),
-    );
-    const body = await responseData(response);
-    const saved = await FileEntry.findById(body.file._id).lean();
+      );
 
-    expect(response.status).toBe(201);
-    expect(body.file.storedName).toBeUndefined();
-    expect(body.file.folder).toBeUndefined();
-    expect(saved).toMatchObject({
-      title: "Meeting notes",
-      originalName: "notes.txt",
-      mimeType: "text/plain",
-      size: 12,
-      tags: ["Minutes", "Meeting Notes"],
-      uploaderModule: "Design",
-      isDownloadable: true,
-    });
-    expect(saved?.storedName).toMatch(/^[0-9a-f-]+\.txt$/);
-    expect(
-      await readFile(path.join(uploadDirectory, saved!.storedName), "utf8"),
-    ).toBe("hello files!");
-    const audit = await AuditLog.findOne().lean();
-    expect(audit).toMatchObject({
-      category: "files",
-      action: "upload",
-      operation: "files.upload",
-      after: {
+      const response = await POST(
+        uploadRequest({ uploaderModule: "Competitive Programming" }),
+      );
+
+      expect(response.status).toBe(403);
+      expect(await listTestUploads(uploadDirectory)).toEqual([]);
+    },
+  );
+
+  it.each(["Head", "Core Team"])(
+    "persists valid metadata and file bytes for %s",
+    async (access) => {
+      const FileEntry = (await import("@/models/FileEntry")).default;
+      const { POST } = await import("@/app/api/files/route");
+      getSession.mockResolvedValueOnce(
+        fileSession({
+          access,
+          managedModules: ["Design"],
+        }),
+      );
+
+      const response = await POST(
+        uploadRequest({
+          uploaderModule: "Design",
+          tags: [" Minutes  ", "minutes", "Meeting   Notes"],
+          accessControl: JSON.stringify({
+            ...restrictedAcl,
+            allowedModules: ["Design"],
+          }),
+        }),
+      );
+      const body = await responseData(response);
+      const saved = await FileEntry.findById(body.file._id).lean();
+
+      expect(response.status).toBe(201);
+      expect(body.file.storedName).toBeUndefined();
+      expect(body.file.folder).toBeUndefined();
+      expect(saved).toMatchObject({
         title: "Meeting notes",
-        tags: ["Minutes", "Meeting Notes"],
+        originalName: "notes.txt",
         mimeType: "text/plain",
         size: 12,
-        allowDownload: true,
-      },
-    });
-    const serialized = JSON.stringify(audit);
-    expect(serialized).not.toContain("notes.txt");
-    expect(serialized).not.toContain(uploadDirectory);
-  });
+        tags: ["Minutes", "Meeting Notes"],
+        uploaderModule: "Design",
+        isDownloadable: true,
+      });
+      expect(saved?.storedName).toMatch(/^[0-9a-f-]+\.txt$/);
+      expect(
+        await readFile(path.join(uploadDirectory, saved!.storedName), "utf8"),
+      ).toBe("hello files!");
+      const audit = await AuditLog.findOne().lean();
+      expect(audit).toMatchObject({
+        category: "files",
+        action: "upload",
+        operation: "files.upload",
+        after: {
+          title: "Meeting notes",
+          tags: ["Minutes", "Meeting Notes"],
+          mimeType: "text/plain",
+          size: 12,
+          allowDownload: true,
+        },
+      });
+      const serialized = JSON.stringify(audit);
+      expect(serialized).not.toContain("notes.txt");
+      expect(serialized).not.toContain(uploadDirectory);
+    },
+  );
 
   it("removes the disk file when metadata persistence fails", async () => {
     const FileEntry = (await import("@/models/FileEntry")).default;

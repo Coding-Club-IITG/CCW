@@ -1,8 +1,13 @@
-import type { ClubPosition, ModuleName, ModulePosition } from "@/lib/constants";
+import type {
+  ClubPosition,
+  RoleModuleName,
+  ModuleName,
+  ModulePosition,
+} from "@/lib/constants";
 
 export interface AccessControl {
   allMembers: boolean;
-  allowedModules: ModuleName[];
+  allowedModules: RoleModuleName[];
   allowedClubPositions: ClubPosition[];
   allowedModulePositions: ModulePosition[];
   allowedUsers: string[];

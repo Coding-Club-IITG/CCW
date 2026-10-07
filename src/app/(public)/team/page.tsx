@@ -6,12 +6,17 @@ import { CURRENT_TENURE } from "@/lib/constants";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { logger } from "@/lib/telemetry/logger";
 import { pageMetadata } from "@/lib/seo/metadata";
+import {
+  publicTeamFilter,
+  visibleTeamMembers,
+  type PublicTeamMember,
+} from "@/lib/users/team";
 
 import User from "@/models/User";
 
 import PageHeader from "@/components/public/PageHeader";
 
-import TeamRosters, { type PublicTeamMember } from "./TeamRosters";
+import TeamRosters from "./TeamRosters";
 import styles from "./Team.module.scss";
 
 export const metadata: Metadata = pageMetadata({
@@ -26,25 +31,10 @@ export default async function TeamPage() {
   try {
     await connectMongoDB();
     members = await cachedFetch(
-      "ccw:team:rosters:v3",
+      "ccw:team:rosters:v4",
       CACHE_TTLS.TEAM,
       async () => {
-        const users = await User.find({
-          tenure: { $type: "string" },
-          $or: [
-            {
-              roles: {
-                $elemMatch: {
-                  position: {
-                    $in: ["Secretary", "OC", "Projects Head", "Head"],
-                  },
-                },
-              },
-            },
-            { access: "Head", "managedModules.0": { $exists: true } },
-          ],
-          email: { $ne: "codingclub@iitg.ac.in" },
-        })
+        const users = await User.find(publicTeamFilter())
           .select(
             "name image access tenure managedModules roles bio githubId linkedinUrl pizza_count",
           )
@@ -52,6 +42,9 @@ export default async function TeamPage() {
         return toBsonSafe(users) as unknown as PublicTeamMember[];
       },
     );
+
+    // Profile picture is mandatory
+    members = visibleTeamMembers(members);
   } catch (error) {
     logger.error("Failed to fetch team members", error);
     fetchError = true;
@@ -63,7 +56,7 @@ export default async function TeamPage() {
   return (
     <div className={styles.page}>
       <PageHeader
-        kicker={`${current} ${current === 1 ? "head" : "heads"} · ${CURRENT_TENURE}`}
+        kicker={`${current} ${current === 1 ? "member" : "members"} · ${CURRENT_TENURE}`}
         title="Team"
         glow="ember"
         lead="Meet the students running this club."

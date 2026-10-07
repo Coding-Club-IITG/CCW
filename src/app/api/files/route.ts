@@ -9,7 +9,7 @@ import { NextRequest } from "next/server";
 import path from "path";
 
 import { buildAccessFilter, canUploadFiles } from "@/lib/access/files";
-import { getHeadModules, isAdmin } from "@/lib/access/roles";
+import { getModules, isAdmin } from "@/lib/access/roles";
 import { auditActor } from "@/lib/audit/index";
 import { summarizeFile } from "@/lib/audit/summary";
 import {
@@ -231,10 +231,10 @@ export async function POST(request: NextRequest) {
     let uploaderModule: string | null = null;
 
     if (uploaderModuleRaw && uploaderModuleRaw !== "null") {
-      const headModules = getHeadModules(user.access, managedModules);
+      const modules = getModules(user.access, managedModules);
       if (isAdmin(user.access)) {
         uploaderModule = uploaderModuleRaw;
-      } else if (headModules.includes(uploaderModuleRaw as any)) {
+      } else if (modules.includes(uploaderModuleRaw as any)) {
         uploaderModule = uploaderModuleRaw;
       } else {
         return jsonError(

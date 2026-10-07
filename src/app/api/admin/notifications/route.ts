@@ -17,7 +17,7 @@ import { requireHead } from "@/lib/auth/session";
 import { parseJson } from "@/lib/api/result";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import { jsonObjectSchema } from "@/lib/api/schemas/boundary";
-import { MODULES } from "@/lib/constants";
+import { ROLE_MODULES } from "@/lib/constants";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import {
   enqueuePushNotifications,
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       userFilter = {};
     } else if (target.startsWith("module:")) {
       const moduleName = target.replace("module:", "");
-      if (!MODULES.includes(moduleName as any)) {
+      if (!ROLE_MODULES.includes(moduleName as any)) {
         return jsonError("VALIDATION_ERROR", "Invalid module name.");
       }
       userFilter = { "roles.module": moduleName };

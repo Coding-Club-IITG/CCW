@@ -23,7 +23,7 @@ export const VISITOR_COOKIE_MAX_AGE = 90 * 24 * 60 * 60;
 
 /* Authorization */
 
-export const ACCESS_LEVELS = ["Member", "Head", "Admin"] as const;
+export const ACCESS_LEVELS = ["Member", "Core Team", "Head", "Admin"] as const;
 export type AccessLevel = (typeof ACCESS_LEVELS)[number];
 
 export const AUTH_PROVIDERS = ["microsoft", "google"] as const;
@@ -70,12 +70,22 @@ export const USER_SORT_LABELS: Record<
 };
 
 export const CLUB_POSITIONS = ["Secretary", "OC", "Projects Head"] as const;
-export type ClubPosition = (typeof CLUB_POSITIONS)[number];
+export const HISTORICAL_CLUB_POSITIONS = [
+  "Overall Projects Manager",
+  "Operations Head",
+  "Operations Manager",
+  "Events Head",
+] as const;
+export const ROLE_CLUB_POSITIONS = [
+  ...CLUB_POSITIONS,
+  ...HISTORICAL_CLUB_POSITIONS,
+] as const;
+export type ClubPosition = (typeof ROLE_CLUB_POSITIONS)[number];
 
-export const LEADERSHIP_ROLES = CLUB_POSITIONS;
+export const LEADERSHIP_ROLES = ROLE_CLUB_POSITIONS;
 export type LeadershipRole = (typeof LEADERSHIP_ROLES)[number];
 
-export const TEAM_ROLES = [...LEADERSHIP_ROLES, "Head"] as const;
+export const TEAM_ROLES = [...LEADERSHIP_ROLES, "Head", "Core Team"] as const;
 export type TeamRole = (typeof TEAM_ROLES)[number];
 
 /* Modules */
@@ -89,6 +99,12 @@ export const MODULES = [
 ] as const;
 
 export type ModuleName = (typeof MODULES)[number];
+export const HISTORICAL_MODULES = [
+  "App Development",
+  "Web Development",
+] as const;
+export const ROLE_MODULES = [...MODULES, ...HISTORICAL_MODULES] as const;
+export type RoleModuleName = (typeof ROLE_MODULES)[number];
 
 export const MODULE_POSITIONS = [
   "Head",
@@ -101,10 +117,15 @@ export type ModulePosition = (typeof MODULE_POSITIONS)[number];
 
 export type UserRole =
   | { position: ClubPosition; module?: never }
-  | { module: ModuleName; position: ModulePosition };
+  | { module: RoleModuleName; position: ModulePosition };
 
-export const MODULE_ACCENTS: Record<ProjectModuleName, string> = {
+export const MODULE_ACCENTS: Record<
+  ProjectModuleName | RoleModuleName,
+  string
+> = {
   "Software Development": "var(--module-software-accent)",
+  "App Development": "var(--module-software-accent)",
+  "Web Development": "var(--module-software-accent)",
   "Competitive Programming": "var(--module-cp-accent)",
   "Machine Learning": "var(--module-ml-accent)",
   Cybersecurity: "var(--module-security-accent)",
@@ -112,8 +133,10 @@ export const MODULE_ACCENTS: Record<ProjectModuleName, string> = {
   General: "var(--muted)",
 };
 
-export const MODULE_BARS: Record<ProjectModuleName, string> = {
+export const MODULE_BARS: Record<ProjectModuleName | RoleModuleName, string> = {
   "Software Development": "var(--module-software-bar)",
+  "App Development": "var(--module-software-bar)",
+  "Web Development": "var(--module-software-bar)",
   "Competitive Programming": "var(--module-cp-bar)",
   "Machine Learning": "var(--module-ml-bar)",
   Cybersecurity: "var(--module-security-bar)",
@@ -121,7 +144,9 @@ export const MODULE_BARS: Record<ProjectModuleName, string> = {
   General: "var(--muted)",
 };
 
-export const MODULE_DESCRIPTIONS: Record<ModuleName, string> = {
+export const MODULE_DESCRIPTIONS: Record<RoleModuleName, string> = {
+  "App Development": "Building applications for the club and beyond.",
+  "Web Development": "Building responsive sites and interactive web apps.",
   "Software Development":
     "Building scalable solutions and modern applications.",
   "Competitive Programming":

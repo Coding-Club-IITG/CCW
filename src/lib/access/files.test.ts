@@ -62,17 +62,43 @@ describe("file access", () => {
       ),
     ).toBe(true);
   });
-  it("uses Access for management", () => {
-    expect(canUploadFiles("Head")).toBe(true);
-    expect(canUploadFiles("Admin")).toBe(true);
-    expect(canUploadFiles("Member")).toBe(false);
-    expect(canManageFile(memberId.toString(), "Admin", [], file())).toBe(true);
-    expect(canManageFile(memberId.toString(), "Head", ["Design"], file())).toBe(
-      true,
-    );
+  it.each(["Head", "Core Team"])(
+    "uses %s access for scoped management",
+    (access) => {
+      expect(canUploadFiles(access)).toBe(true);
+      expect(canUploadFiles("Admin")).toBe(true);
+      expect(canUploadFiles("Member")).toBe(false);
+      expect(canManageFile(memberId.toString(), "Admin", [], file())).toBe(
+        true,
+      );
+      expect(
+        canManageFile(memberId.toString(), access, ["Design"], file()),
+      ).toBe(true);
+      expect(
+        canManageFile(memberId.toString(), access, ["Cybersecurity"], file()),
+      ).toBe(false);
+    },
+  );
+  it("preserves former uploader ownership and historical sharing grants", () => {
+    expect(canManageFile(ownerId.toString(), "Member", [], file())).toBe(true);
     expect(
-      canManageFile(memberId.toString(), "Head", ["Cybersecurity"], file()),
-    ).toBe(false);
+      canAccessFile(
+        memberId.toString(),
+        "Member",
+        [],
+        [{ module: "Web Development", position: "Head" }],
+        file({ allowedModules: ["Web Development"] }),
+      ),
+    ).toBe(true);
+    expect(
+      canAccessFile(
+        memberId.toString(),
+        "Member",
+        [],
+        [{ position: "Operations Head" }],
+        file({ allowedClubPositions: ["Operations Head"] }),
+      ),
+    ).toBe(true);
   });
   it("evaluates club and module positions", () => {
     expect(

@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Maximize2 } from "lucide-react";
 
+import { publicTeamFilter } from "@/lib/users/team";
 import { excerptPreview } from "@/lib/blog/excerptPreview";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
 import {
-  CLUB_POSITIONS,
   CURRENT_TENURE,
+  ROLE_CLUB_POSITIONS,
   MODULE_ACCENTS,
   MODULE_BARS,
   MODULE_DESCRIPTIONS,
@@ -129,7 +130,7 @@ const EMPTY: HomeData = {
 async function getHomeData(): Promise<HomeData> {
   await connectMongoDB();
 
-  return cachedFetch(buildCacheKey("home:v4"), CACHE_TTLS.EVENTS, async () => {
+  return cachedFetch(buildCacheKey("home:v5"), CACHE_TTLS.EVENTS, async () => {
     const [
       heads,
       ongoingProjects,
@@ -139,14 +140,7 @@ async function getHomeData(): Promise<HomeData> {
       posts,
       team,
     ] = await Promise.all([
-      User.countDocuments({
-        tenure: CURRENT_TENURE,
-        $or: [
-          { roles: { $elemMatch: { position: "Head" } } },
-          { access: "Head", "managedModules.0": { $exists: true } },
-        ],
-        email: { $ne: CLUB_EMAIL },
-      }),
+      User.countDocuments({ ...publicTeamFilter(), tenure: CURRENT_TENURE }),
       Project.countDocuments({ status: "Ongoing" }),
       BlogPost.countDocuments({ status: "published" }),
       Project.find({})
@@ -169,20 +163,7 @@ async function getHomeData(): Promise<HomeData> {
         .limit(3)
         .lean(),
 
-      User.find({
-        tenure: CURRENT_TENURE,
-        $or: [
-          {
-            roles: {
-              $elemMatch: {
-                position: { $in: [...CLUB_POSITIONS, "Head"] },
-              },
-            },
-          },
-          { access: "Head", "managedModules.0": { $exists: true } },
-        ],
-        email: { $ne: CLUB_EMAIL },
-      })
+      User.find({ ...publicTeamFilter(), tenure: CURRENT_TENURE })
         .select("name image access managedModules roles pizza_count")
         .lean(),
     ]);
@@ -248,7 +229,8 @@ async function getHomeData(): Promise<HomeData> {
             const roles = (member.roles ?? []) as Role[];
             const club = roles.find(
               (role) =>
-                !role.module && CLUB_POSITIONS.includes(role.position as never),
+                !role.module &&
+                ROLE_CLUB_POSITIONS.includes(role.position as never),
             );
             const moduleName =
               member.managedModules?.[0] ??
@@ -265,8 +247,8 @@ async function getHomeData(): Promise<HomeData> {
                   "var(--muted)"),
               image: member.image || undefined,
               rank: club
-                ? CLUB_POSITIONS.indexOf(club.position as ClubPosition)
-                : CLUB_POSITIONS.length +
+                ? ROLE_CLUB_POSITIONS.indexOf(club.position as ClubPosition)
+                : ROLE_CLUB_POSITIONS.length +
                   (moduleName && MODULES.includes(moduleName as ModuleName)
                     ? MODULES.indexOf(moduleName as ModuleName)
                     : MODULES.length),
@@ -305,7 +287,7 @@ export default async function Home() {
     },
     {
       value: data.heads,
-      label: `module heads, ${CURRENT_TENURE}`,
+      label: `team members, ${CURRENT_TENURE}`,
       tone: styles.statRed,
     },
   ];

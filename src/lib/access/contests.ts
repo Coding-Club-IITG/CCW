@@ -1,4 +1,4 @@
-import { isHead } from "@/lib/access/roles";
+import { isHead, isElevated } from "@/lib/access/roles";
 import { err, ok } from "@/lib/api/result";
 import { objectIdStringSchema } from "@/lib/api/schemas/contestRoute";
 import { connectMongoDB } from "@/lib/db/mongodb";
@@ -48,6 +48,7 @@ export function canSpectateContest(
   if (restriction === "club_members") {
     return (
       canManageContest(contest, viewer, cpUserId) ||
+      isElevated(viewer.access) ||
       parseRoles(viewer.roles).length > 0
     );
   }

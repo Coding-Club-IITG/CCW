@@ -101,7 +101,7 @@ it("validates detail IDs and reports missing contests", async () => {
   });
 });
 
-it.each(["Member", "Head", "Admin"])(
+it.each(["Member", "Core Team", "Head", "Admin"])(
   "denies an unregistered %s when spectators are disabled",
   async (access) => {
     const { id } = await fixture();
@@ -192,6 +192,10 @@ it("recognizes the creator through their CP profile and checks revocation on eve
 it.each([
   { restriction: "all" as const, user: viewer() },
   { restriction: "admin_creator" as const, user: viewer({ access: "Head" }) },
+  {
+    restriction: "club_members" as const,
+    user: viewer({ access: "Core Team" }),
+  },
   {
     restriction: "club_members" as const,
     user: viewer({

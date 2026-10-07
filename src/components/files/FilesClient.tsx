@@ -283,7 +283,7 @@ export default function FilesClient({
                   const canManage = canManageFile(
                     currentUser.id,
                     currentUser.access,
-                    currentUser.headModules,
+                    currentUser.modules,
                     file,
                   );
                   return (

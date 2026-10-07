@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import {
-  CLUB_POSITIONS,
+  ROLE_CLUB_POSITIONS,
+  ROLE_MODULES,
   FILE_SHARING_LIMIT,
   MODULES,
   MODULE_POSITIONS,
@@ -29,10 +30,13 @@ const ids = z
 export const fileAccessControlSchema = z
   .object({
     allMembers: z.boolean().default(false),
-    allowedModules: z.array(z.enum(MODULES)).max(MODULES.length).default([]),
+    allowedModules: z
+      .array(z.enum(ROLE_MODULES))
+      .max(ROLE_MODULES.length)
+      .default([]),
     allowedClubPositions: z
-      .array(z.enum(CLUB_POSITIONS))
-      .max(CLUB_POSITIONS.length)
+      .array(z.enum(ROLE_CLUB_POSITIONS))
+      .max(ROLE_CLUB_POSITIONS.length)
       .default([]),
     allowedModulePositions: z
       .array(z.enum(MODULE_POSITIONS))

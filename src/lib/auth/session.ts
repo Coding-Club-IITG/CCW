@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { auth, type AuthSession } from "@/lib/auth/server";
-import { isHead } from "@/lib/access/roles";
+import { isHead, isElevated } from "@/lib/access/roles";
 import { err, ok, type AppResult } from "@/lib/api/result";
 
 export async function requireSession(
@@ -19,6 +19,16 @@ export async function requireHead(
   const session = await requireSession(request);
   if (!session.ok) return session;
   return isHead(session.data.user.access)
+    ? session
+    : err("FORBIDDEN", "You do not have permission to perform this action.");
+}
+
+export async function requireElevated(
+  request: Request | NextRequest,
+): Promise<AppResult<AuthSession>> {
+  const session = await requireSession(request);
+  if (!session.ok) return session;
+  return isElevated(session.data.user.access)
     ? session
     : err("FORBIDDEN", "You do not have permission to perform this action.");
 }

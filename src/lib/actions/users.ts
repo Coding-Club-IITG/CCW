@@ -9,7 +9,12 @@ import { isHead } from "@/lib/access/roles";
 import { defineAction } from "@/lib/actions/defineAction";
 import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeUser } from "@/lib/audit/summary";
-import { err as appError, ok, toBsonSafe } from "@/lib/api/result";
+import {
+  err as appError,
+  ok,
+  toBsonSafe,
+  AppResultError,
+} from "@/lib/api/result";
 import { auth } from "@/lib/auth/server";
 import { approvedEmailSchema } from "@/lib/auth/policy";
 import { removeAuthRecords } from "@/lib/auth/identityStore";
@@ -22,6 +27,7 @@ import {
 import {
   ACCESS_LEVELS,
   CURRENT_TENURE,
+  MODULES,
   type AccessLevel,
   type ModuleName,
   type UserRole,
@@ -252,18 +258,23 @@ async function updateUserAccessAction(
 
     if (!ACCESS_LEVELS.includes(access))
       return appError("VALIDATION_ERROR", "Invalid access level.");
-    const modules =
-      access === "Head" ? parseManagedModules(managedModules) : [];
-    if (access === "Head" && modules.length === 0)
+    const scoped = access === "Head" || access === "Core Team";
+    if (
+      scoped &&
+      (!Array.isArray(managedModules) ||
+        !managedModules.every((module) => MODULES.includes(module)))
+    )
+      return appError("VALIDATION_ERROR", "Invalid managed module.");
+    const modules = scoped ? parseManagedModules(managedModules) : [];
+    if (scoped && modules.length === 0)
       return appError(
         "VALIDATION_ERROR",
-        "Head access requires at least one managed module.",
+        `${access} access requires at least one managed module.`,
       );
     if (!(await User.exists({ _id: userId })))
       return appError("NOT_FOUND", "User not found");
 
     const update: Record<string, unknown> = { access, managedModules: modules };
-    if (access === "Head") update.roles = [];
 
     const dbSession = await mongoose.startSession();
     let updatedUser;
@@ -308,6 +319,7 @@ async function updateUserAccessAction(
     });
     await invalidateCache("users");
     await invalidateCache("team");
+    await invalidateCache("atlas");
     await invalidateCache("home");
     revalidatePath("/admin/users");
     revalidatePath("/");
@@ -325,12 +337,10 @@ async function updateUserRolesAction(userId: string, roles: UserRole[]) {
     if (!adminSession) return appError("UNAUTHENTICATED", "Unauthorized");
     await connectMongoDB();
 
-    const user = await User.findById(userId).select("access").lean();
+    const user = await User.findById(userId).select("access tenure").lean();
     if (!user) return appError("NOT_FOUND", "User not found");
-    if (user.access === "Head")
-      return appError("INTERNAL_ERROR", "An unexpected error occurred.");
 
-    const validation = validateRoles(roles);
+    const validation = validateRoles(roles, user.tenure);
     if (!validation.success)
       return appError("VALIDATION_ERROR", validation.error);
 
@@ -340,6 +350,12 @@ async function updateUserRolesAction(userId: string, roles: UserRole[]) {
       updatedUser = await auditedTransaction(dbSession, async (transaction) => {
         const before = await User.findById(userId).session(transaction).lean();
         if (!before) throw new Error("User disappeared during roles update.");
+        const currentValidation = validateRoles(roles, before.tenure);
+        if (!currentValidation.success)
+          throw new AppResultError({
+            code: "VALIDATION_ERROR",
+            message: currentValidation.error,
+          });
         const updated = await User.findByIdAndUpdate(
           userId,
           { roles: validation.roles },
@@ -379,12 +395,15 @@ async function updateUserRolesAction(userId: string, roles: UserRole[]) {
     });
     await invalidateCache("users");
     await invalidateCache("team");
+    await invalidateCache("atlas");
     await invalidateCache("home");
     revalidatePath("/admin/users");
     revalidatePath("/");
     revalidatePath("/team");
     return ok({ user: toBsonSafe(updatedUser) });
   } catch (err) {
+    if (err instanceof AppResultError)
+      return { ok: false as const, error: err.detail };
     logger.error("updateUserModuleRoles error:", err);
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
@@ -409,6 +428,12 @@ async function updateUserTenureAction(userId: string, value: string) {
       updatedUser = await auditedTransaction(dbSession, async (transaction) => {
         const before = await User.findById(userId).session(transaction).lean();
         if (!before) throw new Error("User disappeared during tenure update.");
+        const validation = validateRoles(before.roles, tenure);
+        if (!validation.success)
+          throw new AppResultError({
+            code: "VALIDATION_ERROR",
+            message: validation.error,
+          });
         const updated = await User.findByIdAndUpdate(
           userId,
           { tenure },
@@ -449,12 +474,15 @@ async function updateUserTenureAction(userId: string, value: string) {
     });
     await invalidateCache("users");
     await invalidateCache("team");
+    await invalidateCache("atlas");
     await invalidateCache("home");
     revalidatePath("/admin/users");
     revalidatePath("/");
     revalidatePath("/team");
     return ok({ user: toBsonSafe(updatedUser) });
   } catch (err) {
+    if (err instanceof AppResultError)
+      return { ok: false as const, error: err.detail };
     logger.error("updateUserTenure error:", err);
     return appError("INTERNAL_ERROR", "An unexpected error occurred.");
   }
@@ -546,6 +574,7 @@ async function deleteUserAction(userId: string) {
 
     await invalidateCache("users");
     await invalidateCache("team");
+    await invalidateCache("atlas");
     await invalidateCache("home");
     await invalidateCache("cp");
     await invalidateCache("potd");
@@ -610,6 +639,7 @@ async function updateUserPizzaCountAction(userId: string, delta: 1 | -1) {
     });
     await invalidateCache("users");
     await invalidateCache("team");
+    await invalidateCache("atlas");
     await invalidateCache("home");
     await invalidateCache("cp");
     await invalidateCache("potd");
@@ -778,6 +808,7 @@ async function updateProfileAction(data: {
       resourceId: session.user.id,
     });
     await invalidateCache("team");
+    await invalidateCache("atlas");
     await invalidateCache("home");
     await invalidateCache("cp");
     await invalidateCache("potd");

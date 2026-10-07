@@ -1,11 +1,13 @@
 import mongoose from "mongoose";
 import {
   ACCESS_LEVELS,
-  CLUB_POSITIONS,
+  ROLE_CLUB_POSITIONS,
+  ROLE_MODULES,
   CURRENT_TENURE,
   MODULES,
   MODULE_POSITIONS,
 } from "@/lib/constants";
+import { validateRoles } from "@/lib/users/roles";
 
 const UserSchema = new mongoose.Schema(
   {
@@ -23,10 +25,10 @@ const UserSchema = new mongoose.Schema(
     managedModules: [{ type: String, enum: MODULES }],
     roles: [
       {
-        module: { type: String, enum: MODULES, required: false },
+        module: { type: String, enum: ROLE_MODULES, required: false },
         position: {
           type: String,
-          enum: [...CLUB_POSITIONS, ...MODULE_POSITIONS],
+          enum: [...ROLE_CLUB_POSITIONS, ...MODULE_POSITIONS],
           required: true,
         },
         _id: false,
@@ -56,25 +58,15 @@ UserSchema.pre("validate", function () {
       "Tenure must be a consecutive academic year in YYYY-YY format.",
     );
   }
-  if (this.access !== "Head") this.managedModules = [];
-  if (this.access === "Head" && this.managedModules.length === 0)
-    this.invalidate("managedModules", "Head access requires a managed module.");
-  if (this.access === "Head") this.roles.splice(0);
-  const keys = new Set<string>();
-  for (const role of this.roles) {
-    const club =
-      !role.module && CLUB_POSITIONS.includes(role.position as never);
-    const modulePosition =
-      !!role.module &&
-      MODULES.includes(role.module as never) &&
-      MODULE_POSITIONS.includes(role.position as never);
-    if (!club && !modulePosition)
-      this.invalidate("roles", "Invalid role combination.");
-    const key = `${role.module ?? "club"}:${role.position}`;
-    if (keys.has(key))
-      this.invalidate("roles", "Duplicate roles are not allowed.");
-    keys.add(key);
-  }
+  const scoped = this.access === "Head" || this.access === "Core Team";
+  if (!scoped) this.managedModules = [];
+  if (scoped && this.managedModules.length === 0)
+    this.invalidate(
+      "managedModules",
+      `${this.access} access requires a managed module.`,
+    );
+  const validation = validateRoles(this.roles.toObject(), this.tenure);
+  if (!validation.success) this.invalidate("roles", validation.error);
 });
 
 export type UserRecord = mongoose.InferSchemaType<typeof UserSchema>;

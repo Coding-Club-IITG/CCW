@@ -4,8 +4,8 @@ import { useId } from "react";
 import { Globe, Shield, Users } from "lucide-react";
 
 import {
-  MODULES,
-  CLUB_POSITIONS,
+  ROLE_MODULES,
+  ROLE_CLUB_POSITIONS,
   MODULE_POSITIONS,
   FILE_SHARING_LIMIT,
 } from "@/lib/constants";
@@ -23,11 +23,11 @@ interface Props {
 export default function AccessControlForm({ value, onChange }: Props) {
   const id = useId();
   const rules = [
-    { key: "allowedModules", label: "Modules", options: MODULES },
+    { key: "allowedModules", label: "Modules", options: ROLE_MODULES },
     {
       key: "allowedClubPositions",
       label: "Club positions",
-      options: CLUB_POSITIONS,
+      options: ROLE_CLUB_POSITIONS,
     },
     {
       key: "allowedModulePositions",

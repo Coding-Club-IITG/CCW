@@ -1,4 +1,4 @@
-import type { AtlasResultKind, ModuleName } from "@/lib/constants";
+import type { AtlasResultKind, RoleModuleName } from "@/lib/constants";
 
 export type AtlasAction = {
   label: string;
@@ -23,7 +23,7 @@ export type AtlasResult = {
   description: string;
   href?: string;
   date?: string;
-  module?: ModuleName | "General";
+  module?: RoleModuleName | "General";
   tags?: string[];
   status?: string;
   internal: boolean;
@@ -44,7 +44,7 @@ export type AtlasPreviewResponse = {
 
 export type AtlasFilters = {
   kinds: AtlasResultKind[];
-  module?: ModuleName | "General";
+  module?: RoleModuleName | "General";
   tag?: string;
   status?: string;
   author?: string;

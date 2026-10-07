@@ -30,8 +30,7 @@ import {
 } from "lucide-react";
 
 import { readAppResult } from "@/lib/api/result";
-import { canSetPOTD } from "@/lib/access/potd";
-import { isHead } from "@/lib/access/roles";
+import { isElevated, isHead } from "@/lib/access/roles";
 import { atlasCatalog, type AtlasCatalogItem } from "@/lib/atlas/catalog";
 import { parseAtlasQuery } from "@/lib/atlas/query";
 import { type AtlasResultKind } from "@/lib/constants";
@@ -42,7 +41,6 @@ import type {
   AtlasSearchResponse,
 } from "@/lib/atlas/types";
 import { useSession } from "@/lib/auth/client";
-import { parseRoles } from "@/lib/users/roles";
 import { useThemeStore } from "@/lib/stores/theme";
 import { useViewModeStore } from "@/lib/stores/viewMode";
 import { formatShortDate } from "@/lib/shared/dates";
@@ -171,10 +169,10 @@ export function CommandConsoleProvider({ children }: { children: ReactNode }) {
       atlasCatalog({
         signedIn: Boolean(session),
         head: isHead(user?.access),
-        canSetPotd: canSetPOTD(user?.access, parseRoles(user?.roles)),
+        canSetPotd: isElevated(user?.access),
         theme,
       }),
-    [session, theme, user?.access, user?.roles],
+    [session, theme, user?.access],
   );
 
   const show = useCallback(() => {
