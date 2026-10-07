@@ -1,0 +1,126 @@
+@use "@/styles/mixins" as *;
+
+.page {
+  @include page-container;
+  padding-block: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.backWrap {
+  margin-bottom: 0.5rem;
+}
+
+.header {
+  @include standard-page-header(true, 0);
+  align-items: center;
+}
+
+.kicker {
+  @include standard-page-kicker(0 0 0.5rem);
+  color: var(--primary);
+}
+
+.title {
+  @include standard-page-title(0 0 0.5rem);
+}
+
+.lead {
+  @include standard-page-subtitle;
+  font-size: 14px;
+}
+
+.headerMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.statusBadge {
+  @include badge-neutral;
+
+  &.live,
+  &.lobby_open {
+    @include badge-success;
+  }
+
+  &.scheduled,
+  &.paused {
+    @include badge-warning;
+  }
+
+  &.draft {
+    @include badge-neutral;
+  }
+}
+
+.roleBadge {
+  @include badge-info;
+  text-transform: capitalize;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+
+  @media (min-width: 768px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.overviewCard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.cardHeading {
+  @include section-title(0);
+  font-size: 1.125rem;
+}
+
+.detailList {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin: 0;
+
+  @media (min-width: 480px) {
+    grid-template-columns: auto 1fr;
+    column-gap: 1.5rem;
+  }
+
+  dt {
+    @include micro-label($text-xs, 0.08em);
+    margin: 0;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 14px;
+    color: var(--foreground-strong);
+  }
+}
+
+.mono {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+.errorState {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 600px;
+}
+
+.backLink {
+  @include btn-secondary($padding: 0.5rem 1rem);
+  width: fit-content;
+  text-decoration: none;
+}

@@ -1,0 +1,144 @@
+@use "@/styles/mixins" as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.noticeWrap {
+  margin-top: 0.5rem;
+}
+
+.createCard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.createTitle {
+  @include section-title(0);
+  font-size: 1.125rem;
+}
+
+.createForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+
+  @media (min-width: 640px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+
+  label {
+    @include micro-label($text-xs, 0.08em);
+  }
+}
+
+.input {
+  @include form-control;
+}
+
+.formActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block: 0.5rem;
+}
+
+.filterChip {
+  @include filter-chip;
+
+  &.active {
+    @include filter-chip-active;
+  }
+}
+
+.tableFrame {
+  @include table-frame;
+  overflow-x: auto;
+  background: var(--surface);
+}
+
+.table {
+  @include table-base;
+  min-width: 680px;
+
+  th {
+    white-space: nowrap;
+  }
+
+  td {
+    vertical-align: middle;
+  }
+}
+
+.quizLink {
+  font-weight: 600;
+  color: var(--foreground-strong);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--primary);
+  }
+}
+
+.mono {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.statusBadge {
+  @include badge-neutral;
+
+  &.live,
+  &.lobby_open {
+    @include badge-success;
+  }
+
+  &.scheduled,
+  &.paused {
+    @include badge-warning;
+  }
+
+  &.draft {
+    @include badge-neutral;
+  }
+}
+
+.actionsCell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.editBtn {
+  @include btn-secondary($padding: 0.25rem 0.625rem);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.paginationWrap {
+  margin-top: 1rem;
+}
