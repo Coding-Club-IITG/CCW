@@ -119,14 +119,12 @@ export async function mutateRecruitment<T>(
       };
     });
   } finally {
-    await session
-      .endSession()
-      .catch((error) =>
-        logger.warn("Recruitment session cleanup failed", {
-          operation: "recruitment.end_session",
-          ...errorToLogMetadata(error),
-        }),
-      );
+    await session.endSession().catch((error) =>
+      logger.warn("Recruitment session cleanup failed", {
+        operation: "recruitment.end_session",
+        ...errorToLogMetadata(error),
+      }),
+    );
   }
 }
 

@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    // Limit for file upload API route
+    // Request limit for Server Actions
     serverActions: {
       bodySizeLimit: "50mb",
     },

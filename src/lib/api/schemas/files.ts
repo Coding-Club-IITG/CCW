@@ -8,6 +8,16 @@ import {
 } from "@/lib/constants";
 import { objectIdParamsSchema } from "./boundary";
 
+export function createFileUploadSchema(maxBytes: number) {
+  return z
+    .file({ error: "No file provided." })
+    .min(1, "No file provided.")
+    .max(
+      maxBytes,
+      `File too large. Maximum file size is ${maxBytes / (1024 * 1024)} MiB.`,
+    );
+}
+
 const id = objectIdParamsSchema.shape.id.transform((value) =>
   value.toLowerCase(),
 );

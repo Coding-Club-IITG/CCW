@@ -4,6 +4,7 @@ import { Upload, FileIcon, Shield, AlertCircle } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
+import { createFileUploadSchema } from "@/lib/api/schemas/files";
 import { MODULES, type ModuleName } from "@/lib/constants";
 import { validateTags } from "@/lib/shared/tags";
 
@@ -18,6 +19,7 @@ import { EMPTY_ACL, formatBytes } from "./utils";
 
 interface Props {
   currentUser: CurrentUser;
+  maxFileUploadBytes: number;
   existingTags: string[];
   onSuccess: () => void;
   onClose: () => void;
@@ -35,10 +37,12 @@ interface UploadFormState {
 
 export default function UploadModal({
   currentUser,
+  maxFileUploadBytes,
   existingTags,
   onSuccess,
   onClose,
 }: Props) {
+  const fileUploadSchema = createFileUploadSchema(maxFileUploadBytes);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +58,14 @@ export default function UploadModal({
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
+    const result = fileUploadSchema.safeParse(file);
+    if (file && !result.success) {
+      setError(result.error.issues[0].message);
+      setForm((previous) => ({ ...previous, file: null }));
+      e.target.value = "";
+      return;
+    }
+    setError(null);
     setForm((prev) => ({
       ...prev,
       file,
@@ -63,8 +75,9 @@ export default function UploadModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.file) {
-      setError("Please select a file.");
+    const parsedFile = fileUploadSchema.safeParse(form.file);
+    if (!parsedFile.success) {
+      setError(parsedFile.error.issues[0].message);
       return;
     }
     if (!form.title.trim()) {
@@ -81,7 +94,7 @@ export default function UploadModal({
     setError(null);
 
     const fd = new FormData();
-    fd.append("file", form.file);
+    fd.append("file", parsedFile.data);
     fd.append("title", form.title.trim());
     fd.append("description", form.description.trim());
     parsedTags.tags.forEach((tag) => fd.append("tags", tag));
@@ -163,6 +176,9 @@ export default function UploadModal({
             style={{ display: "none" }}
             onChange={handleFileSelect}
           />
+          <span className={styles.hint}>
+            Maximum file size: {maxFileUploadBytes / (1024 * 1024)} MiB.
+          </span>
         </div>
 
         {/* Title */}

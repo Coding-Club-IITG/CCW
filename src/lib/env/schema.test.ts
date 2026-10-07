@@ -22,6 +22,25 @@ const required = {
 };
 
 describe("runtime environment schemas", () => {
+  it("defaults internal uploads to 100 MiB and validates byte-limit overrides", () => {
+    expect(parseWebEnv(required).MAX_FILE_UPLOAD_BYTES).toBe(104_857_600);
+    expect(
+      parseWebEnv({ ...required, MAX_FILE_UPLOAD_BYTES: "262144000" })
+        .MAX_FILE_UPLOAD_BYTES,
+    ).toBe(262_144_000);
+    for (const value of [
+      "0",
+      "-1",
+      "1.5",
+      "invalid",
+      "Infinity",
+      "9007199254740992",
+    ]) {
+      expect(() =>
+        parseWebEnv({ ...required, MAX_FILE_UPLOAD_BYTES: value }),
+      ).toThrow("MAX_FILE_UPLOAD_BYTES");
+    }
+  });
   it.each([parseWebEnv, parseWorkerEnv, parseCliEnv])(
     "validates key contest timing defaults and bounds",
     (parse) => {

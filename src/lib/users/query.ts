@@ -11,6 +11,7 @@ import {
 } from "@/lib/constants";
 import { normalizeTenure } from "@/lib/users/roles";
 import { prepareSearchQuery } from "@/lib/shared/search";
+import { queryParamsWithDefaults } from "@/lib/shared/queryParams";
 
 const optionalNumber = z.preprocess(
   (value) => (value === "" || value === undefined ? undefined : value),
@@ -78,17 +79,11 @@ export function userQueryParams(
   query: UserQuery,
   current = new URLSearchParams(),
 ): URLSearchParams {
-  const params = new URLSearchParams(current);
-  for (const key of USER_QUERY_KEYS as (keyof UserQuery)[]) {
-    params.delete(key);
-    if (
-      query[key] !== undefined &&
-      query[key] !== "" &&
-      query[key] !== DEFAULT_USER_QUERY[key]
-    )
-      params.set(key, String(query[key]));
-  }
-  return params;
+  return queryParamsWithDefaults(
+    query,
+    { ...DEFAULT_USER_QUERY, minPizza: undefined, maxPizza: undefined },
+    current,
+  );
 }
 
 const arrayOrEmpty = (field: string) => ({

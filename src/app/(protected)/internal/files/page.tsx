@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 
 import { auth } from "@/lib/auth/server";
+import { webEnv } from "@/lib/env/web";
 import { canUploadFiles } from "@/lib/access/files";
 import { getHeadModules, isAdmin, isHead } from "@/lib/access/roles";
 import { parseManagedModules, parseRoles } from "@/lib/users/roles";
@@ -32,5 +33,10 @@ export default async function FilesPage() {
     headModules: getHeadModules(user.access, managedModules),
   };
 
-  return <FilesClient currentUser={currentUser} />;
+  return (
+    <FilesClient
+      currentUser={currentUser}
+      maxFileUploadBytes={webEnv.MAX_FILE_UPLOAD_BYTES}
+    />
+  );
 }

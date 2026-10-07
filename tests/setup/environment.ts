@@ -6,6 +6,7 @@ Object.assign(process.env, {
   AZURE_CLIENT_ID: "test-client-id",
   AZURE_CLIENT_SECRET: "test-client-secret",
   AZURE_TENANT_ID: "test-tenant-id",
+  MAX_FILE_UPLOAD_BYTES: "104857600",
 });
 process.env.REDIS_URL ??= "redis://127.0.0.1:6379/15";
 process.env.MONGODB_TEST_URI ??=

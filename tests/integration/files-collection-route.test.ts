@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import path from "path";
-import { readFile } from "fs/promises";
+import { readFile, stat } from "fs/promises";
 import {
   afterAll,
   afterEach,
@@ -10,6 +10,8 @@ import {
   it,
   vi,
 } from "vitest";
+
+import { fileQueryParams } from "@/lib/files/query";
 
 import AuditLog from "@/models/AuditLog";
 
@@ -144,10 +146,14 @@ describe("files collection route", () => {
       }),
     ]);
 
+    const params = fileQueryParams({
+      search: "[guide]",
+      tag: ["Design", "Minutes"],
+      page: 2,
+      limit: 1,
+    });
     const response = await GET(
-      new NextRequest(
-        "http://localhost/api/files?search=%5Bguide%5D&tag=Design&tag=Minutes&page=2&limit=1",
-      ),
+      new NextRequest(`http://localhost/api/files?${params}`),
     );
     const body = await responseData(response);
 
@@ -258,6 +264,43 @@ describe("files collection route", () => {
     expect(await listTestUploads(uploadDirectory)).toEqual([]);
   });
 
+  it("accepts a file at exactly 100 MiB including its multipart metadata", async () => {
+    const FileEntry = (await import("@/models/FileEntry")).default;
+    const { POST } = await import("@/app/api/files/route");
+    getSession.mockResolvedValueOnce(fileSession({ access: "Admin" }));
+    const response = await POST(
+      uploadRequest({
+        file: new File([new Uint8Array(104_857_600)], "limit.bin"),
+      }),
+    );
+    expect(response.status).toBe(201);
+    const body = await responseData(response);
+    const saved = await FileEntry.findById(body.file._id).lean();
+    expect(saved?.size).toBe(104_857_600);
+    expect(
+      (await stat(path.join(uploadDirectory, saved!.storedName))).size,
+    ).toBe(104_857_600);
+  }, 30_000);
+
+  it("rejects one byte over 100 MiB before storing a file or metadata", async () => {
+    const FileEntry = (await import("@/models/FileEntry")).default;
+    const { POST } = await import("@/app/api/files/route");
+    getSession.mockResolvedValueOnce(fileSession({ access: "Admin" }));
+    const response = await POST(
+      uploadRequest({
+        file: new File([new Uint8Array(104_857_601)], "oversized.bin"),
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(await responseError(response)).toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: "File too large. Maximum file size is 100 MiB.",
+    });
+    expect(await listTestUploads(uploadDirectory)).toEqual([]);
+    expect(await FileEntry.countDocuments()).toBe(0);
+    expect(await AuditLog.countDocuments()).toBe(0);
+  }, 30_000);
+
   it("prevents module heads from uploading under another module", async () => {
     const { POST } = await import("@/app/api/files/route");
     getSession.mockResolvedValueOnce(
@@ -351,6 +394,7 @@ describe("files collection route", () => {
 
 function uploadRequest(
   overrides: Partial<{
+    file: File;
     title: string;
     uploaderModule: string;
     accessControl: string;
@@ -360,7 +404,8 @@ function uploadRequest(
   const form = new FormData();
   form.set(
     "file",
-    new File(["hello files!"], "notes.txt", { type: "text/plain" }),
+    overrides.file ??
+      new File(["hello files!"], "notes.txt", { type: "text/plain" }),
   );
   form.set("title", overrides.title ?? "Meeting notes");
   form.set("description", "Weekly notes");

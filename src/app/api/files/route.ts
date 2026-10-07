@@ -7,7 +7,6 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import path from "path";
-import { z } from "zod";
 
 import { buildAccessFilter, canUploadFiles } from "@/lib/access/files";
 import { getHeadModules, isAdmin } from "@/lib/access/roles";
@@ -18,8 +17,12 @@ import {
   parseSearchParams,
   validationError,
 } from "@/lib/api/result";
-import { fileAccessControlSchema } from "@/lib/api/schemas/files";
+import {
+  fileAccessControlSchema,
+  createFileUploadSchema,
+} from "@/lib/api/schemas/files";
 import { notifyFileShared } from "@/lib/files/notifications";
+import { fileListQuerySchema } from "@/lib/files/query";
 import {
   fileErrorResponse,
   lockSharingGroups,
@@ -27,12 +30,9 @@ import {
   mutateFiles,
 } from "@/lib/files/server";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
-import {
-  formDataObjectSchema,
-  optionalSearchQuerySchema,
-  paginationQueryFields,
-} from "@/lib/api/schemas/boundary";
+import { formDataObjectSchema } from "@/lib/api/schemas/boundary";
 import { auth } from "@/lib/auth/server";
+import { webEnv } from "@/lib/env/web";
 import { getUploadStorage, removeUpload } from "@/lib/files/storage";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { parsePagination, paginatedResponse } from "@/lib/shared/pagination";
@@ -45,16 +45,6 @@ import FileEntry from "@/models/FileEntry";
 import SharingGroup from "@/models/SharingGroup";
 
 export const runtime = "nodejs";
-
-// Configuration
-
-const fileListQuerySchema = z.object({
-  ...paginationQueryFields,
-  search: optionalSearchQuerySchema,
-  tag: z
-    .union([z.string().max(1000), z.array(z.string().max(1000)).max(10)])
-    .optional(),
-});
 
 // GET /api/files
 
@@ -96,15 +86,6 @@ export async function GET(request: NextRequest) {
       groupIds,
     );
 
-    const rawTags = Array.isArray(query.data.tag)
-      ? query.data.tag
-      : query.data.tag === undefined
-        ? []
-        : [query.data.tag];
-    const parsedTags = validateTags(rawTags, { maxTags: 10 });
-    if (!parsedTags.ok) {
-      return jsonError("VALIDATION_ERROR", parsedTags.error);
-    }
     const search = prepareSearchQuery(query.data.search);
     const filters: Record<string, unknown>[] = [accessFilter];
     if (search) {
@@ -120,8 +101,8 @@ export async function GET(request: NextRequest) {
         ],
       });
     }
-    if (parsedTags.tags.length) {
-      const exactTags = parsedTags.tags.map((tag) => {
+    if (query.data.tag.length) {
+      const exactTags = query.data.tag.map((tag) => {
         const prepared = prepareSearchQuery(tag, { maxLength: 50 });
         return new RegExp(`^${prepared?.pattern ?? ""}$`, "i");
       });
@@ -208,10 +189,13 @@ export async function POST(request: NextRequest) {
 
     // Extract fields
 
-    const file = formData.get("file") as File | null;
-    if (!file || file.size === 0) {
-      return jsonError("VALIDATION_ERROR", "No file provided.");
+    const parsedFile = createFileUploadSchema(
+      webEnv.MAX_FILE_UPLOAD_BYTES,
+    ).safeParse(formData.get("file"));
+    if (!parsedFile.success) {
+      return jsonError("VALIDATION_ERROR", parsedFile.error.issues[0].message);
     }
+    const file = parsedFile.data;
 
     const title = (formData.get("title") as string | null)?.trim();
     if (!title) {

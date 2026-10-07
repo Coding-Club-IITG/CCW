@@ -311,6 +311,12 @@ export const webEnvSchema = sharedServerSchema
   .extend({
     AUTH_SECRET: secret("AUTH_SECRET", 32),
     PUBLIC_ANALYTICS_ENABLED: boolean("PUBLIC_ANALYTICS_ENABLED", false),
+    MAX_FILE_UPLOAD_BYTES: integer(
+      "MAX_FILE_UPLOAD_BYTES",
+      100 * 1024 * 1024,
+      1,
+      Number.MAX_SAFE_INTEGER,
+    ),
     BASE_URL: httpUrl("BASE_URL"),
     TRUSTED_ORIGINS: origins,
     AZURE_CLIENT_ID: nonempty("AZURE_CLIENT_ID"),

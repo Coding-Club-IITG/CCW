@@ -11,12 +11,20 @@ import {
   Share2,
   Users,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { canManageFile } from "@/lib/access/files";
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { formatShortDate } from "@/lib/shared/dates";
 import { normalizeAccessControl } from "@/lib/files/accessControl";
+import {
+  DEFAULT_FILE_QUERY,
+  fileQueryFromParams,
+  fileQueryParams,
+  type FileQuery,
+} from "@/lib/files/query";
+import { prepareSearchQuery } from "@/lib/shared/search";
 import type { PaginatedResult } from "@/lib/shared/pagination";
 
 import EmptyState from "@/components/shared/EmptyState";
@@ -38,9 +46,26 @@ import { formatBytes, aclSummary } from "./utils";
 
 interface Props {
   currentUser: CurrentUser;
+  maxFileUploadBytes: number;
 }
 
-export default function FilesClient({ currentUser }: Props) {
+export default function FilesClient({
+  currentUser,
+  maxFileUploadBytes,
+}: Props) {
+  const params = useSearchParams();
+  const router = useRouter();
+  const query = useMemo(
+    () => fileQueryFromParams(new URLSearchParams(params)),
+    [params],
+  );
+  const { page, search: searchQuery, tag: selectedTags } = query;
+  function applyQuery(next: FileQuery) {
+    const url = fileQueryParams(next, new URLSearchParams(params));
+    router.push("/internal/files" + (url.size ? "?" + url : ""), {
+      scroll: false,
+    });
+  }
   const toast = useToast();
   const { confirm, confirmDialog } = useConfirm();
 
@@ -48,15 +73,19 @@ export default function FilesClient({ currentUser }: Props) {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [availableTags, setAvailableTags] = useState<AvailableTag[]>([]);
   const [groupNames, setGroupNames] = useState<Record<string, string>>({});
   const latestRequest = useRef(0);
+  const cancelPending = useCallback(() => {
+    latestRequest.current++;
+  }, []);
 
   // Toolbar
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [searchInput, setSearchInput] = useState(searchQuery);
+  useEffect(() => {
+    setSearchInput(searchQuery);
+  }, [searchQuery]);
 
   // Active modal / viewer
   const [viewFile, setViewFile] = useState<FileEntry | null>(null);
@@ -72,9 +101,7 @@ export default function FilesClient({ currentUser }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: "30" });
-      if (searchQuery.trim()) params.set("search", searchQuery);
-      selectedTags.forEach((tag) => params.append("tag", tag));
+      const params = fileQueryParams(query);
       const res = await fetch(`/api/files?${params}`);
       const data = await expectAppData<
         PaginatedResult<FileEntry> & {
@@ -98,11 +125,12 @@ export default function FilesClient({ currentUser }: Props) {
     } finally {
       if (requestId === latestRequest.current) setLoading(false);
     }
-  }, [page, searchQuery, selectedTags]);
+  }, [query]);
 
   useEffect(() => {
-    fetchFiles();
-  }, [fetchFiles]);
+    void fetchFiles();
+    return cancelPending;
+  }, [fetchFiles, cancelPending]);
 
   // Delete
 
@@ -125,20 +153,26 @@ export default function FilesClient({ currentUser }: Props) {
 
   const existingTags = availableTags.map(({ tag }) => tag);
   const hasFilters = Boolean(searchQuery.trim() || selectedTags.length);
+  const isSelectedTag = (tag: string) =>
+    selectedTags.some(
+      (selected) => selected.toLowerCase() === tag.toLowerCase(),
+    );
 
   function toggleTag(tag: string) {
-    setPage(1);
-    setSelectedTags((current) =>
-      current.includes(tag)
-        ? current.filter((selected) => selected !== tag)
-        : [...current, tag],
-    );
+    applyQuery({
+      ...query,
+      page: 1,
+      tag: isSelectedTag(tag)
+        ? selectedTags.filter(
+            (selected) => selected.toLowerCase() !== tag.toLowerCase(),
+          )
+        : [...selectedTags, tag],
+    });
   }
 
   function clearFilters() {
-    setPage(1);
-    setSearchQuery("");
-    setSelectedTags([]);
+    setSearchInput("");
+    applyQuery({ ...DEFAULT_FILE_QUERY, limit: query.limit });
   }
 
   // Render
@@ -174,10 +208,12 @@ export default function FilesClient({ currentUser }: Props) {
       <div className={styles.toolbar}>
         <SearchInput
           placeholder="Search files…"
-          value={searchQuery}
-          onChange={(value) => {
-            setPage(1);
-            setSearchQuery(value);
+          value={searchInput}
+          onChange={setSearchInput}
+          onSearch={(value) => {
+            const search = prepareSearchQuery(value)?.query ?? "";
+            setSearchInput(search);
+            applyQuery({ ...query, search, page: 1 });
           }}
           className={styles.searchBox}
         />
@@ -189,8 +225,9 @@ export default function FilesClient({ currentUser }: Props) {
                 key={tag.toLowerCase()}
                 tag={tag}
                 count={count}
-                active={selectedTags.includes(tag)}
-                ariaLabel={`${selectedTags.includes(tag) ? "Remove" : "Add"} ${tag} filter, ${count} files`}
+                active={isSelectedTag(tag)}
+                ariaLabel={`${isSelectedTag(tag) ? "Remove" : "Add"} ${tag} filter, ${count} files`}
+                disabled={!isSelectedTag(tag) && selectedTags.length >= 10}
                 onClick={() => toggleTag(tag)}
               />
             ))}
@@ -362,7 +399,7 @@ export default function FilesClient({ currentUser }: Props) {
           <Pagination
             page={page}
             totalPages={totalPages}
-            onPageChange={setPage}
+            onPageChange={(page) => applyQuery({ ...query, page })}
           />
         </>
       )}
@@ -393,6 +430,7 @@ export default function FilesClient({ currentUser }: Props) {
       {showUpload && (
         <UploadModal
           currentUser={currentUser}
+          maxFileUploadBytes={maxFileUploadBytes}
           existingTags={existingTags}
           onSuccess={() => {
             setShowUpload(false);
