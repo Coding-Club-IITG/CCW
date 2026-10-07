@@ -8,6 +8,7 @@ import {
   Trophy,
   UsersRound,
   ScrollText,
+  Activity,
 } from "lucide-react";
 
 import LinkCard from "@/components/shared/LinkCard";
@@ -33,6 +34,12 @@ export default async function AdminPage() {
           title="User Management"
           description="Manage members, assign club positions, and configure module permissions."
           icon={<UsersRound size={18} />}
+        />
+        <LinkCard
+          href="/admin/pulse"
+          title="Pulse Quizzes"
+          description="Manage interactive quizzes, assign hosts, and configure sessions."
+          icon={<Activity size={18} />}
         />
         <LinkCard
           href="/admin/notifications"
