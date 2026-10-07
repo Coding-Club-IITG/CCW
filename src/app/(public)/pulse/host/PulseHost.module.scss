@@ -1,0 +1,129 @@
+@use "@/styles/mixins" as *;
+
+.page {
+  @include page-container;
+  padding-block: 2.5rem;
+}
+
+.header {
+  @include standard-page-header(false, 2rem);
+}
+
+.kicker {
+  @include standard-page-kicker(0 0 0.5rem);
+  color: var(--primary);
+}
+
+.title {
+  @include standard-page-title(0 0 0.5rem);
+}
+
+.lead {
+  @include standard-page-subtitle;
+  font-size: 14px;
+}
+
+.authNotice {
+  margin-top: 1.5rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    border-color: var(--primary);
+    background: var(--surface-hover);
+  }
+
+  @media (min-width: 640px) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.cardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cardTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--foreground-strong);
+}
+
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.roomCode {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  letter-spacing: 0.05em;
+  font-size: 12px;
+  color: var(--foreground);
+}
+
+.badgeGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.statusBadge {
+  @include badge-neutral;
+
+  &.live,
+  &.lobby_open {
+    @include badge-success;
+  }
+
+  &.scheduled,
+  &.paused {
+    @include badge-warning;
+  }
+
+  &.draft {
+    @include badge-neutral;
+  }
+}
+
+.roleBadge {
+  @include badge-info;
+  text-transform: capitalize;
+}
+
+.cohostRole {
+  @include badge-chip(var(--surface-hover), var(--foreground-secondary), var(--border));
+  text-transform: capitalize;
+}
+
+.paginationWrap {
+  margin-top: 2rem;
+}
+
+.skeletonWrap {
+  margin-top: 1.5rem;
+}
