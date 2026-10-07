@@ -27,12 +27,7 @@ export default function PulseLandingPage() {
           <h2 id="join-heading" className="sr-only">
             Join Room
           </h2>
-          <form
-            className={styles.joinForm}
-            onSubmit={(e) => {
-              e.preventDefault();
-            }}
-          >
+          <form className={styles.joinForm}>
             <div className={styles.inputGroup}>
               <label htmlFor="room-code-input" className={styles.label}>
                 Room Code
