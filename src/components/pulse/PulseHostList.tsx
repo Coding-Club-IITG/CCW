@@ -16,7 +16,7 @@ import {
 } from "@/lib/pulse/constants";
 import type { PulseQuizSummaryDto } from "@/lib/pulse/quizzes";
 
-import styles from "./PulseHost.module.scss";
+import styles from "@/app/(public)/pulse/host/PulseHost.module.scss";
 
 type HostListResponse = {
   items: PulseQuizSummaryDto[];
