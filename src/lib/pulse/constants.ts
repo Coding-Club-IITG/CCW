@@ -57,3 +57,61 @@ export type PulseAuditActorRole = (typeof PULSE_AUDIT_ACTOR_ROLES)[number];
 // Metadata keys rejected so secrets can't be stored in audit events
 export const PULSE_AUDIT_FORBIDDEN_METADATA_KEY =
   /token|secret|password|hash|cookie|authorization|credential|api[-_]?key/i;
+
+/* ---------- Display maps ---------- */
+
+/** Sentence-case labels for each quiz status, suitable for UI badges. */
+export const PULSE_STATUS_LABELS: Record<PulseQuizStatus, string> = {
+  draft:              "Draft",
+  scheduled:          "Scheduled",
+  lobby_open:         "Lobby open",
+  live:               "Live",
+  paused:             "Paused",
+  interaction_locked: "Interaction locked",
+  completed:          "Completed",
+  cancelled:          "Cancelled",
+  archived:           "Archived",
+};
+
+/* ---------- Error messages ---------- */
+
+/** Shape of the error object returned inside an AppResult failure. */
+export interface PulseAppError {
+  code: string;
+  message: string;
+  fields?: Record<string, string[]>;
+}
+
+/**
+ * Maps a Pulse API error to a safe, user-friendly string.
+ *
+ * Special cases:
+ * - CONFLICT: returns the server's own message (specific and safe, e.g.
+ *   "The owner is permanent and cannot be changed.").
+ * - VALIDATION_ERROR: returns the first field-level message when present,
+ *   otherwise the server's top-level message.
+ */
+export function pulseErrorMessage(error: PulseAppError): string {
+  switch (error.code) {
+    case "PULSE_NOT_AUTHORIZED":
+      return "Sign in to use Pulse.";
+    case "PULSE_NOT_HOST":
+      return "You don't have a host assignment for this quiz.";
+    case "PULSE_QUIZ_NOT_FOUND":
+      return "This quiz could not be found.";
+    case "CONFLICT":
+      return error.message;
+    case "VALIDATION_ERROR": {
+      const firstField = error.fields
+        ? Object.values(error.fields).find((msgs) => msgs.length > 0)
+        : undefined;
+      return firstField?.[0] ?? error.message;
+    }
+    case "NOT_FOUND":
+      return "Co-host assignment not found.";
+    case "SERVICE_UNAVAILABLE":
+      return "Something went wrong. Please try again.";
+    default:
+      return "An unexpected error occurred. Please try again.";
+  }
+}
