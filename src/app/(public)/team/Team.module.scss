@@ -67,7 +67,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 20px 18px 46px;
+  padding: 20px 18px 16px;
   background: var(--background);
   border: none;
   border-right: 1px solid var(--border-light);
@@ -173,14 +173,11 @@
 }
 
 .personFoot {
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--border-light);
   opacity: 0;
@@ -390,13 +387,7 @@
   }
 
   .person {
-    padding: 14px 12px 42px;
-  }
-
-  .personFoot {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
+    padding: 14px 12px 12px;
   }
 
   .personName {
@@ -417,11 +408,5 @@
 
   .sheetFacts {
     grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (pointer: coarse) {
-  .person {
-    padding-bottom: 82px;
   }
 }

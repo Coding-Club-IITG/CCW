@@ -24,7 +24,7 @@ export default function PrivacyPage() {
       <div className={styles.page}>
         <article className={styles.policy} aria-label="Privacy policy">
           <p className={styles.updated}>
-            Last updated: <time dateTime="2026-10-02">2 October 2026</time>
+            Last updated: <time dateTime="2026-10-09">9 October 2026</time>
           </p>
           <p>
             Coding Club IIT Guwahati operates{" "}
@@ -36,16 +36,13 @@ export default function PrivacyPage() {
             <h2 id="information">Information we collect</h2>
             <p>
               We collect information you submit, account activity, and technical
-              records such as IP addresses and browser details. Public-page
-              usage records contain only page paths and a pseudonymous browser
-              identifier, with no account details or URL query values.
+              records such as IP addresses and browser details.
             </p>
             <p>
               Google sign-in provides your name, email, verification status,
-              account identifier, and profile picture through the{" "}
-              <code>openid</code>, <code>email</code>, and <code>profile</code>{" "}
-              permissions. We may store Google authentication tokens, but do not
-              access your password, Gmail, Drive, Contacts, or Calendar.
+              account identifier, and profile picture. We may store Google
+              authentication tokens, but do not access your password, Gmail,
+              Drive, Contacts, or Calendar.
             </p>
           </section>
 
@@ -76,8 +73,7 @@ export default function PrivacyPage() {
               We store information in server-side databases and file storage,
               protected by HTTPS and access controls. Cookies and browser
               storage keep you signed in, remember preferences, and distinguish
-              browsers for visitor estimates. The visitor cookie expires after
-              90 days.
+              browsers for visitor estimates.
             </p>
           </section>
 
@@ -107,7 +103,7 @@ export default function PrivacyPage() {
               We update this policy when our practices change and obtain any
               required consent for new uses of Google data. For privacy
               questions or requests to access, correct, or delete your data,
-              email us through the <a href="#contact">footer</a>. We may verify
+              contact us (see the <a href="#contact">footer</a>). We may verify
               your identity before acting on a request.
             </p>
           </section>

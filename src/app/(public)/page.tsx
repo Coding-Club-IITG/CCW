@@ -294,7 +294,7 @@ export default async function Home() {
     },
     {
       value: data.heads,
-      label: `team members, ${CURRENT_TENURE}`,
+      label: `core team members, ${CURRENT_TENURE}`,
       tone: styles.statRed,
     },
   ];
