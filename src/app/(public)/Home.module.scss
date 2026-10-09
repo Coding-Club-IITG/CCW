@@ -5,6 +5,11 @@
   flex-direction: column;
 }
 
+.announcement {
+  @include page-container;
+  margin-block: 1.5rem;
+}
+
 // Hero
 .hero {
   --background: var(--prism-ground);

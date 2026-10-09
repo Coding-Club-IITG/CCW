@@ -1,0 +1,173 @@
+@use "../../styles/mixins" as *;
+
+.banner {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  @include focus-ring;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -1px 0 auto;
+    height: 2px;
+    background: var(--spectrum-gradient);
+    pointer-events: none;
+
+    @include motion-safe {
+      background-size: 200% 100%;
+      animation: spectrumDrift 8s ease-in-out infinite alternate;
+    }
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--spectrum-gradient);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &:is(:hover, :focus-visible) {
+    border-color: var(--border-input);
+
+    &::after {
+      opacity: 0.06;
+    }
+
+    .action {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+  }
+
+  @include motion-safe {
+    transition: border-color 0.25s ease;
+
+    &::after {
+      transition: opacity 0.3s ease;
+    }
+
+    &:is(:hover, :focus-visible) {
+      .arrow {
+        transform: translateX(3px);
+      }
+
+      .externalArrow {
+        transform: translate(2px, -2px);
+      }
+    }
+  }
+}
+
+@keyframes spectrumDrift {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-input);
+  color: var(--foreground-strong);
+}
+
+.copy {
+  min-width: 0;
+}
+
+.eyebrow {
+  margin: 0 0 3px;
+  @include micro-label(10px, 0.12em);
+}
+
+.title {
+  margin: 0;
+  @include display-type(26px, 0.03em);
+  overflow-wrap: anywhere;
+}
+
+.description {
+  margin: 4px 0 0;
+  color: var(--foreground-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.actionGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: 280px;
+}
+
+.action {
+  @include btn-secondary(9px 14px);
+  min-height: 44px;
+  line-height: 1.5;
+  text-align: center;
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.arrow {
+  @include motion-safe {
+    transition: transform 0.2s ease;
+  }
+}
+
+.detail {
+  margin: 0;
+  @include metadata(10px, var(--foreground-secondary));
+  line-height: 1.5;
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .banner {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 10px 12px;
+    padding: 12px 14px;
+  }
+
+  .actionGroup {
+    grid-column: 2;
+    align-items: flex-start;
+    max-width: none;
+  }
+
+  .detail {
+    text-align: left;
+  }
+}
+
+@media (max-width: 440px) {
+  .actionGroup {
+    grid-column: 1 / -1;
+    align-items: stretch;
+  }
+
+  .detail {
+    text-align: center;
+  }
+}

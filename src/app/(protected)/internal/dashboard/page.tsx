@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { auth } from "@/lib/auth/server";
+import { getSiteAnnouncement } from "@/lib/announcements";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { isHead } from "@/lib/access/roles";
 import { getDisplayName } from "@/lib/users/identity";
@@ -21,10 +22,12 @@ import { getDisplayName } from "@/lib/users/identity";
 import BlogPost from "@/models/BlogPost";
 
 import LinkCard from "@/components/shared/LinkCard";
+import AnnouncementBanner from "@/components/shared/AnnouncementBanner";
 
 import styles from "./Dashboard.module.scss";
 
 export default async function DashboardPage() {
+  const announcement = getSiteAnnouncement();
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -54,6 +57,12 @@ export default async function DashboardPage() {
         <h1>Member Dashboard</h1>
         <p>Welcome back, {getDisplayName(user.name, user.pizza_count)}!</p>
       </header>
+
+      {announcement && (
+        <div className={styles.announcement}>
+          <AnnouncementBanner announcement={announcement} />
+        </div>
+      )}
 
       <h2 className={styles.sectionTitle}>Quick Links</h2>
       <div className={styles.grid}>

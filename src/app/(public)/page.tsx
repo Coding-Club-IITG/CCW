@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Maximize2 } from "lucide-react";
 
+import { getSiteAnnouncement } from "@/lib/announcements";
 import { publicTeamFilter } from "@/lib/users/team";
 import { excerptPreview } from "@/lib/blog/excerptPreview";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
@@ -40,6 +41,7 @@ import Project from "@/models/Project";
 import User from "@/models/User";
 
 import JsonLd from "@/components/shared/JsonLd";
+import AnnouncementBanner from "@/components/shared/AnnouncementBanner";
 import CompatibleImage from "@/components/shared/CompatibleImage";
 import FocalImage from "@/components/shared/FocalImage";
 import Reveal from "@/components/public/Reveal";
@@ -269,6 +271,7 @@ async function getHomeData(): Promise<HomeData> {
 }
 
 export default async function Home() {
+  const announcement = getSiteAnnouncement();
   let data = EMPTY;
   try {
     data = await getHomeData();
@@ -323,6 +326,12 @@ export default async function Home() {
           },
         ]}
       />
+
+      {announcement && (
+        <div className={styles.announcement}>
+          <AnnouncementBanner announcement={announcement} />
+        </div>
+      )}
 
       <section id="top" className={styles.hero}>
         <PrismHero />

@@ -4,6 +4,10 @@
   @include standard-page-header;
 }
 
+.announcement {
+  margin-bottom: 2rem;
+}
+
 .sectionTitle {
   @include section-title;
 }
