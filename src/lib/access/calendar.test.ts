@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MODULES } from "@/lib/constants";
 import {
   canManageCalendarEvent,
   canPublishCalendarEvent,
@@ -48,6 +49,7 @@ describe("calendar access", () => {
   it("returns independently creatable scopes", () => {
     expect(getCreatableCalendarScopes("Admin", [])).toEqual([
       { scope: "general" },
+      ...MODULES.map((module) => ({ scope: "module", module })),
     ]);
     expect(
       getCreatableCalendarScopes("Head", ["Design", "Software Development"]),
@@ -55,5 +57,24 @@ describe("calendar access", () => {
       { scope: "module", module: "Design" },
       { scope: "module", module: "Software Development" },
     ]);
+  });
+  it.each(MODULES)(
+    "lets Admin manage %s without assigned modules",
+    (module) => {
+      expect(
+        canManageCalendarEvent("Admin", [], { scope: "module", module }),
+      ).toBe(true);
+    },
+  );
+  it("keeps Heads within their assigned modules", () => {
+    expect(
+      canManageCalendarEvent("Head", ["Design"], {
+        scope: "module",
+        module: "Competitive Programming",
+      }),
+    ).toBe(false);
+    expect(canManageCalendarEvent("Admin", [], { scope: "general" })).toBe(
+      true,
+    );
   });
 });

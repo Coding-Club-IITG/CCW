@@ -108,8 +108,70 @@ describe("calendar actions", () => {
     expect(JSON.stringify(audit)).not.toContain("Review work");
   });
 
-  it("prevents a global administrator from creating a module event", async () => {
+  it("allows a global administrator to create and publish a module event", async () => {
     mocks.getSession.mockResolvedValue(session("Admin"));
+    const { createCalendarEvent } = await import("@/lib/actions/calendar");
+    const { createPublicEvent } = await import("@/lib/actions/admin/events");
+
+    const result = await createCalendarEvent(input());
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    expect(await CalendarEvent.findById(result.data._id).lean()).toMatchObject({
+      scope: "module",
+      module: "Design",
+    });
+    const published = await createPublicEvent(
+      String(result.data._id),
+      {
+        title: "Design workshop",
+        description: "Public details",
+        poster: "/poster.png",
+        tags: [],
+      },
+      "published",
+    );
+    expect(published.ok).toBe(true);
+    expect(await Event.findOne().lean()).toMatchObject({
+      module: "Design",
+      tags: [],
+      status: "published",
+    });
+    expect(await AuditLog.countDocuments()).toBe(2);
+  });
+
+  it("allows an administrator to move an event between General and module scopes", async () => {
+    const calendar = await CalendarEvent.create({
+      ...calendarRecord(new mongoose.Types.ObjectId()),
+      title: "General",
+      scope: "general",
+    });
+    mocks.getSession.mockResolvedValue(session("Admin"));
+    const { updateCalendarEvent } = await import("@/lib/actions/calendar");
+
+    const result = await updateCalendarEvent(String(calendar._id), input());
+    expect(result.ok).toBe(true);
+    expect(await CalendarEvent.findById(calendar._id).lean()).toMatchObject({
+      scope: "module",
+      module: "Design",
+    });
+    expect(await AuditLog.findOne().lean()).toMatchObject({
+      operation: "calendar.update",
+      before: { scope: "general" },
+      after: { scope: "module", module: "Design" },
+    });
+
+    const general = await updateCalendarEvent(
+      String(calendar._id),
+      input({ scope: "general", module: undefined }),
+    );
+    expect(general.ok).toBe(true);
+    const saved = await CalendarEvent.findById(calendar._id).lean();
+    expect(saved?.scope).toBe("general");
+    expect(saved).not.toHaveProperty("module");
+  });
+
+  it("prevents a module head from creating an event in another module", async () => {
+    mocks.getSession.mockResolvedValue(session("Head", ["Cybersecurity"]));
     const { createCalendarEvent } = await import("@/lib/actions/calendar");
 
     await expect(createCalendarEvent(input())).resolves.toEqual({

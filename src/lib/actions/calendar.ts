@@ -240,11 +240,19 @@ async function updateCalendarEventAction(id: string, raw: unknown) {
           .lean();
         if (!current)
           throw new Error("Calendar event disappeared during update.");
-        const record = await CalendarEvent.findByIdAndUpdate(id, parsed.data, {
-          returnDocument: "after",
-          runValidators: true,
-          session: transaction,
-        });
+        const { module, ...data } = parsed.data;
+        const record = await CalendarEvent.findByIdAndUpdate(
+          id,
+          {
+            $set: { ...data, ...(module ? { module } : {}) },
+            ...(module ? {} : { $unset: { module: 1 } }),
+          },
+          {
+            returnDocument: "after",
+            runValidators: true,
+            session: transaction,
+          },
+        );
         if (!record)
           throw new Error("Calendar event disappeared during update.");
         return {

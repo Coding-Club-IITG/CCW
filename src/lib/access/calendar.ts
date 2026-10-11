@@ -1,4 +1,4 @@
-import type { ModuleName } from "@/lib/constants";
+import { MODULES, type ModuleName } from "@/lib/constants";
 import { getModules, isAdmin, isHead } from "@/lib/access/roles";
 
 export type CalendarScopeTarget =
@@ -9,8 +9,9 @@ export function canManageCalendarEvent(
   managedModules: ModuleName[],
   target: CalendarScopeTarget,
 ): boolean {
+  if (isAdmin(access)) return true;
   if (!isHead(access)) return false;
-  if (target.scope === "general") return isAdmin(access);
+  if (target.scope === "general") return false;
   return getModules(access, managedModules).includes(
     target.module as ModuleName,
   );
@@ -41,7 +42,11 @@ export function getCreatableCalendarScopes(
   access: string | undefined,
   managedModules: ModuleName[],
 ): CalendarScopeTarget[] {
-  if (isAdmin(access)) return [{ scope: "general" }];
+  if (isAdmin(access))
+    return [
+      { scope: "general" },
+      ...MODULES.map((module) => ({ scope: "module" as const, module })),
+    ];
   if (!isHead(access)) return [];
   return getModules(access, managedModules).map((module) => ({
     scope: "module" as const,
