@@ -104,3 +104,49 @@ again. These corrections and the feature-branch guidance are pending inclusion
 in the P1.1-P1.3 backend pull request on `pulse-phase-1`, targeting `pulse`.
 P1.4 pages, browser E2E tests, and CI updates will follow in a separate pull
 request after the backend pull request is merged.
+
+# Pulse Phase 2 (issue #73) verification
+
+Run on 2026-10-16 against a local MongoDB replica set and a local Redis, using the
+locked dependencies (`pnpm install --frozen-lockfile`; `package.json` and the
+lockfile are unchanged).
+
+## What ran
+
+- `pnpm lint`: passed.
+- `pnpm typecheck`: passed.
+- Pulse tests (`vitest run pulse`): 194 passed, 18 files. They cover the shared
+  deck/config schemas, pure deck operations, the draft store and dirty flag, the
+  lock state machine, the navigation guard, and MongoDB/Redis integration tests for
+  the editor lock, deck save, and config copy at quiz creation.
+- Integration tests use `MONGODB_TEST_URI` (isolated `ccw-test-*` database) and a
+  non-zero Redis logical DB (DB 15, or `REDIS_TEST_URL`); the editor-lock tests that
+  need Redis skip with a message when Redis is unavailable, and delete their keys.
+- `pnpm build`: passed.
+- `pnpm test:ci` (lint, typecheck, unit and integration tests, coverage, build): passed.
+  101 test files, 748 tests passed; coverage (all files) 91.43% statements, 86.01%
+  branches, 96.37% functions, 93.58% lines, with the configured thresholds met.
+- The two Phase 1 "links Pulse assignments only after a verified first
+  microsoft/google sign-in" tests in `tests/integration/auth-identities.test.ts`
+  had failed because their user fixture lacked `name` and `emailVerified`, so the
+  sign-in was rejected with `account_not_linked`. The fixture now matches the other
+  tests in that file; no production auth code changed.
+
+## What did not run
+
+- No component tests: the repository has no jsdom or testing-library setup.
+- No browser E2E: there is no Playwright configuration or E2E suite in the
+  repository.
+- The editor UI has not been exercised in a browser. The manual two-browser
+  checklist in the pull request description is pending.
+- The Back-button handling of the unsaved-changes guard is not implemented; only
+  in-app link clicks and the browser's `beforeunload` prompt are guarded.
+
+## Compatibility notes
+
+- New fields: `PulseQuiz.deckVersion` (default 0; missing on Phase 1 documents,
+  read as 0) and `PulseQuiz.editorLock.token`. Slides keep the existing
+  `{ slideId, order, type, content }` shape.
+- New error codes `PULSE_EDITOR_LOCKED` and `PULSE_SAVE_FAILED`; no audit event types
+  were added.
+- `POST /api/admin/pulse` accepts an optional `copyConfigFrom` quiz ID.

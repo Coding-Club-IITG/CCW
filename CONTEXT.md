@@ -24,8 +24,9 @@ programming systems, content, administration, and background integrations.
   notifications, hackathons, contests, and recruitment.
 - **Pulse:** Live, host-run quizzes joined by room code. Durable quiz data
   lives in MongoDB (`PulseQuiz`, `PulseAuditEvent`); live session state is
-  planned for Redis. Phase 1 currently contains the data models, host
-  authorization/linking helpers, and audited management APIs; pages are next.
+  planned for Redis. Phase 1 contains the data models, host
+  authorization/linking helpers, and audited management APIs. Phase 2 adds
+  the host deck editor, its editor lock, and configuration copy.
 
 ## Stack
 
@@ -58,7 +59,10 @@ programming systems, content, administration, and background integrations.
 - `src/lib/jobs`: Agenda setup, scheduled job implementations, and their shared
   schedule configuration
 - `src/lib/pulse`: Pulse live-quiz constants, room-code generation, and audit
-  helpers, draft schemas, and atomic host-assignment linking
+  helpers, draft schemas, atomic host-assignment linking, the shared deck and
+  configuration schemas (`deckSchemas.ts`), pure deck operations (`deck.ts`),
+  the editor lock (`editorLock.ts`), and deck read/save (`deckService.ts`)
+- `src/components/pulse/editor`: the host deck editor UI
 - `src/lib/platforms`: Competitive Programming platform integration adapters
   and shared coordination
 - `src/models`: Mongoose models
@@ -171,8 +175,59 @@ administration uses the existing CCW `isHead` check (Head or Admin), as clarifie
 by the maintainer. Regular members gain no Pulse administrator privileges.
 Guest participation is deferred and new quizzes default to `allowGuests: false`.
 The agreed initial realtime scope is one Socket.IO process with direct broadcasts;
-Pulse Redis Pub/Sub and custom heartbeat logic are deferred. Existing CCW realtime
-behavior is unchanged.
+Pulse Redis Pub/Sub is deferred. The editor lock's TTL and heartbeat (below) are
+part of Phase 2. Existing CCW realtime behavior is unchanged.
+
+### Pulse deck editor (Phase 2)
+
+Hosts (owner or co-host; admins are not editors) edit a quiz at
+`/pulse/host/[quizId]/edit`, linked from the host quiz page. Slides are stored in
+`PulseQuiz.slides` as `{ slideId, order, type, content }` with `info`, `mcq` and
+`qa` content as defined in the design docs; MCQ options are plain strings and
+correct answers are option indexes. Delivery, registration and settings are kept
+apart from slide content. One set of Zod schemas (`deckSchemas.ts`) is shared by
+the server and the editor. Phase 1 documents with empty slide `content` or missing
+settings still load, with defaults filled in on read.
+
+Routes: `GET`/`PUT /api/pulse/host/[quizId]/deck` and `POST`/`PATCH`/`DELETE`
+`/api/pulse/host/[quizId]/lock`. Editing is allowed only while the quiz is `draft`
+or `scheduled`; opening the lobby freezes the deck and configuration permanently.
+
+Saving is explicit and whole-deck, with no autosave. The editor keeps `saved` and
+`draft` copies, shows unsaved changes, and asks Stay/Leave on in-app link clicks
+(browsers' own prompt on reload or close). `PUT` checks, in order, host
+authorization, editable status, the editor lock, then full validation with
+field-path errors (`VALIDATION_ERROR`). Slide order is renumbered on the server and
+client-sent ownership, role or lock fields are ignored. The write is a single
+conditional `findOneAndUpdate` matching the quiz, editable status, the lock holder
+and lock token in the `editorLock` mirror, and `deckVersion`; it increments
+`deckVersion` and reports success only if it matched. When it doesn't, the specific
+error is returned: `PULSE_EDITOR_LOCKED` (lock lost), `CONFLICT` (lobby open, or the
+deck changed elsewhere since it was loaded) or `PULSE_QUIZ_NOT_FOUND`. A failed
+write returns `PULSE_SAVE_FAILED` and the editor keeps the draft. `deckVersion`
+and the mirror token are additions to the design docs, which describe a plain
+overwrite by the lock holder; they stop a stale holder or tab from overwriting
+newer work.
+
+Editor lock: the Redis key `pulse:{quizId}:editor-lock` (value `{userId}:{token}`,
+`SET NX PX`, 10 minute TTL) is primary. The client heartbeats every 20 seconds;
+heartbeat and release are Lua compare-and-set on the holder's token, so a stale
+holder can never extend or delete another host's lock. Acquire is rejected unless
+the quiz is editable. `PulseQuiz.editorLock` (`lockedBy`, `lockedAt`, `expiresAt`,
+`token`) mirrors the lock, blocks a second host if Redis loses its keys, and is the
+fallback, via atomic conditional updates, when Redis is unreachable. Responses show
+only the holder's display name and never a token (except to the host who just
+acquired it). Locks are not audited.
+
+Configuration copy follows the design docs (Main §9.3, Host Workspace → History):
+it happens when an administrator creates a quiz. `POST /api/admin/pulse` accepts an
+optional `copyConfigFrom` quiz ID; the source's delivery, registration and settings
+(never its slides, and with the leaderboard question list cleared) are validated by
+the same schemas and stored in the same audited creation transaction.
+
+Pulse error codes also include `PULSE_EDITOR_LOCKED` (409) and `PULSE_SAVE_FAILED`
+(500). Deck limits not defined by the docs (at least two options, 5 second minimum
+question timer, 500 participants) live in `PULSE_DECK_LIMITS`.
 
 ## Database Notes
 
