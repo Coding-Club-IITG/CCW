@@ -61,6 +61,8 @@ export default function AdminPulsePage() {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
+  const [copyFrom, setCopyFrom] = useState("");
+  const [pastQuizzes, setPastQuizzes] = useState<PulseQuizSummaryDto[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<PulseAppError | null>(null);
   const [successNotice, setSuccessNotice] = useState("");
@@ -106,6 +108,21 @@ export default function AdminPulsePage() {
     void fetchQuizzes(page, statusFilter);
   }, [fetchQuizzes, page, statusFilter]);
 
+  // Past quizzes to copy a configuration from, loaded when the create form opens.
+  useEffect(() => {
+    if (!showCreate) return;
+    let cancelled = false;
+    void fetch("/api/admin/pulse?limit=100")
+      .then((res) => readAppResult<AdminListResponse>(res))
+      .then((result) => {
+        if (!cancelled && result.ok) setPastQuizzes(result.data.items);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [showCreate]);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !ownerEmail.trim()) return;
@@ -121,6 +138,7 @@ export default function AdminPulsePage() {
         body: JSON.stringify({
           title: title.trim(),
           ownerEmail: ownerEmail.trim().toLowerCase(),
+          ...(copyFrom ? { copyConfigFrom: copyFrom } : {}),
         }),
       });
 
@@ -132,6 +150,7 @@ export default function AdminPulsePage() {
 
       setTitle("");
       setOwnerEmail("");
+      setCopyFrom("");
       setShowCreate(false);
       setSuccessNotice(`Quiz "${result.data.title}" created successfully.`);
       setPage(1);
@@ -217,6 +236,25 @@ export default function AdminPulsePage() {
                   className={styles.input}
                   disabled={creating}
                 />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="copy-config-select">Copy configuration from</label>
+                <select
+                  id="copy-config-select"
+                  value={copyFrom}
+                  onChange={(e) => setCopyFrom(e.target.value)}
+                  className={styles.input}
+                  disabled={creating}
+                >
+                  <option value="">Start with default settings</option>
+                  {pastQuizzes.map((quiz) => (
+                    <option key={quiz.id} value={quiz.id}>
+                      {quiz.title} ({PULSE_STATUS_LABELS[quiz.status] ?? quiz.status})
+                    </option>
+                  ))}
+                </select>
+                <p className={styles.fieldHint}>Copies the settings only; slides are not copied.</p>
               </div>
             </div>
 
