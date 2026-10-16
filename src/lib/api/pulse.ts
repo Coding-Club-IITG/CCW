@@ -14,7 +14,9 @@ import PulseQuiz from "@/models/PulseQuiz";
 export type PulseErrorCode =
   | "PULSE_QUIZ_NOT_FOUND"
   | "PULSE_NOT_HOST"
-  | "PULSE_NOT_AUTHORIZED";
+  | "PULSE_NOT_AUTHORIZED"
+  | "PULSE_EDITOR_LOCKED"
+  | "PULSE_SAVE_FAILED";
 
 export class PulseError extends Error {
   constructor(public readonly code: PulseErrorCode, message: string) {

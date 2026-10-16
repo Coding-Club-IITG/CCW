@@ -13,6 +13,8 @@ export const APP_ERROR_CODES = [
   "PULSE_QUIZ_NOT_FOUND",
   "PULSE_NOT_HOST",
   "PULSE_NOT_AUTHORIZED",
+  "PULSE_EDITOR_LOCKED",
+  "PULSE_SAVE_FAILED",
 ] as const;
 
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number];
@@ -40,6 +42,8 @@ export const HTTP_STATUS_BY_ERROR_CODE: Record<AppErrorCode, number> = {
   PULSE_QUIZ_NOT_FOUND: 404,
   PULSE_NOT_HOST: 403,
   PULSE_NOT_AUTHORIZED: 403,
+  PULSE_EDITOR_LOCKED: 409,
+  PULSE_SAVE_FAILED: 500,
 };
 
 export function ok<T>(data: T): AppResult<T> {
