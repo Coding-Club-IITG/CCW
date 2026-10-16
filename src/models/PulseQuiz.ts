@@ -31,7 +31,8 @@ const HostAssignmentSchema = new Schema(
   { _id: false },
 );
 
-// Minimal for now; Phase 2 (editor) fleshes out per-type content validation.
+// Design-doc shape: type-specific fields live in `content`. The Zod deck schemas
+// (lib/pulse/deckSchemas) are authoritative for validation; content stays Mixed.
 const SlideSchema = new Schema(
   {
     slideId: { type: String, required: true },
@@ -69,6 +70,9 @@ const EditorLockSchema = new Schema(
     lockedBy: { type: ObjectId, ref: "User", default: null },
     lockedAt: { type: Date, default: null },
     expiresAt: { type: Date, default: null },
+    // Fencing token: the deck save only matches while this is the saver's lock token.
+    // Never exposed in any DTO.
+    token: { type: String, default: null },
   },
   { _id: false },
 );
@@ -176,6 +180,9 @@ const PulseQuizSchema = new Schema(
     registration: { type: RegistrationSchema, default: () => ({}) },
     settings: { type: SettingsSchema, default: () => ({}) },
     slides: { type: [SlideSchema], default: [] },
+    // Incremented by every successful whole-deck save (optimistic concurrency).
+    // Phase 1 documents lack it and are read as 0.
+    deckVersion: { type: Number, min: 0, default: 0 },
     presenter: { type: PresenterSchema, default: () => ({}) },
     editorLock: { type: EditorLockSchema, default: () => ({}) },
     participantCount: { type: Number, min: 0, default: 0 },

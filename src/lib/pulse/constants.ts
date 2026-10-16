@@ -21,6 +21,25 @@ export const PULSE_DELIVERY_MODES = [
 ] as const;
 export const PULSE_NAVIGATION_MODES = ["sequential", "free"] as const;
 export const PULSE_SLIDE_TYPES = ["info", "mcq", "qa"] as const;
+export type PulseSlideType = (typeof PULSE_SLIDE_TYPES)[number];
+export const PULSE_DISPLAY_MODES = ["full-prompt", "answer-controller"] as const;
+
+/** Deck and gameplay configuration freeze permanently once the lobby opens. */
+export const PULSE_EDITABLE_STATUSES = ["draft", "scheduled"] as const;
+export function isPulseQuizEditable(status: PulseQuizStatus): boolean {
+  return (PULSE_EDITABLE_STATUSES as readonly string[]).includes(status);
+}
+
+// Deck rules. maxParticipants is the design docs' "up to 500 participants"; a choice
+// question needs at least two options; the 5-second question timer floor was specified
+// by the maintainer. The docs define no other size limits.
+export const PULSE_DECK_LIMITS = {
+  minOptions: 2,
+  minQuestionSeconds: 5,
+  maxParticipants: 500,
+} as const;
+// The design docs' example MCQ is worth 100 points.
+export const PULSE_DEFAULT_MCQ_POINTS = 100;
 
 export const PULSE_DEFAULT_MAX_PARTICIPANTS = 500;
 export const PULSE_DEFAULT_ALLOW_LATE_JOIN = false;
@@ -34,6 +53,15 @@ export const ROOM_CODE_MAX_ATTEMPTS = 5;
 export const ROOM_CODE_PATTERN = new RegExp(
   `^[${ROOM_CODE_ALPHABET}]{${ROOM_CODE_LENGTH}}$`,
 );
+
+/* ---------- Editor lock ---------- */
+
+// Design: `SET pulse:{quizId}:editor-lock ... NX EX 600`, refreshed roughly every 20s.
+export const PULSE_EDITOR_LOCK_TTL_MS = 600_000;
+export const PULSE_EDITOR_LOCK_HEARTBEAT_MS = 20_000;
+export function pulseEditorLockKey(quizId: string): string {
+  return `pulse:${quizId}:editor-lock`;
+}
 
 /* ---------- Audit ---------- */
 
@@ -107,6 +135,10 @@ export function pulseErrorMessage(error: PulseAppError): string {
         : undefined;
       return firstField?.[0] ?? error.message;
     }
+    case "PULSE_EDITOR_LOCKED":
+      return error.message;
+    case "PULSE_SAVE_FAILED":
+      return "Couldn't save your changes. They are still here; try again.";
     case "NOT_FOUND":
       return "Co-host assignment not found.";
     case "SERVICE_UNAVAILABLE":

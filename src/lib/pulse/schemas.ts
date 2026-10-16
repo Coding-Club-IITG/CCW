@@ -3,16 +3,17 @@ import { z } from "zod";
 import { objectIdParamsSchema, paginationQueryFields } from "@/lib/api/schemas/boundary";
 import { normalizeEmail, providerForEmail } from "@/lib/authPolicy";
 import {
-  PULSE_DEFAULT_ALLOW_LATE_JOIN,
-  PULSE_DEFAULT_MAX_PARTICIPANTS,
-  PULSE_DELIVERY_MODES,
   PULSE_HOST_ROLES,
-  PULSE_NAVIGATION_MODES,
   PULSE_QUIZ_DEFAULT_STATUS,
   PULSE_QUIZ_STATUSES,
-  PULSE_SLIDE_TYPES,
   ROOM_CODE_PATTERN,
 } from "@/lib/pulse/constants";
+import {
+  pulseDeliverySchema,
+  pulseRegistrationSchema,
+  pulseSettingsSchema,
+  pulseSlideSchema,
+} from "@/lib/pulse/deckSchemas";
 
 const objectId = objectIdParamsSchema.shape.id;
 const nullableDate = z.date().nullable().default(null);
@@ -40,46 +41,11 @@ export const pulseQuizSchema = z.object({
     scheduledAt: nullableDate,
     timezone: z.string().default("Asia/Kolkata"),
   }).prefault({}),
-  delivery: z.object({
-    mode: z.enum(PULSE_DELIVERY_MODES).default("host-paced"),
-    navigation: z.enum(PULSE_NAVIGATION_MODES).default("sequential"),
-    displayMode: z.string().default("full-prompt"),
-  }).prefault({}),
-  registration: z.object({
-    allowIITGAccounts: z.boolean().default(true),
-    allowGuests: z.boolean().default(false),
-    maxParticipants: z.number().int().min(1).default(PULSE_DEFAULT_MAX_PARTICIPANTS),
-    allowLateJoin: z.boolean().default(PULSE_DEFAULT_ALLOW_LATE_JOIN),
-  }).prefault({}),
-  settings: z.object({
-    timer: z.object({
-      overallEnabled: z.boolean().default(true),
-      overallDurationSeconds: z.number().int().min(1).default(3600),
-      perQuestionEnabled: z.boolean().default(true),
-    }).prefault({}),
-    reveal: z.object({
-      showCorrectAnswer: z.boolean().default(false),
-      showParticipantScore: z.boolean().default(false),
-      showAnswerReview: z.boolean().default(false),
-    }).prefault({}),
-    randomization: z.object({
-      enabled: z.boolean().default(false),
-      randomizeQuestions: z.boolean().default(false),
-      randomizeOptions: z.boolean().default(false),
-    }).prefault({}),
-    leaderboard: z.object({
-      enabled: z.boolean().default(true),
-      showAfterQuestions: z.array(z.string()).default([]),
-      showManually: z.boolean().default(true),
-      showAtEnd: z.boolean().default(true),
-    }).prefault({}),
-  }).prefault({}),
-  slides: z.array(z.object({
-    slideId: z.string().min(1),
-    order: z.number().int().min(0),
-    type: z.enum(PULSE_SLIDE_TYPES),
-    content: z.record(z.string(), z.unknown()).default({}),
-  })).default([]),
+  delivery: pulseDeliverySchema.prefault({}),
+  registration: pulseRegistrationSchema.prefault({}),
+  settings: pulseSettingsSchema.prefault({}),
+  slides: z.array(pulseSlideSchema).default([]),
+  deckVersion: z.number().int().min(0).default(0),
   presenter: z.object({
     activePresenterId: nullableId,
     claimedAt: nullableDate,
@@ -90,6 +56,7 @@ export const pulseQuizSchema = z.object({
     lockedBy: nullableId,
     lockedAt: nullableDate,
     expiresAt: nullableDate,
+    token: z.string().nullable().default(null),
   }).prefault({}),
   participantCount: z.number().int().min(0).default(0),
   checkpoint: z.object({
@@ -126,9 +93,23 @@ export const pulseHostEmailSchema = z.string().transform(normalizeEmail)
 export const createPulseQuizSchema = z.strictObject({
   title: z.string().trim().min(1).max(200),
   ownerEmail: pulseHostEmailSchema,
+  /** Past quiz whose configuration (never its slides) seeds the new quiz. */
+  copyConfigFrom: objectId.optional(),
 });
 export const pulseCoHostSchema = z.strictObject({ email: pulseHostEmailSchema });
 export const pulseQuizQuerySchema = z.strictObject({
   ...paginationQueryFields,
   status: z.enum(PULSE_QUIZ_STATUSES).optional(),
+});
+
+export const pulseLockTokenSchema = z.strictObject({ lockToken: z.string().regex(/^[0-9a-f]{32}$/, "Invalid lock token.") });
+export const pulseSaveDeckSchema = z.object({
+  deckVersion: z.number().int().min(0),
+  lockToken: z.string().regex(/^[0-9a-f]{32}$/, "Invalid lock token."),
+  // Validated against pulseDeckSchema after the lock check; unknown top-level keys
+  // (ownerId, role, editorLock...) are ignored.
+  slides: z.array(z.unknown()),
+  delivery: z.unknown(),
+  registration: z.unknown(),
+  settings: z.unknown(),
 });
