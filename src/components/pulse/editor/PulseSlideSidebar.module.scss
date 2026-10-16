@@ -1,0 +1,124 @@
+@use "@/styles/mixins" as *;
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.heading {
+  @include micro-label($text-xs, 0.09em);
+  margin: 0;
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.list {
+  @include list-frame;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-lighter);
+  background: var(--card-bg);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--surface-hover);
+  }
+
+  &.selected {
+    background: var(--accent-bg);
+    box-shadow: inset 3px 0 0 var(--primary);
+  }
+}
+
+.select {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  border: none;
+  background: none;
+  color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  @include focus-ring;
+}
+
+.index {
+  min-width: 1.25rem;
+  color: var(--muted);
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.badge {
+  @include badge-neutral;
+
+  &.mcq {
+    @include badge-info;
+  }
+
+  &.qa {
+    @include badge-success;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.125rem;
+  padding-right: 0.375rem;
+}
+
+.iconButton {
+  @include icon-button(26px);
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  &.danger:hover {
+    color: var(--error-text);
+  }
+}
+
+.add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.addLabel {
+  @include micro-label($text-xs, 0.09em);
+}
+
+.addButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.addButton {
+  @include btn-secondary;
+  gap: 0.25rem;
+}
