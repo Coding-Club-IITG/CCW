@@ -101,3 +101,13 @@ export const pulseQuizQuerySchema = z.strictObject({
 });
 
 export const pulseLockTokenSchema = z.strictObject({ lockToken: z.string().regex(/^[0-9a-f]{32}$/, "Invalid lock token.") });
+export const pulseSaveDeckSchema = z.object({
+  deckVersion: z.number().int().min(0),
+  lockToken: z.string().regex(/^[0-9a-f]{32}$/, "Invalid lock token."),
+  // Validated against pulseDeckSchema after the lock check; unknown top-level keys
+  // (ownerId, role, editorLock...) are ignored.
+  slides: z.array(z.unknown()),
+  delivery: z.unknown(),
+  registration: z.unknown(),
+  settings: z.unknown(),
+});
