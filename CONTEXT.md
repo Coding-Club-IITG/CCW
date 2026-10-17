@@ -174,6 +174,47 @@ The agreed initial realtime scope is one Socket.IO process with direct broadcast
 Pulse Redis Pub/Sub and custom heartbeat logic are deferred. Existing CCW realtime
 behavior is unchanged.
 
+## Pulse Phase 2: Deck Editor
+
+Phase 2 adds the host deck editor at `/pulse/host/[quizId]/edit`, linked from the
+host quiz page. Admin screens stay under `/admin/pulse`. The editor is for the quiz's
+owner and co-hosts and supports Info and MCQ slides only; Q&A slides, guests, the
+participant screen, autosave, revision history and Redis (including for the editor
+lock) are out of scope. Slides stay in `PulseQuiz.slides` as
+`{ slideId, order, type, content }`. One set of Zod schemas (`deckSchemas.ts`) is
+shared by the server and the editor, and slide edits are pure functions in `deck.ts`.
+A stored deck with a slide type the editor doesn't support is refused (`CONFLICT`)
+rather than rewritten.
+
+Routes: `GET`/`PUT /api/pulse/host/[quizId]/deck` and `POST`/`DELETE
+/api/pulse/host/[quizId]/lock`. The deck and configuration are editable only while
+the quiz is `draft` or `scheduled`. Saving is explicit and whole-deck. The editor
+asks Stay/Leave before in-app navigation and relies on the browser's own prompt for
+reload or close.
+
+Editor lock: held in MongoDB only, in `PulseQuiz.editorLock` (`lockedBy`, `lockedAt`,
+`expiresAt`, `token`). Acquire is one atomic update that succeeds only if the lock is
+free, expired or already the caller's; it sets a new random token and a 10-minute
+`expiresAt`. Release clears the lock only for a matching token. There is no
+heartbeat: the lock expires by `expiresAt`, and the editor then shows that it was
+released due to inactivity and offers to take it again. Another host sees a read-only
+banner naming the editor. The token is returned only to the host who acquired it.
+
+Save: `PUT` validates the whole deck (`VALIDATION_ERROR` with field paths) and then
+writes with a single conditional `findOneAndUpdate` that matches the quiz, an
+editable status, the lock holder, an unexpired lock token and `deckVersion`. It
+increments `deckVersion`, and a `deck.saved` audit event is written in the same
+transaction. Success is reported only if that write matched; otherwise the specific
+`CONFLICT` is returned (lock lost, lobby opened, deck changed elsewhere) and a failed
+write returns `SERVICE_UNAVAILABLE`. The editor keeps the draft on any failure and
+offers "Reload latest" on a conflict. `deckVersion` and the lock token are additions
+to the design docs: they stop a stale lock holder or tab from overwriting newer work.
+
+Configuration copy (design docs, quiz history): `POST /api/admin/pulse` accepts an
+optional `copyConfigFrom` quiz ID. The source's delivery, registration and settings
+are validated and stored in the same audited creation transaction; slides are never
+copied. No new `PULSE_*` error codes were added in this phase.
+
 ## Database Notes
 
 The configured MongoDB deployment uses a replica set. Confirm replica-set
