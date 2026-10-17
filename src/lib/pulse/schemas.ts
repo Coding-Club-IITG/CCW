@@ -93,6 +93,8 @@ export const pulseHostEmailSchema = z.string().transform(normalizeEmail)
 export const createPulseQuizSchema = z.strictObject({
   title: z.string().trim().min(1).max(200),
   ownerEmail: pulseHostEmailSchema,
+  /** Past quiz whose configuration (never its slides) seeds the new quiz. */
+  copyConfigFrom: objectId.optional(),
 });
 export const pulseCoHostSchema = z.strictObject({ email: pulseHostEmailSchema });
 export const pulseQuizQuerySchema = z.strictObject({
