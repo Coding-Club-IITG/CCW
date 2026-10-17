@@ -1,0 +1,64 @@
+@use "@/styles/mixins" as *;
+
+.page {
+  @include page-container;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-block: 2.5rem;
+}
+
+.backWrap {
+  margin-bottom: 0.25rem;
+}
+
+.header {
+  @include standard-page-header(true, 0);
+  align-items: center;
+}
+
+.kicker {
+  @include standard-page-kicker(0 0 0.5rem);
+  color: var(--primary);
+}
+
+.title {
+  @include standard-page-title(0 0 0.5rem);
+}
+
+.unsaved {
+  margin: 0;
+  color: var(--warning-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.banners {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tabs {
+  @include underline-tabs;
+}
+
+.tab {
+  @include underline-tab;
+}
+
+.tabActive {
+  @include underline-tab-active;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+
+  @media (max-width: 800px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+

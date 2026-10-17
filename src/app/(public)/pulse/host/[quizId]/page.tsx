@@ -119,6 +119,14 @@ export default async function PulseHostQuizPage({
             <dt>Status</dt>
             <dd>{statusLabel}</dd>
           </dl>
+          {quiz.accessRole !== "admin" ? (
+            <Link
+              href={`/pulse/host/${encodeURIComponent(quiz.id)}/edit`}
+              className={styles.editLink}
+            >
+              Edit deck
+            </Link>
+          ) : null}
         </div>
 
         <PulseCoHostPanel
