@@ -24,6 +24,19 @@ export const PULSE_SLIDE_TYPES = ["info", "mcq"] as const;
 export type PulseSlideType = (typeof PULSE_SLIDE_TYPES)[number];
 export const PULSE_DISPLAY_MODES = ["full-prompt", "answer-controller"] as const;
 
+/**
+ * Scoring modes, chosen once per quiz in `settings.scoring.mode`:
+ * - `full`: a correct answer earns 100% of the question's points.
+ * - `time_based`: a correct answer earns 100% when given instantly, dropping linearly
+ *   to 50% at the deadline.
+ * A wrong answer, and any answer to a poll, earns nothing in both modes.
+ */
+export const PULSE_SCORING_MODES = ["full", "time_based"] as const;
+export type PulseScoringMode = (typeof PULSE_SCORING_MODES)[number];
+export const PULSE_DEFAULT_SCORING_MODE: PulseScoringMode = "full";
+/** Share of a question's points still earned at the deadline in `time_based` mode. */
+export const PULSE_TIME_BASED_MIN_PERCENT = 50;
+
 /** Deck and gameplay configuration freeze permanently once the lobby opens. */
 export const PULSE_EDITABLE_STATUSES = ["draft", "scheduled"] as const;
 export function isPulseQuizEditable(status: PulseQuizStatus): boolean {
@@ -37,6 +50,8 @@ export const PULSE_DECK_LIMITS = {
   minOptions: 2,
   minQuestionSeconds: 5,
   maxParticipants: 500,
+  // Maintainer: the maximum score for one question is 100.
+  maxQuestionPoints: 100,
 } as const;
 // The design docs' example MCQ is worth 100 points.
 export const PULSE_DEFAULT_MCQ_POINTS = 100;

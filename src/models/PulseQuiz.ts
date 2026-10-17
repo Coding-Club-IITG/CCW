@@ -1,17 +1,22 @@
 import mongoose from "mongoose";
 
 import {
+  PULSE_DECK_LIMITS,
   PULSE_DEFAULT_ALLOW_LATE_JOIN,
   PULSE_DEFAULT_MAX_PARTICIPANTS,
+  PULSE_DEFAULT_SCORING_MODE,
   PULSE_DELIVERY_MODES,
+  PULSE_DISPLAY_MODES,
   PULSE_HOST_ROLES,
   PULSE_NAVIGATION_MODES,
   PULSE_QUIZ_DEFAULT_STATUS,
   PULSE_QUIZ_STATUSES,
+  PULSE_SCORING_MODES,
   PULSE_SLIDE_TYPES,
   ROOM_CODE_PATTERN,
   type PulseQuizStatus,
 } from "@/lib/pulse/constants";
+import { pulseConfigSchema, pulseSlideSchema } from "@/lib/pulse/deckSchemas";
 
 const { Schema } = mongoose;
 const { ObjectId, Mixed } = Schema.Types;
@@ -36,7 +41,12 @@ const HostAssignmentSchema = new Schema(
 const SlideSchema = new Schema(
   {
     slideId: { type: String, required: true },
-    order: { type: Number, required: true, min: 0 },
+    order: {
+      type: Number,
+      required: true,
+      min: 0,
+      validate: { validator: Number.isInteger, message: "Slide order must be a whole number." },
+    },
     type: { type: String, enum: PULSE_SLIDE_TYPES, required: true },
     content: { type: Mixed, default: {} },
   },
@@ -85,7 +95,7 @@ const DeliverySchema = new Schema(
       enum: PULSE_NAVIGATION_MODES,
       default: "sequential",
     },
-    displayMode: { type: String, default: "full-prompt" },
+    displayMode: { type: String, enum: PULSE_DISPLAY_MODES, default: "full-prompt" },
   },
   { _id: false },
 );
@@ -97,6 +107,7 @@ const RegistrationSchema = new Schema(
     maxParticipants: {
       type: Number,
       min: 1,
+      max: PULSE_DECK_LIMITS.maxParticipants,
       default: PULSE_DEFAULT_MAX_PARTICIPANTS,
     },
     allowLateJoin: { type: Boolean, default: PULSE_DEFAULT_ALLOW_LATE_JOIN },
@@ -108,8 +119,16 @@ const SettingsSchema = new Schema(
   {
     timer: {
       overallEnabled: { type: Boolean, default: true },
-      overallDurationSeconds: { type: Number, min: 1, default: 3600 },
+      overallDurationSeconds: {
+        type: Number,
+        min: 1,
+        default: 3600,
+        validate: { validator: Number.isInteger, message: "Duration must be a whole number of seconds." },
+      },
       perQuestionEnabled: { type: Boolean, default: true },
+    },
+    scoring: {
+      mode: { type: String, enum: PULSE_SCORING_MODES, default: PULSE_DEFAULT_SCORING_MODE },
     },
     reveal: {
       showCorrectAnswer: { type: Boolean, default: false },
@@ -151,6 +170,26 @@ const LifecycleTimestampsSchema = new Schema(
   { _id: false },
 );
 
+/* ---------- Slide validation ---------- */
+
+// Phase 1 stored placeholder slides with an empty `content`; those stay valid here and
+// the editor asks the host to fill them in. Any slide that has content must satisfy the
+// shared Zod schema for its type.
+function validateSlides(slides: unknown[]): boolean {
+  const seen = new Set<string>();
+  for (const slide of slides) {
+    const plain = (slide as { toObject?: () => Record<string, unknown> }).toObject?.() ??
+      (slide as Record<string, unknown>);
+    const slideId = String(plain.slideId ?? "");
+    if (seen.has(slideId)) return false;
+    seen.add(slideId);
+    const content = plain.content as Record<string, unknown> | undefined;
+    if (!content || Object.keys(content).length === 0) continue;
+    if (!pulseSlideSchema.safeParse(plain).success) return false;
+  }
+  return true;
+}
+
 /* ---------- PulseQuiz ---------- */
 
 const PulseQuizSchema = new Schema(
@@ -179,7 +218,13 @@ const PulseQuizSchema = new Schema(
     delivery: { type: DeliverySchema, default: () => ({}) },
     registration: { type: RegistrationSchema, default: () => ({}) },
     settings: { type: SettingsSchema, default: () => ({}) },
-    slides: { type: [SlideSchema], default: [] },
+    // Whole-deck rules (unique IDs, typed content) run on every Mongoose write; the API
+    // route validates the same shapes first with the shared Zod schemas.
+    slides: {
+      type: [SlideSchema],
+      default: [],
+      validate: { validator: validateSlides, message: "The deck has invalid slides." },
+    },
     // Incremented by every successful whole-deck save (optimistic concurrency).
     // Phase 1 documents lack it and are read as 0.
     deckVersion: { type: Number, min: 0, default: 0 },
@@ -201,14 +246,25 @@ PulseQuizSchema.pre("validate", function () {
     this.invalidate("hostAssignments", "Duplicate host emails are not allowed.");
   if (owners[0]?.userId && owners[0].userId.toString() !== this.ownerId?.toString())
     this.invalidate("ownerId", "Owner ID must match the owner assignment.");
+  // Same compatibility rules as the deck editor (delivery, registration, timers,
+  // scoring). Only re-checked when that configuration changes, so unrelated saves
+  // (e.g. host linking) never fail on older documents.
   if (
-    this.settings?.timer?.perQuestionEnabled &&
-    this.delivery?.mode === "participant-paced"
+    this.isNew ||
+    this.isModified("delivery") ||
+    this.isModified("registration") ||
+    this.isModified("settings")
   ) {
-    this.invalidate(
-      "settings.timer.perQuestionEnabled",
-      "Per-question timers are only supported in host-paced mode.",
-    );
+    const plain = this.toObject();
+    const result = pulseConfigSchema.safeParse({
+      delivery: plain.delivery,
+      registration: plain.registration,
+      settings: plain.settings,
+    });
+    if (!result.success) {
+      for (const issue of result.error.issues)
+        this.invalidate(issue.path.join("."), issue.message);
+    }
   }
 });
 
@@ -219,6 +275,8 @@ PulseQuizSchema.index({ status: 1 });
 PulseQuizSchema.index({ "hostAssignments.email": 1 });
 PulseQuizSchema.index({ ownerId: 1 });
 PulseQuizSchema.index({ coHostIds: 1 });
+PulseQuizSchema.index({ "schedule.scheduledAt": 1 });
+PulseQuizSchema.index({ status: 1, "schedule.scheduledAt": 1 });
 
 export type PulseQuizRecord = mongoose.InferSchemaType<typeof PulseQuizSchema> & {
   status: PulseQuizStatus;
