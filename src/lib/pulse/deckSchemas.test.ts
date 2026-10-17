@@ -9,6 +9,7 @@ import {
   normalizeSlideOrder,
   pulseDeckSchema,
   pulseSlideSchema,
+  readStoredConfig,
   readStoredSlides,
   type PulseSlide,
 } from "@/lib/pulse/deckSchemas";
@@ -121,6 +122,72 @@ describe("deck validation", () => {
   it("rejects unknown top-level and nested config fields", () => {
     expect(pulseDeckSchema.safeParse({ ...deck(), ownerId: "x" }).success).toBe(false);
     expect(fields(deck({ delivery: { ...defaultPulseConfig().delivery, extra: 1 } }))).not.toEqual({});
+  });
+});
+
+describe("scoring settings", () => {
+  const withScoring = (mode: string, over: Record<string, unknown> = {}) => {
+    const { settings, ...rest } = defaultPulseConfig();
+    return deck({ ...rest, settings: { ...settings, scoring: { mode } }, ...over });
+  };
+  const timed = (content: object = {}) => mcq({ timerSeconds: 30, ...content });
+  const participantPaced = () => {
+    const config = defaultPulseConfig();
+    return {
+      delivery: { ...config.delivery, mode: "participant-paced" },
+      settings: { ...config.settings, timer: { ...config.settings.timer, perQuestionEnabled: false }, scoring: { mode: "time_based" } },
+    };
+  };
+
+  it("defaults to full scoring, including for stored settings that predate it", () => {
+    expect(defaultPulseConfig().settings.scoring).toEqual({ mode: "full" });
+    const { scoring: _scoring, ...legacy } = defaultPulseConfig().settings;
+    expect(readStoredConfig({ settings: legacy }).settings.scoring).toEqual({ mode: "full" });
+  });
+
+  it("accepts only full and time_based", () => {
+    expect(fields(withScoring("full"))).toEqual({});
+    expect(fields(withScoring("speed_sensitive"))).toHaveProperty(["settings.scoring.mode"]);
+    expect(fields(withScoring(""))).toHaveProperty(["settings.scoring.mode"]);
+  });
+
+  it("rejects unknown fields in the scoring block", () => {
+    const { settings, ...rest } = defaultPulseConfig();
+    expect(fields(deck({ ...rest, settings: { ...settings, scoring: { mode: "full", penalty: 5 } } }))).not.toEqual({});
+  });
+
+  it("caps a question at 100 points", () => {
+    expect(pulseSlideSchema.safeParse(mcq({ points: 100 })).success).toBe(true);
+    expect(pulseSlideSchema.safeParse(mcq({ points: 101 })).success).toBe(false);
+  });
+
+  it("time-based, host-paced: every scored question needs its own timer", () => {
+    expect(fields(withScoring("time_based", { slides: [info(), timed()] }))).toEqual({});
+    expect(fields(withScoring("time_based", { slides: [info(), mcq()] }))).toHaveProperty(["slides.1.content.timerSeconds"]);
+  });
+
+  it("time-based does not require a timer on polls or info slides", () => {
+    const poll = timed({ poll: true, correctOptions: [], timerSeconds: null });
+    expect(fields(withScoring("time_based", { slides: [info(), poll] }))).toEqual({});
+  });
+
+  it("time-based, host-paced: needs per-question timers switched on", () => {
+    const { settings, ...rest } = defaultPulseConfig();
+    const off = { ...settings, timer: { ...settings.timer, perQuestionEnabled: false }, scoring: { mode: "time_based" } };
+    expect(fields(deck({ ...rest, settings: off, slides: [info()] }))).toHaveProperty(["settings.scoring.mode"]);
+  });
+
+  it("time-based, participant-paced: uses the overall timer, not slide timers", () => {
+    expect(fields(deck({ ...participantPaced(), slides: [info(), mcq()] }))).toEqual({});
+    const { settings, delivery } = participantPaced();
+    const noOverall = { ...settings, timer: { ...settings.timer, overallEnabled: false } };
+    expect(fields(deck({ delivery, settings: noOverall }))).toHaveProperty(["settings.scoring.mode"]);
+  });
+
+  it("full scoring needs no timers at all", () => {
+    const { settings, ...rest } = defaultPulseConfig();
+    const off = { ...settings, timer: { ...settings.timer, perQuestionEnabled: false, overallEnabled: false } };
+    expect(fields(deck({ ...rest, settings: off }))).toEqual({});
   });
 });
 

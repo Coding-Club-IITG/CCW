@@ -5,9 +5,11 @@ import {
   PULSE_DEFAULT_ALLOW_LATE_JOIN,
   PULSE_DEFAULT_MAX_PARTICIPANTS,
   PULSE_DEFAULT_MCQ_POINTS,
+  PULSE_DEFAULT_SCORING_MODE,
   PULSE_DELIVERY_MODES,
   PULSE_DISPLAY_MODES,
   PULSE_NAVIGATION_MODES,
+  PULSE_SCORING_MODES,
   PULSE_SLIDE_TYPES,
 } from "@/lib/pulse/constants";
 
@@ -39,7 +41,10 @@ export const pulseMcqContentSchema = z.strictObject({
   correctOptions: z.array(z.number().int()),
   multipleAnswers: z.boolean().default(false),
   poll: z.boolean().default(false),
-  points: z.number().int().min(1, "Points must be at least 1.").default(PULSE_DEFAULT_MCQ_POINTS),
+  points: z.number().int()
+    .min(1, "Points must be at least 1.")
+    .max(LIMITS.maxQuestionPoints, `Points can be at most ${LIMITS.maxQuestionPoints}.`)
+    .default(PULSE_DEFAULT_MCQ_POINTS),
   /** Only meaningful in host-paced mode (checked at deck level). */
   timerSeconds: z.number().int()
     .min(LIMITS.minQuestionSeconds, `Timer must be at least ${LIMITS.minQuestionSeconds} seconds.`)
@@ -99,6 +104,10 @@ export const pulseSettingsSchema = z.strictObject({
     overallDurationSeconds: z.number().int().min(1, "Duration must be at least 1 second.").default(3600),
     perQuestionEnabled: z.boolean().default(true),
   }).prefault({}),
+  // Quiz-wide scoring mode. `prefault` keeps Phase 2 documents without it readable.
+  scoring: z.strictObject({
+    mode: z.enum(PULSE_SCORING_MODES).default(PULSE_DEFAULT_SCORING_MODE),
+  }).prefault({}),
   reveal: z.strictObject({
     showCorrectAnswer: z.boolean().default(false),
     showParticipantScore: z.boolean().default(false),
@@ -134,7 +143,7 @@ export function defaultPulseConfig() {
 type ConfigIssue = (path: (string | number)[], message: string) => void;
 
 /** Rules that only involve the quiz configuration (shared by deck saves and config copy). */
-function checkConfig(config: { delivery: PulseDelivery; registration: PulseRegistration; settings: PulseSettings }, issue: ConfigIssue) {
+export function checkConfig(config: { delivery: PulseDelivery; registration: PulseRegistration; settings: PulseSettings }, issue: ConfigIssue) {
   const { delivery, registration, settings } = config;
   const hostPaced = delivery.mode === "host-paced";
   // Host-paced navigation is implicitly sequential.
@@ -148,6 +157,14 @@ function checkConfig(config: { delivery: PulseDelivery; registration: PulseRegis
   // Per-question timers are host-paced only.
   if (!hostPaced && settings.timer.perQuestionEnabled)
     issue(["settings", "timer", "perQuestionEnabled"], "Per-question timers are only supported in host-paced mode.");
+  // Time-based scoring needs a deadline to measure against: the per-question timer when
+  // host-paced, the single shared overall timer when participant-paced.
+  if (settings.scoring.mode === "time_based") {
+    if (hostPaced && !settings.timer.perQuestionEnabled)
+      issue(["settings", "scoring", "mode"], "Time-based scoring needs per-question timers.");
+    if (!hostPaced && !settings.timer.overallEnabled)
+      issue(["settings", "scoring", "mode"], "Time-based scoring needs the overall timer in participant-paced mode.");
+  }
 }
 
 export const pulseConfigSchema = z.strictObject({
@@ -182,6 +199,15 @@ export const pulseDeckSchema = z.strictObject({
     else if (timer.overallEnabled && slide.content.timerSeconds > timer.overallDurationSeconds)
       issue(path, "A question timer can't be longer than the overall timer.");
   });
+
+  // Time-based scoring measures each scored question against its own timer when
+  // host-paced, so every non-poll question needs one. (Participant-paced uses the overall timer.)
+  if (hostPaced && settings.scoring.mode === "time_based") {
+    slides.forEach((slide, index) => {
+      if (slide.type === "mcq" && !slide.content.poll && slide.content.timerSeconds === null)
+        issue(["slides", index, "content", "timerSeconds"], "Set a timer: time-based scoring needs one on every scored question.");
+    });
+  }
 
   // showAfterQuestions lists slide IDs of this deck.
   settings.leaderboard.showAfterQuestions.forEach((slideId, index) => {
