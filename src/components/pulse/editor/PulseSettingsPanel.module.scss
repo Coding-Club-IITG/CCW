@@ -1,0 +1,55 @@
+@use "@/styles/mixins" as *;
+
+.panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.section {
+  @include form-panel;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  min-width: 0;
+  margin: 0;
+
+  legend {
+    @include micro-label($text-xs, 0.09em);
+    padding: 0 0.25rem;
+  }
+}
+
+.field {
+  @include form-field(0);
+
+  select,
+  input[type="number"] {
+    @include form-control;
+  }
+}
+
+.label {
+  @include micro-label($text-xs, 0.09em);
+}
+
+.check label,
+.inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.hint {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.error {
+  margin: 0.25rem 0 0;
+  color: var(--error-text);
+  font-size: 0.75rem;
+}

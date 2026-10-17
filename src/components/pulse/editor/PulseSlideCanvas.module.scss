@@ -1,0 +1,89 @@
+@use "@/styles/mixins" as *;
+
+.canvas {
+  @include form-panel;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+  min-height: 24rem;
+}
+
+.empty {
+  margin: auto;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.title {
+  @include micro-label($text-xs, 0.09em);
+  margin: 0;
+}
+
+.field {
+  @include form-field(0);
+
+  textarea,
+  input {
+    @include form-control;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+}
+
+.options,
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+
+  legend {
+    @include micro-label($text-xs, 0.09em);
+    margin-bottom: 0.5rem;
+    padding: 0;
+  }
+}
+
+.optionRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+
+  input[type="text"] {
+    @include form-control;
+  }
+
+  > :last-child:not(button) {
+    grid-column: 1 / -1;
+  }
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.iconButton {
+  @include icon-button(28px);
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.error {
+  margin: 0;
+  color: var(--error-text);
+  font-size: 0.75rem;
+}

@@ -20,7 +20,26 @@ export const PULSE_DELIVERY_MODES = [
   "participant-paced",
 ] as const;
 export const PULSE_NAVIGATION_MODES = ["sequential", "free"] as const;
-export const PULSE_SLIDE_TYPES = ["info", "mcq", "qa"] as const;
+export const PULSE_SLIDE_TYPES = ["info", "mcq"] as const;
+export type PulseSlideType = (typeof PULSE_SLIDE_TYPES)[number];
+export const PULSE_DISPLAY_MODES = ["full-prompt", "answer-controller"] as const;
+
+/** Deck and gameplay configuration freeze permanently once the lobby opens. */
+export const PULSE_EDITABLE_STATUSES = ["draft", "scheduled"] as const;
+export function isPulseQuizEditable(status: PulseQuizStatus): boolean {
+  return (PULSE_EDITABLE_STATUSES as readonly string[]).includes(status);
+}
+
+// Deck rules. maxParticipants is the design docs' "up to 500 participants"; a choice
+// question needs at least two options; the 5-second question timer floor was specified
+// by the maintainer. The docs define no other size limits.
+export const PULSE_DECK_LIMITS = {
+  minOptions: 2,
+  minQuestionSeconds: 5,
+  maxParticipants: 500,
+} as const;
+// The design docs' example MCQ is worth 100 points.
+export const PULSE_DEFAULT_MCQ_POINTS = 100;
 
 export const PULSE_DEFAULT_MAX_PARTICIPANTS = 500;
 export const PULSE_DEFAULT_ALLOW_LATE_JOIN = false;
@@ -35,6 +54,12 @@ export const ROOM_CODE_PATTERN = new RegExp(
   `^[${ROOM_CODE_ALPHABET}]{${ROOM_CODE_LENGTH}}$`,
 );
 
+/* ---------- Editor lock ---------- */
+
+// Design: a 10-minute (600 s) lock TTL. Phase 2 keeps the lock in MongoDB only
+// (`PulseQuiz.editorLock.expiresAt`); there is no heartbeat, so it simply expires.
+export const PULSE_EDITOR_LOCK_TTL_MS = 600_000;
+
 /* ---------- Audit ---------- */
 
 export const PULSE_AUDIT_EVENT_TYPES = [
@@ -42,6 +67,7 @@ export const PULSE_AUDIT_EVENT_TYPES = [
   "host.assigned",
   "host.removed",
   "host.linked",
+  "deck.saved",
 ] as const;
 export type PulseAuditEventType = (typeof PULSE_AUDIT_EVENT_TYPES)[number];
 

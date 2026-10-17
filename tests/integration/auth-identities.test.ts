@@ -174,7 +174,7 @@ describe("approved Better Auth identities and endpoints", () => {
     "links Pulse assignments only after a verified first %s sign-in",
     async (provider) => {
       providerBoundary.email = provider === "microsoft" ? "member@iitg.ac.in" : "member@gmail.com";
-      const user = await User.create({ email: providerBoundary.email });
+      const user = await User.create({ name: "Member", email: providerBoundary.email, emailVerified: true });
       const rolesBefore = user.toObject().roles;
       const quiz = await PulseQuiz.create({
         roomCode: "A7K9P2",

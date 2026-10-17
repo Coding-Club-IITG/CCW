@@ -1,12 +1,13 @@
 import mongoose from "mongoose";
 
 import { getPulseSession, requireAdmin, requireHostOrAdmin, requirePulseHost } from "@/lib/api/pulse";
-import { err, ok, parseJson, parseSearchParams, type AppResult } from "@/lib/api/result";
+import { err, ok, parseJson, parseSearchParams, zodIssuesToFields, type AppResult } from "@/lib/api/result";
 import { parseObjectId } from "@/lib/api/result.server";
 import { normalizeEmail, providerForEmail } from "@/lib/authPolicy";
 import { paginatedResponse, parsePagination } from "@/lib/pagination";
 import { recordAudit } from "@/lib/pulse/audit";
 import type { PulseHostRole, PulseQuizStatus } from "@/lib/pulse/constants";
+import { pulseConfigSchema, readStoredConfig } from "@/lib/pulse/deckSchemas";
 import { linkHostAssignmentsForUser } from "@/lib/pulse/hostAssignments";
 import { RoomCodeExhaustedError, withUniqueRoomCode } from "@/lib/pulse/roomCode";
 import { createPulseQuizSchema, pulseCoHostSchema, pulseQuizQuerySchema } from "@/lib/pulse/schemas";
@@ -56,6 +57,25 @@ export async function createQuiz(request: Request): Promise<AppResult<PulseQuizD
   const parsed = await parseJson(request, createPulseQuizSchema);
   if (!parsed.ok) return parsed;
   const actor = { userId: authorization.data.user.id, role: "admin" as const };
+
+  // Copy the configuration (never the slides) of a past quiz, checked by the same schemas.
+  let copied: ReturnType<typeof pulseConfigSchema.parse> | undefined;
+  const sourceId = parsed.data.copyConfigFrom;
+  if (sourceId) {
+    const source = await PulseQuiz.findById(sourceId).select("delivery registration settings").lean();
+    if (!source) return err("PULSE_QUIZ_NOT_FOUND", "The quiz to copy from could not be found.");
+    const config = readStoredConfig(source);
+    const checked = pulseConfigSchema.safeParse({
+      ...config,
+      // Slide IDs in this list belong to the source deck.
+      settings: { ...config.settings, leaderboard: { ...config.settings.leaderboard, showAfterQuestions: [] } },
+    });
+    if (!checked.success) {
+      return err("VALIDATION_ERROR", "That quiz's configuration can't be copied.", { fields: zodIssuesToFields(checked.error.issues) });
+    }
+    copied = checked.data;
+  }
+
   try {
     return await withUniqueRoomCode(async (roomCode) => {
       let created!: PulseQuizDetailDto;
@@ -63,8 +83,12 @@ export async function createQuiz(request: Request): Promise<AppResult<PulseQuizD
         const [quiz] = await PulseQuiz.create([{
           title: parsed.data.title, roomCode,
           hostAssignments: [{ email: parsed.data.ownerEmail, role: "owner", assignedBy: actor.userId }],
+          ...copied,
         }], { session });
-        await recordAudit({ quizId: quiz._id, type: "quiz.created", actor }, { session });
+        await recordAudit({
+          quizId: quiz._id, type: "quiz.created", actor,
+          ...(sourceId ? { metadata: { copiedFrom: sourceId } } : {}),
+        }, { session });
         await recordAudit({ quizId: quiz._id, type: "host.assigned", actor,
           target: { type: "host", id: parsed.data.ownerEmail }, metadata: { role: "owner" },
         }, { session });

@@ -104,3 +104,49 @@ again. These corrections and the feature-branch guidance are pending inclusion
 in the P1.1-P1.3 backend pull request on `pulse-phase-1`, targeting `pulse`.
 P1.4 pages, browser E2E tests, and CI updates will follow in a separate pull
 request after the backend pull request is merged.
+
+# Pulse Phase 2 (issue #73) verification
+
+Run on 2026-10-17 against a local MongoDB replica set (Docker, `rs0`), with the
+locked dependencies. `package.json` and the lockfile are unchanged.
+
+## What ran
+
+- `pnpm lint`: passed.
+- `pnpm typecheck`: passed.
+- `pnpm test:ci` (lint, typecheck, unit and integration tests, coverage, build):
+  passed. 102 test files, 758 tests; coverage (all files) 91.43% statements,
+  86.01% branches, 96.37% functions, 93.58% lines, with the configured thresholds met.
+  This includes the production `next build`.
+- New and changed Pulse tests: shared deck/config schemas, pure deck operations,
+  the draft store and dirty flag, the lock state machine, the navigation guard, and
+  MongoDB integration tests for the editor lock, deck save, configuration copy and
+  the Definition of Done flow (`tests/integration/pulse-dod.test.ts`). No Redis is
+  used or needed by any of them.
+- Two Phase 1 tests in `tests/integration/auth-identities.test.ts` ("links Pulse
+  assignments only after a verified first microsoft/google sign-in") were already
+  failing on `origin/pulse`: their user fixture lacked `name` and `emailVerified`, so
+  the sign-in was rejected. The fixture now matches the other tests in that file;
+  no production auth code changed.
+
+## What did not run
+
+- No component tests: the repository has no jsdom or testing-library setup.
+- No browser E2E: there is no Playwright configuration in the repository.
+- The editor UI has not been exercised in a browser. The manual two-browser checklist
+  in the pull request is pending local Azure dev credentials.
+- Back-button handling of the unsaved-changes guard is not implemented; only in-app
+  link clicks and the browser's `beforeunload` prompt are guarded.
+
+## Compatibility notes
+
+- New fields: `PulseQuiz.deckVersion` (default 0; missing on Phase 1 documents, read
+  as 0) and `PulseQuiz.editorLock.token`. Slides keep the existing
+  `{ slideId, order, type, content }` shape.
+- Q&A slides are out of scope: `qa` is no longer an allowed slide type. Phase 1 had
+  no API that wrote slides, so none are expected in real data. If one existed, the
+  editor refuses to open or overwrite that deck (`CONFLICT`) and leaves it untouched;
+  a plain Mongoose `save()` of such a document would fail enum validation.
+- New audit event type `deck.saved`. No new error codes: `CONFLICT` for a held or lost
+  lock, a stale deck or an opened lobby, and `SERVICE_UNAVAILABLE` for a failed save.
+- `POST /api/admin/pulse` accepts an optional `copyConfigFrom` quiz ID.
