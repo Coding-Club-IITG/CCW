@@ -99,3 +99,5 @@ export const pulseQuizQuerySchema = z.strictObject({
   ...paginationQueryFields,
   status: z.enum(PULSE_QUIZ_STATUSES).optional(),
 });
+
+export const pulseLockTokenSchema = z.strictObject({ lockToken: z.string().regex(/^[0-9a-f]{32}$/, "Invalid lock token.") });
