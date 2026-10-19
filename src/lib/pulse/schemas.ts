@@ -9,6 +9,7 @@ import {
   ROOM_CODE_PATTERN,
 } from "@/lib/pulse/constants";
 import {
+  checkConfig,
   pulseDeliverySchema,
   pulseRegistrationSchema,
   pulseSettingsSchema,
@@ -79,8 +80,8 @@ export const pulseQuizSchema = z.object({
     ctx.addIssue({ code: "custom", path: ["hostAssignments"], message: "Duplicate host emails are not allowed." });
   if (owners[0]?.userId && owners[0].userId !== quiz.ownerId)
     ctx.addIssue({ code: "custom", path: ["ownerId"], message: "Owner ID must match the owner assignment." });
-  if (quiz.delivery.mode === "participant-paced" && quiz.settings.timer.perQuestionEnabled)
-    ctx.addIssue({ code: "custom", path: ["settings", "timer", "perQuestionEnabled"], message: "Per-question timers are only supported in host-paced mode." });
+  // Delivery, registration, timer and scoring compatibility: the same rules as the deck editor.
+  checkConfig(quiz, (path, message) => ctx.addIssue({ code: "custom", path, message }));
 });
 
 export type PulseQuizInput = z.input<typeof pulseQuizSchema>;

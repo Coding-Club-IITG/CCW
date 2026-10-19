@@ -101,6 +101,69 @@ describe("PulseQuiz", () => {
     await expect(ok.validate()).resolves.toBeUndefined();
   });
 
+  it("defaults to full scoring and accepts time-based scoring with its timers", async () => {
+    const quiz = minimal();
+    await quiz.validate();
+    expect(quiz.settings?.scoring?.mode).toBe("full");
+    await expect(minimal({ settings: { scoring: { mode: "time_based" } } }).validate()).resolves.toBeUndefined();
+    await expect(minimal({ settings: { scoring: { mode: "speed_sensitive" } } }).validate()).rejects.toThrow();
+  });
+
+  it("rejects time-based scoring without a timer to measure against", async () => {
+    const hostPaced = minimal({ settings: { timer: { perQuestionEnabled: false }, scoring: { mode: "time_based" } } });
+    await expect(hostPaced.validate()).rejects.toThrow(/per-question timers/i);
+    const participantPaced = minimal({
+      delivery: { mode: "participant-paced" },
+      settings: { timer: { perQuestionEnabled: false, overallEnabled: false }, scoring: { mode: "time_based" } },
+    });
+    await expect(participantPaced.validate()).rejects.toThrow(/overall timer/i);
+  });
+
+  it("applies the editor's configuration rules to every write", async () => {
+    for (const extra of [
+      { delivery: { mode: "host-paced", navigation: "free" } },
+      { delivery: { mode: "participant-paced", displayMode: "answer-controller", navigation: "free" }, settings: { timer: { perQuestionEnabled: false } } },
+      { delivery: { displayMode: "projector" } },
+      { registration: { allowGuests: true } },
+      { registration: { maxParticipants: 501 } },
+      { settings: { timer: { overallDurationSeconds: 1.5 } } },
+    ]) await expect(minimal(extra).validate()).rejects.toThrow();
+  });
+
+  it("validates slides: typed content, unique IDs, whole-number order", async () => {
+    const mcq = { text: "2+2?", options: ["3", "4"], correctOptions: [1], multipleAnswers: false, poll: false, points: 100, timerSeconds: null };
+    const info = { slideId: "s1", order: 0, type: "info", content: { markdown: "# Hi" } };
+    const good = [info, { slideId: "s2", order: 1, type: "mcq", content: mcq }];
+    await expect(minimal({ slides: good }).validate()).resolves.toBeUndefined();
+
+    for (const slides of [
+      [info, { ...info, order: 1 }],
+      [{ ...info, order: 0.5 }],
+      [{ slideId: "s2", order: 0, type: "mcq", content: { ...mcq, correctOptions: [9] } }],
+      [{ slideId: "s2", order: 0, type: "mcq", content: { ...mcq, points: 101 } }],
+      [{ slideId: "s2", order: 0, type: "mcq", content: { text: "No options" } }],
+      [{ slideId: "s1", order: 0, type: "info", content: { markdown: "ok", extra: true } }],
+    ]) await expect(minimal({ slides }).validate()).rejects.toThrow();
+  });
+
+  it("keeps Phase 1 placeholder slides with empty content valid", async () => {
+    const slides = [
+      { slideId: "s1", order: 0, type: "info" },
+      { slideId: "s2", order: 1, type: "mcq", content: {} },
+    ];
+    await expect(minimal({ slides }).validate()).resolves.toBeUndefined();
+  });
+
+  it("only re-checks the configuration when it changes", async () => {
+    const quiz = minimal();
+    await quiz.validate();
+    quiz.isNew = false;
+    quiz.$set("settings.scoring.mode", "time_based");
+    quiz.$set("settings.timer.perQuestionEnabled", true);
+    quiz.markModified("title");
+    await expect(quiz.validate()).resolves.toBeUndefined();
+  });
+
   it("rejects an invalid slide type", async () => {
     const quiz = minimal({
       slides: [{ slideId: "s1", order: 0, type: "video" }],
@@ -119,6 +182,8 @@ describe("PulseQuiz", () => {
       { "hostAssignments.email": 1 },
       { ownerId: 1 },
       { coHostIds: 1 },
+      { "schedule.scheduledAt": 1 },
+      { status: 1, "schedule.scheduledAt": 1 },
     ]) {
       expect(indexes).toContainEqual([key, expect.anything()]);
     }

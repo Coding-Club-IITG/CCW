@@ -26,6 +26,8 @@ describe("Pulse draft schema", () => {
       { roomCode: "A7K9P2", ownerId: id, hostAssignments: [{ ...host, userId: "abcdef1234567890abcdef12" }] },
       { roomCode: "A7K9P2", ownerId: id, delivery: { mode: "participant-paced" } },
       { roomCode: "A7K9P2", ownerId: id, registration: { maxParticipants: 0 } },
+      { roomCode: "A7K9P2", ownerId: id, settings: { timer: { perQuestionEnabled: false }, scoring: { mode: "time_based" } } },
+      { roomCode: "A7K9P2", ownerId: id, settings: { scoring: { mode: "speed_sensitive" } } },
     ]) expect(pulseQuizSchema.safeParse(input).success).toBe(false);
   });
 });

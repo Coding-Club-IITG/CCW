@@ -108,7 +108,21 @@ export function createDeckEditorStore(initial: ServerDeck, options: { canEdit?: 
       const { draft, selectedSlideId } = getState();
       const index = draft.slides.findIndex((s) => s.slideId === slideId);
       const neighbour = draft.slides[index + 1] ?? draft.slides[index - 1];
-      return applySlides((slides) => deleteSlide(slides, slideId), () => (selectedSlideId === slideId ? (neighbour?.slideId ?? null) : selectedSlideId));
+      const deleted = applySlides((slides) => deleteSlide(slides, slideId), () => (selectedSlideId === slideId ? (neighbour?.slideId ?? null) : selectedSlideId));
+      if (deleted) {
+        // A deleted slide must not stay in "show leaderboard after these questions".
+        const { settings } = getState().draft;
+        const { showAfterQuestions } = settings.leaderboard;
+        if (showAfterQuestions.includes(slideId)) {
+          setState({
+            draft: {
+              ...getState().draft,
+              settings: { ...settings, leaderboard: { ...settings.leaderboard, showAfterQuestions: showAfterQuestions.filter((id) => id !== slideId) } },
+            },
+          });
+        }
+      }
+      return deleted;
     },
     duplicateSlide(slideId: string) {
       return applySlides((slides) => duplicateSlide(slides, slideId), (r) => ("slide" in r ? (r.slide as PulseSlide).slideId : null));

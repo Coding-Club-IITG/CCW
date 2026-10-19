@@ -14,6 +14,25 @@ const setup = (over: Partial<ServerDeck> = {}, canEdit = true) => {
   return { store, a: store.actions, get: store.getState };
 };
 
+describe("deleting a slide", () => {
+  it("also removes it from the leaderboard's show-after list", () => {
+    const base = defaultPulseConfig();
+    const settings = { ...base.settings, leaderboard: { ...base.settings.leaderboard, showAfterQuestions: ["b"] } };
+    const { a, get } = setup({ settings });
+    expect(a.deleteSlide("b")).toBe(true);
+    expect(get().draft.settings.leaderboard.showAfterQuestions).toEqual([]);
+    expect(get().draft.slides.map((s) => s.slideId)).toEqual(["a", "c"]);
+  });
+
+  it("leaves other leaderboard references untouched", () => {
+    const base = defaultPulseConfig();
+    const settings = { ...base.settings, leaderboard: { ...base.settings.leaderboard, showAfterQuestions: ["b"] } };
+    const { a, get } = setup({ settings });
+    a.deleteSlide("c");
+    expect(get().draft.settings.leaderboard.showAfterQuestions).toEqual(["b"]);
+  });
+});
+
 describe("dirty flag", () => {
   it("is clean on load and dirty after any edit, then clean again when the edit is reverted", () => {
     const { a, get } = setup();
