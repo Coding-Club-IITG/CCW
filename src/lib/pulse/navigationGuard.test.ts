@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createNavigationGuard, internalNavigationTarget } from "@/lib/pulse/navigationGuard";
+import { createNavigationGuard, guardHistoryNavigation, internalNavigationTarget } from "@/lib/pulse/navigationGuard";
 
 const current = new URL("https://ccw.test/pulse/host/q1/edit");
 
@@ -21,6 +21,88 @@ describe("internalNavigationTarget", () => {
       { href: "/x", modifiers: { meta: true } },
       { href: "http://[bad" },
     ]) expect(internalNavigationTarget(link, current)).toBeNull();
+  });
+});
+
+type HistoryEvent = Parameters<typeof guardHistoryNavigation>[0];
+function historyEvent(patch: Partial<HistoryEvent> = {}): HistoryEvent {
+  return {
+    defaultPrevented: false, cancelable: true, navigationType: "traverse",
+    destination: { url: "https://ccw.test/pulse/host", key: "back-entry", id: "back-id", index: 0, sameDocument: true, getState: () => undefined },
+    preventDefault: vi.fn(), ...patch,
+  };
+}
+
+describe("browser history navigation", () => {
+  it.each(["back-entry", "forward-entry"])("resumes the exact %s on Leave without pushing a new route", async (key) => {
+    const g = guard(true, true);
+    const event = historyEvent();
+    const traverse = vi.fn(async () => undefined);
+    const result = guardHistoryNavigation({ ...event, destination: { ...event.destination, key } }, current, g.guard, traverse);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(await result).toBe("left");
+    expect(traverse).toHaveBeenCalledExactlyOnceWith(key);
+    expect(g.navigate).not.toHaveBeenCalled();
+  });
+
+  it("Stay cancels the traversal and keeps the draft protected", async () => {
+    const g = guard(true, false);
+    const event = historyEvent();
+    const traverse = vi.fn(async () => undefined);
+    expect(await guardHistoryNavigation(event, current, g.guard, traverse)).toBe("stayed");
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(traverse).not.toHaveBeenCalled();
+    expect(g.guard.shouldIntercept()).toBe(true);
+  });
+
+  it("lets clean decks traverse normally without a prompt", async () => {
+    const g = guard(false, false);
+    const event = historyEvent();
+    const traverse = vi.fn(async () => undefined);
+    expect(await guardHistoryNavigation(event, current, g.guard, traverse)).toBe("ignored");
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(g.confirmLeave).not.toHaveBeenCalled();
+    expect(traverse).not.toHaveBeenCalled();
+  });
+
+  it("cancels repeated Back/Forward requests without replacing the pending destination", async () => {
+    let answer!: (leave: boolean) => void;
+    const confirmLeave = vi.fn(() => new Promise<boolean>((resolve) => { answer = resolve; }));
+    const controller = createNavigationGuard({ isDirty: () => true, confirmLeave, navigate: vi.fn() });
+    const traverse = vi.fn(async () => undefined);
+    const first = guardHistoryNavigation(historyEvent(), current, controller, traverse);
+    const repeated = historyEvent({ destination: { ...historyEvent().destination, key: "other-entry" } });
+    expect(await guardHistoryNavigation(repeated, current, controller, traverse)).toBe("ignored");
+    expect(repeated.preventDefault).toHaveBeenCalledOnce();
+    expect(confirmLeave).toHaveBeenCalledOnce();
+    answer(true);
+    expect(await first).toBe("left");
+    expect(traverse).toHaveBeenCalledExactlyOnceWith("back-entry");
+  });
+
+  it("protects the draft again if the resumed traversal fails", async () => {
+    const g = guard(true, true);
+    const traverse = vi.fn(async () => { throw new DOMException("Superseded", "AbortError"); });
+    expect(await guardHistoryNavigation(historyEvent(), current, g.guard, traverse)).toBe("stayed");
+    expect(g.guard.shouldIntercept()).toBe(true);
+    expect(g.guard.beforeUnload()).toMatch(/unsaved/i);
+  });
+
+  it("leaves same-page, cross-document and noncancelable navigations to the browser", async () => {
+    const g = guard(true, true);
+    const base = historyEvent();
+    const patches: Partial<HistoryEvent>[] = [
+      { defaultPrevented: true }, { cancelable: false }, { navigationType: "reload" },
+      { destination: { ...base.destination, sameDocument: false } },
+      { destination: { ...base.destination, url: `${current.href}#slide` } },
+      { destination: { ...base.destination, url: "https://example.com/" } },
+    ];
+    for (const patch of patches) {
+      const event = historyEvent(patch);
+      expect(await guardHistoryNavigation(event, current, g.guard, vi.fn())).toBe("ignored");
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    }
+    expect(g.confirmLeave).not.toHaveBeenCalled();
   });
 });
 
@@ -79,10 +161,17 @@ describe("navigation guard", () => {
     expect(g.guard.beforeUnload()).toBeNull();
   });
 
-  it("stops warning after the host chose Leave", async () => {
+  it("bypasses the approved traversal, then protects edits if the editor remains mounted", async () => {
     const g = guard(true, true);
-    await g.guard.request("/a");
+    let finish!: () => void;
+    const proceed = () => new Promise<void>((resolve) => { finish = resolve; });
+    const result = g.guard.request("/a", proceed);
+    await Promise.resolve();
     expect(g.guard.beforeUnload()).toBeNull();
     expect(g.guard.shouldIntercept()).toBe(false);
+    finish();
+    expect(await result).toBe("left");
+    expect(g.guard.shouldIntercept()).toBe(true);
+    expect(g.guard.beforeUnload()).toMatch(/unsaved/i);
   });
 });

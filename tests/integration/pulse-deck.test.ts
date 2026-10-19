@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { GET as getDeck, PUT as putDeck } from "@/app/api/pulse/host/[quizId]/deck/route";
 import { POST as acquire } from "@/app/api/pulse/host/[quizId]/lock/route";
 import { defaultPulseConfig, type PulseSlide } from "@/lib/pulse/deckSchemas";
+import { createDeckEditorStore, isDirty } from "@/lib/pulse/deckEditorStore";
 import { acquireEditorLock } from "@/lib/pulse/editorLock";
 import PulseAuditEvent from "@/models/PulseAuditEvent";
 import PulseQuiz from "@/models/PulseQuiz";
@@ -82,6 +83,35 @@ function beforeNextWrite(before: () => Promise<void>) {
 }
 
 describe("deck save and reload", () => {
+  it("persists the visible order after reordering and independently editing a duplicate", async () => {
+    const owner = await makeUser("owner@iitg.ac.in");
+    const quizId = await makeQuiz(owner, { slides: slides(), ...defaultPulseConfig() });
+    const token = await lock(quizId, owner.email);
+    const loaded = await json(await call(getDeck, owner.email, { quizId }));
+    const store = createDeckEditorStore(loaded.data, { canEdit: true });
+    const original = structuredClone(store.getState().draft.slides.find((slide) => slide.slideId === "s-mcq")!);
+
+    store.actions.reorderSlide("s-poll", 0);
+    store.actions.duplicateSlide("s-mcq");
+    const duplicateId = store.getState().selectedSlideId!;
+    store.actions.updateSlide(duplicateId, { text: "Copy?", options: ["6", "7"], correctOptions: [1] });
+    store.actions.reorderSlide(duplicateId, store.getState().draft.slides.length - 1);
+    expect(store.getState().draft.slides.find((slide) => slide.slideId === "s-mcq")).toEqual({ ...original, order: 2 });
+    const visible = structuredClone(store.getState().draft.slides);
+    expect(new Set(visible.map((slide) => slide.slideId)).size).toBe(visible.length);
+    expect(visible.map((slide) => slide.order)).toEqual([0, 1, 2, 3, 4]);
+    expect(isDirty(store.getState())).toBe(true);
+    expect((await PulseQuiz.findById(quizId).lean())?.deckVersion).toBe(0);
+
+    const body = store.actions.beginSave()!;
+    const saved = await json(await call(putDeck, owner.email, { quizId }, { method: "PUT", body: { ...body, lockToken: token } }));
+    expect(saved.ok).toBe(true);
+    store.actions.saveSucceeded(saved.data);
+    expect(isDirty(store.getState())).toBe(false);
+    const reopened = await json(await call(getDeck, owner.email, { quizId }));
+    expect(reopened.data.slides).toEqual(visible);
+  });
+
   it("round-trips Info and MCQ slides identically", async () => {
     const a = await makeUser("a@iitg.ac.in");
     const id = await makeQuiz(a);

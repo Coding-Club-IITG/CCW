@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import BackLink from "@/components/shared/BackLink";
 import Button from "@/components/shared/Button";
@@ -35,19 +35,29 @@ export default function PulseDeckEditor({ quizId, initialDeck }: PulseDeckEditor
   const [tab, setTab] = useState<Tab>("slides");
   const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ slides: null, settings: null });
 
-  // "Navigate away? Changes have not been saved. [Stay] [Leave]"
-  const [leavePrompt, setLeavePrompt] = useState(false);
+  const [discardPrompt, setDiscardPrompt] = useState<"leave" | "reload" | null>(null);
   const leaveResolver = useRef<((leave: boolean) => void) | null>(null);
-  const askLeave = () => new Promise<boolean>((resolve) => {
+  const askDiscard = (reason: "leave" | "reload") => new Promise<boolean>((resolve) => {
+    if (leaveResolver.current) { resolve(false); return; }
     leaveResolver.current = resolve;
-    setLeavePrompt(true);
+    setDiscardPrompt(reason);
   });
   const answerLeave = (leave: boolean) => {
-    setLeavePrompt(false);
-    leaveResolver.current?.(leave);
+    setDiscardPrompt(null);
+    const resolve = leaveResolver.current;
     leaveResolver.current = null;
+    resolve?.(leave);
   };
-  useUnsavedChangesGuard(() => isDirty(store.getState()), askLeave);
+  useEffect(() => () => {
+    leaveResolver.current?.(false);
+    leaveResolver.current = null;
+  }, []);
+  useUnsavedChangesGuard(() => isDirty(store.getState()), () => askDiscard("leave"));
+
+  const confirmReload = async () => {
+    if (isDirty(store.getState()) && !(await askDiscard("reload"))) return;
+    await reloadLatest();
+  };
 
   const { draft, selectedSlideId, canEdit, save: saveState } = state;
   const selectedIndex = draft.slides.findIndex((slide) => slide.slideId === selectedSlideId);
@@ -65,7 +75,7 @@ export default function PulseDeckEditor({ quizId, initialDeck }: PulseDeckEditor
           <h1 className={styles.title}>Deck Editor</h1>
           {dirty ? <p className={styles.unsaved} aria-live="polite">Unsaved changes</p> : null}
         </div>
-        <Button variant="primary" onClick={() => void save()} disabled={!canEdit || !dirty || saveState.state === "saving"}>
+        <Button variant="primary" onClick={() => void save()} disabled={!canEdit || !dirty || reloading || saveState.state === "saving"}>
           {saveState.state === "saving" ? "Saving…" : "Save"}
         </Button>
       </header>
@@ -94,7 +104,7 @@ export default function PulseDeckEditor({ quizId, initialDeck }: PulseDeckEditor
             {saveState.code === "CONFLICT" ? (
               <>
                 {" "}
-                <Button size="small" onClick={() => void reloadLatest()} disabled={reloading}>
+                <Button size="small" onClick={() => void confirmReload()} disabled={reloading}>
                   {reloading ? "Reloading…" : "Reload latest"}
                 </Button>
               </>
@@ -139,7 +149,7 @@ export default function PulseDeckEditor({ quizId, initialDeck }: PulseDeckEditor
             <PulseSlideSidebar
               slides={draft.slides}
               selectedSlideId={selectedSlideId}
-              readOnly={!canEdit}
+              readOnly={!canEdit || reloading}
               onSelect={actions.select}
               onAdd={(type) => actions.addSlide(type)}
               onDuplicate={actions.duplicateSlide}
@@ -149,7 +159,7 @@ export default function PulseDeckEditor({ quizId, initialDeck }: PulseDeckEditor
             <PulseSlideCanvas
               slide={selected}
               index={selectedIndex}
-              readOnly={!canEdit}
+              readOnly={!canEdit || reloading}
               timerEnabled={draft.delivery.mode === "host-paced" && draft.settings.timer.perQuestionEnabled}
               errors={selectedIndex >= 0 && saveState.state === "error" ? slideFields(saveState.fields, selectedIndex) : {}}
               onChange={actions.updateSlide}
@@ -167,28 +177,28 @@ export default function PulseDeckEditor({ quizId, initialDeck }: PulseDeckEditor
             registration={draft.registration}
             settings={draft.settings}
             slides={draft.slides}
-            readOnly={!canEdit}
+            readOnly={!canEdit || reloading}
             errors={saveState.state === "error" ? saveState.fields : {}}
             onChange={actions.updateConfig}
           />
         ) : null}
       </section>
 
-      {leavePrompt ? (
+      {discardPrompt ? (
         <Modal
           kicker="Unsaved changes"
-          title="Navigate away?"
-          description="Changes have not been saved."
+          title={discardPrompt === "reload" ? "Reload saved deck?" : "Navigate away?"}
+          description={discardPrompt === "reload" ? "Your unsaved changes will be replaced by the saved deck." : "Changes have not been saved."}
           onClose={() => answerLeave(false)}
           maxWidth={480}
           footer={
             <>
-              <Button variant="ghost" onClick={() => answerLeave(false)}>Stay</Button>
-              <Button variant="danger" onClick={() => answerLeave(true)}>Leave</Button>
+              <Button variant="ghost" onClick={() => answerLeave(false)}>{discardPrompt === "reload" ? "Keep editing" : "Stay"}</Button>
+              <Button variant="danger" onClick={() => answerLeave(true)}>{discardPrompt === "reload" ? "Reload latest" : "Leave"}</Button>
             </>
           }
         >
-          <p>Leaving discards your unsaved edits to this deck.</p>
+          <p>{discardPrompt === "reload" ? "Reload only if you want to discard this draft." : "Leaving discards your unsaved edits to this deck."}</p>
         </Modal>
       ) : null}
     </div>
