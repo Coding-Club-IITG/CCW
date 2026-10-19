@@ -33,6 +33,7 @@ export default function PulseDeckEditor({ quizId, initialDeck }: PulseDeckEditor
   const { store, state, lock, save, tryAcquire, reloadLatest, reloading, dirty } = useDeckEditor(quizId, initialDeck);
   const { actions } = store;
   const [tab, setTab] = useState<Tab>("slides");
+  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ slides: null, settings: null });
 
   // "Navigate away? Changes have not been saved. [Stay] [Leave]"
   const [leavePrompt, setLeavePrompt] = useState(false);
@@ -112,38 +113,55 @@ export default function PulseDeckEditor({ quizId, initialDeck }: PulseDeckEditor
       <div className={styles.tabs} role="tablist" aria-label="Editor sections">
         {([["slides", "Slides"], ["settings", "Quiz settings"]] as const).map(([id, label]) => (
           <button key={id} type="button" role="tab" id={`tab-${id}`} aria-selected={tab === id} aria-controls={`panel-${id}`}
-            className={`${styles.tab} ${tab === id ? styles.tabActive : ""}`} onClick={() => setTab(id)}>
+            ref={(element) => { tabRefs.current[id] = element; }} tabIndex={tab === id ? 0 : -1}
+            className={`${styles.tab} ${tab === id ? styles.tabActive : ""}`} onClick={() => setTab(id)}
+            onKeyDown={(event) => {
+              let next: Tab;
+              switch (event.key) {
+                case "ArrowLeft":
+                case "ArrowRight": next = id === "slides" ? "settings" : "slides"; break;
+                case "Home": next = "slides"; break;
+                case "End": next = "settings"; break;
+                default: return;
+              }
+              event.preventDefault();
+              setTab(next);
+              tabRefs.current[next]?.focus();
+            }}>
             {label}
           </button>
         ))}
       </div>
 
-      {tab === "slides" ? (
-        <div className={styles.workspace} role="tabpanel" id="panel-slides" aria-labelledby="tab-slides">
-          <PulseSlideSidebar
-            slides={draft.slides}
-            selectedSlideId={selectedSlideId}
-            readOnly={!canEdit}
-            onSelect={actions.select}
-            onAdd={(type) => actions.addSlide(type)}
-            onDuplicate={actions.duplicateSlide}
-            onDelete={actions.deleteSlide}
-            onMove={actions.reorderSlide}
-          />
-          <PulseSlideCanvas
-            slide={selected}
-            index={selectedIndex}
-            readOnly={!canEdit}
-            timerEnabled={draft.delivery.mode === "host-paced" && draft.settings.timer.perQuestionEnabled}
-            errors={selectedIndex >= 0 && saveState.state === "error" ? slideFields(saveState.fields, selectedIndex) : {}}
-            onChange={actions.updateSlide}
-            onAddOption={(slideId) => actions.addMcqOption(slideId)}
-            onRemoveOption={actions.removeMcqOption}
-            onSetCorrect={actions.setMcqOptionCorrect}
-          />
-        </div>
-      ) : (
-        <section role="tabpanel" id="panel-settings" aria-labelledby="tab-settings">
+      <div hidden={tab !== "slides"} role="tabpanel" id="panel-slides" aria-labelledby="tab-slides" tabIndex={0}>
+        {tab === "slides" ? (
+          <div className={styles.workspace}>
+            <PulseSlideSidebar
+              slides={draft.slides}
+              selectedSlideId={selectedSlideId}
+              readOnly={!canEdit}
+              onSelect={actions.select}
+              onAdd={(type) => actions.addSlide(type)}
+              onDuplicate={actions.duplicateSlide}
+              onDelete={actions.deleteSlide}
+              onMove={actions.reorderSlide}
+            />
+            <PulseSlideCanvas
+              slide={selected}
+              index={selectedIndex}
+              readOnly={!canEdit}
+              timerEnabled={draft.delivery.mode === "host-paced" && draft.settings.timer.perQuestionEnabled}
+              errors={selectedIndex >= 0 && saveState.state === "error" ? slideFields(saveState.fields, selectedIndex) : {}}
+              onChange={actions.updateSlide}
+              onAddOption={(slideId) => actions.addMcqOption(slideId)}
+              onRemoveOption={actions.removeMcqOption}
+              onSetCorrect={actions.setMcqOptionCorrect}
+            />
+          </div>
+        ) : null}
+      </div>
+      <section hidden={tab !== "settings"} role="tabpanel" id="panel-settings" aria-labelledby="tab-settings" tabIndex={0}>
+        {tab === "settings" ? (
           <PulseSettingsPanel
             delivery={draft.delivery}
             registration={draft.registration}
@@ -153,8 +171,8 @@ export default function PulseDeckEditor({ quizId, initialDeck }: PulseDeckEditor
             errors={saveState.state === "error" ? saveState.fields : {}}
             onChange={actions.updateConfig}
           />
-        </section>
-      )}
+        ) : null}
+      </section>
 
       {leavePrompt ? (
         <Modal

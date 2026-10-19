@@ -178,13 +178,14 @@ const LifecycleTimestampsSchema = new Schema(
 function validateSlides(slides: unknown[]): boolean {
   const seen = new Set<string>();
   for (const slide of slides) {
-    const plain = (slide as { toObject?: () => Record<string, unknown> }).toObject?.() ??
+    const plain = (slide as { toObject?: (options: { minimize: boolean }) => Record<string, unknown> }).toObject?.({ minimize: false }) ??
       (slide as Record<string, unknown>);
     const slideId = String(plain.slideId ?? "");
     if (seen.has(slideId)) return false;
     seen.add(slideId);
-    const content = plain.content as Record<string, unknown> | undefined;
-    if (!content || Object.keys(content).length === 0) continue;
+    const content = plain.content;
+    if (content !== null && typeof content === "object" &&
+      Object.getPrototypeOf(content) === Object.prototype && Object.keys(content).length === 0) continue;
     if (!pulseSlideSchema.safeParse(plain).success) return false;
   }
   return true;

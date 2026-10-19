@@ -16,6 +16,29 @@ afterEach(clearTestMongo);
 afterAll(stopTestMongo);
 
 describe("PulseQuiz deck persistence", () => {
+  it.each(["info", "mcq"])("preserves empty Phase 1 %s placeholders", async (type) => {
+    const quiz = new PulseQuiz({
+      ownerId: id(), roomCode: "C9N4R5",
+      slides: [{ slideId: "s1", order: 0, type, content: {} }],
+    });
+    await expect(quiz.validate()).resolves.toBeUndefined();
+  });
+
+  it.each([
+    { name: "null", content: null },
+    { name: "number", content: 42 },
+    { name: "boolean", content: false },
+    { name: "array", content: [] },
+    { name: "date", content: new Date("2026-01-01") },
+    { name: "map", content: new Map() },
+  ])("rejects malformed slide content: $name", async ({ content }) => {
+    const quiz = new PulseQuiz({
+      ownerId: id(), roomCode: "C9N4R5",
+      slides: [{ slideId: "s1", order: 0, type: "info", content }],
+    });
+    await expect(quiz.validate()).rejects.toMatchObject({ errors: { slides: expect.anything() } });
+  });
+
   it("loads a Phase 1 document with no scoring settings", async () => {
     // Raw insert reproduces what Phase 1 wrote, bypassing the new schema defaults.
     const _id = id();
