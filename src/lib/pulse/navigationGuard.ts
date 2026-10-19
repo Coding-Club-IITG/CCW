@@ -42,24 +42,38 @@ export function createNavigationGuard({ isDirty, confirmLeave, navigate }: Navig
     /** Whether a navigation must be intercepted and routed through `request`. */
     shouldIntercept: () => !bypass && isDirty(),
     /** Asks the host; navigates only on Leave. Repeated clicks while asking are ignored. */
-    async request(href: string): Promise<"left" | "stayed" | "ignored"> {
+    async request(href: string, proceed: () => void | Promise<unknown> = () => navigate(href)): Promise<"left" | "stayed" | "ignored"> {
       if (asking) return "ignored";
-      if (!isDirty() || bypass) {
-        navigate(href);
-        return "left";
-      }
       asking = true;
       try {
-        const leave = await confirmLeave();
-        if (!leave) return "stayed";
+        if (isDirty() && !bypass && !(await confirmLeave())) return "stayed";
         bypass = true;
-        navigate(href);
+        await proceed();
         return "left";
+      } catch {
+        return "stayed";
       } finally {
+        // A traversal can finish without unmounting this editor (for example, a query change).
+        bypass = false;
         asking = false;
       }
     },
     /** Value for `event.returnValue` on beforeunload, or null when there is nothing to protect. */
     beforeUnload: () => (!bypass && isDirty() ? "You have unsaved changes." : null),
   };
+}
+
+/** Cancel before Next handles popstate, then resume the original history entry on Leave. */
+export async function guardHistoryNavigation(
+  event: Pick<NavigateEvent, "defaultPrevented" | "cancelable" | "navigationType" | "destination" | "preventDefault">,
+  current: URL,
+  guard: ReturnType<typeof createNavigationGuard>,
+  traverseTo: (key: string) => Promise<unknown>,
+) {
+  if (event.defaultPrevented || !event.cancelable || event.navigationType !== "traverse" ||
+    !event.destination.sameDocument || !guard.shouldIntercept()) return "ignored";
+  const href = internalNavigationTarget({ href: event.destination.url }, current);
+  if (!href) return "ignored";
+  event.preventDefault();
+  return guard.request(href, async () => { await traverseTo(event.destination.key); });
 }

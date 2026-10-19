@@ -135,8 +135,9 @@ locked dependencies. `package.json` and the lockfile are unchanged.
 - No browser E2E: there is no Playwright configuration in the repository.
 - The editor UI has not been exercised in a browser. The manual two-browser checklist
   in the pull request is pending local Azure dev credentials.
-- Back-button handling of the unsaved-changes guard is not implemented; only in-app
-  link clicks and the browser's `beforeunload` prompt are guarded.
+- At the time of this run, Back-button handling was not implemented; only in-app
+  link clicks and the browser's `beforeunload` prompt were guarded. See the
+  Issue 2.4 update below for the subsequent history guard.
 
 ## Compatibility notes
 
@@ -150,3 +151,67 @@ locked dependencies. `package.json` and the lockfile are unchanged.
 - New audit event type `deck.saved`. No new error codes: `CONFLICT` for a held or lost
   lock, a stale deck or an opened lobby, and `SERVICE_UNAVAILABLE` for a failed save.
 - `POST /api/admin/pulse` accepts an optional `copyConfigFrom` quiz ID.
+
+# Pulse Issue 2.4 update (2026-10-19)
+
+Scope: Info and MCQ slide ordering, duplication, explicit save and draft protection.
+The existing deck helpers, draft store and save API already implement ordering,
+independent duplicates, validation and saved/draft separation; those are reused.
+No new dependencies, autosave, guests, Q&A, Redis Pub/Sub or heartbeats were added.
+
+## Changes
+
+- Same-document Back/Forward requests now use the existing Stay/Leave dialog.
+  Stay cancels the request; Leave resumes its original history entry instead of
+  pushing another entry. Repeated requests share one confirmation. Failed
+  traversals, or traversals that leave the editor mounted, keep edits protected.
+- Reload latest asks before replacing an unsaved draft. Editing and Save are
+  disabled during the reload so fresh edits cannot be overwritten by its result.
+- A MongoDB integration test exercises reorder, duplicate, edit the copy, Save
+  and reopen, checking unique IDs, unchanged original content and persisted order.
+
+## Checks and limits
+
+- Focused Vitest run: **71/71 tests passed** across `deck.test.ts`,
+  `deckEditorStore.test.ts`, `navigationGuard.test.ts` and
+  `tests/integration/pulse-deck.test.ts`, using an isolated local test database.
+- `pnpm typecheck`: passed.
+- ESLint on the changed TypeScript/TSX files: passed.
+- These are controller, store and API tests, not browser interaction tests. The
+  user subsequently confirmed that the guided Brave editor check works.
+  This is manual confirmation, not an automated browser test; the conflict
+  reload dialog and older-browser behavior have not been separately confirmed.
+  Full CI stage results from the subsequent run are recorded below.
+- Back/Forward confirmation requires the browser's Navigation API and a
+  cancelable same-document navigation. Older browsers retain the existing link
+  and reload/close guards; their same-document history navigation is unguarded.
+  Cross-document exits use the browser's native unload confirmation. Browsers
+  may also make a traversal noncancelable, in which case it cannot be blocked.
+
+## Full local CI stage rerun (2026-10-19)
+
+All five stages from the repository CI workflow passed locally on Windows:
+
+- Full repository ESLint and TypeScript checks: passed.
+- Unit and integration tests: **801/801 passed across 103 files**.
+- V8 coverage run: **801/801 passed**; configured coverage thresholds met.
+  Statements 91.43%, branches 86.01%, functions 96.37%, lines 93.58%.
+  The coverage include list is unchanged and does not measure every source file.
+- Production `next build`: passed, including the Pulse host/editor routes.
+
+The installed executables were invoked directly with CI test credentials and
+isolated local MongoDB/Redis endpoints. The initial pnpm script attempt triggered
+a failed automatic install; the locked dependencies were restored from the
+existing workspace cache without changing dependency files.
+
+The first full test run passed 800/801; the POTD unauthenticated-access test hit
+its five-second timeout. A repeat of the full suite passed without changing
+tests or timeouts. The first build failed after the native local MongoDB process
+crashed. MongoDB was restarted with a 0.25 GB development cache; the build then
+passed with two page-generation workers (`CIRCLE_NODE_TOTAL=3`). These are local
+runtime adjustments, not product configuration changes. The development server
+and worker were restarted and remain available for manual Brave checks.
+
+Browser automation stopped because the Windows tool could not enforce browser
+URL policy. The user then followed the manual Brave checklist and reported that
+it works. This user-reported result is separate from the automated CI results.

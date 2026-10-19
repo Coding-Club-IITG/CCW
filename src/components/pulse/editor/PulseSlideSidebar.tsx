@@ -28,7 +28,7 @@ export default function PulseSlideSidebar({
       <h2 className={styles.heading}>Slides</h2>
 
       {slides.length === 0 ? (
-        <p className={styles.empty}>No slides yet. Add an Info, MCQ or Q&amp;A slide to begin.</p>
+        <p className={styles.empty}>No slides yet. Add an Info or MCQ slide to begin.</p>
       ) : (
         <ol className={styles.list}>
           {slides.map((slide, index) => {

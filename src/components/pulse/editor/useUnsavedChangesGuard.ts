@@ -3,12 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-import { createNavigationGuard, internalNavigationTarget } from "@/lib/pulse/navigationGuard";
+import { createNavigationGuard, guardHistoryNavigation, internalNavigationTarget } from "@/lib/pulse/navigationGuard";
 
 /**
- * Protects unsaved edits: in-app link clicks ask Stay/Leave; closing or reloading the
- * tab uses the browser's own beforeunload prompt. Next's App Router has no
- * route-blocking API, so links are intercepted in the capture phase.
+ * Links and supported same-document history traversals ask Stay/Leave; closing or
+ * reloading the tab uses the browser's own beforeunload prompt.
  */
 export function useUnsavedChangesGuard(isDirty: () => boolean, confirmLeave: () => Promise<boolean>) {
   const router = useRouter();
@@ -45,11 +44,24 @@ export function useUnsavedChangesGuard(isDirty: () => boolean, confirmLeave: () 
       event.returnValue = message;
     };
 
+    // shortcut: history confirmation needs Navigation API; add a fallback if older browsers must be supported.
+    const navigation = window.navigation;
+    const onNavigate = (event: NavigateEvent) => {
+      void guardHistoryNavigation(event, new URL(window.location.href), guard, async (key) => {
+        const result = navigation.traverseTo(key);
+        // Both promises reject if another navigation supersedes this traversal.
+        void result.committed?.catch(() => undefined);
+        await result.finished;
+      });
+    };
+
     document.addEventListener("click", onClick, true);
     window.addEventListener("beforeunload", onBeforeUnload);
+    navigation?.addEventListener("navigate", onNavigate);
     return () => {
       document.removeEventListener("click", onClick, true);
       window.removeEventListener("beforeunload", onBeforeUnload);
+      navigation?.removeEventListener("navigate", onNavigate);
     };
   }, [router]);
 }
