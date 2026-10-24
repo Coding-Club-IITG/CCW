@@ -7,14 +7,15 @@
 import mongoose from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 
-import { canAccessFile, canManageFile } from "@/lib/access/files";
+import { canAccessFile } from "@/lib/access/files";
 import { auditActor, auditedTransaction } from "@/lib/audit/index";
 import { summarizeFile } from "@/lib/audit/summary";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import {
   fileErrorResponse,
   fileFailure,
-  memberGroupIds,
+  fileGroupAccess,
+  requireFileManagement,
 } from "@/lib/files/server";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
@@ -29,7 +30,7 @@ import {
   ObjectNotFoundError,
 } from "@/lib/files/storage";
 import { connectMongoDB } from "@/lib/db/mongodb";
-import { parseManagedModules, parseRoles } from "@/lib/users/roles";
+import { parseRoles } from "@/lib/users/roles";
 import { validateTags } from "@/lib/shared/tags";
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
@@ -47,7 +48,6 @@ async function resolveSession(request: NextRequest) {
   const user = session.user;
   return {
     user,
-    managedModules: parseManagedModules(user.managedModules),
     roles: parseRoles(user.roles),
   };
 }
@@ -73,16 +73,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return jsonError("NOT_FOUND", "File not found.");
     }
 
-    const { user, managedModules, roles } = auth_;
-    const groupIds = await memberGroupIds(user.id);
+    const { user, roles } = auth_;
+    const { groupIds, managedGroupIds } = await fileGroupAccess(user);
     if (
       !canAccessFile(
         user.id,
         user.access,
-        managedModules,
         roles,
-        file as any,
+        file,
         groupIds,
+        managedGroupIds,
       )
     ) {
       return jsonError("FORBIDDEN", "Forbidden.");
@@ -169,10 +169,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return jsonError("NOT_FOUND", "File not found.");
     }
 
-    const { user, managedModules } = auth_;
-    if (!canManageFile(user.id, user.access, managedModules, file as any)) {
-      return jsonError("FORBIDDEN", "Forbidden.");
-    }
+    const { user } = auth_;
+    await requireFileManagement(user, file);
 
     const parsedBody = await parseJson(request, jsonObjectSchema);
     if (!parsedBody.ok) return jsonResult(parsedBody);
@@ -234,8 +232,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         const before = await FileEntry.findById(id).session(transaction).lean();
         if (!before)
           throw new Error("File disappeared during metadata update.");
-        if (!canManageFile(user.id, user.access, managedModules, before as any))
-          fileFailure("FORBIDDEN", "You cannot manage this file.");
+        await requireFileManagement(user, before, transaction);
         if (
           before.updatedAt.getTime() !== file.updatedAt.getTime() ||
           (body.updatedAt !== undefined &&
@@ -310,10 +307,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return jsonError("NOT_FOUND", "File not found.");
     }
 
-    const { user, managedModules } = auth_;
-    if (!canManageFile(user.id, user.access, managedModules, file as any)) {
-      return jsonError("FORBIDDEN", "Forbidden.");
-    }
+    const { user } = auth_;
+    await requireFileManagement(user, file);
 
     const dbSession = await mongoose.startSession();
     try {
@@ -322,10 +317,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
           .session(transaction)
           .lean();
         if (!current) throw new Error("File disappeared during deletion.");
-        if (
-          !canManageFile(user.id, user.access, managedModules, current as any)
-        )
-          fileFailure("FORBIDDEN", "Forbidden.");
+        await requireFileManagement(user, current, transaction);
         await FileEntry.deleteOne({ _id: id }, { session: transaction });
         return {
           result: undefined,
@@ -359,7 +351,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     });
     return jsonOk({ success: true });
   } catch (err) {
-    logger.error("[Files] DELETE /api/files/[id] error:", err);
-    return jsonError("INTERNAL_ERROR", "Internal server error.");
+    return fileErrorResponse("files.delete", err, request);
   }
 }

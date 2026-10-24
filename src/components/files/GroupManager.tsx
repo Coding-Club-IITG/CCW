@@ -122,7 +122,6 @@ export default function GroupManager({
                     <span className={styles.hint}>
                       {group.memberCount}{" "}
                       {group.memberCount === 1 ? "member" : "members"}
-                      {group.module ? ` · ${group.module}` : ""}
                     </span>
                     {group.description && <p>{group.description}</p>}
                   </div>

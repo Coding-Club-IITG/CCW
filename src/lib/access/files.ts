@@ -2,22 +2,22 @@
  * File Access Control utilities
  *
  * - Admins can manage every file.
- * - Heads and Core Team can upload and manage their own uploads + files in their managed modules.
+ * - Heads and Core Team can upload and manage files shared with groups they manage.
+ * - Uploaders can always manage their own files.
  * - Members are read-only, subject to each file's ACL.
  */
 
 import type {
   ClubPosition,
-  ModuleName,
   RoleModuleName,
   ModulePosition,
   UserRole,
 } from "@/lib/constants";
-import { isElevated, isAdmin, getModules } from "@/lib/access/roles";
+import { isElevated, isAdmin } from "@/lib/access/roles";
 
 interface ManageableFile {
   uploadedBy: unknown;
-  uploaderModule?: ModuleName | null;
+  accessControl: { allowedGroups?: readonly unknown[] };
 }
 
 interface FileAccessControl {
@@ -42,26 +42,20 @@ export function canUploadFiles(access: string): boolean {
 export function canManageFile(
   userId: string,
   access: string,
-  managedModules: readonly ModuleName[],
   file: ManageableFile,
+  managedGroupIds: readonly unknown[] = [],
 ): boolean {
   if (isAdmin(access)) return true;
 
-  const modules = isElevated(access) ? getModules(access, managedModules) : [];
-
-  // Module heads
-  if (
-    modules.length > 0 &&
-    file.uploaderModule &&
-    modules.some((module) => module === file.uploaderModule)
-  ) {
-    return true;
-  }
-
   // Anyone who can upload can always manage their own uploads
   if (String(file.uploadedBy) === userId) return true;
-
-  return false;
+  const managed = new Set(managedGroupIds.map(String));
+  return (
+    isElevated(access) &&
+    Boolean(
+      file.accessControl.allowedGroups?.some((id) => managed.has(String(id))),
+    )
+  );
 }
 
 // View / download permission
@@ -79,12 +73,12 @@ export function canManageFile(
 export function canAccessFile(
   userId: string,
   access: string,
-  managedModules: readonly ModuleName[],
   roles: UserRole[],
   file: AccessibleFile,
   groupIds: readonly unknown[] = [],
+  managedGroupIds: readonly unknown[] = [],
 ): boolean {
-  if (canManageFile(userId, access, managedModules, file)) return true;
+  if (canManageFile(userId, access, file, managedGroupIds)) return true;
 
   return hasFileGrant(userId, roles, file.accessControl, groupIds);
 }
@@ -138,14 +132,13 @@ export function hasFileGrant(
 export function buildAccessFilter(
   userId: string,
   access: string,
-  managedModules: readonly ModuleName[],
   roles: UserRole[],
   groupIds: readonly unknown[] = [],
+  managedGroupIds: readonly unknown[] = [],
 ): Record<string, unknown> {
   // Global admins see everything
   if (isAdmin(access)) return {};
 
-  const modules = isElevated(access) ? getModules(access, managedModules) : [];
   const userModules = roles.flatMap((role) =>
     role.module ? [role.module] : [],
   );
@@ -167,13 +160,14 @@ export function buildAccessFilter(
     { "accessControl.allowedUsers": userId },
   ];
 
-  if (groupIds.length) {
-    conditions.push({ "accessControl.allowedGroups": { $in: groupIds } });
-  }
-
-  // Module heads can see files in their modules
-  if (modules.length > 0) {
-    conditions.push({ uploaderModule: { $in: modules } });
+  const accessibleGroups = [
+    ...groupIds,
+    ...(isElevated(access) ? managedGroupIds : []),
+  ];
+  if (accessibleGroups.length) {
+    conditions.push({
+      "accessControl.allowedGroups": { $in: accessibleGroups },
+    });
   }
 
   // Files shared with the user's modules

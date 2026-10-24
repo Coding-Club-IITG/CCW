@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { describe, expect, it } from "vitest";
+
 import {
   buildAccessFilter,
   canAccessFile,
@@ -7,8 +8,10 @@ import {
   canUploadFiles,
 } from "./files";
 import type { IFileEntry } from "@/models/FileEntry";
+
 const ownerId = new Types.ObjectId();
 const memberId = new Types.ObjectId();
+const groupId = new Types.ObjectId();
 function file(accessControl: Partial<IFileEntry["accessControl"]> = {}) {
   return {
     uploadedBy: ownerId,
@@ -19,27 +22,22 @@ function file(accessControl: Partial<IFileEntry["accessControl"]> = {}) {
       allowedClubPositions: [],
       allowedModulePositions: [],
       allowedUsers: [],
+      allowedGroups: [],
       ...accessControl,
     },
   } as IFileEntry;
 }
+
 describe("file access", () => {
   it("accepts live group membership without granting management", () => {
-    const groupId = new Types.ObjectId();
     const shared = file({ allowedGroups: [groupId] });
     expect(
-      canAccessFile(memberId.toString(), "Member", [], [], shared, [
-        String(groupId),
-      ]),
+      canAccessFile(String(memberId), "Member", [], shared, [String(groupId)]),
     ).toBe(true);
+    expect(canAccessFile(String(memberId), "Member", [], shared)).toBe(false);
+    expect(canManageFile(String(memberId), "Head", shared)).toBe(false);
     expect(
-      canAccessFile(memberId.toString(), "Member", [], [], shared, []),
-    ).toBe(false);
-    expect(canManageFile(memberId.toString(), "Member", [], shared)).toBe(
-      false,
-    );
-    expect(
-      buildAccessFilter(memberId.toString(), "Member", [], [], [groupId]),
+      buildAccessFilter(String(memberId), "Member", [], [groupId]),
     ).toMatchObject({
       $or: expect.arrayContaining([
         { "accessControl.allowedGroups": { $in: [groupId] } },
@@ -47,88 +45,106 @@ describe("file access", () => {
     });
   });
 
-  it("retains independent direct grants after group membership is removed", () => {
+  it.each(["Head", "Core Team"])(
+    "allows %s to manage only files shared with a managed group",
+    (access) => {
+      const shared = file({ allowedGroups: [groupId] });
+      expect(canUploadFiles(access)).toBe(true);
+      expect(
+        canManageFile(String(memberId), access, shared, [String(groupId)]),
+      ).toBe(true);
+      expect(
+        canAccessFile(String(memberId), access, [], shared, [], [groupId]),
+      ).toBe(true);
+      expect(canManageFile(String(memberId), access, file(), [groupId])).toBe(
+        false,
+      );
+      expect(
+        canManageFile(String(memberId), access, shared, [new Types.ObjectId()]),
+      ).toBe(false);
+      expect(
+        buildAccessFilter(String(memberId), access, [], [], [groupId]),
+      ).toMatchObject({
+        $or: expect.arrayContaining([
+          { "accessControl.allowedGroups": { $in: [groupId] } },
+        ]),
+      });
+    },
+  );
+
+  it("revokes delegated management after demotion and excludes module-based management", () => {
+    const shared = file({ allowedGroups: [groupId] });
+    expect(canManageFile(String(memberId), "Member", shared, [groupId])).toBe(
+      false,
+    );
+    expect(
+      canAccessFile(String(memberId), "Member", [], shared, [], [groupId]),
+    ).toBe(false);
+    expect(buildAccessFilter(String(memberId), "Head", [])).not.toMatchObject({
+      $or: expect.arrayContaining([{ uploaderModule: expect.anything() }]),
+    });
+    expect(
+      buildAccessFilter(String(memberId), "Member", [], [], [groupId]),
+    ).not.toMatchObject({
+      $or: expect.arrayContaining([
+        { "accessControl.allowedGroups": expect.anything() },
+      ]),
+    });
+  });
+
+  it("retains direct grants, uploader ownership and admin access", () => {
+    expect(canUploadFiles("Member")).toBe(false);
+    expect(canUploadFiles("Admin")).toBe(true);
+    expect(canManageFile(String(memberId), "Admin", file())).toBe(true);
+    expect(canManageFile(String(ownerId), "Member", file())).toBe(true);
+    expect(buildAccessFilter(String(memberId), "Admin", [])).toEqual({});
     expect(
       canAccessFile(
-        memberId.toString(),
+        String(memberId),
         "Member",
         [],
-        [],
-        file({
-          allowedUsers: [memberId],
-          allowedGroups: [new Types.ObjectId()],
-        }),
-        [],
+        file({ allowedUsers: [memberId], allowedGroups: [groupId] }),
       ),
     ).toBe(true);
   });
-  it.each(["Head", "Core Team"])(
-    "uses %s access for scoped management",
-    (access) => {
-      expect(canUploadFiles(access)).toBe(true);
-      expect(canUploadFiles("Admin")).toBe(true);
-      expect(canUploadFiles("Member")).toBe(false);
-      expect(canManageFile(memberId.toString(), "Admin", [], file())).toBe(
-        true,
-      );
-      expect(
-        canManageFile(memberId.toString(), access, ["Design"], file()),
-      ).toBe(true);
-      expect(
-        canManageFile(memberId.toString(), access, ["Cybersecurity"], file()),
-      ).toBe(false);
-    },
-  );
-  it("preserves former uploader ownership and historical sharing grants", () => {
-    expect(canManageFile(ownerId.toString(), "Member", [], file())).toBe(true);
+
+  it("preserves role-based sharing grants", () => {
     expect(
       canAccessFile(
-        memberId.toString(),
+        String(memberId),
         "Member",
-        [],
         [{ module: "Web Development", position: "Head" }],
         file({ allowedModules: ["Web Development"] }),
       ),
     ).toBe(true);
     expect(
       canAccessFile(
-        memberId.toString(),
+        String(memberId),
         "Member",
-        [],
         [{ position: "Operations Head" }],
         file({ allowedClubPositions: ["Operations Head"] }),
       ),
     ).toBe(true);
-  });
-  it("evaluates club and module positions", () => {
     expect(
       canAccessFile(
-        memberId.toString(),
+        String(memberId),
         "Member",
-        [],
         [{ position: "OC" }],
         file({ allowedClubPositions: ["OC"] }),
       ),
     ).toBe(true);
     expect(
       canAccessFile(
-        memberId.toString(),
+        String(memberId),
         "Member",
-        [],
         [{ module: "Design", position: "Coordinator" }],
         file({ allowedModulePositions: ["Coordinator"] }),
       ),
     ).toBe(true);
-  });
-  it("builds role-based database branches", () => {
-    expect(buildAccessFilter(memberId.toString(), "Admin", [], [])).toEqual({});
     expect(
-      buildAccessFilter(
-        memberId.toString(),
-        "Member",
-        [],
-        [{ module: "Design", position: "Coordinator" }],
-      ),
+      buildAccessFilter(String(memberId), "Member", [
+        { module: "Design", position: "Coordinator" },
+      ]),
     ).toMatchObject({
       $or: expect.arrayContaining([
         { "accessControl.allowedModules": { $in: ["Design"] } },

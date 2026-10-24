@@ -16,6 +16,7 @@ export interface CurrentUser {
 }
 
 export interface FileEntry {
+  canManage: boolean;
   _id: string;
   title: string;
   description: string;

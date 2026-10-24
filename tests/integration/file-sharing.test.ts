@@ -62,12 +62,15 @@ const request = (url: string, method = "GET", body?: unknown) =>
         }),
   });
 
-async function createGroup(memberIds = [String(FILE_MEMBER_ID)]) {
+async function createGroup(
+  memberIds = [String(FILE_MEMBER_ID)],
+  managerIds: string[] = [],
+) {
   const { POST } = await import("@/app/api/files/groups/route");
   const response = await POST(
     request("/groups", "POST", {
       name: "Website Team",
-      module: "Design",
+      managerIds,
       memberIds,
     }),
   );
@@ -100,7 +103,12 @@ describe("file sharing groups", () => {
   beforeEach(async () => {
     getSession.mockResolvedValue(owner());
     await User.create([
-      { _id: FILE_OWNER_ID, name: "Owner" },
+      {
+        _id: FILE_OWNER_ID,
+        name: "Owner",
+        access: "Head",
+        managedModules: ["Design"],
+      },
       { _id: FILE_MEMBER_ID, name: "Member", pizza_count: 1 },
       { _id: FILE_OTHER_MEMBER_ID, name: "Other member" },
     ]);
@@ -121,7 +129,7 @@ describe("file sharing groups", () => {
   });
 
   it.each(["Head", "Core Team"])(
-    "validates %s module scope and real member IDs",
+    "validates %s manager eligibility and real member IDs",
     async (access) => {
       getSession.mockResolvedValue(
         fileSession({ access, managedModules: ["Design"] }),
@@ -131,13 +139,13 @@ describe("file sharing groups", () => {
         (
           await POST(
             request("/groups", "POST", {
-              name: "Wrong module",
-              module: "Cybersecurity",
+              name: "Invalid manager",
+              managerIds: [String(FILE_OTHER_MEMBER_ID)],
               memberIds: [],
             }),
           )
         ).status,
-      ).toBe(403);
+      ).toBe(400);
       expect(
         (
           await POST(
@@ -153,14 +161,14 @@ describe("file sharing groups", () => {
     },
   );
 
-  it("lets Core Team create an audited sharing group in its module", async () => {
+  it("lets Core Team create an audited sharing group", async () => {
     getSession.mockResolvedValue(
       fileSession({ access: "Core Team", managedModules: ["Design"] }),
     );
     const id = await createGroup();
-    expect(await SharingGroup.findById(id).lean()).toMatchObject({
-      module: "Design",
-    });
+    expect(
+      (await SharingGroup.findById(id).lean())?.managerIds.map(String),
+    ).toEqual([String(FILE_MEMBER_ID)]);
     expect(await AuditLog.countDocuments()).toBe(1);
   });
 
@@ -191,14 +199,75 @@ describe("file sharing groups", () => {
     });
   });
 
+  it("adds the creator once and uses only the manager list after creation", async () => {
+    const ownerId = String(FILE_OWNER_ID);
+    const managerId = String(FILE_OTHER_MEMBER_ID);
+    await User.updateOne(
+      { _id: managerId },
+      { $set: { access: "Head", managedModules: ["Cybersecurity"] } },
+    );
+    const id = await createGroup([], [ownerId, managerId]);
+    expect(
+      (await SharingGroup.findById(id).lean())?.managerIds.map(String),
+    ).toEqual([ownerId, managerId]);
+    const file = await FileEntry.create(
+      fileEntry({
+        uploadedBy: FILE_MEMBER_ID,
+        accessControl: { ...EMPTY_ACL, allowedGroups: [id] },
+      }),
+    );
+    const ownFile = await FileEntry.create(
+      fileEntry({ accessControl: { ...EMPTY_ACL, allowedGroups: [id] } }),
+    );
+    const { PATCH, GET } = await import("@/app/api/files/groups/[id]/route");
+    getSession.mockResolvedValue(
+      fileSession({ id: managerId, access: "Head" }),
+    );
+    expect(
+      (
+        await PATCH(
+          request(`/groups/${id}`, "PATCH", {
+            name: "New management",
+            memberIds: [],
+            managerIds: [managerId],
+            version: 0,
+          }),
+          context(id),
+        )
+      ).status,
+    ).toBe(200);
+    getSession.mockResolvedValue(owner());
+    expect(
+      (await responseData(await GET(request(`/groups/${id}`), context(id))))
+        .group.canManage,
+    ).toBe(false);
+    expect(
+      (
+        await PATCH(
+          request(`/groups/${id}`, "PATCH", {
+            name: "Forbidden",
+            memberIds: [],
+            managerIds: [ownerId],
+            version: 1,
+          }),
+          context(id),
+        )
+      ).status,
+    ).toBe(403);
+    expect((await share(file, { allowedGroups: [id] })).status).toBe(403);
+    expect((await share(ownFile, { allowedGroups: [id] })).status).toBe(200);
+    getSession.mockResolvedValue(fileSession({ access: "Admin" }));
+    expect((await share(file, { allowedGroups: [id] })).status).toBe(200);
+  });
+
   it.each(["Head", "Core Team"])(
-    "allows creator, scoped %s and admins but rejects members and unrelated modules",
+    "allows creator, explicit %s managers and admins but rejects other users",
     async (access) => {
       const id = await createGroup();
       const { PATCH } = await import("@/app/api/files/groups/[id]/route");
       const body = {
         name: "Renamed",
-        module: "Design",
+        managerIds: [String(FILE_OWNER_ID)],
         memberIds: [String(FILE_MEMBER_ID)],
         version: 0,
       };
@@ -214,8 +283,16 @@ describe("file sharing groups", () => {
         (await PATCH(request(`/groups/${id}`, "PATCH", body), context(id)))
           .status,
       ).toBe(403);
+      await User.updateOne(
+        { _id: FILE_MEMBER_ID },
+        { $set: { access, managedModules: ["Cybersecurity"] } },
+      );
+      await SharingGroup.updateOne(
+        { _id: id },
+        { $set: { managerIds: [FILE_OWNER_ID, FILE_MEMBER_ID] } },
+      );
       getSession.mockResolvedValue(
-        fileSession({ access, managedModules: ["Design"] }),
+        fileSession({ access, managedModules: ["Cybersecurity"] }),
       );
       expect(
         (await PATCH(request(`/groups/${id}`, "PATCH", body), context(id)))
@@ -253,6 +330,296 @@ describe("file sharing groups", () => {
       ).toBe(409);
     },
   );
+
+  it.each(["Head", "Core Team"])(
+    "applies %s manager permissions to every file action and revokes them live",
+    async (access) => {
+      const managerId = String(FILE_OTHER_MEMBER_ID);
+      await User.updateOne(
+        { _id: managerId },
+        { $set: { access, managedModules: ["Cybersecurity"] } },
+      );
+      const id = await createGroup([], [managerId]);
+      const file = await FileEntry.create(
+        fileEntry({
+          uploadedBy: FILE_MEMBER_ID,
+          uploaderModule: "Design",
+          accessControl: { ...EMPTY_ACL, allowedGroups: [id] },
+        }),
+      );
+      await writeFile(
+        path.join(uploadDirectory, file.storedName),
+        "hello group!",
+      );
+      const { GET: list } = await import("@/app/api/files/route");
+      const {
+        GET: bytes,
+        PATCH: edit,
+        DELETE: remove,
+      } = await import("@/app/api/files/[id]/route");
+      const { GET: detail, PATCH: editGroup } =
+        await import("@/app/api/files/groups/[id]/route");
+      const { searchAtlas } = await import("@/lib/atlas/search.server");
+      const { parseAtlasQuery } = await import("@/lib/atlas/query");
+
+      getSession.mockResolvedValue(
+        fileSession({
+          id: String(new Types.ObjectId()),
+          access,
+          managedModules: ["Design"],
+        }),
+      );
+      expect((await list(request(""))).status).toBe(200);
+      expect((await responseData(await list(request("")))).items).toEqual([]);
+      expect(
+        (await bytes(request(`/${file._id}`), context(String(file._id))))
+          .status,
+      ).toBe(403);
+
+      getSession.mockResolvedValue(
+        fileSession({
+          id: managerId,
+          access,
+          managedModules: ["Cybersecurity"],
+        }),
+      );
+      const groupDetail = (
+        await responseData(await detail(request(`/groups/${id}`), context(id)))
+      ).group;
+      expect(groupDetail).toMatchObject({
+        managerIds: [String(FILE_OWNER_ID), managerId],
+        canManage: true,
+        memberIds: [],
+      });
+      expect(groupDetail.managers[1]).toMatchObject({
+        id: managerId,
+        name: "Other member",
+      });
+      expect(groupDetail.managers[1].email).toBeUndefined();
+      const listed = await responseData(await list(request("")));
+      expect(listed.items).toMatchObject([
+        { _id: String(file._id), canManage: true },
+      ]);
+      expect(listed.availableTags).toEqual([{ tag: "General", count: 1 }]);
+      const atlas = await searchAtlas(
+        parseAtlasQuery("type:file handbook"),
+        fileSession({ id: managerId, access }).user,
+      );
+      expect(atlas.items.some((item) => item.id === String(file._id))).toBe(
+        true,
+      );
+      const served = await bytes(
+        request(`/${file._id}`),
+        context(String(file._id)),
+      );
+      expect(served.status).toBe(200);
+      expect(await served.text()).toBe("hello group!");
+      expect(
+        (
+          await edit(
+            request(`/${file._id}`, "PATCH", {
+              title: "Manager edit",
+              updatedAt: file.updatedAt.toISOString(),
+            }),
+            context(String(file._id)),
+          )
+        ).status,
+      ).toBe(200);
+      let current = await FileEntry.findById(file._id).orFail();
+      expect(
+        (await share(current, { allowedGroups: [id] }, false)).status,
+      ).toBe(200);
+      current = await FileEntry.findById(file._id).orFail();
+      expect(current.isDownloadable).toBe(false);
+
+      const disposable = await FileEntry.create(
+        fileEntry({
+          uploadedBy: FILE_MEMBER_ID,
+          accessControl: { ...EMPTY_ACL, allowedGroups: [id] },
+        }),
+      );
+      await writeFile(
+        path.join(uploadDirectory, disposable.storedName),
+        "hello group!",
+      );
+      expect(
+        (
+          await remove(
+            request(`/${disposable._id}`, "DELETE"),
+            context(String(disposable._id)),
+          )
+        ).status,
+      ).toBe(200);
+      expect(await FileEntry.findById(disposable._id)).toBeNull();
+
+      getSession.mockResolvedValue(
+        fileSession({ id: managerId, access: "Member" }),
+      );
+      expect((await responseData(await list(request("")))).items).toEqual([]);
+      expect(
+        (await bytes(request(`/${file._id}`), context(String(file._id))))
+          .status,
+      ).toBe(403);
+      expect((await share(current, { allowedGroups: [id] })).status).toBe(403);
+      expect(
+        (
+          await remove(
+            request(`/${file._id}`, "DELETE"),
+            context(String(file._id)),
+          )
+        ).status,
+      ).toBe(403);
+
+      getSession.mockResolvedValue(fileSession({ id: managerId, access }));
+      expect(
+        (
+          await editGroup(
+            request(`/groups/${id}`, "PATCH", {
+              name: "Updated group",
+              managerIds: [String(FILE_OWNER_ID)],
+              memberIds: [managerId],
+              version: 0,
+            }),
+            context(id),
+          )
+        ).status,
+      ).toBe(200);
+      expect((await responseData(await list(request("")))).items).toMatchObject(
+        [{ _id: String(file._id), canManage: false }],
+      );
+      expect(
+        (
+          await edit(
+            request(`/${file._id}`, "PATCH", { title: "Forbidden edit" }),
+            context(String(file._id)),
+          )
+        ).status,
+      ).toBe(403);
+      expect((await share(current, { allowedGroups: [id] })).status).toBe(403);
+      expect(
+        (
+          await editGroup(
+            request(`/groups/${id}`, "PATCH", {
+              name: "Forbidden",
+              managerIds: [String(FILE_OWNER_ID)],
+              memberIds: [],
+              version: 1,
+            }),
+            context(id),
+          )
+        ).status,
+      ).toBe(403);
+
+      getSession.mockResolvedValue(owner());
+      expect((await share(current, { allowedGroups: [id] })).status).toBe(200);
+      expect(
+        (await AuditLog.findOne({ operation: "files.groups.create" }).lean())
+          ?.after,
+      ).toMatchObject({ managerIds: [String(FILE_OWNER_ID), managerId] });
+      expect(
+        (await AuditLog.findOne({ operation: "files.groups.update" }).lean())
+          ?.after,
+      ).toMatchObject({ managerIds: [String(FILE_OWNER_ID)] });
+    },
+  );
+
+  it("rolls back manager changes and access notifications when auditing fails", async () => {
+    await User.updateOne(
+      { _id: FILE_OTHER_MEMBER_ID },
+      { $set: { access: "Head", managedModules: ["Cybersecurity"] } },
+    );
+    const id = await createGroup([]);
+    await FileEntry.create(
+      fileEntry({ accessControl: { ...EMPTY_ACL, allowedGroups: [id] } }),
+    );
+    const { PATCH } = await import("@/app/api/files/groups/[id]/route");
+    const db = mongoose.connection.db!;
+    await db.command({
+      collMod: AuditLog.collection.collectionName,
+      validator: { operation: { $ne: "files.groups.update" } },
+    });
+    try {
+      expect(
+        (
+          await PATCH(
+            request(`/groups/${id}`, "PATCH", {
+              name: "Website Team",
+              memberIds: [],
+              managerIds: [String(FILE_OTHER_MEMBER_ID)],
+              version: 0,
+            }),
+            context(id),
+          )
+        ).status,
+      ).toBe(500);
+      expect(
+        (await SharingGroup.findById(id).lean())?.managerIds.map(String),
+      ).toEqual([String(FILE_OWNER_ID)]);
+      expect(await Notification.countDocuments()).toBe(0);
+    } finally {
+      await db.command({
+        collMod: AuditLog.collection.collectionName,
+        validator: {},
+      });
+    }
+  });
+
+  it("lets an explicit manager delete a group and loses its delegated file permissions", async () => {
+    await User.updateOne(
+      { _id: FILE_OTHER_MEMBER_ID },
+      { $set: { access: "Head", managedModules: ["Cybersecurity"] } },
+    );
+    const id = await createGroup([], [String(FILE_OTHER_MEMBER_ID)]);
+    const file = await FileEntry.create(
+      fileEntry({ accessControl: { ...EMPTY_ACL, allowedGroups: [id] } }),
+    );
+    const { DELETE } = await import("@/app/api/files/groups/[id]/route");
+    getSession.mockResolvedValue(
+      fileSession({
+        id: String(FILE_OTHER_MEMBER_ID),
+        access: "Head",
+        managedModules: ["Cybersecurity"],
+      }),
+    );
+    expect(
+      (
+        await DELETE(
+          request(`/groups/${id}`, "DELETE", { version: 0 }),
+          context(id),
+        )
+      ).status,
+    ).toBe(200);
+    expect(await SharingGroup.findById(id)).toBeNull();
+    const remaining = await FileEntry.findById(file._id).orFail();
+    expect(remaining.accessControl.allowedGroups).toEqual([]);
+    expect((await share(remaining, { allMembers: true })).status).toBe(403);
+  });
+
+  it("filters manager searches before pagination and keeps their cache separate", async () => {
+    const { invalidateCache } = await import("@/lib/cache/redis");
+    await invalidateCache("users");
+    await User.updateOne(
+      { _id: FILE_OTHER_MEMBER_ID },
+      { $set: { access: "Head", managedModules: ["Cybersecurity"] } },
+    );
+    const { GET } = await import("@/app/api/users/route");
+    const users = await responseData(
+      await GET(
+        new NextRequest("http://localhost/api/users?search=member&limit=8"),
+      ),
+    );
+    expect(users.items).toHaveLength(2);
+    const managers = await responseData(
+      await GET(
+        new NextRequest(
+          "http://localhost/api/users?search=member&limit=8&managersOnly=true",
+        ),
+      ),
+    );
+    expect(managers.items.map((user: { _id: string }) => user._id)).toEqual([
+      String(FILE_OTHER_MEMBER_ID),
+    ]);
+  });
 
   it("applies membership changes to listings, tag discovery, Atlas and file bytes immediately", async () => {
     const id = await createGroup();
@@ -299,7 +666,7 @@ describe("file sharing groups", () => {
         await editGroup(
           request(`/groups/${id}`, "PATCH", {
             name: "Website Team",
-            module: "Design",
+            managerIds: [String(FILE_OWNER_ID)],
             memberIds: [],
             version: 0,
           }),

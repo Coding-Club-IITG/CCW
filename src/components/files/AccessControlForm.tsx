@@ -59,23 +59,21 @@ export default function AccessControlForm({ value, onChange }: Props) {
             : "Access is limited to selected recipients and file managers."}
         </p>
       </div>
+      <section className={styles.aclGroup} aria-labelledby={`${id}-groups`}>
+        <h3 id={`${id}-groups`} className={styles.aclGroupLabel}>
+          <Users size={14} /> Groups
+        </h3>
+        <GroupPicker
+          value={value.allowedGroups ?? []}
+          onChange={(allowedGroups) => onChange({ ...value, allowedGroups })}
+        />
+        <p className={styles.hint}>
+          Members can access the file. Group managers can edit, share, or delete
+          it.
+        </p>
+      </section>
       {!value.allMembers && (
         <>
-          <section className={styles.aclGroup} aria-labelledby={`${id}-groups`}>
-            <h3 id={`${id}-groups`} className={styles.aclGroupLabel}>
-              <Users size={14} /> Groups
-            </h3>
-            <GroupPicker
-              value={value.allowedGroups ?? []}
-              onChange={(allowedGroups) =>
-                onChange({ ...value, allowedGroups })
-              }
-            />
-            <p className={styles.hint}>
-              Access follows group membership. Select a group name to see its
-              members.
-            </p>
-          </section>
           <section className={styles.aclGroup} aria-labelledby={`${id}-people`}>
             <h3 id={`${id}-people`} className={styles.aclGroupLabel}>
               <Users size={14} /> People
@@ -125,8 +123,7 @@ export default function AccessControlForm({ value, onChange }: Props) {
         </>
       )}
       <p className={styles.hint}>
-        Uploader, admins, and heads managing the file&apos;s module always have
-        access.
+        Uploader, admins, and group managers always have access.
       </p>
     </div>
   );

@@ -1,21 +1,20 @@
 import mongoose, { Schema } from "mongoose";
 
-import { MODULES } from "@/lib/constants";
-
 const SharingGroupSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 100 },
     description: { type: String, default: "", maxlength: 500 },
-    module: { type: String, enum: MODULES, default: null },
+    managerIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
     memberIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    // Serializes granting access against group deletion in a transaction
+    // Serializes file mutations against group permission changes and deletion
     grantRevision: { type: Number, default: 0 },
   },
   { timestamps: true, optimisticConcurrency: true },
 );
 
 SharingGroupSchema.index({ memberIds: 1 });
+SharingGroupSchema.index({ managerIds: 1 });
 SharingGroupSchema.index({ name: 1, _id: 1 });
 
 export type SharingGroupRecord = mongoose.InferSchemaType<

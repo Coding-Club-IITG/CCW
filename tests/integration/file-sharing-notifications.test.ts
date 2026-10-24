@@ -84,6 +84,7 @@ async function group(memberIds: string[] = []) {
   return SharingGroup.create({
     name: "Website Team",
     memberIds,
+    managerIds: [FILE_OWNER_ID],
     createdBy: FILE_OWNER_ID,
   });
 }
@@ -91,7 +92,12 @@ async function group(memberIds: string[] = []) {
 async function addMembers(id: unknown, memberIds: string[]) {
   const { PATCH } = await import("@/app/api/files/groups/[id]/route");
   return PATCH(
-    request(`/groups/${id}`, { name: "Website Team", memberIds, version: 0 }),
+    request(`/groups/${id}`, {
+      name: "Website Team",
+      memberIds,
+      managerIds: [ownerId],
+      version: 0,
+    }),
     context(String(id)),
   );
 }
@@ -169,6 +175,102 @@ describe("file-sharing notifications", () => {
     await stopTestMongo();
     await stopTestUploadDirectory(uploadDirectory);
   });
+
+  it("notifies group managers about newly shared files", async () => {
+    await User.updateOne(
+      { _id: FILE_OTHER_MEMBER_ID },
+      { $set: { access: "Head", managedModules: ["Cybersecurity"] } },
+    );
+    const team = await group([]);
+    await SharingGroup.updateOne(
+      { _id: team._id },
+      { $set: { managerIds: [FILE_OWNER_ID, FILE_OTHER_MEMBER_ID] } },
+    );
+    const file = await FileEntry.create(fileEntry());
+    expect(
+      (await share(file._id, { allowedGroups: [String(team._id)] })).status,
+    ).toBe(200);
+    expect(await recipients()).toEqual([otherId]);
+  });
+
+  it("notifies new managers once and avoids duplicate access notices for existing members", async () => {
+    await User.updateOne(
+      { _id: FILE_OTHER_MEMBER_ID },
+      { $set: { access: "Head", managedModules: ["Cybersecurity"] } },
+    );
+    const team = await group([]);
+    await FileEntry.create(
+      fileEntry({
+        accessControl: { ...EMPTY_ACL, allowedGroups: [String(team._id)] },
+      }),
+    );
+    const { PATCH } = await import("@/app/api/files/groups/[id]/route");
+    expect(
+      (
+        await PATCH(
+          request(`/groups/${team._id}`, {
+            name: team.name,
+            memberIds: [],
+            managerIds: [ownerId, otherId],
+            version: 0,
+          }),
+          context(String(team._id)),
+        )
+      ).status,
+    ).toBe(200);
+    expect(await recipients()).toEqual([otherId]);
+    await Notification.deleteMany({});
+    expect(
+      (
+        await PATCH(
+          request(`/groups/${team._id}`, {
+            name: team.name,
+            memberIds: [otherId],
+            managerIds: [ownerId, otherId],
+            version: 1,
+          }),
+          context(String(team._id)),
+        )
+      ).status,
+    ).toBe(200);
+    expect(await recipients()).toEqual([]);
+  });
+
+  it.each(["member", "manager"])(
+    "avoids new-access notices when switching an existing %s to the other role",
+    async (role) => {
+      await User.updateOne(
+        { _id: FILE_OTHER_MEMBER_ID },
+        { $set: { access: "Head", managedModules: ["Cybersecurity"] } },
+      );
+      const team = await group(role === "member" ? [otherId] : []);
+      if (role === "manager")
+        await SharingGroup.updateOne(
+          { _id: team._id },
+          { $set: { managerIds: [ownerId, otherId] } },
+        );
+      await FileEntry.create(
+        fileEntry({
+          accessControl: { ...EMPTY_ACL, allowedGroups: [String(team._id)] },
+        }),
+      );
+      const { PATCH } = await import("@/app/api/files/groups/[id]/route");
+      expect(
+        (
+          await PATCH(
+            request(`/groups/${team._id}`, {
+              name: team.name,
+              memberIds: role === "manager" ? [otherId] : [],
+              managerIds: role === "member" ? [ownerId, otherId] : [ownerId],
+              version: 0,
+            }),
+            context(String(team._id)),
+          )
+        ).status,
+      ).toBe(200);
+      expect(await recipients()).toEqual([]);
+    },
+  );
 
   it("deduplicates people and groups, excludes the actor and existing access, and queues only after commit", async () => {
     const team = await group([memberId, otherId, ownerId]);
@@ -343,6 +445,7 @@ describe("file-sharing notifications", () => {
           request(`/groups/${team._id}`, {
             name: "Renamed team",
             memberIds: [memberId],
+            managerIds: [ownerId],
             version: 0,
           }),
           context(String(team._id)),
@@ -355,6 +458,7 @@ describe("file-sharing notifications", () => {
           request(`/groups/${team._id}`, {
             name: "Renamed team",
             memberIds: [],
+            managerIds: [ownerId],
             version: 1,
           }),
           context(String(team._id)),

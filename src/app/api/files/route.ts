@@ -8,7 +8,11 @@ import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import path from "path";
 
-import { buildAccessFilter, canUploadFiles } from "@/lib/access/files";
+import {
+  buildAccessFilter,
+  canManageFile,
+  canUploadFiles,
+} from "@/lib/access/files";
 import { getModules, isAdmin } from "@/lib/access/roles";
 import { auditActor } from "@/lib/audit/index";
 import { summarizeFile } from "@/lib/audit/summary";
@@ -26,7 +30,7 @@ import { fileListQuerySchema } from "@/lib/files/query";
 import {
   fileErrorResponse,
   lockSharingGroups,
-  memberGroupIds,
+  fileGroupAccess,
   mutateFiles,
 } from "@/lib/files/server";
 import { jsonError, jsonOk, jsonResult } from "@/lib/api/result.server";
@@ -56,12 +60,11 @@ export async function GET(request: NextRequest) {
     }
 
     const user = session.user;
-    const managedModules = parseManagedModules(user.managedModules);
     const roles = parseRoles(user.roles);
 
     await connectMongoDB();
 
-    const groupIds = await memberGroupIds(user.id);
+    const { groupIds, managedGroupIds } = await fileGroupAccess(user);
 
     const { searchParams } = new URL(request.url);
     const query = parseSearchParams(searchParams, fileListQuerySchema);
@@ -71,9 +74,9 @@ export async function GET(request: NextRequest) {
     const accessFilter = buildAccessFilter(
       user.id,
       user.access,
-      managedModules,
       roles,
       groupIds,
+      managedGroupIds,
     );
 
     const aggregateAccessFilter = buildAccessFilter(
@@ -81,9 +84,9 @@ export async function GET(request: NextRequest) {
         ? new mongoose.Types.ObjectId(user.id)
         : user.id) as unknown as string,
       user.access,
-      managedModules,
       roles,
       groupIds,
+      managedGroupIds,
     );
 
     const search = prepareSearchQuery(query.data.search);
@@ -144,7 +147,15 @@ export async function GET(request: NextRequest) {
       .select("name")
       .lean();
     return jsonOk({
-      ...paginatedResponse(files, total, page, limit),
+      ...paginatedResponse(
+        files.map((file) => ({
+          ...file,
+          canManage: canManageFile(user.id, user.access, file, managedGroupIds),
+        })),
+        total,
+        page,
+        limit,
+      ),
       availableTags,
       groupNames: Object.fromEntries(
         sharedGroups.map((group) => [String(group._id), group.name]),

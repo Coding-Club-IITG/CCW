@@ -16,7 +16,7 @@ async function fetchGroups(query: string, signal: AbortSignal) {
   return data.items.map((group) => ({
     id: group.id,
     name: group.name,
-    secondary: `${group.memberCount} ${group.memberCount === 1 ? "member" : "members"}${group.module ? ` · ${group.module}` : ""}`,
+    secondary: `${group.memberCount} ${group.memberCount === 1 ? "member" : "members"}`,
   }));
 }
 

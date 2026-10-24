@@ -14,7 +14,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { canManageFile } from "@/lib/access/files";
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
 import { formatShortDate } from "@/lib/shared/dates";
 import { normalizeAccessControl } from "@/lib/files/accessControl";
@@ -280,12 +279,7 @@ export default function FilesClient({
               </thead>
               <tbody>
                 {files.map((file) => {
-                  const canManage = canManageFile(
-                    currentUser.id,
-                    currentUser.access,
-                    currentUser.modules,
-                    file,
-                  );
+                  const canManage = file.canManage;
                   return (
                     <tr key={file._id}>
                       <td>

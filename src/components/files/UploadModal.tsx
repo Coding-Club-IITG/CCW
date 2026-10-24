@@ -244,7 +244,7 @@ export default function UploadModal({
                 )}
               </select>
               <span className={styles.hint}>
-                Used for module head management
+                Used to label and find files by module
               </span>
             </div>
           )}

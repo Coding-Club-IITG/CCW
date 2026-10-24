@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 
-import { canManageFile } from "@/lib/access/files";
 import { parseJson, parseRouteParams } from "@/lib/api/result";
 import { jsonOk, jsonResult } from "@/lib/api/result.server";
 import { objectIdParamsSchema } from "@/lib/api/schemas/boundary";
@@ -15,8 +14,8 @@ import {
   fileFailure,
   lockSharingGroups,
   mutateFiles,
+  requireFileManagement,
 } from "@/lib/files/server";
-import { parseManagedModules } from "@/lib/users/roles";
 
 import FileEntry, { type IFileEntry } from "@/models/FileEntry";
 
@@ -34,14 +33,12 @@ export async function PATCH(
     const { id } = params.data;
     const { updatedAt, ...sharing } = parsed.data;
     const user = auth.data.user;
-    const managedModules = parseManagedModules(user.managedModules);
     await mutateFiles(async (session) => {
       const file = await FileEntry.findById(id)
         .session(session)
         .lean<IFileEntry>();
       if (!file) fileFailure("NOT_FOUND", "File not found.");
-      if (!canManageFile(user.id, user.access, managedModules, file))
-        fileFailure("FORBIDDEN", "You cannot manage this file.");
+      await requireFileManagement(user, file, session);
       if (file.updatedAt.toISOString() !== updatedAt)
         fileFailure(
           "CONFLICT",

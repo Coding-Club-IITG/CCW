@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from "react";
 
 import { appErrorMessage, expectAppData } from "@/lib/api/result";
-import { MODULES, FILE_SHARING_LIMIT, type ModuleName } from "@/lib/constants";
+import { FILE_SHARING_LIMIT } from "@/lib/constants";
 import type { SharingGroupDetail } from "@/lib/files/types";
 import MemberPicker from "@/components/shared/MemberPicker";
 import Modal from "@/components/shared/Modal";
@@ -31,7 +31,7 @@ export default function GroupModal({
   const [form, setForm] = useState({
     name: "",
     description: "",
-    module: null as ModuleName | null,
+    managerIds: currentUser ? [currentUser.id] : [],
     memberIds: [] as string[],
   });
   const [loading, setLoading] = useState(Boolean(groupId));
@@ -55,7 +55,7 @@ export default function GroupModal({
         setForm({
           name: result.name,
           description: result.description,
-          module: result.module,
+          managerIds: result.managerIds,
           memberIds: result.memberIds,
         });
       })
@@ -126,15 +126,6 @@ export default function GroupModal({
       setSaving(false);
     }
   }
-
-  const modules = currentUser?.isAdmin
-    ? MODULES
-    : [
-        ...new Set([
-          ...(currentUser?.modules ?? []),
-          ...(group?.module ? [group.module] : []),
-        ]),
-      ];
 
   return (
     <>
@@ -231,39 +222,31 @@ export default function GroupModal({
                         }
                       />
                     </div>
-                    <div className={styles.field}>
-                      <label htmlFor={`${id}-module`}>Module</label>
-                      <select
-                        id={`${id}-module`}
-                        value={form.module ?? ""}
-                        onChange={(event) =>
-                          setForm({
-                            ...form,
-                            module: (event.target.value as ModuleName) || null,
-                          })
-                        }
-                      >
-                        <option value="">No module</option>
-                        {modules.map((module) => (
-                          <option key={module} value={module}>
-                            {module}
-                          </option>
-                        ))}
-                      </select>
-                      <p className={styles.hint}>
-                        Creator, admins, and heads of this module can manage
-                        membership.
-                      </p>
-                    </div>
                   </>
                 ) : (
-                  <>
-                    {group?.description && <p>{group.description}</p>}
-                    {group?.module && (
-                      <p className={styles.hint}>{group.module}</p>
-                    )}
-                  </>
+                  <>{group?.description && <p>{group.description}</p>}</>
                 )}
+                <section
+                  className={styles.aclGroup}
+                  aria-labelledby={`${id}-managers`}
+                >
+                  <h3 id={`${id}-managers`} className={styles.aclGroupLabel}>
+                    Managers · {form.managerIds.length}
+                  </h3>
+                  <MemberPicker
+                    managersOnly
+                    maxItems={FILE_SHARING_LIMIT}
+                    initialItems={group?.managers}
+                    value={form.managerIds}
+                    onChange={(managerIds) => setForm({ ...form, managerIds })}
+                    placeholder="Add a manager…"
+                    readOnly={!canEdit}
+                  />
+                  <p className={styles.hint}>
+                    Managers and admins can manage this group and every file
+                    shared with it.
+                  </p>
+                </section>
                 <section
                   className={styles.aclGroup}
                   aria-labelledby={`${id}-members`}
@@ -287,9 +270,9 @@ export default function GroupModal({
                 {group && (
                   <p className={styles.impactNote}>
                     Used by {group.fileCount}{" "}
-                    {group.fileCount === 1 ? "file" : "files"}. Membership
-                    changes apply to all of them. People may also have access
-                    through other sharing rules.
+                    {group.fileCount === 1 ? "file" : "files"}. Member and
+                    manager changes apply to all of them. People may also have
+                    access through other sharing rules.
                   </p>
                 )}
               </fieldset>

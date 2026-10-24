@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { isAdmin } from "@/lib/access/roles";
 import { parseJson, parseSearchParams } from "@/lib/api/result";
 import { jsonOk, jsonResult } from "@/lib/api/result.server";
 import {
@@ -13,6 +12,7 @@ import { sharingGroupSchema } from "@/lib/api/schemas/files";
 import { auditActor } from "@/lib/audit/index";
 import { summarizeSharingGroup } from "@/lib/audit/summary";
 import { requireElevated, requireSession } from "@/lib/auth/session";
+import { FILE_SHARING_LIMIT } from "@/lib/constants";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import {
   fileErrorResponse,
@@ -20,10 +20,10 @@ import {
   mutateFiles,
   sharingGroupSummary,
   validateGroupMembers,
+  validateGroupManagers,
 } from "@/lib/files/server";
 import { paginatedResponse, parsePagination } from "@/lib/shared/pagination";
 import { prepareSearchQuery } from "@/lib/shared/search";
-import { parseManagedModules } from "@/lib/users/roles";
 
 import SharingGroup from "@/models/SharingGroup";
 
@@ -80,16 +80,20 @@ export async function POST(request: NextRequest) {
     if (!parsed.ok) return jsonResult(parsed);
     const user = auth.data.user;
     const input = parsed.data;
-    if (
-      input.module &&
-      !isAdmin(user.access) &&
-      !parseManagedModules(user.managedModules).includes(input.module)
-    )
-      fileFailure("FORBIDDEN", "Choose one of your managed modules.");
+    const managerIds = [...new Set([user.id, ...input.managerIds])];
+    if (managerIds.length > FILE_SHARING_LIMIT)
+      fileFailure(
+        "VALIDATION_ERROR",
+        `A group can have at most ${FILE_SHARING_LIMIT} managers, including its creator.`,
+      );
     const group = await mutateFiles(async (session) => {
       await validateGroupMembers(input.memberIds, session);
+      await validateGroupManagers(
+        input.managerIds.filter((id) => id !== user.id),
+        session,
+      );
       const [created] = await SharingGroup.create(
-        [{ ...input, createdBy: user.id }],
+        [{ ...input, managerIds, createdBy: user.id }],
         { session },
       );
       return {

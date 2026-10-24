@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import { AppResultError, type AppErrorCode } from "@/lib/api/result";
 import { boundaryErrorResponse, jsonResult } from "@/lib/api/result.server";
 import { canManageSharingGroup } from "@/lib/access/sharingGroups";
+import { canManageFile, type AccessibleFile } from "@/lib/access/files";
+import { isElevated } from "@/lib/access/roles";
 import { auditedTransaction } from "@/lib/audit/index";
 import type { AuditEventInput } from "@/lib/audit/types";
-import type { ModuleName } from "@/lib/constants";
+import { ACCESS_LEVELS } from "@/lib/constants";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { enqueuePushNotifications } from "@/lib/notifications/service";
-import { parseManagedModules } from "@/lib/users/roles";
 
 import { errorToLogMetadata, logger } from "@/lib/telemetry/logger";
 
@@ -70,11 +71,41 @@ export async function mutateFiles<T>(
   }
 }
 
-export async function memberGroupIds(userId: string) {
-  const groups = await SharingGroup.find({ memberIds: userId })
-    .select("_id")
+export async function fileGroupAccess(
+  user: { id: string; access?: string | null },
+  session: ClientSession | null = null,
+) {
+  const groups = await SharingGroup.find({
+    $or: [{ memberIds: user.id }, { managerIds: user.id }],
+  })
+    .select("memberIds managerIds")
+    .session(session)
     .lean();
-  return groups.map((group) => group._id);
+  return {
+    groupIds: groups
+      .filter((group) => group.memberIds.some((id) => String(id) === user.id))
+      .map((group) => group._id),
+    managedGroupIds: groups
+      .filter((group) =>
+        canManageSharingGroup(user.id, user.access ?? "Member", group),
+      )
+      .map((group) => group._id),
+  };
+}
+
+export async function validateGroupManagers(
+  managerIds: string[],
+  session: ClientSession,
+) {
+  const count = await User.countDocuments({
+    _id: { $in: managerIds },
+    access: { $in: ACCESS_LEVELS.filter(isElevated) },
+  }).session(session);
+  if (count !== managerIds.length)
+    fileFailure(
+      "VALIDATION_ERROR",
+      "Choose existing Heads, Core Team members, or admins as managers.",
+    );
 }
 
 export async function validateGroupMembers(
@@ -108,21 +139,33 @@ export async function lockSharingGroups(
     );
 }
 
+export async function requireFileManagement(
+  user: { id: string; access: string },
+  file: AccessibleFile,
+  session: ClientSession | null = null,
+) {
+  if (canManageFile(user.id, user.access, file)) return;
+  const { managedGroupIds } = await fileGroupAccess(user, session);
+  if (!canManageFile(user.id, user.access, file, managedGroupIds))
+    fileFailure("FORBIDDEN", "You cannot manage this file.");
+  if (session) {
+    const sharedGroups = new Set(file.accessControl.allowedGroups?.map(String));
+    await lockSharingGroups(
+      managedGroupIds.map(String).filter((id) => sharedGroups.has(id)),
+      session,
+    );
+  }
+}
+
 export function sharingGroupSummary(
   group: SharingGroupRecord & { _id: unknown },
-  user: { id: string; access: string; managedModules?: unknown },
+  user: { id: string; access: string },
 ): SharingGroupSummary {
   return {
     id: String(group._id),
     name: group.name,
     description: group.description,
-    module: group.module as ModuleName | null,
     memberCount: group.memberIds.length,
-    canManage: canManageSharingGroup(
-      user.id,
-      user.access,
-      parseManagedModules(user.managedModules),
-      group,
-    ),
+    canManage: canManageSharingGroup(user.id, user.access, group),
   };
 }

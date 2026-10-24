@@ -21,6 +21,8 @@ import {
 import { auth } from "@/lib/auth/server";
 import { buildCacheKey, cachedFetch, CACHE_TTLS } from "@/lib/cache/redis";
 import { canUploadFiles } from "@/lib/access/files";
+import { isElevated } from "@/lib/access/roles";
+import { ACCESS_LEVELS } from "@/lib/constants";
 import { connectMongoDB } from "@/lib/db/mongodb";
 import { paginatedResponse, parsePagination } from "@/lib/shared/pagination";
 import { prepareSearchQuery } from "@/lib/shared/search";
@@ -75,6 +77,7 @@ export async function GET(request: NextRequest) {
         )
         .optional(),
       search: optionalSearchQuerySchema,
+      managersOnly: z.enum(["true"]).optional(),
     }),
   );
   if (!query.ok) return jsonResult(query);
@@ -106,19 +109,25 @@ export async function GET(request: NextRequest) {
 
   const { page, limit, skip } = parsePagination(searchParams, { limit: 30 });
   const search = prepareSearchQuery(query.data.search);
-  const filter = search
-    ? {
-        $or: [
-          { name: { $regex: search.pattern, $options: "i" } },
-          { email: { $regex: search.pattern, $options: "i" } },
-        ],
-      }
-    : {};
+  const filter = {
+    ...(query.data.managersOnly
+      ? { access: { $in: ACCESS_LEVELS.filter(isElevated) } }
+      : {}),
+    ...(search
+      ? {
+          $or: [
+            { name: { $regex: search.pattern, $options: "i" } },
+            { email: { $regex: search.pattern, $options: "i" } },
+          ],
+        }
+      : {}),
+  };
 
   const cacheKey = buildCacheKey("users", {
     page,
     limit,
     search: search?.query,
+    managersOnly: query.data.managersOnly,
     shape: "profile-v2",
   });
 

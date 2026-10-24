@@ -204,14 +204,18 @@ export function summarizeSharingGroup(
   const memberIds = Array.isArray(input.memberIds)
     ? input.memberIds.map(String)
     : [];
+  const managerIds = Array.isArray(input.managerIds)
+    ? input.managerIds.map(String)
+    : [];
   return boundedSummary(
     {
       name: input.name,
-      module: input.module,
+      managerCount: managerIds.length,
+      managerIds,
       memberCount: memberIds.length,
       memberIds,
     },
-    ["name", "module", "memberCount", "memberIds"],
+    ["name", "managerCount", "managerIds", "memberCount", "memberIds"],
   );
 }
 

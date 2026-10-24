@@ -4,7 +4,6 @@ import {
   ROLE_CLUB_POSITIONS,
   ROLE_MODULES,
   FILE_SHARING_LIMIT,
-  MODULES,
   MODULE_POSITIONS,
 } from "@/lib/constants";
 import { objectIdParamsSchema } from "./boundary";
@@ -51,12 +50,13 @@ export const sharingGroupSchema = z
   .object({
     name: z.string().trim().min(1).max(100),
     description: z.string().trim().max(500).default(""),
-    module: z.enum(MODULES).nullable().default(null),
+    managerIds: ids.default([]),
     memberIds: ids,
   })
   .strict();
 
 export const sharingGroupUpdateSchema = sharingGroupSchema.extend({
+  managerIds: ids,
   version: z.number().int().nonnegative(),
 });
 
