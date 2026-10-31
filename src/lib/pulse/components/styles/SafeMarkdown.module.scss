@@ -1,0 +1,104 @@
+@use "../../../styles/mixins" as *;
+
+.safeProse {
+  @include blog-prose;
+  font-size: 0.9375rem;
+  color: var(--foreground, #e5e5e5);
+
+  h1, h2, h3, h4 {
+    color: var(--foreground-strong, #ffffff);
+  }
+
+  a {
+    color: var(--primary, #c0e04a);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    word-break: break-all;
+
+    &:hover {
+      color: var(--primary-hover, #dfff6b);
+    }
+  }
+
+  .blockedLink {
+    color: var(--muted, #888888);
+    text-decoration: line-through;
+    cursor: not-allowed;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  code {
+    background: var(--surface-subtle, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    padding: 0.15em 0.35em;
+    border-radius: 3px;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 0.85em;
+  }
+
+  pre {
+    background: var(--surface, #121212);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+
+    code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 0.875rem;
+    }
+  }
+
+  blockquote {
+    border-left: 3px solid var(--primary, #c0e04a);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: var(--muted-light, #aaaaaa);
+    font-style: italic;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+
+    th, td {
+      border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--surface-subtle, rgba(255, 255, 255, 0.05));
+      font-weight: 600;
+    }
+  }
+
+  // KaTeX math rendering
+  :global(.katex-display) {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.5rem 0;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 0.75rem 0;
+  }
+}
+
+.warningBox {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--brand-ember, #fd6f43);
+  background: rgba(253, 111, 67, 0.08);
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.75rem;
+  color: var(--brand-ember-tint, #ff774e);
+}
