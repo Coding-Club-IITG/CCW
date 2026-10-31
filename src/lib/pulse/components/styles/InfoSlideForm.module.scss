@@ -1,0 +1,193 @@
+@use "../../../styles/mixins" as *;
+
+.infoForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.fieldLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--foreground-muted, #999999);
+}
+
+.charCount {
+  font-size: 0.7rem;
+  color: var(--muted, #777777);
+
+  &.charLimitNear {
+    color: var(--brand-ember, #fd6f43);
+  }
+
+  &.charLimitExceeded {
+    color: var(--brand-red, #ff4e41);
+    font-weight: bold;
+  }
+}
+
+.textInput {
+  @include form-control;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  background: var(--surface, #141414);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  color: var(--foreground, #ffffff);
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:focus {
+    border-color: var(--primary, #c0e04a);
+    box-shadow: 0 0 0 1px var(--primary, #c0e04a);
+  }
+
+  &.hasError {
+    border-color: var(--brand-red, #ff4e41);
+  }
+}
+
+.viewControls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.tabGroup {
+  display: inline-flex;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  background: var(--surface, #141414);
+  padding: 2px;
+}
+
+.tabButton {
+  padding: 0.25rem 0.625rem;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--muted-light, #aaaaaa);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    color: var(--foreground, #ffffff);
+  }
+
+  &.activeTab {
+    background: var(--primary-alpha, rgba(192, 224, 74, 0.15));
+    color: var(--primary, #c0e04a);
+    font-weight: 600;
+  }
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.375rem;
+  background: var(--surface-subtle, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-bottom: none;
+}
+
+.toolButton {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--foreground-muted, #aaaaaa);
+  padding: 0.25rem 0.4rem;
+  cursor: pointer;
+  border-radius: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: var(--surface, #1e1e1e);
+    border-color: var(--border, rgba(255, 255, 255, 0.15));
+    color: var(--foreground, #ffffff);
+  }
+}
+
+.editorContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.splitContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.textarea {
+  @include form-control;
+  width: 100%;
+  min-height: 280px;
+  padding: 0.875rem;
+  background: var(--surface, #141414);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  color: var(--foreground, #ffffff);
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  resize: vertical;
+
+  &:focus {
+    border-color: var(--primary, #c0e04a);
+  }
+
+  &.hasError {
+    border-color: var(--brand-red, #ff4e41);
+  }
+}
+
+.previewPanel {
+  min-height: 280px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--surface, #141414);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+}
+
+.previewBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.7rem;
+  color: var(--brand-lime, #c0e04a);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.emptyPreview {
+  color: var(--muted, #666666);
+  font-style: italic;
+  font-size: 0.875rem;
+  padding: 2rem 0;
+  text-align: center;
+}
