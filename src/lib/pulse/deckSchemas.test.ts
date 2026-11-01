@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { zodIssuesToFields } from "@/lib/api/result";
-import { isPulseQuizEditable, PULSE_QUIZ_STATUSES } from "@/lib/pulse/constants";
+import { isPulseQuizEditable, PULSE_DEFAULT_MCQ_POINTS, PULSE_QUIZ_STATUSES } from "@/lib/pulse/constants";
 import {
   defaultPulseConfig,
   hasUnsupportedSlides,
@@ -11,6 +11,7 @@ import {
   pulseSlideSchema,
   readStoredConfig,
   readStoredSlides,
+  reconcileConfig,
   type PulseSlide,
 } from "@/lib/pulse/deckSchemas";
 
@@ -140,9 +141,10 @@ describe("scoring settings", () => {
   };
 
   it("defaults to full scoring, including for stored settings that predate it", () => {
-    expect(defaultPulseConfig().settings.scoring).toEqual({ mode: "full" });
+    const scoringDefaults = { mode: "full", defaultPoints: PULSE_DEFAULT_MCQ_POINTS };
+    expect(defaultPulseConfig().settings.scoring).toEqual(scoringDefaults);
     const { scoring: _scoring, ...legacy } = defaultPulseConfig().settings;
-    expect(readStoredConfig({ settings: legacy }).settings.scoring).toEqual({ mode: "full" });
+    expect(readStoredConfig({ settings: legacy }).settings.scoring).toEqual(scoringDefaults);
   });
 
   it("accepts only full and time_based", () => {
@@ -229,5 +231,120 @@ describe("order normalization", () => {
     const raw = normalizeRawSlides([{ slideId: "b", order: 7 }, { slideId: "a", order: 1 }]);
     expect(raw).toEqual([{ slideId: "a", order: 0 }, { slideId: "b", order: 1 }]);
     expect(normalizeRawSlides(["junk"])).toEqual(["junk"]);
+  });
+});
+
+describe("answer editing and randomization compatibility", () => {
+  const participantPaced = (over: Record<string, unknown> = {}) =>
+    ({ ...defaultPulseConfig().delivery, mode: "participant-paced", ...over });
+
+  it("allows answer editing when host-paced", () => {
+    const { settings } = defaultPulseConfig();
+    expect(fields(deck({ settings: { ...settings, answers: { editMode: "editable_until_close" } } }))).toEqual({});
+  });
+
+  it("rejects answer editing in sequential participant-paced mode", () => {
+    const { settings } = defaultPulseConfig();
+    expect(fields(deck({
+      delivery: participantPaced(),
+      settings: {
+        ...settings,
+        answers: { editMode: "editable_until_close" },
+        timer: { ...settings.timer, perQuestionEnabled: false },
+      },
+    }))).toHaveProperty(["settings.answers.editMode"]);
+  });
+
+  it("allows answer editing with free navigation", () => {
+    const { settings } = defaultPulseConfig();
+    expect(fields(deck({
+      delivery: participantPaced({ navigation: "free" }),
+      settings: {
+        ...settings,
+        answers: { editMode: "editable_until_close" },
+        timer: { ...settings.timer, perQuestionEnabled: false },
+      },
+    }))).toEqual({});
+  });
+
+  it("rejects per-participant question order when host-paced", () => {
+    const { settings } = defaultPulseConfig();
+    const randomization = { enabled: true, randomizeQuestions: true, randomizeOptions: false };
+    expect(fields(deck({ settings: { ...settings, randomization } })))
+      .toHaveProperty(["settings.randomization.randomizeQuestions"]);
+  });
+
+  it("ignores randomization sub-options while randomization is off", () => {
+    const { settings } = defaultPulseConfig();
+    const randomization = { enabled: false, randomizeQuestions: true, randomizeOptions: true };
+    expect(fields(deck({ settings: { ...settings, randomization } }))).toEqual({});
+  });
+
+  it("rejects randomized options with the answer controller", () => {
+    const { settings, delivery } = defaultPulseConfig();
+    const randomization = { enabled: true, randomizeQuestions: false, randomizeOptions: true };
+    expect(fields(deck({
+      delivery: { ...delivery, displayMode: "answer-controller" },
+      settings: { ...settings, randomization },
+    }))).toHaveProperty(["settings.randomization.randomizeOptions"]);
+  });
+
+  it("rejects a default question timer longer than the overall timer", () => {
+    const { settings } = defaultPulseConfig();
+    const timer = { ...settings.timer, overallDurationSeconds: 60, defaultQuestionSeconds: 90 };
+    expect(fields(deck({ settings: { ...settings, timer } })))
+      .toHaveProperty(["settings.timer.defaultQuestionSeconds"]);
+  });
+});
+
+describe("reconcileConfig", () => {
+  it("clears host-paced-only settings when switching to participant-paced", () => {
+    const base = defaultPulseConfig();
+    const next = reconcileConfig({
+      ...base,
+      delivery: { ...base.delivery, mode: "participant-paced" as const, displayMode: "answer-controller" as const },
+      settings: {
+        ...base.settings,
+        timer: { ...base.settings.timer, perQuestionEnabled: true },
+        randomization: { enabled: true, randomizeQuestions: true, randomizeOptions: true },
+      },
+    });
+    expect(next.delivery.displayMode).toBe("full-prompt");
+    expect(next.settings.timer.perQuestionEnabled).toBe(false);
+    expect(next.settings.randomization.randomizeQuestions).toBe(true);
+  });
+
+  it("forces sequential navigation and clears per-participant order when switching to host-paced", () => {
+    const base = defaultPulseConfig();
+    const next = reconcileConfig({
+      ...base,
+      delivery: { ...base.delivery, mode: "host-paced" as const, navigation: "free" as const },
+      settings: { ...base.settings, randomization: { enabled: true, randomizeQuestions: true, randomizeOptions: false } },
+    });
+    expect(next.delivery.navigation).toBe("sequential");
+    expect(next.settings.randomization.randomizeQuestions).toBe(false);
+  });
+
+  it("demotes time-based scoring when no timer can provide a deadline", () => {
+    const base = defaultPulseConfig();
+    const next = reconcileConfig({
+      ...base,
+      settings: {
+        ...base.settings,
+        timer: { ...base.settings.timer, perQuestionEnabled: false },
+        scoring: { ...base.settings.scoring, mode: "time_based" as const },
+      },
+    });
+    expect(next.settings.scoring.mode).toBe("full");
+  });
+
+  it("locks answers when participant-paced navigation is sequential", () => {
+    const base = defaultPulseConfig();
+    const next = reconcileConfig({
+      ...base,
+      delivery: { ...base.delivery, mode: "participant-paced" as const },
+      settings: { ...base.settings, answers: { editMode: "editable_until_close" as const } },
+    });
+    expect(next.settings.answers.editMode).toBe("locked_on_submit");
   });
 });

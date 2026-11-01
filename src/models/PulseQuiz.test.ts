@@ -189,3 +189,30 @@ describe("PulseQuiz", () => {
     }
   });
 });
+
+describe("PulseQuiz configuration defaults", () => {
+  it("applies the new quiz-level settings defaults", async () => {
+    const quiz = minimal();
+    await expect(quiz.validate()).resolves.toBeUndefined();
+    expect(quiz.settings?.scoring?.mode).toBe("full");
+    expect(quiz.settings?.scoring?.defaultPoints).toBe(100);
+    expect(quiz.settings?.timer?.defaultQuestionSeconds).toBeNull();
+    expect(quiz.settings?.answers?.editMode).toBe("locked_on_submit");
+    expect(quiz.settings?.reveal?.showRank).toBe(false);
+  });
+
+  it("rejects an unknown answer edit mode", async () => {
+    await expect(minimal({ settings: { answers: { editMode: "always" } } }).validate()).rejects.toThrow();
+  });
+
+  it("rejects answer editing in sequential participant-paced mode", async () => {
+    const quiz = minimal({
+      delivery: { mode: "participant-paced", navigation: "sequential", displayMode: "full-prompt" },
+      settings: {
+        timer: { overallEnabled: true, overallDurationSeconds: 3600, perQuestionEnabled: false },
+        answers: { editMode: "editable_until_close" },
+      },
+    });
+    await expect(quiz.validate()).rejects.toThrow();
+  });
+});

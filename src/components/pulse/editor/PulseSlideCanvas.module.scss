@@ -87,3 +87,19 @@
   color: var(--error-text);
   font-size: 0.75rem;
 }
+
+.linkButton {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+
+  &:disabled {
+    color: var(--muted);
+    cursor: default;
+    text-decoration: none;
+  }
+}

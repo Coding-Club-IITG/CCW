@@ -17,6 +17,9 @@ interface PulseSlideCanvasProps {
   readOnly: boolean;
   /** Per-question timers are only meaningful in host-paced mode with them enabled. */
   timerEnabled: boolean;
+  /** Quiz-level defaults, shown so a slide value that differs reads as an override. */
+  defaultPoints: number;
+  defaultTimerSeconds: number | null;
   /** The server's field errors for this slide, keyed like "content.text". */
   errors: Record<string, string[]>;
   onChange: (slideId: string, patch: Partial<PulseSlide["content"]>) => void;
@@ -31,7 +34,8 @@ function FieldErrors({ errors, name }: { errors: Record<string, string[]>; name:
 }
 
 export default function PulseSlideCanvas({
-  slide, index, readOnly, timerEnabled, errors, onChange, onAddOption, onRemoveOption, onSetCorrect,
+  slide, index, readOnly, timerEnabled, defaultPoints, defaultTimerSeconds, errors,
+  onChange, onAddOption, onRemoveOption, onSetCorrect,
 }: PulseSlideCanvasProps) {
   if (!slide) {
     return (
@@ -57,17 +61,20 @@ export default function PulseSlideCanvas({
           <FieldErrors errors={errors} name="content.markdown" />
         </div>
       ) : (
-        <McqFields slide={slide} readOnly={readOnly} timerEnabled={timerEnabled} errors={errors}
+        <McqFields slide={slide} readOnly={readOnly} timerEnabled={timerEnabled}
+          defaultPoints={defaultPoints} defaultTimerSeconds={defaultTimerSeconds} errors={errors}
           onChange={onChange} onAddOption={onAddOption} onRemoveOption={onRemoveOption} onSetCorrect={onSetCorrect} />
       )}
     </section>
   );
 }
 
-function McqFields({ slide, readOnly, timerEnabled, errors, onChange, onAddOption, onRemoveOption, onSetCorrect }:
+function McqFields({ slide, readOnly, timerEnabled, defaultPoints, defaultTimerSeconds, errors, onChange, onAddOption, onRemoveOption, onSetCorrect }:
   Omit<PulseSlideCanvasProps, "slide" | "index"> & { slide: McqSlide }) {
   const { content, slideId: id } = slide;
   const numberOrNull = (value: string) => (value === "" ? null : Number(value));
+  const pointsOverridden = content.points !== defaultPoints;
+  const timerOverridden = content.timerSeconds !== defaultTimerSeconds;
 
   return (
     <>
@@ -118,12 +125,30 @@ function McqFields({ slide, readOnly, timerEnabled, errors, onChange, onAddOptio
           <label htmlFor={`points-${id}`}>Points</label>
           <input id={`points-${id}`} type="number" min={1} step={1} value={content.points} disabled={content.poll}
             onChange={(event) => onChange(id, { points: Number(event.target.value) })} />
+          <p className={styles.hint}>
+            Quiz default: {defaultPoints}.{" "}
+            {pointsOverridden ? (
+              <button type="button" className={styles.linkButton} disabled={readOnly || content.poll}
+                onClick={() => onChange(id, { points: defaultPoints })}>
+                Use quiz default
+              </button>
+            ) : "This slide uses it."}
+          </p>
           <FieldErrors errors={errors} name="content.points" />
         </div>
         <div className={styles.field}>
           <label htmlFor={`timer-${id}`}>Timer (seconds)</label>
           <input id={`timer-${id}`} type="number" min={1} step={1} value={content.timerSeconds ?? ""} disabled={!timerEnabled && content.timerSeconds === null}
             onChange={(event) => onChange(id, { timerSeconds: numberOrNull(event.target.value) })} />
+          <p className={styles.hint}>
+            Quiz default: {defaultTimerSeconds ?? "none"}.{" "}
+            {timerOverridden ? (
+              <button type="button" className={styles.linkButton} disabled={readOnly}
+                onClick={() => onChange(id, { timerSeconds: defaultTimerSeconds })}>
+                Use quiz default
+              </button>
+            ) : "This slide uses it."}
+          </p>
           {timerEnabled ? null : <p className={styles.hint}>Per-question timers need host-paced delivery with per-question timers turned on.</p>}
           <FieldErrors errors={errors} name="content.timerSeconds" />
         </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultPulseConfig, type PulseSlide } from "@/lib/pulse/deckSchemas";
+import { pulseDeckSchema, defaultPulseConfig, type PulseSlide } from "@/lib/pulse/deckSchemas";
 import { createDeckEditorStore, isDirty, type DeckSnapshot, type ServerDeck } from "@/lib/pulse/deckEditorStore";
 
 const slides = (): PulseSlide[] => [
@@ -174,5 +174,53 @@ describe("slide operations through deck.ts", () => {
     expect(get().draft.slides[1].content).toMatchObject({ options: ["4", "5"], correctOptions: [0] });
     a.setMcqOptionCorrect("b", 1, true);
     expect(get().draft.slides[1].content).toMatchObject({ correctOptions: [1] });
+  });
+});
+describe("config reconciliation", () => {
+  it("clears host-paced-only settings when the mode changes, so the draft stays saveable", () => {
+    const base = defaultPulseConfig();
+    const { a, get } = setup({
+      delivery: { ...base.delivery, displayMode: "answer-controller" },
+      settings: {
+        ...base.settings,
+        timer: { ...base.settings.timer, perQuestionEnabled: true },
+        scoring: { ...base.settings.scoring, mode: "time_based" },
+      },
+    });
+
+    expect(a.updateConfig({ delivery: { ...base.delivery, mode: "participant-paced" } })).toBe(true);
+
+    const { draft } = get();
+    expect(draft.delivery.displayMode).toBe("full-prompt");
+    expect(draft.settings.timer.perQuestionEnabled).toBe(false);
+    expect(pulseDeckSchema.safeParse(draft).success).toBe(true);
+  });
+
+  it("forces sequential navigation when switching back to host-paced", () => {
+    const base = defaultPulseConfig();
+    const { a, get } = setup({ delivery: { ...base.delivery, mode: "participant-paced", navigation: "free" } });
+    a.updateConfig({ delivery: { ...base.delivery, mode: "host-paced", navigation: "free" } });
+    expect(get().draft.delivery.navigation).toBe("sequential");
+  });
+});
+
+describe("quiz-level defaults", () => {
+  it("stamps the quiz defaults onto a new MCQ slide", () => {
+    const base = defaultPulseConfig();
+    const { a, get } = setup({
+      settings: {
+        ...base.settings,
+        scoring: { ...base.settings.scoring, defaultPoints: 50 },
+        timer: { ...base.settings.timer, defaultQuestionSeconds: 20 },
+      },
+    });
+
+    expect(a.addSlide("mcq")).toBe(true);
+    const added = get().draft.slides.find((slide) => slide.slideId === get().selectedSlideId);
+    expect(added?.type).toBe("mcq");
+    if (added?.type === "mcq") {
+      expect(added.content.points).toBe(50);
+      expect(added.content.timerSeconds).toBe(20);
+    }
   });
 });

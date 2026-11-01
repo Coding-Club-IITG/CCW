@@ -12,7 +12,7 @@ import {
   updateSlide,
   type DeckResult,
 } from "@/lib/pulse/deck";
-import type { PulseDelivery, PulseRegistration, PulseSettings, PulseSlide } from "@/lib/pulse/deckSchemas";
+import  { reconcileConfig, type PulseDelivery, type PulseRegistration, type PulseSettings,type PulseSlide } from "@/lib/pulse/deckSchemas";
 
 /** Everything a save writes. Slide edits go through deck.ts; config edits replace whole sections. */
 export type DeckSnapshot = {
@@ -99,7 +99,14 @@ export function createDeckEditorStore(initial: ServerDeck, options: { canEdit?: 
     },
 
     addSlide(type: PulseSlideType, atIndex?: number) {
-      return applySlides((slides) => addSlide(slides, type, atIndex), (r) => ("slide" in r ? (r.slide as PulseSlide).slideId : null));
+      const { settings } = getState().draft;
+      return applySlides(
+        (slides) => addSlide(slides, type, atIndex, undefined, {
+          points: settings.scoring.defaultPoints,
+          timerSeconds: settings.timer.defaultQuestionSeconds,
+        }),
+        (r) => ("slide" in r ? (r.slide as PulseSlide).slideId : null),
+      );
     },
     updateSlide(slideId: string, patch: Parameters<typeof updateSlide>[2]) {
       return applySlides((slides) => updateSlide(slides, slideId, patch));
@@ -144,7 +151,11 @@ export function createDeckEditorStore(initial: ServerDeck, options: { canEdit?: 
     updateConfig(patch: Partial<Pick<DeckSnapshot, "delivery" | "registration" | "settings">>) {
       if (!editable()) return false;
       const state = getState();
-      setState({ draft: { ...state.draft, ...structuredClone(patch) }, save: afterEdit(state.save) });
+      const merged = { ...state.draft, ...structuredClone(patch) };
+      // A mode change can invalidate dependent settings; fix them here so the host
+      // never submits a configuration the server would reject.
+      const draft = reconcileConfig(merged);
+      setState({ draft, save: afterEdit(state.save) });
       return true;
     },
 
