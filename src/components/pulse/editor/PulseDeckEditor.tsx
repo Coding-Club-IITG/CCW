@@ -161,6 +161,8 @@ export default function PulseDeckEditor({ quizId, initialDeck }: PulseDeckEditor
               index={selectedIndex}
               readOnly={!canEdit || reloading}
               timerEnabled={draft.delivery.mode === "host-paced" && draft.settings.timer.perQuestionEnabled}
+              defaultPoints={draft.settings.scoring.defaultPoints}
+              defaultTimerSeconds={draft.settings.timer.defaultQuestionSeconds}
               errors={selectedIndex >= 0 && saveState.state === "error" ? slideFields(saveState.fields, selectedIndex) : {}}
               onChange={actions.updateSlide}
               onAddOption={(slideId) => actions.addMcqOption(slideId)}

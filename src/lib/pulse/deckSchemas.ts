@@ -13,6 +13,12 @@ import {
   PULSE_SLIDE_TYPES,
 } from "@/lib/pulse/constants";
 
+import 
+{
+  PULSE_ANSWER_EDIT_MODES,
+  PULSE_DEFAULT_ANSWER_EDIT_MODE,
+}from "@/lib/pulse/constants"
+
 // Pure Zod and constants only: the server and the browser editor share this file.
 
 const text = (label: string) => z.string().trim().min(1, `${label} is required.`);
@@ -103,15 +109,28 @@ export const pulseSettingsSchema = z.strictObject({
     overallEnabled: z.boolean().default(true),
     overallDurationSeconds: z.number().int().min(1, "Duration must be at least 1 second.").default(3600),
     perQuestionEnabled: z.boolean().default(true),
+    /** Quiz-level default stamped onto new MCQ slides; each slide may override it. */
+    defaultQuestionSeconds: z.number().int()
+      .min(LIMITS.minQuestionSeconds, `Timer must be at least ${LIMITS.minQuestionSeconds} seconds.`)
+      .nullable().default(null),
   }).prefault({}),
-  // Quiz-wide scoring mode. `prefault` keeps Phase 2 documents without it readable.
+  // Quiz-wide scoring. `prefault` keeps Phase 2 documents without it readable.
   scoring: z.strictObject({
     mode: z.enum(PULSE_SCORING_MODES).default(PULSE_DEFAULT_SCORING_MODE),
+    /** Quiz-level default points for new MCQ slides; each slide may override it. */
+    defaultPoints: z.number().int()
+      .min(1, "Points must be at least 1.")
+      .max(LIMITS.maxQuestionPoints, `Points can be at most ${LIMITS.maxQuestionPoints}.`)
+      .default(PULSE_DEFAULT_MCQ_POINTS),
+  }).prefault({}),
+  answers: z.strictObject({
+    editMode: z.enum(PULSE_ANSWER_EDIT_MODES).default(PULSE_DEFAULT_ANSWER_EDIT_MODE),
   }).prefault({}),
   reveal: z.strictObject({
-    showCorrectAnswer: z.boolean().default(false),
-    showParticipantScore: z.boolean().default(false),
-    showAnswerReview: z.boolean().default(false),
+    showCorrectAnswer: z.boolean().default(false),    // per-question feedback (PS §3b)
+    showParticipantScore: z.boolean().default(false), // completion display (PS §8)
+    showRank: z.boolean().default(false),             // completion display (PS §8)
+    showAnswerReview: z.boolean().default(false),     // completion display (PS §8)
   }).prefault({}),
   randomization: z.strictObject({
     enabled: z.boolean().default(false),
@@ -129,6 +148,11 @@ export const pulseSettingsSchema = z.strictObject({
 export type PulseDelivery = z.output<typeof pulseDeliverySchema>;
 export type PulseRegistration = z.output<typeof pulseRegistrationSchema>;
 export type PulseSettings = z.output<typeof pulseSettingsSchema>;
+export type PulseConfig = {
+  delivery: PulseDelivery;
+  registration: PulseRegistration;
+  settings: PulseSettings;
+};
 
 export function defaultPulseConfig() {
   return {
@@ -165,6 +189,64 @@ export function checkConfig(config: { delivery: PulseDelivery; registration: Pul
     if (!hostPaced && !settings.timer.overallEnabled)
       issue(["settings", "scoring", "mode"], "Time-based scoring needs the overall timer in participant-paced mode.");
   }
+    // PS §4b: a per-participant question order conflicts with one shared current slide.
+  if (hostPaced && settings.randomization.enabled && settings.randomization.randomizeQuestions)
+    issue(["settings", "randomization", "randomizeQuestions"],
+      "Per-participant question order needs participant-paced delivery.");
+  // PS §4b: randomized options can't match the shared screen participants answer from.
+  if (delivery.displayMode === "answer-controller" && settings.randomization.enabled && settings.randomization.randomizeOptions)
+    issue(["settings", "randomization", "randomizeOptions"],
+      "Randomized options can't be used with the answer controller.");
+  // PS §4b: sequential participant-paced participants cannot revisit earlier slides,
+  // so there is no way to reach an earlier answer and change it.
+  if (!hostPaced && delivery.navigation === "sequential" && settings.answers.editMode === "editable_until_close")
+    issue(["settings", "answers", "editMode"],
+      "Response editing needs free navigation in participant-paced mode.");
+  // Mirrors the per-slide timer rule for the quiz-level default.
+  if (settings.timer.defaultQuestionSeconds !== null && settings.timer.overallEnabled &&
+      settings.timer.defaultQuestionSeconds > settings.timer.overallDurationSeconds)
+    issue(["settings", "timer", "defaultQuestionSeconds"],
+      "The default question timer can't be longer than the overall timer.");
+}
+
+/**
+ * Forces dependent settings back to valid values after a mode change, so the host never
+ * saves a configuration the server will reject. Mirrors `checkConfig` exactly: client
+ * reconciles, server validates. Only touches values that would otherwise fail.
+ */
+export function reconcileConfig<T extends PulseConfig>(config: T): T {
+  const hostPaced = config.delivery.mode === "host-paced";
+  const delivery: PulseDelivery = {
+    ...config.delivery,
+    navigation: hostPaced ? "sequential" : config.delivery.navigation,
+    displayMode: hostPaced ? config.delivery.displayMode : "full-prompt",
+  };
+  const timer = {
+    ...config.settings.timer,
+    perQuestionEnabled: hostPaced && config.settings.timer.perQuestionEnabled,
+  };
+  const randomization = {
+    ...config.settings.randomization,
+    randomizeQuestions: hostPaced ? false : config.settings.randomization.randomizeQuestions,
+    randomizeOptions: delivery.displayMode === "answer-controller" ? false : config.settings.randomization.randomizeOptions,
+  };
+  const canEditAnswers = hostPaced || delivery.navigation === "free";
+  const answers = {
+    ...config.settings.answers,
+    editMode: canEditAnswers ? config.settings.answers.editMode : ("locked_on_submit" as const),
+  };
+  // Time-based scoring needs a deadline: the per-question timer when host-paced,
+  // the shared overall timer when participant-paced.
+  const hasDeadline = hostPaced ? timer.perQuestionEnabled : timer.overallEnabled;
+  const scoring = {
+    ...config.settings.scoring,
+    mode: hasDeadline ? config.settings.scoring.mode : ("full" as const),
+  };
+  return {
+    ...config,
+    delivery,
+    settings: { ...config.settings, timer, randomization, answers, scoring },
+  };
 }
 
 export const pulseConfigSchema = z.strictObject({

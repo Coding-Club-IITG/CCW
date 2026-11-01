@@ -156,3 +156,6 @@ export function pulseErrorMessage(error: PulseAppError): string {
       return "An unexpected error occurred. Please try again.";
   }
 }
+export const PULSE_ANSWER_EDIT_MODES = ["locked_on_submit", "editable_until_close"] as const;
+export type PulseAnswerEditMode = (typeof PULSE_ANSWER_EDIT_MODES)[number];
+export const PULSE_DEFAULT_ANSWER_EDIT_MODE: PulseAnswerEditMode = "locked_on_submit";

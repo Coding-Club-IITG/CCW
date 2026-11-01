@@ -14,6 +14,9 @@ import {
   PULSE_SCORING_MODES,
   PULSE_SLIDE_TYPES,
   ROOM_CODE_PATTERN,
+  PULSE_ANSWER_EDIT_MODES,
+  PULSE_DEFAULT_ANSWER_EDIT_MODE,
+  PULSE_DEFAULT_MCQ_POINTS,
   type PulseQuizStatus,
 } from "@/lib/pulse/constants";
 import { pulseConfigSchema, pulseSlideSchema } from "@/lib/pulse/deckSchemas";
@@ -126,13 +129,28 @@ const SettingsSchema = new Schema(
         validate: { validator: Number.isInteger, message: "Duration must be a whole number of seconds." },
       },
       perQuestionEnabled: { type: Boolean, default: true },
+      defaultQuestionSeconds: {
+        type: Number,
+        min: PULSE_DECK_LIMITS.minQuestionSeconds,
+        default: null,
+      },
     },
     scoring: {
       mode: { type: String, enum: PULSE_SCORING_MODES, default: PULSE_DEFAULT_SCORING_MODE },
+      defaultPoints: {
+        type: Number,
+        min: 1,
+        max: PULSE_DECK_LIMITS.maxQuestionPoints,
+        default: PULSE_DEFAULT_MCQ_POINTS,
+      },
+    },
+    answers: {
+      editMode: { type: String, enum: PULSE_ANSWER_EDIT_MODES, default: PULSE_DEFAULT_ANSWER_EDIT_MODE },
     },
     reveal: {
       showCorrectAnswer: { type: Boolean, default: false },
       showParticipantScore: { type: Boolean, default: false },
+      showRank: { type: Boolean, default: false },
       showAnswerReview: { type: Boolean, default: false },
     },
     randomization: {

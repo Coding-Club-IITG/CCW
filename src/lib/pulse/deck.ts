@@ -23,13 +23,20 @@ const fail = (code: DeckErrorCode, message: string): { ok: false; error: DeckErr
 const isIndex = (value: unknown, max: number): value is number =>
   typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= max;
 
-export function defaultSlideContent(type: "info"): Extract<PulseSlide, { type: "info" }>["content"];
-export function defaultSlideContent(type: "mcq"): McqSlide["content"];
-export function defaultSlideContent(type: PulseSlideType): PulseSlide["content"];
-export function defaultSlideContent(type: PulseSlideType): PulseSlide["content"] {
+export type PulseMcqDefaults = { points: number; timerSeconds: number | null };
+
+export function defaultSlideContent(type: "info", defaults?: PulseMcqDefaults): Extract<PulseSlide, { type: "info" }>["content"];
+export function defaultSlideContent(type: "mcq", defaults?: PulseMcqDefaults): McqSlide["content"];
+export function defaultSlideContent(type: PulseSlideType, defaults?: PulseMcqDefaults): PulseSlide["content"];
+export function defaultSlideContent(type: PulseSlideType, defaults?: PulseMcqDefaults): PulseSlide["content"] {
   if (type === "info") return { markdown: "" };
   if (type === "mcq") {
-    return { text: "", options: ["", ""], correctOptions: [], multipleAnswers: false, poll: false, points: PULSE_DEFAULT_MCQ_POINTS, timerSeconds: null };
+    return {
+      text: "", options: ["", ""], correctOptions: [], multipleAnswers: false, poll: false,
+      // Quiz-level defaults; the host may override either on the slide itself.
+      points: defaults?.points ?? PULSE_DEFAULT_MCQ_POINTS,
+      timerSeconds: defaults?.timerSeconds ?? null,
+    };
   }
   throw new Error(`Unsupported slide type: ${String(type)}`);
 }
@@ -51,12 +58,13 @@ export function addSlide(
   type: PulseSlideType,
   atIndex?: number,
   idFactory: IdFactory = newId,
+  defaults?: PulseMcqDefaults,
 ): DeckResult<{ slide: PulseSlide }> {
   if (type !== "info" && type !== "mcq") return fail("INVALID_SLIDE_TYPE", "Unknown slide type.");
   const current = normalizeOrder(slides);
   const index = atIndex ?? current.length;
   if (!isIndex(index, current.length)) return fail("INDEX_OUT_OF_RANGE", "That position is outside the deck.");
-  const slide = { slideId: idFactory(), order: 0, type, content: defaultSlideContent(type) } as PulseSlide;
+  const slide = { slideId: idFactory(), order: 0, type, content: defaultSlideContent(type, defaults) } as PulseSlide;
   const next = withOrder([...current.slice(0, index), slide, ...current.slice(index)].map((s, order) => ({ ...s, order })));
   return { ok: true, slides: next, slide: next[index] };
 }

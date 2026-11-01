@@ -223,6 +223,38 @@ availability before choosing a transaction-based implementation.
 Each completed privileged user intent is stored with a bounded, resource-specific
 before/after summary in Audit log, which operates in a fail-closed manner.
 
+### Quiz configuration
+
+The editor's "Quiz settings" tab configures the quiz independently of slide
+content: delivery mode, navigation, display mode, registration permissions and
+capacity, overall and per-question timers, scoring, answer editing, reveal,
+randomization and leaderboard. All of it lives in `PulseQuiz.delivery`,
+`.registration` and `.settings`, validated by `pulseConfigSchema`.
+
+Quiz-level defaults stay distinct from per-slide values. `settings.scoring.defaultPoints`
+and `settings.timer.defaultQuestionSeconds` are stamped onto new MCQ slides by
+`addSlide`; each slide then stores its own value and the canvas shows the quiz
+default alongside it with a "Use quiz default" action. The per-slide value remains
+the source of truth for scoring.
+
+`settings.answers.editMode` (`locked_on_submit` | `editable_until_close`) decides
+whether a participant may change an accepted answer before the question closes.
+Editing needs host-paced delivery or free navigation, because sequential
+participant-paced participants cannot revisit an earlier slide.
+
+Compatibility is enforced in two places. `checkConfig()` in `deckSchemas.ts` stays
+the authority and runs on every save and Mongoose write. `reconcileConfig()` is its
+client-side mirror: `deckEditorStore.updateConfig` runs it on every panel change so a
+mode switch rewrites the settings it invalidates (navigation, display mode,
+per-question timers, time-based scoring, randomization, answer editing) instead of
+leaving a draft the server would reject. The panel additionally disables options the
+selected mode rules out and explains why.
+
+Deferred, tracked separately: partial credit, incorrect-selection penalties and
+negative scores; host-defined registration fields; response-chart visibility; Q&A
+slide settings. `registration.allowGuests` is shown disabled and still rejected by
+`checkConfig`.
+
 ## Branches and Deployment
 
 Pull requests normally target `dev`. The live website is deployed from `prod`
