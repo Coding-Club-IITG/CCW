@@ -154,7 +154,7 @@ export function createDeckEditorStore(initial: ServerDeck, options: { canEdit?: 
       const merged = { ...state.draft, ...structuredClone(patch) };
       // A mode change can invalidate dependent settings; fix them here so the host
       // never submits a configuration the server would reject.
-      const draft = { ...merged, ...reconcileConfig(merged) };
+      const draft = reconcileConfig(merged);
       setState({ draft, save: afterEdit(state.save) });
       return true;
     },

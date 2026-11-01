@@ -215,14 +215,6 @@ optional `copyConfigFrom` quiz ID. The source's delivery, registration and setti
 are validated and stored in the same audited creation transaction; slides are never
 copied. No new `PULSE_*` error codes were added in this phase.
 
-## Database Notes
-
-The configured MongoDB deployment uses a replica set. Confirm replica-set
-availability before choosing a transaction-based implementation.
-
-Each completed privileged user intent is stored with a bounded, resource-specific
-before/after summary in Audit log, which operates in a fail-closed manner.
-
 ### Quiz configuration
 
 The editor's "Quiz settings" tab configures the quiz independently of slide
@@ -254,6 +246,14 @@ Deferred, tracked separately: partial credit, incorrect-selection penalties and
 negative scores; host-defined registration fields; response-chart visibility; Q&A
 slide settings. `registration.allowGuests` is shown disabled and still rejected by
 `checkConfig`.
+
+## Database Notes
+
+The configured MongoDB deployment uses a replica set. Confirm replica-set
+availability before choosing a transaction-based implementation.
+
+Each completed privileged user intent is stored with a bounded, resource-specific
+before/after summary in Audit log, which operates in a fail-closed manner.
 
 ## Branches and Deployment
 

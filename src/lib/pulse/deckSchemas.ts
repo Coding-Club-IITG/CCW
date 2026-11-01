@@ -11,13 +11,9 @@ import {
   PULSE_NAVIGATION_MODES,
   PULSE_SCORING_MODES,
   PULSE_SLIDE_TYPES,
-} from "@/lib/pulse/constants";
-
-import 
-{
   PULSE_ANSWER_EDIT_MODES,
   PULSE_DEFAULT_ANSWER_EDIT_MODE,
-}from "@/lib/pulse/constants"
+} from "@/lib/pulse/constants";
 
 // Pure Zod and constants only: the server and the browser editor share this file.
 
