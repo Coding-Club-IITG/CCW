@@ -31,12 +31,15 @@ vi.mock("better-auth/social-providers", async (importOriginal) => {
     await importOriginal<typeof import("better-auth/social-providers")>();
   const profile = () => ({
     user: {
-      id: providerBoundary.identity,
       email: providerBoundary.email,
       emailVerified: providerBoundary.verified,
       name: "Provider name",
     },
-    data: { tid: providerBoundary.tenant },
+    data: {
+      tid: providerBoundary.tenant,
+      oid: "distinct-microsoft-object-id",
+      sub: providerBoundary.identity,
+    },
   });
   return {
     ...actual,
@@ -191,8 +194,11 @@ describe("approved Better Auth identities and endpoints", () => {
       expect(
         await mongoose.connection
           .db!.collection("account")
-          .countDocuments({ userId: user._id }),
-      ).toBe(1);
+          .find({ userId: user._id })
+          .toArray(),
+      ).toMatchObject([
+        { providerId: provider, accountId: providerBoundary.identity },
+      ]);
       expect(await User.countDocuments()).toBe(1);
     },
   );

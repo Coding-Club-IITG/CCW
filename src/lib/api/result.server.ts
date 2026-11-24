@@ -73,7 +73,11 @@ export function parseObjectId(
 }
 
 export function mongoErrorResult(error: unknown): AppResult<never> {
-  if (error instanceof MongoServerError && error.code === 11000) {
+  if (
+    (error instanceof MongoServerError ||
+      error instanceof mongoose.mongo.MongoServerError) &&
+    error.code === 11000
+  ) {
     const fields = Object.keys(
       (error as MongoServerError & { keyPattern?: Record<string, unknown> })
         .keyPattern ?? {},

@@ -36,18 +36,18 @@ jobs:
       MONGODB_TEST_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
       REDIS_URL: redis://127.0.0.1:6379/15
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
-          version: 11.9.0
-      - uses: actions/setup-node@v6
+          version: 12.23.0
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
 
       - name: Start MongoDB replica set
         run: |
-          docker run --detach --name ccw-mongodb --publish 27017:27017 \
+          docker run --detach --name ccw-mongodb --ulimit nofile=65536:65536 --publish 27017:27017 \
             mongo:8 --replSet rs0 --bind_ip_all
           until docker exec ccw-mongodb mongosh --quiet --eval \
             'db.runCommand({ ping: 1 }).ok' >/dev/null 2>&1; do
@@ -80,7 +80,7 @@ jobs:
 
       - name: Upload coverage
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage/

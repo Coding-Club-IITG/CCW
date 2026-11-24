@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import type { OnMount } from "@monaco-editor/react";
+import { dependencies } from "../../../../package.json";
 
 import type { CodeRunnerLanguage } from "@/lib/constants";
 import { CODE_RUNNER_DEFAULT_CODE } from "@/lib/constants";
@@ -10,7 +11,19 @@ import { useThemeStore } from "@/lib/stores/theme";
 
 import styles from "./CodeRunner.module.scss";
 
-const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
+const Editor = dynamic(
+  async () => {
+    const { default: MonacoEditor, loader } =
+      await import("@monaco-editor/react");
+    loader.config({
+      paths: {
+        vs: `https://cdn.jsdelivr.net/npm/monaco-editor@${dependencies["monaco-editor"]}/min/vs`,
+      },
+    });
+    return MonacoEditor;
+  },
+  { ssr: false },
+);
 
 type Props = {
   language: CodeRunnerLanguage;

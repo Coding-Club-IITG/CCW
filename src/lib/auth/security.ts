@@ -35,6 +35,16 @@ export async function guardLoginCallback<T>(
   }
 }
 
+export function providerSubject(profile: object): string {
+  if (
+    !("sub" in profile) ||
+    typeof profile.sub !== "string" ||
+    !profile.sub.trim()
+  )
+    authFailure("incorrect_provider");
+  return profile.sub;
+}
+
 export async function validateLoginIdentity(
   provider: AuthProvider,
   profile: {
@@ -155,6 +165,13 @@ export const authDatabaseHooks: NonNullable<
 
 export const authSecurityPlugin = {
   id: "approved-identities",
+  init(ctx) {
+    const microsoft = ctx.socialProviders.find(
+      (provider) => provider.id === "microsoft",
+    );
+    if (microsoft)
+      microsoft.accountSubject = ({ profile }) => providerSubject(profile);
+  },
   hooks: {
     before: [
       {

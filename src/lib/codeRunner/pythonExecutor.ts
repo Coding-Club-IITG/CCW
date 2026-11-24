@@ -10,9 +10,9 @@ let pyodideInstance: any = null;
 async function loadPyodide() {
   if (pyodideInstance) return pyodideInstance;
 
-  const { loadPyodide: load } = await import("pyodide");
+  const { loadPyodide: load, version } = await import("pyodide");
   pyodideInstance = await load({
-    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/",
+    indexURL: `https://cdn.jsdelivr.net/pyodide/v${version}/full/`,
   });
   return pyodideInstance;
 }

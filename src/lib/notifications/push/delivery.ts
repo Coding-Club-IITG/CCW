@@ -1,4 +1,6 @@
-import webPush, {
+import {
+  sendNotification,
+  setVapidDetails,
   type PushSubscription as WebPushSubscription,
 } from "web-push";
 
@@ -49,12 +51,12 @@ function statusCodeFrom(error: unknown): number | undefined {
 
 export async function deliverPushNotification(
   notificationId: string,
-  send: PushSender = webPush.sendNotification,
+  send: PushSender = sendNotification,
 ) {
   const config = getWebPushConfig();
   if (!config) return;
 
-  webPush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
+  setVapidDetails(config.subject, config.publicKey, config.privateKey);
 
   const notification = await Notification.findById(notificationId).lean();
   if (!notification) return;

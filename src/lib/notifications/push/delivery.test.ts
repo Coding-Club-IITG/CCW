@@ -26,10 +26,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("web-push", () => ({
-  default: {
-    setVapidDetails: mocks.setVapidDetails,
-    sendNotification: mocks.defaultSend,
-  },
+  setVapidDetails: mocks.setVapidDetails,
+  sendNotification: mocks.defaultSend,
 }));
 vi.mock("@/lib/notifications/push/config", () => ({
   getWebPushConfig: () => ({

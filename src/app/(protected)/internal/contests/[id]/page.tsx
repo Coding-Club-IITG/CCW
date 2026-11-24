@@ -194,7 +194,7 @@ export default async function ContestRoomPage({
     const allMemberIds = teams.flatMap((t) => t.members);
     const users = await User.find(
       { _id: { $in: allMemberIds } },
-      { name: 1, image: 1, pizza_count: 1 },
+      { name: 1, image: 1, pizza_count: 1, codeforcesId: 1 },
     ).lean();
     const cpUsers = await CPUser.find({ userId: { $in: allMemberIds } }).lean();
 

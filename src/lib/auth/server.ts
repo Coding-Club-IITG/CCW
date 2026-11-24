@@ -13,6 +13,7 @@ import {
   authDatabaseHooks,
   authSecurityPlugin,
   authFailure,
+  providerSubject,
   validateLoginIdentity,
   guardLoginCallback,
 } from "@/lib/auth/security";
@@ -173,7 +174,10 @@ export const auth = betterAuth({
           const profile = await instituteProvider.getUserInfo(tokens);
           if (!profile?.user || profile.data.tid !== webEnv.AZURE_TENANT_ID)
             authFailure("incorrect_provider");
-          const email = await validateLoginIdentity("microsoft", profile.user);
+          const email = await validateLoginIdentity("microsoft", {
+            ...profile.user,
+            id: providerSubject(profile.data),
+          });
           return { ...profile, user: { ...profile.user, email } };
         }),
     },
@@ -198,10 +202,10 @@ export const auth = betterAuth({
                   authFailure("incorrect_provider");
                 const profile = await googleProvider.getUserInfo(tokens);
                 if (!profile?.user) authFailure("incorrect_provider");
-                const email = await validateLoginIdentity(
-                  "google",
-                  profile.user,
-                );
+                const email = await validateLoginIdentity("google", {
+                  ...profile.user,
+                  id: providerSubject(profile.data),
+                });
                 return { ...profile, user: { ...profile.user, email } };
               }),
           },

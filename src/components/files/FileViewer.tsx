@@ -15,7 +15,7 @@ import { formatBytes } from "./utils";
 // PDF.js loader
 // Loaded once on demand from cdnjs, promise is cached so re-opens are instant
 
-const PDFJS_VERSION = "6.2.108";
+const PDFJS_VERSION = "6.5.438";
 const PDFJS_CDN = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}`;
 
 let pdfJsPromise: Promise<any> | null = null;

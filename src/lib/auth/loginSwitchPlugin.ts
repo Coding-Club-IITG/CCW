@@ -10,7 +10,7 @@ import { google, verifyGoogleIdToken } from "better-auth/social-providers";
 import { z } from "zod";
 
 import { AppResultError, err, ok } from "@/lib/api/result";
-import { isCurrentAuthSession } from "@/lib/auth/security";
+import { isCurrentAuthSession, providerSubject } from "@/lib/auth/security";
 import { webEnv } from "@/lib/env/web";
 import {
   recentInstituteSession,
@@ -68,10 +68,12 @@ export const loginSwitchPlugin = {
             { status: 429 },
           );
         const googleProvider = provider();
-        const { state, codeVerifier } = await generateState(ctx, undefined, {
-          purpose: "login-switch",
-          sourceUserId: session.user.id,
-          sourceSessionId: session.session.id,
+        const { state, codeVerifier } = await generateState(ctx, {
+          additionalData: {
+            purpose: "login-switch",
+            sourceUserId: session.user.id,
+            sourceSessionId: session.session.id,
+          },
         });
         const url = await googleProvider.createAuthorizationURL({
           state,
@@ -127,12 +129,12 @@ export const loginSwitchPlugin = {
               destination += "?switchError=verification";
             } else {
               const info = await googleProvider.getUserInfo(tokens);
-              if (!info?.user?.email || !info.user.id)
+              if (!info?.user?.email)
                 destination += "?switchError=verification";
               else
                 await verifySwitchDraft(session.user, session.session, {
                   email: info.user.email,
-                  id: String(info.user.id),
+                  id: providerSubject(info.data),
                   emailVerified: info.user.emailVerified === true,
                 });
             }
