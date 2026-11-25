@@ -14,17 +14,17 @@ export interface Announcement {
 
 // Set to null to remove the announcement
 export const SITE_ANNOUNCEMENT: Announcement | null = {
-  title: "Hello FOSS 2026",
-  eyebrow: "Pan-IIT open source initiative",
-  description: "Build real projects with students and mentors across IITs.",
-  detail: "Contributions through 12 Nov",
+  title: "Club Recruitment",
+  eyebrow: "2026 Winter",
+  description:
+    "We will recruit new members this December. Keep an eye on the recruitment page for more details.",
+  detail: "",
   action: {
-    label: "Explore Hello FOSS",
-    href: "https://hellofoss.tech-iitb.org/",
-    external: true,
+    label: "View recruitment page",
+    href: "/recruitment",
   },
-  startsAt: "2026-10-07T18:30:00.000Z",
-  endsAt: "2026-11-12T18:30:00.000Z",
+  startsAt: "2026-11-01T00:00:00+05:30",
+  endsAt: "2027-01-01T00:00:00+05:30",
 };
 
 export function getSiteAnnouncement(now = Date.now()): Announcement | null {
