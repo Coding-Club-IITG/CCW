@@ -1,0 +1,190 @@
+@use "../../../styles/mixins" as *;
+
+.editorWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  background: var(--surface-subtle, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  padding: 1.5rem;
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.typeSelectorGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.typeTabs {
+  display: inline-flex;
+  background: var(--surface, #141414);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  padding: 3px;
+  gap: 2px;
+}
+
+.typeTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.8125rem;
+  background: transparent;
+  border: none;
+  color: var(--muted-light, #aaaaaa);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--foreground, #ffffff);
+    background: var(--surface-subtle, rgba(255, 255, 255, 0.05));
+  }
+
+  &.activeTypeTab {
+    background: var(--primary, #c0e04a);
+    color: #0b0f4a;
+    font-weight: 600;
+
+    .preservedPill {
+      background: rgba(11, 15, 74, 0.2);
+      color: #0b0f4a;
+    }
+  }
+}
+
+.preservedPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(192, 224, 74, 0.15);
+  color: var(--brand-lime, #c0e04a);
+  font-size: 0.65rem;
+}
+
+.preservationBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.7rem;
+  color: var(--muted-light, #888888);
+}
+
+.metaControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.pacingToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  background: var(--surface, #141414);
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.75rem;
+  color: var(--foreground, #ffffff);
+
+  select {
+    background: transparent;
+    border: none;
+    color: var(--brand-lime, #c0e04a);
+    font-family: inherit;
+    font-size: inherit;
+    cursor: pointer;
+
+    &:focus {
+      outline: none;
+    }
+  }
+}
+
+.statusIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.75rem;
+
+  &.isDirty {
+    color: var(--brand-ember, #fd6f43);
+  }
+
+  &.isPristine {
+    color: var(--muted, #777777);
+  }
+}
+
+.actionBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.actionButtons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btnPrimary {
+  @include btn-primary;
+  padding: 0.55rem 1rem;
+  font-size: 0.8125rem;
+  font-family: var(--font-jetbrains-mono), monospace;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  cursor: pointer;
+}
+
+.btnSecondary {
+  @include btn-secondary;
+  padding: 0.55rem 0.875rem;
+  font-size: 0.8125rem;
+  font-family: var(--font-jetbrains-mono), monospace;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  cursor: pointer;
+}
+
+.savedNotice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.75rem;
+  color: var(--brand-lime, #c0e04a);
+}
+
+.errorSummaryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  background: rgba(255, 78, 65, 0.1);
+  border: 1px solid var(--brand-red, #ff4e41);
+  color: var(--brand-red, #ff4e41);
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.75rem;
+}
